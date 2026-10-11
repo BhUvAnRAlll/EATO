@@ -1,0 +1,78 @@
+/*
+ * EATO design tokens.
+ * Every value here becomes a Tailwind utility (e.g. --color-ink → bg-ink, text-ink).
+ * Keep src/theme/index.ts in sync when you change a value.
+ *
+ * Sizes are in px on purpose: NativeWind treats 1rem as 14px on native and
+ * 16px on web, so rem-based sizes would not match the design on phones.
+ */
+
+@theme {
+  /* Only EATO colors are available — no default Tailwind palette. */
+  --color-*: initial;
+
+  /* Primary */
+  --color-primary: #b7ff00;
+  --color-accent-soft: #ecffc2;
+  --color-ink: #0b0b0f;
+  --color-violet: #7c6cf0;
+
+  /* Semantic */
+  --color-success: #3fc66b;
+  --color-warning: #f5a524;
+  --color-danger: #f0553d;
+  --color-info: #5b9cf8;
+
+  /* Semantic soft fills (badge backgrounds) */
+  --color-success-soft: #e2f6e8;
+  --color-warning-soft: #fdf0d6;
+  --color-danger-soft: #fde4df;
+
+  /* Neutrals */
+  --color-muted: #71727a;
+  --color-faint: #9a9ba4;
+  --color-line: #e6e6eb;
+  --color-surface-alt: #f1f1f4;
+  --color-background: #f5f5f7;
+  --color-surface: #ffffff;
+  --color-info-soft: #eeedfb;
+
+  /* Macros (fixed across themes) */
+  --color-protein: #f0553d;
+  --color-carbs: #f5a524;
+  --color-fat: #5b9cf8;
+
+  --color-white: #ffffff;
+  --color-black: #000000;
+
+  /* Spacing: 1 step = 4px, so p-1 = 4, p-4 = 16, p-8 = 32 */
+  --spacing: 4px;
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 12px;
+  --spacing-lg: 16px;
+  --spacing-xl: 20px;
+  --spacing-2xl: 24px;
+  --spacing-3xl: 32px;
+
+  /* Control heights: h-control-sm / h-control-md / h-control-lg */
+  --spacing-control-sm: 40px;
+  --spacing-control-md: 46px;
+  --spacing-control-lg: 52px;
+
+  /* Radius: rounded-sm / md / lg / xl / pill */
+  --radius-*: initial;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+  --radius-pill: 9999px;
+
+  /* Font weights used by the type scale */
+  --font-weight-medium: 500;
+  --font-weight-bold: 700;
+  --font-weight-heavy: 800;
+
+  /* Soft card shadow */
+  --shadow-card: 0 2px 8px rgba(11, 11, 15, 0.06);
+}

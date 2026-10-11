@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "EITO",
-    "slug": "EITO",
+    "name": "EATO",
+    "slug": "eato",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "eito",
+    "scheme": "eato",
     "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/expo.icon"

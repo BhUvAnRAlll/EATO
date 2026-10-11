@@ -1,9 +1,362 @@
-:root {
-  --font-display:
-    Spline Sans, Inter, ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji,
-    Segoe UI Symbol, Noto Color Emoji;
-  --font-mono:
-    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace;
-  --font-rounded: 'SF Pro Rounded', 'Hiragino Maru Gothic ProN', Meiryo, 'MS PGothic', sans-serif;
-  --font-serif: Georgia, 'Times New Roman', serif;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/preflight.css" layer(base);
+@import "tailwindcss/utilities.css";
+
+@import "nativewind/theme";
+@import "./theme/tokens.css";
+
+/*
+ * Text roles — San Francisco (system font) via --font-sans.
+ * Screens pick a role, never a raw size: <Text className="type-title text-ink">
+ */
+
+@utility type-display {
+  font-family: var(--font-sans);
+  font-size: 32px;
+  line-height: 37px;
+  font-weight: 800;
+}
+
+@utility type-title {
+  font-family: var(--font-sans);
+  font-size: 24px;
+  line-height: 29px;
+  font-weight: 800;
+}
+
+@utility type-headline {
+  font-family: var(--font-sans);
+  font-size: 19px;
+  line-height: 24px;
+  font-weight: 800;
+}
+
+@utility type-subhead {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 21px;
+  font-weight: 700;
+}
+
+@utility type-body {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 21px;
+  font-weight: 500;
+}
+
+@utility type-callout {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 19px;
+  font-weight: 500;
+}
+
+@utility type-caption {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 17px;
+  font-weight: 500;
+}
+
+@utility type-overline {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+/* Numerals use tighter tracking */
+@utility type-number-big {
+  font-family: var(--font-sans);
+  font-size: 34px;
+  line-height: 38px;
+  font-weight: 800;
+  letter-spacing: -1px;
+}
+
+@utility type-number-stat {
+  font-family: var(--font-sans);
+  font-size: 21px;
+  line-height: 25px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+}
+
+/*
+ * Components (BEM). In React Native text color is not inherited from a View,
+ * so each block has a matching __label class for its <Text>.
+ */
+
+/* Button: <Pressable className="btn btn--primary"><Text className="btn__label btn__label--primary" /> */
+@utility btn {
+  height: var(--spacing-control-md);
+  padding-inline: var(--spacing-xl);
+  border-radius: var(--radius-sm);
+  align-items: center;
+  justify-content: center;
+  flex-direction: row;
+}
+
+@utility btn--sm {
+  height: var(--spacing-control-sm);
+}
+
+@utility btn--lg {
+  height: var(--spacing-control-lg);
+}
+
+@utility btn--primary {
+  background-color: var(--color-ink);
+}
+
+@utility btn--secondary {
+  background-color: var(--color-surface);
+  border-width: 1px;
+  border-color: var(--color-line);
+}
+
+@utility btn__label {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 21px;
+  font-weight: 700;
+}
+
+@utility btn__label--primary {
+  color: var(--color-white);
+}
+
+@utility btn__label--secondary {
+  color: var(--color-ink);
+}
+
+/* Status badge: <View className="badge badge--booked"><Text className="badge__label badge__label--booked" /> */
+@utility badge {
+  height: 28px;
+  padding-inline: var(--spacing-md);
+  border-radius: var(--radius-sm);
+  align-items: center;
+  justify-content: center;
+  align-self: flex-start;
+}
+
+@utility badge__label {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 700;
+}
+
+@utility badge--booked {
+  background-color: var(--color-primary);
+}
+
+@utility badge__label--booked {
+  color: var(--color-ink);
+}
+
+@utility badge--active {
+  background-color: var(--color-success-soft);
+}
+
+@utility badge__label--active {
+  color: var(--color-success);
+}
+
+@utility badge--pending {
+  background-color: var(--color-warning-soft);
+}
+
+@utility badge__label--pending {
+  color: var(--color-warning);
+}
+
+@utility badge--expired {
+  background-color: var(--color-danger-soft);
+}
+
+@utility badge__label--expired {
+  color: var(--color-danger);
+}
+
+@utility badge--paused {
+  background-color: var(--color-line);
+}
+
+@utility badge__label--paused {
+  color: var(--color-muted);
+}
+
+/* Card row: icon tile + title + supporting line + chevron */
+@utility card {
+  background-color: var(--color-surface);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-lg);
+  box-shadow: var(--shadow-card);
+}
+
+@utility card__icon {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface-alt);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility card__title {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 21px;
+  font-weight: 700;
+  color: var(--color-ink);
+}
+
+@utility card__subtitle {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 19px;
+  font-weight: 500;
+  color: var(--color-muted);
+}
+
+/* Onboarding: brand header, hero card with tag / counter / feature chips, copy block */
+@utility onboarding__brand {
+  font-family: var(--font-sans);
+  font-size: 24px;
+  line-height: 26px;
+  font-weight: 900;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--color-ink);
+}
+
+@utility onboarding__brand-tagline {
+  font-family: var(--font-sans);
+  font-size: 5px;
+  line-height: 7px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--color-ink);
+}
+
+@utility onboarding__skip {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 500;
+  color: var(--color-faint);
+}
+
+@utility onboarding__hero {
+  aspect-ratio: 1.17;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background-color: var(--color-surface-alt);
+}
+
+@utility onboarding__tag {
+  height: 34px;
+  padding-inline: var(--spacing-md);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-primary);
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+}
+
+@utility onboarding__tag-label {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 700;
+  color: var(--color-ink);
+}
+
+@utility onboarding__counter {
+  height: 34px;
+  padding-inline: var(--spacing-md);
+  border-radius: var(--radius-pill);
+  background-color: rgba(11, 11, 15, 0.55);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility onboarding__counter-label {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 700;
+  color: var(--color-white);
+}
+
+@utility onboarding__chip {
+  height: 35px;
+  padding-inline: 10px;
+  border-radius: var(--radius-pill);
+  background-color: rgba(11, 11, 15, 0.72);
+  flex-direction: row;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 1;
+}
+
+@utility onboarding__chip-label {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 500;
+  color: var(--color-white);
+}
+
+@utility onboarding__overline {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 700;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  color: var(--color-ink);
+}
+
+@utility onboarding__title {
+  font-family: var(--font-sans);
+  font-size: 30px;
+  line-height: 33px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  color: var(--color-ink);
+}
+
+@utility onboarding__body {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 19px;
+  font-weight: 400;
+  color: var(--color-muted);
+}
+
+@utility onboarding__footer {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 17px;
+  font-weight: 500;
+  color: var(--color-muted);
+}
+
+/* Pagination dots: <View className="onboarding__dot onboarding__dot--active" /> */
+@utility onboarding__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-line);
+}
+
+@utility onboarding__dot--active {
+  width: 24px;
+  background-color: var(--color-ink);
 }
