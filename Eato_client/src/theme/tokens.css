@@ -37,6 +37,24 @@
   --color-surface: #ffffff;
   --color-info-soft: #eeedfb;
 
+  /* Brand greens (logo, auth screens) */
+  --color-leaf: #3a6b27;
+  --color-leaf-soft: #e2eeda;
+  --color-leaf-dark: #173e1f;
+
+  /* Onboarding (cream + forest green) */
+  --color-cream: #fdfaf4;
+  --color-cream-deep: #f6eee2;
+  --color-forest: #1a322a;
+  --color-forest-ink: #0c1d19;
+  --color-sand: #d6cfc4;
+  --color-bronze: #b2906b;
+  --color-cream-line: #e6e2da;
+  --color-cream-tab: #edebe7;
+  --color-cream-light: #fffdf9;
+  --color-ink-soft: #4b4c4d;
+  --color-forest-soft: #e9f0ea;
+
   /* Macros (fixed across themes) */
   --color-protein: #f0553d;
   --color-carbs: #f5a524;

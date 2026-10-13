@@ -1,7 +1,6 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   FlatList,
-  Image,
   Pressable,
   Text,
   useWindowDimensions,
@@ -10,135 +9,132 @@ import {
   type NativeSyntheticEvent,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Image } from "expo-image";
 import { StatusBar } from "expo-status-bar";
 import { SymbolView } from "expo-symbols";
+import { router } from "expo-router";
 
-import { images } from "@/constants/images";
+import { BrandWordmark } from "@/components/BrandWordmark";
 import { onboardingSlides, type OnboardingSlide } from "@/data/onboarding";
 import { colors } from "@/theme";
+
+// Slides advance on their own this often (ms), always moving forward
+const AUTO_ADVANCE_MS = 1800;
+// Roughly how long the slide animation takes (ms)
+const SLIDE_ANIMATION_MS = 500;
+// Space between the food image and the screen edges
+const ART_PADDING = 20;
+
+// Endless forward loop: a copy of slide 1 sits after the last slide. We slide
+// forward onto the copy, then jump (without animation) to the real slide 1.
+const SLIDE_COUNT = onboardingSlides.length;
+const loopSlides = [...onboardingSlides, { ...onboardingSlides[0], id: `${onboardingSlides[0].id}-loop` }];
 
 export default function Onboarding() {
   const { width } = useWindowDimensions();
   const listRef = useRef<FlatList<OnboardingSlide>>(null);
   const [index, setIndex] = useState(0);
 
-  const isLast = index === onboardingSlides.length - 1;
+  const artWidth = width - ART_PADDING * 2;
 
   const goToSlide = (slideIndex: number) => {
     listRef.current?.scrollToOffset({ offset: width * slideIndex, animated: true });
     setIndex(slideIndex);
   };
 
-  const handleSkip = () => goToSlide(onboardingSlides.length - 1);
+  // Auto-advance. Restarts whenever the slide changes, so a manual swipe
+  // gets a full interval before the next move.
+  useEffect(() => {
+    // On the copy of slide 1: once the animation ends, jump to the real slide 1
+    if (index === SLIDE_COUNT) {
+      const timer = setTimeout(() => {
+        listRef.current?.scrollToOffset({ offset: 0, animated: false });
+        setIndex(0);
+      }, SLIDE_ANIMATION_MS);
+      return () => clearTimeout(timer);
+    }
+    const timer = setTimeout(() => goToSlide(index + 1), AUTO_ADVANCE_MS);
+    return () => clearTimeout(timer);
+  });
 
-  const handleGetStarted = () => {
-    // TODO: open the goal screen (next onboarding step) once it's built.
-    if (isLast) return;
-    goToSlide(index + 1);
-  };
+  const goToSignUp = () => router.push("/sign-up");
 
   const handleScrollEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     setIndex(Math.round(event.nativeEvent.contentOffset.x / width));
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+    <View className="flex-1 bg-cream">
       <StatusBar style="dark" />
+      <View className="onboarding__circle" />
 
-      {/* Header: mascot logo + app name, Skip */}
-      <View className="flex-row items-center justify-between px-5">
-        <View className="items-center">
-          <Image source={images.mascotLogo} className="h-12 w-20" resizeMode="contain" />
-          <Text className="onboarding__brand">EATO</Text>
-          <View className="flex-row items-center gap-0.5">
-            <View className="h-px w-1.5 bg-success" />
-            <Text className="onboarding__brand-tagline">Fuel your fitness</Text>
-            <View className="h-px w-1.5 bg-success" />
-          </View>
+      <SafeAreaView style={{ flex: 1 }}>
+        {/* Wordmark */}
+        <View className="mt-2.5 px-9">
+          <BrandWordmark width={194} large />
         </View>
 
-        <Pressable onPress={handleSkip} hitSlop={12} className="pt-3">
-          <Text className="onboarding__skip">Skip</Text>
-        </Pressable>
-      </View>
-
-      {/* Slides */}
-      <FlatList
-        ref={listRef}
-        data={onboardingSlides}
-        keyExtractor={(slide) => slide.id}
-        horizontal
-        pagingEnabled
-        bounces={false}
-        showsHorizontalScrollIndicator={false}
-        onMomentumScrollEnd={handleScrollEnd}
-        className="flex-1"
-        renderItem={({ item, index: slideIndex }) => (
-          <View style={{ width }} className="pt-3.5">
-            {/* Hero card */}
-            <View className="onboarding__hero mx-5">
-              <Image source={item.image} className="absolute inset-0 h-full w-full" resizeMode="cover" />
-
-              <View className="flex-row items-center justify-between p-3">
-                <View className="onboarding__tag">
-                  <SymbolView name={item.tag.icon} size={18} tintColor={colors.ink} />
-                  <Text className="onboarding__tag-label">{item.tag.label}</Text>
-                </View>
-                <View className="onboarding__counter">
-                  <Text className="onboarding__counter-label">
-                    {slideIndex + 1} / {onboardingSlides.length}
-                  </Text>
-                </View>
+        {/* Slides: title, subtitle and food art swipe together */}
+        <FlatList
+          ref={listRef}
+          data={loopSlides}
+          keyExtractor={(slide) => slide.id}
+          horizontal
+          pagingEnabled
+          bounces={false}
+          showsHorizontalScrollIndicator={false}
+          onMomentumScrollEnd={handleScrollEnd}
+          className="flex-1"
+          renderItem={({ item }) => (
+            <View style={{ width }} className="flex-1">
+              <View className="px-9 pt-7">
+                <Text className="onboarding__title">{item.title}</Text>
+                <Text className="onboarding__subtitle mt-3">{item.subtitle}</Text>
               </View>
-
-              <View className="mt-auto flex-row justify-center gap-1.5 px-2 pb-3">
-                {item.features.map((feature) => (
-                  <View key={feature.label} className="onboarding__chip">
-                    <SymbolView name={feature.icon} size={15} tintColor={colors.white} />
-                    <Text className="onboarding__chip-label" numberOfLines={1}>
-                      {feature.label}
-                    </Text>
-                  </View>
-                ))}
-              </View>
+              <Image
+                source={item.art}
+                contentFit="contain"
+                contentPosition="top"
+                style={{
+                  flex: 1,
+                  width: artWidth,
+                  maxHeight: artWidth / item.artRatio,
+                  marginTop: -item.artOverlap,
+                  marginHorizontal: ART_PADDING,
+                }}
+              />
             </View>
+          )}
+        />
 
-            {/* Copy */}
-            <View className="px-5 pt-7">
-              <Text className="onboarding__overline">{item.overline}</Text>
-              <Text className="onboarding__title mt-3">{item.title}</Text>
-              <Text className="onboarding__body mt-4">{item.body}</Text>
-              <View className="mt-8 flex-row items-center justify-between">
-                <View className="flex-row items-center gap-1.5">
-                  {onboardingSlides.map((slide, dotIndex) => (
-                    <View
-                      key={slide.id}
-                      className={
-                        dotIndex === slideIndex
-                          ? "onboarding__dot onboarding__dot--active"
-                          : "onboarding__dot"
-                      }
-                    />
-                  ))}
-                </View>
-                <Text className="onboarding__footer">{item.footer}</Text>
-              </View>
-            </View>
-          </View>
-        )}
-      />
+        {/* Dots */}
+        <View className="flex-row justify-center gap-6 pt-2">
+          {onboardingSlides.map((slide, dotIndex) => (
+            <View
+              key={slide.id}
+              className={dotIndex === index % SLIDE_COUNT ? "onboarding__dot onboarding__dot--active" : "onboarding__dot"}
+            />
+          ))}
+        </View>
 
-      {/* Get Started */}
-      <View className="px-5 pb-2 pt-5">
-        <Pressable onPress={handleGetStarted} className="btn btn--primary btn--lg gap-2">
-          <Text className="btn__label btn__label--primary text-[16px]">Get Started</Text>
-          <SymbolView
-            name={{ ios: "arrow.right", android: "arrow_forward", web: "arrow_forward" }}
-            size={18}
-            tintColor={colors.white}
-          />
-        </Pressable>
-      </View>
-    </SafeAreaView>
+        <View className="px-6 pb-3 pt-4">
+          <Pressable onPress={goToSignUp} className="onboarding__button">
+            <Text className="onboarding__button-label">Get Started</Text>
+            <SymbolView
+              name={{ ios: "arrow.right", android: "arrow_forward", web: "arrow_forward" }}
+              size={18}
+              tintColor={colors.white}
+            />
+          </Pressable>
+
+          <Text className="onboarding__footer mt-6 text-center">
+            {"Already have an account?   "}
+            <Text className="onboarding__footer-link" onPress={() => router.push("/sign-in")}>
+              Log in
+            </Text>
+          </Text>
+        </View>
+      </SafeAreaView>
+    </View>
   );
 }

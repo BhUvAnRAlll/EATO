@@ -30,7 +30,8 @@ yarn-error.*
 .DS_Store
 *.pem
 
-# local env files
+# local env files (.env holds CLERK_SECRET_KEY — never commit it)
+.env
 .env*.local
 
 # typescript

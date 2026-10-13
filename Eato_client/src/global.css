@@ -223,124 +223,236 @@
   color: var(--color-muted);
 }
 
-/* Onboarding: brand header, hero card with tag / counter / feature chips, copy block */
-@utility onboarding__brand {
+/* Onboarding: cream page, wordmark, two-line title, food art, dots, forest button */
+@utility onboarding__title {
   font-family: var(--font-sans);
-  font-size: 24px;
+  font-size: 40px;
+  line-height: 44px;
+  font-weight: 800;
+  letter-spacing: -0.8px;
+  color: var(--color-forest-ink);
+}
+
+@utility onboarding__subtitle {
+  font-family: var(--font-sans);
+  font-size: 18px;
   line-height: 26px;
-  font-weight: 900;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
-  color: var(--color-ink);
+  font-weight: 400;
+  color: var(--color-forest-ink);
 }
 
-@utility onboarding__brand-tagline {
+/* Pagination dots: <View className="onboarding__dot onboarding__dot--active" /> */
+@utility onboarding__dot {
+  width: 12px;
+  height: 12px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-sand);
+}
+
+@utility onboarding__dot--active {
+  background-color: var(--color-forest);
+}
+
+@utility onboarding__button {
+  height: 54px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-forest);
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-md);
+}
+
+@utility onboarding__button-label {
   font-family: var(--font-sans);
-  font-size: 5px;
-  line-height: 7px;
-  font-weight: 700;
-  letter-spacing: 0.8px;
-  text-transform: uppercase;
-  color: var(--color-ink);
+  font-size: 18px;
+  line-height: 22px;
+  font-weight: 600;
+  color: var(--color-white);
 }
 
-@utility onboarding__skip {
+@utility onboarding__footer {
   font-family: var(--font-sans);
   font-size: 15px;
   line-height: 20px;
-  font-weight: 500;
-  color: var(--color-faint);
+  font-weight: 400;
+  color: var(--color-forest-ink);
 }
 
-@utility onboarding__hero {
-  aspect-ratio: 1.17;
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  background-color: var(--color-surface-alt);
-}
-
-@utility onboarding__tag {
-  height: 34px;
-  padding-inline: var(--spacing-md);
-  border-radius: var(--radius-pill);
-  background-color: var(--color-primary);
-  flex-direction: row;
-  align-items: center;
-  gap: 6px;
-}
-
-@utility onboarding__tag-label {
-  font-family: var(--font-sans);
-  font-size: 14px;
-  line-height: 18px;
+@utility onboarding__footer-link {
+  font-size: 16px;
   font-weight: 700;
-  color: var(--color-ink);
 }
 
-@utility onboarding__counter {
-  height: 34px;
-  padding-inline: var(--spacing-md);
+/* Soft circle peeking in from the top-right edge */
+@utility onboarding__circle {
+  position: absolute;
+  top: 93px;
+  right: -56px;
+  width: 95px;
+  height: 95px;
   border-radius: var(--radius-pill);
-  background-color: rgba(11, 11, 15, 0.55);
+  background-color: var(--color-cream-deep);
+}
+
+
+/* Pill-shaped button modifier: <Pressable className="btn btn--primary btn--pill"> */
+@utility btn--pill {
+  border-radius: var(--radius-pill);
+}
+
+
+/* Brand wordmark tagline: "BALANCED MEALS • STRONGER YOU" */
+@utility brand__tagline {
+  font-family: var(--font-sans);
+  font-size: 8.5px;
+  line-height: 11px;
+  font-weight: 600;
+  letter-spacing: 1.9px;
+  text-transform: uppercase;
+  color: var(--color-forest-ink);
+}
+
+@utility brand__tagline--lg {
+  font-size: 10px;
+  line-height: 13px;
+  letter-spacing: 2.2px;
+}
+
+@utility brand__tagline-dot {
+  color: var(--color-bronze);
+}
+
+/* Forest-green pill button: <Pressable className="btn-forest"><Text className="btn-forest__label" /> */
+@utility btn-forest {
+  height: 44px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-forest);
+  flex-direction: row;
   align-items: center;
   justify-content: center;
+  gap: 10px;
 }
 
-@utility onboarding__counter-label {
+@utility btn-forest__label {
   font-family: var(--font-sans);
-  font-size: 14px;
-  line-height: 18px;
-  font-weight: 700;
+  font-size: 16px;
+  line-height: 20px;
+  font-weight: 600;
   color: var(--color-white);
 }
 
-@utility onboarding__chip {
-  height: 35px;
-  padding-inline: 10px;
-  border-radius: var(--radius-pill);
-  background-color: rgba(11, 11, 15, 0.72);
-  flex-direction: row;
-  align-items: center;
-  gap: 5px;
-  flex-shrink: 1;
-}
-
-@utility onboarding__chip-label {
-  font-family: var(--font-sans);
-  font-size: 11px;
-  line-height: 14px;
-  font-weight: 500;
-  color: var(--color-white);
-}
-
-@utility onboarding__overline {
-  font-family: var(--font-sans);
-  font-size: 11px;
-  line-height: 14px;
-  font-weight: 700;
-  letter-spacing: 2.5px;
-  text-transform: uppercase;
-  color: var(--color-ink);
-}
-
-@utility onboarding__title {
+/* Auth screens (sign up / log in / forgot password) on the cream page */
+@utility auth__title {
   font-family: var(--font-sans);
   font-size: 30px;
-  line-height: 33px;
+  line-height: 32px;
   font-weight: 800;
-  letter-spacing: -0.5px;
-  color: var(--color-ink);
+  letter-spacing: -0.6px;
+  color: var(--color-forest-ink);
 }
 
-@utility onboarding__body {
+@utility auth__subtitle {
   font-family: var(--font-sans);
-  font-size: 14px;
-  line-height: 19px;
+  font-size: 15px;
+  line-height: 18px;
   font-weight: 400;
   color: var(--color-muted);
 }
 
-@utility onboarding__footer {
+/* Segmented Log in / Sign up switch */
+@utility auth__tabs {
+  height: 40px;
+  padding: 3px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-cream-tab);
+  flex-direction: row;
+}
+
+@utility auth__tab {
+  flex: 1;
+  border-radius: var(--radius-pill);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility auth__tab--active {
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-card);
+}
+
+@utility auth__tab-label {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 500;
+  color: var(--color-muted);
+}
+
+@utility auth__tab-label--active {
+  font-weight: 700;
+  color: var(--color-forest-ink);
+}
+
+/* Labelled input: <Text className="auth__label" /> + <View className="auth__field"><TextInput className="auth__input" /> */
+@utility auth__label {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 600;
+  color: var(--color-ink-soft);
+}
+
+@utility auth__field {
+  height: 44px;
+  padding-inline: var(--spacing-lg);
+  border-radius: 12px;
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-cream-light);
+  flex-direction: row;
+  align-items: center;
+  gap: 14px;
+}
+
+@utility auth__input {
+  flex: 1;
+  height: 100%;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-weight: 400;
+  color: var(--color-forest-ink);
+}
+
+@utility auth__note {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 17px;
+  font-weight: 400;
+  color: var(--color-muted);
+}
+
+@utility auth__note-link {
+  font-weight: 700;
+  color: var(--color-forest);
+}
+
+/* "Forgot password?" */
+@utility auth__link {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 700;
+  color: var(--color-forest-ink);
+}
+
+@utility auth__divider-line {
+  flex: 1;
+  height: 1px;
+  background-color: var(--color-cream-line);
+}
+
+@utility auth__divider-label {
   font-family: var(--font-sans);
   font-size: 13px;
   line-height: 17px;
@@ -348,15 +460,479 @@
   color: var(--color-muted);
 }
 
-/* Pagination dots: <View className="onboarding__dot onboarding__dot--active" /> */
-@utility onboarding__dot {
-  width: 8px;
-  height: 8px;
+/* "Continue with Google" */
+@utility auth__social {
+  height: 44px;
   border-radius: var(--radius-pill);
-  background-color: var(--color-line);
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-cream-light);
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
 }
 
-@utility onboarding__dot--active {
-  width: 24px;
-  background-color: var(--color-ink);
+@utility auth__social-label {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 500;
+  color: var(--color-forest-ink);
+}
+
+@utility auth__footer {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 400;
+  color: var(--color-muted);
+}
+
+@utility auth__footer-link {
+  font-weight: 700;
+  color: var(--color-forest);
+}
+
+/* Slogan at the top of the log in card */
+@utility auth__slogan {
+  font-family: var(--font-sans);
+  font-size: 23px;
+  line-height: 28px;
+  letter-spacing: -0.3px;
+  font-weight: 800;
+  color: var(--color-forest);
+}
+
+/* Log in form card that overlaps the food art */
+@utility auth__sheet {
+  padding-top: 22px;
+  padding-inline: 30px;
+  border-top-left-radius: var(--radius-xl);
+  border-top-right-radius: var(--radius-xl);
+  background-color: var(--color-cream-light);
+  box-shadow: 0 -4px 16px rgba(26, 50, 42, 0.06);
+}
+
+/* Soft beige circle peeking in from a screen edge (position set per screen) */
+@utility auth__circle {
+  position: absolute;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-cream-deep);
+}
+
+/* Verification code bottom sheet */
+@utility verify__backdrop {
+  flex: 1;
+  justify-content: flex-end;
+  background-color: rgba(11, 11, 15, 0.4);
+}
+
+@utility verify__sheet {
+  padding: var(--spacing-2xl);
+  padding-bottom: var(--spacing-3xl);
+  border-top-left-radius: var(--radius-xl);
+  border-top-right-radius: var(--radius-xl);
+  background-color: var(--color-surface);
+}
+
+@utility verify__cell {
+  flex: 1;
+  height: 56px;
+  border-radius: var(--radius-md);
+  border-width: 1px;
+  border-color: var(--color-line);
+  background-color: var(--color-background);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility verify__cell--active {
+  border-width: 1.5px;
+  border-color: var(--color-ink);
+}
+
+@utility verify__digit {
+  font-family: var(--font-sans);
+  font-size: 22px;
+  line-height: 28px;
+  font-weight: 800;
+  color: var(--color-ink);
+}
+
+/* Inline form error: <View className="alert"><Icon /><Text className="alert__text" /></View> */
+@utility alert {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+@utility alert__text {
+  flex: 1;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 600;
+  color: var(--color-danger);
+}
+
+/* Profile setup: header, progress, field rows, option cards, chips */
+@utility setup__progress {
+  flex: 1;
+  height: 4px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-cream-line);
+  overflow: hidden;
+}
+
+@utility setup__progress-fill {
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-forest);
+}
+
+@utility setup__step {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  color: var(--color-muted);
+}
+
+@utility setup__title {
+  font-family: var(--font-sans);
+  font-size: 24px;
+  line-height: 29px;
+  font-weight: 800;
+  letter-spacing: -0.4px;
+  color: var(--color-forest-ink);
+}
+
+@utility setup__section {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 700;
+  color: var(--color-forest-ink);
+}
+
+@utility setup__optional {
+  font-weight: 400;
+  color: var(--color-muted);
+}
+
+/* Field row: icon + small label + value (or input) + unit/chevron */
+@utility setup__field {
+  min-height: 58px;
+  padding-inline: var(--spacing-lg);
+  padding-block: var(--spacing-sm);
+  border-radius: var(--radius-md);
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-cream-light);
+  flex-direction: row;
+  align-items: center;
+  gap: 14px;
+}
+
+@utility setup__field-label {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 500;
+  color: var(--color-muted);
+}
+
+@utility setup__field-input {
+  padding: 0;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 500;
+  color: var(--color-forest-ink);
+}
+
+@utility setup__field-placeholder {
+  color: var(--color-faint);
+}
+
+@utility setup__unit {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 17px;
+  font-weight: 500;
+  color: var(--color-muted);
+}
+
+/* Selectable card (goal, diet, workout type/time). --selected adds the forest outline */
+@utility setup__card {
+  padding: var(--spacing-md);
+  border-radius: var(--radius-md);
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-cream-light);
+}
+
+@utility setup__card--selected {
+  border-width: 1.5px;
+  border-color: var(--color-forest);
+  background-color: var(--color-forest-soft);
+}
+
+@utility setup__card-title {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 700;
+  color: var(--color-forest-ink);
+}
+
+@utility setup__card-text {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 400;
+  color: var(--color-muted);
+}
+
+@utility setup__card-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-cream-tab);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility setup__radio {
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-pill);
+  border-width: 1.5px;
+  border-color: var(--color-cream-line);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility setup__radio--selected {
+  border-color: var(--color-forest);
+}
+
+@utility setup__radio-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-forest);
+}
+
+/* Chip / segment: <Pressable className="setup__chip setup__chip--selected"><Text className="setup__chip-label …" /> */
+@utility setup__chip {
+  height: 36px;
+  padding-inline: 14px;
+  border-radius: var(--radius-pill);
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-cream-light);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility setup__chip--selected {
+  border-color: var(--color-forest);
+  background-color: var(--color-forest);
+}
+
+@utility setup__chip-label {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 17px;
+  font-weight: 500;
+  color: var(--color-forest-ink);
+}
+
+@utility setup__chip-label--selected {
+  font-weight: 600;
+  color: var(--color-white);
+}
+
+@utility setup__info {
+  padding: var(--spacing-md);
+  border-radius: var(--radius-md);
+  background-color: var(--color-forest-soft);
+  flex-direction: row;
+  gap: var(--spacing-sm);
+}
+
+/* Outline pill (Back) next to the forest Next button */
+@utility btn-outline {
+  height: 44px;
+  border-radius: var(--radius-pill);
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-cream-light);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility btn-outline__label {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 600;
+  color: var(--color-forest-ink);
+}
+
+/* Nutrition targets */
+@utility setup__kcal {
+  font-family: var(--font-sans);
+  font-size: 28px;
+  line-height: 34px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  color: var(--color-forest-ink);
+}
+
+@utility setup__macro-value {
+  font-family: var(--font-sans);
+  font-size: 18px;
+  line-height: 22px;
+  font-weight: 800;
+  color: var(--color-forest-ink);
+}
+
+@utility setup__ring {
+  width: 46px;
+  height: 46px;
+  border-radius: var(--radius-pill);
+  border-width: 4px;
+  align-items: center;
+  justify-content: center;
+}
+
+@utility setup__stepper {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-pill);
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-surface);
+  align-items: center;
+  justify-content: center;
+}
+
+/* Field that needs rechecking (e.g. a report value that fails a consistency check) */
+@utility setup__field--invalid {
+  border-width: 1.5px;
+  border-color: var(--color-danger);
+}
+
+/* Report upload (body composition step): dashed drop card with a main button and three source tiles */
+@utility upload__card {
+  padding: var(--spacing-lg);
+  padding-top: var(--spacing-2xl);
+  border-radius: 16px;
+  border-width: 1.5px;
+  border-style: dashed;
+  border-color: var(--color-sand);
+  background-color: var(--color-cream-light);
+  align-items: center;
+}
+
+@utility upload__icon {
+  width: 76px;
+  height: 76px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-forest-soft);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility upload__title {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 21px;
+  font-weight: 700;
+  color: var(--color-forest-ink);
+  text-align: center;
+}
+
+@utility upload__text {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 400;
+  color: var(--color-muted);
+  text-align: center;
+}
+
+@utility upload__hint {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 17px;
+  font-weight: 400;
+  color: var(--color-faint);
+  text-align: center;
+}
+
+@utility upload__button {
+  height: 42px;
+  align-self: stretch;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-forest);
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+@utility upload__divider-line {
+  flex: 1;
+  height: 1px;
+  background-color: var(--color-cream-line);
+}
+
+@utility upload__option {
+  flex: 1;
+  min-height: 82px;
+  padding: var(--spacing-sm);
+  border-radius: var(--radius-md);
+  background-color: var(--color-forest-soft);
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+}
+
+@utility upload__option-label {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 600;
+  color: var(--color-forest-ink);
+  text-align: center;
+}
+
+/* Reassurance note under a setup step: shield icon, bold title, muted text */
+@utility setup__note {
+  padding: var(--spacing-lg);
+  border-radius: var(--radius-md);
+  background-color: var(--color-forest-soft);
+  flex-direction: row;
+  align-items: flex-start;
+  gap: var(--spacing-lg);
+}
+
+@utility setup__note-title {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 700;
+  color: var(--color-forest-ink);
+}
+
+@utility setup__note-text {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 400;
+  color: var(--color-muted);
 }

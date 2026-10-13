@@ -25,6 +25,22 @@ export const colors = {
   surface: "#FFFFFF",
   infoSoft: "#EEEDFB",
 
+  leaf: "#3A6B27",
+  leafSoft: "#E2EEDA",
+  leafDark: "#173E1F",
+
+  cream: "#FDFAF4",
+  creamDeep: "#F6EEE2",
+  forest: "#1A322A",
+  forestInk: "#0C1D19",
+  sand: "#D6CFC4",
+  bronze: "#B2906B",
+  creamLine: "#E6E2DA",
+  creamTab: "#EDEBE7",
+  creamLight: "#FFFDF9",
+  inkSoft: "#4B4C4D",
+  forestSoft: "#E9F0EA",
+
   protein: "#F0553D",
   carbs: "#F5A524",
   fat: "#5B9CF8",
