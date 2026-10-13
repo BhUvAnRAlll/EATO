@@ -12,12 +12,17 @@ You should think like a senior mobile developer, but explain and implement like 
 
 We are building **EATO**, a fitness meal delivery and tracking mobile app for India, using Expo.
 
+The repository has two apps side by side:
+
+- `Eato_client/` — the Expo app (this file's rules apply to it)
+- `Eato_server/` — a small Node.js + Express server in front of a MySQL database
+
 EATO combines healthy meal delivery (single orders and subscriptions) with nutrition and training tracking. The user's fitness goal drives meal recommendations, and every meal they order is logged to their nutrition diary automatically.
 
 Main areas of the app:
 
 - **Onboarding**: welcome → goal → body details → calculated targets → pincode check
-- **Home**: calorie ring, today's deliveries, streak, XP, promos
+- **Home**: calorie ring, today's deliveries, streak, XP
 - **Food**: menu, meal detail, cart, checkout, order success, live order tracking
 - **Subscribe**: plan picker, subscription builder, review, my subscription (skip days, wallet credit)
 - **Nutrition**: food diary, water and supplement tracking, add food, barcode scan, photo scan, weight log
@@ -32,21 +37,34 @@ This is primarily a learning project. The goal is to teach developers how to bui
 
 ## Tech Stack
 
-Use the following stack:
+What is in use today:
 
-- Expo
-- React Native
-- TypeScript
-- Expo Router
+- Expo (SDK 57) + React Native + TypeScript
+- Expo Router (screens in `src/app/`, plus two server-side API routes in `src/app/api/`)
 - NativeWind / Tailwind CSS
-- Zustand
-- AsyncStorage
-- Clerk for authentication
+- Zustand for client state (the profile setup store)
+- Clerk for authentication, sessions and roles (`@clerk/expo` in the app, `@clerk/backend` in API routes)
+- OpenAI (server-side only, inside an Expo API route) to read body composition reports
+- Node.js + Express server (`Eato_server/`) with a MySQL database (`mysql2`)
+
+Planned, not yet wired in:
+
 - Stream / GetStream for video and real-time communication
 - Stream Vision Agents for the AI video coach
-- Server-side API routes or backend functions for secrets, tokens, and AI calls
 
 Do not introduce new major libraries unless there is a strong reason.
+
+### Where things run
+
+| Concern | Where | Why |
+| --- | --- | --- |
+| Sign up / in / out, password reset, Google SSO | Clerk SDK, called from the app | Clerk owns identity; the app never stores passwords |
+| Roles (`user`, `admin`, `trainer`) | Clerk `publicMetadata.role`, set only server-side (`src/app/api/account-type+api.ts`, `scripts/set-role.mjs`) | The app can't promote itself |
+| Reading an uploaded body composition report | Expo API route `src/app/api/body-composition+api.ts` → OpenAI | Keeps `OPENAI_API_KEY` off the device; the file is never stored |
+| Profile and nutrition targets from setup | MySQL (`users`, `profiles`, `nutrition_targets`, `body_composition_reports`) via `POST /api/profile` and `GET /api/profile` on the Express server; Clerk `unsafeMetadata.profileComplete` is only a routing shortcut | Server-verified identity, one transaction per save, the app's own calculator re-checks every record before it is stored |
+| App data (meals, orders, diary, weigh-ins, trainer ↔ client links) | MySQL via the Express server (`Eato_server/`) | Shared, queryable data that outlives one device |
+
+Both Expo API routes check the caller's Clerk session token with `requireUser` (`src/server/auth.ts`) before doing anything.
 
 ---
 
@@ -92,20 +110,40 @@ Do not install or use new libraries without user approval.
 Use this structure unless there is a strong reason to change it:
 
 ```txt
-app/
-  (auth)/
-  (tabs)/
-  meal/
-  workout/
-components/
-constants/
-data/
-hooks/
-lib/
-store/
-types/
+Eato_client/src/
+  app/            screens and layouts (Expo Router), plus api/*+api.ts server routes
+    (auth)/       sign-in, sign-up, forgot-password
+    setup/        profile setup steps
+    admin/  trainer/  home.tsx   one landing screen per role
+    api/          Expo API routes (run on the server, never on the device)
+  components/
+  constants/
+  data/           static, typed content (options, onboarding slides, dashboard tiles)
+  lib/            service helpers (api.ts, clerk.ts, roles.ts, nutrition/)
+  server/         code that only runs inside API routes (auth, report extraction)
+  store/          Zustand stores
+  types/
+  theme/
 assets/
+
+Eato_server/
+  index.js        Express app: routes, JSON 404 and the error handler
+  auth.js         requireUser middleware (verifies the Clerk session token) and getAccount (email + role from Clerk)
+  profile.js      profile validation, the transactional save and the load for /api/profile
+  database.js     mysql2 connection pool, configured from .env
+  schema.sql      the full MySQL schema (run once; it does not migrate)
 ```
+
+The server **imports the app's nutrition calculator from the client folder**
+(`require("../Eato_client/src/lib/nutrition/index.ts")` in `profile.js`) so saved targets are
+re-checked with the exact rules the app used, without a second copy of the code. Node 24 strips
+the TypeScript types at load time. Consequences:
+
+- The two folders must stay side by side; moving one breaks the import.
+- Startup prints two one-off Node warnings ("Type Stripping is an experimental feature" and
+  "Module type ... is not specified"). Both are harmless and expected.
+- Keep `src/lib/nutrition/` free of React Native or `@/` alias imports, as it is now, or the server
+  can no longer load it.
 
 ### app/
 
@@ -350,7 +388,8 @@ Use Zustand for:
 - current workout state
 - app settings
 
-Use AsyncStorage persistence where needed.
+Nothing is persisted on the device today beyond Clerk's own session cache. Data that must
+survive a reinstall belongs in Clerk (identity, role) or MySQL (app data), not in AsyncStorage.
 
 ---
 
@@ -362,13 +401,36 @@ Examples:
 
 ```txt
 lib/
-  clerk.ts
-  stream.ts
-  api.ts
-  cn.ts
+  api.ts        apiFetch() / getApiUrl() — the only way the app calls the Express server
+  clerk.ts      Clerk error → one friendly line
+  roles.ts      role helpers and the trainer-role claim
+  nutrition/    the target calculator (pure, unit-tested)
 ```
 
-Never expose secret keys in the mobile app.
+Never expose secret keys in the mobile app. Only `EXPO_PUBLIC_*` variables reach the device;
+`CLERK_SECRET_KEY` and `OPENAI_API_KEY` are read only inside `src/app/api/` routes and scripts.
+
+### Calling the Express server
+
+- Use `apiFetch()` from `lib/api.ts`. It targets `EXPO_PUBLIC_API_URL` when set, otherwise the
+  computer running the Expo dev server on port 4000 (works for the simulator and a phone on the
+  same Wi-Fi).
+- Pass the Clerk session token (`getToken()` from `useAuth()`) as `token` for any route that
+  needs to know who is asking.
+- Responses are JSON. Errors arrive as `{ error: "one friendly line" }` with a proper status code.
+
+### Expo API routes vs the Express server
+
+- Expo API routes (`src/app/api/*+api.ts`) are for operations that need Clerk's secret key or an
+  AI key and no database: today, claiming the trainer role and reading a report upload.
+  In production they need `EXPO_PUBLIC_API_ORIGIN` (see `app.config.ts`).
+- The Express server is for anything backed by MySQL. Add routes in `Eato_server/index.js`, put
+  `requireUser` in front of anything that isn't the health check, read the caller from `req.userId`
+  (never from the body), use parameterized queries through `pool.query(sql, params)`, and send errors
+  to `next(error)` so the shared handler logs them and answers with a safe message. Related writes go
+  in one transaction (see `persistProfile` in `profile.js`).
+- `Eato_server/.env` needs `CLERK_SECRET_KEY` (the same key as the app's `.env`) so the server can
+  verify tokens and look up accounts. Never commit either `.env`.
 
 ---
 
@@ -378,7 +440,7 @@ Use Zustand for global client state.
 
 Use local state for temporary UI state.
 
-Persist using AsyncStorage when needed.
+Anything that must outlive the session goes to the server (MySQL) or to Clerk, not to device storage.
 
 ---
 
@@ -406,6 +468,25 @@ When the user asks to build a feature:
 
 ---
 
+## EATO Development Rules
+
+These rules apply to every future implementation, in both `Eato_client/` and `Eato_server/`.
+
+1. **One screen at a time.** Implement only one approved screen or feature at a time. Inspect existing code before making changes.
+2. **Test after every implementation.** Run TypeScript checks, Expo lint, relevant unit tests, and regression tests.
+3. **Fix before proceeding.** Resolve implementation-related failures and rerun the affected checks before declaring completion.
+4. **Check the UI.** Verify navigation, buttons, forms, loading, empty, error and success states, responsive layout, safe areas, and keyboard behavior as applicable.
+5. **Check backend changes.** Verify authentication, authorization, input validation, API responses, database writes and rollback behavior when applicable.
+6. **Protect existing work.** Do not break onboarding, Clerk authentication, existing navigation, or working features. Do not introduce unrelated changes.
+7. **Be honest about testing.** Report automated tests, manual tests actually completed, and checks that still require the user's action. Never claim unexecuted tests passed.
+8. **Report every implementation.** List changed files, commands executed, results, remaining issues and manual checks.
+9. **Approval required.** After each approved screen or feature is implemented and verified, provide the completion report and stop. Wait for the user's approval before starting the next screen.
+10. **Database safety.** Never drop tables, delete existing data, change database permissions, modify the schema, or create persistent test data without the user's approval.
+11. **Security.** Never expose secrets, trust client-supplied identity or roles, or bypass existing authentication.
+12. **Keep instructions updated.** Preserve the current EATO architecture and existing project rules. Do not overwrite useful instructions.
+
+---
+
 ## AI / Stream / Vision Agent Rules
 
 Use backend/serverless for:
@@ -428,9 +509,11 @@ Do not build custom auth.
 
 ## Content Rules
 
-Use hardcoded JSON/TS for meals, plans, exercises and other content.
+Static UI content (option lists, onboarding slides, dashboard tiles) stays in typed files under `data/`.
 
-Do not introduce a database unless explicitly requested.
+Anything users create or that changes over time (meals on the menu, orders, the diary, weigh-ins)
+belongs in MySQL. The tables already exist in `Eato_server/schema.sql`; do not change the schema or
+the database contents without asking first.
 
 ---
 
@@ -452,11 +535,19 @@ Ask if unsure.
 
 ## Linting and Validation
 
-Run:
+Run in `Eato_client/`:
 
 ```bash
 npm run lint
 npm run typecheck
+npm test
+```
+
+Then confirm the server still starts and reports a connected database:
+
+```bash
+cd ../Eato_server && yarn start        # in another terminal
+curl http://localhost:4000/api/health  # → {"ok":true,"database":"connected"}
 ```
 
 Fix errors.
@@ -473,14 +564,10 @@ Explain what changed and how to test.
 
 ## Important Constraints
 
-No database for this version.
-
-Use:
-
-- JSON for content
-- Zustand for state
-- AsyncStorage for persistence
-- backend only for secure operations
+- Identity, sessions and roles live in Clerk. Do not build custom auth.
+- App data lives in MySQL behind the Express server. Static content lives in `data/`.
+- Secrets stay on the server side (Expo API routes, `Eato_server/.env`). Never print or commit them.
+- Do not change `schema.sql`, the live database, or the Clerk role model without approval.
 
 ---
 
@@ -489,7 +576,7 @@ Use:
 Before every feature implementation:
 
 - Read this file
-- Follow it strictly
+- Follow it strictly, including the EATO Development Rules above
 - Build clean, simple, teachable code
 - Replicate UI exactly when designs are provided
 
