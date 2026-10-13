@@ -1,0 +1,57 @@
+# EATO monorepo root ignore rules. Eato_client/ and Eato_server/ keep their own
+# .gitignore files too; the rules here apply to every folder.
+
+# Secrets: every .env in any folder, except the committed templates
+.env
+.env.*
+!.env.example
+*.pem
+*.p8
+*.p12
+*.key
+*.keystore
+*.jks
+*.mobileprovision
+*.cer
+*.crt
+google-services.json
+GoogleService-Info.plist
+
+# Dependencies
+node_modules/
+
+# Build outputs and caches
+dist/
+build/
+web-build/
+.expo/
+.metro-health-check*
+*.tsbuildinfo
+.kotlin/
+*.orig.*
+coverage/
+.cache/
+
+# Generated native folders (Continuous Native Generation)
+Eato_client/ios/
+Eato_client/android/
+
+# Logs and temporary files
+*.log
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+tmp/
+*.tmp
+
+# Database dumps and backups (schema.sql stays tracked)
+*.sql.gz
+*.dump
+*.bak
+
+# Editors and OS
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
