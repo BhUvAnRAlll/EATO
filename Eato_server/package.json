@@ -16,6 +16,7 @@
     "start": "node index.js",
     "dev": "nodemon index.js",
     "test": "node --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test \"__tests__/*.test.js\"",
-    "test:e2e": "node --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test \"__tests__/e2e/*.e2e.test.js\""
+    "test:e2e": "node --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test \"__tests__/e2e/*.e2e.test.js\"",
+    "test:ui": "node --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test --test-concurrency=1 \"__tests__/ui/*.ui.test.js\""
   }
 }

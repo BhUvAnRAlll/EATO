@@ -16,19 +16,26 @@ function describeClerkError(error) {
 function clerkFor(secretKey) {
   const clerk = createClerkClient({ secretKey });
 
-  // One identity: email tagged with the run id and Clerk's test suffix, metadata tagged too
-  async function createIdentity(runId, tag) {
+  // One identity: email tagged with the run id and Clerk's test suffix, metadata tagged too.
+  // The password is returned only when a browser test needs to sign in with it; it is
+  // held in memory by the caller and never logged.
+  async function createIdentity(runId, tag, { withPassword = false } = {}) {
     const emailAddress = `e2e-${runId}-${tag}${TEST_SUFFIX}`;
+    const password = crypto.randomBytes(24).toString("base64url");
     const user = await clerk.users.createUser({
       emailAddress: [emailAddress],
-      password: crypto.randomBytes(24).toString("base64url"),
+      password,
       skipPasswordChecks: true,
       firstName: "E2E",
       lastName: tag,
       publicMetadata: { [METADATA_KEY]: runId },
     });
-    return { id: user.id, emailAddress };
+    return withPassword ? { id: user.id, emailAddress, password } : { id: user.id, emailAddress };
   }
+
+  // Reads or edits the app-writable metadata (the app keeps only profileComplete there)
+  const getUnsafeMetadata = async (userId) => (await clerk.users.getUser(userId)).unsafeMetadata ?? {};
+  const setUnsafeMetadata = (userId, unsafeMetadata) => clerk.users.updateUserMetadata(userId, { unsafeMetadata });
 
   // A genuine session and session token, verified by the server exactly like a device's
   async function mintToken(userId, expiresInSeconds) {
@@ -59,7 +66,7 @@ function clerkFor(secretKey) {
     return removed;
   }
 
-  return { createIdentity, mintToken, tokenFor, revokeSession, deleteUser, userExists, sweepOrphans };
+  return { createIdentity, mintToken, tokenFor, revokeSession, deleteUser, userExists, sweepOrphans, getUnsafeMetadata, setUnsafeMetadata };
 }
 
 // Seconds-since-epoch expiry of a session token, read locally (no network, nothing logged)
