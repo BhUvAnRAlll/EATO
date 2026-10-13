@@ -5,6 +5,7 @@
 .env
 .env.*
 !.env.example
+!.env.test.example
 *.pem
 *.p8
 *.p12
