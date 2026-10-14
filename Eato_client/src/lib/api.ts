@@ -21,7 +21,9 @@ type ApiOptions = {
   token?: string | null;
 };
 
-export type ApiResult<T> = { ok: true; data: T } | { ok: false; error: string };
+// On failure, `status` is the HTTP status when the server answered (e.g. 401 for an invalid
+// session) and absent when the request never reached it
+export type ApiResult<T> = { ok: true; data: T } | { ok: false; error: string; status?: number };
 
 // Calls the EATO server. JSON in, JSON out, one friendly error line on failure.
 export async function apiFetch<T>(path: string, options: ApiOptions = {}): Promise<ApiResult<T>> {
@@ -36,7 +38,7 @@ export async function apiFetch<T>(path: string, options: ApiOptions = {}): Promi
       body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
     });
     const data = (await response.json()) as T & { error?: string };
-    if (!response.ok) return { ok: false, error: data.error ?? "Something went wrong. Please try again." };
+    if (!response.ok) return { ok: false, error: data.error ?? "Something went wrong. Please try again.", status: response.status };
     return { ok: true, data };
   } catch {
     return { ok: false, error: "Couldn't reach the server. Check your connection and try again." };

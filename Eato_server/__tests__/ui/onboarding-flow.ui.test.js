@@ -1,20 +1,23 @@
-// Phase 9, step 2: unauthenticated onboarding UI validation. Drives the real Expo web
-// build in headless Chrome through every setup step using only the screens' visible
-// labels and placeholders. Signed out throughout: the setup routes are not auth-gated,
-// and the Finish handler does nothing without a signed-in user, which test 10 proves.
-// No Clerk identity, no sign-in, no profile request, no database write.
+// Phase 9, step 2: onboarding step validation. Drives the real Expo web build in headless
+// Chrome through every setup step using only the screens' visible labels and placeholders.
+// The setup routes need a session, so one genuine Clerk development identity signs in
+// through the real screen first (and is deleted afterwards). Finish is never pressed:
+// no profile request is sent and no database row is written.
 //
 //   yarn test:ui      (needs Eato_server/.env.test and Google Chrome; otherwise skipped)
 const assert = require("node:assert/strict");
 const { describe, it, before, after } = require("node:test");
+const crypto = require("node:crypto");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 
 const db = require("../e2e/test-db.js");
 const { startTestServer, portFree } = require("../e2e/server.js");
+const { clerkFor, describeClerkError } = require("../e2e/clerk-identities.js");
 const { startExpoWeb } = require("./expo-web.js");
 const { launchChrome, connect, openPage, CHROME } = require("./cdp.js");
+const { helpers, signInAs } = require("./onboarding-steps.js");
 const nutrition = require("../../../Eato_client/src/lib/nutrition/index.ts");
 
 const EXPO_PORT = 8090;
@@ -27,14 +30,18 @@ const birth = new Date(); birth.setFullYear(birth.getFullYear() - AGE);
 const pad = (n) => String(n).padStart(2, "0");
 const dobInput = `${birth.getFullYear()}-${pad(birth.getMonth() + 1)}-${pad(birth.getDate())}`; // what the web date field takes
 const dobShown = birth.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }); // what the field then displays
-const answers = { fullName: "E2E Tester", phone: "9876543210", email: "e2e-ui@example.com", heightCm: "170", weightKg: "60" };
+const answers = { fullName: "E2E Tester", phone: "9876543210", heightCm: "170", weightKg: "60" };
+const SCREENSHOT_DIR = process.env.EATO_SCREENSHOT_DIR || null;
+const WIDTHS = [[320, 568], [390, 844], [430, 932]];
 const expected = nutrition.calculateTargets({ age: AGE, gender: "female", heightCm: 170, weightKg: 60, activityLevel: "lightly_active", fitnessGoal: "fat_loss", healthFlags: [] });
 assert.equal(expected.status, "ok");
 const expectedCalories = expected.displayCalories.toLocaleString("en-IN");
 
-describe("ui flow: unauthenticated onboarding steps in Expo web", () => {
+describe("ui flow: onboarding steps in Expo web (signed in, nothing saved)", () => {
+  const runId = crypto.randomBytes(4).toString("hex");
   let skipReason = null;
-  let env, connection, countsBefore, server, expo, chrome, client, page;
+  let env, connection, countsBefore, server, expo, chrome, client, page, clerk, h;
+  const identities = {};
 
   const evidence = async (label) => {
     if (!page) return "";
@@ -73,11 +80,15 @@ describe("ui flow: unauthenticated onboarding steps in Expo web", () => {
     for (const port of [Number(env.PORT), EXPO_PORT]) if (!(await portFree(port))) throw new Error(`port ${port} is in use; refusing to start`);
     try { connection = await db.connect(env); } catch (error) { skipReason = `test database unreachable (${error?.code ?? "refused"})`; return; }
     countsBefore = await db.rowCounts(connection);
+    clerk = clerkFor(env.CLERK_SECRET_KEY);
+    await clerk.sweepOrphans();
     server = await startTestServer(env);
     expo = await startExpoWeb({ port: EXPO_PORT, apiUrl: `http://localhost:${env.PORT}` });
     chrome = await launchChrome();
     client = await connect(chrome.browserWsUrl);
     page = await openPage(client);
+    h = helpers(page, expo.baseUrl);
+    try { identities.a = await clerk.createIdentity(runId, "a", { withPassword: true }); } catch (error) { throw new Error(`Clerk could not create the test identity: ${JSON.stringify(describeClerkError(error))}`); }
   });
 
   after(async () => {
@@ -87,9 +98,12 @@ describe("ui flow: unauthenticated onboarding steps in Expo web", () => {
     await step("stop Chrome", async () => { if (chrome) await chrome.close(); });
     await step("stop Expo web", async () => { if (expo) await expo.stop(); });
     await step("stop test server", async () => { if (server) await server.stop(); });
+    if (connection && clerk) {
+      for (const tag of Object.keys(identities)) await step(`cleanup identity ${tag} (${identities[tag]?.id})`, async () => { await db.deleteUsers(connection, [identities[tag].id]); await clerk.deleteUser(identities[tag].id); delete identities[tag]; });
+    }
     await step("row counts unchanged", async () => {
       if (!connection) return;
-      try { assert.deepEqual(await db.rowCounts(connection), countsBefore, "test database rows changed during an unauthenticated UI test"); }
+      try { assert.deepEqual(await db.rowCounts(connection), countsBefore, "test database rows changed during a UI test that never saves"); }
       finally { await connection.end(); }
     });
     await step("ports released", async () => {
@@ -100,24 +114,41 @@ describe("ui flow: unauthenticated onboarding steps in Expo web", () => {
       }
     });
     await step("profile removed", async () => { if (chrome) assert.ok(!fs.existsSync(chrome.profile), "temporary Chrome profile was not removed"); });
-    if (problems.length > 0) throw new Error("teardown problems: " + problems.join("; "));
+    if (problems.length > 0) { console.error("CLEANUP INCOMPLETE; orphaned test identifiers:", Object.values(identities).map((i) => i.id).join(", ") || "none"); throw new Error("teardown problems: " + problems.join("; ")); }
   });
 
-  it("1. landing → Get Started reaches sign-up; setup is reachable directly and step 1 can be skipped", run("landing", async () => {
+  it("1. landing → Get Started reaches sign-up; signing in opens setup at step 1, which can be skipped", run("landing", async () => {
     await goto("/", "Get Started");
     await page.clickText("Get Started");
     await expectPath("/sign-up");
     await expectText("Create account");
-    // Signed out, the only way into setup is the route itself (the app would send a signed-in user here)
-    await goto("/setup/body-composition", "Body composition");
+    // A signed-in account with no profile is sent to the first setup step by the start screen
+    await signInAs(page, h, identities.a);
+    await expectPath("/setup/body-composition");
     await expectText("1/7");
     await page.clickText("Skip, I'll enter manually");
     await expectPath("/setup/personal");
     await expectText("2/7");
   }));
 
-  it("2. personal: Next stays disabled until name, date of birth, phone and email are valid", run("personal-required", async () => {
+  it("2. personal: the email is the account's and read-only; Next stays disabled until name, date of birth and phone are valid", run("personal-required", async () => {
     await goto("/setup/personal", "Let's get to know you");
+    // The account's address is shown as text with its note, and no input offers to change it
+    await expectText(identities.a.emailAddress);
+    await expectText("From your account. It can't be changed here.");
+    const emailInputs = await page.evaluate(`[...document.querySelectorAll("input")].filter((e) => e.getClientRects().length > 0 && (e.placeholder === "you@email.com" || e.value === ${JSON.stringify(identities.a.emailAddress)} || e.type === "email")).length`);
+    assert.equal(emailInputs, 0, "the email must not be rendered as an input");
+    assert.equal(await page.evaluate(`[...document.querySelectorAll("input")].filter((e) => e.getClientRects().length > 0).length`), 2, "the personal step has exactly two inputs: name and phone");
+    if (SCREENSHOT_DIR) {
+      fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
+      for (const [width, height] of WIDTHS) {
+        await client.send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: false }, page.sessionId);
+        await new Promise((r) => setTimeout(r, 500));
+        await page.screenshot(path.join(SCREENSHOT_DIR, `setup-personal-email-read-only-${width}.png`));
+      }
+      await client.send("Emulation.clearDeviceMetricsOverride", {}, page.sessionId);
+      await settle();
+    }
     await assertStuck("/setup/personal");
     await page.setInput(input("Your full name"), answers.fullName);
     await assertStuck("/setup/personal");
@@ -131,13 +162,12 @@ describe("ui flow: unauthenticated onboarding steps in Expo web", () => {
     await assertStuck("/setup/personal");
     await page.setInput(input("98765 43210"), "12345"); // too short
     await assertStuck("/setup/personal");
-    await page.setInput(input("98765 43210"), answers.phone);
-    await page.setInput(input("you@email.com"), "not-an-email");
-    await assertStuck("/setup/personal");
+    await assertStuck("/setup/personal"); // phone too short
+    await page.setInput(input("98765 43210"), "98765432101"); // one digit too many: the extra digit is dropped
+    assert.equal(await page.inputValue(input("98765 43210")), answers.phone);
   }));
 
   it("3. personal: valid inputs and the gender picker move on to the goal step", run("personal-valid", async () => {
-    await page.setInput(input("you@email.com"), answers.email);
     await page.clickText("Select"); // the gender field (the only "Select" placeholder on this screen)
     await expectText("Prefer not to say");
     await page.clickText("Female");
@@ -215,7 +245,7 @@ describe("ui flow: unauthenticated onboarding steps in Expo web", () => {
     await page.clickText("Back"); await expectPath("/setup/personal");
     assert.equal(await page.inputValue(input("Your full name")), answers.fullName);
     assert.equal(await page.inputValue(input("98765 43210")), answers.phone);
-    assert.equal(await page.inputValue(input("you@email.com")), answers.email);
+    await expectText(identities.a.emailAddress);
     await expectText(dobShown);
     await expectText("Female");
     // Forward again: each step still satisfied, so Next proceeds every time
@@ -223,14 +253,10 @@ describe("ui flow: unauthenticated onboarding steps in Expo web", () => {
     await expectText(`${expectedCalories} kcal`);
   }));
 
-  it("10. Finish while signed out sends no profile request and writes nothing", run("finish", async () => {
-    const requestsBefore = page.requests.length;
-    await page.clickText("Finish");
-    await new Promise((r) => setTimeout(r, 1500));
-    assert.equal(await page.path(), "/setup/targets", "a signed-out Finish must not navigate");
-    const newRequests = page.requests.slice(requestsBefore);
-    assert.deepEqual(newRequests.filter((u) => u.includes("/api/profile")), [], "no profile request may be sent");
+  it("10. nothing was saved: only the start screen's profile read was sent, and no row was written", run("no-save", async () => {
+    assert.deepEqual(page.requests.filter((u) => u.includes("/api/profile") && !u.startsWith(`http://localhost:${env.PORT}/api/profile`)), [], "profile requests may only go to the test server");
     assert.deepEqual(page.requests.filter((u) => /\/\/(localhost|127\.0\.0\.1):4000\b/.test(u)), [], "no request to the development server");
+    assert.deepEqual(await db.rowsForUser(connection, identities.a.id), { nutrition_targets: 0, body_composition_reports: 0, profiles: 0, users: 0 });
     assert.deepEqual(await db.rowCounts(connection), countsBefore);
   }));
 });

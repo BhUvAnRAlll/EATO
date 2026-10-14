@@ -1,5 +1,6 @@
-import { Image, Pressable, Text } from "react-native";
+import { Pressable, Text } from "react-native";
 import { useSSO } from "@clerk/expo";
+import { Image } from "expo-image";
 import * as AuthSession from "expo-auth-session";
 import * as WebBrowser from "expo-web-browser";
 
@@ -40,7 +41,8 @@ export function GoogleButton({ onError, accountType }: GoogleButtonProps) {
 
   return (
     <Pressable onPress={handlePress} className="auth__social">
-      <Image source={images.googleLogo} className="h-5 w-5" />
+      {/* Explicit size: a className on an image doesn't reach the element on web */}
+      <Image source={images.googleLogo} contentFit="contain" style={{ width: 20, height: 20 }} />
       <Text className="auth__social-label">Continue with Google</Text>
     </Pressable>
   );

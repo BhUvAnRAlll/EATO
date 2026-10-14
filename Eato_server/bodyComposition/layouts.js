@@ -1,9 +1,7 @@
 // Where to find each value on a brand's result sheet. Adding a brand means adding a
 // layout here; the calculation code never changes. Brands are named only as formats.
 
-export type ReportLayout = "inbody";
-
-export const reportLayouts: Record<ReportLayout, { label: string; hints: string }> = {
+const reportLayouts = {
   inbody: {
     label: "InBody result sheet",
     hints: [
@@ -15,3 +13,5 @@ export const reportLayouts: Record<ReportLayout, { label: string; hints: string 
     ].join("\n"),
   },
 };
+
+module.exports = { reportLayouts };

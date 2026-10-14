@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { View } from "react-native";
+import { Text, View } from "react-native";
 import { router } from "expo-router";
 import { useUser } from "@clerk/expo";
 
@@ -18,15 +18,16 @@ export default function PersonalDetails() {
   const [isDobOpen, setIsDobOpen] = useState(false);
   const { minimumDate, maximumDate } = dobLimits();
 
-  // Start with the name and email from the account
+  // The email is the account's and can't be changed here: the server saves the address
+  // Clerk holds for the signed-in user, whatever the app sends
+  const accountEmail = user?.primaryEmailAddress?.emailAddress ?? "";
+
+  // Start with the name from the account; the email always mirrors the account
   useEffect(() => {
     if (!user) return;
-    const { fullName, email } = useSetupStore.getState().profile;
-    update({
-      fullName: fullName || user.fullName || "",
-      email: email || user.primaryEmailAddress?.emailAddress || "",
-    });
-  }, [user, update]);
+    const { fullName } = useSetupStore.getState().profile;
+    update({ fullName: fullName || user.fullName || "", email: accountEmail });
+  }, [user, accountEmail, update]);
 
   const age = ageFromDob(profile.dob);
   const canContinue =
@@ -81,15 +82,19 @@ export default function PersonalDetails() {
           keyboardType="number-pad"
           autoComplete="tel"
         />
-        <SetupField
-          label="Email address"
-          icon={{ ios: "envelope", android: "mail", web: "mail" }}
-          placeholder="you@email.com"
-          value={profile.email}
-          onChangeText={(email) => update({ email: email.trim() })}
-          keyboardType="email-address"
-          autoCapitalize="none"
-        />
+        <View className="gap-1.5">
+          <SetupField
+            label="Email address"
+            icon={{ ios: "envelope", android: "mail", web: "mail" }}
+            placeholder="Not available on your account"
+            value={accountEmail}
+            readOnly
+            trailingIcon={{ ios: "lock.fill", android: "lock", web: "lock" }}
+          />
+          <Text className="setup__card-text px-1">
+            {accountEmail ? "From your account. It can't be changed here." : "Your account has no email address, so setup can't be finished yet."}
+          </Text>
+        </View>
       </View>
 
       <DatePickerSheet

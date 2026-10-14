@@ -1,28 +1,11 @@
-import type { BodyCompositionReport } from "../../lib/nutrition/types.ts";
-
-// What the vision model returns (matches extractionSchema). Values are as printed;
+// Turns what the vision model returns (matching extractionSchema) into an UNCONFIRMED
+// body composition report for the app's confirmation screen. Values are as printed;
 // units are converted here, in code, not by the model.
-export type RawExtraction = {
-  isBodyCompositionReport: boolean;
-  massUnit: "kg" | "lb" | null;
-  heightUnit: "cm" | "in" | null;
-  testDate: string | null;
-  height: number | null;
-  age: number | null;
-  gender: "male" | "female" | null;
-  weight: number | null;
-  bodyFatMass: number | null;
-  percentBodyFat: number | null;
-  fatFreeMass: number | null;
-  skeletalMuscleMass: number | null;
-  basalMetabolicRateKcal: number | null;
-  recommendedCalorieIntakeKcal: number | null;
-};
 
-const nullable = (type: "number" | "integer" | "string" | "boolean") => ({ anyOf: [{ type }, { type: "null" }] });
+const nullable = (type) => ({ anyOf: [{ type }, { type: "null" }] });
 
 // JSON schema for structured output: every value is required but may be null
-export const extractionSchema = {
+const extractionSchema = {
   type: "object",
   additionalProperties: false,
   required: [
@@ -57,32 +40,31 @@ export const extractionSchema = {
     basalMetabolicRateKcal: nullable("number"),
     recommendedCalorieIntakeKcal: nullable("number"),
   },
-} as const;
+};
 
 const LB_TO_KG = 0.45359237;
 const IN_TO_CM = 2.54;
 
-const round1 = (n: number) => Math.round(n * 10) / 10;
+const round1 = (n) => Math.round(n * 10) / 10;
 
 // Keeps a value only if it's a finite number in a plausible range; otherwise null
 // (the user is asked to type it). Out-of-range usually means a misread digit.
-function plausible(value: number | null, min: number, max: number): number | null {
+function plausible(value, min, max) {
   if (value == null || !Number.isFinite(value) || value < min || value > max) return null;
   return value;
 }
 
-function validDate(value: string | null, today: Date): string | null {
+function validDate(value, today) {
   if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
   const time = Date.parse(`${value}T00:00:00Z`);
   if (Number.isNaN(time) || time > today.getTime()) return null;
   return value;
 }
 
-// Turns the model's reading into an UNCONFIRMED report for the confirmation screen
-export function normalizeExtraction(raw: RawExtraction, id: string, today: Date = new Date()): BodyCompositionReport {
+// The model's reading → an UNCONFIRMED report (shape: BodyCompositionReport in the app)
+function normalizeExtraction(raw, id, today = new Date()) {
   // Mass values can't be converted without knowing the unit, so they stay empty
-  const mass = (value: number | null) =>
-    value == null || raw.massUnit == null ? null : round1(raw.massUnit === "lb" ? value * LB_TO_KG : value);
+  const mass = (value) => (value == null || raw.massUnit == null ? null : round1(raw.massUnit === "lb" ? value * LB_TO_KG : value));
   const height =
     raw.height == null || raw.heightUnit == null ? null : round1(raw.heightUnit === "in" ? raw.height * IN_TO_CM : raw.height);
 
@@ -104,3 +86,5 @@ export function normalizeExtraction(raw: RawExtraction, id: string, today: Date 
     confirmed: false,
   };
 }
+
+module.exports = { extractionSchema, normalizeExtraction };

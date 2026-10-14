@@ -1,3 +1,5 @@
+import { apiFetch } from "@/lib/api";
+
 // Who the signed-in person is in EATO. The role lives in the Clerk user's
 // `publicMetadata.role`, which only the server (Clerk dashboard or the
 // `npm run set-role` script) can change — so users can't promote themselves.
@@ -26,21 +28,12 @@ export function needsTrainerRole(user: UserWithMetadata) {
   return user.publicMetadata.role === undefined && user.unsafeMetadata.accountType === "trainer";
 }
 
-// Asks the server to make this account a trainer (see app/api/account-type+api.ts).
-// `token` is the Clerk session token.
+// Asks the EATO server to make this account a trainer (POST /api/account-type; see
+// grantTrainerRole in Eato_server/auth.js). `token` is the Clerk session token.
 export async function claimTrainerRole(token: string | null): Promise<{ ok: true } | { ok: false; error: string }> {
   if (!token) return { ok: false, error: "Please sign in again." };
-  try {
-    const response = await fetch("/api/account-type", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const body = (await response.json()) as { role?: string; error?: string };
-    if (!response.ok) return { ok: false, error: body.error ?? "We couldn't set up your trainer account." };
-    return { ok: true };
-  } catch {
-    return { ok: false, error: "Couldn't reach the server. Check your connection and try again." };
-  }
+  const result = await apiFetch<{ role: string }>("/api/account-type", { method: "POST", token });
+  return result.ok ? { ok: true } : { ok: false, error: result.error };
 }
 
 // Where a signed-in person lands: admins and trainers open their dashboards;

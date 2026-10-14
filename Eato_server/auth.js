@@ -39,4 +39,17 @@ async function getAccount(userId) {
   return { email: primary.emailAddress, role };
 }
 
-module.exports = { requireUser, getAccount };
+// Turns the account type picked on the sign-up screen (unsafeMetadata, which the app can
+// write) into the real role (publicMetadata, which only the server can write). Returns the
+// account's role. It only ever grants "trainer", and only to accounts that have no role yet,
+// so it can't change an admin or switch a role twice. Throws if Clerk can't be reached.
+async function grantTrainerRole(userId) {
+  const user = await clerk.users.getUser(userId);
+  const currentRole = user.publicMetadata?.role;
+  if (typeof currentRole === "string") return currentRole;
+  if (user.unsafeMetadata?.accountType !== "trainer") return "user";
+  await clerk.users.updateUserMetadata(user.id, { publicMetadata: { role: "trainer" } });
+  return "trainer";
+}
+
+module.exports = { requireUser, getAccount, grantTrainerRole };

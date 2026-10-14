@@ -2,6 +2,7 @@ import * as DocumentPicker from "expo-document-picker";
 import { File } from "expo-file-system";
 import * as ImagePicker from "expo-image-picker";
 
+import { apiFetch } from "@/lib/api";
 import type { BodyCompositionReport } from "@/lib/nutrition";
 
 export type ReportSource = "camera" | "library" | "pdf";
@@ -41,23 +42,15 @@ export async function pickReport(source: ReportSource): Promise<PickResult> {
   return { ok: true, file: { data: base64, mediaType: "image/jpeg" } };
 }
 
-// Sends the file to our server, which reads it and returns UNCONFIRMED values.
-// `token` is the Clerk session token (proves who is uploading).
+// Sends the file to the EATO server (POST /api/body-composition), which reads it and
+// returns UNCONFIRMED values. `token` is the Clerk session token (proves who is uploading).
 export async function readReport(
   file: PickedReport,
   token: string | null,
-): Promise<{ ok: true; report: BodyCompositionReport } | { ok: false; error: string }> {
+): Promise<{ ok: true; report: BodyCompositionReport } | { ok: false; error: string; status?: number }> {
   if (!token) return { ok: false, error: "Please sign in again." };
-  try {
-    const response = await fetch("/api/body-composition", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify(file),
-    });
-    const body = (await response.json()) as { report?: BodyCompositionReport; error?: string };
-    if (!response.ok || !body.report) return { ok: false, error: body.error ?? "We couldn't read your report." };
-    return { ok: true, report: body.report };
-  } catch {
-    return { ok: false, error: "Couldn't reach the server. Check your connection and try again." };
-  }
+  const result = await apiFetch<{ report?: BodyCompositionReport }>("/api/body-composition", { method: "POST", body: file, token });
+  if (!result.ok) return result;
+  if (!result.data.report) return { ok: false, error: "We couldn't read your report." };
+  return { ok: true, report: result.data.report };
 }

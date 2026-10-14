@@ -1,11 +1,9 @@
 // Reads a body composition report with an OpenAI vision model (server only).
 // Swapping providers means replacing this file; nothing else depends on OpenAI.
-import OpenAI from "openai";
+const OpenAI = require("openai");
 
-import type { BodyCompositionReport } from "../../lib/nutrition/types.ts";
-import { reportLayouts, type ReportLayout } from "./layouts.ts";
-import { extractionSchema, normalizeExtraction, type RawExtraction } from "./normalize.ts";
-import type { UploadMediaType } from "./upload.ts";
+const { reportLayouts } = require("./layouts");
+const { extractionSchema, normalizeExtraction } = require("./normalize");
 
 // Vision-capable model with structured outputs; override with OPENAI_MODEL
 const MODEL = process.env.OPENAI_MODEL || "gpt-4o";
@@ -20,32 +18,28 @@ Rules:
 - Gender: "male" or "female" only if printed; otherwise null.
 - If the image is not a body composition result sheet, set isBodyCompositionReport to false and every other value to null.`;
 
-export class ExtractionError extends Error {
-  constructor(
-    message: string,
-    readonly status: number,
-  ) {
+// A failure the user can act on: `status` is the HTTP status to answer with
+class ExtractionError extends Error {
+  constructor(message, status) {
     super(message);
+    this.name = "ExtractionError";
+    this.status = status;
   }
 }
 
-function fileInput(mediaType: UploadMediaType, base64: string): OpenAI.Responses.ResponseInputContent {
+function fileInput(mediaType, base64) {
   if (mediaType === "application/pdf") {
     return { type: "input_file", filename: "report.pdf", file_data: `data:application/pdf;base64,${base64}` };
   }
   return { type: "input_image", detail: "high", image_url: `data:${mediaType};base64,${base64}` };
 }
 
-export async function extractReport(params: {
-  base64: string;
-  mediaType: UploadMediaType;
-  layout: ReportLayout;
-  reportId: string;
-}): Promise<BodyCompositionReport> {
+// { base64, mediaType, layout, reportId } → an UNCONFIRMED report
+async function extractReport(params) {
   const client = new OpenAI(); // reads OPENAI_API_KEY
   const layout = reportLayouts[params.layout];
 
-  let response: OpenAI.Responses.Response;
+  let response;
   try {
     response = await client.responses.create({
       model: MODEL,
@@ -81,9 +75,11 @@ export async function extractReport(params: {
     throw new ExtractionError("We couldn't read this report. Please enter your details manually.", 422);
   }
 
-  const raw = JSON.parse(response.output_text) as RawExtraction;
+  const raw = JSON.parse(response.output_text);
   if (!raw.isBodyCompositionReport) {
     throw new ExtractionError("This doesn't look like a body composition report. Try another photo or skip.", 422);
   }
   return normalizeExtraction(raw, params.reportId);
 }
+
+module.exports = { ExtractionError, extractReport };

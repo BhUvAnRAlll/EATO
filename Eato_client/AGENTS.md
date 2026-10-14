@@ -40,12 +40,12 @@ This is primarily a learning project. The goal is to teach developers how to bui
 What is in use today:
 
 - Expo (SDK 57) + React Native + TypeScript
-- Expo Router (screens in `src/app/`, plus two server-side API routes in `src/app/api/`)
+- Expo Router (screens in `src/app/`; the app has no server-side API routes)
 - NativeWind / Tailwind CSS
 - Zustand for client state (the profile setup store)
-- Clerk for authentication, sessions and roles (`@clerk/expo` in the app, `@clerk/backend` in API routes)
-- OpenAI (server-side only, inside an Expo API route) to read body composition reports
-- Node.js + Express server (`Eato_server/`) with a MySQL database (`mysql2`)
+- Clerk for authentication, sessions and roles (`@clerk/expo` in the app, `@clerk/backend` on the server)
+- OpenAI (server-side only, in `Eato_server/bodyComposition/`) to read body composition reports
+- Node.js + Express server (`Eato_server/`) with a MySQL database (`mysql2`): every backend concern lives here
 
 Planned, not yet wired in:
 
@@ -59,12 +59,12 @@ Do not introduce new major libraries unless there is a strong reason.
 | Concern | Where | Why |
 | --- | --- | --- |
 | Sign up / in / out, password reset, Google SSO | Clerk SDK, called from the app | Clerk owns identity; the app never stores passwords |
-| Roles (`user`, `admin`, `trainer`) | Clerk `publicMetadata.role`, set only server-side (`src/app/api/account-type+api.ts`, `scripts/set-role.mjs`) | The app can't promote itself |
-| Reading an uploaded body composition report | Expo API route `src/app/api/body-composition+api.ts` → OpenAI | Keeps `OPENAI_API_KEY` off the device; the file is never stored |
+| Roles (`user`, `admin`, `trainer`) | Clerk `publicMetadata.role`, set only server-side (`POST /api/account-type` on the Express server, `scripts/set-role.mjs`) | The app can't promote itself |
+| Reading an uploaded body composition report | `POST /api/body-composition` on the Express server → OpenAI (`Eato_server/bodyComposition/`) | Keeps `OPENAI_API_KEY` off the device; the file is never stored |
 | Profile and nutrition targets from setup | MySQL (`users`, `profiles`, `nutrition_targets`, `body_composition_reports`) via `POST /api/profile` and `GET /api/profile` on the Express server; Clerk `unsafeMetadata.profileComplete` is only a routing shortcut | Server-verified identity, one transaction per save, the app's own calculator re-checks every record before it is stored |
 | App data (meals, orders, diary, weigh-ins, trainer ↔ client links) | MySQL via the Express server (`Eato_server/`) | Shared, queryable data that outlives one device |
 
-Both Expo API routes check the caller's Clerk session token with `requireUser` (`src/server/auth.ts`) before doing anything.
+Every Express route except the health check verifies the caller's Clerk session token with `requireUser` (`Eato_server/auth.js`) before doing anything.
 
 ---
 
@@ -111,25 +111,27 @@ Use this structure unless there is a strong reason to change it:
 
 ```txt
 Eato_client/src/
-  app/            screens and layouts (Expo Router), plus api/*+api.ts server routes
+  app/            screens and layouts (Expo Router); no server code lives in the app
     (auth)/       sign-in, sign-up, forgot-password
     setup/        profile setup steps
     admin/  trainer/  home.tsx   one landing screen per role
-    api/          Expo API routes (run on the server, never on the device)
   components/
   constants/
   data/           static, typed content (options, onboarding slides, dashboard tiles)
-  lib/            service helpers (api.ts, clerk.ts, roles.ts, nutrition/)
-  server/         code that only runs inside API routes (auth, report extraction)
+  lib/            service helpers (api.ts, clerk.ts, roles.ts, session.ts, reportUpload.ts, nutrition/)
   store/          Zustand stores
   types/
   theme/
 assets/
 
 Eato_server/
-  index.js        Express app: routes, JSON 404 and the error handler
-  auth.js         requireUser middleware (verifies the Clerk session token) and getAccount (email + role from Clerk)
+  index.js        Express app: every route, JSON 404 and the error handler
+  auth.js         requireUser (verifies the Clerk session token), getAccount (email + role from Clerk), grantTrainerRole
   profile.js      profile validation, the transactional save and the load for /api/profile
+  rateLimit.js    per-user rate limiting (limitPerUser) for every authenticated route
+  requestBody.js  capped JSON body parsing for the upload route
+  bodyComposition/  report upload checks (upload.js), OpenAI extraction (extract.js), clean-up (normalize.js)
+  logging.js      safe error logging (never the SQL, body, headers or a token)
   database.js     mysql2 connection pool, configured from .env
   schema.sql      the full MySQL schema (run once; it does not migrate)
 ```
@@ -408,7 +410,8 @@ lib/
 ```
 
 Never expose secret keys in the mobile app. Only `EXPO_PUBLIC_*` variables reach the device;
-`CLERK_SECRET_KEY` and `OPENAI_API_KEY` are read only inside `src/app/api/` routes and scripts.
+`CLERK_SECRET_KEY` and `OPENAI_API_KEY` live in `Eato_server/.env` (the app's `.env` keeps
+`CLERK_SECRET_KEY` only for `scripts/set-role.mjs`).
 
 ### Calling the Express server
 
@@ -419,18 +422,23 @@ Never expose secret keys in the mobile app. Only `EXPO_PUBLIC_*` variables reach
   needs to know who is asking.
 - Responses are JSON. Errors arrive as `{ error: "one friendly line" }` with a proper status code.
 
-### Expo API routes vs the Express server
+### The Express server is the whole backend
 
-- Expo API routes (`src/app/api/*+api.ts`) are for operations that need Clerk's secret key or an
-  AI key and no database: today, claiming the trainer role and reading a report upload.
-  In production they need `EXPO_PUBLIC_API_ORIGIN` (see `app.config.ts`).
-- The Express server is for anything backed by MySQL. Add routes in `Eato_server/index.js`, put
-  `requireUser` in front of anything that isn't the health check, read the caller from `req.userId`
-  (never from the body), use parameterized queries through `pool.query(sql, params)`, and send errors
-  to `next(error)` so the shared handler logs them and answers with a safe message. Related writes go
-  in one transaction (see `persistProfile` in `profile.js`).
-- `Eato_server/.env` needs `CLERK_SECRET_KEY` (the same key as the app's `.env`) so the server can
-  verify tokens and look up accounts. Never commit either `.env`.
+- Everything the app needs from a server lives in `Eato_server/`: the MySQL-backed profile routes,
+  the report upload read by OpenAI (`POST /api/body-composition`) and the trainer-role grant
+  (`POST /api/account-type`). The app has no Expo API routes; it only calls the Express server
+  through `apiFetch()`.
+- Add routes in `Eato_server/index.js`, put `requireUser` in front of anything that isn't the health
+  check, read the caller from `req.userId` (never from the body), use parameterized queries through
+  `pool.query(sql, params)`, and send errors to `next(error)` so the shared handler logs them and
+  answers with a safe message. Related writes go in one transaction (see `persistProfile` in `profile.js`).
+- Every authenticated route is rate limited per verified Clerk user: `limitPerUser` from
+  `rateLimit.js`, placed right after `requireUser`. The budgets are in-memory, per process, and reset
+  on restart: not a multi-instance defence. Bodies are parsed per route, after the caller is verified,
+  with the limit the route needs: `express.json({ limit })` for small JSON, `jsonBodyWithLimit` from
+  `requestBody.js` for the upload route (it refuses an oversized body while it is still arriving).
+- `Eato_server/.env` needs `CLERK_SECRET_KEY` (to verify tokens, look up accounts and grant roles) and
+  `OPENAI_API_KEY` (to read reports). Never commit any `.env`.
 
 ---
 
@@ -480,10 +488,123 @@ These rules apply to every future implementation, in both `Eato_client/` and `Ea
 6. **Protect existing work.** Do not break onboarding, Clerk authentication, existing navigation, or working features. Do not introduce unrelated changes.
 7. **Be honest about testing.** Report automated tests, manual tests actually completed, and checks that still require the user's action. Never claim unexecuted tests passed.
 8. **Report every implementation.** List changed files, commands executed, results, remaining issues and manual checks.
-9. **Approval required.** After each approved screen or feature is implemented and verified, provide the completion report and stop. Wait for the user's approval before starting the next screen.
+9. **Approval required.** After each approved screen or feature is implemented and verified, provide the completion report and stop. Wait for the user's approval before starting the next screen, feature, phase, or any individual finding from an audit.
 10. **Database safety.** Never drop tables, delete existing data, change database permissions, modify the schema, or create persistent test data without the user's approval.
 11. **Security.** Never expose secrets, trust client-supplied identity or roles, or bypass existing authentication.
 12. **Keep instructions updated.** Preserve the current EATO architecture and existing project rules. Do not overwrite useful instructions.
+13. **Design source of truth.** `src/theme/tokens.css`, `src/theme/index.ts`, the utilities in `src/global.css`, and the mockups under `assets/design/` define EATO's look. Preserve them. Do not introduce a new visual direction; when a screen and a mockup disagree, report the discrepancy and ask before changing the composition.
+14. **Test isolation.** UI and integration tests use the `eato_test` database through `Eato_server/.env.test` and the test server on port 4100. Never point tests at port 4000 or the `eato` database. Run `npm test`, `npm run test:e2e` and `npm run test:ui` in `Eato_server/` as relevant.
+15. **Visual evidence.** After each approved UI change, capture screenshots at the supported widths with the existing test harness and include their paths in the report.
+16. **Git.** Never commit, push, amend, rewrite history, reset, stash or discard work without explicit approval. Review the staged diff before any commit. Keep `.env` files and generated artifacts out of commits.
+17. **Audits are checklists.** An audit report authorises nothing. Each finding is implemented only after its own approval, one at a time, following inspect, implement, test, review the diff, verify at supported sizes, report, wait.
+18. **Secure by default.** Every feature, bug fix, refactor, endpoint, schema change and integration also follows the EATO Secure Development Rules below.
+
+---
+
+## EATO Secure Development Rules
+
+These rules supplement the EATO Development Rules above (they replace nothing) and apply to every
+change in both `Eato_client/` and `Eato_server/`. Security is never guaranteed: report what was
+confirmed, what remains a risk, and what was not tested.
+
+### 1. Security-by-design workflow
+
+Before implementing:
+
+- List the screens, API routes, database tables, files, roles (`user`, `trainer`, `admin`) and
+  sensitive data (health data, contact details, tokens) the change touches.
+- For each resource, say who may read, create, update and delete it, and enforce that server-side.
+- Name the attack paths that apply (missing or forged auth, wrong role, another user's id, bad or
+  oversized input, SQL injection, abuse of an expensive call) and the tests that will cover them.
+- Keep existing behaviour and contracts unless the approved change requires otherwise.
+
+While implementing:
+
+- Apply the rules below to all new and modified code. Reuse the existing secure helpers:
+  `requireUser` and `getAccount` (`Eato_server/auth.js`), `ValidationError` and the validators in
+  `profile.js`, `logRequestError` (`logging.js`), `checkUpload` (`bodyComposition/upload.js`),
+  `jsonBodyWithLimit` (`requestBody.js`), `limitPerUser` (`rateLimit.js`), and the test harness
+  under `Eato_server/__tests__/`.
+- Never disable, loosen or skip a security check to make a test pass.
+- Never treat client-side validation, a hidden screen, a client-supplied role or user id, or
+  Clerk `unsafeMetadata` as authorisation. They are hints for the UI only.
+
+Before declaring completion:
+
+- Add regression tests for the normal behaviour and for the attack paths named above.
+- Run the focused tests, then the existing suites (`npm test`, `npm run test:e2e`,
+  `npm run test:ui` in `Eato_server/`; `npm test`, `npm run typecheck`, `npm run lint` in `Eato_client/`).
+- Inspect the complete diff for security regressions, accidental secrets, unrelated changes and
+  unsafe configuration.
+- Report untested scenarios honestly.
+
+### 2. Authentication and authorisation
+
+- Every protected endpoint verifies the Clerk session token server-side (`requireUser`); identity
+  is the verified `sub` claim (`req.userId` / `auth.userId`), never a request field.
+- Enforce role and resource-level permissions server-side for `user`, `trainer` and `admin`.
+  Roles come from Clerk `publicMetadata.role`, read with `getAccount` or the Clerk client; a
+  trainer's access to a client goes through a server-side assignment (`trainer_clients`), never
+  the role alone.
+- Prevent privilege escalation, insecure direct object references and cross-user data access:
+  every query that returns or changes a user's rows is scoped to the verified user id.
+- Never grant a privileged role from client-writable metadata alone.
+- Validate webhook signatures before trusting any webhook payload.
+- Expired sessions and auth failures answer with a safe 401 and the app offers sign-in again.
+
+### 3. SQL injection and database safety
+
+- Parameterised queries (`pool.query(sql, params)`) for every value. Never concatenate untrusted
+  input into SQL.
+- Table names, column names, sort directions and other fragments that cannot be parameterised
+  come from an allowlist in code, never from the request.
+- Validate on the server and rely on the schema's constraints (ENUM, CHECK, UNIQUE, FOREIGN KEY);
+  multi-table writes go in one transaction with rollback.
+- The app runs as the least-privilege account (`eato_app`), never as MySQL root. Production
+  (`eato`), development and test (`eato_test`) databases stay separate; tests never run
+  destructive queries against production.
+- Add tests with SQL-injection payloads and unauthorised-access attempts where a query takes
+  user input or returns user-owned rows.
+
+### 4. API and resource protection
+
+- Validate bodies, query parameters, route parameters and unexpected fields; reject what is not
+  expected with a 400 and one friendly line.
+- Rate limit authentication-sensitive, expensive and abuse-prone endpoints per verified user
+  (`Eato_server/rateLimit.js`); AI and other paid calls are never unlimited.
+- Enforce request-body, upload, processing and pagination limits. Reject an oversized request
+  before expensive parsing or processing where the runtime permits (`jsonBodyWithLimit` for large
+  bodies, `express.json({ limit })` for small ones, both per route and after `requireUser`).
+- CORS is as restrictive as the deployment allows; add security headers and keep error responses
+  safe. Never expose stack traces, SQL, credentials or personal data in a response.
+
+### 5. Files and secrets
+
+- Validate uploaded content by its real bytes (`checkUpload`), the allowed types, the size, the
+  filename and the owner; uploads are never stored without approval, and private files are never
+  served publicly.
+- Clerk secret keys, database credentials and provider keys stay server-side (`Eato_server/.env`).
+  `EXPO_PUBLIC_*` variables are public.
+- Never print or commit a secret value. Logs carry no tokens, bodies, headers or personal data
+  (`logging.js`).
+- Add no unnecessary dependency and no insecure storage.
+
+### 6. Testing requirements
+
+For every relevant feature, test: the expected authorised behaviour; missing, malformed, expired
+and invalid authentication; wrong-role access and unauthorised ownership; invalid, unexpected or
+malicious input; SQL-injection and resource-abuse cases that apply; regression behaviour and data
+integrity. Use only `eato_test`, `.env.test` and the test server on port 4100, with throwaway
+Clerk test identities that are deleted afterwards. Never use production accounts or data.
+
+### 7. Git, production and approval safeguards
+
+- Preserve existing modified and untracked files. No commit, push, reset, stash or discard without
+  explicit approval.
+- No change to production credentials, database permissions, Clerk or authentication
+  configuration, or deployment settings without approval.
+- Never stop, restart or interfere with the development server on port 4000.
+- Report confirmed findings, potential risks and untested areas; never claim security is guaranteed.
 
 ---
 
@@ -550,6 +671,8 @@ cd ../Eato_server && yarn start        # in another terminal
 curl http://localhost:4000/api/health  # → {"ok":true,"database":"connected"}
 ```
 
+If `yarn` is not on the PATH, `npx yarn@1 <command>` is equivalent.
+
 Fix errors.
 
 ---
@@ -566,7 +689,7 @@ Explain what changed and how to test.
 
 - Identity, sessions and roles live in Clerk. Do not build custom auth.
 - App data lives in MySQL behind the Express server. Static content lives in `data/`.
-- Secrets stay on the server side (Expo API routes, `Eato_server/.env`). Never print or commit them.
+- Secrets stay on the server side (`Eato_server/.env`). Never print or commit them.
 - Do not change `schema.sql`, the live database, or the Clerk role model without approval.
 
 ---
@@ -576,7 +699,7 @@ Explain what changed and how to test.
 Before every feature implementation:
 
 - Read this file
-- Follow it strictly, including the EATO Development Rules above
+- Follow it strictly, including the EATO Development Rules and the EATO Secure Development Rules above
 - Build clean, simple, teachable code
 - Replicate UI exactly when designs are provided
 

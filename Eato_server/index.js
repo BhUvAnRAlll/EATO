@@ -16,14 +16,32 @@ if (fs.existsSync(envFile)) process.loadEnvFile(envFile);
 const express = require("express");
 const cors = require("cors");
 const { pool } = require("./database");
-const { requireUser, getAccount } = require("./auth");
+const { randomUUID } = require("node:crypto");
+const { requireUser, getAccount, grantTrainerRole } = require("./auth");
 const { ValidationError, validateProfileSubmission, persistProfile, loadProfile } = require("./profile");
 const { logRequestError } = require("./logging");
+const { limitPerUser, createRateLimiter, rateLimits } = require("./rateLimit");
+const { jsonBodyWithLimit } = require("./requestBody");
+const { checkUpload, uploadLimits } = require("./bodyComposition/upload");
+const { ExtractionError, extractReport } = require("./bodyComposition/extract");
 
 const app = express();
 app.disable("x-powered-by"); // no need to advertise the framework
 app.use(cors()); // the app runs on a different origin (phone / simulator), so allow it
-app.use(express.json({ limit: "200kb" })); // a profile with a report is well under this
+
+// Bodies are parsed per route, after the caller is verified, with the limit each route
+// needs: a profile with a report is well under 200 kB; a report upload is a whole file.
+const profileBody = express.json({ limit: "200kb" });
+// The largest body a legitimate upload needs: the biggest allowed file as base64 (4/3 of
+// its bytes) plus the JSON around it. Anything bigger is refused while it is still arriving.
+const MAX_UPLOAD_BODY_BYTES = Math.ceil(uploadLimits.maxPdfBytes * (4 / 3)) + 1024;
+
+// One budget per signed-in user per group of routes (per process, reset on restart; see
+// rateLimit.js). Always placed after requireUser, so the key is the verified Clerk user id.
+// Every authenticated attempt counts, valid or not.
+const profileLimiter = createRateLimiter(rateLimits.standard);
+const accountLimiter = createRateLimiter(rateLimits.standard);
+const uploadLimiter = createRateLimiter(rateLimits.upload); // each upload is an OpenAI vision call
 
 // Quick check that the server is up and can reach MySQL (public: no token needed)
 app.get("/api/health", async (req, res) => {
@@ -37,7 +55,7 @@ app.get("/api/health", async (req, res) => {
 
 // The caller's own profile and nutrition targets (null until setup is finished).
 // Who "the caller" is comes from the verified token only, so nobody can read anyone else's.
-app.get("/api/profile", requireUser, async (req, res, next) => {
+app.get("/api/profile", requireUser, limitPerUser(profileLimiter), async (req, res, next) => {
   try {
     res.json(await loadProfile(pool, req.userId));
   } catch (error) {
@@ -47,7 +65,7 @@ app.get("/api/profile", requireUser, async (req, res, next) => {
 
 // Saves the setup answers and the calculated targets for the caller. Safe to repeat:
 // a second save updates the same rows. Email and role come from Clerk, never from the app.
-app.post("/api/profile", requireUser, async (req, res, next) => {
+app.post("/api/profile", requireUser, limitPerUser(profileLimiter), profileBody, async (req, res, next) => {
   try {
     const data = validateProfileSubmission(req.body, req.userId);
     let account;
@@ -62,6 +80,38 @@ app.post("/api/profile", requireUser, async (req, res, next) => {
     res.json({ saved: true });
   } catch (error) {
     next(error);
+  }
+});
+
+// Reads an uploaded body composition report: { data: base64, mediaType } → { report } with
+// UNCONFIRMED values for the user to check. The file is never stored or logged. Order
+// matters: verified caller, upload budget, capped body, byte-level checks, and only then
+// the OpenAI call.
+app.post("/api/body-composition", requireUser, limitPerUser(uploadLimiter), jsonBodyWithLimit(MAX_UPLOAD_BODY_BYTES), async (req, res, next) => {
+  const upload = checkUpload(req.body);
+  if (!upload.ok) return res.status(upload.status).json({ error: upload.error });
+  try {
+    const report = await extractReport({
+      base64: req.body.data.replace(/\s/g, ""),
+      mediaType: upload.mediaType,
+      layout: "inbody",
+      reportId: randomUUID(),
+    });
+    res.json({ report });
+  } catch (error) {
+    if (error instanceof ExtractionError) return res.status(error.status).json({ error: error.message });
+    next(error);
+  }
+});
+
+// Turns the account type picked at sign-up into the real role (see grantTrainerRole in
+// auth.js): POST → { role }. No body; the caller is the verified token's user.
+app.post("/api/account-type", requireUser, limitPerUser(accountLimiter), async (req, res) => {
+  try {
+    res.json({ role: await grantTrainerRole(req.userId) });
+  } catch {
+    console.error("Setting the account type failed");
+    res.status(500).json({ error: "We couldn't set up your trainer account. Please try again." });
   }
 });
 

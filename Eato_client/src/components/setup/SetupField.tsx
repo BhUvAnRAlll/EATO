@@ -15,6 +15,8 @@ type SetupFieldProps = TextInputProps & {
   onPress?: () => void;
   // Icon shown instead of the chevron on a picker row (e.g. a calendar)
   trailingIcon?: Icon;
+  // Shows `value` as plain text (no input, nothing to tap), with `trailingIcon` if given
+  readOnly?: boolean;
   // Red outline: the value needs checking
   invalid?: boolean;
 };
@@ -27,6 +29,7 @@ export function SetupField({
   prefix,
   onPress,
   trailingIcon,
+  readOnly = false,
   invalid = false,
   value,
   placeholder,
@@ -37,7 +40,7 @@ export function SetupField({
       <SymbolView name={icon} size={20} tintColor={colors.inkSoft} />
       <View className="flex-1">
         <Text className="setup__field-label">{label}</Text>
-        {onPress ? (
+        {onPress || readOnly ? (
           <Text className={value ? "setup__field-input mt-0.5" : "setup__field-input setup__field-placeholder mt-0.5"}>
             {value || placeholder}
           </Text>
@@ -62,6 +65,7 @@ export function SetupField({
           tintColor={trailingIcon ? colors.inkSoft : colors.muted}
         />
       )}
+      {!onPress && readOnly && trailingIcon && <SymbolView name={trailingIcon} size={16} tintColor={colors.muted} />}
     </View>
   );
 

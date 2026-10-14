@@ -2,12 +2,13 @@ import { useState } from "react";
 import { ActivityIndicator, Alert, Pressable, Text, View } from "react-native";
 import { SymbolView } from "expo-symbols";
 import { router } from "expo-router";
-import { useAuth } from "@clerk/expo";
+import { useAuth, useClerk } from "@clerk/expo";
 
 import { FormAlert } from "@/components/FormAlert";
 import { formatDob } from "@/lib/date";
 import { resolveFatFreeMass } from "@/lib/nutrition";
 import { pickReport, readReport, type ReportSource } from "@/lib/reportUpload";
+import { SESSION_EXPIRED_MESSAGE, isSessionExpired, returnToSignIn } from "@/lib/session";
 import { useSetupStore } from "@/store/setup";
 import { colors } from "@/theme";
 import type { Icon } from "@/types/profile";
@@ -35,12 +36,16 @@ function Value({ label, value }: { label: string; value: string }) {
 // confirmed it shows a summary with Review / Remove instead.
 export function ReportUploadCard() {
   const { getToken } = useAuth();
+  const { signOut } = useClerk();
   const { report, setReportDraft, removeReport } = useSetupStore();
   const [isReading, setIsReading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The server rejected the session: offer the way back to sign-in instead of a dead retry
+  const [sessionExpired, setSessionExpired] = useState(false);
 
   const upload = async (source: ReportSource) => {
     setError(null);
+    setSessionExpired(false);
     const picked = await pickReport(source);
     if (!picked.ok) {
       if ("error" in picked) setError(picked.error);
@@ -49,7 +54,10 @@ export function ReportUploadCard() {
     setIsReading(true);
     const result = await readReport(picked.file, await getToken());
     setIsReading(false);
-    if (!result.ok) return setError(result.error);
+    if (!result.ok) {
+      if (isSessionExpired(result)) setSessionExpired(true);
+      return setError(isSessionExpired(result) ? SESSION_EXPIRED_MESSAGE : result.error);
+    }
     setReportDraft(result.report);
     router.push("/setup/report");
   };
@@ -137,6 +145,11 @@ export function ReportUploadCard() {
         </View>
       </View>
       {error && <FormAlert message={error} />}
+      {sessionExpired && (
+        <Pressable onPress={() => returnToSignIn(signOut)} className="btn-outline">
+          <Text className="btn-outline__label">Sign in again</Text>
+        </Pressable>
+      )}
     </View>
   );
 }

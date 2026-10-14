@@ -1,12 +1,13 @@
-/// <reference types="node" />
-// Run with: npm test
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+// Upload checks and extraction clean-up (bodyComposition/): pure functions, no network.
+//
+//   yarn test
+const assert = require("node:assert/strict");
+const { describe, it } = require("node:test");
 
-import { normalizeExtraction, type RawExtraction } from "../normalize.ts";
-import { checkUpload, sniffMediaType, uploadLimits } from "../upload.ts";
+const { normalizeExtraction } = require("../bodyComposition/normalize.js");
+const { checkUpload, sniffMediaType, uploadLimits } = require("../bodyComposition/upload.js");
 
-const toBase64 = (bytes: number[], padTo = 0) => {
+const toBase64 = (bytes, padTo = 0) => {
   const all = new Uint8Array(Math.max(bytes.length, padTo));
   all.set(bytes);
   return Buffer.from(all).toString("base64");
@@ -33,31 +34,31 @@ describe("Upload checks (server)", () => {
 
   it("rejects a file whose bytes don't match its declared type", () => {
     const result = checkUpload({ data: toBase64(PDF, 64), mediaType: "image/jpeg" });
-    assert.deepEqual(result.ok ? null : result.status, 415);
+    assert.equal(result.ok ? null : result.status, 415);
   });
 
   it("rejects unsupported files (e.g. an executable renamed to .jpg)", () => {
     const result = checkUpload({ data: toBase64([0x4d, 0x5a, 0x90, 0x00], 64), mediaType: "image/jpeg" });
-    assert.deepEqual(result.ok ? null : result.status, 415);
+    assert.equal(result.ok ? null : result.status, 415);
   });
 
   it("rejects oversized images and PDFs", () => {
     const bigImage = checkUpload({ data: toBase64(JPEG, uploadLimits.maxImageBytes + 1), mediaType: "image/jpeg" });
-    assert.deepEqual(bigImage.ok ? null : bigImage.status, 413);
+    assert.equal(bigImage.ok ? null : bigImage.status, 413);
     const bigPdf = checkUpload({ data: toBase64(PDF, uploadLimits.maxPdfBytes + 1), mediaType: "application/pdf" });
-    assert.deepEqual(bigPdf.ok ? null : bigPdf.status, 413);
+    assert.equal(bigPdf.ok ? null : bigPdf.status, 413);
   });
 
   it("rejects malformed requests", () => {
     for (const body of [null, {}, { data: 1, mediaType: "image/jpeg" }, { data: "not base64!!", mediaType: "image/jpeg" }]) {
       const result = checkUpload(body);
-      assert.deepEqual(result.ok ? null : result.status, 400);
+      assert.equal(result.ok ? null : result.status, 400);
     }
   });
 });
 
 // The reference InBody sheet as the model would read it
-const reading: RawExtraction = {
+const reading = {
   isBodyCompositionReport: true,
   massUnit: "kg",
   heightUnit: "cm",

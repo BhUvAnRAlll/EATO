@@ -27,6 +27,13 @@ export default function ForgotPassword() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
 
+  // Back to sign-in. Opened from the sign-in screen there is history to return to; opened
+  // directly (a link, a reload) there is none, so go to sign-in explicitly instead of nowhere.
+  const backToSignIn = () => {
+    if (router.canGoBack()) router.back();
+    else router.replace("/sign-in");
+  };
+
   const sendResetCode = async () => {
     const { error: createError } = await signIn.create({ identifier: email.trim() });
     if (createError) return getClerkErrorMessage(createError);
@@ -73,7 +80,7 @@ export default function ForgotPassword() {
   const isEmailStep = step === "email";
 
   return (
-    <View className="flex-1 bg-cream">
+    <View className="flex-1 overflow-hidden bg-cream">
       <StatusBar style="dark" />
       <View className="auth__circle" style={{ width: 98, height: 98, right: -42, top: 49 }} />
 
@@ -84,7 +91,7 @@ export default function ForgotPassword() {
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
-            <Pressable onPress={() => router.back()} hitSlop={12} className="mb-5 self-start">
+            <Pressable onPress={backToSignIn} hitSlop={12} className="mb-5 self-start">
               <SymbolView
                 name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }}
                 size={20}
@@ -145,7 +152,7 @@ export default function ForgotPassword() {
 
             <Text className="auth__footer mt-6 text-center">
               {"Remembered it?  "}
-              <Text className="auth__footer-link" onPress={() => router.back()}>
+              <Text className="auth__footer-link" onPress={backToSignIn}>
                 Log in
               </Text>
             </Text>

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 import { SymbolView } from "expo-symbols";
-import { useAuth, useUser } from "@clerk/expo";
+import { useAuth, useClerk, useUser } from "@clerk/expo";
 
 import { FormAlert } from "@/components/FormAlert";
 import { OptionCard } from "@/components/setup/OptionCard";
@@ -9,6 +9,7 @@ import { SetupScreen } from "@/components/setup/SetupScreen";
 import { goHome } from "@/lib/auth";
 import { getClerkErrorMessage } from "@/lib/clerk";
 import { saveProfile } from "@/lib/profile";
+import { SESSION_EXPIRED_MESSAGE, isSessionExpired, returnToSignIn } from "@/lib/session";
 import {
   applyUserAdjustment,
   calculateTargets,
@@ -87,6 +88,9 @@ function keptMetadata(metadata: Record<string, unknown>) {
 export default function NutritionTargets() {
   const { user } = useUser();
   const { getToken } = useAuth();
+  const { signOut } = useClerk();
+  // The server rejected the session: offer the way back to sign-in instead of a dead retry
+  const [sessionExpired, setSessionExpired] = useState(false);
   const { profile, calorieOverride, setCalorieOverride, reset, report } = useSetupStore();
 
   // Only for gender "other"/"unspecified": the estimate the user picks (never chosen for them)
@@ -160,17 +164,30 @@ export default function NutritionTargets() {
   // complete on the Clerk account so the start screen can route straight to home.
   // `isSaving` disables the button, so a double tap can't send two requests.
   const handleFinish = async () => {
-    if (!user || isSaving) return;
+    if (isSaving) return;
+    // No account to save for: the session ended while this screen was open. Say so and
+    // offer Log in (the setup layout also leaves setup as soon as Clerk reports it).
+    if (!user) {
+      setSessionExpired(true);
+      setError(SESSION_EXPIRED_MESSAGE);
+      return;
+    }
     const built = buildRecord();
     if (!built.ok) return setError(built.error);
 
     setError(null);
+    setSessionExpired(false);
     setIsSaving(true);
     // The confirmed report values travel inside the record's inputs so the server can
     // re-check the calculation; the uploaded file itself was never stored.
     const saved = await saveProfile(await getToken(), { profile, nutrition: built.record });
     if (!saved.ok) {
-      setError(saved.error);
+      if (isSessionExpired(saved)) {
+        setSessionExpired(true);
+        setError(SESSION_EXPIRED_MESSAGE);
+      } else {
+        setError(saved.error);
+      }
       setIsSaving(false);
       return;
     }
@@ -368,6 +385,11 @@ export default function NutritionTargets() {
       {error && (
         <View className="mt-3">
           <FormAlert message={error} />
+          {sessionExpired && (
+            <Pressable onPress={() => returnToSignIn(signOut)} className="btn-outline mt-3">
+              <Text className="btn-outline__label">Sign in again</Text>
+            </Pressable>
+          )}
         </View>
       )}
     </SetupScreen>

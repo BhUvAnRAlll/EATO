@@ -1,5 +1,5 @@
-import { useEffect, useEffectEvent, useState, type ComponentType } from "react";
-import { Modal, Platform, Pressable, Text, TextInput, View, type TextInputProps } from "react-native";
+import { useEffect, useEffectEvent, useState, type CSSProperties } from "react";
+import { Modal, Platform, Pressable, Text, View } from "react-native";
 import DateTimePicker, { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
 
 import { PrimaryButton } from "@/components/PrimaryButton";
@@ -15,8 +15,21 @@ type DatePickerSheetProps = {
   onClose: () => void;
 };
 
-type WebDateInputProps = TextInputProps & { type: "date"; min?: string; max?: string };
-const WebDateInput = TextInput as unknown as ComponentType<WebDateInputProps>;
+// Web only: a real HTML date input. react-native-web's TextInput drops type/min/max, so the
+// browser's own calendar and range limits only appear with the DOM element itself. Styled
+// inline to match the setup fields (NativeWind classes don't apply to a raw DOM element).
+const webDateInputStyle: CSSProperties = {
+  marginTop: 20,
+  width: "100%",
+  boxSizing: "border-box",
+  borderRadius: 14,
+  border: `1px solid ${colors.line}`,
+  backgroundColor: colors.surface,
+  padding: "12px 16px",
+  color: colors.ink,
+  font: "inherit",
+  fontSize: 16,
+};
 
 const dateInputValue = (date: Date) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
@@ -83,16 +96,18 @@ function WebDateSheet({ title, value, minimumDate, maximumDate, onSelect, onClos
             <Text className="auth__link">Cancel</Text>
           </Pressable>
         </View>
-        <WebDateInput
-          className="mt-5 w-full rounded-md border border-line bg-surface px-4 py-3 text-ink"
+        <input
           type="date"
           value={draft}
           min={minimumValue}
           max={maximumValue}
-          onChangeText={setDraft}
+          onChange={(event) => setDraft(event.target.value)}
+          style={webDateInputStyle}
         />
+        {/* Only a valid date inside the allowed range can be confirmed */}
         <PrimaryButton
           label="Done"
+          disabled={!isInRange}
           onPress={() => {
             if (isInRange && selectedDate) onSelect(selectedDate);
             onClose();
