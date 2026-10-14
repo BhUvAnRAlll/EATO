@@ -31,7 +31,7 @@ function RootStack() {
       }}
     >
       <Stack.Protected guard={role === "user"}>
-        <Stack.Screen name="home" />
+        <Stack.Screen name="(user)" />
       </Stack.Protected>
       <Stack.Protected guard={role === "admin"}>
         <Stack.Screen name="admin" />

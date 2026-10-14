@@ -1,11 +1,20 @@
 import { calculatorConfig, type CalculatorConfig } from "./config.ts";
 import { katchMcArdleRmr } from "./energy.ts";
-import type { BodyCompositionReport } from "./types.ts";
+import type { BodyCompositionReport, BodySegment } from "./types.ts";
 
 // Pure logic for body composition reports. Reading the sheet (OCR / layout parsing)
 // lives elsewhere and only ever produces an unconfirmed BodyCompositionReport.
 
 export type ReportField = keyof BodyCompositionReport;
+
+export const bodySegments: BodySegment[] = ["leftArm", "rightArm", "trunk", "leftLeg", "rightLeg"];
+
+// True when the report has at least one segment mass to show
+export function hasSegmentalData(report: BodyCompositionReport): boolean {
+  const segmental = report.segmental;
+  if (!segmental) return false;
+  return bodySegments.some((segment) => segmental.leanMass[segment]?.kg != null || segmental.fatMass[segment]?.kg != null);
+}
 
 export type ReportIssue = { fields: ReportField[]; message: string };
 

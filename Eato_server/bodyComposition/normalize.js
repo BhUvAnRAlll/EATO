@@ -4,6 +4,27 @@
 
 const nullable = (type) => ({ anyOf: [{ type }, { type: "null" }] });
 
+// The five regions of a segmental analysis, as printed on the sheet's body diagram
+const SEGMENTS = ["leftArm", "rightArm", "trunk", "leftLeg", "rightLeg"];
+const RATINGS = ["under", "normal", "over"];
+
+// One segment: the printed mass and its printed rating (Under / Normal / Over)
+const segmentReading = {
+  type: "object",
+  additionalProperties: false,
+  required: ["mass", "rating"],
+  properties: {
+    mass: nullable("number"),
+    rating: { anyOf: [{ type: "string", enum: RATINGS }, { type: "null" }] },
+  },
+};
+const segmental = {
+  type: "object",
+  additionalProperties: false,
+  required: SEGMENTS,
+  properties: Object.fromEntries(SEGMENTS.map((segment) => [segment, segmentReading])),
+};
+
 // JSON schema for structured output: every value is required but may be null
 const extractionSchema = {
   type: "object",
@@ -23,6 +44,8 @@ const extractionSchema = {
     "skeletalMuscleMass",
     "basalMetabolicRateKcal",
     "recommendedCalorieIntakeKcal",
+    "segmentalLeanMass",
+    "segmentalFatMass",
   ],
   properties: {
     isBodyCompositionReport: { type: "boolean" },
@@ -39,7 +62,15 @@ const extractionSchema = {
     skeletalMuscleMass: nullable("number"),
     basalMetabolicRateKcal: nullable("number"),
     recommendedCalorieIntakeKcal: nullable("number"),
+    segmentalLeanMass: segmental,
+    segmentalFatMass: segmental,
   },
+};
+
+// Plausible printed masses per segment (kg): [min, max] for lean mass and for fat
+const segmentBounds = {
+  lean: { leftArm: [0.5, 15], rightArm: [0.5, 15], trunk: [5, 60], leftLeg: [2, 30], rightLeg: [2, 30] },
+  fat: { leftArm: [0.1, 20], rightArm: [0.1, 20], trunk: [0.5, 80], leftLeg: [0.2, 30], rightLeg: [0.2, 30] },
 };
 
 const LB_TO_KG = 0.45359237;
@@ -68,6 +99,20 @@ function normalizeExtraction(raw, id, today = new Date()) {
   const height =
     raw.height == null || raw.heightUnit == null ? null : round1(raw.heightUnit === "in" ? raw.height * IN_TO_CM : raw.height);
 
+  // Segmental analysis: each region's mass (unit-converted like every other mass) and
+  // printed rating. Absent entirely when the sheet has no readable segment at all.
+  const readSegments = (group, bounds) =>
+    Object.fromEntries(
+      SEGMENTS.map((segment) => {
+        const reading = group && typeof group === "object" ? group[segment] : null;
+        const [min, max] = bounds[segment];
+        return [segment, { kg: plausible(mass(reading?.mass), min, max), rating: RATINGS.includes(reading?.rating) ? reading.rating : null }];
+      }),
+    );
+  const leanMass = readSegments(raw.segmentalLeanMass, segmentBounds.lean);
+  const fatMass = readSegments(raw.segmentalFatMass, segmentBounds.fat);
+  const anySegment = [...Object.values(leanMass), ...Object.values(fatMass)].some((reading) => reading.kg != null);
+
   return {
     id,
     source: "upload",
@@ -83,8 +128,9 @@ function normalizeExtraction(raw, id, today = new Date()) {
     skeletalMuscleMassKg: plausible(mass(raw.skeletalMuscleMass), 5, 120),
     printedBmrKcal: plausible(raw.basalMetabolicRateKcal, 500, 4000),
     printedRecommendedIntakeKcal: plausible(raw.recommendedCalorieIntakeKcal, 500, 6000),
+    segmental: anySegment ? { leanMass, fatMass } : null,
     confirmed: false,
   };
 }
 
-module.exports = { extractionSchema, normalizeExtraction };
+module.exports = { extractionSchema, normalizeExtraction, SEGMENTS };

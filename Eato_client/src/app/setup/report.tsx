@@ -5,12 +5,13 @@ import { Redirect, router } from "expo-router";
 
 import { FormAlert } from "@/components/FormAlert";
 import { DatePickerSheet } from "@/components/setup/DatePickerSheet";
+import { ReviewRow } from "@/components/setup/ReviewRow";
 import { SelectSheet } from "@/components/setup/SelectSheet";
-import { SetupField } from "@/components/setup/SetupField";
 import { SetupScreen } from "@/components/setup/SetupScreen";
 import { formatDob } from "@/lib/date";
 import {
   calculatorConfig,
+  hasSegmentalData,
   reportCompletenessIssues,
   reportConsistencyIssues,
   reportStatus,
@@ -25,29 +26,42 @@ type NumberField =
   | "age"
   | "heightCm"
   | "weightKg"
-  | "bodyFatMassKg"
   | "percentBodyFat"
-  | "fatFreeMassKg"
   | "skeletalMuscleMassKg"
+  | "bodyFatMassKg"
+  | "fatFreeMassKg"
   | "printedBmrKcal"
   | "printedRecommendedIntakeKcal";
 
-// Every value we read, in the order it appears on most sheets
-const numberFields: { key: NumberField; label: string; unit: string; icon: Icon }[] = [
-  { key: "age", label: "Age", unit: "years", icon: { ios: "birthday.cake", android: "cake", web: "cake" } },
-  { key: "heightCm", label: "Height", unit: "cm", icon: { ios: "ruler", android: "height", web: "height" } },
-  { key: "weightKg", label: "Weight", unit: "kg", icon: { ios: "scalemass", android: "scale", web: "scale" } },
-  { key: "bodyFatMassKg", label: "Body fat mass", unit: "kg", icon: { ios: "drop", android: "opacity", web: "opacity" } },
-  { key: "percentBodyFat", label: "Percent body fat (PBF)", unit: "%", icon: { ios: "percent", android: "percent", web: "percent" } },
-  { key: "fatFreeMassKg", label: "Fat-free mass", unit: "kg", icon: { ios: "figure.strengthtraining.traditional", android: "fitness_center", web: "fitness_center" } },
-  { key: "skeletalMuscleMassKg", label: "Skeletal muscle mass", unit: "kg", icon: { ios: "dumbbell", android: "fitness_center", web: "fitness_center" } },
-  { key: "printedBmrKcal", label: "Basal metabolic rate (printed)", unit: "kcal", icon: { ios: "flame", android: "local_fire_department", web: "local_fire_department" } },
-  {
-    key: "printedRecommendedIntakeKcal",
-    label: "Recommended calorie intake (device reference only)",
-    unit: "kcal",
-    icon: { ios: "info.circle", android: "info", web: "info" },
-  },
+type FieldLook = { icon: Icon; tint: string; background: string };
+
+// Soft icon tiles, one colour per kind of value (from the review mockup)
+const look = {
+  date: { icon: { ios: "calendar", android: "calendar_month", web: "calendar_month" }, tint: colors.forest, background: colors.forestSoft },
+  gender: { icon: { ios: "figure.stand", android: "wc", web: "wc" }, tint: colors.violet, background: colors.infoSoft },
+  age: { icon: { ios: "birthday.cake", android: "cake", web: "cake" }, tint: colors.bronze, background: "#F4EDE0" },
+  height: { icon: { ios: "ruler", android: "height", web: "height" }, tint: "#4A7FC1", background: "#E3EDF8" },
+  weight: { icon: { ios: "scalemass", android: "monitor_weight", web: "monitor_weight" }, tint: colors.bronze, background: "#F4EDE0" },
+  percent: { icon: { ios: "percent", android: "percent", web: "percent" }, tint: colors.danger, background: colors.dangerSoft },
+  muscle: { icon: { ios: "dumbbell", android: "fitness_center", web: "fitness_center" }, tint: "#4A7FC1", background: "#E3EDF8" },
+  fatMass: { icon: { ios: "circle.hexagongrid", android: "bubble_chart", web: "bubble_chart" }, tint: colors.warning, background: colors.warningSoft },
+  leanMass: { icon: { ios: "figure.strengthtraining.traditional", android: "accessibility_new", web: "accessibility_new" }, tint: colors.leaf, background: colors.leafSoft },
+  bmi: { icon: { ios: "person.crop.square", android: "straighten", web: "straighten" }, tint: "#4A7FC1", background: "#E3EDF8" },
+  energy: { icon: { ios: "flame", android: "local_fire_department", web: "local_fire_department" }, tint: colors.danger, background: colors.dangerSoft },
+  info: { icon: { ios: "info.circle", android: "info", web: "info" }, tint: colors.muted, background: colors.creamTab },
+} satisfies Record<string, FieldLook>;
+
+// Every number we read, in the order shown
+const numberFields: { key: NumberField; label: string; unit: string; look: FieldLook }[] = [
+  { key: "age", label: "Age", unit: "years", look: look.age },
+  { key: "heightCm", label: "Height", unit: "cm", look: look.height },
+  { key: "weightKg", label: "Weight", unit: "kg", look: look.weight },
+  { key: "percentBodyFat", label: "Body Fat Percentage", unit: "%", look: look.percent },
+  { key: "skeletalMuscleMassKg", label: "Skeletal Muscle Mass", unit: "kg", look: look.muscle },
+  { key: "bodyFatMassKg", label: "Body Fat Mass", unit: "kg", look: look.fatMass },
+  { key: "fatFreeMassKg", label: "Fat-free Mass", unit: "kg", look: look.leanMass },
+  { key: "printedBmrKcal", label: "Printed BMR", unit: "kcal", look: look.energy },
+  { key: "printedRecommendedIntakeKcal", label: "Printed intake", unit: "kcal", look: look.info },
 ];
 
 const genderOptions: Option<EquationGender>[] = [
@@ -61,9 +75,15 @@ const toNumber = (text: string) => (text.trim() === "" || Number.isNaN(Number(te
 const isoToDate = (iso: string | null) => (iso ? new Date(`${iso}T12:00:00Z`) : new Date());
 const dateToIso = (date: Date) => date.toISOString().slice(0, 10);
 
-// Shows every value read from the uploaded report for the user to check and correct.
-// Nothing is used for calculation until they confirm.
-export default function ConfirmReport() {
+// BMI from the corrected weight and height, shown for reference only (never saved)
+function bmiText(weightKg: number | null, heightCm: number | null) {
+  if (!weightKg || !heightCm || weightKg <= 0 || heightCm <= 0) return "";
+  return (weightKg / (heightCm / 100) ** 2).toFixed(1);
+}
+
+// "Review your details": every value read from the uploaded report, for the user to check
+// and correct. Nothing is used for calculation until they continue.
+export default function ReviewReport() {
   const { reportDraft, confirmReport, setReportDraft } = useSetupStore();
   const [values, setValues] = useState<Record<NumberField, string>>(() =>
     Object.fromEntries(numberFields.map(({ key }) => [key, toText(reportDraft?.[key] ?? null)])) as Record<NumberField, string>,
@@ -87,28 +107,46 @@ export default function ConfirmReport() {
   const flagged = new Set(issues.flatMap((issue) => issue.fields));
   const isExpired = issues.length === 0 && reportStatus(edited).status === "expired";
 
-  const handleConfirm = () => {
+  // Confirms the values. A sheet with a segmental analysis shows it next (in place of
+  // this screen, so Back from there returns to the upload step); otherwise straight back.
+  const handleContinue = () => {
     confirmReport({ ...edited, confirmedAt: new Date().toISOString() });
-    router.back();
+    if (hasSegmentalData(edited)) router.replace("/setup/segmental");
+    else router.back();
   };
 
+  // Back (or "enter manually"): drop the draft and return to the upload step
   const handleDiscard = () => {
     setReportDraft(null);
     router.back();
   };
 
+  const setNumber = (key: NumberField, text: string) => setValues({ ...values, [key]: text.replace(/[^\d.]/g, "").slice(0, 6) });
+
   return (
     <SetupScreen
-      step="body-composition"
-      title="Check your report"
-      subtitle="We read these values from your report. Compare each one with the sheet and fix anything that's wrong or empty."
-      onNext={handleConfirm}
-      nextLabel="Confirm values"
+      step="report"
+      title="Review your details"
+      subtitle="We have extracted these values from your InBody report. Please check and edit if needed."
+      onNext={handleContinue}
+      nextLabel="Continue"
       canContinue={issues.length === 0}
       onBack={handleDiscard}
     >
+      <View className="setup__note">
+        <SymbolView
+          name={{ ios: "doc.text.magnifyingglass", android: "task", web: "task" }}
+          size={26}
+          tintColor={colors.forest}
+        />
+        <View className="flex-1 gap-0.5">
+          <Text className="setup__note-title">Values extracted from your report</Text>
+          <Text className="setup__note-text">You can edit any value if it looks incorrect.</Text>
+        </View>
+      </View>
+
       {issues.length > 0 && (
-        <View className="mb-4 gap-2">
+        <View className="mt-4 gap-2">
           {issues.map((issue) => (
             <FormAlert key={issue.message} message={issue.message} />
           ))}
@@ -116,7 +154,7 @@ export default function ConfirmReport() {
       )}
 
       {isExpired && (
-        <View className="setup__info mb-4">
+        <View className="setup__info mt-4">
           <SymbolView name={{ ios: "info.circle", android: "info", web: "info" }} size={16} tintColor={colors.forest} />
           <Text className="setup__card-text flex-1">
             {`This report is more than ${calculatorConfig.bodyComposition.maxReportAgeDays} days old, so we'll use the standard formula instead. Upload a newer report if you have one.`}
@@ -124,44 +162,49 @@ export default function ConfirmReport() {
         </View>
       )}
 
-      <View className="gap-3">
-        <SetupField
+      <View className="mt-4 gap-2.5">
+        <ReviewRow
           label="Test date"
-          icon={{ ios: "calendar", android: "calendar_month", web: "calendar_month" }}
-          placeholder="Select the date on the report"
+          {...look.date}
+          placeholder="Select"
           value={testDate ? formatDob(testDate.split("-").reverse().join("/")) : ""}
           onPress={() => setIsDateOpen(true)}
-          trailingIcon={{ ios: "calendar", android: "calendar_month", web: "calendar_month" }}
           invalid={flagged.has("testDate")}
         />
-        <SetupField
+        <ReviewRow
           label="Gender"
-          icon={{ ios: "figure.stand", android: "wc", web: "wc" }}
+          {...look.gender}
           placeholder="Not shown"
           value={genderOptions.find((option) => option.id === gender)?.label ?? ""}
           onPress={() => setIsGenderOpen(true)}
         />
         {numberFields.map((field) => (
-          <SetupField
+          <ReviewRow
             key={field.key}
             label={field.label}
-            icon={field.icon}
+            {...field.look}
             unit={field.unit}
-            placeholder="Couldn't read, type it from the sheet"
+            placeholder="—"
             value={values[field.key]}
-            onChangeText={(text) => setValues({ ...values, [field.key]: text.replace(/[^\d.]/g, "").slice(0, 6) })}
-            keyboardType="decimal-pad"
+            onChangeText={(text) => setNumber(field.key, text)}
             invalid={flagged.has(field.key)}
           />
         ))}
+        <ReviewRow label="BMI" {...look.bmi} value={bmiText(toNumber(values.weightKg), toNumber(values.heightCm))} />
       </View>
 
-      <Text className="setup__card-text mt-4">
-        Body composition readings vary with hydration, meals and time of day, so results are estimates.
-      </Text>
-      <Text className="auth__link mt-3" onPress={handleDiscard}>
-        {"Discard report and enter my details manually"}
-      </Text>
+      <View className="setup__info mt-4 items-center">
+        <View className="h-7 w-7 items-center justify-center rounded-pill bg-cream-tab">
+          <SymbolView name={{ ios: "info", android: "info", web: "info" }} size={14} tintColor={colors.muted} />
+        </View>
+        <Text className="setup__card-text flex-1">
+          These values are from your InBody report. You can edit them if needed, or{" "}
+          <Text className="auth__link" onPress={handleDiscard}>
+            enter manually
+          </Text>
+          .
+        </Text>
+      </View>
 
       <DatePickerSheet
         visible={isDateOpen}

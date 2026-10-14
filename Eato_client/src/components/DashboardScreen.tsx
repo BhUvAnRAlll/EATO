@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
+import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { SymbolView } from "expo-symbols";
@@ -38,7 +39,13 @@ export function DashboardScreen({ role, children }: DashboardScreenProps) {
 
             <View className="gap-3">
               {dashboard.tiles.map((tile) => (
-                <View key={tile.id} className="card flex-row items-center gap-3">
+                <Pressable
+                  key={tile.id}
+                  className="card flex-row items-center gap-3"
+                  disabled={!tile.href}
+                  onPress={() => tile.href && router.push(tile.href)}
+                  accessibilityRole={tile.href ? "button" : undefined}
+                >
                   <View className="card__icon">
                     <SymbolView name={tile.icon} size={20} tintColor={colors.forest} />
                   </View>
@@ -46,8 +53,12 @@ export function DashboardScreen({ role, children }: DashboardScreenProps) {
                     <Text className="card__title">{tile.title}</Text>
                     <Text className="card__subtitle">{tile.subtitle}</Text>
                   </View>
-                  <Text className="type-caption text-faint">Soon</Text>
-                </View>
+                  {tile.href ? (
+                    <SymbolView name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }} size={16} tintColor={colors.muted} />
+                  ) : (
+                    <Text className="type-caption text-faint">Soon</Text>
+                  )}
+                </Pressable>
               ))}
             </View>
 

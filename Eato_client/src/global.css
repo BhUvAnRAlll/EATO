@@ -323,6 +323,13 @@
   color: var(--color-bronze);
 }
 
+/* Home header: a tighter tagline that fits beside the delivery pill */
+@utility brand__tagline--tight {
+  font-size: 10px;
+  line-height: 13px;
+  letter-spacing: 1.2px;
+}
+
 /* Forest-green pill button: <Pressable className="btn-forest"><Text className="btn-forest__label" /> */
 @utility btn-forest {
   height: 44px;
@@ -935,4 +942,689 @@
   line-height: 16px;
   font-weight: 400;
   color: var(--color-muted);
+}
+
+/* Home screen: header pill and bell */
+@utility home__pill {
+  height: 44px;
+  padding-inline: 14px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-cream-tab);
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+}
+
+@utility home__pill-label {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 500;
+  color: var(--color-forest-ink);
+}
+
+@utility home__icon-button {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-pill);
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-white);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility home__unread {
+  position: absolute;
+  top: 10px;
+  right: 11px;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-danger);
+}
+
+/* Hero promotion slide */
+@utility home__eyebrow {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 700;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+@utility home__headline {
+  font-family: var(--font-sans);
+  font-size: 27px;
+  line-height: 31px;
+  font-weight: 800;
+  letter-spacing: -0.6px;
+  color: var(--color-ink);
+}
+
+@utility home__headline-accent {
+  color: var(--color-leaf);
+}
+
+@utility home__lead {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 19px;
+  font-weight: 400;
+  color: var(--color-ink-soft);
+}
+
+@utility home__cta {
+  height: 46px;
+  padding-inline: 22px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-forest);
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  align-self: flex-start;
+}
+
+@utility home__cta-label {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 20px;
+  font-weight: 600;
+  color: var(--color-white);
+}
+
+@utility home__cta--secondary {
+  background-color: transparent;
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+}
+
+@utility home__cta-label--secondary {
+  color: var(--color-forest-ink);
+}
+
+/* Carousel dots: the active one stretches into a short bar */
+@utility home__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-sand);
+}
+
+@utility home__dot--active {
+  width: 20px;
+  background-color: var(--color-forest);
+}
+
+/* Section header link: "View all →" */
+@utility home__link {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 600;
+  color: var(--color-leaf);
+}
+
+@utility home__card {
+  padding: var(--spacing-lg);
+  border-radius: var(--radius-lg);
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-white);
+  box-shadow: var(--shadow-card);
+}
+
+@utility home__note {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 400;
+  color: var(--color-faint);
+}
+
+@utility home__empty {
+  margin-inline: var(--spacing-xl);
+  padding: var(--spacing-xl);
+  border-radius: var(--radius-lg);
+  border-width: 1px;
+  border-style: dashed;
+  border-color: var(--color-sand);
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+/* Quick-action card */
+@utility quick__card {
+  padding: 14px;
+  padding-inline: 4px;
+  border-radius: 18px;
+  justify-content: center;
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-white);
+  box-shadow: var(--shadow-card);
+  align-items: center;
+}
+
+@utility quick__icon {
+  align-items: center;
+  justify-content: center;
+}
+
+@utility quick__title {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 700;
+  color: var(--color-ink);
+  text-align: center;
+}
+
+@utility quick__subtitle {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 400;
+  color: var(--color-muted);
+  text-align: center;
+}
+
+
+/* Nutrition rings (font sizes scale with the ring, set inline) */
+@utility ring__panel {
+  padding: var(--spacing-md);
+  padding-block: var(--spacing-lg);
+  border-radius: 20px;
+  background-color: #f4f1ec;
+}
+
+@utility ring__value {
+  font-family: var(--font-sans);
+  font-weight: 800;
+  letter-spacing: -0.4px;
+  color: var(--color-ink);
+}
+
+@utility ring__target {
+  font-family: var(--font-sans);
+  font-weight: 400;
+  color: var(--color-muted);
+}
+
+@utility ring__label {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 17px;
+  font-weight: 600;
+  color: var(--color-ink);
+  text-align: center;
+}
+
+/* Popular meal card */
+@utility meal__card {
+  border-radius: var(--radius-lg);
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-white);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+
+@utility meal__heart {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-pill);
+  background-color: rgba(255, 255, 255, 0.9);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility meal__name {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 19px;
+  font-weight: 700;
+  color: var(--color-ink);
+}
+
+@utility meal__macros {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 17px;
+  font-weight: 400;
+  color: var(--color-muted);
+}
+
+@utility meal__add {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-forest);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility meal__add-label {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 18px;
+  font-weight: 700;
+  color: var(--color-white);
+}
+
+/* Today's delivery card */
+@utility today__card {
+  padding: var(--spacing-md);
+  border-radius: var(--radius-lg);
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-white);
+  box-shadow: var(--shadow-card);
+}
+
+@utility today__slot {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+@utility today__name {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 19px;
+  font-weight: 700;
+  color: var(--color-ink);
+}
+
+@utility today__chip {
+  height: 22px;
+  padding-inline: 7px;
+  border-radius: 8px;
+  background-color: var(--color-cream-tab);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility today__chip-label {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 600;
+  color: var(--color-ink-soft);
+}
+
+@utility today__status {
+  height: 38px;
+  padding-inline: 14px;
+  border-radius: 12px;
+  background-color: var(--color-ink);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility today__status-label {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 600;
+  color: var(--color-white);
+}
+
+/* "LIVE" / "SAMPLE" badge beside a section title */
+@utility live__badge {
+  height: 24px;
+  padding-inline: 10px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-forest-soft);
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+}
+
+@utility live__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-success);
+}
+
+@utility live__label {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--color-leaf);
+}
+
+@utility live__badge--sample {
+  background-color: var(--color-cream-tab);
+}
+
+@utility live__dot--sample {
+  background-color: var(--color-faint);
+}
+
+@utility live__label--sample {
+  color: var(--color-muted);
+}
+
+/* Bottom tab bar: a floating white pill with five tabs */
+@utility tabbar {
+  margin-inline: var(--spacing-md);
+  padding: 6px;
+  border-radius: var(--radius-pill);
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-white);
+  flex-direction: row;
+  box-shadow: 0 6px 20px rgba(11, 11, 15, 0.08);
+}
+
+@utility tabbar__item {
+  flex: 1;
+  height: 56px;
+  border-radius: var(--radius-pill);
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+}
+
+@utility tabbar__item--active {
+  background-color: var(--color-forest-soft);
+}
+
+@utility tabbar__label {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 14px;
+  font-weight: 500;
+  color: var(--color-muted);
+}
+
+@utility tabbar__label--active {
+  font-weight: 600;
+  color: var(--color-leaf-dark);
+}
+
+/* Placeholder screen for areas that aren't built yet */
+@utility placeholder__icon {
+  width: 72px;
+  height: 72px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-forest-soft);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility placeholder__text {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 21px;
+  font-weight: 400;
+  color: var(--color-muted);
+  text-align: center;
+}
+
+/* Admin: home screen & promotions */
+@utility admin__row {
+  padding: var(--spacing-md);
+  border-radius: var(--radius-md);
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-white);
+  box-shadow: var(--shadow-card);
+}
+
+@utility admin__action {
+  height: 36px;
+  padding-inline: 12px;
+  border-radius: var(--radius-pill);
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-cream-light);
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+@utility admin__action-label {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 17px;
+  font-weight: 600;
+  color: var(--color-forest-ink);
+}
+
+@utility admin__action--primary {
+  border-color: var(--color-forest);
+  background-color: var(--color-forest);
+}
+
+@utility admin__action-label--primary {
+  color: var(--color-white);
+}
+
+@utility admin__action--danger {
+  border-color: var(--color-danger-soft);
+  background-color: var(--color-danger-soft);
+}
+
+@utility admin__action-label--danger {
+  color: var(--color-danger);
+}
+
+@utility admin__input {
+  min-height: 44px;
+  padding-inline: var(--spacing-lg);
+  padding-block: 10px;
+  border-radius: 12px;
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-cream-light);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 400;
+  color: var(--color-forest-ink);
+}
+
+@utility admin__hint {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 400;
+  color: var(--color-muted);
+}
+
+@utility admin__success {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 600;
+  color: var(--color-leaf);
+}
+
+@utility admin__preview {
+  border-radius: var(--radius-lg);
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-cream);
+  overflow: hidden;
+}
+
+/* Report review (setup): one row per value read from the report */
+@utility review__row {
+  min-height: 60px;
+  padding-inline: var(--spacing-md);
+  padding-block: 10px;
+  border-radius: var(--radius-md);
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-white);
+  box-shadow: var(--shadow-card);
+  flex-direction: row;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+@utility review__row--invalid {
+  border-width: 1.5px;
+  border-color: var(--color-danger);
+}
+
+@utility review__icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  align-items: center;
+  justify-content: center;
+}
+
+@utility review__label {
+  flex: 1;
+  min-width: 0px;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 500;
+  color: var(--color-ink);
+}
+
+/* The value box with its unit: <View className="review__control"><View className="review__value">…</View><Text className="review__unit">kg</Text></View> */
+@utility review__control {
+  height: 40px;
+  border-radius: 11px;
+  background-color: var(--color-cream-tab);
+  flex-direction: row;
+  align-items: center;
+  overflow: hidden;
+}
+
+@utility review__value {
+  height: 36px;
+  width: 78px;
+  margin: 2px;
+  padding-inline: 6px;
+  border-radius: 9px;
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-white);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility review__input {
+  padding: 0;
+  width: 100%;
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 20px;
+  font-weight: 700;
+  color: var(--color-ink);
+  text-align: center;
+}
+
+@utility review__value--auto {
+  width: auto;
+  min-width: 78px;
+}
+
+@utility review__input--empty {
+  font-weight: 500;
+  color: var(--color-faint);
+}
+
+@utility review__unit {
+  padding-inline: 8px;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 500;
+  color: var(--color-muted);
+}
+
+/* Segmental analysis (setup): a card per analysis with the body diagram and callouts */
+@utility seg__card {
+  padding: var(--spacing-md);
+  border-radius: var(--radius-lg);
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-white);
+  box-shadow: var(--shadow-card);
+}
+
+@utility seg__title {
+  flex: 1;
+  font-family: var(--font-sans);
+  font-size: 17px;
+  line-height: 22px;
+  font-weight: 700;
+  color: var(--color-ink);
+}
+
+@utility seg__unit {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 17px;
+  font-weight: 500;
+  color: var(--color-muted);
+}
+
+@utility seg__panel {
+  border-radius: 16px;
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-cream-light);
+  overflow: hidden;
+}
+
+@utility seg__value {
+  font-family: var(--font-sans);
+  font-size: 17px;
+  line-height: 22px;
+  font-weight: 800;
+  color: var(--color-ink);
+}
+
+@utility seg__value-unit {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-ink-soft);
+}
+
+@utility seg__rating {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 600;
+}
+
+@utility seg__label {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 17px;
+  font-weight: 400;
+  color: var(--color-muted);
+}
+
+/* The trunk callout sits on the body in a small white box */
+@utility seg__trunk {
+  padding-inline: 8px;
+  padding-block: 6px;
+  border-radius: 12px;
+  background-color: var(--color-white);
+  box-shadow: var(--shadow-card);
+  align-items: center;
 }

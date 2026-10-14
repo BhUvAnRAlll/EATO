@@ -16,6 +16,7 @@ Rules:
 - Report the unit the sheet uses for mass (kg or lb) and height (cm or in). If you can't tell, return null.
 - Give the test date as YYYY-MM-DD, or null if it isn't printed clearly.
 - Gender: "male" or "female" only if printed; otherwise null.
+- Segmental lean and segmental fat analysis: for each of left arm, right arm, trunk, left leg and right leg, copy the printed mass (in the sheet's mass unit) and the printed rating word, "under", "normal" or "over". Use null for a segment or rating that isn't printed clearly.
 - If the image is not a body composition result sheet, set isBodyCompositionReport to false and every other value to null.`;
 
 // A failure the user can act on: `status` is the HTTP status to answer with

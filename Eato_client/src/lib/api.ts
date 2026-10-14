@@ -15,7 +15,7 @@ export function getApiUrl(): string {
 }
 
 type ApiOptions = {
-  method?: "GET" | "POST" | "PATCH" | "DELETE";
+  method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   body?: unknown;
   // Clerk session token, for routes that need to know who's asking
   token?: string | null;

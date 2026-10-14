@@ -9,6 +9,8 @@ export {
   reportConsistencyIssues,
   reportStatus,
   resolveFatFreeMass,
+  bodySegments,
+  hasSegmentalData,
 } from "./bodyComposition.ts";
 export { goalMacroSplit, macroCalories, macrosFromSplit, validateMacroSplit } from "./macros.ts";
 export { professionalGuidanceReasons, validateInput } from "./validation.ts";

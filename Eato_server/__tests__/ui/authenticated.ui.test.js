@@ -45,6 +45,11 @@ describe("ui authenticated: sign in → onboarding → save → reload → updat
     try { await fn(); } catch (error) { throw new Error(`${error.message}\n${await evidence(label)}`); }
   };
   const apiUrl = () => `http://localhost:${env.PORT}`;
+  // The header's round avatar button (an icon, so it is found by its accessible name)
+  const clickProfile = async () => {
+    const pos = await page.waitFor(`(() => { const el = document.querySelector('[aria-label="Profile"]'); if (!el || !el.getClientRects().length) return null; const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`, NAV_TIMEOUT, "profile button");
+    await page.clickAt(pos.x, pos.y);
+  };
 
   // Signs in through the real screen; handles the emailed-code step if Clerk asks for it
   const signInAs = async (identity) => {
@@ -143,6 +148,10 @@ describe("ui authenticated: sign in → onboarding → save → reload → updat
     const before = page.requests.length;
     await page.clickText("Finish");
     await h.expectPath("/home");
+    await h.expectText("Today's Nutrition");
+    // The greeting and sign-out live on the Profile screen, opened from the header's avatar button
+    await clickProfile();
+    await h.expectPath("/profile");
     await h.expectText("Sign out");
     await h.expectText("Hi, E2E!");
     assert.ok(page.requests.slice(before).some((u) => u === `${apiUrl()}/api/profile`), "Finish must call the test server's profile route");
@@ -155,12 +164,12 @@ describe("ui authenticated: sign in → onboarding → save → reload → updat
   }));
 
   it("3. after a reload the saved profile is retrieved and the user lands on home again", run("reload", async () => {
-    await h.goto("/", "Sign out");
+    await h.goto("/", "Today's Nutrition");
     assert.equal(await page.path(), "/home");
     // Returned-user path: with the account flag cleared, the app must ask the server and still reach home
     await clerk.setUnsafeMetadata(identities.a.id, { profileComplete: null });
     const before = page.requests.length;
-    await h.goto("/", "Sign out");
+    await h.goto("/", "Today's Nutrition");
     assert.equal(await page.path(), "/home");
     assert.ok(page.requests.slice(before).some((u) => u === `${apiUrl()}/api/profile`), "the app should have fetched the profile from the test server");
     const deadline = Date.now() + 15000;
@@ -186,7 +195,7 @@ describe("ui authenticated: sign in → onboarding → save → reload → updat
     await fillSetup(page, expo.baseUrl, { fullName: "E2E Updated", diet: "Vegetarian", goal: "Maintain weight" });
     await page.clickText("Finish");
     await h.expectPath("/home");
-    await h.expectText("Sign out");
+    await h.expectText("Today's Nutrition");
     assert.deepEqual(await db.rowsForUser(connection, identities.a.id), { nutrition_targets: 1, body_composition_reports: 0, profiles: 1, users: 1 });
     const [[user]] = await connection.query("SELECT full_name FROM users WHERE id = ?", [identities.a.id]);
     assert.equal(user.full_name, "E2E Updated");
@@ -196,6 +205,8 @@ describe("ui authenticated: sign in → onboarding → save → reload → updat
   }));
 
   it("6. signing out returns to onboarding and the profile route rejects the browser without a session", run("sign-out", async () => {
+    await clickProfile();
+    await h.expectText("Sign out");
     await page.clickText("Sign out");
     await h.expectText("Get Started");
     await h.settle();

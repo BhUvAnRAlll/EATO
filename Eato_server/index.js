@@ -17,13 +17,14 @@ const express = require("express");
 const cors = require("cors");
 const { pool } = require("./database");
 const { randomUUID } = require("node:crypto");
-const { requireUser, getAccount, grantTrainerRole } = require("./auth");
+const { requireUser, requireAdmin, getAccount, grantTrainerRole } = require("./auth");
 const { ValidationError, validateProfileSubmission, persistProfile, loadProfile } = require("./profile");
 const { logRequestError } = require("./logging");
 const { limitPerUser, createRateLimiter, rateLimits } = require("./rateLimit");
 const { jsonBodyWithLimit } = require("./requestBody");
 const { checkUpload, uploadLimits } = require("./bodyComposition/upload");
 const { ExtractionError, extractReport } = require("./bodyComposition/extract");
+const home = require("./home");
 
 const app = express();
 app.disable("x-powered-by"); // no need to advertise the framework
@@ -42,6 +43,8 @@ const MAX_UPLOAD_BODY_BYTES = Math.ceil(uploadLimits.maxPdfBytes * (4 / 3)) + 10
 const profileLimiter = createRateLimiter(rateLimits.standard);
 const accountLimiter = createRateLimiter(rateLimits.standard);
 const uploadLimiter = createRateLimiter(rateLimits.upload); // each upload is an OpenAI vision call
+const homeLimiter = createRateLimiter(rateLimits.standard); // members reading the home screen content
+const adminLimiter = createRateLimiter(rateLimits.standard); // admins editing it (also caps the Clerk role lookups)
 
 // Quick check that the server is up and can reach MySQL (public: no token needed)
 app.get("/api/health", async (req, res) => {
@@ -112,6 +115,141 @@ app.post("/api/account-type", requireUser, limitPerUser(accountLimiter), async (
   } catch {
     console.error("Setting the account type failed");
     res.status(500).json({ error: "We couldn't set up your trainer account. Please try again." });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Home screen content (see home.js)
+// ---------------------------------------------------------------------------
+
+// Members: the promotions to show right now (published and inside their window, in order)
+app.get("/api/promotions/active", requireUser, limitPerUser(homeLimiter), async (req, res, next) => {
+  try {
+    res.json({ promotions: await home.activePromotions(pool) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Members: the section labels, quick-action cards and popular meals
+app.get("/api/home-content", requireUser, limitPerUser(homeLimiter), async (req, res, next) => {
+  try {
+    res.json({ content: await home.loadHomeContent(pool) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Admins only. Order matters: verified caller, budget, then the Clerk role check (so one
+// account can't make the server call Clerk without limit), then a small JSON body.
+const adminOnly = [requireUser, limitPerUser(adminLimiter), requireAdmin];
+const adminBody = express.json({ limit: "50kb" });
+
+app.get("/api/admin/promotions", ...adminOnly, async (req, res, next) => {
+  try {
+    res.json({ promotions: await home.listPromotions(pool) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/admin/promotions", ...adminOnly, adminBody, async (req, res, next) => {
+  try {
+    const values = home.validatePromotion(req.body);
+    res.status(201).json({ promotion: await home.createPromotion(pool, values, req.userId) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// The complete new order: { ids: [3, 1, 2] }. Declared before the :id routes so "reorder"
+// is never read as an id.
+app.post("/api/admin/promotions/reorder", ...adminOnly, adminBody, async (req, res, next) => {
+  try {
+    res.json({ promotions: await home.reorderPromotions(pool, req.body?.ids, req.userId) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/admin/promotions/:id", ...adminOnly, async (req, res, next) => {
+  try {
+    const promotion = await home.getPromotion(pool, home.promotionId(req.params.id));
+    if (!promotion) return res.status(404).json({ error: "That promotion no longer exists." });
+    res.json({ promotion });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Partial update: the fields sent replace the saved ones, then the whole promotion is
+// re-checked, so a change can never leave it half-valid
+app.patch("/api/admin/promotions/:id", ...adminOnly, adminBody, async (req, res, next) => {
+  try {
+    const id = home.promotionId(req.params.id);
+    const existing = await home.getPromotion(pool, id);
+    if (!existing) return res.status(404).json({ error: "That promotion no longer exists." });
+    if (req.body === null || typeof req.body !== "object" || Array.isArray(req.body)) {
+      return res.status(400).json({ error: "Send the changes as an object." });
+    }
+    const editable = {};
+    for (const key of ["title", "eyebrow", "headline", "description", "imageUrl", "imageAlt", "ctaLabel", "ctaAction", "ctaDestination",
+      "secondaryCtaLabel", "secondaryCtaAction", "secondaryCtaDestination", "textAlign", "imagePosition", "backgroundColor", "textColor",
+      "status", "rotationIntervalSeconds", "startsAt", "endsAt"]) editable[key] = existing[key];
+    const values = home.validatePromotion({ ...editable, ...req.body });
+    const promotion = await home.updatePromotion(pool, id, values, req.userId);
+    if (!promotion) return res.status(404).json({ error: "That promotion no longer exists." });
+    res.json({ promotion });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.delete("/api/admin/promotions/:id", ...adminOnly, async (req, res, next) => {
+  try {
+    const deleted = await home.deletePromotion(pool, home.promotionId(req.params.id));
+    if (!deleted) return res.status(404).json({ error: "That promotion no longer exists." });
+    res.json({ deleted: true });
+  } catch (error) {
+    next(error);
+  }
+});
+
+for (const [action, status] of [["publish", "published"], ["disable", "disabled"]]) {
+  app.post(`/api/admin/promotions/:id/${action}`, ...adminOnly, async (req, res, next) => {
+    try {
+      const promotion = await home.setPromotionStatus(pool, home.promotionId(req.params.id), status, req.userId);
+      if (!promotion) return res.status(404).json({ error: "That promotion no longer exists." });
+      res.json({ promotion });
+    } catch (error) {
+      next(error);
+    }
+  });
+}
+
+app.get("/api/admin/home-content", ...adminOnly, async (req, res, next) => {
+  try {
+    res.json({ content: await home.loadHomeContent(pool) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.put("/api/admin/home-content", ...adminOnly, adminBody, async (req, res, next) => {
+  try {
+    const values = home.validateHomeContent(req.body);
+    res.json({ content: await home.saveHomeContent(pool, values, req.userId) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// The menu, for picking popular meals
+app.get("/api/admin/meals", ...adminOnly, async (req, res, next) => {
+  try {
+    res.json({ meals: await home.listMeals(pool) });
+  } catch (error) {
+    next(error);
   }
 });
 

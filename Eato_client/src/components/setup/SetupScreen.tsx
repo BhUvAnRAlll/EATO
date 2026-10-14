@@ -18,7 +18,8 @@ import { useClerk } from "@clerk/expo";
 
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { images } from "@/constants/images";
-import { setupSteps, type SetupStep } from "@/data/setup";
+import { visibleSetupSteps, type SetupStep } from "@/data/setup";
+import { hasSegmentalData } from "@/lib/nutrition";
 import { useSetupStore } from "@/store/setup";
 import { colors } from "@/theme";
 
@@ -50,7 +51,12 @@ export function SetupScreen({
   onBack,
   headerArt,
 }: SetupScreenProps) {
-  const index = setupSteps.indexOf(step);
+  // Progress counts the steps this member actually goes through: the review step appears once
+  // a sheet is uploaded, the segmental step once a sheet with a segmental analysis is confirmed
+  const { reportDraft, report } = useSetupStore();
+  const sheet = report ?? reportDraft;
+  const steps = visibleSetupSteps({ hasReport: sheet !== null, hasSegmental: sheet !== null && hasSegmentalData(sheet) });
+  const index = Math.max(0, steps.indexOf(step));
   const isFirst = index === 0;
   const { signOut } = useClerk();
 
@@ -93,10 +99,10 @@ export function SetupScreen({
         {/* Progress */}
         <View className="mt-2 flex-row items-center gap-3 px-6">
           <View className="setup__progress">
-            <View className="setup__progress-fill" style={{ width: `${((index + 1) / setupSteps.length) * 100}%` }} />
+            <View className="setup__progress-fill" style={{ width: `${((index + 1) / steps.length) * 100}%` }} />
           </View>
           <Text className="setup__step">
-            {index + 1}/{setupSteps.length}
+            {index + 1}/{steps.length}
           </Text>
         </View>
 

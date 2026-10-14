@@ -1,3 +1,5 @@
+import type { Href } from "expo-router";
+
 import type { Role } from "@/lib/roles";
 import type { Icon } from "@/types/profile";
 
@@ -6,6 +8,8 @@ export type DashboardTile = {
   title: string;
   subtitle: string;
   icon: Icon;
+  // The screen the tile opens; tiles without one are placeholders ("Soon")
+  href?: Href;
 };
 
 export type Dashboard = {
@@ -51,6 +55,13 @@ export const dashboards: Record<Role, Dashboard> = {
     label: "Admin",
     subtitle: "Manage people, menu and orders across EATO.",
     tiles: [
+      {
+        id: "home-screen",
+        title: "Home Screen & Promotions",
+        subtitle: "Hero slides, labels and popular meals",
+        icon: { ios: "rectangle.3.group", android: "dashboard_customize", web: "dashboard_customize" },
+        href: "/admin/promotions",
+      },
       {
         id: "users",
         title: "Users",

@@ -1,6 +1,22 @@
+import { useCallback, useEffect, useRef } from "react";
 import { router } from "expo-router";
+import { useAuth } from "@clerk/expo";
 
 import { useSetupStore } from "@/store/setup";
+
+// A stable way to read the Clerk session token. useAuth().getToken is a new function on
+// many renders, so an effect that lists it as a dependency can run again after every
+// state change (and, on a screen that loads data into state, call the server in a loop).
+// This returns the same function for the life of the component; it always calls the
+// latest getToken.
+export function useSessionToken(): () => Promise<string | null> {
+  const { getToken } = useAuth();
+  const latest = useRef(getToken);
+  useEffect(() => {
+    latest.current = getToken;
+  }, [getToken]);
+  return useCallback(() => latest.current(), []);
+}
 
 // Shown when the server rejects the session token (HTTP 401): the saved session is no
 // longer valid, so the only way forward is to sign in again.

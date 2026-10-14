@@ -41,3 +41,26 @@ export function ageFromDob(dob: string): number | null {
   if (!hadBirthday) age--;
   return age;
 }
+
+// "Mon, 13 Oct" for the home screen's Today card
+export function formatShortDate(date = new Date()) {
+  const weekday = date.toLocaleDateString("en-GB", { weekday: "short" });
+  return `${weekday}, ${date.getDate()} ${date.toLocaleDateString("en-GB", { month: "short" })}`;
+}
+
+// Admin scheduling fields use local "YYYY-MM-DD HH:mm"; the server stores ISO (UTC)
+
+export function parseLocalDateTime(text: string): Date | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})$/.exec(text.trim());
+  if (!match) return null;
+  const [, y, m, d, h, min] = match.map(Number);
+  const date = new Date(y, m - 1, d, h, min);
+  return date.getFullYear() === y && date.getMonth() === m - 1 && date.getDate() === d && date.getHours() === h && date.getMinutes() === min ? date : null;
+}
+
+export function formatLocalDateTime(iso: string | null): string {
+  if (!iso) return "";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}

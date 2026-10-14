@@ -19,7 +19,9 @@ function clerkFor(secretKey) {
   // One identity: email tagged with the run id and Clerk's test suffix, metadata tagged too.
   // The password is returned only when a browser test needs to sign in with it; it is
   // held in memory by the caller and never logged.
-  async function createIdentity(runId, tag, { withPassword = false } = {}) {
+  // `role` ("admin" or "trainer") sets the server-side role the way scripts/set-role.mjs does,
+  // for tests of role-protected routes; without it the identity is an ordinary member.
+  async function createIdentity(runId, tag, { withPassword = false, role } = {}) {
     const emailAddress = `e2e-${runId}-${tag}${TEST_SUFFIX}`;
     const password = crypto.randomBytes(24).toString("base64url");
     const user = await clerk.users.createUser({
@@ -28,7 +30,7 @@ function clerkFor(secretKey) {
       skipPasswordChecks: true,
       firstName: "E2E",
       lastName: tag,
-      publicMetadata: { [METADATA_KEY]: runId },
+      publicMetadata: role ? { [METADATA_KEY]: runId, role } : { [METADATA_KEY]: runId },
     });
     return withPassword ? { id: user.id, emailAddress, password } : { id: user.id, emailAddress };
   }

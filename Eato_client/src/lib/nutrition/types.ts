@@ -17,6 +17,17 @@ export type Climate = "temperate" | "hot";
 
 export type RmrFormula = "mifflin_st_jeor" | "katch_mcardle";
 
+// The five regions of a sheet's segmental analysis
+export type BodySegment = "leftArm" | "rightArm" | "trunk" | "leftLeg" | "rightLeg";
+// The rating printed beside each segment
+export type SegmentRating = "under" | "normal" | "over";
+export type SegmentReading = { kg: number | null; rating: SegmentRating | null };
+// Lean mass and body fat per region, exactly as printed (shown, never used for targets)
+export type SegmentalAnalysis = {
+  leanMass: Record<BodySegment, SegmentReading>;
+  fatMass: Record<BodySegment, SegmentReading>;
+};
+
 // A body composition analysis (BCA) result, from an uploaded sheet or typed in.
 // Values are null when they couldn't be read; nothing is guessed. A report is only
 // used for calculation after the user has confirmed every value.
@@ -36,6 +47,8 @@ export type BodyCompositionReport = {
   // Printed by the device. Kept for comparison only; never used as the target.
   printedBmrKcal: number | null;
   printedRecommendedIntakeKcal: number | null;
+  // Segmental lean and fat analysis, when the sheet printed one (uploads only)
+  segmental?: SegmentalAnalysis | null;
   confirmed: boolean;
   confirmedAt?: string;
 };

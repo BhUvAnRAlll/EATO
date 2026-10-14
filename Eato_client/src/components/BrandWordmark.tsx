@@ -4,7 +4,7 @@ import { Image } from "expo-image";
 import { images } from "@/constants/images";
 
 // Width ÷ height of the wordmark image
-const WORDMARK_RATIO = 252 / 116;
+export const WORDMARK_RATIO = 252 / 116;
 
 type BrandWordmarkProps = {
   // Width of the "Eat" logo in pt

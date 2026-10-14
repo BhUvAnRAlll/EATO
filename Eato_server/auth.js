@@ -52,4 +52,22 @@ async function grantTrainerRole(userId) {
   return "trainer";
 }
 
-module.exports = { requireUser, getAccount, grantTrainerRole };
+// Express middleware for admin-only routes, placed after requireUser (and the rate limit):
+// 403 unless Clerk says the verified caller's role is "admin". The role is read from Clerk
+// on every call, never from the request, so a demoted admin loses access at once. Fails
+// closed: no verified user → 401, Clerk unreachable → 503.
+async function requireAdmin(req, res, next) {
+  if (typeof req.userId !== "string" || req.userId === "") return res.status(401).json({ error: "Please sign in again." });
+  let account;
+  try {
+    account = await getAccount(req.userId);
+  } catch {
+    console.error("Clerk account lookup failed");
+    return res.status(503).json({ error: "We couldn't verify your account right now. Please try again." });
+  }
+  if (account.role !== "admin") return res.status(403).json({ error: "Only admins can do that." });
+  req.account = account;
+  next();
+}
+
+module.exports = { requireUser, requireAdmin, getAccount, grantTrainerRole };
