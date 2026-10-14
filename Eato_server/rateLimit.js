@@ -10,6 +10,7 @@
 const rateLimits = {
   upload: { limit: 10, windowMs: 10 * 60 * 1000 },
   standard: { limit: 60, windowMs: 60 * 1000 },
+  community: { limit: 180, windowMs: 60 * 1000 },
 };
 
 // Sliding window: the timestamps of the last `limit` requests per key. A request is

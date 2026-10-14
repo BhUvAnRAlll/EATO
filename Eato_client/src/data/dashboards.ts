@@ -63,6 +63,13 @@ export const dashboards: Record<Role, Dashboard> = {
         href: "/admin/promotions",
       },
       {
+        id: "moderation",
+        title: "Community moderation",
+        subtitle: "Reports and suspended members",
+        icon: { ios: "flag", android: "flag", web: "flag" },
+        href: "/admin/moderation",
+      },
+      {
         id: "users",
         title: "Users",
         subtitle: "View members and their plans",

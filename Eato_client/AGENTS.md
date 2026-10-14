@@ -63,6 +63,7 @@ Do not introduce new major libraries unless there is a strong reason.
 | Reading an uploaded body composition report | `POST /api/body-composition` on the Express server → OpenAI (`Eato_server/bodyComposition/`) | Keeps `OPENAI_API_KEY` off the device; the file is never stored |
 | Profile and nutrition targets from setup | MySQL (`users`, `profiles`, `nutrition_targets`, `body_composition_reports`) via `POST /api/profile` and `GET /api/profile` on the Express server; Clerk `unsafeMetadata.profileComplete` is only a routing shortcut | Server-verified identity, one transaction per save, the app's own calculator re-checks every record before it is stored |
 | App data (meals, orders, diary, weigh-ins, trainer ↔ client links) | MySQL via the Express server (`Eato_server/`) | Shared, queryable data that outlives one device |
+| Community photos (posts, stories, group covers) | Files on the Express server's disk, `Eato_server/uploads/` (or `UPLOAD_DIR`), with a `community_media` row per file; served only to signed-in members through `GET /api/media/:id` (`Eato_server/community/media.js`) | Current implementation, not object storage: one server, no CDN, and the folder must be persistent and backed up. A hosted bucket (for example DigitalOcean Spaces with presigned uploads) is the planned replacement and would need a new dependency and approval |
 
 Every Express route except the health check verifies the caller's Clerk session token with `requireUser` (`Eato_server/auth.js`) before doing anything.
 

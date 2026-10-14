@@ -39,6 +39,7 @@ async function startTestServer(env) {
       PATH: process.env.PATH, HOME: process.env.HOME, NODE_ENV: "test",
       PORT: env.PORT, DB_HOST: env.DB_HOST, DB_PORT: env.DB_PORT, DB_USER: env.DB_USER, DB_PASSWORD: env.DB_PASSWORD,
       DB_NAME: env.DB_NAME, CLERK_SECRET_KEY: env.CLERK_SECRET_KEY,
+      ...(env.UPLOAD_DIR ? { UPLOAD_DIR: env.UPLOAD_DIR } : {}), // community images go to a throwaway folder in tests
     },
     stdio: ["ignore", "pipe", "pipe"],
   });

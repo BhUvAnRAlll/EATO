@@ -125,7 +125,8 @@ async function openPage(client, url = "about:blank") {
     const ok = await evaluate(`(() => {
       const el = [...document.querySelectorAll(${JSON.stringify(selector)})].filter((e) => e.getClientRects().length > 0).pop(); if (!el) return false;
       el.scrollIntoView({ block: "center" }); el.focus();
-      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(el, ${JSON.stringify(value)});
+      const proto = el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+      Object.getOwnPropertyDescriptor(proto, "value").set.call(el, ${JSON.stringify(value)});
       el.dispatchEvent(new Event("input", { bubbles: true })); return true;
     })()`);
     if (!ok) throw new Error(`no input matching ${selector}`);

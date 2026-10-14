@@ -25,9 +25,12 @@ const { jsonBodyWithLimit } = require("./requestBody");
 const { checkUpload, uploadLimits } = require("./bodyComposition/upload");
 const { ExtractionError, extractReport } = require("./bodyComposition/extract");
 const home = require("./home");
+const { communityRouter, canSeeMedia } = require("./community/routes");
+const media = require("./community/media");
 
 const app = express();
 app.disable("x-powered-by"); // no need to advertise the framework
+app.locals.pool = pool; // the community router reads the pool from here
 app.use(cors()); // the app runs on a different origin (phone / simulator), so allow it
 
 // Bodies are parsed per route, after the caller is verified, with the limit each route
@@ -45,6 +48,8 @@ const accountLimiter = createRateLimiter(rateLimits.standard);
 const uploadLimiter = createRateLimiter(rateLimits.upload); // each upload is an OpenAI vision call
 const homeLimiter = createRateLimiter(rateLimits.standard); // members reading the home screen content
 const adminLimiter = createRateLimiter(rateLimits.standard); // admins editing it (also caps the Clerk role lookups)
+const communityLimiter = createRateLimiter(rateLimits.community); // feed, likes, comments, stories, groups, messages
+const mediaLimiter = createRateLimiter(rateLimits.community); // image downloads
 
 // Quick check that the server is up and can reach MySQL (public: no token needed)
 app.get("/api/health", async (req, res) => {
@@ -253,6 +258,30 @@ app.get("/api/admin/meals", ...adminOnly, async (req, res, next) => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// Community (see community/routes.js): feed, stories, groups and direct messages
+// ---------------------------------------------------------------------------
+
+app.use("/api/community", requireUser, limitPerUser(communityLimiter), communityRouter);
+
+// An uploaded image, for signed-in members only. The path comes from the database row,
+// never from the request, so there is nothing to traverse.
+app.get("/api/media/:id", requireUser, limitPerUser(mediaLimiter), async (req, res, next) => {
+  try {
+    if (!/^[0-9a-f-]{36}$/i.test(req.params.id)) return res.status(404).json({ error: "Not found." });
+    const row = await media.getMedia(pool, req.params.id.toLowerCase());
+    // A hidden image answers like a missing one, so nothing can be probed
+    if (!row || !(await canSeeMedia(pool, req.userId, row))) return res.status(404).json({ error: "Not found." });
+    res.set("Cache-Control", "private, max-age=3600");
+    res.type(row.media_type);
+    res.sendFile(media.pathFor(row), (error) => {
+      if (error && !res.headersSent) res.status(404).json({ error: "Not found." });
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // No route matched: answer in JSON like every other response, not Express's HTML page
 app.use((req, res) => {
   res.status(404).json({ error: "Not found." });
@@ -270,7 +299,10 @@ const clientErrorMessages = {
 };
 
 app.use((error, req, res, next) => {
-  if (error instanceof ValidationError) return res.status(400).json({ error: error.message });
+  // Our own errors carry a safe message and their status (400 validation, 403, 404, 413, 415)
+  if (error instanceof ValidationError || error?.name === "NotFoundError" || error?.name === "ForbiddenError") {
+    return res.status(Number.isInteger(error.status) ? error.status : 400).json({ error: error.message });
+  }
   if (error?.code === "ER_CHECK_CONSTRAINT_VIOLATED") {
     return res.status(400).json({ error: "One of the values is out of range." });
   }
@@ -281,6 +313,13 @@ app.use((error, req, res, next) => {
   }
   res.status(status).json({ error: clientErrorMessages[error.type] ?? "The request couldn't be processed." });
 });
+
+// Uploads nobody attached to a post, story or group cover are removed after a day
+if (process.env.NODE_ENV !== "test") {
+  const sweep = () => media.removeOrphanedMedia(pool).catch((error) => logRequestError({ method: "SWEEP", path: "/uploads" }, error));
+  setTimeout(sweep, 60 * 1000).unref();
+  setInterval(sweep, 60 * 60 * 1000).unref();
+}
 
 const port = Number(process.env.PORT ?? 4000);
 // 0.0.0.0 so a phone on the same Wi-Fi can reach it, not just this computer
