@@ -27,6 +27,7 @@ const { ExtractionError, extractReport } = require("./bodyComposition/extract");
 const home = require("./home");
 const { communityRouter, canSeeMedia } = require("./community/routes");
 const media = require("./community/media");
+const { macroRouter } = require("./macro/routes");
 
 const app = express();
 app.disable("x-powered-by"); // no need to advertise the framework
@@ -50,6 +51,7 @@ const homeLimiter = createRateLimiter(rateLimits.standard); // members reading t
 const adminLimiter = createRateLimiter(rateLimits.standard); // admins editing it (also caps the Clerk role lookups)
 const communityLimiter = createRateLimiter(rateLimits.community); // feed, likes, comments, stories, groups, messages
 const mediaLimiter = createRateLimiter(rateLimits.community); // image downloads
+const macroLimiter = createRateLimiter(rateLimits.community); // the Macro diary: day, week strip, meals, favourites
 
 // Quick check that the server is up and can reach MySQL (public: no token needed)
 app.get("/api/health", async (req, res) => {
@@ -263,6 +265,12 @@ app.get("/api/admin/meals", ...adminOnly, async (req, res, next) => {
 // ---------------------------------------------------------------------------
 
 app.use("/api/community", requireUser, limitPerUser(communityLimiter), communityRouter);
+
+// ---------------------------------------------------------------------------
+// Macro diary (see macro/routes.js): logged meals, the day view, favourites
+// ---------------------------------------------------------------------------
+
+app.use("/api/macro", requireUser, limitPerUser(macroLimiter), macroRouter);
 
 // An uploaded image, for signed-in members only. The path comes from the database row,
 // never from the request, so there is nothing to traverse.

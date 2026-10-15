@@ -70,7 +70,7 @@ describe("home promotions e2e: admin edits → members see published content", (
       skipReason = `test database unreachable (${error?.code ?? "refused"})`;
       return;
     }
-    assert.equal(await db.resetSchema(connection), 29, "schema.sql should create 29 tables in eato_test");
+    assert.equal(await db.resetSchema(connection), 35, "schema.sql should create 35 tables in eato_test");
     clerk = clerkFor(env.CLERK_SECRET_KEY);
     server = await startTestServer(env);
     try {

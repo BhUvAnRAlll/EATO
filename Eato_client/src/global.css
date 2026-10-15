@@ -2153,3 +2153,343 @@
   border-top-right-radius: var(--radius-xl);
   background-color: var(--color-surface);
 }
+
+/* Macro tab: the day hub, logging flow and meal sheets (BEM: macro__element--modifier).
+   Macro colours (protein, carbs, fat) come from the theme and never change meaning. */
+@utility macro__hero-number {
+  font-family: var(--font-sans);
+  font-size: 32px;
+  line-height: 36px;
+  font-weight: 800;
+  color: var(--color-forest-ink);
+}
+
+@utility macro__stat-value {
+  font-family: var(--font-sans);
+  font-size: 18px;
+  line-height: 23px;
+  font-weight: 700;
+  color: var(--color-forest-ink);
+}
+
+@utility macro__stat-label {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  color: var(--color-muted);
+}
+
+@utility macro__overline {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+@utility macro__kcal {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 19px;
+  font-weight: 700;
+  color: var(--color-forest-ink);
+}
+
+@utility macro__bar-label {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+  color: var(--color-forest-ink);
+}
+
+@utility macro__bar-value {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  color: var(--color-muted);
+}
+
+@utility macro__track {
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-cream-line);
+  overflow: hidden;
+}
+
+@utility macro__ring-day {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 700;
+}
+
+@utility macro__weekday {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 600;
+  color: var(--color-faint);
+}
+
+@utility macro__thumb {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility macro__panel {
+  padding-block: var(--spacing-md);
+  border-radius: var(--radius-md);
+  background-color: var(--color-cream-light);
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+}
+
+@utility macro__table-head {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--color-faint);
+}
+
+@utility macro__table-cell {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 500;
+  color: var(--color-forest-ink);
+}
+
+/* The floating "Add meal" / "Back to today" pill, bottom right above the tab bar */
+@utility macro__fab {
+  position: absolute;
+  right: var(--spacing-xl);
+  bottom: var(--spacing-lg);
+  height: 52px;
+  padding-inline: 20px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-forest);
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  box-shadow: var(--shadow-card);
+}
+
+/* Add meal: two slot cards per row */
+@utility macro__slot {
+  flex-basis: 46%;
+  flex-grow: 1;
+  padding: var(--spacing-md);
+  border-radius: var(--radius-lg);
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-white);
+}
+
+@utility macro__logged {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+  color: var(--color-success);
+}
+
+@utility macro__pill {
+  height: 44px;
+  border-radius: var(--radius-pill);
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-white);
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+@utility macro__error {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 600;
+  color: var(--color-danger);
+}
+
+/* Log food: a recent meal in the horizontal strip */
+@utility macro__food-card {
+  width: 150px;
+  padding: var(--spacing-md);
+  border-radius: var(--radius-lg);
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-white);
+}
+
+@utility macro__food-art {
+  height: 84px;
+  border-radius: var(--radius-md);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility macro__heart {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-white);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility macro__segmented {
+  height: 40px;
+  padding: 3px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-cream-tab);
+  flex-direction: row;
+}
+
+@utility macro__segment {
+  flex: 1;
+  border-radius: var(--radius-pill);
+  align-items: center;
+  justify-content: center;
+  padding-inline: 6px;
+}
+
+@utility macro__segment--selected {
+  background-color: var(--color-white);
+  box-shadow: var(--shadow-card);
+}
+
+@utility macro__segment-label {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 17px;
+  font-weight: 500;
+  color: var(--color-muted);
+}
+
+@utility macro__segment-label--selected {
+  font-weight: 700;
+  color: var(--color-forest-ink);
+}
+
+/* Manual entry: one of the three macro inputs */
+@utility macro__macro-box {
+  flex: 1;
+  min-width: 0;
+  padding: var(--spacing-md);
+  border-radius: var(--radius-md);
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-cream-light);
+}
+
+/* Daily calories: the dark hero card, the macros badge and the meals timeline */
+@utility macro__hero {
+  padding: var(--spacing-xl);
+  border-radius: var(--radius-xl);
+  background-color: var(--color-forest);
+}
+
+@utility macro__hero-overline {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+@utility macro__hero-remaining {
+  font-family: var(--font-sans);
+  font-size: 40px;
+  line-height: 46px;
+  font-weight: 800;
+  color: var(--color-primary);
+}
+
+@utility macro__hero-caption {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 17px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+@utility macro__hero-percent {
+  font-family: var(--font-sans);
+  font-size: 20px;
+  line-height: 24px;
+  font-weight: 800;
+  color: var(--color-white);
+}
+
+@utility macro__hero-stat {
+  font-family: var(--font-sans);
+  font-size: 17px;
+  line-height: 22px;
+  font-weight: 700;
+  color: var(--color-white);
+}
+
+@utility macro__badge {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 700;
+}
+
+@utility macro__timeline-card {
+  min-height: 60px;
+  padding: var(--spacing-md);
+  border-radius: var(--radius-md);
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-white);
+  flex-direction: row;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+@utility macro__timeline-card--empty {
+  border-style: dashed;
+  border-color: var(--color-sand);
+  background-color: transparent;
+}
+
+/* Calories & macros: one of the three macro tiles */
+@utility macro__tile {
+  flex: 1;
+  min-width: 0;
+  padding: var(--spacing-md);
+  border-radius: var(--radius-lg);
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-white);
+}
+
+/* Water: the glass that fills to the day's target */
+@utility macro__glass {
+  border-width: 2px;
+  border-color: var(--color-info);
+  border-top-width: 0;
+  border-bottom-left-radius: 18px;
+  border-bottom-right-radius: 18px;
+  background-color: var(--color-info-soft);
+  overflow: hidden;
+}

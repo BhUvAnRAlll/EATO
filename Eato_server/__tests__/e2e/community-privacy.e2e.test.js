@@ -60,7 +60,7 @@ describe("community privacy e2e: audiences, private accounts, blocks and suspens
     if (!loaded.ok) { skipReason = loaded.reason; return; }
     env = loaded.env;
     try { connection = await db.connect(env); } catch (error) { skipReason = `test database unreachable (${error?.code ?? "refused"})`; return; }
-    assert.equal(await db.resetSchema(connection), 29, "schema.sql should create 29 tables in eato_test");
+    assert.equal(await db.resetSchema(connection), 35, "schema.sql should create 35 tables in eato_test");
     clerk = clerkFor(env.CLERK_SECRET_KEY);
     uploadDir = fs.mkdtempSync(path.join(os.tmpdir(), "eato-privacy-uploads-"));
     server = await startTestServer({ ...env, UPLOAD_DIR: uploadDir });
