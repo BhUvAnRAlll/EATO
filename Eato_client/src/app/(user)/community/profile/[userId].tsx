@@ -6,6 +6,7 @@ import { SymbolView } from "expo-symbols";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 
 import { ActionSheet, type SheetAction } from "@/components/community/ActionSheet";
+import { ConfirmSheet } from "@/components/community/ConfirmSheet";
 import { DeletePostSheet } from "@/components/community/DeletePostSheet";
 import { Avatar } from "@/components/community/Avatar";
 import { EmptyState, PostSkeleton } from "@/components/community/CommunityStates";
@@ -13,12 +14,13 @@ import { PostCard } from "@/components/community/PostCard";
 import { StoryAvatar } from "@/components/community/StoryAvatar";
 import { FormAlert } from "@/components/FormAlert";
 import { community, isOffline, type Post, type Profile } from "@/lib/community";
+import { friendButton, friendConfirm, messageLockText } from "@/lib/friends";
 import { useSessionToken } from "@/lib/session";
 import { storyRingFor } from "@/lib/storyRing";
 import { useCommunityStore } from "@/store/community";
 import { colors } from "@/theme";
 
-// A member's profile: counts, follow or request, message, block; and the posts the viewer
+// A member's profile: counts, follow or request, add friend, message (friends only), block; and the posts the viewer
 // may see. The server decides visibility; the empty states only explain its answer.
 export default function ProfileScreen() {
   const { userId } = useLocalSearchParams<{ userId: string }>();
@@ -36,6 +38,8 @@ export default function ProfileScreen() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuPost, setMenuPost] = useState<Post | null>(null);
   const [deletingPost, setDeletingPost] = useState<Post | null>(null);
+  const [friendBusy, setFriendBusy] = useState(false);
+  const [confirmingFriend, setConfirmingFriend] = useState<"cancel" | "remove" | null>(null);
 
   // The stories row is refreshed alongside, so the ring on the photo is never stale
   const load = useCallback(async () => {
@@ -103,6 +107,29 @@ export default function ProfileScreen() {
       setProfile(profile);
       setError(result.error);
     }
+  };
+
+  // Add, accept, cancel or remove; undoing asks first (ConfirmSheet). The server answers with the new state.
+  const runFriend = async (action: "request" | "cancel" | "accept" | "remove") => {
+    if (!profile) return;
+    setFriendBusy(true);
+    const token = await getToken();
+    const result =
+      action === "request" ? await community.sendFriendRequest(token, userId)
+      : action === "cancel" ? await community.cancelFriendRequest(token, userId)
+      : action === "accept" ? await community.answerFriendRequest(token, userId, true)
+      : await community.removeFriend(token, userId);
+    if (result.ok) setProfile({ ...profile, friendState: result.data.friendState });
+    else setError(result.error);
+    setFriendBusy(false);
+    setConfirmingFriend(null);
+  };
+
+  const onFriend = () => {
+    if (!profile) return;
+    const button = friendButton(profile.friendState);
+    if (button.action === "cancel" || button.action === "remove") setConfirmingFriend(button.action);
+    else runFriend(button.action);
   };
 
   const message = async () => {
@@ -229,10 +256,17 @@ export default function ProfileScreen() {
                         <Pressable onPress={toggleFollow} disabled={busy || profile.blocked} className={profile.followState === "none" ? "group__join" : "group__join group__join--joined"} style={{ opacity: busy || profile.blocked ? 0.5 : 1 }} accessibilityRole="button" accessibilityLabel={followLabel}>
                           <Text className={profile.followState === "none" ? "group__join-label" : "group__join-label group__join-label--joined"}>{followLabel}</Text>
                         </Pressable>
-                        <Pressable onPress={message} disabled={profile.blocked} className="admin__action" style={{ opacity: profile.blocked ? 0.5 : 1 }} accessibilityRole="button" accessibilityLabel="Message">
+                        <Pressable onPress={onFriend} disabled={friendBusy || profile.blocked} className={friendButton(profile.friendState).tone === "primary" ? "group__join" : "group__join group__join--joined"} style={{ opacity: friendBusy || profile.blocked ? 0.5 : 1 }} accessibilityRole="button" accessibilityLabel={friendButton(profile.friendState).label}>
+                          <Text className={friendButton(profile.friendState).tone === "primary" ? "group__join-label" : "group__join-label group__join-label--joined"}>{friendButton(profile.friendState).label}</Text>
+                        </Pressable>
+                        <Pressable onPress={message} disabled={profile.blocked || profile.friendState !== "friends"} className="admin__action flex-row items-center gap-1.5" style={{ opacity: profile.blocked || profile.friendState !== "friends" ? 0.5 : 1 }} accessibilityRole="button" accessibilityLabel={profile.friendState === "friends" ? "Message" : "Message, locked"}>
+                          {profile.friendState !== "friends" && <SymbolView name={{ ios: "lock", android: "lock", web: "lock" }} size={12} tintColor={colors.muted} />}
                           <Text className="admin__action-label">Message</Text>
                         </Pressable>
                       </View>
+                    )}
+                    {!profile.isOwn && !profile.suspended && !profile.blocked && messageLockText(profile.friendState, profile.member.name) && (
+                      <Text className="home__note mt-2 text-center">{messageLockText(profile.friendState, profile.member.name)}</Text>
                     )}
                     {profile.isPrivate && !profile.isOwn && (
                       <View className="mt-3 flex-row items-center gap-1.5">
@@ -278,6 +312,15 @@ export default function ProfileScreen() {
         )}
       </SafeAreaView>
       <ActionSheet visible={menuOpen} actions={profileActions} onClose={() => setMenuOpen(false)} />
+      {profile && confirmingFriend && (
+        <ConfirmSheet
+          visible
+          {...friendConfirm(confirmingFriend, profile.member.name)}
+          busy={friendBusy}
+          onConfirm={() => runFriend(confirmingFriend)}
+          onCancel={() => setConfirmingFriend(null)}
+        />
+      )}
       <ActionSheet visible={menuPost !== null} actions={menuPost ? postActions(menuPost) : []} onClose={() => setMenuPost(null)} />
       <DeletePostSheet
         post={deletingPost}

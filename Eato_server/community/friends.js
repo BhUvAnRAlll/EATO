@@ -13,11 +13,9 @@ const { ValidationError } = require("../profile");
 const { memberSummary, ensureUser } = require("./members");
 const { NotFoundError } = require("./posts");
 const { isBlocked } = require("./visibility");
+const { pairOf, stateOf, messageLockReason } = require("./friendRules");
 
 const DECLINE_COOLDOWN_DAYS = 7;
-
-// The pair in its stored order
-const pairOf = (a, b) => (a < b ? [a, b] : [b, a]);
 
 const conflict = (message) => {
   const error = new ValidationError(message);
@@ -34,14 +32,6 @@ async function assertCanReach(pool, viewerId, otherId) {
   );
   if (!rows[0] || rows[0].status === "suspended") throw new NotFoundError("That member doesn't exist.");
   if (await isBlocked(pool, viewerId, otherId)) throw new NotFoundError("That member doesn't exist.");
-}
-
-// "none" | "outgoing" (the viewer asked) | "incoming" (they asked) | "friends"
-function stateOf(row, viewerId) {
-  if (!row) return "none";
-  if (row.status === "accepted") return "friends";
-  if (row.status === "pending") return row.requester_id === viewerId ? "outgoing" : "incoming";
-  return "none";
 }
 
 async function friendState(pool, viewerId, otherId) {
@@ -176,4 +166,38 @@ async function listRequests(pool, viewerId) {
   };
 }
 
-module.exports = { DECLINE_COOLDOWN_DAYS, pairOf, stateOf, friendState, sendRequest, cancelRequest, answerRequest, removeFriend, endForBlock, listFriends, listRequests };
+// Members the viewer could add, with where each stands: a name search (`search` comes from
+// validate.searchTerm, so LIKE wildcards are escaped), or (no search) a few
+// suggestions the viewer has no open request or friendship with. Leaves out the viewer,
+// suspended and blocked members, and trainers (they are found under Trainers instead; the
+// role here is the users-row copy, used only to sort people into lists, never to authorise).
+async function searchMembers(pool, viewerId, { search = null, limit = 20 }) {
+  const params = [viewerId, viewerId, viewerId, viewerId, viewerId];
+  let filter;
+  if (search) {
+    filter = "u.full_name LIKE ?";
+    params.push(`%${search}%`); // already escaped for LIKE by validate.searchTerm
+  } else {
+    filter = "(f.status IS NULL OR f.status NOT IN ('pending', 'accepted'))";
+  }
+  params.push(limit);
+  const [rows] = await pool.query(
+    `SELECT u.id, u.full_name, f.requester_id, f.status
+     FROM users u
+     LEFT JOIN community_friendships f
+       ON (f.user_low = u.id AND f.user_high = ?) OR (f.user_high = u.id AND f.user_low = ?)
+     WHERE u.id <> ? AND u.role <> 'trainer' AND u.full_name IS NOT NULL AND u.full_name <> ''
+       AND NOT EXISTS (SELECT 1 FROM community_profiles cp WHERE cp.user_id = u.id AND cp.status = 'suspended')
+       AND NOT EXISTS (SELECT 1 FROM community_blocks b WHERE (b.blocker_id = ? AND b.blocked_id = u.id) OR (b.blocker_id = u.id AND b.blocked_id = ?))
+       AND ${filter}
+     ORDER BY u.full_name, u.id
+     LIMIT ?`,
+    params,
+  );
+  return rows.map((row) => ({ member: memberSummary(row), friendState: stateOf(row, viewerId) }));
+}
+
+module.exports = {
+  DECLINE_COOLDOWN_DAYS, pairOf, stateOf, friendState, sendRequest, cancelRequest, answerRequest, removeFriend, endForBlock,
+  listFriends, listRequests, searchMembers, messageLockReason,
+};

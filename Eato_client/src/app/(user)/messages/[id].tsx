@@ -38,6 +38,8 @@ export default function ConversationScreen() {
   const loadUnread = useCommunityStore((state) => state.loadUnread);
   const loadFeed = useCommunityStore((state) => state.loadFeed);
   const [other, setOther] = useState<Member | null>(null);
+  // Friends only: when the server says no, the composer gives way to its reason
+  const [lockReason, setLockReason] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [pending, setPending] = useState<PendingMessage[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
@@ -73,6 +75,7 @@ export default function ConversationScreen() {
     }
     knownIds.current = new Set(result.data.messages.map((message) => message.id));
     setOther(result.data.other);
+    setLockReason(result.data.canSend ? null : result.data.lockReason);
     setMessages(result.data.messages);
     setCursor(result.data.nextCursor);
     setStatus("ready");
@@ -95,6 +98,7 @@ export default function ConversationScreen() {
       const result = await community.messages(token, id);
       if (!result.ok) return;
       setOther(result.data.other);
+      setLockReason(result.data.canSend ? null : result.data.lockReason);
       const fresh = addMessages(result.data.messages);
       if (fresh.some((message) => !message.isOwn)) loadUnread(token);
     } catch {
@@ -256,12 +260,24 @@ export default function ConversationScreen() {
               <FormAlert message={error} />
             </Pressable>
           )}
-          <View className="flex-row items-end gap-2 border-t border-cream-line bg-cream px-5 py-3">
-            <TextInput className="reply" value={text} onChangeText={setText} placeholder="Message" placeholderTextColor={colors.faint} multiline maxLength={MAX_LENGTH} accessibilityLabel="Message" />
-            <Pressable onPress={send} disabled={!text.trim()} className="reply__send" style={{ opacity: text.trim() ? 1 : 0.5 }} accessibilityRole="button" accessibilityLabel="Send message">
-              <SymbolView name={{ ios: "arrow.up", android: "arrow_upward", web: "arrow_upward" }} size={20} tintColor={colors.white} />
-            </Pressable>
-          </View>
+          {lockReason ? (
+            <View className="flex-row items-center gap-3 border-t border-cream-line bg-cream px-5 py-3">
+              <SymbolView name={{ ios: "lock", android: "lock", web: "lock" }} size={16} tintColor={colors.muted} />
+              <Text className="home__note flex-1">{lockReason}</Text>
+              {other && (
+                <Pressable onPress={() => router.push({ pathname: "/community/profile/[userId]", params: { userId: other.id } })} className="admin__action" accessibilityRole="button" accessibilityLabel={`Open ${other.name}'s profile`}>
+                  <Text className="admin__action-label">Profile</Text>
+                </Pressable>
+              )}
+            </View>
+          ) : (
+            <View className="flex-row items-end gap-2 border-t border-cream-line bg-cream px-5 py-3">
+              <TextInput className="reply" value={text} onChangeText={setText} placeholder="Message" placeholderTextColor={colors.faint} multiline maxLength={MAX_LENGTH} accessibilityLabel="Message" />
+              <Pressable onPress={send} disabled={!text.trim()} className="reply__send" style={{ opacity: text.trim() ? 1 : 0.5 }} accessibilityRole="button" accessibilityLabel="Send message">
+                <SymbolView name={{ ios: "arrow.up", android: "arrow_upward", web: "arrow_upward" }} size={20} tintColor={colors.white} />
+              </Pressable>
+            </View>
+          )}
         </KeyboardAvoidingView>
       </SafeAreaView>
 

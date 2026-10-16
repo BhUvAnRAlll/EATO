@@ -80,7 +80,7 @@ describe("ui macro: the Macro tab hub and logging a meal by hand", () => {
     if (!fs.existsSync(CHROME)) { skipReason = "Google Chrome is not installed"; return; }
     for (const port of [Number(env.PORT), EXPO_PORT]) if (!(await portFree(port))) throw new Error(`port ${port} is in use; refusing to start`);
     try { connection = await db.connect(env); } catch (error) { skipReason = `test database unreachable (${error?.code ?? "refused"})`; return; }
-    assert.equal(await db.resetSchema(connection), 44, "schema.sql should create 44 tables in eato_test");
+    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in eato_test`);
     clerk = clerkFor(env.CLERK_SECRET_KEY);
     server = await startTestServer(env);
     expo = await startExpoWeb({ port: EXPO_PORT, apiUrl: `http://localhost:${env.PORT}` });

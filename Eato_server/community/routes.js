@@ -14,6 +14,7 @@ const stories = require("./stories");
 const groups = require("./groups");
 const messages = require("./messages");
 const profiles = require("./profiles");
+const friends = require("./friends");
 const { isSuspended } = require("./visibility");
 const v = require("./validate");
 
@@ -173,6 +174,43 @@ router.post("/groups/:groupId/join", withUser, route(async (req, res) => {
 
 router.delete("/groups/:groupId/join", route(async (req, res) => {
   res.json({ group: await groups.leaveGroup(req.app.locals.pool, req.userId, v.id(req.params.groupId, "The group")) });
+}));
+
+// ---- friends ------------------------------------------------------------------------
+// Always the caller's own friendships: the other member is the route id, the caller is the
+// verified session. Sending repeats safely; answering only works for the member asked.
+
+router.get("/friends", route(async (req, res) => {
+  res.json({ friends: await friends.listFriends(req.app.locals.pool, req.userId) });
+}));
+
+router.get("/friends/requests", route(async (req, res) => {
+  res.json(await friends.listRequests(req.app.locals.pool, req.userId));
+}));
+
+// Name search, or suggestions when there's no search
+router.get("/friends/search", route(async (req, res) => {
+  res.json({ members: await friends.searchMembers(req.app.locals.pool, req.userId, { search: v.searchTerm(req.query.search) }) });
+}));
+
+router.post("/friends/:userId/request", withUser, route(async (req, res) => {
+  res.json(await friends.sendRequest(req.app.locals.pool, req.userId, memberId(req)));
+}));
+
+router.delete("/friends/:userId/request", route(async (req, res) => {
+  res.json(await friends.cancelRequest(req.app.locals.pool, req.userId, memberId(req)));
+}));
+
+router.post("/friends/:userId/accept", withUser, route(async (req, res) => {
+  res.json(await friends.answerRequest(req.app.locals.pool, req.userId, memberId(req), true));
+}));
+
+router.post("/friends/:userId/decline", route(async (req, res) => {
+  res.json(await friends.answerRequest(req.app.locals.pool, req.userId, memberId(req), false));
+}));
+
+router.delete("/friends/:userId", route(async (req, res) => {
+  res.json(await friends.removeFriend(req.app.locals.pool, req.userId, memberId(req)));
 }));
 
 // ---- profiles, following, blocking ------------------------------------------------

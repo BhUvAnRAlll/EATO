@@ -60,7 +60,7 @@ describe("community privacy e2e: audiences, private accounts, blocks and suspens
     if (!loaded.ok) { skipReason = loaded.reason; return; }
     env = loaded.env;
     try { connection = await db.connect(env); } catch (error) { skipReason = `test database unreachable (${error?.code ?? "refused"})`; return; }
-    assert.equal(await db.resetSchema(connection), 44, "schema.sql should create 44 tables in eato_test");
+    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in eato_test`);
     clerk = clerkFor(env.CLERK_SECRET_KEY);
     uploadDir = fs.mkdtempSync(path.join(os.tmpdir(), "eato-privacy-uploads-"));
     server = await startTestServer({ ...env, UPLOAD_DIR: uploadDir });
@@ -75,6 +75,7 @@ describe("community privacy e2e: audiences, private accounts, blocks and suspens
     for (const tag of Object.keys(ids)) {
       await connection.query("INSERT INTO users (id, email, full_name, role) VALUES (?, ?, ?, ?)", [ids[tag], identities[tag].emailAddress, `Member ${tag}`, tag === "admin" ? "admin" : "user"]);
     }
+    await befriendAll();
   });
 
   after(async () => {
@@ -93,6 +94,12 @@ describe("community privacy e2e: audiences, private accounts, blocks and suspens
     if (uploadDir) fs.rmSync(uploadDir, { recursive: true, force: true });
     if (problems.length > 0) { console.error("CLEANUP INCOMPLETE:", problems.join("; ")); throw new Error("cleanup incomplete"); }
   });
+
+  // Messaging is for friends: the three members are all friends (following is what these tests
+  // vary). A block ends a friendship, so the messaging tests restore them first.
+  const befriendAll = async () => {
+    for (const [a, b] of [["author", "follower"], ["author", "stranger"], ["follower", "stranger"]]) await db.befriend(connection, ids[a], ids[b]);
+  };
 
   const test = (name, fn) => it(name, async (t) => { if (skipReason) return t.skip(skipReason); await fn(); });
 
@@ -323,6 +330,7 @@ describe("community privacy e2e: audiences, private accounts, blocks and suspens
   });
 
   test("11. notifications carry only the viewer's own post previews, and counts are accurate", async () => {
+    await befriendAll();
     // The stranger likes and comments on the author's public post; the author's bell lists both
     const mine = await post(tokens.author, "Notify me about this one");
     await api("POST", `/api/community/posts/${mine}/like`, tokens.stranger);
@@ -372,6 +380,7 @@ describe("community privacy e2e: audiences, private accounts, blocks and suspens
   });
 
   test("13. a blocked direct conversation is hidden from both sides, kept intact, and restored on unblock", async () => {
+    await befriendAll();
     // Two members with a conversation and an unread message each way
     const open = await api("POST", "/api/community/conversations", tokens.author, { userId: ids.follower });
     assert.equal(open.status, 200, JSON.stringify(open.json));
@@ -407,6 +416,9 @@ describe("community privacy e2e: audiences, private accounts, blocks and suspens
     const history = await api("GET", `/api/community/conversations/${conversationId}/messages`, tokens.follower);
     assert.equal(history.status, 200);
     assert.deepEqual(history.json.messages.map((m) => m.body), ["reply before the block", "before the block"]);
+    // The block ended their friendship: the history is back, sending waits for a new friendship
+    assert.equal((await api("POST", `/api/community/conversations/${conversationId}/messages`, tokens.follower, { body: "after the block" })).status, 403);
+    await db.befriend(connection, ids.author, ids.follower);
     assert.equal((await api("POST", `/api/community/conversations/${conversationId}/messages`, tokens.follower, { body: "after the block" })).status, 201);
 
     // A block from the other side hides it too (either participant)
@@ -418,6 +430,7 @@ describe("community privacy e2e: audiences, private accounts, blocks and suspens
   });
 
   test("14. a conversation with more than two members is not hidden by a block between two of them", async () => {
+    await befriendAll();
     // No route creates group conversations yet; one is inserted directly to pin the rule down
     const [[{ id }]] = await connection.query("SELECT UUID() AS id");
     await connection.query("INSERT INTO conversations (id, last_message_at) VALUES (?, NOW())", [id]);

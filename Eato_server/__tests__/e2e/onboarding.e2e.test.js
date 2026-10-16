@@ -72,7 +72,7 @@ describe("onboarding e2e: Clerk sessions → Express → eato_test", () => {
       skipReason = `test database unreachable (${error?.code ?? "refused"})`;
       return;
     }
-    assert.equal(await db.resetSchema(connection), 44, "schema.sql should create 44 tables in eato_test");
+    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in eato_test`);
     clerk = clerkFor(env.CLERK_SECRET_KEY);
     const swept = await clerk.sweepOrphans();
     if (swept.length > 0) console.log(`swept ${swept.length} orphaned test identities from earlier runs`);

@@ -7,6 +7,10 @@
 // into it is refused. The rule applies to direct (two-member) conversations only; a
 // conversation with more members is never hidden by a block between two of them.
 //
+// Who may message whom: accepted friends only. A conversation from before a friendship
+// ended stays readable, but nothing new can be sent into it, and a new conversation can only
+// be opened with a friend. The reason is returned so the chat screen can explain the lock.
+//
 // Retries: the app may send a message with its own id (a UUID it generated). Sending the
 // same id again, for example after a timeout where the first attempt did reach the
 // server, returns the message that was stored the first time instead of a second copy.
@@ -15,6 +19,13 @@ const { encodeCursor } = require("./validate");
 const { NotFoundError, ForbiddenError } = require("./posts");
 const { ValidationError } = require("../profile");
 const { isBlocked, isSuspended } = require("./visibility");
+const { friendState, messageLockReason } = require("./friends");
+
+// Whether the viewer may send to this member, and why not
+async function sendAccess(pool, viewerId, other) {
+  const lockReason = messageLockReason(await friendState(pool, viewerId, other.user_id), other.full_name);
+  return { canSend: lockReason === null, lockReason };
+}
 
 async function assertMember(pool, conversationId, userId) {
   const [rows] = await pool.query("SELECT 1 FROM conversation_members WHERE conversation_id = ? AND user_id = ?", [conversationId, userId]);
@@ -95,6 +106,9 @@ async function openConversation(pool, userId, otherId) {
     [otherId, userId],
   );
   if (existing[0]) return { id: existing[0].id };
+  const [[other]] = await pool.query("SELECT id AS user_id, full_name FROM users WHERE id = ?", [otherId]);
+  const access = await sendAccess(pool, userId, other);
+  if (!access.canSend) throw new ForbiddenError(access.lockReason);
   const connection = await pool.getConnection();
   let id;
   try {
@@ -135,8 +149,11 @@ async function listMessages(pool, userId, conversationId, { cursor = null, limit
     "SELECT m.user_id, u.full_name FROM conversation_members m JOIN users u ON u.id = m.user_id WHERE m.conversation_id = ? AND m.user_id <> ?",
     [conversationId, userId],
   );
+  const access = members[0] ? await sendAccess(pool, userId, members[0]) : { canSend: false, lockReason: "This conversation has ended." };
   return {
     other: members[0] ? memberSummary(members[0]) : null,
+    canSend: access.canSend,
+    lockReason: access.lockReason,
     messages: page.map((row) => messageToApi(row, userId)),
     nextCursor: rows.length > limit ? encodeCursor(page[page.length - 1]) : null,
   };
@@ -152,9 +169,14 @@ async function sendMessage(pool, userId, conversationId, values) {
   // A direct conversation hidden by a block can't be written to from either side
   if (await isHiddenByBlock(pool, conversationId, userId)) throw new ForbiddenError("You can't message this member.");
   // In a conversation with more members, a blocked pair still can't message each other through it
-  const [others] = await pool.query("SELECT user_id FROM conversation_members WHERE conversation_id = ? AND user_id <> ?", [conversationId, userId]);
+  const [others] = await pool.query(
+    "SELECT m.user_id, u.full_name FROM conversation_members m JOIN users u ON u.id = m.user_id WHERE m.conversation_id = ? AND m.user_id <> ?",
+    [conversationId, userId],
+  );
   for (const other of others) {
     if (await isBlocked(pool, userId, other.user_id)) throw new ForbiddenError("You can't message this member.");
+    const access = await sendAccess(pool, userId, other);
+    if (!access.canSend) throw new ForbiddenError(access.lockReason);
   }
   if (values.id) {
     // The usual retry: the first attempt did get through

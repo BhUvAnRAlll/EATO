@@ -9,6 +9,7 @@ import { ActionSheet, type SheetAction } from "@/components/community/ActionShee
 import { Avatar } from "@/components/community/Avatar";
 import { EmptyState, PostSkeleton } from "@/components/community/CommunityStates";
 import { DeletePostSheet } from "@/components/community/DeletePostSheet";
+import { FriendsPanel } from "@/components/community/FriendsPanel";
 import { GroupCard } from "@/components/community/GroupCard";
 import { PostCard } from "@/components/community/PostCard";
 import { StoriesRow } from "@/components/community/StoriesRow";
@@ -19,10 +20,11 @@ import { useSessionToken } from "@/lib/session";
 import { useCommunityStore } from "@/store/community";
 import { colors } from "@/theme";
 
-type Tab = "feed" | "groups";
+type Tab = "feed" | "friends" | "groups";
+const tabLabels: Record<Tab, string> = { feed: "Feed", friends: "Friends", groups: "Groups" };
 const PAGE_PADDING = 20;
 
-// Community: Feed (stories, composer, posts) and Groups (search, join, open)
+// Community: Feed (stories, composer, posts), Friends (search, requests) and Groups (search, join, open)
 export default function Community() {
   const { width } = useWindowDimensions();
   const getToken = useSessionToken();
@@ -135,9 +137,9 @@ export default function Community() {
       </View>
 
       <View className="segment mx-5 mt-4" accessibilityRole="tablist">
-        {(["feed", "groups"] as Tab[]).map((item) => (
+        {(["feed", "friends", "groups"] as Tab[]).map((item) => (
           <Pressable key={item} onPress={() => setTab(item)} className={tab === item ? "segment__item segment__item--active" : "segment__item"} accessibilityRole="tab" accessibilityState={{ selected: tab === item }}>
-            <Text className={tab === item ? "segment__label segment__label--active" : "segment__label"}>{item === "feed" ? "Feed" : "Groups"}</Text>
+            <Text className={tab === item ? "segment__label segment__label--active" : "segment__label"}>{tabLabels[item]}</Text>
           </Pressable>
         ))}
       </View>
@@ -172,12 +174,12 @@ export default function Community() {
             </View>
           </Pressable>
         </View>
-      ) : (
+      ) : tab === "groups" ? (
         <View className="search mx-5 mt-5">
           <SymbolView name={{ ios: "magnifyingglass", android: "search", web: "search" }} size={18} tintColor={colors.muted} />
           <TextInput className="search__input" value={search} onChangeText={setSearch} placeholder="Search groups by name or topic" placeholderTextColor={colors.faint} autoCorrect={false} accessibilityLabel="Search groups" />
         </View>
-      )}
+      ) : null}
     </View>
   );
 
@@ -251,6 +253,8 @@ export default function Community() {
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.forest} />}
             showsVerticalScrollIndicator={false}
           />
+        ) : tab === "friends" ? (
+          <FriendsPanel header={header} />
         ) : (
           <FlatList
             data={store.groups}

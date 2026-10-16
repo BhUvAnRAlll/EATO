@@ -1,6 +1,7 @@
 import { apiFetch, type ApiResult } from "@/lib/api";
+import type { FriendState } from "@/lib/friends";
 
-// Calls for the community: feed, posts, stories, groups and direct messages. The shapes
+// Calls for the community: feed, posts, stories, groups, friends and direct messages. The shapes
 // mirror the server's (Eato_server/community/). `token` is the Clerk session token.
 
 export type Member = { id: string; name: string; initial: string };
@@ -86,9 +87,18 @@ export type Profile = {
   followsMe: boolean;
   blocked: boolean;
   canViewPosts: boolean;
+  friendState: FriendState;
 };
 
 export type FollowRequest = { member: Member; requestedAt: string };
+
+// Where a friendship stands, from the viewer's side. Friendship is separate from following:
+// it unlocks messaging, never a private account's posts.
+export type { FriendState };
+export type Friend = { member: Member; since: string };
+export type FriendRequest = { member: Member; requestedAt: string };
+export type FriendCandidate = { member: Member; friendState: FriendState };
+type FriendAnswer = { userId: string; friendState: FriendState };
 
 // A report as the moderation screen shows it (admins only)
 export type ReportDetail = {
@@ -251,6 +261,37 @@ export const community = {
     return apiFetch(`/api/community/me/follow-requests/${encodeURIComponent(userId)}/${accept ? "accept" : "decline"}`, { method: "POST", token });
   },
 
+  // ---- friends (always the caller's own; the server takes the caller from the session) ----
+  friends(token: string | null): Promise<ApiResult<{ friends: Friend[] }>> {
+    if (!token) return signedOut();
+    return apiFetch("/api/community/friends", { token });
+  },
+  friendRequests(token: string | null): Promise<ApiResult<{ incoming: FriendRequest[]; outgoing: FriendRequest[] }>> {
+    if (!token) return signedOut();
+    return apiFetch("/api/community/friends/requests", { token });
+  },
+  // A name search, or suggestions when `search` is empty
+  findFriends(token: string | null, search: string | null): Promise<ApiResult<{ members: FriendCandidate[] }>> {
+    if (!token) return signedOut();
+    return apiFetch(`/api/community/friends/search${query({ search })}`, { token });
+  },
+  sendFriendRequest(token: string | null, userId: string): Promise<ApiResult<FriendAnswer>> {
+    if (!token) return signedOut();
+    return apiFetch(`/api/community/friends/${encodeURIComponent(userId)}/request`, { method: "POST", token });
+  },
+  cancelFriendRequest(token: string | null, userId: string): Promise<ApiResult<FriendAnswer>> {
+    if (!token) return signedOut();
+    return apiFetch(`/api/community/friends/${encodeURIComponent(userId)}/request`, { method: "DELETE", token });
+  },
+  answerFriendRequest(token: string | null, userId: string, accept: boolean): Promise<ApiResult<FriendAnswer>> {
+    if (!token) return signedOut();
+    return apiFetch(`/api/community/friends/${encodeURIComponent(userId)}/${accept ? "accept" : "decline"}`, { method: "POST", token });
+  },
+  removeFriend(token: string | null, userId: string): Promise<ApiResult<FriendAnswer>> {
+    if (!token) return signedOut();
+    return apiFetch(`/api/community/friends/${encodeURIComponent(userId)}`, { method: "DELETE", token });
+  },
+
   // ---- messages ----
   conversations(token: string | null): Promise<ApiResult<{ conversations: Conversation[]; unreadCount: number }>> {
     if (!token) return signedOut();
@@ -260,7 +301,8 @@ export const community = {
     if (!token) return signedOut();
     return apiFetch("/api/community/conversations", { method: "POST", body: { userId }, token });
   },
-  messages(token: string | null, conversationId: string, cursor: string | null = null): Promise<ApiResult<Page<"messages", Message> & { other: Member | null }>> {
+  // canSend is false (with the reason) when the other member isn't a friend; history stays readable
+  messages(token: string | null, conversationId: string, cursor: string | null = null): Promise<ApiResult<Page<"messages", Message> & { other: Member | null; canSend: boolean; lockReason: string | null }>> {
     if (!token) return signedOut();
     return apiFetch(`/api/community/conversations/${conversationId}/messages${query({ cursor, limit: 30 })}`, { token });
   },

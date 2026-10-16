@@ -1,6 +1,6 @@
 // The Community tab in the real Expo web build against the isolated test server and the
-// eato_test database, as a signed-in member whose profile is complete. Covers: only Feed
-// and Groups exist (no Leagues), the empty feed, creating a post with a photo (preview,
+// eato_test database, as a signed-in member whose profile is complete. Covers: the Feed,
+// Friends and Groups tabs (no Leagues), the empty feed, creating a post with a photo (preview,
 // then publish), editing it, liking, commenting, joining a group, opening messages,
 // deleting a post behind a confirmation, the private-account audience rule, moderation,
 // and screenshots at three widths.
@@ -101,7 +101,7 @@ describe("ui community: feed, groups and messages for a signed-in member", () =>
     if (!fs.existsSync(CHROME)) { skipReason = "Google Chrome is not installed"; return; }
     for (const port of [Number(env.PORT), EXPO_PORT]) if (!(await portFree(port))) throw new Error(`port ${port} is in use; refusing to start`);
     try { connection = await db.connect(env); } catch (error) { skipReason = `test database unreachable (${error?.code ?? "refused"})`; return; }
-    assert.equal(await db.resetSchema(connection), 44, "schema.sql should create 44 tables in eato_test");
+    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in eato_test`);
     clerk = clerkFor(env.CLERK_SECRET_KEY);
     uploadDir = fs.mkdtempSync(path.join(os.tmpdir(), "eato-ui-uploads-"));
     photoFile = path.join(os.tmpdir(), `eato-ui-photo-${runId}.png`);
@@ -148,7 +148,7 @@ describe("ui community: feed, groups and messages for a signed-in member", () =>
     if (problems.length > 0) throw new Error(`cleanup incomplete: ${problems.join("; ")}`);
   });
 
-  it("1. Community opens from the tab bar with Feed and Groups only", run("open", async () => {
+  it("1. Community opens from the tab bar with Feed, Friends and Groups (no Leagues)", run("open", async () => {
     await viewport(390, 844);
     await signInAs(page, h, identities.a);
     await h.expectPath("/home");
@@ -157,6 +157,7 @@ describe("ui community: feed, groups and messages for a signed-in member", () =>
     await h.expectPath("/community");
     await h.expectText("TRAIN TOGETHER");
     await h.expectText("Feed");
+    await h.expectText("Friends");
     await h.expectText("Groups");
     assert.equal(await page.hasText("Leagues"), false, "there is no Leagues tab");
     assert.equal(await page.hasText("Leaderboard"), false);

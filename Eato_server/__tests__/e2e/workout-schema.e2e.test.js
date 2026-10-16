@@ -60,7 +60,7 @@ describe("workout schema e2e: the eight tables, the engine's output, and the rul
     const loaded = db.loadTestEnv();
     if (!loaded.ok) { skipReason = loaded.reason; return; }
     try { connection = await db.connect(loaded.env); } catch (error) { skipReason = `test database unreachable (${error?.code ?? "refused"})`; return; }
-    assert.equal(await db.resetSchema(connection), 44, "schema.sql should create 44 tables in eato_test");
+    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in eato_test`);
     for (const tag of ["a", "b"]) {
       await connection.query("INSERT INTO users (id, email, full_name) VALUES (?, ?, ?)", [`user_wk_${runId}_${tag}`, `wk-${runId}-${tag}@example.com`, `Workout ${tag}`]);
     }

@@ -18,7 +18,7 @@ const { clerkFor, describeClerkError } = require("./clerk-identities.js");
 // A 1×1 PNG, as the app would send it
 const TINY_PNG = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
 const COMMUNITY_TABLES = ["messages", "conversation_members", "conversations", "community_reports", "community_story_views", "community_stories",
-  "community_comments", "community_post_likes", "community_posts", "community_group_members", "community_media"];
+  "community_comments", "community_post_likes", "community_posts", "community_group_members", "community_media", "community_friendships"];
 
 describe("community e2e: posts, stories, groups and messages with real sessions", () => {
   const runId = crypto.randomBytes(4).toString("hex");
@@ -56,7 +56,7 @@ describe("community e2e: posts, stories, groups and messages with real sessions"
     if (!loaded.ok) { skipReason = loaded.reason; return; }
     env = loaded.env;
     try { connection = await db.connect(env); } catch (error) { skipReason = `test database unreachable (${error?.code ?? "refused"})`; return; }
-    assert.equal(await db.resetSchema(connection), 44, "schema.sql should create 44 tables in eato_test");
+    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in eato_test`);
     clerk = clerkFor(env.CLERK_SECRET_KEY);
     uploadDir = fs.mkdtempSync(path.join(os.tmpdir(), "eato-test-uploads-"));
     server = await startTestServer({ ...env, UPLOAD_DIR: uploadDir });
@@ -71,6 +71,7 @@ describe("community e2e: posts, stories, groups and messages with real sessions"
     for (const tag of ["a", "b", "admin"]) {
       await connection.query("INSERT INTO users (id, email, full_name, role) VALUES (?, ?, ?, ?)", [identities[tag].id, identities[tag].emailAddress, `Member ${tag.toUpperCase()}`, tag === "admin" ? "admin" : "user"]);
     }
+    await db.befriend(connection, identities.a.id, identities.b.id); // messaging is for friends
   });
 
   after(async () => {

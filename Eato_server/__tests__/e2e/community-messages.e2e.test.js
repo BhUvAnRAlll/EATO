@@ -51,7 +51,7 @@ describe("community messages e2e: conversations, pages, retries and who may read
     if (!loaded.ok) { skipReason = loaded.reason; return; }
     env = loaded.env;
     try { connection = await db.connect(env); } catch (error) { skipReason = `test database unreachable (${error?.code ?? "refused"})`; return; }
-    assert.equal(await db.resetSchema(connection), 44, "schema.sql should create 44 tables in eato_test");
+    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in eato_test`);
     clerk = clerkFor(env.CLERK_SECRET_KEY);
     server = await startTestServer(env);
     try {
@@ -65,6 +65,7 @@ describe("community messages e2e: conversations, pages, retries and who may read
     for (const tag of Object.keys(ids)) {
       await connection.query("INSERT INTO users (id, email, full_name, role) VALUES (?, ?, ?, ?)", [ids[tag], identities[tag].emailAddress, `Member ${tag.toUpperCase()}`, tag === "admin" ? "admin" : "user"]);
     }
+    await db.befriend(connection, ids.a, ids.b); // messaging is for friends; c and admin stay strangers
   });
 
   after(async () => {
@@ -267,6 +268,7 @@ describe("community messages e2e: conversations, pages, retries and who may read
 
       // Someone else's id can't be reused or overwritten, in this or another conversation
       await assert.rejects(messages.sendMessage(pool, ids.b, state.conversation, { body: "hijack", id: retried }), (error) => error.status === 400 && /already in use/.test(error.message));
+      await db.befriend(connection, ids.a, ids.c); // a second conversation needs a friendship too
       const other = await messages.openConversation(pool, ids.a, ids.c);
       await assert.rejects(messages.sendMessage(pool, ids.a, other.id, { body: "moved", id: retried }), (error) => error.status === 400);
       const [[row]] = await connection.query("SELECT body, sender_id, conversation_id FROM messages WHERE id = ?", [retried]);
@@ -321,6 +323,12 @@ describe("community messages e2e: conversations, pages, retries and who may read
     }
     assert.equal((await read(tokens.b)).status, 200, "restored");
     assert.ok((await inbox(tokens.a)).conversations.some((c) => c.id === state.conversation));
+    // The block ended the friendship, so the history is back but sending waits for a new one
+    const locked = await send(tokens.b, "after the block");
+    assert.equal(locked.status, 403);
+    assert.match(locked.json.error, /friend/);
+    assert.equal((await read(tokens.b)).json.canSend, false);
+    await db.befriend(connection, ids.a, ids.b);
     assert.equal((await send(tokens.b, "after the block")).status, 201);
   });
 });

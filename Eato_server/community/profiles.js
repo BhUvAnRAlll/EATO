@@ -4,6 +4,7 @@ const { ValidationError } = require("../profile");
 const { memberSummary, ensureUser } = require("./members");
 const { NotFoundError, ForbiddenError } = require("./posts");
 const { isBlocked } = require("./visibility");
+const friends = require("./friends");
 
 async function assertMemberExists(pool, userId) {
   const [rows] = await pool.query("SELECT id FROM users WHERE id = ?", [userId]);
@@ -45,6 +46,8 @@ async function getProfile(pool, viewerId, userId) {
     blocked: Boolean(row.blocked_by_me),
     // Whether the viewer may see this member's posts (the server enforces it; the app uses it for the empty state)
     canViewPosts: isOwn || (!suspended && !row.blocked_by_me && (!isPrivate || followState === "following")),
+    // Friendship is separate from following: it unlocks messaging, never private posts
+    friendState: isOwn ? "none" : await friends.friendState(pool, viewerId, userId),
   };
 }
 
@@ -109,6 +112,7 @@ async function block(pool, viewerId, userId) {
     await connection.query("INSERT IGNORE INTO community_blocks (blocker_id, blocked_id) VALUES (?, ?)", [viewerId, userId]);
     await connection.query("DELETE FROM community_follows WHERE (follower_id = ? AND following_id = ?) OR (follower_id = ? AND following_id = ?)", [viewerId, userId, userId, viewerId]);
     await connection.query("DELETE FROM community_close_friends WHERE (owner_id = ? AND friend_id = ?) OR (owner_id = ? AND friend_id = ?)", [viewerId, userId, userId, viewerId]);
+    await friends.endForBlock(connection, viewerId, userId);
     await connection.commit();
   } catch (error) {
     await connection.rollback();
