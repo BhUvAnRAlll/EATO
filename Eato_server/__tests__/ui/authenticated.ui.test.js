@@ -17,7 +17,7 @@ const { startTestServer, portFree } = require("../e2e/server.js");
 const { clerkFor, describeClerkError } = require("../e2e/clerk-identities.js");
 const { startExpoWeb } = require("./expo-web.js");
 const { launchChrome, connect, openPage, CHROME } = require("./cdp.js");
-const { fillSetup, helpers, NAV_TIMEOUT } = require("./onboarding-steps.js");
+const { fillSetup, fillSignInForm, helpers, NAV_TIMEOUT } = require("./onboarding-steps.js");
 
 const EXPO_PORT = 8090;
 const EVIDENCE_DIR = path.join(os.tmpdir(), "eato-ui-evidence");
@@ -54,8 +54,7 @@ describe("ui authenticated: sign in → onboarding → save → reload → updat
   // Signs in through the real screen; handles the emailed-code step if Clerk asks for it
   const signInAs = async (identity) => {
     await h.goto("/sign-in", "Log in");
-    await page.setInput(h.input("Email address"), identity.emailAddress);
-    await page.setInput(h.input("Password"), identity.password);
+    await fillSignInForm(page, h, identity); // waits for Clerk and a stable form first
     await page.clickText("Log in");
     const outcome = await page.waitFor(
       `(() => { const t = document.body.innerText || ""; if (location.pathname.startsWith("/setup") || location.pathname === "/home") return "routed"; if (t.includes("Check your email")) return "code"; const alert = document.querySelector('[role="alert"]'); if (alert && alert.innerText.trim()) return "error:" + alert.innerText.trim().slice(0, 120); return ""; })()`,
@@ -148,7 +147,7 @@ describe("ui authenticated: sign in → onboarding → save → reload → updat
     const before = page.requests.length;
     await page.clickText("Finish");
     await h.expectPath("/home");
-    await h.expectText("Today's Nutrition");
+    await h.expectText("Today's Macros");
     // The greeting and sign-out live on the Profile screen, opened from the header's avatar button
     await clickProfile();
     await h.expectPath("/profile");
@@ -164,12 +163,12 @@ describe("ui authenticated: sign in → onboarding → save → reload → updat
   }));
 
   it("3. after a reload the saved profile is retrieved and the user lands on home again", run("reload", async () => {
-    await h.goto("/", "Today's Nutrition");
+    await h.goto("/", "Today's Macros");
     assert.equal(await page.path(), "/home");
     // Returned-user path: with the account flag cleared, the app must ask the server and still reach home
     await clerk.setUnsafeMetadata(identities.a.id, { profileComplete: null });
     const before = page.requests.length;
-    await h.goto("/", "Today's Nutrition");
+    await h.goto("/", "Today's Macros");
     assert.equal(await page.path(), "/home");
     assert.ok(page.requests.slice(before).some((u) => u === `${apiUrl()}/api/profile`), "the app should have fetched the profile from the test server");
     const deadline = Date.now() + 15000;
@@ -195,7 +194,7 @@ describe("ui authenticated: sign in → onboarding → save → reload → updat
     await fillSetup(page, expo.baseUrl, { fullName: "E2E Updated", diet: "Vegetarian", goal: "Maintain weight" });
     await page.clickText("Finish");
     await h.expectPath("/home");
-    await h.expectText("Today's Nutrition");
+    await h.expectText("Today's Macros");
     assert.deepEqual(await db.rowsForUser(connection, identities.a.id), { nutrition_targets: 1, body_composition_reports: 0, profiles: 1, users: 1 });
     const [[user]] = await connection.query("SELECT full_name FROM users WHERE id = ?", [identities.a.id]);
     assert.equal(user.full_name, "E2E Updated");

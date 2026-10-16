@@ -186,19 +186,16 @@ export const sampleMeals: Meal[] = [
 ];
 
 export const defaultHomeContent: HomeContent = {
-  nutritionHeading: "Today's Nutrition",
+  nutritionHeading: "Today's Macros",
   nutritionActionLabel: "Edit Goal",
   popularHeading: "Popular Meals",
   popularActionLabel: "View all",
   todayHeading: "Today",
   todayActionLabel: "View all",
   showTodaySection: true,
-  quickActions: [
-    { id: "meals", title: "Meals", subtitle: "Browse menu", icon: "meals", destination: "explore" },
-    { id: "plans", title: "Plans", subtitle: "For your goals", icon: "plans", destination: "plans" },
-    { id: "nutrition", title: "Nutrition", subtitle: "Track intake", icon: "nutrition", destination: "nutrition" },
-    { id: "delivery", title: "Delivery", subtitle: "At your doorstep", icon: "delivery", destination: "orders" },
-  ],
+  // No quick-action cards by default (the bottom tabs already lead to these screens); an
+  // admin can still add cards on the Home content screen
+  quickActions: [],
   popularMealIds: sampleMeals.map((meal) => meal.id),
   popularMeals: sampleMeals,
   updatedAt: null,
@@ -210,7 +207,7 @@ export type NutritionAmounts = { calories: number; proteinG: number; carbsG: num
 export type NutritionToday = {
   consumed: NutritionAmounts;
   targets: NutritionAmounts;
-  // "targets" = the member's saved targets (nothing is logged yet, so consumed is 0);
+  // "targets" = the member's saved targets, with what the Macro diary says was eaten today;
   // "sample" = placeholder numbers because the targets couldn't be loaded
   source: "targets" | "sample";
 };

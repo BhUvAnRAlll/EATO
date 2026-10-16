@@ -34,19 +34,16 @@ const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
 
 // What the home screen shows when the home_content row is missing (schema.sql seeds it)
 const defaultHomeContent = {
-  nutritionHeading: "Today's Nutrition",
+  nutritionHeading: "Today's Macros",
   nutritionActionLabel: "Edit Goal",
   popularHeading: "Popular Meals",
   popularActionLabel: "View all",
   todayHeading: "Today",
   todayActionLabel: "View all",
   showTodaySection: true,
-  quickActions: [
-    { id: "meals", title: "Meals", subtitle: "Browse menu", icon: "meals", destination: "explore" },
-    { id: "plans", title: "Plans", subtitle: "For your goals", icon: "plans", destination: "plans" },
-    { id: "nutrition", title: "Nutrition", subtitle: "Track intake", icon: "nutrition", destination: "nutrition" },
-    { id: "delivery", title: "Delivery", subtitle: "At your doorstep", icon: "delivery", destination: "orders" },
-  ],
+  // No quick-action cards by default (the bottom tabs already lead to these screens); an
+  // admin can still add cards on the Home content screen
+  quickActions: [],
   popularMealIds: ["grilled-chicken-bowl", "paneer-tikka-bowl", "salmon-bowl"],
 };
 

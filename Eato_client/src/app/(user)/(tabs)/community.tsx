@@ -168,7 +168,7 @@ export default function Community() {
             <Avatar member={me} size={40} />
             <Text className="composer__prompt">Share your progress...</Text>
             <View className="composer__image">
-              <SymbolView name={{ ios: "photo.badge.plus", android: "add_photo_alternate", web: "add_photo_alternate" }} size={20} tintColor="#2B4C7E" />
+              <SymbolView name={{ ios: "photo.badge.plus", android: "add_photo_alternate", web: "add_photo_alternate" }} size={20} tintColor={colors.forest} />
             </View>
           </Pressable>
         </View>

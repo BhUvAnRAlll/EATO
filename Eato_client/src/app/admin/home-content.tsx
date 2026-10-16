@@ -108,8 +108,8 @@ export default function AdminHomeContent() {
           {saved && <Text className="admin__success">Saved. Members see it on their next refresh.</Text>}
 
           <Text className="setup__section">Section labels</Text>
-          <AdminField label="Nutrition heading" value={content.nutritionHeading} onChangeText={(nutritionHeading) => update({ nutritionHeading })} maxLength={40} />
-          <AdminField label="Nutrition action" value={content.nutritionActionLabel} onChangeText={(nutritionActionLabel) => update({ nutritionActionLabel })} maxLength={30} />
+          <AdminField label="Macro heading" value={content.nutritionHeading} onChangeText={(nutritionHeading) => update({ nutritionHeading })} maxLength={40} />
+          <AdminField label="Macro action" value={content.nutritionActionLabel} onChangeText={(nutritionActionLabel) => update({ nutritionActionLabel })} maxLength={30} />
           <AdminField label="Popular meals heading" value={content.popularHeading} onChangeText={(popularHeading) => update({ popularHeading })} maxLength={40} />
           <AdminField label="Popular meals action" value={content.popularActionLabel} onChangeText={(popularActionLabel) => update({ popularActionLabel })} maxLength={30} />
           <AdminField label="Today heading" value={content.todayHeading} onChangeText={(todayHeading) => update({ todayHeading })} maxLength={40} />

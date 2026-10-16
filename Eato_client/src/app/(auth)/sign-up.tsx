@@ -39,6 +39,9 @@ const accountTypes: Option<AccountType>[] = [
 export default function SignUp() {
   const { width } = useWindowDimensions();
   const s = width / DESIGN_WIDTH;
+  // Narrow phones: the bowl keeps its place and size, so the title and subtitle are held to
+  // the plain area on its left (about 40% of the width) and the subtitle wraps naturally
+  const compact = width < 360;
   const { signUp } = useSignUp();
 
   const [accountType, setAccountType] = useState<AccountType>("user");
@@ -59,7 +62,7 @@ export default function SignUp() {
       password,
       firstName: firstName || undefined,
       lastName: rest.join(" ") || undefined,
-      // The server turns "trainer" into the real role after sign up (see app/api/account-type+api.ts)
+      // The server turns "trainer" into the real role after sign up (POST /api/account-type, see Eato_server/auth.js)
       unsafeMetadata: { accountType },
     });
     const { error: sendError } = createError ? { error: null } : await signUp.verifications.sendEmailCode();
@@ -84,7 +87,7 @@ export default function SignUp() {
   };
 
   return (
-    <View className="flex-1 bg-cream">
+    <View className="flex-1 overflow-hidden bg-cream">
       <StatusBar style="dark" />
 
       {/* Background artwork (positions in design pixels × s) */}
@@ -116,8 +119,15 @@ export default function SignUp() {
           >
             <BrandWordmark />
 
+            {/* The two-line title only reaches the leaves beside the bowl; the subtitle sits lower,
+                level with the bowl itself, so on narrow phones it is held to the plain area */}
             <Text className="auth__title mt-8">{"Create your\naccount"}</Text>
-            <Text className="auth__subtitle mt-3">{"Start your journey to\nhealthy, tasty meals\nwith Eato."}</Text>
+            {/* The limit sits on a View: a Text's own maxWidth is ignored on web */}
+            <View style={compact ? { maxWidth: Math.round(width * 0.4) } : undefined}>
+              <Text className="auth__subtitle mt-3">
+                {compact ? "Start your journey to healthy, tasty meals with Eato." : "Start your journey to\nhealthy, tasty meals\nwith Eato."}
+              </Text>
+            </View>
 
             {/* Log in / Sign up switch */}
             <View className="auth__tabs mt-9">

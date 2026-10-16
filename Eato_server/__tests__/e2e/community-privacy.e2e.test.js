@@ -60,7 +60,7 @@ describe("community privacy e2e: audiences, private accounts, blocks and suspens
     if (!loaded.ok) { skipReason = loaded.reason; return; }
     env = loaded.env;
     try { connection = await db.connect(env); } catch (error) { skipReason = `test database unreachable (${error?.code ?? "refused"})`; return; }
-    assert.equal(await db.resetSchema(connection), 35, "schema.sql should create 35 tables in eato_test");
+    assert.equal(await db.resetSchema(connection), 44, "schema.sql should create 44 tables in eato_test");
     clerk = clerkFor(env.CLERK_SECRET_KEY);
     uploadDir = fs.mkdtempSync(path.join(os.tmpdir(), "eato-privacy-uploads-"));
     server = await startTestServer({ ...env, UPLOAD_DIR: uploadDir });
@@ -173,7 +173,9 @@ describe("community privacy e2e: audiences, private accounts, blocks and suspens
     assert.equal((await api("GET", `/api/media/${state.media}`, tokens.author)).status, 200);
     // A story from a private account is also followers-only, image included
     const storyUpload = await api("POST", "/api/community/media", tokens.author, { data: TINY_PNG, mediaType: "image/png" });
-    const story = await api("POST", "/api/community/stories", tokens.author, { mediaId: storyUpload.json.media.id });
+    // The account is private here, so Everyone is refused and Followers is the audience
+    assert.equal((await api("POST", "/api/community/stories", tokens.author, { mediaId: storyUpload.json.media.id })).status, 409);
+    const story = await api("POST", "/api/community/stories", tokens.author, { mediaId: storyUpload.json.media.id, audience: "followers" });
     assert.equal(story.status, 201);
     assert.equal((await api("GET", "/api/community/stories", tokens.stranger)).json.members.length, 0);
     assert.equal((await api("GET", "/api/community/stories", tokens.follower)).json.members.length, 1);
@@ -212,6 +214,10 @@ describe("community privacy e2e: audiences, private accounts, blocks and suspens
       assert.equal((await api("GET", "/api/community/feed", tokens.author)).status, 200, "the suspended member can still read");
       assert.equal((await api("POST", "/api/community/posts", tokens.author, { body: "still here?" })).status, 403, "but not write");
       assert.equal((await api("POST", `/api/community/posts/${state.publicPost}/like`, tokens.author)).status, 403);
+      const edit = await api("PATCH", `/api/community/posts/${state.publicPost}`, tokens.author, { body: "rewritten while suspended" });
+      assert.equal(edit.status, 403, "nor edit a post (it could rewrite reported content)");
+      const [[kept]] = await connection.query("SELECT body FROM community_posts WHERE id = ?", [state.publicPost]);
+      assert.notEqual(kept.body, "rewritten while suspended");
       assert.equal((await api("POST", "/api/community/conversations", tokens.stranger, { userId: ids.author })).status, 404);
     } finally {
       assert.equal((await api("DELETE", `/api/community/admin/members/${ids.author}/suspend`, tokens.admin)).status, 200);
@@ -282,7 +288,7 @@ describe("community privacy e2e: audiences, private accounts, blocks and suspens
     assert.equal((await api("DELETE", `/api/community/posts/${postId}`, tokens.author)).status, 200);
     assert.equal(await mediaFor(tokens.stranger), 404, "revoked when the post is deleted");
     assert.equal(await mediaFor(tokens.follower), 404);
-    assert.equal(await mediaFor(tokens.author), 200, "the owner keeps their upload");
+    assert.equal(await mediaFor(tokens.author), 404, "a deleted post's photo is gone for its owner too");
   });
 
   test("10. reporting a comment on a hidden post is a 404; admins see the reported content; suspended list", async () => {

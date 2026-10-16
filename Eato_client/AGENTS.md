@@ -234,6 +234,32 @@ When building from an attached design image:
 
 Prefer reusable class patterns through utilities in `global.css`. If there isn't any utility and you see a possibility, create that as a new utility in `global.css` by following BEM method.
 
+### Colour theme
+
+EATO's colours come from the EITO web app (https://eito-app.vercel.app), colours only (not its
+features, buttons or layout). The palette lives in `src/theme/tokens.css` with a JS copy in
+`src/theme/index.ts`; keep the two in sync and never hard-code a hex value in a screen or
+component when a token exists.
+
+| Role | Token(s) | Value |
+| --- | --- | --- |
+| Page background | `cream`, `background` | `#F9F7F5` |
+| Cards and sheets | `surface`, `cream-light` | `#FFFFFF` |
+| Soft panels / tracks | `cream-deep`, `surface-alt` / `cream-tab` | `#F6F2EF` / `#E9E6E2` |
+| Borders | `cream-line`, `line` | `#EEEAE6` |
+| Ink: titles, body, primary buttons | `forest`, `forest-ink`, `ink`, `leaf-dark` | `#141515` |
+| Accent: chips, active tab, avatars | `primary` / `accent-soft`, `forest-soft`, `leaf-soft` | `#C5D3EA` / `#E2EBF6` |
+| Strong accent: links, rings, "today" | `leaf`, `success` | `#10213A` (navy) |
+| Muted / faint text | `muted` / `faint` | `#676A72` / `#8F9197` |
+| Danger / warning / info | `danger` / `warning` / `info` | `#F3435A` / `#C49A5A` / `#97BEF3` |
+| Macros | `protein` / `carbs` / `fat` | `#8E7BD6` / `#B49469` / `#6FA3EA` |
+
+- Some token names (`forest`, `cream`, `leaf`) come from the earlier green theme. They keep their
+  roles; only the values changed. Use them by role, not by the colour their name suggests.
+- `danger` and `warning` are below WCAG AA contrast as small text on the page background. Prefer
+  them for icons, badges and fills; pair them with ink text where a message must be read.
+- Typography stays on the system font (San Francisco on Apple platforms) through `--font-sans`.
+
 Avoid large inline styles unless required.
 
 ## NativeWind Rule
@@ -493,7 +519,7 @@ These rules apply to every future implementation, in both `Eato_client/` and `Ea
 10. **Database safety.** Never drop tables, delete existing data, change database permissions, modify the schema, or create persistent test data without the user's approval.
 11. **Security.** Never expose secrets, trust client-supplied identity or roles, or bypass existing authentication.
 12. **Keep instructions updated.** Preserve the current EATO architecture and existing project rules. Do not overwrite useful instructions.
-13. **Design source of truth.** `src/theme/tokens.css`, `src/theme/index.ts`, the utilities in `src/global.css`, and the mockups under `assets/design/` define EATO's look. Preserve them. Do not introduce a new visual direction; when a screen and a mockup disagree, report the discrepancy and ask before changing the composition.
+13. **Design source of truth.** `src/theme/tokens.css`, `src/theme/index.ts`, the utilities in `src/global.css`, and the mockups under `assets/design/` define EATO's look. Colours come from the tokens (see "Colour theme" above); the mockups still show the earlier green and cream colours, so use them for layout, spacing and composition, not colour. Preserve them. Do not introduce a new visual direction; when a screen and a mockup disagree, report the discrepancy and ask before changing the composition.
 14. **Test isolation.** UI and integration tests use the `eato_test` database through `Eato_server/.env.test` and the test server on port 4100. Never point tests at port 4000 or the `eato` database. Run `npm test`, `npm run test:e2e` and `npm run test:ui` in `Eato_server/` as relevant.
 15. **Visual evidence.** After each approved UI change, capture screenshots at the supported widths with the existing test harness and include their paths in the report.
 16. **Git.** Never commit, push, amend, rewrite history, reset, stash or discard work without explicit approval. Review the staged diff before any commit. Keep `.env` files and generated artifacts out of commits.

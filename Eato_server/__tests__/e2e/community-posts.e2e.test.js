@@ -66,7 +66,7 @@ describe("community posts e2e: publish, edit and delete with photos", () => {
     if (!loaded.ok) { skipReason = loaded.reason; return; }
     env = loaded.env;
     try { connection = await db.connect(env); } catch (error) { skipReason = `test database unreachable (${error?.code ?? "refused"})`; return; }
-    assert.equal(await db.resetSchema(connection), 35, "schema.sql should create 35 tables in eato_test");
+    assert.equal(await db.resetSchema(connection), 44, "schema.sql should create 44 tables in eato_test");
     clerk = clerkFor(env.CLERK_SECRET_KEY);
     uploadDir = fs.mkdtempSync(path.join(os.tmpdir(), "eato-posts-uploads-"));
     server = await startTestServer({ ...env, UPLOAD_DIR: uploadDir });
@@ -255,28 +255,39 @@ describe("community posts e2e: publish, edit and delete with photos", () => {
     for (const id of [m3, m1]) {
       assert.equal(await mediaStatus(id, tokens.follower), 404, "old photo links die for members");
       assert.equal(await mediaStatus(id, tokens.stranger), 404);
-      assert.equal(await mediaStatus(id, tokens.author), 200, "the uploader can still see their own file for now");
-      assert.equal(await mediaStatus(id, tokens.admin), 200, "an admin reviewing the report can still see the photo");
+      assert.equal(await mediaStatus(id, tokens.author), 404, "deleted content is gone for its uploader too");
+      assert.equal(await mediaStatus(id, tokens.admin), 404, "the general media route never serves deleted content, not even to admins");
     }
-    const detail = await api("GET", `/api/community/reports/${(await api("GET", "/api/community/reports", tokens.admin)).json.reports[0].id}`, tokens.admin);
+    const reportId = (await api("GET", "/api/community/reports", tokens.admin)).json.reports[0].id;
+    const detail = await api("GET", `/api/community/reports/${reportId}`, tokens.admin);
     assert.equal(detail.json.report.target.deleted, true);
-    assert.equal(detail.json.report.target.imageUrl, `/api/media/${m3}`, "the report still points at the cover");
+    const evidence = `/api/community/reports/${reportId}/media`;
+    assert.equal(detail.json.report.target.imageUrl, evidence, "the report links its photo through the admin evidence route");
+    assert.equal((await api("GET", evidence, tokens.admin)).status, 200, "an admin reviewing the report sees the cover");
+    for (const tag of ["author", "stranger", "follower"]) assert.equal((await api("GET", evidence, tokens[tag])).status, 403, `${tag}: evidence is admin-only`);
+    assert.equal((await api("GET", evidence, null)).status, 401);
     const [[row]] = await connection.query("SELECT deleted_at FROM community_posts WHERE id = ?", [state.post]);
     assert.ok(row.deleted_at, "soft deleted, so the report keeps its context");
     const [[report]] = await connection.query("SELECT post_id, status FROM community_reports WHERE post_id = ?", [state.post]);
     assert.equal(report.status, "open");
-    // The sweep keeps a deleted post's photos for a while (moderation), then removes them
+    // The sweep keeps a deleted post's photos for a while, and for as long as it is reported
     process.env.UPLOAD_DIR = uploadDir;
     delete require.cache[require.resolve("../../community/media.js")];
     const sweeper = require("../../community/media.js");
     await connection.query("UPDATE community_media SET created_at = DATE_SUB(NOW(), INTERVAL 2 DAY) WHERE id IN (?)", [[m3, m1]]);
     assert.equal(await sweeper.removeOrphanedMedia(connection, 24), 0, "recently deleted: kept");
     await connection.query("UPDATE community_posts SET deleted_at = DATE_SUB(NOW(), INTERVAL 31 DAY) WHERE id = ?", [state.post]);
-    assert.equal(await sweeper.removeOrphanedMedia(connection, 24), 2, "deleted long ago: both photos removed");
+    assert.equal(await sweeper.removeOrphanedMedia(connection, 24), 0, "deleted long ago but reported: the evidence is kept");
+    assert.equal((await api("GET", evidence, tokens.admin)).status, 200, "and the admin can still open it");
+    assert.equal(await sweeper.removeOrphanedMedia(connection, 24), 0, "a repeated sweep changes nothing");
+    // Once no report refers to the post any more, the next sweep removes both photos
+    await connection.query("DELETE FROM community_reports WHERE post_id = ?", [state.post]);
+    assert.equal(await sweeper.removeOrphanedMedia(connection, 24), 2, "unreported and deleted long ago: both photos removed");
     assert.ok(!fs.existsSync(fileOf(m3)) && !fs.existsSync(fileOf(m1)));
     assert.equal(await mediaStatus(m1, tokens.author), 404);
-    assert.equal(await mediaStatus(m1, tokens.admin), 404, "nothing is kept past the retention window");
-    assert.equal((await connection.query("SELECT COUNT(*) AS n FROM community_reports WHERE post_id = ?", [state.post]))[0][0].n, 1, "the report row survives");
+    assert.equal((await api("GET", evidence, tokens.admin)).status, 404, "a deleted post's photos aren't kept past the retention window");
+    const [[kept]] = await connection.query("SELECT deleted_at FROM community_posts WHERE id = ?", [state.post]);
+    assert.ok(kept.deleted_at, "the post row itself stays, soft deleted");
   });
 
   test("8. post fields are validated, never trusted: author, client key and photo list shapes", async () => {

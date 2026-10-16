@@ -7,7 +7,7 @@ const express = require("express");
 const { requireAdmin } = require("../auth");
 const { jsonBodyWithLimit } = require("../requestBody");
 const { uploadLimits } = require("../bodyComposition/upload");
-const { ensureUser, roleOf } = require("./members");
+const { ensureUser, currentRole } = require("./members");
 const media = require("./media");
 const posts = require("./posts");
 const stories = require("./stories");
@@ -57,13 +57,13 @@ router.get("/posts/:postId", route(async (req, res) => {
   res.json({ post: await posts.getPost(req.app.locals.pool, req.userId, v.id(req.params.postId, "The post")) });
 }));
 
-router.patch("/posts/:postId", smallBody, route(async (req, res) => {
+router.patch("/posts/:postId", smallBody, withUser, route(async (req, res) => {
   res.json({ post: await posts.updatePost(req.app.locals.pool, req.userId, v.id(req.params.postId, "The post"), v.validatePostUpdate(req.body)) });
 }));
 
 router.delete("/posts/:postId", route(async (req, res) => {
   const pool = req.app.locals.pool;
-  await posts.deletePost(pool, req.userId, await roleOf(pool, req.userId), v.id(req.params.postId, "The post"));
+  await posts.deletePost(pool, req.userId, await currentRole(req.userId), v.id(req.params.postId, "The post"));
   res.json({ deleted: true });
 }));
 
@@ -85,7 +85,7 @@ router.post("/posts/:postId/comments", smallBody, withUser, route(async (req, re
 
 router.delete("/comments/:commentId", route(async (req, res) => {
   const pool = req.app.locals.pool;
-  res.json(await posts.deleteComment(pool, req.userId, await roleOf(pool, req.userId), v.id(req.params.commentId, "The comment")));
+  res.json(await posts.deleteComment(pool, req.userId, await currentRole(req.userId), v.id(req.params.commentId, "The comment")));
 }));
 
 router.post("/posts/:postId/report", smallBody, withUser, route(async (req, res) => {
@@ -105,6 +105,20 @@ router.get("/reports/:reportId", requireAdmin, route(async (req, res) => {
   res.json({ report: await posts.getReport(req.app.locals.pool, v.id(req.params.reportId, "The report")) });
 }));
 
+// The photo a report is about, for the admin reviewing it: served even if the post or story
+// was deleted (until the retention clean-up), never cached, and only for that report's photo
+router.get("/reports/:reportId/media", requireAdmin, route(async (req, res) => {
+  const pool = req.app.locals.pool;
+  const mediaId = await posts.reportEvidenceMediaId(pool, v.id(req.params.reportId, "The report"));
+  const row = mediaId ? await media.getMedia(pool, mediaId) : null;
+  if (!row) return res.status(404).json({ error: "Not found." });
+  res.set("Cache-Control", "private, no-store");
+  res.type(row.media_type);
+  res.sendFile(media.pathFor(row), (error) => {
+    if (error && !res.headersSent) res.status(404).json({ error: "Not found." });
+  });
+}));
+
 router.post("/reports/:reportId/resolve", requireAdmin, smallBody, route(async (req, res) => {
   res.json(await posts.resolveReport(req.app.locals.pool, v.id(req.params.reportId, "The report"), req.body?.status));
 }));
@@ -115,17 +129,23 @@ router.get("/stories", route(async (req, res) => {
   res.json({ members: await stories.listStories(req.app.locals.pool, req.userId) });
 }));
 
+// 201 for a new story; 200 with the same story when this photo was already published
 router.post("/stories", smallBody, withUser, route(async (req, res) => {
-  res.status(201).json({ story: await stories.createStory(req.app.locals.pool, req.userId, v.validateStory(req.body)) });
+  const { story, created } = await stories.createStory(req.app.locals.pool, req.userId, v.validateStory(req.body));
+  res.status(created ? 201 : 200).json({ story });
 }));
 
 router.post("/stories/:storyId/view", withUser, route(async (req, res) => {
   res.json(await stories.viewStory(req.app.locals.pool, req.userId, v.id(req.params.storyId, "The story")));
 }));
 
+router.post("/stories/:storyId/report", smallBody, withUser, route(async (req, res) => {
+  res.status(201).json(await stories.reportStory(req.app.locals.pool, req.userId, v.id(req.params.storyId, "The story"), v.validateReport(req.body)));
+}));
+
 router.delete("/stories/:storyId", route(async (req, res) => {
   const pool = req.app.locals.pool;
-  await stories.deleteStory(pool, req.userId, await roleOf(pool, req.userId), v.id(req.params.storyId, "The story"));
+  await stories.deleteStory(pool, req.userId, await currentRole(req.userId), v.id(req.params.storyId, "The story"));
   res.json({ deleted: true });
 }));
 
@@ -175,6 +195,19 @@ router.post("/me/follow-requests/:userId/accept", withUser, route(async (req, re
 
 router.post("/me/follow-requests/:userId/decline", withUser, route(async (req, res) => {
   res.json(await profiles.answerFollowRequest(req.app.locals.pool, req.userId, memberId(req), false));
+}));
+
+// The caller's Close Friends (and the followers they can add). Only ever the caller's own list.
+router.get("/me/close-friends", route(async (req, res) => {
+  res.json({ members: await profiles.listCloseFriends(req.app.locals.pool, req.userId) });
+}));
+
+router.put("/me/close-friends/:userId", withUser, route(async (req, res) => {
+  res.json(await profiles.addCloseFriend(req.app.locals.pool, req.userId, memberId(req)));
+}));
+
+router.delete("/me/close-friends/:userId", route(async (req, res) => {
+  res.json(await profiles.removeCloseFriend(req.app.locals.pool, req.userId, memberId(req)));
 }));
 
 router.get("/me/blocked", route(async (req, res) => {
@@ -243,18 +276,20 @@ router.post("/conversations/:conversationId/messages", smallBody, route(async (r
   res.status(201).json({ message: await messages.sendMessage(req.app.locals.pool, req.userId, v.id(req.params.conversationId, "The conversation"), v.validateMessage(req.body)) });
 }));
 
-// Whether the viewer may see the image: their own upload, a visible post or story, a group
-// cover, or (for an admin reviewing reports) any post's photo, deleted posts included
+// Whether the viewer may see the image through the general media route: their own upload
+// that isn't attached to anything yet, a visible post or story (the owner always sees their
+// own live content through those rules), or a group cover. Nobody gets deleted or ended
+// content here, owners and admins included; moderators use the report evidence route
+// (GET /reports/:reportId/media), which is admin-only and tied to one report.
 async function canSeeMedia(pool, userId, mediaRow) {
-  if (mediaRow.user_id === userId) return true;
+  if (mediaRow.user_id === userId && (await media.isUnattached(pool, mediaRow.id))) return true;
   const [covers] = await pool.query(
     "SELECT 1 FROM community_groups g WHERE g.cover_media_id = ? AND (g.is_private = FALSE OR EXISTS (SELECT 1 FROM community_group_members m WHERE m.group_id = g.id AND m.user_id = ?)) LIMIT 1",
     [mediaRow.id, userId],
   );
   if (covers.length > 0) return true;
   if (await posts.canSeePostMedia(pool, userId, mediaRow.id)) return true;
-  if (await stories.canSeeStoryMedia(pool, userId, mediaRow.id)) return true;
-  return (await roleOf(pool, userId)) === "admin" && posts.isPostMedia(pool, mediaRow.id);
+  return stories.canSeeStoryMedia(pool, userId, mediaRow.id);
 }
 
 module.exports = { communityRouter: router, canSeeMedia };

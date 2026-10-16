@@ -17,10 +17,19 @@ async function ensureUser(pool, userId) {
   await pool.query("INSERT IGNORE INTO users (id, email, role) VALUES (?, ?, ?)", [userId, account.email, account.role]);
 }
 
-// The caller's role, read from the users row (set by the server from Clerk on every profile save)
-async function roleOf(pool, userId) {
-  const [rows] = await pool.query("SELECT role FROM users WHERE id = ?", [userId]);
-  return rows[0]?.role ?? "user";
+// The caller's role as Clerk knows it right now (publicMetadata, which only the server can
+// write), for moderation decisions. Never the users-row copy, which is only refreshed on a
+// profile save, so a demoted admin loses moderation at once. Clerk unreachable → 503.
+async function currentRole(userId) {
+  try {
+    return (await getAccount(userId)).role;
+  } catch {
+    console.error("Clerk account lookup failed");
+    const error = new Error("We couldn't verify your account right now. Please try again.");
+    error.name = "AccountUnavailableError";
+    error.status = 503;
+    throw error;
+  }
 }
 
-module.exports = { memberSummary, ensureUser, roleOf };
+module.exports = { memberSummary, ensureUser, currentRole };

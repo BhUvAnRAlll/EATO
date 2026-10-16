@@ -6,6 +6,10 @@
 // is a 404). The history is kept, so unblocking brings it back exactly as it was. Sending
 // into it is refused. The rule applies to direct (two-member) conversations only; a
 // conversation with more members is never hidden by a block between two of them.
+//
+// Retries: the app may send a message with its own id (a UUID it generated). Sending the
+// same id again, for example after a timeout where the first attempt did reach the
+// server, returns the message that was stored the first time instead of a second copy.
 const { memberSummary, ensureUser } = require("./members");
 const { encodeCursor } = require("./validate");
 const { NotFoundError, ForbiddenError } = require("./posts");
@@ -112,6 +116,8 @@ function messageToApi(row, viewerId) {
   return { id: row.id, conversationId: row.conversation_id, senderId: row.sender_id, body: row.body, isOwn: row.sender_id === viewerId, createdAt: new Date(row.created_at).toISOString() };
 }
 
+const MESSAGE_COLUMNS = "id, conversation_id, sender_id, body, created_at";
+
 // Newest messages first (the screen reverses them); reading marks the conversation read
 async function listMessages(pool, userId, conversationId, { cursor = null, limit }) {
   await assertVisibleMember(pool, conversationId, userId);
@@ -122,7 +128,7 @@ async function listMessages(pool, userId, conversationId, { cursor = null, limit
     params.push(cursor.createdAt, cursor.createdAt, cursor.id);
   }
   params.push(limit + 1);
-  const [rows] = await pool.query(`SELECT id, conversation_id, sender_id, body, created_at FROM messages ${where} ORDER BY created_at DESC, id DESC LIMIT ?`, params);
+  const [rows] = await pool.query(`SELECT ${MESSAGE_COLUMNS} FROM messages ${where} ORDER BY created_at DESC, id DESC LIMIT ?`, params);
   if (!cursor) await pool.query("UPDATE conversation_members SET last_read_at = NOW(6) WHERE conversation_id = ? AND user_id = ?", [conversationId, userId]);
   const page = rows.slice(0, limit);
   const [members] = await pool.query(
@@ -136,8 +142,13 @@ async function listMessages(pool, userId, conversationId, { cursor = null, limit
   };
 }
 
+// Stores a message. `values.id` is optional: when the app supplies one and a message with
+// that id already exists in this conversation from this sender, that message is returned
+// again (a retried send never creates a second copy). An id that belongs to someone else's
+// message is refused, so a client can't probe or overwrite other members' messages.
 async function sendMessage(pool, userId, conversationId, values) {
   await assertMember(pool, conversationId, userId);
+  if (await isSuspended(pool, userId)) throw new ForbiddenError("Your community access is suspended.");
   // A direct conversation hidden by a block can't be written to from either side
   if (await isHiddenByBlock(pool, conversationId, userId)) throw new ForbiddenError("You can't message this member.");
   // In a conversation with more members, a blocked pair still can't message each other through it
@@ -145,11 +156,33 @@ async function sendMessage(pool, userId, conversationId, values) {
   for (const other of others) {
     if (await isBlocked(pool, userId, other.user_id)) throw new ForbiddenError("You can't message this member.");
   }
+  if (values.id) {
+    // The usual retry: the first attempt did get through
+    const existing = await findMessage(pool, values.id);
+    if (existing) return ownMessage(existing, userId, conversationId);
+  }
+  // Two retries can race each other into the primary key: the loser sees a duplicate-key
+  // error (or, when several wait on the same key, a deadlock) and answers with the winner's row
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await insertMessage(pool, userId, conversationId, values);
+    } catch (error) {
+      const collided = values.id && (error?.code === "ER_DUP_ENTRY" || error?.code === "ER_LOCK_DEADLOCK");
+      if (!collided) throw error;
+      const existing = await findMessage(pool, values.id);
+      if (existing) return ownMessage(existing, userId, conversationId);
+      if (attempt > 0) throw error; // a deadlock with no stored row: try once more, then give up
+    }
+  }
+}
+
+// One transaction: the message, the conversation's last activity and the sender's read mark
+async function insertMessage(pool, userId, conversationId, values) {
   const connection = await pool.getConnection();
-  let id;
+  let id = values.id ?? null;
   try {
     await connection.beginTransaction();
-    [[{ id }]] = await connection.query("SELECT UUID() AS id");
+    if (!id) [[{ id }]] = await connection.query("SELECT UUID() AS id");
     await connection.query("INSERT INTO messages (id, conversation_id, sender_id, body) VALUES (?, ?, ?, ?)", [id, conversationId, userId, values.body]);
     await connection.query("UPDATE conversations SET last_message_at = NOW(6) WHERE id = ?", [conversationId]);
     await connection.query("UPDATE conversation_members SET last_read_at = NOW(6) WHERE conversation_id = ? AND user_id = ?", [conversationId, userId]);
@@ -160,8 +193,19 @@ async function sendMessage(pool, userId, conversationId, values) {
   } finally {
     connection.release();
   }
-  const [rows] = await pool.query("SELECT id, conversation_id, sender_id, body, created_at FROM messages WHERE id = ?", [id]);
+  const [rows] = await pool.query(`SELECT ${MESSAGE_COLUMNS} FROM messages WHERE id = ?`, [id]);
   return messageToApi(rows[0], userId);
+}
+
+async function findMessage(pool, id) {
+  const [rows] = await pool.query(`SELECT ${MESSAGE_COLUMNS} FROM messages WHERE id = ?`, [id]);
+  return rows[0] ?? null;
+}
+
+// The message a retried send refers to, if it really is this sender's in this conversation
+function ownMessage(row, userId, conversationId) {
+  if (row.sender_id !== userId || row.conversation_id !== conversationId) throw new ValidationError("That message id is already in use.");
+  return messageToApi(row, userId);
 }
 
 module.exports = { listConversations, unreadCount, openConversation, listMessages, sendMessage, isHiddenByBlock };

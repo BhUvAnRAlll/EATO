@@ -83,16 +83,34 @@ async function removeMedia(pool, row) {
   await fs.unlink(pathFor(row)).catch(() => {});
 }
 
-// Everything that can hold on to an upload. A post keeps its photos while it is live and
-// for a while after a soft delete, so an admin reviewing a report still has the context.
+// Everything that can hold on to an upload. A post keeps its photos while it is live, for a
+// while after a soft delete, and for as long as it has a report (moderation evidence).
+// Story rows keep their photo until purgeOldStories removes the row (never if reported).
 const DELETED_POST_KEEP_DAYS = 30;
+const KEPT_POST_SQL = `(p.deleted_at IS NULL OR p.deleted_at > DATE_SUB(NOW(), INTERVAL ${DELETED_POST_KEEP_DAYS} DAY)
+  OR EXISTS (SELECT 1 FROM community_reports r WHERE r.post_id = p.id))`;
 const REFERENCED_SQL = `(
-  EXISTS (SELECT 1 FROM community_posts p WHERE p.media_id = m.id AND (p.deleted_at IS NULL OR p.deleted_at > DATE_SUB(NOW(), INTERVAL ${DELETED_POST_KEEP_DAYS} DAY)))
-  OR EXISTS (SELECT 1 FROM community_post_media pm JOIN community_posts p ON p.id = pm.post_id
-             WHERE pm.media_id = m.id AND (p.deleted_at IS NULL OR p.deleted_at > DATE_SUB(NOW(), INTERVAL ${DELETED_POST_KEEP_DAYS} DAY)))
+  EXISTS (SELECT 1 FROM community_posts p WHERE p.media_id = m.id AND ${KEPT_POST_SQL})
+  OR EXISTS (SELECT 1 FROM community_post_media pm JOIN community_posts p ON p.id = pm.post_id WHERE pm.media_id = m.id AND ${KEPT_POST_SQL})
   OR EXISTS (SELECT 1 FROM community_stories s WHERE s.media_id = m.id)
   OR EXISTS (SELECT 1 FROM community_groups g WHERE g.cover_media_id = m.id)
 )`;
+
+// Whether an upload isn't used by any post, story or group cover yet (a photo picked for a
+// draft). Only then does its uploader see it without the visibility rules; once attached,
+// the post's or story's own rules decide, so deleted or ended content is hidden from
+// everyone, the uploader included.
+async function isUnattached(pool, mediaId) {
+  const [rows] = await pool.query(
+    `SELECT 1 FROM community_media m WHERE m.id = ?
+       AND NOT EXISTS (SELECT 1 FROM community_posts p WHERE p.media_id = m.id)
+       AND NOT EXISTS (SELECT 1 FROM community_post_media pm WHERE pm.media_id = m.id)
+       AND NOT EXISTS (SELECT 1 FROM community_stories s WHERE s.media_id = m.id)
+       AND NOT EXISTS (SELECT 1 FROM community_groups g WHERE g.cover_media_id = m.id)`,
+    [mediaId],
+  );
+  return rows.length > 0;
+}
 
 // After a photo is taken off a post: if nothing else uses it, the file and row go too
 async function removeIfUnreferenced(pool, mediaId) {
@@ -117,4 +135,4 @@ async function removeOrphanedMedia(pool, olderThanHours = 24) {
   return rows.length;
 }
 
-module.exports = { UPLOAD_DIR, storeImage, getMedia, pathFor, assertOwnMedia, assertOwnMediaList, removeMedia, removeIfUnreferenced, removeOrphanedMedia, mediaUrl };
+module.exports = { UPLOAD_DIR, storeImage, getMedia, pathFor, assertOwnMedia, assertOwnMediaList, isUnattached, removeMedia, removeIfUnreferenced, removeOrphanedMedia, mediaUrl };

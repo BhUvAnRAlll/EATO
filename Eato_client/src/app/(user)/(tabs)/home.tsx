@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { AppState, ScrollView, Text, useWindowDimensions, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 
 import { HomeHeader } from "@/components/home/HomeHeader";
 import { NutritionProgressCard } from "@/components/home/NutritionProgressCard";
@@ -27,7 +27,7 @@ const GAP = 8;
 export default function Home() {
   const { width } = useWindowDimensions();
   const getToken = useSessionToken();
-  const { promotions, content, nutrition, load } = useHomeStore();
+  const { promotions, content, nutrition, load, refreshIntake } = useHomeStore();
   const cart = useCartStore();
   const [favorites, setFavorites] = useState<string[]>([]);
 
@@ -47,6 +47,18 @@ export default function Home() {
       cancelled = true;
     };
   }, [getToken, load]);
+
+  // Back on Home (after logging a meal or changing the target on the Macro tab): the content
+  // (within its freshness window, or at once after a target change) and today's eaten totals
+  useFocusEffect(
+    useCallback(() => {
+      (async () => {
+        const token = await getToken().catch(() => null);
+        await load(token);
+        refreshIntake(token);
+      })();
+    }, [getToken, load, refreshIntake]),
+  );
 
   // Back from the background: pick up any changes an admin made
   useEffect(() => {
@@ -108,6 +120,7 @@ export default function Home() {
               nutrition={nutrition ?? sampleNutrition}
               width={contentWidth}
               onEditGoal={() => router.push("/goals")}
+              onOpen={() => router.navigate("/macro")}
             />
           </View>
 

@@ -31,6 +31,37 @@ function helpers(page, baseUrl) {
   return { settle, expectText, expectNoText, goto, expectPath, input };
 }
 
+// The Log in form, found fresh each time by its placeholders (never a stale element)
+const SIGN_IN_INPUTS = `[...document.querySelectorAll('input[placeholder="Email address"], input[placeholder="Password"]')].filter((e) => e.getClientRects().length > 0)`;
+
+// Waits until typing into the Log in form is safe. On a cold page the form is drawn before
+// Clerk has finished loading, and when Clerk finishes the screen is mounted again with empty
+// fields, so anything typed earlier is lost (Clerk then answers "Enter password."). Two
+// signals, both required: Clerk's own `loaded` flag, and the same two input elements still in
+// place 500 ms after they were tagged (the form has stopped re-mounting).
+async function waitForSignInForm(page) {
+  await page.waitFor(`!!(window.Clerk && window.Clerk.loaded)`, 60000, "Clerk to finish loading");
+  for (let attempt = 0; attempt < 20; attempt++) {
+    const tag = `t${Date.now()}${attempt}`;
+    const tagged = await page.evaluate(`(() => { const ins = ${SIGN_IN_INPUTS}; if (ins.length !== 2) return false; ins.forEach((e) => { e.dataset.eatoStable = ${JSON.stringify(tag)}; }); return true; })()`);
+    await new Promise((r) => setTimeout(r, 500));
+    if (tagged && (await page.evaluate(`(() => { const ins = ${SIGN_IN_INPUTS}; return ins.length === 2 && ins.every((e) => e.dataset.eatoStable === ${JSON.stringify(tag)}); })()`))) return;
+  }
+  throw new Error("the Log in form kept re-rendering after Clerk loaded");
+}
+
+// Fills the Log in form once it is stable, then checks the values are still there (by length,
+// so the password is never read back into the test's output) before anything taps Log in
+async function fillSignInForm(page, h, identity) {
+  await waitForSignInForm(page);
+  await page.setInput(h.input("Email address"), identity.emailAddress);
+  await page.setInput(h.input("Password"), identity.password);
+  const held = await page.evaluate(`(() => { const pick = (p) => [...document.querySelectorAll('input[placeholder="' + p + '"]')].filter((e) => e.getClientRects().length > 0)[0]; const e = pick("Email address"), p = pick("Password"); return [e ? e.value.length : -1, p ? p.value.length : -1]; })()`);
+  if (held[0] !== identity.emailAddress.length || held[1] !== identity.password.length) {
+    throw new Error(`the Log in form lost the typed values before Log in was tapped (email ${held[0]}/${identity.emailAddress.length}, password ${held[1]}/${identity.password.length} characters)`);
+  }
+}
+
 // Signs in through the real Log in screen (ending any session the browser still holds first)
 // and waits until the app has routed the account to setup or home. The password only
 // travels from the test's memory into the page's input; it is never logged.
@@ -41,8 +72,7 @@ async function signInAs(page, h, identity) {
     await page.waitFor(`!(window.Clerk && window.Clerk.session)`, 15000, "previous session ended");
     await h.goto("/sign-in", "Log in");
   }
-  await page.setInput(h.input("Email address"), identity.emailAddress);
-  await page.setInput(h.input("Password"), identity.password);
+  await fillSignInForm(page, h, identity);
   await page.clickText("Log in");
   const outcome = await page.waitFor(
     `(() => { const t = document.body.innerText || ""; if (location.pathname.startsWith("/setup") || location.pathname === "/home") return "routed"; if (t.includes("Check your email")) return "code"; const alert = document.querySelector('[role="alert"]'); if (alert && alert.innerText.trim()) return "error:" + alert.innerText.trim().slice(0, 120); return ""; })()`,
@@ -110,4 +140,4 @@ async function fillSetup(page, baseUrl, overrides = {}, age = 30) {
   return { answers: a, dob };
 }
 
-module.exports = { defaultAnswers, dateOfBirth, helpers, signInAs, fillSetup, NAV_TIMEOUT, CLERK_TEST_CODE };
+module.exports = { defaultAnswers, dateOfBirth, helpers, signInAs, waitForSignInForm, fillSignInForm, fillSetup, NAV_TIMEOUT, CLERK_TEST_CODE };

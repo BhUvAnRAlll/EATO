@@ -16,6 +16,12 @@ type CircularNutritionProgressProps = {
 
 const STROKE = 8;
 
+// Font size that keeps `text` on one line inside the ring's hole. Average glyph widths
+// (as a share of the font size) are rough but safe for digits, commas and "of"/"g".
+function fitFontSize(text: string, preferred: number, maxWidth: number, glyphWidth: number) {
+  return Math.min(preferred, Math.floor(maxWidth / (text.length * glyphWidth)));
+}
+
 // A progress ring drawn with plain Views (no SVG library). The track is a circle with a
 // border. The arc is a circle whose top and right borders are coloured (a half circle
 // once rotated 45°), clipped to the right half of the ring, plus a second one clipped
@@ -59,17 +65,25 @@ export function CircularNutritionProgress({ label, value, target, unit, color, i
   };
 
   const valueText = unit === "kcal" ? value.toLocaleString("en-IN") : `${value}g`;
-  const targetText = unit === "kcal" ? `of ${target.toLocaleString("en-IN")} kcal` : `of ${target}g`;
+  // "kcal" is left out inside the ring (the label says Calories); it would not fit the hole
+  const targetText = unit === "kcal" ? `of ${target.toLocaleString("en-IN")}` : `of ${target}g`;
+  // The hole inside the track, less a little breathing room
+  const innerWidth = size - STROKE * 2 - 6;
+  const valueSize = fitFontSize(valueText, Math.round(size * 0.24), innerWidth, 0.62);
+  // Never below 10pt: the smallest rings (narrow phones) must stay readable
+  const targetSize = Math.max(10, fitFontSize(targetText, Math.round(size * 0.14), innerWidth, 0.52));
 
   return (
-    <View className="items-center" style={{ width: size }} accessibilityLabel={`${label}: ${valueText} ${targetText}`}>
+    <View className="items-center" style={{ width: size }} accessibilityLabel={`${label}: ${valueText} ${targetText}${unit === "kcal" ? " kcal" : ""}`}>
       <View style={{ width: size, height: size }} className="items-center justify-center">
         {/* Track */}
         <View style={{ position: "absolute", width: size, height: size, borderRadius: size / 2, borderWidth: STROKE, borderColor: "#E9E5DD" }} />
-        {/* Right half: 0° → 180° */}
-        <View style={{ position: "absolute", left: size / 2, top: 0, width: size / 2, height: size, overflow: "hidden" }}>
-          <View style={{ position: "absolute", left: -size / 2, top: 0 }}>{halfCircle(Math.min(angle, 180) - 135)}</View>
-        </View>
+        {/* Right half: 0° → 180° (skipped at 0%, where it would leave hairlines at the clip edges) */}
+        {angle > 0 && (
+          <View style={{ position: "absolute", left: size / 2, top: 0, width: size / 2, height: size, overflow: "hidden" }}>
+            <View style={{ position: "absolute", left: -size / 2, top: 0 }}>{halfCircle(Math.min(angle, 180) - 135)}</View>
+          </View>
+        )}
         {/* Left half: 180° → 360° */}
         {angle > 180 && (
           <View style={{ position: "absolute", left: 0, top: 0, width: size / 2, height: size, overflow: "hidden" }}>
@@ -80,11 +94,10 @@ export function CircularNutritionProgress({ label, value, target, unit, color, i
         {angle > 0 && angle < 360 && cap(angle)}
 
         <SymbolView name={icon} size={Math.round(size * 0.2)} tintColor={color} />
-        <Text className="ring__value" style={{ fontSize: Math.round(size * 0.24), lineHeight: Math.round(size * 0.28) }}>
+        <Text className="ring__value" style={{ fontSize: valueSize, lineHeight: Math.round(valueSize * 1.17), maxWidth: innerWidth }} numberOfLines={1}>
           {valueText}
         </Text>
-        {/* Never below 10pt: the smallest rings (narrow phones) must stay readable */}
-        <Text className="ring__target" style={{ fontSize: Math.max(10, Math.round(size * 0.14)), lineHeight: Math.max(13, Math.round(size * 0.18)) }} numberOfLines={1}>
+        <Text className="ring__target" style={{ fontSize: targetSize, lineHeight: Math.round(targetSize * 1.3), maxWidth: innerWidth }} numberOfLines={1}>
           {targetText}
         </Text>
       </View>

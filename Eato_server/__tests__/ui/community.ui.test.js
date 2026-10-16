@@ -67,7 +67,7 @@ describe("ui community: feed, groups and messages for a signed-in member", () =>
   };
   // Clicks the nth rendered element with this accessible name (-1 = the last one)
   const clickLabel = async (label, nth = 0) => {
-    const pos = await page.waitFor(`(() => { const els = [...document.querySelectorAll('[aria-label=${JSON.stringify(label)}]')].filter((e) => e.getClientRects().length > 0); const el = els.at(${nth}); if (!el) return null; el.scrollIntoView({ block: "center" }); const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`, NAV_TIMEOUT, `element labelled ${label}`);
+    const pos = await page.waitFor(`(() => { const els = [...document.querySelectorAll(${JSON.stringify(`[aria-label=${JSON.stringify(label)}]`)})].filter((e) => e.getClientRects().length > 0); const el = els.at(${nth}); if (!el) return null; el.scrollIntoView({ block: "center" }); const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`, NAV_TIMEOUT, `element labelled ${label}`);
     await page.clickAt(pos.x, pos.y);
   };
   // Likes update the screen before the server answers: wait for the row to catch up
@@ -101,7 +101,7 @@ describe("ui community: feed, groups and messages for a signed-in member", () =>
     if (!fs.existsSync(CHROME)) { skipReason = "Google Chrome is not installed"; return; }
     for (const port of [Number(env.PORT), EXPO_PORT]) if (!(await portFree(port))) throw new Error(`port ${port} is in use; refusing to start`);
     try { connection = await db.connect(env); } catch (error) { skipReason = `test database unreachable (${error?.code ?? "refused"})`; return; }
-    assert.equal(await db.resetSchema(connection), 35, "schema.sql should create 35 tables in eato_test");
+    assert.equal(await db.resetSchema(connection), 44, "schema.sql should create 44 tables in eato_test");
     clerk = clerkFor(env.CLERK_SECRET_KEY);
     uploadDir = fs.mkdtempSync(path.join(os.tmpdir(), "eato-ui-uploads-"));
     photoFile = path.join(os.tmpdir(), `eato-ui-photo-${runId}.png`);
@@ -152,7 +152,7 @@ describe("ui community: feed, groups and messages for a signed-in member", () =>
     await viewport(390, 844);
     await signInAs(page, h, identities.a);
     await h.expectPath("/home");
-    await h.expectText("Today's Nutrition");
+    await h.expectText("Today's Macros");
     await clickTab("Community");
     await h.expectPath("/community");
     await h.expectText("TRAIN TOGETHER");
@@ -363,16 +363,181 @@ describe("ui community: feed, groups and messages for a signed-in member", () =>
     assert.equal(report.reporter_id, identities.a.id);
   }));
 
-  it("7. a story can be opened for the add flow, and nothing else was written", run("story-screen", async () => {
+  it("7. a story: photo, preview, audience and caption; it shows in the row, the viewer and is deleted behind a confirmation", run("story", async () => {
     await page.clickText("Feed");
     await clickLabel("Add a story");
     await h.expectPath("/community/story-new");
     await h.expectText("Add a photo");
+    await h.expectText("Who can see this");
     await snapshot("community-story-new-390");
+    await choosePhotoFromGallery(photoFile);
+    await h.expectText("Choose another"); // the preview is up
+    await clickLabel("Audience: Close Friends");
+    await h.expectText("Your list is empty, so only you will see this. Add people");
+    await clickLabel("Audience: Followers");
+    await h.expectText("Members you've accepted as followers");
+    await page.setInput('[aria-label="Caption"]', "Morning run done");
+    await noOverflow("story-new");
+    await snapshotAllWidths("community-story-preview");
+    await clickLabel("Share story");
+    await h.expectPath("/community");
+    const [[row]] = await connection.query("SELECT id, user_id, audience, caption, media_id, deleted_at, expires_at > NOW() AS active FROM community_stories WHERE user_id = ?", [identities.a.id]);
+    assert.equal(row.audience, "followers");
+    assert.equal(row.caption, "Morning run done");
+    assert.equal(row.active, 1);
+    assert.ok(fs.existsSync(path.join(uploadDir, `${row.media_id}.png`)), "the photo was stored");
+    // Open it: the viewer pauses while the options sheet is open (the clock would move on otherwise)
+    await clickLabel("Your story");
+    await page.waitFor(`location.pathname.startsWith("/community/story/")`, NAV_TIMEOUT, "story viewer");
+    await clickLabel("Story options");
+    await h.expectText("Delete story");
+    for (const text of ["Morning run done", "Your story", "Followers", "Seen by 0 people"]) assert.ok(await page.hasText(text), `viewer shows "${text}"`);
+    await snapshot("community-story-viewer-390");
+    await page.clickText("Delete story");
+    await h.expectText("Delete this story?");
+    await snapshot("community-story-delete-390");
+    await clickLabel("Delete");
+    await h.expectPath("/community");
+    const [[deleted]] = await connection.query("SELECT deleted_at FROM community_stories WHERE id = ?", [row.id]);
+    assert.ok(deleted.deleted_at, "soft deleted on the server");
+    await page.waitFor(`!!document.querySelector('[aria-label="Add a story"]') && !document.querySelector('[aria-label="Your story"]')`, NAV_TIMEOUT, "the row no longer has the story");
+    // Close Friends is reached from the member's own profile; nobody follows this member yet
+    await clickLabel("Your community profile");
+    await page.waitFor(`location.pathname.startsWith("/community/profile/")`, NAV_TIMEOUT, "own profile");
+    await clickLabel("Close Friends");
+    await h.expectPath("/community/close-friends");
+    await h.expectText("Only you can see this list.");
+    await h.expectText("No followers yet");
+    await snapshot("community-close-friends-390");
+    await page.evaluate("history.back()");
     await page.evaluate("history.back()");
     await h.expectPath("/community");
-    const [[stories]] = await connection.query("SELECT COUNT(*) AS n FROM community_stories");
-    assert.equal(stories.n, 0);
+  }));
+
+  it("7a. stories: Retry and double taps never post twice, several stories play in order, rings on the row and the profile, privacy", run("stories-multi", async () => {
+    // Rohan has two public stories (older first); their photos exist so the viewer can load them
+    const seedStory = async (userId, caption, audience, minutesAgo) => {
+      const [[{ id: mediaId }]] = await connection.query("SELECT UUID() AS id");
+      fs.writeFileSync(path.join(uploadDir, `${mediaId}.png`), TINY_PNG);
+      await connection.query("INSERT INTO community_media (id, user_id, media_type, byte_size) VALUES (?, ?, 'image/png', ?)", [mediaId, userId, TINY_PNG.length]);
+      await connection.query("INSERT INTO community_stories (id, user_id, media_id, caption, audience, created_at, expires_at) VALUES (UUID(), ?, ?, ?, ?, DATE_SUB(NOW(), INTERVAL ? MINUTE), DATE_ADD(NOW(), INTERVAL 20 HOUR))", [userId, mediaId, caption, audience, minutesAgo]);
+    };
+    await seedStory(identities.b.id, "Rohan one", "public", 30);
+    await seedStory(identities.b.id, "Rohan two", "public", 20);
+    const myStories = async () => (await connection.query("SELECT caption FROM community_stories WHERE user_id = ? AND deleted_at IS NULL ORDER BY created_at, caption", [identities.a.id]))[0].map((r) => r.caption);
+    const myMedia = async () => (await connection.query("SELECT COUNT(*) AS n FROM community_media WHERE user_id = ?", [identities.a.id]))[0][0].n;
+    // The ring inside the visible element with this label (labels may contain apostrophes, so the selector is JSON-quoted)
+    const ringIn = (label) => page.evaluate(`(() => { const el = [...document.querySelectorAll(${JSON.stringify(`[aria-label=${JSON.stringify(label)}]`)})].find((e) => e.getClientRects().length > 0); const ring = el && el.querySelector('[data-testid^="story-ring-"]'); return ring ? ring.getAttribute("data-testid") : null; })()`);
+    // Pauses matching API calls in the browser so a test can drop or answer them itself
+    const intercept = async (urlPattern, stage, handle) => {
+      await client.send("Fetch.enable", { patterns: [{ urlPattern, requestStage: stage }] }, page.sessionId);
+      // The CDP client can't remove a listener, so a stopped one must ignore every later
+      // paused request: only the current intercept may continue or answer it
+      let active = true;
+      const listener = async (msg) => {
+        if (!active || msg.sessionId !== page.sessionId || msg.method !== "Fetch.requestPaused") return;
+        const { requestId, request } = msg.params;
+        if (request.method === "POST" && !listener.done) { listener.done = true; await handle(requestId); return; }
+        await client.send(stage === "Response" ? "Fetch.continueResponse" : "Fetch.continueRequest", { requestId }, page.sessionId).catch(() => {});
+      };
+      client.on(listener);
+      return async () => { active = false; await client.send("Fetch.disable", {}, page.sessionId); };
+    };
+    const newStoryWithPhoto = async (caption) => {
+      await clickLabel("Add a story");
+      await h.expectPath("/community/story-new");
+      await choosePhotoFromGallery(photoFile);
+      await h.expectText("Choose another");
+      await page.setInput('[aria-label="Caption"]', caption);
+    };
+
+    // 1. The server saves the story but the answer never arrives: the draft stays, Retry posts it once
+    await newStoryWithPhoto("Story one");
+    const stopDropping = await intercept("*/api/community/stories", "Response", (requestId) => client.send("Fetch.failRequest", { requestId, errorReason: "ConnectionReset" }, page.sessionId));
+    await clickLabel("Share story");
+    await h.expectText("Couldn't reach the server");
+    await stopDropping();
+    await page.waitFor(`!!document.querySelector('[aria-label="Retry"]')`, NAV_TIMEOUT, "the button offers Retry");
+    assert.equal(await page.evaluate(`document.querySelector('[aria-label="Caption"]').value`), "Story one", "the caption is kept");
+    await h.expectText("Choose another"); // and the photo
+    assert.deepEqual(await myStories(), ["Story one"], "saved once on the server before the Retry");
+    await snapshot("community-story-retry-390");
+    await clickLabel("Retry");
+    await h.expectPath("/community");
+    assert.deepEqual(await myStories(), ["Story one"], "the Retry returned the same story instead of a second one");
+    assert.equal(await ringIn("Your story"), "story-ring-unseen", "your photo is ringed while your story is up");
+
+    // 2. A second story while the first is still up, with a double tap on Share
+    const mediaBefore = await myMedia();
+    await newStoryWithPhoto("Story two");
+    const share = await page.waitFor(`(() => { const el = document.querySelector('[aria-label="Share story"]'); if (!el) return null; const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`, NAV_TIMEOUT, "Share story");
+    await Promise.all([page.clickAt(share.x, share.y), page.clickAt(share.x, share.y)]);
+    await h.expectPath("/community");
+    assert.deepEqual(await myStories(), ["Story one", "Story two"], "two active stories, no duplicate");
+    assert.equal(await myMedia(), mediaBefore + 1, "one upload for the double tap");
+    assert.equal(await ringIn("Rohan Mehta's story"), "story-ring-unseen");
+    await snapshot("community-stories-row-390");
+
+    // 3. The viewer plays your two stories in order, then Rohan's two, then closes
+    await clickLabel("Your story");
+    await page.waitFor(`!!document.querySelector('[aria-label="Story 1 of 2"]')`, NAV_TIMEOUT, "own story 1 of 2");
+    await h.expectText("Story one");
+    await snapshot("community-story-viewer-multi-390");
+    await clickLabel("Next story");
+    await page.waitFor(`!!document.querySelector('[aria-label="Story 2 of 2"]') && document.body.innerText.includes("Story two")`, NAV_TIMEOUT, "own story 2 of 2");
+    await clickLabel("Next story");
+    await page.waitFor(`!!document.querySelector('[aria-label="Story 1 of 2"]') && document.body.innerText.includes("Rohan one")`, NAV_TIMEOUT, "Rohan's first story");
+    await clickLabel("Next story");
+    await page.waitFor(`!!document.querySelector('[aria-label="Story 2 of 2"]') && document.body.innerText.includes("Rohan two")`, NAV_TIMEOUT, "Rohan's second story");
+    await clickLabel("Next story");
+    await h.expectPath("/community");
+    const [[{ n: views }]] = await connection.query("SELECT COUNT(*) AS n FROM community_story_views v JOIN community_stories s ON s.id = v.story_id WHERE v.user_id = ? AND s.user_id = ?", [identities.a.id, identities.b.id]);
+    assert.equal(views, 2, "both of Rohan's stories recorded as seen");
+    await page.waitFor(`(() => { const el = document.querySelector('[aria-label="Rohan Mehta\\'s story"]'); const ring = el && el.querySelector('[data-testid^="story-ring-"]'); return !!ring && ring.getAttribute("data-testid") === "story-ring-seen"; })()`, NAV_TIMEOUT, "Rohan's ring turns to seen");
+
+    // 4. The profile photo carries the same ring and opens that member's stories
+    await h.goto(`/community/profile/${identities.b.id}`, "Rohan Mehta");
+    await page.waitFor(`!!document.querySelector('[aria-label="Open Rohan Mehta\\'s story"]')`, NAV_TIMEOUT, "ring on Rohan's profile photo");
+    assert.equal(await ringIn("Open Rohan Mehta's story"), "story-ring-seen");
+    await snapshot("community-profile-story-ring-390");
+    await clickLabel("Open Rohan Mehta's story");
+    await page.waitFor(`location.pathname === "/community/story/${identities.b.id}"`, NAV_TIMEOUT, "Rohan's stories open");
+    await h.expectText("Rohan one");
+    await h.goto(`/community/profile/${identities.a.id}`, "Priya Sharma");
+    await page.waitFor(`!!document.querySelector('[aria-label="Open your story"]')`, NAV_TIMEOUT, "ring on your own profile photo");
+    assert.equal(await ringIn("Open your story"), "story-ring-unseen");
+
+    // 5. Privacy: with only a Close Friends story Priya isn't allowed to see, there is no ring anywhere
+    await connection.query("UPDATE community_stories SET deleted_at = NOW() WHERE user_id = ?", [identities.b.id]);
+    await seedStory(identities.b.id, "Rohan close friends only", "close_friends", 5);
+    await h.goto(`/community/profile/${identities.b.id}`, "Rohan Mehta");
+    await h.settle();
+    assert.equal(await page.evaluate(`!!document.querySelector('[aria-label="Open Rohan Mehta\\'s story"]')`), false, "no ring for a story Priya can't see");
+    await h.goto("/community", "Your story");
+    await h.settle();
+    assert.equal(await page.evaluate(`!!document.querySelector('[aria-label="Rohan Mehta\\'s story"]')`), false, "Rohan left the row");
+
+    // 6. An expired session and a network failure leave the screen usable, never stuck
+    await newStoryWithPhoto("Story three");
+    let stop = await intercept("*/api/community/media", "Request", (requestId) => client.send("Fetch.fulfillRequest", { requestId, responseCode: 401, responseHeaders: [{ name: "Content-Type", value: "application/json" }, { name: "Access-Control-Allow-Origin", value: "*" }], body: Buffer.from(JSON.stringify({ error: "Please sign in again." })).toString("base64") }, page.sessionId));
+    await clickLabel("Share story");
+    await h.expectText("Your session has expired. Please sign in again.");
+    await page.waitFor(`!!document.querySelector('[aria-label="Sign in again"]') && !!document.querySelector('[aria-label="Retry"]')`, NAV_TIMEOUT, "sign-in offered, Retry still there");
+    await snapshot("community-story-session-expired-390");
+    await stop();
+    stop = await intercept("*/api/community/media", "Request", (requestId) => client.send("Fetch.failRequest", { requestId, errorReason: "InternetDisconnected" }, page.sessionId));
+    await clickLabel("Retry");
+    await h.expectText("Your photo couldn't be uploaded: Couldn't reach the server.");
+    await h.expectNoText("Your session has expired.");
+    await stop();
+    await clickLabel("Retry");
+    await h.expectPath("/community");
+    assert.deepEqual(await myStories(), ["Story one", "Story two", "Story three"]);
+
+    // Back to the state the later tests expect: no stories
+    await connection.query("UPDATE community_stories SET deleted_at = NOW() WHERE user_id IN (?, ?)", [identities.a.id, identities.b.id]);
+    await h.goto("/community", "Your story");
+    await page.waitFor(`!!document.querySelector('[aria-label="Add a story"]') && !document.querySelector('[aria-label="Your story"]')`, NAV_TIMEOUT, "the row has no stories again");
   }));
 
   it("7b. deleting a post asks first: Cancel keeps it, Delete removes it for everyone", run("delete", async () => {

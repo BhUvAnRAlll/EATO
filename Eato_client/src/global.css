@@ -1137,7 +1137,7 @@
   padding: var(--spacing-md);
   padding-block: var(--spacing-lg);
   border-radius: 20px;
-  background-color: #f4f1ec;
+  background-color: var(--color-cream-deep);
 }
 
 @utility ring__value {
@@ -1715,7 +1715,7 @@
 }
 
 @utility story__ring--new {
-  border-color: #b9cfe8;
+  border-color: var(--color-primary);
 }
 
 @utility story__add {
@@ -1727,7 +1727,7 @@
   border-radius: var(--radius-pill);
   border-width: 2px;
   border-color: var(--color-cream);
-  background-color: #dce6f5;
+  background-color: var(--color-primary);
   align-items: center;
   justify-content: center;
 }
@@ -1769,7 +1769,7 @@
   width: 44px;
   height: 44px;
   border-radius: var(--radius-pill);
-  background-color: #dce6f5;
+  background-color: var(--color-primary);
   align-items: center;
   justify-content: center;
 }
@@ -1839,11 +1839,11 @@
 }
 
 @utility post__tag--progress {
-  background-color: #dce6f5;
+  background-color: var(--color-accent-soft);
 }
 
 @utility post__tag--achievement {
-  background-color: #dce6f5;
+  background-color: var(--color-accent-soft);
 }
 
 /* Category chips on the compose screen reuse setup__chip */
@@ -2152,6 +2152,47 @@
   border-top-left-radius: var(--radius-xl);
   border-top-right-radius: var(--radius-xl);
   background-color: var(--color-surface);
+}
+
+/* Stories: a green ring for unseen Close Friends stories, audience badge and notices in the viewer */
+@utility story__ring--close {
+  border-color: var(--color-leaf);
+}
+
+@utility story__badge {
+  height: 18px;
+  padding-inline: 7px;
+  border-radius: var(--radius-pill);
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(255, 255, 255, 0.25);
+}
+
+@utility story__badge--close {
+  background-color: var(--color-leaf);
+}
+
+@utility story__badge-label {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 700;
+  color: var(--color-white);
+}
+
+@utility story__notice {
+  padding-inline: 14px;
+  padding-block: 10px;
+  border-radius: 14px;
+  background-color: rgba(255, 255, 255, 0.92);
+}
+
+@utility story__notice-label {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 19px;
+  font-weight: 600;
+  color: var(--color-forest-ink);
 }
 
 /* Macro tab: the day hub, logging flow and meal sheets (BEM: macro__element--modifier).
@@ -2492,4 +2533,111 @@
   border-bottom-right-radius: 18px;
   background-color: var(--color-info-soft);
   overflow: hidden;
+}
+
+/* ---- Workout hub and training day ------------------------------------------------- */
+
+/* The dark card behind today's session and the day's art: the plan has no photos yet */
+@utility workout__hero {
+  border-radius: var(--radius-xl);
+  background-color: var(--color-ink);
+  overflow: hidden;
+}
+
+/* A small rounded label on dark (glass) or light (accent) ground */
+@utility workout__chip {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding-inline: var(--spacing-md);
+  border-radius: var(--radius-pill);
+  background-color: rgba(255, 255, 255, 0.16);
+}
+
+@utility workout__chip--accent {
+  background-color: var(--color-primary);
+}
+
+@utility workout__chip-label {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 700;
+  color: var(--color-white);
+}
+
+@utility workout__chip-label--accent {
+  color: var(--color-ink);
+}
+
+/* One day of the week strip, slightly taller than wide */
+@utility workout__tile {
+  flex: 1;
+  aspect-ratio: 0.8;
+  border-radius: var(--radius-md);
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-white);
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+@utility workout__tile--today {
+  border-color: var(--color-success);
+  background-color: var(--color-success);
+}
+
+@utility workout__dot {
+  width: 5px;
+  height: 5px;
+  border-radius: var(--radius-pill);
+}
+
+/* A status pill on a history row */
+@utility workout__pill {
+  height: 24px;
+  padding-inline: var(--spacing-sm);
+  border-radius: var(--radius-pill);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility workout__pill-label {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 700;
+}
+
+/* The light sheet that overlaps the day's art */
+@utility workout__sheet {
+  margin-top: -28px;
+  border-top-left-radius: var(--radius-xl);
+  border-top-right-radius: var(--radius-xl);
+  background-color: var(--color-cream);
+  padding-top: var(--spacing-xl);
+}
+
+/* Exercises / Muscles / About */
+@utility workout__tab {
+  flex: 1;
+  height: 40px;
+  border-radius: var(--radius-pill);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility workout__tab--active {
+  background-color: var(--color-ink);
+}
+
+/* The stats bar over the day's art */
+@utility workout__stats {
+  flex-direction: row;
+  align-items: center;
+  border-radius: var(--radius-lg);
+  background-color: rgba(255, 255, 255, 0.12);
+  padding-block: var(--spacing-md);
 }

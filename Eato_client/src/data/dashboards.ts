@@ -33,7 +33,7 @@ export const dashboards: Record<Role, Dashboard> = {
       },
       {
         id: "nutrition",
-        title: "Nutrition diary",
+        title: "Macro diary",
         subtitle: "Calories, macros and water",
         icon: { ios: "flame", android: "local_fire_department", web: "local_fire_department" },
       },

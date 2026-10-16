@@ -15,11 +15,14 @@ const limits = {
   pageMax: 50,
   pageDefault: 20,
   storyHours: 24, // how long a story stays up
+  activeStories: 30, // stories one member can have up at once
   postMedia: 4, // photos per post
 };
 
 const CATEGORIES = ["general", "meal", "workout", "progress", "achievement"];
 const AUDIENCES = ["public", "followers", "only_me"];
+// Who sees a story: everyone eligible, accepted followers, or the owner's Close Friends
+const STORY_AUDIENCES = ["public", "followers", "close_friends"];
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
@@ -148,8 +151,10 @@ function validateComment(body) {
 
 function validateStory(body) {
   requireObject(body, "story");
-  rejectUnknownKeys(body, ["mediaId", "caption"], "The story");
-  return { mediaId: id(body.mediaId, "The image"), caption: optionalText(body.caption, "Caption", limits.caption) };
+  rejectUnknownKeys(body, ["mediaId", "caption", "audience"], "The story");
+  const audience = body.audience === undefined ? "public" : body.audience;
+  if (!STORY_AUDIENCES.includes(audience)) throw new ValidationError("Audience isn't a valid choice.");
+  return { mediaId: id(body.mediaId, "The image"), caption: optionalText(body.caption, "Caption", limits.caption), audience };
 }
 
 function validateReport(body) {
@@ -175,10 +180,11 @@ function validateGroup(body) {
   };
 }
 
+// `id` is optional: a UUID the app made for this message, so a retried send stores it once
 function validateMessage(body) {
   requireObject(body, "message");
-  rejectUnknownKeys(body, ["body"], "The message");
-  return { body: text(body.body, "Message", { max: limits.messageBody }) };
+  rejectUnknownKeys(body, ["body", "id"], "The message");
+  return { body: text(body.body, "Message", { max: limits.messageBody }), id: optionalId(body.id, "The message id") };
 }
 
 // Own community settings
@@ -210,7 +216,7 @@ function clerkUserId(value, label) {
 }
 
 module.exports = {
-  limits, CATEGORIES, AUDIENCES, validateProfileSettings,
+  limits, CATEGORIES, AUDIENCES, STORY_AUDIENCES, validateProfileSettings,
   id, optionalId, pageSize, encodeCursor, decodeCursor, searchTerm, clerkUserId,
   validatePost, validatePostUpdate, validateComment, validateStory, validateReport, validateGroup, validateMessage,
 };

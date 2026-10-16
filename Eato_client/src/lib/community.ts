@@ -32,7 +32,24 @@ export type Post = {
 
 export type Comment = { id: string; postId: string; author: Member; body: string; isOwn: boolean; createdAt: string };
 
-export type Story = { id: string; author: Member; imageUrl: string | null; caption: string | null; viewed: boolean; isOwn: boolean; createdAt: string; expiresAt: string };
+// Who sees a story: everyone eligible, accepted followers, or the owner's Close Friends
+export type StoryAudience = "public" | "followers" | "close_friends";
+
+export type Story = {
+  id: string;
+  author: Member;
+  imageUrl: string | null;
+  caption: string | null;
+  audience: StoryAudience;
+  viewed: boolean;
+  isOwn: boolean;
+  viewCount: number | null; // only on the owner's own stories
+  createdAt: string;
+  expiresAt: string;
+};
+
+// One row of the Close Friends screen: a follower, in or out of the list
+export type CloseFriend = { member: Member; isCloseFriend: boolean };
 
 // One member's active stories, as the stories row shows them
 export type StoryGroup = { member: Member; isOwn: boolean; stories: Story[]; allViewed: boolean };
@@ -80,7 +97,7 @@ export type ReportDetail = {
   status: "open" | "reviewed" | "dismissed";
   createdAt: string;
   reporter: Member;
-  target: { type: "post" | "comment"; id: string; body: string | null; imageUrl: string | null; deleted: boolean; author: Member; authorSuspended: boolean };
+  target: { type: "post" | "comment" | "story"; id: string; body: string | null; imageUrl: string | null; deleted: boolean; expired: boolean; author: Member; authorSuspended: boolean };
 };
 
 export type SuspendedMember = { member: Member; since: string };
@@ -156,7 +173,7 @@ export const community = {
     if (!token) return signedOut();
     return apiFetch("/api/community/stories", { token });
   },
-  createStory(token: string | null, body: { mediaId: string; caption?: string | null }): Promise<ApiResult<{ story: Story }>> {
+  createStory(token: string | null, body: { mediaId: string; caption?: string | null; audience: StoryAudience }): Promise<ApiResult<{ story: Story }>> {
     if (!token) return signedOut();
     return apiFetch("/api/community/stories", { method: "POST", body, token });
   },
@@ -167,6 +184,19 @@ export const community = {
   deleteStory(token: string | null, storyId: string): Promise<ApiResult<{ deleted: true }>> {
     if (!token) return signedOut();
     return apiFetch(`/api/community/stories/${storyId}`, { method: "DELETE", token });
+  },
+  reportStory(token: string | null, storyId: string, reason: string): Promise<ApiResult<{ reported: true }>> {
+    if (!token) return signedOut();
+    return apiFetch(`/api/community/stories/${storyId}/report`, { method: "POST", body: { reason }, token });
+  },
+  // The caller's own Close Friends (and the followers they can add); never anyone else's
+  closeFriends(token: string | null): Promise<ApiResult<{ members: CloseFriend[] }>> {
+    if (!token) return signedOut();
+    return apiFetch("/api/community/me/close-friends", { token });
+  },
+  setCloseFriend(token: string | null, userId: string, isCloseFriend: boolean): Promise<ApiResult<{ userId: string; isCloseFriend: boolean }>> {
+    if (!token) return signedOut();
+    return apiFetch(`/api/community/me/close-friends/${encodeURIComponent(userId)}`, { method: isCloseFriend ? "PUT" : "DELETE", token });
   },
 
   // ---- groups ----
@@ -234,15 +264,17 @@ export const community = {
     if (!token) return signedOut();
     return apiFetch(`/api/community/conversations/${conversationId}/messages${query({ cursor, limit: 30 })}`, { token });
   },
-  sendMessage(token: string | null, conversationId: string, body: string): Promise<ApiResult<{ message: Message }>> {
+  // `id` is a UUID the screen makes for the message, so sending it again after a timeout
+  // returns the stored message instead of creating a second one
+  sendMessage(token: string | null, conversationId: string, body: string, id?: string): Promise<ApiResult<{ message: Message }>> {
     if (!token) return signedOut();
-    return apiFetch(`/api/community/conversations/${conversationId}/messages`, { method: "POST", body: { body }, token });
+    return apiFetch(`/api/community/conversations/${conversationId}/messages`, { method: "POST", body: id ? { id, body } : { body }, token });
   },
 };
 
 // Admin-only moderation calls (the server checks the role on every one)
 export const adminModeration = {
-  openReports(token: string | null): Promise<ApiResult<{ reports: { id: string; postId: string | null; commentId: string | null }[] }>> {
+  openReports(token: string | null): Promise<ApiResult<{ reports: { id: string; postId: string | null; commentId: string | null; storyId: string | null }[] }>> {
     if (!token) return signedOut();
     return apiFetch("/api/community/reports", { token });
   },
@@ -256,6 +288,7 @@ export const adminModeration = {
   },
   deletePost: (token: string | null, postId: string) => community.deletePost(token, postId),
   deleteComment: (token: string | null, commentId: string) => community.deleteComment(token, commentId),
+  deleteStory: (token: string | null, storyId: string) => community.deleteStory(token, storyId),
   suspendedMembers(token: string | null): Promise<ApiResult<{ members: SuspendedMember[] }>> {
     if (!token) return signedOut();
     return apiFetch("/api/community/admin/members/suspended", { token });
@@ -289,6 +322,16 @@ export const audienceLabels: Record<PostAudience, { label: string; hint: string 
   followers: { label: "Followers", hint: "Members you've accepted as followers" },
   only_me: { label: "Only me", hint: "Just you" },
 };
+
+export const storyAudienceLabels: Record<StoryAudience, { label: string; hint: string }> = {
+  public: { label: "Everyone", hint: "Anyone on EATO, for 24 hours" },
+  followers: { label: "Followers", hint: "Members you've accepted as followers" },
+  close_friends: { label: "Close Friends", hint: "Only the people on your Close Friends list" },
+};
+
+// The story audiences an account may use: a private account can't address everyone (the
+// server applies the same rule when the story is saved)
+export const storyAudiencesFor = (isPrivate: boolean): StoryAudience[] => (isPrivate ? ["followers", "close_friends"] : ["public", "followers", "close_friends"]);
 
 // The audiences an account may publish to: a private account can't address everyone
 // (the server applies the same rule when the post is saved)

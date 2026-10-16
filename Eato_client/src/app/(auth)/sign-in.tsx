@@ -75,7 +75,7 @@ export default function SignIn() {
   };
 
   return (
-    <View className="flex-1 bg-cream">
+    <View className="flex-1 overflow-hidden bg-cream">
       <StatusBar style="dark" />
       <View className="auth__circle" style={{ width: 98, height: 98, right: -42, top: 49 }} />
 
@@ -86,7 +86,9 @@ export default function SignIn() {
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
-            <View className="px-7.5">
+            {/* Drawn above the photo: the photo tucks under the text block by ART_OVERLAP, and
+                the subtitle's second line must stay in front of it on every width */}
+            <View className="px-7.5" style={{ zIndex: 1 }}>
               <BrandWordmark />
               <Text className="auth__title mt-5">{"Fuel your body,\none meal at a time."}</Text>
               <Text className="auth__subtitle mt-1.5">{"Fresh, balanced meals made\nfor your goals."}</Text>
@@ -96,8 +98,10 @@ export default function SignIn() {
               source={images.authLoginArt}
               contentFit="cover"
               contentPosition="center"
-              // Fills the space left over, so the screen fits without scrolling
-              style={{ width, flex: 1, minHeight: 120, maxHeight: width / ART_RATIO, marginTop: -ART_OVERLAP }}
+              // Fills the space left over, so the screen fits without scrolling. The photo tucks
+              // under the text by ART_OVERLAP, except on narrow phones where the cropped photo
+              // would put food right behind the subtitle: there it starts just below the text.
+              style={{ width, flex: 1, minHeight: 120, maxHeight: width / ART_RATIO, marginTop: width < 360 ? 0 : -ART_OVERLAP }}
             />
 
             {/* Form card */}

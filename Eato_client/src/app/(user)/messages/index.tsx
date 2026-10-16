@@ -71,9 +71,10 @@ export default function Conversations() {
               <Pressable onPress={() => router.push({ pathname: "/messages/[id]", params: { id: item.id } })} className="post__card flex-row items-center gap-3" accessibilityRole="button" accessibilityLabel={`Conversation with ${item.other.name}${item.unreadCount ? `, ${item.unreadCount} unread` : ""}`}>
                 <Avatar member={item.other} />
                 <View className="flex-1">
-                  <View className="flex-row items-center justify-between">
-                    <Text className="post__author" numberOfLines={1}>{item.other.name}</Text>
-                    {item.lastMessageAt && <Text className="post__time">{timeAgo(item.lastMessageAt)}</Text>}
+                  <View className="flex-row items-center justify-between gap-2">
+                    <Text className="post__author shrink" numberOfLines={1}>{item.other.name}</Text>
+                    {/* The time keeps one line on narrow screens; the name shortens instead */}
+                    {item.lastMessageAt && <Text className="post__time shrink-0" numberOfLines={1}>{timeAgo(item.lastMessageAt)}</Text>}
                   </View>
                   <Text className="post__time mt-0.5" numberOfLines={1} style={item.unreadCount > 0 ? { color: colors.ink, fontWeight: "600" } : undefined}>
                     {item.lastMessage ?? "Say hello"}

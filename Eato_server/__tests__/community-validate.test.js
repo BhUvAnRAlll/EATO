@@ -48,6 +48,18 @@ describe("community validation", () => {
     rejects(() => v.validatePostUpdate({ audience: "friends" }), /Audience/);
   });
 
+  it("stories: an own image, an optional caption and an audience (Everyone by default)", () => {
+    assert.deepEqual(v.validateStory({ mediaId: UUID }), { mediaId: UUID, caption: null, audience: "public" });
+    assert.equal(v.validateStory({ mediaId: UUID, audience: "close_friends" }).audience, "close_friends");
+    assert.equal(v.validateStory({ mediaId: UUID, audience: "followers", caption: "  Leg day " }).caption, "Leg day");
+    rejects(() => v.validateStory({ mediaId: UUID, audience: "only_me" }), /Audience/);
+    rejects(() => v.validateStory({ mediaId: UUID, audience: "friends" }), /Audience/);
+    rejects(() => v.validateStory({ mediaId: UUID, caption: "x".repeat(201) }), /too long/);
+    rejects(() => v.validateStory({ mediaId: UUID, userId: "user_other" }), /unexpected field: userId/);
+    rejects(() => v.validateStory({ mediaId: "1 OR 1=1" }), /image isn't valid/);
+    rejects(() => v.validateStory({}), /image isn't valid/);
+  });
+
   it("own settings: private flag and bio", () => {
     assert.deepEqual(v.validateProfileSettings({ isPrivate: true }), { isPrivate: true });
     assert.deepEqual(v.validateProfileSettings({ bio: "  Lifting since 2021 " }), { bio: "Lifting since 2021" });
@@ -70,11 +82,16 @@ describe("community validation", () => {
   it("comments, stories, reports and messages", () => {
     assert.deepEqual(v.validateComment({ body: "Nice" }), { body: "Nice" });
     rejects(() => v.validateComment({ body: "x".repeat(501) }), /too long/);
-    assert.deepEqual(v.validateStory({ mediaId: UUID, caption: "" }), { mediaId: UUID, caption: null });
+    assert.deepEqual(v.validateStory({ mediaId: UUID, caption: "" }), { mediaId: UUID, caption: null, audience: "public" });
     rejects(() => v.validateStory({ caption: "no image" }), /image isn't valid/);
     assert.deepEqual(v.validateReport({ reason: "Spam" }), { reason: "Spam" });
     rejects(() => v.validateReport({}), /Reason is required/);
-    assert.deepEqual(v.validateMessage({ body: "hi" }), { body: "hi" });
+    assert.deepEqual(v.validateMessage({ body: "hi" }), { body: "hi", id: null });
+    const id = "7B8C3C8A-2D1E-4F5A-9B6C-1D2E3F4A5B6C";
+    assert.deepEqual(v.validateMessage({ body: "hi", id }), { body: "hi", id: id.toLowerCase() }, "an optional client id, normalised");
+    rejects(() => v.validateMessage({ body: "hi", id: "not-a-uuid" }), /message id/);
+    rejects(() => v.validateMessage({ body: "hi", id: 42 }), /message id/);
+    rejects(() => v.validateMessage({ body: "hi", senderId: "user_x" }), /unexpected|unknown|isn't/i);
     rejects(() => v.validateMessage({ body: "x".repeat(1001) }), /too long/);
   });
 

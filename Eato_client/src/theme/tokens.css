@@ -11,54 +11,60 @@
   /* Only EATO colors are available — no default Tailwind palette. */
   --color-*: initial;
 
+  /* Palette taken from the EITO web app (eito-app.vercel.app): warm off-white pages,
+     white cards, near-black ink, a soft periwinkle accent and navy for strong accents.
+     Some names (leaf, forest, cream) come from the earlier green theme; they keep their
+     roles, only the values changed. */
+
   /* Primary */
-  --color-primary: #b7ff00;
-  --color-accent-soft: #ecffc2;
-  --color-ink: #0b0b0f;
-  --color-violet: #7c6cf0;
+  --color-primary: #c5d3ea;
+  --color-accent-soft: #e2ebf6;
+  --color-ink: #141515;
+  --color-violet: #a795e2;
 
   /* Semantic */
-  --color-success: #3fc66b;
-  --color-warning: #f5a524;
-  --color-danger: #f0553d;
-  --color-info: #5b9cf8;
+  --color-success: #10213a;
+  --color-warning: #c49a5a;
+  --color-danger: #f3435a;
+  --color-info: #97bef3;
 
   /* Semantic soft fills (badge backgrounds) */
-  --color-success-soft: #e2f6e8;
-  --color-warning-soft: #fdf0d6;
-  --color-danger-soft: #fde4df;
+  --color-success-soft: #e2ebf6;
+  --color-warning-soft: #f6efe5;
+  --color-danger-soft: #fde5e8;
 
   /* Neutrals */
-  --color-muted: #71727a;
-  --color-faint: #9a9ba4;
-  --color-line: #e6e6eb;
-  --color-surface-alt: #f1f1f4;
-  --color-background: #f5f5f7;
+  --color-muted: #676a72;
+  --color-faint: #8f9197;
+  --color-line: #eeeae6;
+  --color-surface-alt: #f6f2ef;
+  --color-background: #f9f7f5;
   --color-surface: #ffffff;
-  --color-info-soft: #eeedfb;
+  --color-info-soft: #e2ebf6;
 
-  /* Brand greens (logo, auth screens) */
-  --color-leaf: #3a6b27;
-  --color-leaf-soft: #e2eeda;
-  --color-leaf-dark: #173e1f;
+  /* Accent: links, progress rings, "today", icons (leaf), its soft fill and the
+     active tab icon (leaf-dark) */
+  --color-leaf: #10213a;
+  --color-leaf-soft: #e2ebf6;
+  --color-leaf-dark: #141515;
 
-  /* Onboarding (cream + forest green) */
-  --color-cream: #fdfaf4;
-  --color-cream-deep: #f6eee2;
-  --color-forest: #1a322a;
-  --color-forest-ink: #0c1d19;
-  --color-sand: #d6cfc4;
-  --color-bronze: #b2906b;
-  --color-cream-line: #e6e2da;
-  --color-cream-tab: #edebe7;
-  --color-cream-light: #fffdf9;
+  /* Surfaces and ink: page (cream), dark buttons and titles (forest), borders and tracks */
+  --color-cream: #f9f7f5;
+  --color-cream-deep: #f6f2ef;
+  --color-forest: #141515;
+  --color-forest-ink: #141515;
+  --color-sand: #ede7e3;
+  --color-bronze: #b49469;
+  --color-cream-line: #eeeae6;
+  --color-cream-tab: #e9e6e2;
+  --color-cream-light: #ffffff;
   --color-ink-soft: #4b4c4d;
-  --color-forest-soft: #e9f0ea;
+  --color-forest-soft: #e2ebf6;
 
-  /* Macros (fixed across themes) */
-  --color-protein: #f0553d;
-  --color-carbs: #f5a524;
-  --color-fat: #5b9cf8;
+  /* Macros (from the same palette) */
+  --color-protein: #8e7bd6;
+  --color-carbs: #b49469;
+  --color-fat: #6fa3ea;
 
   --color-white: #ffffff;
   --color-black: #000000;

@@ -1,6 +1,7 @@
 import { create } from "zustand";
 
-import { community, type Group, type Post, type StoryGroup } from "@/lib/community";
+import { community, type Group, type Post, type Story, type StoryGroup } from "@/lib/community";
+import { withOwnStory } from "@/lib/storyRing";
 
 // What the Community tab shows: the feed, the stories row, the groups and the unread
 // message count. Kept here so likes, joins and new posts stay in step across screens and
@@ -39,6 +40,13 @@ type CommunityState = {
   toggleLike: (token: string | null, postId: string) => Promise<string | null>;
   setGroup: (group: Group) => void;
   markStoriesViewed: (memberId: string) => void;
+  // Refreshes only the stories row (after publishing, or when a profile opens), whatever
+  // state the feed is in
+  loadStories: (token: string | null) => Promise<void>;
+  // Shows a story the member just published straight away, before the refresh answers
+  addStory: (story: Story) => void;
+  // Drops one story (deleted, ended or no longer visible); a member with none left leaves the row
+  removeStory: (storyId: string) => void;
 };
 
 export const useCommunityStore = create<CommunityState>((set, get) => ({
@@ -139,6 +147,20 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
   },
 
   setGroup: (group) => set((state) => ({ groups: state.groups.map((item) => (item.id === group.id ? group : item)) })),
+
+  loadStories: async (token) => {
+    const result = await community.stories(token);
+    if (result.ok) set({ stories: result.data.members });
+  },
+
+  addStory: (story) => set((state) => ({ stories: withOwnStory(state.stories, story) })),
+
+  removeStory: (storyId) =>
+    set((state) => ({
+      stories: state.stories
+        .map((entry) => ({ ...entry, stories: entry.stories.filter((story) => story.id !== storyId) }))
+        .filter((entry) => entry.stories.length > 0),
+    })),
 
   markStoriesViewed: (memberId) =>
     set((state) => ({

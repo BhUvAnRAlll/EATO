@@ -10,9 +10,11 @@ import { DeletePostSheet } from "@/components/community/DeletePostSheet";
 import { Avatar } from "@/components/community/Avatar";
 import { EmptyState, PostSkeleton } from "@/components/community/CommunityStates";
 import { PostCard } from "@/components/community/PostCard";
+import { StoryAvatar } from "@/components/community/StoryAvatar";
 import { FormAlert } from "@/components/FormAlert";
 import { community, isOffline, type Post, type Profile } from "@/lib/community";
 import { useSessionToken } from "@/lib/session";
+import { storyRingFor } from "@/lib/storyRing";
 import { useCommunityStore } from "@/store/community";
 import { colors } from "@/theme";
 
@@ -23,6 +25,7 @@ export default function ProfileScreen() {
   const { width } = useWindowDimensions();
   const getToken = useSessionToken();
   const store = useCommunityStore();
+  const loadStories = useCommunityStore((state) => state.loadStories);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
@@ -34,8 +37,10 @@ export default function ProfileScreen() {
   const [menuPost, setMenuPost] = useState<Post | null>(null);
   const [deletingPost, setDeletingPost] = useState<Post | null>(null);
 
+  // The stories row is refreshed alongside, so the ring on the photo is never stale
   const load = useCallback(async () => {
     const token = await getToken();
+    loadStories(token);
     const result = await community.profile(token, userId);
     if (!result.ok) {
       setError(result.error);
@@ -55,7 +60,7 @@ export default function ProfileScreen() {
     }
     setError(null);
     setStatus("ready");
-  }, [userId, getToken]);
+  }, [userId, getToken, loadStories]);
 
   useFocusEffect(
     useCallback(() => {
@@ -123,6 +128,8 @@ export default function ProfileScreen() {
     else setError(result.error);
   };
 
+  // This member's active stories the viewer may see (the server leaves out any they can't)
+  const storyGroup = store.stories.find((group) => group.member.id === userId) ?? null;
   const profileActions: SheetAction[] = profile && !profile.isOwn
     ? [
         { label: profile.blocked ? "Unblock" : "Block", destructive: !profile.blocked, onPress: toggleBlock },
@@ -183,7 +190,11 @@ export default function ProfileScreen() {
               profile ? (
                 <View className="px-5 pb-4">
                   <View className="post__card items-center">
-                    <Avatar member={profile.member} size={72} />
+                    {storyGroup ? (
+                      <StoryAvatar member={profile.member} size={72} ring={storyRingFor(storyGroup)} onPress={() => router.push({ pathname: "/community/story/[memberId]", params: { memberId: storyGroup.member.id } })} accessibilityLabel={profile.isOwn ? "Open your story" : `Open ${profile.member.name}'s story`} />
+                    ) : (
+                      <Avatar member={profile.member} size={72} />
+                    )}
                     <Text className="post__author mt-3" style={{ fontSize: 20 }}>{profile.member.name}</Text>
                     {profile.bio && <Text className="post__time mt-1 text-center">{profile.bio}</Text>}
                     <View className="mt-4 flex-row gap-8">
@@ -204,6 +215,15 @@ export default function ProfileScreen() {
                         </View>
                         <Switch value={profile.isPrivate} onValueChange={togglePrivate} trackColor={{ true: colors.forest }} accessibilityLabel="Private account" />
                       </View>
+                    ) : null}
+                    {profile.suspended ? null : profile.isOwn ? (
+                      <Pressable onPress={() => router.push("/community/close-friends")} className="mt-3 w-full flex-row items-center justify-between" accessibilityRole="button" accessibilityLabel="Close Friends">
+                        <View className="flex-1 pr-3">
+                          <Text className="auth__label">Close Friends</Text>
+                          <Text className="home__note">Choose who sees your Close Friends stories.</Text>
+                        </View>
+                        <SymbolView name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }} size={16} tintColor={colors.muted} />
+                      </Pressable>
                     ) : (
                       <View className="mt-4 flex-row gap-2">
                         <Pressable onPress={toggleFollow} disabled={busy || profile.blocked} className={profile.followState === "none" ? "group__join" : "group__join group__join--joined"} style={{ opacity: busy || profile.blocked ? 0.5 : 1 }} accessibilityRole="button" accessibilityLabel={followLabel}>

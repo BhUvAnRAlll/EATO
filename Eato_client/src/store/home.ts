@@ -2,7 +2,7 @@ import { create } from "zustand";
 
 import { defaultHomeContent, defaultPromotions, sampleNutrition, type HomeContent, type NutritionToday, type Promotion } from "@/data/home";
 import { fetchActivePromotions, fetchHomeContent } from "@/lib/home";
-import { fetchProfile } from "@/lib/profile";
+import { macro, todayIso, type Totals } from "@/lib/macro";
 
 // Everything the home screen loads: promotions, labels, quick actions, popular meals and
 // the member's nutrition targets. Starts with the bundled defaults so the screen never
@@ -27,7 +27,23 @@ type HomeState = {
   loadedAt: number | null;
   // Loads both parts; `force` ignores the freshness window (pull to refresh, app resumed)
   load: (token: string | null, options?: { force?: boolean }) => Promise<void>;
+  // Re-reads today's Macro diary (Home coming back into view)
+  refreshIntake: (token: string | null) => Promise<void>;
 };
+
+// Today's targets and what was eaten, from the same /api/macro/day call the Macro tab uses,
+// so both screens always show the same numbers (null when the day or its targets can't be read)
+async function nutritionToday(token: string | null): Promise<NutritionToday | null> {
+  const day = await macro.day(token, todayIso());
+  if (!day.ok || !day.data.targets) return null;
+  const amounts = ({ kcal, proteinG, carbsG, fatG }: Totals) => ({
+    calories: Math.round(kcal),
+    proteinG: Math.round(proteinG),
+    carbsG: Math.round(carbsG),
+    fatG: Math.round(fatG),
+  });
+  return { consumed: amounts(day.data.totals), targets: amounts(day.data.targets), source: "targets" };
+}
 
 export const useHomeStore = create<HomeState>((set, get) => ({
   promotions: defaultPromotions,
@@ -43,19 +59,9 @@ export const useHomeStore = create<HomeState>((set, get) => ({
     if (loading) return;
     if (!force && loadedAt !== null && Date.now() - loadedAt < FRESH_FOR_MS) return;
     set({ loading: true });
-    const [promotions, content, profile] = await Promise.all([fetchActivePromotions(token), fetchHomeContent(token), fetchProfile(token)]);
-
-    // Targets: the member's saved ones (the diary isn't built yet, so nothing is eaten
-    // against them), or the sample numbers when they can't be loaded
-    let nutrition: NutritionToday = sampleNutrition;
-    if (profile.ok && profile.data.nutrition) {
-      const { calories, macros } = profile.data.nutrition.active;
-      nutrition = {
-        consumed: { calories: 0, proteinG: 0, carbsG: 0, fatG: 0 },
-        targets: { calories, proteinG: macros.proteinG, carbsG: macros.carbsG, fatG: macros.fatG },
-        source: "targets",
-      };
-    }
+    const [promotions, content, today] = await Promise.all([fetchActivePromotions(token), fetchHomeContent(token), nutritionToday(token)]);
+    // The sample numbers only when today's targets can't be loaded
+    const nutrition = today ?? sampleNutrition;
 
     const failed = !promotions.ok ? promotions : !content.ok ? content : null;
     if (failed || !promotions.ok || !content.ok) {
@@ -72,5 +78,10 @@ export const useHomeStore = create<HomeState>((set, get) => ({
       error: null,
       loadedAt: Date.now(),
     });
+  },
+
+  refreshIntake: async (token) => {
+    const today = await nutritionToday(token);
+    if (today) set({ nutrition: today });
   },
 }));

@@ -56,7 +56,7 @@ describe("community e2e: posts, stories, groups and messages with real sessions"
     if (!loaded.ok) { skipReason = loaded.reason; return; }
     env = loaded.env;
     try { connection = await db.connect(env); } catch (error) { skipReason = `test database unreachable (${error?.code ?? "refused"})`; return; }
-    assert.equal(await db.resetSchema(connection), 35, "schema.sql should create 35 tables in eato_test");
+    assert.equal(await db.resetSchema(connection), 44, "schema.sql should create 44 tables in eato_test");
     clerk = clerkFor(env.CLERK_SECRET_KEY);
     uploadDir = fs.mkdtempSync(path.join(os.tmpdir(), "eato-test-uploads-"));
     server = await startTestServer({ ...env, UPLOAD_DIR: uploadDir });
@@ -209,8 +209,19 @@ describe("community e2e: posts, stories, groups and messages with real sessions"
     assert.equal(reports.json.reports[0].postId, state.postA);
     assert.equal((await api("POST", `/api/community/reports/${reports.json.reports[0].id}/resolve`, tokens.admin, { status: "reviewed" })).status, 200);
     assert.equal((await api("GET", "/api/community/reports", tokens.admin)).json.reports.length, 0);
-    // An admin may delete a member's post; it then disappears from the feed but the row stays (soft delete)
+    // Moderation reads the role from Clerk, not the users-row copy: a stale "admin" in MySQL
+    // gives a member no power over someone else's post or comment
     const bPost = (await api("GET", "/api/community/feed", tokens.a)).json.posts.find((p) => p.author.id === identities.b.id);
+    const bComment = await api("POST", `/api/community/posts/${bPost.id}/comments`, tokens.b, { body: "Mine" });
+    assert.equal(bComment.status, 201);
+    await connection.query("UPDATE users SET role = 'admin' WHERE id = ?", [identities.a.id]);
+    try {
+      assert.equal((await api("DELETE", `/api/community/posts/${bPost.id}`, tokens.a)).status, 403);
+      assert.equal((await api("DELETE", `/api/community/comments/${bComment.json.comment.id}`, tokens.a)).status, 403);
+    } finally {
+      await connection.query("UPDATE users SET role = 'user' WHERE id = ?", [identities.a.id]);
+    }
+    // An admin may delete a member's post; it then disappears from the feed but the row stays (soft delete)
     assert.equal((await api("DELETE", `/api/community/posts/${bPost.id}`, tokens.admin)).status, 200);
     assert.equal((await api("GET", `/api/community/posts/${bPost.id}`, tokens.a)).status, 404);
     const [[row]] = await connection.query("SELECT deleted_at FROM community_posts WHERE id = ?", [bPost.id]);
@@ -239,8 +250,9 @@ describe("community e2e: posts, stories, groups and messages with real sessions"
     await connection.query("UPDATE community_stories SET expires_at = DATE_SUB(NOW(), INTERVAL 1 MINUTE) WHERE id = ?", [state.story]);
     assert.equal((await api("GET", "/api/community/stories", tokens.a)).json.members.length, 0);
     assert.equal((await api("POST", `/api/community/stories/${state.story}/view`, tokens.a)).status, 404);
-    assert.equal((await api("DELETE", `/api/community/stories/${state.story}`, tokens.b)).status, 200);
-    assert.ok(!fs.existsSync(path.join(uploadDir, `${upload.json.media.id}.png`)), "the story's image is removed with it");
+    assert.equal((await api("DELETE", `/api/community/stories/${state.story}`, tokens.b)).status, 404, "an ended story can't be deleted again");
+    assert.equal((await api("GET", `/api/media/${upload.json.media.id}`, tokens.a)).status, 404, "an expired story's photo no longer loads for others");
+    assert.ok(fs.existsSync(path.join(uploadDir, `${upload.json.media.id}.png`)), "the file is kept until the purge (see community-stories e2e)");
   });
 
   test("9. groups: join once, post inside, leave; private groups stay hidden; only admins create", async () => {

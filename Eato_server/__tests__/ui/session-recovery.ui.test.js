@@ -17,7 +17,7 @@ const { startTestServer, portFree } = require("../e2e/server.js");
 const { clerkFor, describeClerkError } = require("../e2e/clerk-identities.js");
 const { startExpoWeb } = require("./expo-web.js");
 const { launchChrome, connect, openPage, CHROME } = require("./cdp.js");
-const { fillSetup, helpers } = require("./onboarding-steps.js");
+const { fillSetup, fillSignInForm, helpers } = require("./onboarding-steps.js");
 
 const EXPO_PORT = 8090;
 const EVIDENCE_DIR = path.join(os.tmpdir(), "eato-ui-evidence");
@@ -68,8 +68,7 @@ describe("ui session recovery: 401 offers sign-in, other failures keep the sessi
   const signInAs = async (identity) => {
     await h.goto("/sign-in", "Log in");
     if (await hasSession()) { await page.evaluate(`window.Clerk.signOut({ redirectUrl: "/sign-in" })`); await page.waitFor(`!(window.Clerk && window.Clerk.session)`, 15000, "previous session ended"); await h.goto("/sign-in", "Log in"); }
-    await page.setInput('input[placeholder="Email address"]', identity.emailAddress);
-    await page.setInput('input[placeholder="Password"]', identity.password);
+    await fillSignInForm(page, h, identity); // waits for Clerk and a stable form first
     await page.clickText("Log in");
     const outcome = await page.waitFor(`(() => { if (location.pathname.startsWith("/setup") || location.pathname === "/home") return "routed"; if ((document.body.innerText || "").includes("Check your email")) return "code"; return ""; })()`, 60000, "sign-in outcome");
     if (outcome === "code") { await page.setInput('input[maxlength="6"]', CLERK_TEST_CODE); await page.waitFor(`location.pathname.startsWith("/setup") || location.pathname === "/home"`, 60000, "route after code"); }

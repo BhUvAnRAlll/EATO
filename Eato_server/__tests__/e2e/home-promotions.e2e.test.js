@@ -70,7 +70,7 @@ describe("home promotions e2e: admin edits → members see published content", (
       skipReason = `test database unreachable (${error?.code ?? "refused"})`;
       return;
     }
-    assert.equal(await db.resetSchema(connection), 35, "schema.sql should create 35 tables in eato_test");
+    assert.equal(await db.resetSchema(connection), 44, "schema.sql should create 44 tables in eato_test");
     clerk = clerkFor(env.CLERK_SECRET_KEY);
     server = await startTestServer(env);
     try {
@@ -111,8 +111,8 @@ describe("home promotions e2e: admin edits → members see published content", (
     assert.equal(json.promotions[0].effectiveStatus, "published");
     const content = await api("GET", "/api/home-content", tokens.member);
     assert.equal(content.status, 200);
-    assert.equal(content.json.content.nutritionHeading, "Today's Nutrition");
-    assert.equal(content.json.content.quickActions.length, 4);
+    assert.equal(content.json.content.nutritionHeading, "Today's Macros");
+    assert.deepEqual(content.json.content.quickActions, [], "no quick-action cards by default");
     assert.deepEqual(content.json.content.popularMeals.map((m) => m.id), ["grilled-chicken-bowl", "paneer-tikka-bowl", "salmon-bowl"]);
   });
 
@@ -258,7 +258,12 @@ describe("home promotions e2e: admin edits → members see published content", (
       todayHeading: current.todayHeading,
       todayActionLabel: current.todayActionLabel,
       showTodaySection: false,
-      quickActions: current.quickActions.slice(0, 3),
+      // An admin can still add cards
+      quickActions: [
+        { id: "meals", title: "Meals", subtitle: "Browse menu", icon: "meals", destination: "explore" },
+        { id: "plans", title: "Plans", subtitle: "For your goals", icon: "plans", destination: "plans" },
+        { id: "macro", title: "Macro", subtitle: "Track intake", icon: "nutrition", destination: "macro" },
+      ],
       popularMealIds: ["salmon-bowl", "grilled-chicken-bowl"],
     };
     const save = await api("PUT", "/api/admin/home-content", tokens.admin, changed);

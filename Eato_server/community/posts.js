@@ -110,13 +110,17 @@ async function canSeePostMedia(pool, userId, mediaId) {
   return rows.length > 0;
 }
 
-// Whether an image belongs to any post, live or deleted (admins may look while they moderate)
-async function isPostMedia(pool, mediaId) {
+// The photo a report is about (a post's cover or a story's photo), deleted content included,
+// for the admin-only evidence route. null when the report has no photo or doesn't exist.
+async function reportEvidenceMediaId(pool, reportId) {
   const [rows] = await pool.query(
-    "SELECT 1 FROM community_posts p WHERE p.media_id = ? OR EXISTS (SELECT 1 FROM community_post_media pm WHERE pm.post_id = p.id AND pm.media_id = ?) LIMIT 1",
-    [mediaId, mediaId],
+    `SELECT COALESCE(p.media_id, s.media_id) AS media_id FROM community_reports r
+     LEFT JOIN community_posts p ON p.id = r.post_id
+     LEFT JOIN community_stories s ON s.id = r.story_id
+     WHERE r.id = ?`,
+    [reportId],
   );
-  return rows.length > 0;
+  return rows[0]?.media_id ?? null;
 }
 
 // Who a post may address is decided here, from the account's saved privacy, never from the
@@ -350,12 +354,12 @@ async function reportContent(pool, userId, { postId = null, commentId = null }, 
 // Open reports, for admins
 async function listReports(pool) {
   const [rows] = await pool.query(
-    `SELECT r.id, r.reporter_id, r.post_id, r.comment_id, r.reason, r.status, r.created_at, u.full_name
+    `SELECT r.id, r.reporter_id, r.post_id, r.comment_id, r.story_id, r.reason, r.status, r.created_at, u.full_name
      FROM community_reports r JOIN users u ON u.id = r.reporter_id
      WHERE r.status = 'open' ORDER BY r.created_at ASC LIMIT 100`,
   );
   return rows.map((row) => ({
-    id: row.id, reporter: memberSummary({ user_id: row.reporter_id, full_name: row.full_name }), postId: row.post_id, commentId: row.comment_id,
+    id: row.id, reporter: memberSummary({ user_id: row.reporter_id, full_name: row.full_name }), postId: row.post_id, commentId: row.comment_id, storyId: row.story_id,
     reason: row.reason, status: row.status, createdAt: new Date(row.created_at).toISOString(),
   }));
 }
@@ -363,31 +367,41 @@ async function listReports(pool) {
 // The report with the content it points at, for an admin to judge
 async function getReport(pool, reportId) {
   const [rows] = await pool.query(
-    `SELECT r.id, r.reporter_id, r.post_id, r.comment_id, r.reason, r.status, r.created_at, ru.full_name AS reporter_name,
+    `SELECT r.id, r.reporter_id, r.post_id, r.comment_id, r.story_id, r.reason, r.status, r.created_at, ru.full_name AS reporter_name,
             p.body AS post_body, p.user_id AS post_user_id, p.deleted_at AS post_deleted_at, p.media_id, pu.full_name AS post_author_name,
-            c.body AS comment_body, c.user_id AS comment_user_id, c.deleted_at AS comment_deleted_at, cu.full_name AS comment_author_name
+            c.body AS comment_body, c.user_id AS comment_user_id, c.deleted_at AS comment_deleted_at, cu.full_name AS comment_author_name,
+            s.caption AS story_caption, s.user_id AS story_user_id, s.deleted_at AS story_deleted_at, s.media_id AS story_media_id,
+            s.expires_at <= NOW() AS story_expired, su.full_name AS story_author_name
      FROM community_reports r
      JOIN users ru ON ru.id = r.reporter_id
      LEFT JOIN community_posts p ON p.id = r.post_id LEFT JOIN users pu ON pu.id = p.user_id
      LEFT JOIN community_comments c ON c.id = r.comment_id LEFT JOIN users cu ON cu.id = c.user_id
+     LEFT JOIN community_stories s ON s.id = r.story_id LEFT JOIN users su ON su.id = s.user_id
      WHERE r.id = ?`,
     [reportId],
   );
   const row = rows[0];
   if (!row) throw new NotFoundError("That report doesn't exist.");
-  const isPost = row.post_id !== null;
-  const authorId = isPost ? row.post_user_id : row.comment_user_id;
-  const [[suspended]] = await pool.query("SELECT COUNT(*) AS n FROM community_profiles WHERE user_id = ? AND status = 'suspended'", [authorId]);
+  // What was reported: a post, a comment or a story. A photo is linked through the admin-only
+  // evidence route, which serves it even after the content was deleted.
+  const evidenceUrl = `/api/community/reports/${row.id}/media`;
+  const target = row.post_id !== null
+    ? { type: "post", id: row.post_id, body: row.post_body, imageUrl: row.media_id ? evidenceUrl : null, deleted: Boolean(row.post_deleted_at), expired: false, authorId: row.post_user_id, authorName: row.post_author_name }
+    : row.comment_id !== null
+      ? { type: "comment", id: row.comment_id, body: row.comment_body, imageUrl: null, deleted: Boolean(row.comment_deleted_at), expired: false, authorId: row.comment_user_id, authorName: row.comment_author_name }
+      : { type: "story", id: row.story_id, body: row.story_caption, imageUrl: row.story_media_id ? evidenceUrl : null, deleted: Boolean(row.story_deleted_at), expired: Boolean(row.story_expired), authorId: row.story_user_id, authorName: row.story_author_name };
+  const [[suspended]] = await pool.query("SELECT COUNT(*) AS n FROM community_profiles WHERE user_id = ? AND status = 'suspended'", [target.authorId]);
   return {
     id: row.id, reason: row.reason, status: row.status, createdAt: new Date(row.created_at).toISOString(),
     reporter: memberSummary({ user_id: row.reporter_id, full_name: row.reporter_name }),
     target: {
-      type: isPost ? "post" : "comment",
-      id: isPost ? row.post_id : row.comment_id,
-      body: isPost ? row.post_body : row.comment_body,
-      imageUrl: isPost ? mediaUrl(row.media_id) : null,
-      deleted: Boolean(isPost ? row.post_deleted_at : row.comment_deleted_at),
-      author: memberSummary({ user_id: authorId, full_name: isPost ? row.post_author_name : row.comment_author_name }),
+      type: target.type,
+      id: target.id,
+      body: target.body,
+      imageUrl: target.imageUrl,
+      deleted: target.deleted,
+      expired: target.expired,
+      author: memberSummary({ user_id: target.authorId, full_name: target.authorName }),
       authorSuspended: suspended.n > 0,
     },
   };
@@ -401,7 +415,7 @@ async function resolveReport(pool, reportId, status) {
 }
 
 module.exports = {
-  NotFoundError, ForbiddenError, canViewGroup, canSeePostMedia, isPostMedia,
+  NotFoundError, ForbiddenError, canViewGroup, canSeePostMedia, reportEvidenceMediaId,
   listPosts, getPost, createPost, updatePost, deletePost, setLike,
   listComments, createComment, deleteComment, reportContent, listReports, getReport, resolveReport,
 };

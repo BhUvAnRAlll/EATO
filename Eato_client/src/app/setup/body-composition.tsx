@@ -1,4 +1,4 @@
-import { Text, View } from "react-native";
+import { Text, useWindowDimensions, View } from "react-native";
 import { SymbolView } from "expo-symbols";
 import { router } from "expo-router";
 
@@ -12,6 +12,10 @@ import { colors } from "@/theme";
 // weight and lets targets use measured fat-free mass. Skipping is the main action.
 export default function BodyComposition() {
   const report = useSetupStore((state) => state.report);
+  const { width } = useWindowDimensions();
+  // The Next pill is 5/9 of the footer: under 400pt the long skip label would wrap onto two
+  // lines, so narrow phones get a shorter one that says the same thing
+  const skipLabel = width < 400 ? "Skip for now" : "Skip, I'll enter manually";
 
   return (
     <SetupScreen
@@ -20,7 +24,7 @@ export default function BodyComposition() {
       subtitle="Upload your body composition report to get more accurate diet and nutrition recommendations."
       headerArt={images.setupBcaReport}
       onNext={() => router.push("/setup/personal")}
-      nextLabel={report ? "Continue" : "Skip, I'll enter manually"}
+      nextLabel={report ? "Continue" : skipLabel}
     >
       <ReportUploadCard />
 

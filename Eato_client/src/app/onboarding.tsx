@@ -34,8 +34,15 @@ export default function Onboarding() {
   const { width } = useWindowDimensions();
   const listRef = useRef<FlatList<OnboardingSlide>>(null);
   const [index, setIndex] = useState(0);
+  // Each slide is given the list's measured height: a horizontal list doesn't stretch its
+  // items vertically on every platform, and the art's flex: 1 needs a definite column height
+  const [listHeight, setListHeight] = useState(0);
 
   const artWidth = width - ART_PADDING * 2;
+  // Short screens (e.g. 320×568): the measured slide height can't hold the full-size title
+  // and a decent picture, so the type steps down and the art is given a fixed share of
+  // the height (never under 120pt) instead of whatever the text leaves over
+  const short = listHeight > 0 && listHeight < 430;
 
   const goToSlide = (slideIndex: number) => {
     listRef.current?.scrollToOffset({ offset: width * slideIndex, animated: true });
@@ -64,7 +71,7 @@ export default function Onboarding() {
   };
 
   return (
-    <View className="flex-1 bg-cream">
+    <View className="flex-1 overflow-hidden bg-cream">
       <StatusBar style="dark" />
       <View className="onboarding__circle" />
 
@@ -84,23 +91,29 @@ export default function Onboarding() {
           bounces={false}
           showsHorizontalScrollIndicator={false}
           onMomentumScrollEnd={handleScrollEnd}
+          onLayout={(event) => setListHeight(event.nativeEvent.layout.height)}
           className="flex-1"
           renderItem={({ item }) => (
-            <View style={{ width }} className="flex-1">
-              <View className="px-9 pt-7">
-                <Text className="onboarding__title">{item.title}</Text>
-                <Text className="onboarding__subtitle mt-3">{item.subtitle}</Text>
+            <View style={{ width, height: listHeight > 0 ? listHeight : undefined }} className="flex-1">
+              <View className={short ? "px-9 pt-4" : "px-9 pt-7"}>
+                <Text className="onboarding__title" style={short ? { fontSize: 30, lineHeight: 34 } : undefined}>
+                  {item.title}
+                </Text>
+                <Text className={short ? "onboarding__subtitle mt-2" : "onboarding__subtitle mt-3"} style={short ? { fontSize: 15, lineHeight: 20 } : undefined}>
+                  {item.subtitle}
+                </Text>
               </View>
               <Image
                 source={item.art}
                 contentFit="contain"
                 contentPosition="top"
                 style={{
-                  flex: 1,
                   width: artWidth,
-                  maxHeight: artWidth / item.artRatio,
                   marginTop: -item.artOverlap,
                   marginHorizontal: ART_PADDING,
+                  ...(short
+                    ? { height: Math.max(120, Math.min(Math.round(artWidth / item.artRatio), Math.round(listHeight * 0.45))) }
+                    : { flex: 1, maxHeight: artWidth / item.artRatio }),
                 }}
               />
             </View>

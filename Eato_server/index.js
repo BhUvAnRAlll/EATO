@@ -27,7 +27,9 @@ const { ExtractionError, extractReport } = require("./bodyComposition/extract");
 const home = require("./home");
 const { communityRouter, canSeeMedia } = require("./community/routes");
 const media = require("./community/media");
+const stories = require("./community/stories");
 const { macroRouter } = require("./macro/routes");
+const { workoutRouter } = require("./workout/routes");
 
 const app = express();
 app.disable("x-powered-by"); // no need to advertise the framework
@@ -52,6 +54,7 @@ const adminLimiter = createRateLimiter(rateLimits.standard); // admins editing i
 const communityLimiter = createRateLimiter(rateLimits.community); // feed, likes, comments, stories, groups, messages
 const mediaLimiter = createRateLimiter(rateLimits.community); // image downloads
 const macroLimiter = createRateLimiter(rateLimits.community); // the Macro diary: day, week strip, meals, favourites
+const workoutLimiter = createRateLimiter(rateLimits.community); // the Fitness tab: plan, training day, history
 
 // Quick check that the server is up and can reach MySQL (public: no token needed)
 app.get("/api/health", async (req, res) => {
@@ -272,6 +275,12 @@ app.use("/api/community", requireUser, limitPerUser(communityLimiter), community
 
 app.use("/api/macro", requireUser, limitPerUser(macroLimiter), macroRouter);
 
+// ---------------------------------------------------------------------------
+// Workout (see workout/routes.js): the active plan, one training day, history
+// ---------------------------------------------------------------------------
+
+app.use("/api/workout", requireUser, limitPerUser(workoutLimiter), workoutRouter);
+
 // An uploaded image, for signed-in members only. The path comes from the database row,
 // never from the request, so there is nothing to traverse.
 app.get("/api/media/:id", requireUser, limitPerUser(mediaLimiter), async (req, res, next) => {
@@ -307,8 +316,8 @@ const clientErrorMessages = {
 };
 
 app.use((error, req, res, next) => {
-  // Our own errors carry a safe message and their status (400 validation, 403, 404, 413, 415)
-  if (error instanceof ValidationError || error?.name === "NotFoundError" || error?.name === "ForbiddenError") {
+  // Our own errors carry a safe message and their status (400 validation, 403, 404, 413, 415, 503 Clerk unreachable)
+  if (error instanceof ValidationError || ["NotFoundError", "ForbiddenError", "AccountUnavailableError"].includes(error?.name)) {
     return res.status(Number.isInteger(error.status) ? error.status : 400).json({ error: error.message });
   }
   if (error?.code === "ER_CHECK_CONSTRAINT_VIOLATED") {
@@ -322,9 +331,13 @@ app.use((error, req, res, next) => {
   res.status(status).json({ error: clientErrorMessages[error.type] ?? "The request couldn't be processed." });
 });
 
-// Uploads nobody attached to a post, story or group cover are removed after a day
+// Hourly clean-up: stories that ended more than 30 days ago (and were never reported) are
+// removed, then uploads nobody refers to any more (never posted, or their story removed)
 if (process.env.NODE_ENV !== "test") {
-  const sweep = () => media.removeOrphanedMedia(pool).catch((error) => logRequestError({ method: "SWEEP", path: "/uploads" }, error));
+  const sweep = () =>
+    stories.purgeOldStories(pool)
+      .then(() => media.removeOrphanedMedia(pool))
+      .catch((error) => logRequestError({ method: "SWEEP", path: "/uploads" }, error));
   setTimeout(sweep, 60 * 1000).unref();
   setInterval(sweep, 60 * 60 * 1000).unref();
 }

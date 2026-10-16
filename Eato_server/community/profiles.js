@@ -108,6 +108,7 @@ async function block(pool, viewerId, userId) {
     await connection.beginTransaction();
     await connection.query("INSERT IGNORE INTO community_blocks (blocker_id, blocked_id) VALUES (?, ?)", [viewerId, userId]);
     await connection.query("DELETE FROM community_follows WHERE (follower_id = ? AND following_id = ?) OR (follower_id = ? AND following_id = ?)", [viewerId, userId, userId, viewerId]);
+    await connection.query("DELETE FROM community_close_friends WHERE (owner_id = ? AND friend_id = ?) OR (owner_id = ? AND friend_id = ?)", [viewerId, userId, userId, viewerId]);
     await connection.commit();
   } catch (error) {
     await connection.rollback();
@@ -129,6 +130,44 @@ async function listBlocked(pool, viewerId) {
     [viewerId],
   );
   return rows.map((row) => memberSummary({ user_id: row.blocked_id, full_name: row.full_name }));
+}
+
+// ---- Close Friends -------------------------------------------------------------------
+// A member's list of who sees their close-friends stories. Only the owner reads or changes
+// it; nothing returns another member's list.
+
+// The owner's accepted followers and current close friends, each marked in or out
+async function listCloseFriends(pool, ownerId) {
+  const [rows] = await pool.query(
+    `SELECT u.id AS user_id, u.full_name,
+            EXISTS (SELECT 1 FROM community_close_friends cf WHERE cf.owner_id = ? AND cf.friend_id = u.id) AS is_close
+     FROM users u
+     WHERE u.id <> ?
+       AND (EXISTS (SELECT 1 FROM community_follows f WHERE f.follower_id = u.id AND f.following_id = ? AND f.status = 'accepted')
+            OR EXISTS (SELECT 1 FROM community_close_friends cf WHERE cf.owner_id = ? AND cf.friend_id = u.id))
+       AND NOT EXISTS (SELECT 1 FROM community_blocks b WHERE (b.blocker_id = ? AND b.blocked_id = u.id) OR (b.blocker_id = u.id AND b.blocked_id = ?))
+     ORDER BY is_close DESC, u.full_name ASC
+     LIMIT 500`,
+    [ownerId, ownerId, ownerId, ownerId, ownerId, ownerId],
+  );
+  return rows.map((row) => ({ member: memberSummary(row), isCloseFriend: Boolean(row.is_close) }));
+}
+
+// Adds a follower to the owner's Close Friends (only members who follow the owner)
+async function addCloseFriend(pool, ownerId, friendId) {
+  if (ownerId === friendId) throw new ValidationError("You can't add yourself to Close Friends.");
+  await assertMemberExists(pool, friendId);
+  if (await isBlocked(pool, ownerId, friendId)) throw new NotFoundError("That member doesn't exist.");
+  const [rows] = await pool.query("SELECT 1 FROM community_follows WHERE follower_id = ? AND following_id = ? AND status = 'accepted'", [friendId, ownerId]);
+  if (rows.length === 0) throw new ValidationError("Only members who follow you can be close friends.");
+  await ensureUser(pool, ownerId);
+  await pool.query("INSERT IGNORE INTO community_close_friends (owner_id, friend_id) VALUES (?, ?)", [ownerId, friendId]);
+  return { userId: friendId, isCloseFriend: true };
+}
+
+async function removeCloseFriend(pool, ownerId, friendId) {
+  await pool.query("DELETE FROM community_close_friends WHERE owner_id = ? AND friend_id = ?", [ownerId, friendId]);
+  return { userId: friendId, isCloseFriend: false };
 }
 
 // Admins: suspend or reinstate a member's community presence
@@ -174,4 +213,7 @@ async function listNotifications(pool, userId) {
   return { followRequests: requests, activity };
 }
 
-module.exports = { getProfile, updateOwnProfile, follow, unfollow, listFollowRequests, answerFollowRequest, block, unblock, listBlocked, setSuspended, listSuspended, listNotifications };
+module.exports = {
+  getProfile, updateOwnProfile, follow, unfollow, listFollowRequests, answerFollowRequest, block, unblock, listBlocked,
+  listCloseFriends, addCloseFriend, removeCloseFriend, setSuspended, listSuspended, listNotifications,
+};

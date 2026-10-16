@@ -72,7 +72,7 @@ export default function AdminModeration() {
                   <Text className="setup__card-text">
                     {report.target.author.name}
                     {report.target.authorSuspended ? " (suspended)" : ""}
-                    {report.target.deleted ? " · content deleted" : ""}
+                    {report.target.deleted ? " · content deleted" : report.target.expired ? " · story ended" : ""}
                   </Text>
                   <Text className="post__body mt-1" numberOfLines={6}>
                     {report.target.body}
@@ -83,10 +83,18 @@ export default function AdminModeration() {
               <View className="flex-row flex-wrap gap-2">
                 {!report.target.deleted && (
                   <AdminButton
-                    label={report.target.type === "post" ? "Delete post" : "Delete comment"}
+                    label={report.target.type === "post" ? "Delete post" : report.target.type === "story" ? "Delete story" : "Delete comment"}
                     variant="danger"
                     disabled={busy}
-                    onPress={() => run((token) => (report.target.type === "post" ? adminModeration.deletePost(token, report.target.id) : adminModeration.deleteComment(token, report.target.id)))}
+                    onPress={() =>
+                      run((token) =>
+                        report.target.type === "post"
+                          ? adminModeration.deletePost(token, report.target.id)
+                          : report.target.type === "story"
+                            ? adminModeration.deleteStory(token, report.target.id)
+                            : adminModeration.deleteComment(token, report.target.id),
+                      )
+                    }
                   />
                 )}
                 {!report.target.authorSuspended && (
