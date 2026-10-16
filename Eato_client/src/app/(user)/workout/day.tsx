@@ -111,7 +111,7 @@ export default function TrainingDayScreen() {
       <StatusBar style="light" />
       <ScrollView contentContainerStyle={{ paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
         {/* Art: the session's figure on the dark surface (the plan has no photos yet) */}
-        <View className="bg-ink" style={{ minHeight: 384, paddingTop: insets.top + 64, paddingHorizontal: 20, paddingBottom: 48, gap: 12 }}>
+        <View className="bg-ink" style={{ paddingTop: insets.top + 64, paddingHorizontal: 20, paddingBottom: 48, gap: 12 }}>
           <View className="absolute right-6" style={{ top: insets.top + 56 }}>
             <SymbolView name={sessionIcon(day.sessionType)} size={110} tintColor={colors.primary} style={{ opacity: 0.35 }} />
           </View>
@@ -168,7 +168,7 @@ export default function TrainingDayScreen() {
       <ActionSheet
         visible={menuFor !== null}
         title={menuFor ? `${menuFor.name}: ${formatSets(menuFor)}` : undefined}
-        actions={menuFor && menuFor.instructions.length > 0 ? [{ label: "How to do it", onPress: () => setHowTo(menuFor) }] : []}
+        actions={menuFor ? [{ label: "How to do it", onPress: () => setHowTo(menuFor) }] : []}
         onClose={() => setMenuFor(null)}
       />
       <HowToSheet exercise={howTo} onClose={() => setHowTo(null)} />
@@ -228,6 +228,10 @@ function ExercisesTab({ day, onMore }: { day: TrainingDay; onMore: (e: DayExerci
 
 function ExerciseRow({ exercise: e, onMore }: { exercise: DayExercise; onMore: () => void }) {
   const timed = isTimed(e);
+  const muscle = MUSCLE_LABEL[e.muscleGroup] ?? e.muscleGroup;
+  const focus = PATTERN_FOCUS[e.pattern];
+  // "Back · Lats", but just "Chest" when the focus says the same thing
+  const subtitle = focus && focus !== muscle ? `${muscle} · ${focus}` : muscle;
   const right = timed ? `${e.sets.length} ${e.sets.length === 1 ? "set" : "sets"}` : `${e.sets.length} × ${e.repsMin ?? e.sets[0]?.reps ?? 0}–${e.repsMax ?? e.sets[0]?.reps ?? 0}`;
   const under = timed ? formatSeconds(e.sets[0]?.durationSec ?? 0) : "sets × reps";
   return (
@@ -238,15 +242,20 @@ function ExerciseRow({ exercise: e, onMore }: { exercise: DayExercise; onMore: (
         </View>
         <View className="min-w-0 flex-1">
           <Text className="card__title" numberOfLines={2}>{e.name}</Text>
-          <Text className="post__time" numberOfLines={1}>{`${MUSCLE_LABEL[e.muscleGroup] ?? e.muscleGroup} · ${PATTERN_FOCUS[e.pattern] ?? ""}`}</Text>
+          <Text className="post__time" numberOfLines={1}>{subtitle}</Text>
         </View>
         <View className="items-end">
           <Text className="type-subhead text-forest-ink">{right}</Text>
           <Text className="post__time">{under}</Text>
         </View>
-        <Pressable onPress={onMore} hitSlop={10} className="h-9 w-9 items-center justify-center" accessibilityRole="button" accessibilityLabel={`More about ${e.name}`}>
-          <SymbolView name={{ ios: "ellipsis", android: "more_horiz", web: "more_horiz" }} size={18} tintColor={colors.muted} />
-        </Pressable>
+        {/* Only exercises with steps to read get the menu (the warm-ups have none) */}
+        {e.instructions.length > 0 ? (
+          <Pressable onPress={onMore} hitSlop={10} className="h-9 w-9 items-center justify-center" accessibilityRole="button" accessibilityLabel={`More about ${e.name}`}>
+            <SymbolView name={{ ios: "ellipsis", android: "more_horiz", web: "more_horiz" }} size={18} tintColor={colors.muted} />
+          </Pressable>
+        ) : (
+          <View className="h-9 w-9" />
+        )}
       </View>
       {e.note && <Text className="post__time" style={{ color: colors.leaf }}>{e.note}</Text>}
     </View>

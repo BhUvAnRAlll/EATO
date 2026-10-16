@@ -59,7 +59,7 @@ export type WorkoutHome =
   | { plan: null }
   | { plan: Plan; date: string; status: DayStatus; day: TrainingDay | null; week: { date: string; status: DayStatus }[] };
 
-export type HistoryDay = { date: string; status: Exclude<DayStatus, "rest">; title: string | null; sessionType: string | null; totalMinutes: number; exerciseCount: number };
+export type HistoryDay = { date: string; status: Exclude<DayStatus, "rest" | "planned">; title: string | null; sessionType: string | null; totalMinutes: number; exerciseCount: number };
 
 const signedOut = <T>(): Promise<ApiResult<T>> => Promise.resolve({ ok: false, error: "Please sign in again." });
 const query = (params: Record<string, string>) => "?" + Object.entries(params).map(([key, value]) => `${key}=${encodeURIComponent(value)}`).join("&");

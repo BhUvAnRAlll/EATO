@@ -55,7 +55,7 @@ describe("workout e2e: the first plan, the hub, the training day and who may see
     if (!loaded.ok) { skipReason = loaded.reason; return; }
     env = loaded.env;
     try { connection = await db.connect(env); } catch (error) { skipReason = `test database unreachable (${error?.code ?? "refused"})`; return; }
-    assert.equal(await db.resetSchema(connection), 44, "schema.sql should create 44 tables in eato_test");
+    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in eato_test`);
     clerk = clerkFor(env.CLERK_SECRET_KEY);
     server = await startTestServer(env);
     try {
@@ -216,7 +216,7 @@ describe("workout e2e: the first plan, the hub, the training day and who may see
     assert.equal(past14.status, 200);
     const rows = past14.json.days;
     assert.ok(rows.every((r, i) => i === 0 || r.date < rows[i - 1].date), "newest first");
-    assert.ok(rows.every((r) => r.status !== "rest"), "rest days are left out");
+    assert.ok(rows.every((r) => r.status !== "rest" && r.status !== "planned"), "rest days and sessions still ahead are left out");
     const byDate = Object.fromEntries(rows.map((r) => [r.date, r]));
     assert.equal(byDate[done].status, "completed");
     assert.equal(byDate[running].status, "in_progress");

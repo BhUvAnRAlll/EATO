@@ -86,7 +86,7 @@ describe("ui workout: the Fitness hub and a training day", () => {
     if (!fs.existsSync(CHROME)) { skipReason = "Google Chrome is not installed"; return; }
     for (const port of [Number(env.PORT), EXPO_PORT]) if (!(await portFree(port))) throw new Error(`port ${port} is in use; refusing to start`);
     try { connection = await db.connect(env); } catch (error) { skipReason = `test database unreachable (${error?.code ?? "refused"})`; return; }
-    assert.equal(await db.resetSchema(connection), 44, "schema.sql should create 44 tables in eato_test");
+    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in eato_test`);
     clerk = clerkFor(env.CLERK_SECRET_KEY);
     server = await startTestServer(env);
     expo = await startExpoWeb({ port: EXPO_PORT, apiUrl: `http://localhost:${env.PORT}` });
@@ -144,7 +144,9 @@ describe("ui workout: the Fitness hub and a training day", () => {
     } else {
       await h.expectText("Recharge to come back stronger");
     }
-    await h.expectText("0 of 3 done");
+    // A plan made today doesn't count the days before it: only today onwards is scheduled
+    await page.waitFor(`/0 of [1-3] done/.test(document.body.innerText)`, NAV_TIMEOUT, "0 of n done");
+    assert.equal(await page.evaluate(`document.querySelectorAll('[aria-label$=": Missed"]').length`), 0, "nothing is missed yet");
     await h.expectText("No sessions yet");
     await snapshotAllWidths("workout-hub-new");
   }));

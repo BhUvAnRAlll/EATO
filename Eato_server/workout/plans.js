@@ -322,12 +322,12 @@ async function home(pool, userId, { date, dates, today }) {
   };
 }
 
-/** One row per date that was scheduled or trained, newest first. */
+/** One row per date that was trained or missed, newest first (a session still ahead isn't history). */
 async function history(pool, userId, { from, to, today }) {
   const plan = await activePlanRow(pool, userId);
   const dates = [];
   for (let d = new Date(`${to}T00:00:00Z`); d >= new Date(`${from}T00:00:00Z`); d.setUTCDate(d.getUTCDate() - 1)) dates.push(d.toISOString().slice(0, 10));
-  const resolved = (await resolveDates(pool, userId, plan?.id ?? null, dates, today, plan?.start_date ?? null)).filter((r) => r.status !== "rest");
+  const resolved = (await resolveDates(pool, userId, plan?.id ?? null, dates, today, plan?.start_date ?? null)).filter((r) => r.status !== "rest" && r.status !== "planned");
   const summaries = await daySummaries(pool, userId, resolved.map((r) => r.dayId));
   return resolved.map((r) => {
     const s = summaries.get(r.dayId);
