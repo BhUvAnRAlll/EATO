@@ -289,6 +289,19 @@ describe("macro e2e: meals, the day view, favourites and who may see them", () =
     assert.equal((await api("GET", `/api/macro/summary?period=week&today=${TODAY}`, null)).status, 401);
   }));
 
+  it("9b. quick double saves both succeed (no deadlock), and a quantity that rounds to 0 is a 400", run(async () => {
+    // Two saves for the same day at once: the member's row is locked, so they queue instead of
+    // deadlocking on gap locks (which answered one of them with a 500)
+    const [first, second] = await Promise.all([logMeal(tokens.b, { title: "Race one" }), logMeal(tokens.b, { title: "Race two" })]);
+    assert.equal(first.status, 201, JSON.stringify(first.json));
+    assert.equal(second.status, 201, JSON.stringify(second.json));
+    const [[{ n }]] = await connection.query("SELECT COUNT(*) AS n FROM macro_meal_logs WHERE user_id = ? AND title LIKE 'Race %'", [ids.b]);
+    assert.equal(n, 2);
+    const tiny = await logMeal(tokens.b, { items: [food({ quantity: 0.004 })] });
+    assert.equal(tiny.status, 400, JSON.stringify(tiny.json));
+    assert.match(tiny.json.error, /quantity/i);
+  }));
+
   it("10. a day holds at most 50 meals", run(async () => {
     const [[{ n }]] = await connection.query("SELECT COUNT(*) AS n FROM macro_meal_logs WHERE user_id = ? AND log_date = ?", [ids.a, TODAY]);
     for (let i = n; i < 50; i++) await connection.query("INSERT INTO macro_meal_logs (user_id, log_date, slot, title, logged_at) VALUES (?, ?, 'snack', 'filler', NOW(3))", [ids.a, TODAY]);

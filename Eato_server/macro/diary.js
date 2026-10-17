@@ -130,8 +130,12 @@ async function logMeal(pool, userId, meal) {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
-    // Lock the member's day so two quick saves can't both slip under the daily cap
-    const [[{ n }]] = await connection.query("SELECT COUNT(*) AS n FROM macro_meal_logs WHERE user_id = ? AND log_date = ? FOR UPDATE", [userId, meal.date]);
+    // Serialise this member's saves so two quick ones can't both slip under the daily cap. The
+    // lock is on their users row (an existing row, so a plain row lock): locking the day's logs
+    // with COUNT(*) ... FOR UPDATE only took gap locks, which don't block each other, and two
+    // saves then deadlocked on the insert. The routes run ensureUser first, so the row exists.
+    await connection.query("SELECT id FROM users WHERE id = ? FOR UPDATE", [userId]);
+    const [[{ n }]] = await connection.query("SELECT COUNT(*) AS n FROM macro_meal_logs WHERE user_id = ? AND log_date = ?", [userId, meal.date]);
     if (n >= limits.mealsPerDay) throw new ValidationError("Too many meals logged for one day");
     const [[{ id }]] = await connection.query("SELECT UUID() AS id");
     await connection.query(

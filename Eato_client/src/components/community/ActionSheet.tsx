@@ -1,5 +1,7 @@
 import { Modal, Pressable, Text } from "react-native";
 
+import { colors } from "@/theme";
+
 export type SheetAction = { label: string; destructive?: boolean; onPress: () => void };
 
 type ActionSheetProps = { visible: boolean; title?: string; actions: SheetAction[]; onClose: () => void };
@@ -21,7 +23,7 @@ export function ActionSheet({ visible, title, actions, onClose }: ActionSheetPro
               className="btn-outline"
               accessibilityRole="button"
             >
-              <Text className="btn-outline__label" style={action.destructive ? { color: "#F0553D" } : undefined}>
+              <Text className="btn-outline__label" style={action.destructive ? { color: colors.danger } : undefined}>
                 {action.label}
               </Text>
             </Pressable>

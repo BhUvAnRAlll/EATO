@@ -51,13 +51,15 @@ async function getProfile(pool, viewerId, userId) {
   };
 }
 
-// Own settings: private account and bio
+// Own settings: private account and bio. A field that wasn't sent is left alone; a bio sent as
+// empty (validated to null) is cleared, so the two can't be confused.
 async function updateOwnProfile(pool, userId, changes) {
   await ensureUser(pool, userId);
+  const bioSent = changes.bio !== undefined;
   await pool.query(
     `INSERT INTO community_profiles (user_id, is_private, bio) VALUES (?, ?, ?)
-     ON DUPLICATE KEY UPDATE is_private = COALESCE(?, is_private), bio = COALESCE(?, bio)`,
-    [userId, changes.isPrivate ?? false, changes.bio ?? null, changes.isPrivate ?? null, changes.bio === undefined ? null : changes.bio],
+     ON DUPLICATE KEY UPDATE is_private = COALESCE(?, is_private), bio = IF(?, ?, bio)`,
+    [userId, changes.isPrivate ?? false, changes.bio ?? null, changes.isPrivate ?? null, bioSent, changes.bio ?? null],
   );
   // Turning a private account public accepts every pending request
   if (changes.isPrivate === false) await pool.query("UPDATE community_follows SET status = 'accepted' WHERE following_id = ? AND status = 'pending'", [userId]);

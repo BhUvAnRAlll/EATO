@@ -139,6 +139,11 @@ describe("community privacy e2e: audiences, private accounts, blocks and suspens
     assert.equal(settings.status, 200, JSON.stringify(settings.json));
     assert.equal(settings.json.profile.isPrivate, true);
     assert.equal(settings.json.profile.bio, "Lifting since 2021");
+    const cleared = await api("PATCH", "/api/community/me", tokens.author, { bio: "" });
+    assert.equal(cleared.status, 200, JSON.stringify(cleared.json));
+    assert.equal(cleared.json.profile.bio, null, "an empty bio clears it");
+    assert.equal(cleared.json.profile.isPrivate, true, "a bio-only change leaves privacy alone");
+    assert.equal((await api("PATCH", "/api/community/me", tokens.author, { bio: "Lifting since 2021" })).json.profile.bio, "Lifting since 2021");
     assert.deepEqual(await feedIds(tokens.stranger), [], "a stranger sees nothing from a private account");
     assert.deepEqual(await feedIds(tokens.follower), [state.followersPost, state.publicPost], "an existing follower keeps access");
     const profile = await api("GET", `/api/community/profiles/${ids.author}`, tokens.stranger);
@@ -446,7 +451,7 @@ describe("community privacy e2e: audiences, private accounts, blocks and suspens
       assert.equal((await api("POST", `/api/community/conversations/${id}/messages`, tokens.author, { body: "x" })).status, 403);
       assert.equal((await api("POST", `/api/community/conversations/${id}/messages`, tokens.stranger, { body: "from the third member" })).status, 201);
       const strangerInbox = (await api("GET", "/api/community/conversations", tokens.stranger)).json;
-      assert.ok(strangerInbox.conversations.some((c) => c.id === id) || strangerInbox.conversations.length >= 0, "the inbox query tolerates a group conversation");
+      assert.ok(strangerInbox.conversations.some((c) => c.id === id), "the group conversation is listed in the third member's inbox");
     } finally {
       await api("DELETE", `/api/community/profiles/${ids.follower}/block`, tokens.author);
       await connection.query("DELETE FROM conversations WHERE id = ?", [id]);

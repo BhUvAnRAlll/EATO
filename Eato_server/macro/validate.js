@@ -81,6 +81,15 @@ function number(value, what, min, max, { exclusiveMin = false } = {}) {
   return Math.round(value * 10) / 10;
 }
 
+// A food quantity: rounded to the two decimals the column stores, then checked, so a value that
+// rounds to 0 is refused here (a 400) instead of by the database's CHECK (a 500)
+function quantity(value) {
+  if (typeof value !== "number" || !Number.isFinite(value)) throw new ValidationError("The quantity must be a number.");
+  const rounded = Math.round(value * 100) / 100;
+  if (rounded <= 0 || rounded > limits.quantityMax) throw new ValidationError("The quantity is out of range.");
+  return rounded;
+}
+
 function loggedAt(value, now) {
   if (typeof value !== "number" || !Number.isFinite(value)) throw new ValidationError("The meal time isn't valid.");
   if (value < now - limits.loggedAtPastHours * 3600_000 || value > now + limits.loggedAtFutureHours * 3600_000) {
@@ -94,7 +103,7 @@ function item(body, index) {
   rejectUnknownKeys(body, ["name", "quantity", "unit", "kcal", "proteinG", "carbsG", "fatG"], `Food ${index + 1}`);
   return {
     name: label(body.name, "The food name", limits.nameLength),
-    quantity: Math.round(number(body.quantity, "The quantity", 0, limits.quantityMax, { exclusiveMin: true }) * 100) / 100,
+    quantity: quantity(body.quantity),
     unit: label(body.unit, "The unit", limits.unitLength),
     kcal: number(body.kcal, "Calories", 0, limits.kcalMax),
     proteinG: number(body.proteinG, "Protein", 0, limits.macroMax),

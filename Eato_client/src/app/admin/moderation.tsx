@@ -8,6 +8,7 @@ import { AuthImage } from "@/components/community/AuthImage";
 import { adminModeration, timeAgo, type ReportDetail, type SuspendedMember } from "@/lib/community";
 import { useSessionToken } from "@/lib/session";
 import { useCommunityStore } from "@/store/community";
+import { colors } from "@/theme";
 
 // Community moderation for admins: open reports (with the reported content and actions)
 // and the list of suspended members. Every action is checked again on the server.
@@ -56,7 +57,7 @@ export default function AdminModeration() {
 
       <Text className="setup__section mb-2">Open reports</Text>
       {reports === null ? (
-        <ActivityIndicator color="#1A322A" className="my-6" />
+        <ActivityIndicator color={colors.forest} className="my-6" />
       ) : reports.length === 0 ? (
         <Text className="admin__hint mb-4">No open reports.</Text>
       ) : (

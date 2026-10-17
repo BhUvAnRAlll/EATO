@@ -42,6 +42,9 @@ describe("macro: meals", () => {
     rejects(() => v.validateMeal(meal({ items: "x" }), NOW), /at least one food/);
     rejects(() => v.validateMeal(meal({ items: Array.from({ length: 51 }, () => food()) }), NOW), /Too many foods/);
     rejects(() => v.validateMeal(meal({ items: [food({ quantity: 0 })] }), NOW), /quantity/i);
+    rejects(() => v.validateMeal(meal({ items: [food({ quantity: 0.004 })] }), NOW), /quantity/i); // rounds to 0: refused here, not by the database
+    assert.equal(v.validateMeal(meal({ items: [food({ quantity: 0.25 })] }), NOW).items[0].quantity, 0.25, "two decimals are kept");
+    assert.equal(v.validateMeal(meal({ items: [food({ quantity: 0.005 })] }), NOW).items[0].quantity, 0.01);
     rejects(() => v.validateMeal(meal({ items: [food({ quantity: 10001 })] }), NOW), /quantity/i);
     rejects(() => v.validateMeal(meal({ items: [food({ kcal: 5001 })] }), NOW), /Calories/);
     rejects(() => v.validateMeal(meal({ items: [food({ kcal: -1 })] }), NOW), /Calories/);

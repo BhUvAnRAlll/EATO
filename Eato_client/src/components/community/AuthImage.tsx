@@ -17,10 +17,13 @@ type AuthImageProps = {
 };
 
 // A member-uploaded image. The server only serves images to signed-in members, so the
-// session token travels in the request headers; a failed load shows a soft placeholder.
+// session token travels in the request headers; a failed load shows a soft placeholder. The
+// failure is remembered for the path that failed, so the same component showing a new path
+// (the story viewer moving to the next story) tries again.
 export function AuthImage({ path, style, contentFit = "cover", accessibilityLabel }: AuthImageProps) {
   const token = useCommunityStore((state) => state.token);
-  const [failed, setFailed] = useState(false);
+  const [failedPath, setFailedPath] = useState<string | null>(null);
+  const failed = failedPath !== null && failedPath === path;
   const onServer = path?.startsWith("/") ?? false;
 
   if (!path || failed || (onServer && !token)) {
@@ -37,7 +40,7 @@ export function AuthImage({ path, style, contentFit = "cover", accessibilityLabe
       contentFit={contentFit}
       transition={150}
       style={style}
-      onError={() => setFailed(true)}
+      onError={() => setFailedPath(path)}
       accessibilityLabel={accessibilityLabel}
     />
   );

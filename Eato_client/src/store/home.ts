@@ -60,8 +60,8 @@ export const useHomeStore = create<HomeState>((set, get) => ({
     if (!force && loadedAt !== null && Date.now() - loadedAt < FRESH_FOR_MS) return;
     set({ loading: true });
     const [promotions, content, today] = await Promise.all([fetchActivePromotions(token), fetchHomeContent(token), nutritionToday(token)]);
-    // The sample numbers only when today's targets can't be loaded
-    const nutrition = today ?? sampleNutrition;
+    // A failed refresh keeps the last real numbers; the bundled sample only until the first real load
+    const nutrition = today ?? get().nutrition ?? sampleNutrition;
 
     const failed = !promotions.ok ? promotions : !content.ok ? content : null;
     if (failed || !promotions.ok || !content.ok) {
