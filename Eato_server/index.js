@@ -30,6 +30,7 @@ const media = require("./community/media");
 const stories = require("./community/stories");
 const { macroRouter } = require("./macro/routes");
 const { workoutRouter } = require("./workout/routes");
+const { gymsRouter } = require("./gyms/routes");
 
 const app = express();
 app.disable("x-powered-by"); // no need to advertise the framework
@@ -55,6 +56,7 @@ const communityLimiter = createRateLimiter(rateLimits.community); // feed, likes
 const mediaLimiter = createRateLimiter(rateLimits.community); // image downloads
 const macroLimiter = createRateLimiter(rateLimits.community); // the Macro diary: day, week strip, meals, favourites
 const workoutLimiter = createRateLimiter(rateLimits.community); // the Fitness tab: plan, training day, history
+const gymsLimiter = createRateLimiter(rateLimits.community); // gym communities: gyms, members, posts, events, invitations
 
 // Quick check that the server is up and can reach MySQL (public: no token needed)
 app.get("/api/health", async (req, res) => {
@@ -280,6 +282,9 @@ app.use("/api/macro", requireUser, limitPerUser(macroLimiter), macroRouter);
 // ---------------------------------------------------------------------------
 
 app.use("/api/workout", requireUser, limitPerUser(workoutLimiter), workoutRouter);
+
+// Gym communities (see gyms/routes.js): joining, members, gym posts, announcements, events, invitations
+app.use("/api/gyms", requireUser, limitPerUser(gymsLimiter), gymsRouter);
 
 // An uploaded image, for signed-in members only. The path comes from the database row,
 // never from the request, so there is nothing to traverse.

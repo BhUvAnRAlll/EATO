@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, TextInput, useWindowDimensions, View } from "react-native";
+import { useCallback, useState } from "react";
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, useWindowDimensions, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { SymbolView } from "expo-symbols";
@@ -10,7 +10,7 @@ import { Avatar } from "@/components/community/Avatar";
 import { EmptyState, PostSkeleton } from "@/components/community/CommunityStates";
 import { DeletePostSheet } from "@/components/community/DeletePostSheet";
 import { FriendsPanel } from "@/components/community/FriendsPanel";
-import { GroupCard } from "@/components/community/GroupCard";
+import { GymsPanel } from "@/components/community/GymsPanel";
 import { PostCard } from "@/components/community/PostCard";
 import { StoriesRow } from "@/components/community/StoriesRow";
 import { FormAlert } from "@/components/FormAlert";
@@ -20,11 +20,12 @@ import { useSessionToken } from "@/lib/session";
 import { useCommunityStore } from "@/store/community";
 import { colors } from "@/theme";
 
-type Tab = "feed" | "friends" | "groups";
-const tabLabels: Record<Tab, string> = { feed: "Feed", friends: "Friends", groups: "Groups" };
+type Tab = "feed" | "friends" | "gyms";
+const tabLabels: Record<Tab, string> = { feed: "Feed", friends: "Friends", gyms: "Gyms" };
 const PAGE_PADDING = 20;
 
-// Community: Feed (stories, composer, posts), Friends (search, requests) and Groups (search, join, open)
+// Community: Feed (stories, composer, posts), Friends (search, requests) and Gyms (my gyms,
+// explore, join by code)
 export default function Community() {
   const { width } = useWindowDimensions();
   const getToken = useSessionToken();
@@ -32,8 +33,6 @@ export default function Community() {
   const store = useCommunityStore();
   const [tab, setTab] = useState<Tab>("feed");
   const [refreshing, setRefreshing] = useState(false);
-  const [search, setSearch] = useState("");
-  const [busyGroup, setBusyGroup] = useState<string | null>(null);
   const [menuPost, setMenuPost] = useState<Post | null>(null);
   const [deletingPost, setDeletingPost] = useState<Post | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -53,32 +52,16 @@ export default function Community() {
     }, [getToken]),
   );
 
-  // Groups load when their tab is first opened, and again as the search changes (debounced)
-  useEffect(() => {
-    if (tab !== "groups") return;
-    const timer = setTimeout(async () => store.loadGroups(await getToken(), search.trim() || null), search ? 300 : 0);
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, search, getToken]);
-
   const refresh = async () => {
     setRefreshing(true);
     const token = await getToken();
-    await (tab === "feed" ? store.loadFeed(token, { force: true }) : store.loadGroups(token, search.trim() || null));
+    await store.loadFeed(token, { force: true });
     setRefreshing(false);
   };
 
   const like = async (post: Post) => {
     const error = await store.toggleLike(await getToken(), post.id);
     if (error) setNotice(error);
-  };
-
-  const toggleJoin = async (groupId: string, joined: boolean) => {
-    setBusyGroup(groupId);
-    const result = await community.setMembership(await getToken(), groupId, !joined);
-    if (result.ok) store.setGroup(result.data.group);
-    else setNotice(result.error);
-    setBusyGroup(null);
   };
 
   const menuActions = (post: Post): SheetAction[] => {
@@ -137,7 +120,7 @@ export default function Community() {
       </View>
 
       <View className="segment mx-5 mt-4" accessibilityRole="tablist">
-        {(["feed", "friends", "groups"] as Tab[]).map((item) => (
+        {(["feed", "friends", "gyms"] as Tab[]).map((item) => (
           <Pressable key={item} onPress={() => setTab(item)} className={tab === item ? "segment__item segment__item--active" : "segment__item"} accessibilityRole="tab" accessibilityState={{ selected: tab === item }}>
             <Text className={tab === item ? "segment__label segment__label--active" : "segment__label"}>{tabLabels[item]}</Text>
           </Pressable>
@@ -174,11 +157,6 @@ export default function Community() {
             </View>
           </Pressable>
         </View>
-      ) : tab === "groups" ? (
-        <View className="search mx-5 mt-5">
-          <SymbolView name={{ ios: "magnifyingglass", android: "search", web: "search" }} size={18} tintColor={colors.muted} />
-          <TextInput className="search__input" value={search} onChangeText={setSearch} placeholder="Search groups by name or topic" placeholderTextColor={colors.faint} autoCorrect={false} accessibilityLabel="Search groups" />
-        </View>
       ) : null}
     </View>
   );
@@ -203,22 +181,6 @@ export default function Community() {
     return (
       <View className="px-5">
         <EmptyState icon={{ ios: "sparkles", android: "auto_awesome", web: "auto_awesome" }} title="Be the first to post" text="Share a meal, a workout or a win with the community." actionLabel="Share your progress" onAction={() => router.push("/community/compose")} />
-      </View>
-    );
-  };
-
-  const groupsEmpty = () => {
-    if (store.groupsStatus === "loading") return <ActivityIndicator color={colors.forest} className="mt-6" />;
-    if (store.groupsStatus === "error") {
-      return (
-        <View className="px-5">
-          <EmptyState icon={{ ios: "wifi.exclamationmark", android: "wifi_off", web: "wifi_off" }} title="Couldn't load groups" text={store.groupsError ?? "Please try again."} actionLabel="Retry" onAction={refresh} />
-        </View>
-      );
-    }
-    return (
-      <View className="px-5">
-        <EmptyState icon={{ ios: "person.3", android: "groups", web: "groups" }} title="No groups found" text={search ? "Try another name or topic." : "Groups will appear here."} />
       </View>
     );
   };
@@ -256,21 +218,7 @@ export default function Community() {
         ) : tab === "friends" ? (
           <FriendsPanel header={header} />
         ) : (
-          <FlatList
-            data={store.groups}
-            keyExtractor={(group) => group.id}
-            ListHeaderComponent={header}
-            ListHeaderComponentStyle={{ marginBottom: 16 }}
-            ListEmptyComponent={groupsEmpty}
-            contentContainerStyle={{ paddingBottom: 16 }}
-            renderItem={({ item }) => (
-              <View className="px-5 pb-3">
-                <GroupCard group={item} busy={busyGroup === item.id} onOpen={() => router.push({ pathname: "/community/group/[id]", params: { id: item.id } })} onToggleJoin={() => toggleJoin(item.id, item.joined)} />
-              </View>
-            )}
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.forest} />}
-            showsVerticalScrollIndicator={false}
-          />
+          <GymsPanel header={header} />
         )}
       </SafeAreaView>
 

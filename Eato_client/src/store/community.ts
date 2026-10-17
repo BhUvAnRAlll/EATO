@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-import { community, type Group, type Post, type Story, type StoryGroup } from "@/lib/community";
+import { community, type Post, type Story, type StoryGroup } from "@/lib/community";
 import { withOwnStory } from "@/lib/storyRing";
 
 // What the Community tab shows: the feed, the stories row, the groups and the unread
@@ -21,9 +21,6 @@ type CommunityState = {
   feedLoadedAt: number | null;
   loadingMore: boolean;
   stories: StoryGroup[];
-  groups: Group[];
-  groupsStatus: Status;
-  groupsError: string | null;
   unreadCount: number;
   // Pending follow requests (the bell's badge)
   requestCount: number;
@@ -31,14 +28,12 @@ type CommunityState = {
   setToken: (token: string | null) => void;
   loadFeed: (token: string | null, options?: { force?: boolean }) => Promise<void>;
   loadMoreFeed: (token: string | null) => Promise<void>;
-  loadGroups: (token: string | null, search?: string | null) => Promise<void>;
   loadUnread: (token: string | null) => Promise<void>;
   // Local updates after a successful mutation elsewhere
   upsertPost: (post: Post) => void;
   removePost: (postId: string) => void;
   patchPost: (postId: string, changes: Partial<Post>) => void;
   toggleLike: (token: string | null, postId: string) => Promise<string | null>;
-  setGroup: (group: Group) => void;
   markStoriesViewed: (memberId: string) => void;
   // Refreshes only the stories row (after publishing, or when a profile opens), whatever
   // state the feed is in
@@ -58,9 +53,6 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
   feedLoadedAt: null,
   loadingMore: false,
   stories: [],
-  groups: [],
-  groupsStatus: "idle",
-  groupsError: null,
   unreadCount: 0,
   requestCount: 0,
 
@@ -103,16 +95,6 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
     set({ loadingMore: false });
   },
 
-  loadGroups: async (token, search = null) => {
-    set({ groupsStatus: "loading", groupsError: null, token });
-    const result = await community.groups(token, search);
-    if (!result.ok) {
-      set({ groupsStatus: "error", groupsError: result.error });
-      return;
-    }
-    set({ groups: result.data.groups, groupsStatus: "ready" });
-  },
-
   loadUnread: async (token) => {
     const [conversations, notifications] = await Promise.all([community.conversations(token), community.notifications(token)]);
     if (conversations.ok) set({ unreadCount: conversations.data.unreadCount });
@@ -123,8 +105,8 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
     set((state) => {
       const exists = state.feed.some((item) => item.id === post.id);
       if (exists) return { feed: state.feed.map((item) => (item.id === post.id ? post : item)) };
-      // A main-feed post goes to the top; group posts live on the group screen
-      return post.groupId ? {} : { feed: [post, ...state.feed] };
+      // A main-feed post goes to the top; group and gym posts live on their own screens
+      return post.groupId || post.gymId ? {} : { feed: [post, ...state.feed] };
     }),
 
   removePost: (postId) => set((state) => ({ feed: state.feed.filter((post) => post.id !== postId) })),
@@ -146,7 +128,6 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
     return null;
   },
 
-  setGroup: (group) => set((state) => ({ groups: state.groups.map((item) => (item.id === group.id ? group : item)) })),
 
   loadStories: async (token) => {
     const result = await community.stories(token);

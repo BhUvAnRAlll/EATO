@@ -11,10 +11,10 @@ const { ensureUser, currentRole } = require("./members");
 const media = require("./media");
 const posts = require("./posts");
 const stories = require("./stories");
-const groups = require("./groups");
 const messages = require("./messages");
 const profiles = require("./profiles");
 const friends = require("./friends");
+const gyms = require("../gyms/gyms");
 const { isSuspended } = require("./visibility");
 const v = require("./validate");
 
@@ -81,7 +81,13 @@ router.get("/posts/:postId/comments", route(async (req, res) => {
 }));
 
 router.post("/posts/:postId/comments", smallBody, withUser, route(async (req, res) => {
-  res.status(201).json(await posts.createComment(req.app.locals.pool, req.userId, v.id(req.params.postId, "The post"), v.validateComment(req.body)));
+  const pool = req.app.locals.pool;
+  const postId = v.id(req.params.postId, "The post");
+  const values = v.validateComment(req.body);
+  // A gym post follows its gym's comment setting (who may comment)
+  const post = await posts.getPost(pool, req.userId, postId);
+  if (post.gymId) await gyms.assertCanComment(pool, req.userId, post.gymId);
+  res.status(201).json(await posts.createComment(pool, req.userId, postId, values, { visible: post }));
 }));
 
 router.delete("/comments/:commentId", route(async (req, res) => {
@@ -148,32 +154,6 @@ router.delete("/stories/:storyId", route(async (req, res) => {
   const pool = req.app.locals.pool;
   await stories.deleteStory(pool, req.userId, await currentRole(req.userId), v.id(req.params.storyId, "The story"));
   res.json({ deleted: true });
-}));
-
-// ---- groups -----------------------------------------------------------------------
-
-router.get("/groups", route(async (req, res) => {
-  res.json(await groups.listGroups(req.app.locals.pool, req.userId, { search: v.searchTerm(req.query.search), ...page(req) }));
-}));
-
-router.post("/groups", requireAdmin, smallBody, withUser, route(async (req, res) => {
-  res.status(201).json({ group: await groups.createGroup(req.app.locals.pool, req.userId, v.validateGroup(req.body)) });
-}));
-
-router.get("/groups/:groupId", route(async (req, res) => {
-  res.json({ group: await groups.getGroup(req.app.locals.pool, req.userId, v.id(req.params.groupId, "The group")) });
-}));
-
-router.get("/groups/:groupId/posts", route(async (req, res) => {
-  res.json(await posts.listPosts(req.app.locals.pool, req.userId, { groupId: v.id(req.params.groupId, "The group"), ...page(req) }));
-}));
-
-router.post("/groups/:groupId/join", withUser, route(async (req, res) => {
-  res.json({ group: await groups.joinGroup(req.app.locals.pool, req.userId, v.id(req.params.groupId, "The group")) });
-}));
-
-router.delete("/groups/:groupId/join", route(async (req, res) => {
-  res.json({ group: await groups.leaveGroup(req.app.locals.pool, req.userId, v.id(req.params.groupId, "The group")) });
 }));
 
 // ---- friends ------------------------------------------------------------------------
@@ -316,16 +296,12 @@ router.post("/conversations/:conversationId/messages", smallBody, route(async (r
 
 // Whether the viewer may see the image through the general media route: their own upload
 // that isn't attached to anything yet, a visible post or story (the owner always sees their
-// own live content through those rules), or a group cover. Nobody gets deleted or ended
+// own live content through those rules), or a gym logo or cover. Nobody gets deleted or ended
 // content here, owners and admins included; moderators use the report evidence route
 // (GET /reports/:reportId/media), which is admin-only and tied to one report.
 async function canSeeMedia(pool, userId, mediaRow) {
   if (mediaRow.user_id === userId && (await media.isUnattached(pool, mediaRow.id))) return true;
-  const [covers] = await pool.query(
-    "SELECT 1 FROM community_groups g WHERE g.cover_media_id = ? AND (g.is_private = FALSE OR EXISTS (SELECT 1 FROM community_group_members m WHERE m.group_id = g.id AND m.user_id = ?)) LIMIT 1",
-    [mediaRow.id, userId],
-  );
-  if (covers.length > 0) return true;
+  if (await gyms.canSeeGymMedia(pool, userId, mediaRow.id)) return true;
   if (await posts.canSeePostMedia(pool, userId, mediaRow.id)) return true;
   return stories.canSeeStoryMedia(pool, userId, mediaRow.id);
 }

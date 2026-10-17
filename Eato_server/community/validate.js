@@ -8,9 +8,6 @@ const limits = {
   caption: 200,
   messageBody: 1000,
   reason: 300,
-  groupName: 80,
-  groupTopic: 40,
-  groupDescription: 300,
   search: 60,
   pageMax: 50,
   pageDefault: 20,
@@ -24,7 +21,6 @@ const AUDIENCES = ["public", "followers", "only_me"];
 // Who sees a story: everyone eligible, accepted followers, or the owner's Close Friends
 const STORY_AUDIENCES = ["public", "followers", "close_friends"];
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 const isPlainObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
 
@@ -106,19 +102,17 @@ function mediaIdList(body) {
 
 function validatePost(body) {
   requireObject(body, "post");
-  rejectUnknownKeys(body, ["body", "category", "audience", "mediaId", "mediaIds", "groupId", "clientKey"], "The post");
+  rejectUnknownKeys(body, ["body", "category", "audience", "mediaId", "mediaIds", "clientKey"], "The post");
   const category = body.category === undefined ? "general" : body.category;
   if (!CATEGORIES.includes(category)) throw new ValidationError("Category isn't a valid choice.");
   const audience = body.audience === undefined ? "public" : body.audience;
   if (!AUDIENCES.includes(audience)) throw new ValidationError("Audience isn't a valid choice.");
-  const groupId = optionalId(body.groupId, "The group");
-  if (groupId && audience !== "public") throw new ValidationError("A group post is shared with the group.");
   return {
     body: text(body.body, "Post text", { max: limits.postBody }),
     category,
     audience,
     mediaIds: mediaIdList(body),
-    groupId,
+    groupId: null, // Groups were removed: new posts never join one (old group posts stay private)
     // A UUID the app makes once per draft: a repeated Publish with the same key returns the saved post
     clientKey: optionalId(body.clientKey, "The client key"),
   };
@@ -163,23 +157,6 @@ function validateReport(body) {
   return { reason: text(body.reason, "Reason", { max: limits.reason }) };
 }
 
-function validateGroup(body) {
-  requireObject(body, "group");
-  rejectUnknownKeys(body, ["name", "topic", "description", "isPrivate", "coverMediaId"], "The group");
-  const name = text(body.name, "Group name", { min: 2, max: limits.groupName });
-  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 64);
-  if (!SLUG.test(slug)) throw new ValidationError("Group name needs some letters or digits.");
-  if (body.isPrivate !== undefined && typeof body.isPrivate !== "boolean") throw new ValidationError("isPrivate must be true or false.");
-  return {
-    name,
-    slug,
-    topic: text(body.topic, "Topic", { max: limits.groupTopic }),
-    description: text(body.description, "Description", { max: limits.groupDescription }),
-    isPrivate: body.isPrivate === true,
-    coverMediaId: optionalId(body.coverMediaId, "The cover image"),
-  };
-}
-
 // `id` is optional: a UUID the app made for this message, so a retried send stores it once
 function validateMessage(body) {
   requireObject(body, "message");
@@ -216,7 +193,7 @@ function clerkUserId(value, label) {
 }
 
 module.exports = {
-  limits, CATEGORIES, AUDIENCES, STORY_AUDIENCES, validateProfileSettings,
+  limits, CATEGORIES, AUDIENCES, STORY_AUDIENCES, validateProfileSettings, requireObject, rejectUnknownKeys, text, optionalText,
   id, optionalId, pageSize, encodeCursor, decodeCursor, searchTerm, clerkUserId,
-  validatePost, validatePostUpdate, validateComment, validateStory, validateReport, validateGroup, validateMessage,
+  validatePost, validatePostUpdate, validateComment, validateStory, validateReport, validateMessage,
 };

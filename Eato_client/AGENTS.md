@@ -27,7 +27,7 @@ Main areas of the app:
 - **Subscribe**: plan picker, subscription builder, review, my subscription (skip days, wallet credit)
 - **Nutrition**: food diary, water and supplement tracking, add food, barcode scan, photo scan, weight log
 - **Training**: workout plans, active workout, summary, exercise library, cardio, progress charts
-- **Community**: feed, stories, posts, groups, leagues, messages, chat
+- **Community**: feed, stories, posts, friends, gym communities, messages, chat (trainers are planned; challenges were dropped)
 - **AI Coach**: chat-based and video-based AI fitness and nutrition coach
 - **Profile**: orders, wallet, coupons, addresses, goals, achievements, notifications, settings, Pro
 
@@ -63,9 +63,31 @@ Do not introduce new major libraries unless there is a strong reason.
 | Reading an uploaded body composition report | `POST /api/body-composition` on the Express server → OpenAI (`Eato_server/bodyComposition/`) | Keeps `OPENAI_API_KEY` off the device; the file is never stored |
 | Profile and nutrition targets from setup | MySQL (`users`, `profiles`, `nutrition_targets`, `body_composition_reports`) via `POST /api/profile` and `GET /api/profile` on the Express server; Clerk `unsafeMetadata.profileComplete` is only a routing shortcut | Server-verified identity, one transaction per save, the app's own calculator re-checks every record before it is stored |
 | App data (meals, orders, diary, weigh-ins, trainer ↔ client links) | MySQL via the Express server (`Eato_server/`) | Shared, queryable data that outlives one device |
-| Community photos (posts, stories, group covers) | Files on the Express server's disk, `Eato_server/uploads/` (or `UPLOAD_DIR`), with a `community_media` row per file; served only to signed-in members through `GET /api/media/:id` (`Eato_server/community/media.js`) | Current implementation, not object storage: one server, no CDN, and the folder must be persistent and backed up. A hosted bucket (for example DigitalOcean Spaces with presigned uploads) is the planned replacement and would need a new dependency and approval |
+| Friendships and the messaging rule | MySQL `community_friendships` via `/api/community/friends/*` (`Eato_server/community/friends.js`, pure rules in `friendRules.js`). New conversations and new messages need an accepted friendship; older chats stay readable | Messaging is for friends only, checked on the server for every send |
+| Gym communities | MySQL `gyms`, `gym_members`, `gym_invitations`, `gym_announcements`, `gym_events`, `gym_event_rsvps`, and gym posts in `community_posts` (`gym_id`, `review_status`), via `/api/gyms/*` (`Eato_server/gyms/`: `permissions.js` and `validate.js` are pure and unit-tested). Platform admins create gyms (`POST /api/gyms`) and name the owner; each gym's owner and admins run it | Every role, visibility and setting is checked on the server from `gym_members` for the verified caller; hidden gyms answer 404 to non-members |
+| Community photos (posts, stories, gym logos and covers) | Files on the Express server's disk, `Eato_server/uploads/` (or `UPLOAD_DIR`), with a `community_media` row per file; served only to signed-in members through `GET /api/media/:id` (`Eato_server/community/media.js`) | Current implementation, not object storage: one server, no CDN, and the folder must be persistent and backed up. A hosted bucket (for example DigitalOcean Spaces with presigned uploads) is the planned replacement and would need a new dependency and approval |
 
 Every Express route except the health check verifies the caller's Clerk session token with `requireUser` (`Eato_server/auth.js`) before doing anything.
+
+### Community notes
+
+- **Groups were removed** (2026-10-17). The app has no Groups tab or screens, the server has no
+  `/api/community/groups` routes, and `POST /api/community/posts` refuses a `groupId`. The tables
+  `community_groups` and `community_group_members` and any old group posts are still in the
+  database; old group posts stay visible only to that group's members (`community/visibility.js`).
+  Dropping the tables or their rows needs the user's approval.
+- **Gyms:** roles are owner > admin > trainer > member, and a role only counts while the membership
+  is `active`. Visibility is `public`, `private` (listed; content for members; joining needs
+  approval) or `hidden` (members and invite codes only). A gym is never hard-deleted (posts
+  reference it with `ON DELETE RESTRICT`), which keeps clear of the MySQL cascade issue.
+- **Gym codes:** each gym has an 8-character code that joins as a member without approval (admins
+  can replace it if it leaks: `POST /api/gyms/:id/code/rotate`), and staff can create 10-character
+  invitations (member or trainer role, 14 days, revocable; a code is shown only to staff who could
+  grant that role themselves, or to its creator). Platform admins list every gym, hidden ones
+  included, at `GET /api/gyms/admin/all`. EATO
+  sends no SMS or email; phone and email invitations are only recorded. Scanning a QR code with the
+  camera is not built (no QR or camera library is installed); the code is entered by hand.
+- **Plans** on a gym are a label only. No payment exists, and the screens say so.
 
 ---
 

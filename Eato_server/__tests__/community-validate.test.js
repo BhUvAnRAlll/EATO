@@ -10,7 +10,7 @@ const rejects = (fn, pattern) => assert.throws(fn, (error) => error.status === 4
 const UUID = "11111111-2222-4333-8444-555555555555";
 
 describe("community validation", () => {
-  it("posts: text within limits, a known category, optional own image and group", () => {
+  it("posts: text within limits, a known category, optional own image", () => {
     assert.deepEqual(v.validatePost({ body: "  Hit a PR  " }), { body: "Hit a PR", category: "general", audience: "public", mediaIds: [], groupId: null, clientKey: null });
     assert.deepEqual(v.validatePost({ body: "x", category: "meal", mediaId: UUID.toUpperCase() }).mediaIds, [UUID]);
     assert.equal(v.validatePost({ body: "x", category: "workout" }).category, "workout");
@@ -39,11 +39,11 @@ describe("community validation", () => {
     rejects(() => v.validatePostUpdate({ clientKey: UUID }), /unexpected field: clientKey/);
   });
 
-  it("audiences: public, followers or only_me; group posts are always shared with the group", () => {
+  it("audiences: public, followers or only_me; groups are gone, so a post can't name one", () => {
     assert.equal(v.validatePost({ body: "x", audience: "followers" }).audience, "followers");
     assert.equal(v.validatePost({ body: "x", audience: "only_me" }).audience, "only_me");
     rejects(() => v.validatePost({ body: "x", audience: "everyone" }), /Audience/);
-    rejects(() => v.validatePost({ body: "x", audience: "followers", groupId: UUID }), /shared with the group/);
+    rejects(() => v.validatePost({ body: "x", groupId: UUID }), /unexpected field: groupId/);
     assert.deepEqual(v.validatePostUpdate({ audience: "only_me" }), { audience: "only_me" });
     rejects(() => v.validatePostUpdate({ audience: "friends" }), /Audience/);
   });
@@ -93,15 +93,6 @@ describe("community validation", () => {
     rejects(() => v.validateMessage({ body: "hi", id: 42 }), /message id/);
     rejects(() => v.validateMessage({ body: "hi", senderId: "user_x" }), /unexpected|unknown|isn't/i);
     rejects(() => v.validateMessage({ body: "x".repeat(1001) }), /too long/);
-  });
-
-  it("groups: a slug is derived from the name", () => {
-    const group = v.validateGroup({ name: "High-Protein Meals!", topic: "High protein", description: "Meal ideas." });
-    assert.equal(group.slug, "high-protein-meals");
-    assert.equal(group.isPrivate, false);
-    rejects(() => v.validateGroup({ name: "!!!", topic: "t", description: "d" }), /letters or digits/);
-    rejects(() => v.validateGroup({ name: "A", topic: "t", description: "d" }), /Group name is required/);
-    rejects(() => v.validateGroup({ name: "Ok", topic: "t", description: "d", isPrivate: "yes" }), /true or false/);
   });
 
   it("ids, pages and cursors", () => {

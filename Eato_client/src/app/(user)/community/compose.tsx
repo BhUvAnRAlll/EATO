@@ -11,6 +11,7 @@ import { MediaStrip, type DraftPhoto } from "@/components/community/MediaStrip";
 import { PostCard } from "@/components/community/PostCard";
 import { FormAlert } from "@/components/FormAlert";
 import { audienceLabels, audiencesFor, categoryLabels, community, composeCategories, type Post, type PostAudience, type PostCategory } from "@/lib/community";
+import { gyms } from "@/lib/gyms";
 import { pickPhotos } from "@/lib/media";
 import { useMe } from "@/lib/me";
 import { useSessionToken } from "@/lib/session";
@@ -21,11 +22,11 @@ const MAX_LENGTH = 1000;
 const MAX_PHOTOS = 4;
 
 // Create a post (caption, photos, category, audience) with a preview before publishing, or
-// edit one of your own (postId param). A group post gets groupId and is shared with the
-// group. Publishing uploads each photo, then saves the post with one client key, so a
+// edit one of your own (postId param). A gym post gets gymId and goes to the gym (held for
+// staff if the gym moderates posts). Publishing uploads each photo, then saves the post with one client key, so a
 // double tap or a retry never creates a second post.
 export default function ComposePost() {
-  const { postId, groupId, groupName } = useLocalSearchParams<{ postId?: string; groupId?: string; groupName?: string }>();
+  const { postId, gymId, gymName } = useLocalSearchParams<{ postId?: string; gymId?: string; gymName?: string }>();
   const { width } = useWindowDimensions();
   const getToken = useSessionToken();
   const me = useMe();
@@ -84,7 +85,9 @@ export default function ComposePost() {
     };
   }, [postId, getToken]);
 
-  const inGroup = Boolean(groupId || original?.groupId);
+  // A gym post (or an older group post) is shared with that gym or group, so it has no audience choice
+  const inGroup = Boolean(gymId || original?.gymId || original?.groupId);
+  const placeName = gymName ?? (original?.groupId ? "the group" : "the gym");
   const audiences = audiencesFor(isPrivate === true);
   const busy = publishing || loading;
   const failedPhotos = photos.filter((photo) => photo.status === "failed").length;
@@ -170,7 +173,9 @@ export default function ComposePost() {
     const text = body.trim();
     const result = postId
       ? await community.updatePost(token, postId, { body: text, category, audience, mediaIds })
-      : await community.createPost(token, { body: text, category, audience: groupId ? "public" : audience, mediaIds, groupId: groupId ?? null, clientKey: clientKey.current });
+      : gymId
+        ? await gyms.createPost(token, gymId, { body: text, category, mediaIds, clientKey: clientKey.current })
+        : await community.createPost(token, { body: text, category, audience, mediaIds, clientKey: clientKey.current });
     setPublishing(false);
     if (!result.ok) {
       setPreview(false);
@@ -191,7 +196,9 @@ export default function ComposePost() {
   const draft: Post = {
     id: original?.id ?? "draft",
     author: me,
-    groupId: groupId ?? original?.groupId ?? null,
+    groupId: original?.groupId ?? null,
+    gymId: gymId ?? original?.gymId ?? null,
+    reviewStatus: original?.reviewStatus ?? "published",
     category,
     audience: inGroup ? "public" : audience,
     body: body.trim(),
@@ -230,7 +237,7 @@ export default function ComposePost() {
             <Text className="home__note">This is how your post will look.</Text>
             <PostCard post={draft} width={width - 40} onLike={() => {}} onOpenComments={() => {}} onMenu={() => {}} />
             <Text className="home__note">
-              {inGroup ? `Shared with ${groupName ?? "the group"}` : `Visible to: ${audienceLabels[audience].label}`}
+              {inGroup ? `Shared with ${placeName}` : `Visible to: ${audienceLabels[audience].label}`}
               {category !== "general" ? ` · ${categoryLabels[category]}` : ""}
               {photos.length > 0 ? ` · ${photos.length} ${photos.length === 1 ? "photo" : "photos"}` : ""}
             </Text>
@@ -273,7 +280,7 @@ export default function ComposePost() {
                   <Avatar member={me} size={44} />
                   <View className="flex-1">
                     <Text className="compose__author" numberOfLines={1}>{me.name}</Text>
-                    <Text className="post__time">{inGroup ? `Posting in ${groupName ?? "the group"}` : `Posting to ${audienceLabels[audience].label}`}</Text>
+                    <Text className="post__time">{inGroup ? `Posting in ${placeName}` : `Posting to ${audienceLabels[audience].label}`}</Text>
                   </View>
                 </View>
 
@@ -331,7 +338,7 @@ export default function ComposePost() {
                 </View>
 
                 {inGroup ? (
-                  <Text className="home__note">Shared with everyone in the group.</Text>
+                  <Text className="home__note">Shared with everyone in {placeName}.</Text>
                 ) : (
                   <View>
                     <Text className="auth__label mb-2">Who can see this</Text>

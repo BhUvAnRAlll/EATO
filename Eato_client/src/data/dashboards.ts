@@ -70,6 +70,13 @@ export const dashboards: Record<Role, Dashboard> = {
         href: "/admin/moderation",
       },
       {
+        id: "gyms",
+        title: "Gyms",
+        subtitle: "Create gym communities and name owners",
+        icon: { ios: "dumbbell", android: "fitness_center", web: "fitness_center" },
+        href: "/admin/gyms",
+      },
+      {
         id: "users",
         title: "Users",
         subtitle: "View members and their plans",

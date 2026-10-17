@@ -1,6 +1,7 @@
 // Authenticated tests for the community API: real Clerk development identities (two
 // members and an admin) against the real Express server and the isolated `eato_test`
-// database. Covers posts, likes, comments, stories, groups, reports and direct messages,
+// database. Covers posts, likes, comments, stories, reports and direct messages (and that the
+// removed Groups feature stays gone),
 // and the attack paths: spoofed authors, other members' content, private conversations.
 //
 //   yarn test:e2e      (needs Eato_server/.env.test; otherwise every test is skipped)
@@ -20,7 +21,7 @@ const TINY_PNG = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYP
 const COMMUNITY_TABLES = ["messages", "conversation_members", "conversations", "community_reports", "community_story_views", "community_stories",
   "community_comments", "community_post_likes", "community_posts", "community_group_members", "community_media", "community_friendships"];
 
-describe("community e2e: posts, stories, groups and messages with real sessions", () => {
+describe("community e2e: posts, stories and messages with real sessions", () => {
   const runId = crypto.randomBytes(4).toString("hex");
   let skipReason = null;
   let env, connection, server, clerk, uploadDir;
@@ -94,23 +95,16 @@ describe("community e2e: posts, stories, groups and messages with real sessions"
   const test = (name, fn) => it(name, async (t) => { if (skipReason) return t.skip(skipReason); await fn(); });
 
   test("1. every community route needs a valid session", async () => {
-    for (const [method, route] of [["GET", "/api/community/feed"], ["POST", "/api/community/posts"], ["GET", "/api/community/stories"], ["GET", "/api/community/groups"], ["GET", "/api/community/conversations"], ["GET", "/api/media/11111111-2222-4333-8444-555555555555"]]) {
+    for (const [method, route] of [["GET", "/api/community/feed"], ["POST", "/api/community/posts"], ["GET", "/api/community/stories"], ["GET", "/api/community/friends"], ["GET", "/api/community/conversations"], ["GET", "/api/media/11111111-2222-4333-8444-555555555555"]]) {
       assert.equal((await api(method, route, null, method === "POST" ? { body: "x" } : undefined)).status, 401, `${method} ${route}`);
       assert.equal((await api(method, route, "not.a.token", method === "POST" ? { body: "x" } : undefined)).status, 401, `${method} ${route} bad token`);
     }
   });
 
-  test("2. the feed starts empty and the seeded groups are listed", async () => {
+  test("2. the feed starts empty", async () => {
     const feed = await api("GET", "/api/community/feed", tokens.a);
     assert.equal(feed.status, 200);
     assert.deepEqual(feed.json, { posts: [], nextCursor: null });
-    const groups = await api("GET", "/api/community/groups", tokens.a);
-    assert.equal(groups.status, 200);
-    assert.deepEqual(groups.json.groups.map((g) => g.slug), ["healthy-eating", "fat-loss", "muscle-gain", "high-protein-meals", "meal-prep"]);
-    assert.ok(groups.json.groups.every((g) => g.memberCount === 0 && g.joined === false));
-    const search = await api("GET", "/api/community/groups?search=protein", tokens.a);
-    assert.deepEqual(search.json.groups.map((g) => g.slug), ["high-protein-meals"]);
-    assert.equal((await api("GET", "/api/community/groups?search=%25", tokens.a)).json.groups.length, 0, "a wildcard is matched literally");
   });
 
   test("3. a member uploads an image and posts; the author comes from the session, never the body", async () => {
@@ -256,34 +250,21 @@ describe("community e2e: posts, stories, groups and messages with real sessions"
     assert.ok(fs.existsSync(path.join(uploadDir, `${upload.json.media.id}.png`)), "the file is kept until the purge (see community-stories e2e)");
   });
 
-  test("9. groups: join once, post inside, leave; private groups stay hidden; only admins create", async () => {
-    const groups = (await api("GET", "/api/community/groups", tokens.a)).json.groups;
-    const fatLoss = groups.find((g) => g.slug === "fat-loss");
-    const join = await api("POST", `/api/community/groups/${fatLoss.id}/join`, tokens.a);
-    assert.equal(join.status, 200);
-    assert.equal(join.json.group.joined, true);
-    assert.equal(join.json.group.memberCount, 1);
-    assert.equal((await api("POST", `/api/community/groups/${fatLoss.id}/join`, tokens.a)).json.group.memberCount, 1, "a repeat join doesn't double count");
-    assert.equal((await api("POST", "/api/community/posts", tokens.b, { body: "not a member", groupId: fatLoss.id })).status, 403);
-    const groupPost = await api("POST", "/api/community/posts", tokens.a, { body: "Week 1 check-in", groupId: fatLoss.id });
-    assert.equal(groupPost.status, 201);
-    assert.equal((await api("GET", "/api/community/feed", tokens.b)).json.posts.some((p) => p.id === groupPost.json.post.id), false, "group posts stay out of the main feed");
-    assert.equal((await api("GET", `/api/community/groups/${fatLoss.id}/posts`, tokens.b)).json.posts.length, 1, "public group posts are readable by everyone");
-    const leave = await api("DELETE", `/api/community/groups/${fatLoss.id}/join`, tokens.a);
-    assert.equal(leave.json.group.joined, false);
-    assert.equal(leave.json.group.memberCount, 0);
-
-    assert.equal((await api("POST", "/api/community/groups", tokens.a, { name: "My group", topic: "t", description: "d" })).status, 403);
-    const created = await api("POST", "/api/community/groups", tokens.admin, { name: "Coaches Only", topic: "Private", description: "Invite only.", isPrivate: true });
-    assert.equal(created.status, 201, JSON.stringify(created.json));
-    state.privateGroup = created.json.group.id;
-    assert.equal(created.json.group.memberCount, 1);
-    assert.equal((await api("GET", "/api/community/groups", tokens.a)).json.groups.some((g) => g.id === state.privateGroup), false, "a private group is hidden from non-members");
-    assert.equal((await api("GET", `/api/community/groups/${state.privateGroup}`, tokens.a)).status, 403);
-    assert.equal((await api("GET", `/api/community/groups/${state.privateGroup}/posts`, tokens.a)).status, 403);
-    assert.equal((await api("POST", `/api/community/groups/${state.privateGroup}/join`, tokens.a)).status, 403);
-    assert.equal((await api("GET", `/api/community/groups/${state.privateGroup}`, tokens.admin)).status, 200);
-    assert.equal((await api("POST", "/api/community/groups", tokens.admin, { name: "Coaches Only", topic: "t", description: "d" })).status, 400, "names stay unique");
+  test("9. groups are gone: their routes answer 404, posts can't name one, old group posts stay private", async () => {
+    const [[fatLoss]] = await connection.query("SELECT id FROM community_groups WHERE slug = 'fat-loss'");
+    for (const [method, route] of [["GET", "/api/community/groups"], ["GET", `/api/community/groups/${fatLoss.id}`], ["GET", `/api/community/groups/${fatLoss.id}/posts`], ["POST", `/api/community/groups/${fatLoss.id}/join`], ["POST", "/api/community/groups"]]) {
+      assert.equal((await api(method, route, tokens.admin, method === "POST" ? {} : undefined)).status, 404, `${method} ${route}`);
+    }
+    assert.equal((await api("POST", "/api/community/posts", tokens.a, { body: "Week 1 check-in", groupId: fatLoss.id })).status, 400);
+    // A post from before the removal, in a private group: still only for that group's members
+    await connection.query("INSERT INTO community_groups (slug, name, topic, description, is_private) VALUES ('coaches-only', 'Coaches Only', 'Private', 'Invite only.', TRUE)");
+    const [[secret]] = await connection.query("SELECT id FROM community_groups WHERE slug = 'coaches-only'");
+    const [[{ id: oldPost }]] = await connection.query("SELECT UUID() AS id");
+    await connection.query("INSERT INTO community_posts (id, user_id, group_id, body) VALUES (?, ?, ?, 'from before')", [oldPost, identities.admin.id, secret.id]);
+    assert.equal((await api("GET", `/api/community/posts/${oldPost}`, tokens.a)).status, 404);
+    assert.equal((await api("GET", "/api/community/feed", tokens.a)).json.posts.some((p) => p.id === oldPost), false);
+    await connection.query("DELETE FROM community_posts WHERE id = ?", [oldPost]);
+    await connection.query("DELETE FROM community_groups WHERE id = ?", [secret.id]);
   });
 
   test("10. direct messages: only members of a conversation can read or write it", async () => {

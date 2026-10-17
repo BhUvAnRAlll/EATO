@@ -24,7 +24,7 @@ class ForbiddenError extends Error {
 }
 
 const POST_SELECT = `
-  SELECT p.id, p.user_id, p.group_id, p.category, p.audience, p.body, p.media_id, p.like_count, p.comment_count,
+  SELECT p.id, p.user_id, p.group_id, p.gym_id, p.review_status, p.category, p.audience, p.body, p.media_id, p.like_count, p.comment_count,
          p.created_at, p.updated_at, u.full_name,
          EXISTS (SELECT 1 FROM community_post_likes l WHERE l.post_id = p.id AND l.user_id = ?) AS liked
   FROM community_posts p
@@ -44,6 +44,8 @@ function postToApi(row, viewerId, media = []) {
     id: row.id,
     author: memberSummary(row),
     groupId: row.group_id,
+    gymId: row.gym_id,
+    reviewStatus: row.review_status, // "pending" = held for gym staff; only the author and staff see it
     category: row.category,
     audience: row.audience,
     body: row.body,
@@ -58,25 +60,15 @@ function postToApi(row, viewerId, media = []) {
   };
 }
 
-// Posts a member may see: the main feed (no group), or a group they can view
-async function canViewGroup(pool, groupId, userId) {
-  const [rows] = await pool.query(
-    "SELECT g.is_private, EXISTS (SELECT 1 FROM community_group_members m WHERE m.group_id = g.id AND m.user_id = ?) AS member FROM community_groups g WHERE g.id = ?",
-    [userId, groupId],
-  );
-  const group = rows[0];
-  if (!group) throw new NotFoundError("That group doesn't exist.");
-  return !group.is_private || Boolean(group.member);
-}
-
-// A page of the main feed (groupId null), of a group, or of one member's profile, newest
-// first. Only posts the viewer may see are returned (see visibility.js).
-async function listPosts(pool, userId, { groupId = null, authorId = null, cursor = null, limit }) {
-  if (groupId && !(await canViewGroup(pool, groupId, userId))) throw new ForbiddenError("Join this group to see its posts.");
+// A page of the main feed (no group or gym), of a gym, or of one member's profile,
+// newest first. Only posts the viewer may see are returned (see visibility.js). A gym feed's
+// caller has already checked the viewer may read that gym (gyms/routes.js).
+async function listPosts(pool, userId, { gymId = null, authorId = null, cursor = null, limit }) {
   if (authorId && !(await canSeeAccount(pool, userId, authorId))) throw new ForbiddenError("This account is private.");
   const params = [userId, ...visiblePostParams(userId)];
-  let where = `WHERE p.deleted_at IS NULL AND ${VISIBLE_POST_SQL} AND ` + (groupId ? "p.group_id = ?" : authorId ? "p.group_id IS NULL AND p.user_id = ?" : "p.group_id IS NULL");
-  if (groupId) params.push(groupId);
+  const scope = gymId ? "p.gym_id = ?" : authorId ? "p.group_id IS NULL AND p.gym_id IS NULL AND p.user_id = ?" : "p.group_id IS NULL AND p.gym_id IS NULL";
+  let where = `WHERE p.deleted_at IS NULL AND ${VISIBLE_POST_SQL} AND ${scope}`;
+  if (gymId) params.push(gymId);
   if (authorId) params.push(authorId);
   if (cursor) {
     where += " AND (p.created_at < ? OR (p.created_at = ? AND p.id < ?))";
@@ -127,7 +119,7 @@ async function reportEvidenceMediaId(pool, reportId) {
 // app: a private account can't publish to Everyone. Checked inside the saving transaction so
 // a privacy change during composition is caught at publish time.
 async function assertAudienceAllowed(connection, userId, audience, groupId) {
-  if (groupId || audience !== "public") return;
+  if (groupId || audience !== "public") return; // a group or gym post's audience is its group or gym
   const [rows] = await connection.query("SELECT is_private FROM community_profiles WHERE user_id = ?", [userId]);
   if (rows[0]?.is_private) {
     const error = new ValidationError("Your account is private, so choose Followers or Only me.");
@@ -154,24 +146,22 @@ async function writePostMedia(connection, postId, mediaIds) {
 // Saves a post with its photos in one transaction. The photos must be the author's own,
 // finished uploads; the audience is checked against the account's privacy at this moment;
 // and a repeated publish with the same client key returns the post saved the first time.
+// A gym post arrives with values.gymId and values.reviewStatus, both decided by the gym route
+// after it checked the author may post there (gyms/routes.js).
 async function createPost(pool, userId, values) {
   const existing = await findByClientKey(pool, userId, values.clientKey);
   if (existing) return getPost(pool, userId, existing);
   const media = await assertOwnMediaList(pool, values.mediaIds, userId);
-  if (values.groupId) {
-    const [rows] = await pool.query("SELECT 1 FROM community_group_members WHERE group_id = ? AND user_id = ?", [values.groupId, userId]);
-    if (rows.length === 0) throw new ForbiddenError("Join the group before posting in it.");
-  }
   const connection = await pool.getConnection();
   let postId;
   try {
     await connection.beginTransaction();
-    await assertAudienceAllowed(connection, userId, values.audience, values.groupId);
+    await assertAudienceAllowed(connection, userId, values.audience, values.groupId || values.gymId);
     const [[{ id }]] = await connection.query("SELECT UUID() AS id");
     postId = id;
     await connection.query(
-      "INSERT INTO community_posts (id, user_id, group_id, category, audience, body, media_id, client_key) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-      [postId, userId, values.groupId, values.category, values.audience, values.body, media[0]?.id ?? null, values.clientKey],
+      "INSERT INTO community_posts (id, user_id, group_id, gym_id, review_status, category, audience, body, media_id, client_key) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      [postId, userId, values.groupId, values.gymId ?? null, values.reviewStatus ?? "published", values.category, values.audience, values.body, media[0]?.id ?? null, values.clientKey],
     );
     await writePostMedia(connection, postId, media.map((row) => row.id));
     await connection.commit();
@@ -206,7 +196,7 @@ async function updatePost(pool, userId, postId, changes) {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
-    await assertAudienceAllowed(connection, userId, changes.audience ?? visible.audience, visible.groupId);
+    await assertAudienceAllowed(connection, userId, changes.audience ?? visible.audience, visible.groupId || visible.gymId);
     await connection.query(`UPDATE community_posts SET ${sets.join(", ")} WHERE id = ?`, params);
     if (media !== null) await writePostMedia(connection, postId, media.map((row) => row.id));
     await connection.commit();
@@ -286,8 +276,10 @@ async function listComments(pool, userId, postId, { cursor = null, limit }) {
   return { comments: page.map((row) => commentToApi(row, userId)), nextCursor: rows.length > limit ? encodeCursor(page[page.length - 1]) : null };
 }
 
-async function createComment(pool, userId, postId, values) {
-  await getPost(pool, userId, postId);
+// `visible` is the post when the caller already loaded it (the route checks a gym's comment
+// setting first), so the visibility query doesn't run twice
+async function createComment(pool, userId, postId, values, { visible = null } = {}) {
+  if (!visible) await getPost(pool, userId, postId);
   const connection = await pool.getConnection();
   let commentId;
   try {
@@ -415,7 +407,7 @@ async function resolveReport(pool, reportId, status) {
 }
 
 module.exports = {
-  NotFoundError, ForbiddenError, canViewGroup, canSeePostMedia, reportEvidenceMediaId,
+  NotFoundError, ForbiddenError, canSeePostMedia, reportEvidenceMediaId,
   listPosts, getPost, createPost, updatePost, deletePost, setLike,
   listComments, createComment, deleteComment, reportContent, listReports, getReport, resolveReport,
 };

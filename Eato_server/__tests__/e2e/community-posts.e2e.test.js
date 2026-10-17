@@ -173,10 +173,9 @@ describe("community posts e2e: publish, edit and delete with photos", () => {
     assert.equal((await api("POST", "/api/community/posts", tokens.author, { body: "Default audience" })).status, 409, "the default audience is Everyone, so it's refused too");
     state.privateFollowers = (await publish(tokens.author, "Private, followers", { audience: "followers" })).id;
     state.privateOnlyMe = (await publish(tokens.author, "Private, only me", { audience: "only_me" })).id;
-    // A group post is shared with the group, whatever the account's privacy
+    // Groups were removed: a post can't name one
     const [[group]] = await connection.query("SELECT id FROM community_groups WHERE slug = 'fat-loss'");
-    assert.equal((await api("POST", `/api/community/groups/${group.id}/join`, tokens.author)).status, 200);
-    assert.equal((await api("POST", "/api/community/posts", tokens.author, { body: "In the group", groupId: group.id })).status, 201);
+    assert.equal((await api("POST", "/api/community/posts", tokens.author, { body: "In the group", groupId: group.id })).status, 400);
     // Privacy changes while a draft is open: the photo was uploaded while public, the
     // account went private, so publishing to Everyone fails and a valid audience succeeds
     await setPrivate(tokens.author, false);

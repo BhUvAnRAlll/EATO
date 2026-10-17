@@ -1,7 +1,7 @@
 import { apiFetch, type ApiResult } from "@/lib/api";
 import type { FriendState } from "@/lib/friends";
 
-// Calls for the community: feed, posts, stories, groups, friends and direct messages. The shapes
+// Calls for the community: feed, posts, stories, friends and direct messages. The shapes
 // mirror the server's (Eato_server/community/). `token` is the Clerk session token.
 
 export type Member = { id: string; name: string; initial: string };
@@ -18,6 +18,9 @@ export type Post = {
   id: string;
   author: Member;
   groupId: string | null;
+  gymId: string | null;
+  // "pending" = held for gym staff (post moderation); only the author and staff see it
+  reviewStatus: "published" | "pending";
   category: PostCategory;
   audience: PostAudience;
   body: string;
@@ -54,19 +57,6 @@ export type CloseFriend = { member: Member; isCloseFriend: boolean };
 
 // One member's active stories, as the stories row shows them
 export type StoryGroup = { member: Member; isOwn: boolean; stories: Story[]; allViewed: boolean };
-
-export type Group = {
-  id: string;
-  slug: string;
-  name: string;
-  topic: string;
-  description: string;
-  coverUrl: string | null;
-  isPrivate: boolean;
-  memberCount: number;
-  joined: boolean;
-  createdAt: string;
-};
 
 export type Conversation = { id: string; other: Member; lastMessage: string | null; lastMessageAt: string | null; unreadCount: number };
 
@@ -140,7 +130,7 @@ export const community = {
     return apiFetch(`/api/community/feed${query({ cursor, limit: 20 })}`, { token });
   },
   // clientKey is made once per draft: publishing it twice (a double tap, a retry) saves one post
-  createPost(token: string | null, body: { body: string; category: PostCategory; audience?: PostAudience; mediaIds?: string[]; groupId?: string | null; clientKey?: string }): Promise<ApiResult<{ post: Post }>> {
+  createPost(token: string | null, body: { body: string; category: PostCategory; audience?: PostAudience; mediaIds?: string[]; clientKey?: string }): Promise<ApiResult<{ post: Post }>> {
     if (!token) return signedOut();
     return apiFetch("/api/community/posts", { method: "POST", body, token });
   },
@@ -207,24 +197,6 @@ export const community = {
   setCloseFriend(token: string | null, userId: string, isCloseFriend: boolean): Promise<ApiResult<{ userId: string; isCloseFriend: boolean }>> {
     if (!token) return signedOut();
     return apiFetch(`/api/community/me/close-friends/${encodeURIComponent(userId)}`, { method: isCloseFriend ? "PUT" : "DELETE", token });
-  },
-
-  // ---- groups ----
-  groups(token: string | null, search: string | null = null, cursor: string | null = null): Promise<ApiResult<Page<"groups", Group>>> {
-    if (!token) return signedOut();
-    return apiFetch(`/api/community/groups${query({ search, cursor, limit: 30 })}`, { token });
-  },
-  getGroup(token: string | null, groupId: string): Promise<ApiResult<{ group: Group }>> {
-    if (!token) return signedOut();
-    return apiFetch(`/api/community/groups/${groupId}`, { token });
-  },
-  groupPosts(token: string | null, groupId: string, cursor: string | null = null): Promise<ApiResult<Page<"posts", Post>>> {
-    if (!token) return signedOut();
-    return apiFetch(`/api/community/groups/${groupId}/posts${query({ cursor, limit: 20 })}`, { token });
-  },
-  setMembership(token: string | null, groupId: string, joined: boolean): Promise<ApiResult<{ group: Group }>> {
-    if (!token) return signedOut();
-    return apiFetch(`/api/community/groups/${groupId}/join`, { method: joined ? "POST" : "DELETE", token });
   },
 
   // ---- profiles, following, blocking ----

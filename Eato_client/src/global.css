@@ -1784,6 +1784,16 @@
   box-shadow: var(--shadow-card);
 }
 
+/* Gym screen header: cover, logo, name and membership tools in one card (like post__card, edge to edge) */
+@utility gym__header {
+  overflow: hidden;
+  border-radius: 20px;
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-white);
+  box-shadow: var(--shadow-card);
+}
+
 @utility post__author {
   font-family: var(--font-sans);
   font-size: 16px;

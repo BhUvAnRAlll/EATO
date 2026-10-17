@@ -6,12 +6,14 @@
 //   - the author is the viewer, or
 //   - the author's account is active, neither side has blocked the other, and
 //       - for a group post: the viewer may see the group (public, or a member), or
+//       - for a gym post: published and the gym is public or the viewer is an active member,
+//         or (published or held for review) the viewer is active gym staff, or
 //       - audience = public and the author's account is public, or
 //       - audience = public or followers and the viewer is an accepted follower.
-//   only_me posts are never visible to anyone else.
+//   only_me posts are never visible to anyone else. Gym posts never match the main-feed rules.
 // Admins see everything except blocked relationships (so they can moderate).
 
-// Placeholders, in order: viewer, viewer, viewer, viewer, viewer, viewer
+// Placeholders: the viewer, every time (VISIBLE_POST_PARAMS of them)
 const VISIBLE_POST_SQL = `(
   p.user_id = ?
   OR (
@@ -22,14 +24,21 @@ const VISIBLE_POST_SQL = `(
         SELECT 1 FROM community_groups g WHERE g.id = p.group_id
           AND (g.is_private = FALSE OR EXISTS (SELECT 1 FROM community_group_members gm WHERE gm.group_id = g.id AND gm.user_id = ?))
       ))
-      OR (p.group_id IS NULL AND p.audience = 'public'
+      OR (p.gym_id IS NOT NULL AND EXISTS (
+        SELECT 1 FROM gyms gy WHERE gy.id = p.gym_id AND (
+          (p.review_status = 'published' AND (gy.visibility = 'public'
+            OR EXISTS (SELECT 1 FROM gym_members gmv WHERE gmv.gym_id = gy.id AND gmv.user_id = ? AND gmv.status = 'active')))
+          OR EXISTS (SELECT 1 FROM gym_members gms WHERE gms.gym_id = gy.id AND gms.user_id = ? AND gms.status = 'active' AND gms.role IN ('owner', 'admin', 'trainer'))
+        )
+      ))
+      OR (p.group_id IS NULL AND p.gym_id IS NULL AND p.audience = 'public'
           AND NOT EXISTS (SELECT 1 FROM community_profiles cp2 WHERE cp2.user_id = p.user_id AND cp2.is_private = TRUE))
-      OR (p.group_id IS NULL AND p.audience IN ('public', 'followers')
+      OR (p.group_id IS NULL AND p.gym_id IS NULL AND p.audience IN ('public', 'followers')
           AND EXISTS (SELECT 1 FROM community_follows f WHERE f.follower_id = ? AND f.following_id = p.user_id AND f.status = 'accepted'))
     )
   )
 )`;
-const VISIBLE_POST_PARAMS = 5;
+const VISIBLE_POST_PARAMS = 7;
 const visiblePostParams = (viewerId) => Array(VISIBLE_POST_PARAMS).fill(viewerId);
 
 // Whether `viewerId` may see `authorId`'s public-audience content (profile posts list, stories):

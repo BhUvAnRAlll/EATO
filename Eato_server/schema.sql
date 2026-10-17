@@ -366,12 +366,60 @@ CREATE TABLE community_group_members (
   CONSTRAINT fk_group_members_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 ) ENGINE = InnoDB;
 
--- Feed posts. group_id NULL = the main feed; otherwise the post belongs to that group.
+-- Gym communities. A platform admin creates a gym and names its owner (gym_members role
+-- 'owner'). visibility: public (anyone can read the feed and join or ask to), private (listed,
+-- but content is for members and joining needs approval) or hidden (only members and people
+-- with an invite code can find it). The community settings decide who may post, comment and
+-- create events. A gym is never hard-deleted (posts reference it with RESTRICT), so nothing
+-- here depends on a deep cascade. hours, facilities, membership_tiers and guidelines are
+-- small JSON lists checked by the server (gyms/validate.js). plan is a display-only card:
+-- no payment exists.
+CREATE TABLE gyms (
+  id                     CHAR(36)      NOT NULL DEFAULT (UUID()),
+  name                   VARCHAR(80)   NOT NULL,
+  tagline                VARCHAR(120)  NULL,
+  description            VARCHAR(1000) NULL,
+  location               VARCHAR(80)   NULL,            -- the area, e.g. "Indiranagar, Bengaluru"
+  address                VARCHAR(200)  NULL,
+  logo_media_id          CHAR(36)      NULL,
+  cover_media_id         CHAR(36)      NULL,
+  hours                  JSON          NULL,            -- [{ label, value }]
+  facilities             JSON          NULL,            -- ["Free weights", ...]
+  membership_tiers       JSON          NULL,            -- [{ name, price, perks }]
+  guidelines             JSON          NULL,            -- ["Re-rack your weights", ...]
+  contact_phone          VARCHAR(20)   NULL,
+  contact_email          VARCHAR(120)  NULL,
+  contact_website        VARCHAR(200)  NULL,
+  invite_code            CHAR(8)       NOT NULL,        -- joins as a member (an invitation, so no approval)
+  visibility             ENUM('public', 'private', 'hidden') NOT NULL DEFAULT 'public',
+  who_can_post           ENUM('everyone', 'trainers', 'admins') NOT NULL DEFAULT 'everyone',
+  who_can_comment        ENUM('members', 'trainers', 'off') NOT NULL DEFAULT 'members',
+  who_can_create_events  ENUM('admins', 'trainers', 'members') NOT NULL DEFAULT 'trainers',
+  member_approval        BOOLEAN       NOT NULL DEFAULT FALSE,
+  post_moderation        BOOLEAN       NOT NULL DEFAULT FALSE,
+  plan                   ENUM('starter', 'pro', 'elite') NOT NULL DEFAULT 'starter',
+  member_count           INT UNSIGNED  NOT NULL DEFAULT 0,  -- active members, kept in step by the server
+  created_by             VARCHAR(64)   NULL,            -- the platform admin who created it
+  created_at             TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at             TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_gyms_name (name),
+  UNIQUE KEY uq_gyms_invite_code (invite_code),
+  KEY idx_gyms_visibility (visibility, name),
+  CONSTRAINT fk_gyms_logo FOREIGN KEY (logo_media_id) REFERENCES community_media (id) ON DELETE SET NULL,
+  CONSTRAINT fk_gyms_cover FOREIGN KEY (cover_media_id) REFERENCES community_media (id) ON DELETE SET NULL,
+  CONSTRAINT fk_gyms_creator FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL
+) ENGINE = InnoDB;
+
+-- Feed posts. group_id and gym_id NULL = the main feed; otherwise the post belongs to that
+-- group or gym. review_status 'pending' = held for gym staff (post moderation is on).
 -- Counts are kept in step by the server inside the same transaction as the like/comment.
 CREATE TABLE community_posts (
   id             CHAR(36)      NOT NULL DEFAULT (UUID()),
   user_id        VARCHAR(64)   NOT NULL,
   group_id       CHAR(36)      NULL,
+  gym_id         CHAR(36)      NULL,
+  review_status  ENUM('published', 'pending') NOT NULL DEFAULT 'published',
   category       ENUM('general', 'meal', 'workout', 'progress', 'achievement') NOT NULL DEFAULT 'general',
   audience       ENUM('public', 'followers', 'only_me') NOT NULL DEFAULT 'public',  -- who may see it (group posts: the group)
   body           VARCHAR(1000) NOT NULL,
@@ -385,10 +433,12 @@ CREATE TABLE community_posts (
   PRIMARY KEY (id),
   KEY idx_posts_feed (deleted_at, created_at, id),  -- newest first, cursor on (created_at, id)
   KEY idx_posts_group (group_id, deleted_at, created_at),
+  KEY idx_posts_gym (gym_id, deleted_at, created_at),
   KEY idx_posts_user (user_id, created_at),
   UNIQUE KEY uq_posts_client_key (user_id, client_key),
   CONSTRAINT fk_posts_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
   CONSTRAINT fk_posts_group FOREIGN KEY (group_id) REFERENCES community_groups (id) ON DELETE CASCADE,
+  CONSTRAINT fk_posts_gym FOREIGN KEY (gym_id) REFERENCES gyms (id) ON DELETE RESTRICT,
   CONSTRAINT fk_posts_media FOREIGN KEY (media_id) REFERENCES community_media (id) ON DELETE SET NULL
 ) ENGINE = InnoDB;
 
@@ -576,6 +626,98 @@ CREATE TABLE community_friendships (
   CONSTRAINT fk_friendships_requester FOREIGN KEY (requester_id) REFERENCES users (id) ON DELETE CASCADE,
   CONSTRAINT chk_friendships_order CHECK (user_low < user_high),
   CONSTRAINT chk_friendships_requester CHECK (requester_id = user_low OR requester_id = user_high)
+) ENGINE = InnoDB;
+
+-- Who belongs to a gym, with their role and where their membership stands. pending = asked
+-- to join and waiting for approval; suspended = removed from posting and reading by staff.
+-- One owner per gym (owner_gym is the gym id only for the owner, and it is unique).
+CREATE TABLE gym_members (
+  gym_id        CHAR(36)    NOT NULL,
+  user_id       VARCHAR(64) NOT NULL,
+  role          ENUM('owner', 'admin', 'trainer', 'member') NOT NULL DEFAULT 'member',
+  status        ENUM('active', 'pending', 'suspended') NOT NULL DEFAULT 'active',
+  requested_at  TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  joined_at     TIMESTAMP   NULL,                     -- when the membership became active
+  owner_gym     CHAR(36)    AS (IF(role = 'owner', gym_id, NULL)) VIRTUAL,
+  PRIMARY KEY (gym_id, user_id),
+  UNIQUE KEY uq_gym_members_one_owner (owner_gym),
+  KEY idx_gym_members_user (user_id, status),
+  KEY idx_gym_members_gym_status (gym_id, status, role),
+  CONSTRAINT fk_gym_members_gym FOREIGN KEY (gym_id) REFERENCES gyms (id) ON DELETE CASCADE,
+  CONSTRAINT fk_gym_members_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+) ENGINE = InnoDB;
+
+-- An invitation recorded by gym staff. channel link/qr share its code; email/phone only record
+-- who it was meant for (nothing is sent). Accepting the code joins with `role` (member or
+-- trainer). Revoked and expired codes no longer work; renewing gives a pending one a new date.
+CREATE TABLE gym_invitations (
+  id           CHAR(36)     NOT NULL DEFAULT (UUID()),
+  gym_id       CHAR(36)     NOT NULL,
+  code         CHAR(10)     NOT NULL,
+  channel      ENUM('link', 'qr', 'email', 'phone') NOT NULL,
+  contact      VARCHAR(120) NULL,                    -- the email or phone it was meant for
+  role         ENUM('member', 'trainer') NOT NULL DEFAULT 'member',
+  status       ENUM('pending', 'accepted', 'revoked') NOT NULL DEFAULT 'pending',
+  invited_by   VARCHAR(64)  NULL,
+  accepted_by  VARCHAR(64)  NULL,
+  expires_at   TIMESTAMP    NOT NULL,
+  created_at   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_gym_invitations_code (code),
+  KEY idx_gym_invitations_gym (gym_id, status, created_at),
+  CONSTRAINT fk_gym_invitations_gym FOREIGN KEY (gym_id) REFERENCES gyms (id) ON DELETE CASCADE,
+  CONSTRAINT fk_gym_invitations_inviter FOREIGN KEY (invited_by) REFERENCES users (id) ON DELETE SET NULL,
+  CONSTRAINT fk_gym_invitations_accepter FOREIGN KEY (accepted_by) REFERENCES users (id) ON DELETE SET NULL
+) ENGINE = InnoDB;
+
+-- Announcements from gym admins, shown above the gym feed (pinned first)
+CREATE TABLE gym_announcements (
+  id          CHAR(36)      NOT NULL DEFAULT (UUID()),
+  gym_id      CHAR(36)      NOT NULL,
+  author_id   VARCHAR(64)   NULL,
+  title       VARCHAR(120)  NOT NULL,
+  body        VARCHAR(1000) NOT NULL,
+  pinned      BOOLEAN       NOT NULL DEFAULT FALSE,
+  created_at  TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at  TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_gym_announcements_gym (gym_id, pinned, updated_at),
+  CONSTRAINT fk_gym_announcements_gym FOREIGN KEY (gym_id) REFERENCES gyms (id) ON DELETE CASCADE,
+  CONSTRAINT fk_gym_announcements_author FOREIGN KEY (author_id) REFERENCES users (id) ON DELETE SET NULL
+) ENGINE = InnoDB;
+
+-- Gym events. attendee_count is kept in step with gym_event_rsvps inside the RSVP transaction,
+-- which locks the event row so max_attendees can't be overrun by two members at once.
+CREATE TABLE gym_events (
+  id              CHAR(36)          NOT NULL DEFAULT (UUID()),
+  gym_id          CHAR(36)          NOT NULL,
+  host_id         VARCHAR(64)       NULL,
+  title           VARCHAR(80)       NOT NULL,
+  description     VARCHAR(1000)     NOT NULL,
+  event_date      DATE              NOT NULL,
+  start_time      TIME              NOT NULL,
+  end_time        TIME              NOT NULL,
+  location        VARCHAR(120)      NOT NULL,
+  max_attendees   SMALLINT UNSIGNED NULL,          -- NULL = no limit
+  attendee_count  SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  created_at      TIMESTAMP         NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_gym_events_gym_date (gym_id, event_date, start_time),
+  CONSTRAINT fk_gym_events_gym FOREIGN KEY (gym_id) REFERENCES gyms (id) ON DELETE CASCADE,
+  CONSTRAINT fk_gym_events_host FOREIGN KEY (host_id) REFERENCES users (id) ON DELETE SET NULL,
+  CONSTRAINT chk_gym_events_times CHECK (end_time > start_time),
+  CONSTRAINT chk_gym_events_capacity CHECK (max_attendees IS NULL OR max_attendees >= 1)
+) ENGINE = InnoDB;
+
+-- Who is going to an event: one row per member and event
+CREATE TABLE gym_event_rsvps (
+  event_id    CHAR(36)    NOT NULL,
+  user_id     VARCHAR(64) NOT NULL,
+  created_at  TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (event_id, user_id),
+  KEY idx_gym_event_rsvps_user (user_id),
+  CONSTRAINT fk_gym_event_rsvps_event FOREIGN KEY (event_id) REFERENCES gym_events (id) ON DELETE CASCADE,
+  CONSTRAINT fk_gym_event_rsvps_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 ) ENGINE = InnoDB;
 
 -- Starting groups (public; member counts grow as members join)

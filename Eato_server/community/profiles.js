@@ -17,7 +17,7 @@ async function getProfile(pool, viewerId, userId) {
     `SELECT u.id, u.full_name, cp.is_private, cp.status, cp.bio,
             (SELECT COUNT(*) FROM community_follows f WHERE f.following_id = u.id AND f.status = 'accepted') AS followers,
             (SELECT COUNT(*) FROM community_follows f WHERE f.follower_id = u.id AND f.status = 'accepted') AS following,
-            (SELECT COUNT(*) FROM community_posts p WHERE p.user_id = u.id AND p.deleted_at IS NULL AND p.group_id IS NULL) AS posts,
+            (SELECT COUNT(*) FROM community_posts p WHERE p.user_id = u.id AND p.deleted_at IS NULL AND p.group_id IS NULL AND p.gym_id IS NULL) AS posts,
             (SELECT f.status FROM community_follows f WHERE f.follower_id = ? AND f.following_id = u.id) AS my_follow,
             EXISTS (SELECT 1 FROM community_follows f WHERE f.follower_id = u.id AND f.following_id = ? AND f.status = 'accepted') AS follows_me,
             EXISTS (SELECT 1 FROM community_blocks b WHERE b.blocker_id = ? AND b.blocked_id = u.id) AS blocked_by_me,

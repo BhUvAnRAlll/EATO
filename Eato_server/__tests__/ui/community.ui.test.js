@@ -1,7 +1,7 @@
 // The Community tab in the real Expo web build against the isolated test server and the
 // eato_test database, as a signed-in member whose profile is complete. Covers: the Feed,
-// Friends and Groups tabs (no Leagues), the empty feed, creating a post with a photo (preview,
-// then publish), editing it, liking, commenting, joining a group, opening messages,
+// Friends and Gyms tabs (no Leagues, and Groups were removed), the empty feed, creating a post
+// with a photo (preview, then publish), editing it, liking, commenting, opening messages,
 // deleting a post behind a confirmation, the private-account audience rule, moderation,
 // and screenshots at three widths.
 //
@@ -30,7 +30,7 @@ const COMMUNITY_TABLES = ["messages", "conversation_members", "conversations", "
 // A 1×1 PNG, written to a file so the browser's file chooser can hand it to the picker
 const TINY_PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
 
-describe("ui community: feed, groups and messages for a signed-in member", () => {
+describe("ui community: feed, stories and messages for a signed-in member", () => {
   const runId = crypto.randomBytes(4).toString("hex");
   let skipReason = null;
   let env, connection, server, expo, chrome, client, page, clerk, h, uploadDir, photoFile;
@@ -148,7 +148,7 @@ describe("ui community: feed, groups and messages for a signed-in member", () =>
     if (problems.length > 0) throw new Error(`cleanup incomplete: ${problems.join("; ")}`);
   });
 
-  it("1. Community opens from the tab bar with Feed, Friends and Groups (no Leagues)", run("open", async () => {
+  it("1. Community opens from the tab bar with Feed, Friends and Gyms (no Leagues, no Groups)", run("open", async () => {
     await viewport(390, 844);
     await signInAs(page, h, identities.a);
     await h.expectPath("/home");
@@ -158,7 +158,8 @@ describe("ui community: feed, groups and messages for a signed-in member", () =>
     await h.expectText("TRAIN TOGETHER");
     await h.expectText("Feed");
     await h.expectText("Friends");
-    await h.expectText("Groups");
+    await h.expectText("Gyms");
+    assert.equal(await page.hasText("Groups"), false, "the Groups tab was removed");
     assert.equal(await page.hasText("Leagues"), false, "there is no Leagues tab");
     assert.equal(await page.hasText("Leaderboard"), false);
     await h.expectText("Your story");
@@ -263,65 +264,6 @@ describe("ui community: feed, groups and messages for a signed-in member", () =>
     await page.evaluate("history.back()");
     await h.expectPath("/community");
     await h.expectText("Feed");
-  }));
-
-  it("5. groups list the seeded groups, search filters them, and Join updates membership", run("groups", async () => {
-    await page.clickText("Groups");
-    await h.expectText("Healthy Eating");
-    await h.expectText("Meal Prep");
-    await noOverflow("groups");
-    await snapshotAllWidths("community-groups");
-    await page.setInput('[aria-label="Search groups"]', "protein");
-    await h.expectText("High-Protein Meals");
-    await h.expectNoText("Meal Prep");
-    await clickLabel("Join High-Protein Meals");
-    await page.waitFor(`!!document.querySelector('[aria-label="Leave High-Protein Meals"]')`, NAV_TIMEOUT, "joined state");
-    await h.expectText("1 member");
-    const [[membership]] = await connection.query("SELECT COUNT(*) AS n FROM community_group_members WHERE user_id = ?", [identities.a.id]);
-    assert.equal(membership.n, 1);
-    await page.clickText("High-Protein Meals");
-    await page.waitFor(`location.pathname.startsWith("/community/group/")`, NAV_TIMEOUT, "group screen");
-    await h.expectText("Start the conversation."); // the member joined a moment ago, so they may post
-    await snapshot("community-group-390");
-    await page.evaluate("history.back()");
-    await h.expectPath("/community");
-  }));
-
-  it("5a. a group post is written and then edited from the group screen, and stays off the main feed", run("group-edit", async () => {
-    // Still on the Groups tab, filtered to the group joined in step 5
-    await page.clickText("High-Protein Meals");
-    await page.waitFor(`location.pathname.startsWith("/community/group/")`, NAV_TIMEOUT, "group screen");
-    await page.clickText("Post"); // the header button shown to members
-    await h.expectPath("/community/compose");
-    await h.expectText("Posting in High-Protein Meals");
-    await h.expectText("Shared with everyone in the group.");
-    await h.expectNoText("Who can see this");
-    await page.setInput('[aria-label="Post text"]', "Group check-in: 150 g protein today.");
-    await clickLabel("Publish");
-    await page.waitFor(`location.pathname.startsWith("/community/group/")`, NAV_TIMEOUT, "back on the group");
-    await h.expectText("150 g protein today.");
-    await clickLabel("Post options", 0);
-    await page.clickText("Edit post");
-    await h.expectPath("/community/compose");
-    await h.expectText("Edit Post");
-    await h.expectText("Shared with everyone in the group.");
-    await page.setInput('[aria-label="Post text"]', "Group check-in: 160 g protein today.");
-    await snapshot("community-group-edit-390");
-    await clickLabel("Save changes");
-    await page.waitFor(`location.pathname.startsWith("/community/group/")`, NAV_TIMEOUT, "back on the group after saving");
-    await h.expectText("160 g protein today.");
-    await h.expectNoText("150 g protein today.");
-    const [[row]] = await connection.query("SELECT body, group_id, audience, user_id FROM community_posts WHERE body LIKE 'Group check-in%'");
-    const [[group]] = await connection.query("SELECT id FROM community_groups WHERE slug = 'high-protein-meals'");
-    assert.match(row.body, /160 g/);
-    assert.equal(row.group_id, group.id, "the edit kept the post in its group");
-    assert.equal(row.audience, "public");
-    assert.equal(row.user_id, identities.a.id);
-    await page.evaluate("history.back()");
-    await h.expectPath("/community");
-    await page.clickText("Feed");
-    await h.expectText("Five lunches boxed and ready.");
-    await h.expectNoText("160 g protein today."); // group posts live on the group screen only
   }));
 
   it("5b. an author's avatar opens their profile; Follow changes the state and is saved", run("profile", async () => {
@@ -556,8 +498,6 @@ describe("ui community: feed, groups and messages for a signed-in member", () =>
     await h.expectNoText("Five lunches boxed and ready.");
     const [[row]] = await connection.query("SELECT deleted_at FROM community_posts WHERE user_id = ? AND body LIKE 'Week one%'", [identities.a.id]);
     assert.ok(row.deleted_at, "soft deleted on the server");
-    const [[groupPost]] = await connection.query("SELECT deleted_at FROM community_posts WHERE user_id = ? AND body LIKE 'Group check-in%'", [identities.a.id]);
-    assert.equal(groupPost.deleted_at, null, "the group post is untouched");
   }));
 
   it("7c. a private account can't address everyone: the compose screen offers Followers and Only me", run("private-audience", async () => {
