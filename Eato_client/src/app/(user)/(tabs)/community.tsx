@@ -1,9 +1,9 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, useWindowDimensions, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { SymbolView } from "expo-symbols";
-import { router, useFocusEffect } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 
 import { EmptyState, PostSkeleton } from "@/components/community/CommunityStates";
 import { FriendsPanel } from "@/components/community/FriendsPanel";
@@ -36,7 +36,16 @@ export default function Community() {
   const getToken = useSessionToken();
   const me = useMe();
   const store = useCommunityStore();
+  const params = useLocalSearchParams<{ tab?: string }>();
   const [tab, setTab] = useState<Tab>("feed");
+
+  // Another screen can open a section (Messages › Find friends, No trainer yet)
+  useEffect(() => {
+    const wanted = tabs.find((item) => item.key === params.tab)?.key;
+    if (!wanted) return;
+    const timer = setTimeout(() => setTab(wanted), 0);
+    return () => clearTimeout(timer);
+  }, [params.tab]);
   const [refreshing, setRefreshing] = useState(false);
   const [menuPost, setMenuPost] = useState<Post | null>(null);
   const [notice, setNotice] = useState<string | null>(null);

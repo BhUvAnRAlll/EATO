@@ -2945,6 +2945,102 @@
   color: var(--color-ink-soft);
 }
 
+/* Messages: the preview line and the unread count */
+@utility messages__preview {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 19px;
+  color: var(--color-muted);
+}
+
+@utility messages__preview--unread {
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+@utility messages__unread {
+  min-width: 22px;
+  height: 22px;
+  padding-inline: 6px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-ink);
+  align-items: center;
+  justify-content: center;
+}
+
+/* Notifications: a row in a card list, the unread tint and dot, the small icon on an avatar */
+@utility notification {
+  padding-inline: 14px;
+  padding-block: 12px;
+  border-top-width: 1px;
+  border-left-width: 1px;
+  border-right-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-white);
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+@utility notification--new {
+  background-color: #fbfcfe;
+}
+
+@utility notification__icon {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-cream-deep);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility notification__badge {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-pill);
+  border-width: 2px;
+  border-color: var(--color-white);
+  background-color: var(--color-ink);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility notification__title {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 700;
+  color: var(--color-ink);
+}
+
+@utility notification__text {
+  margin-top: 2px;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 19px;
+  color: var(--color-ink-soft);
+}
+
+@utility notification__time {
+  margin-top: 2px;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--color-faint);
+}
+
+@utility notification__dot {
+  width: 9px;
+  height: 9px;
+  margin-top: 6px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-leaf);
+}
+
 /* The Friends search box: a pill */
 @utility search--pill {
   height: 50px;

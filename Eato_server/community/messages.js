@@ -69,7 +69,12 @@ async function listConversations(pool, userId) {
     `SELECT c.id, c.last_message_at,
             o.user_id AS other_id, u.full_name,
             (SELECT COUNT(*) FROM messages m WHERE m.conversation_id = c.id AND m.sender_id <> ? AND (me.last_read_at IS NULL OR m.created_at > me.last_read_at)) AS unread,
-            (SELECT m.body FROM messages m WHERE m.conversation_id = c.id ORDER BY m.created_at DESC, m.id DESC LIMIT 1) AS last_body
+            (SELECT m.body FROM messages m WHERE m.conversation_id = c.id ORDER BY m.created_at DESC, m.id DESC LIMIT 1) AS last_body,
+            (SELECT m.sender_id FROM messages m WHERE m.conversation_id = c.id ORDER BY m.created_at DESC, m.id DESC LIMIT 1) AS last_sender,
+            EXISTS (SELECT 1 FROM trainer_connections tc WHERE tc.status = 'connected' AND tc.client_id = me.user_id AND tc.trainer_id = o.user_id) AS my_trainer,
+            EXISTS (SELECT 1 FROM trainer_connections tc WHERE tc.status = 'connected' AND tc.trainer_id = me.user_id AND tc.client_id = o.user_id) AS my_client,
+            EXISTS (SELECT 1 FROM community_friendships f WHERE f.status = 'accepted'
+                    AND ((f.user_low = me.user_id AND f.user_high = o.user_id) OR (f.user_high = me.user_id AND f.user_low = o.user_id))) AS friends
      FROM conversation_members me
      JOIN conversations c ON c.id = me.conversation_id
      JOIN conversation_members o ON o.conversation_id = c.id AND o.user_id <> me.user_id
@@ -83,8 +88,12 @@ async function listConversations(pool, userId) {
     id: row.id,
     other: memberSummary({ user_id: row.other_id, full_name: row.full_name }),
     lastMessage: row.last_body,
+    lastFromMe: row.last_sender === userId,
     lastMessageAt: row.last_message_at ? new Date(row.last_message_at).toISOString() : null,
     unreadCount: Number(row.unread),
+    // Why the two can message: the viewer's trainer, a client the viewer coaches, a friend, or
+    // nothing any more (the chat stays readable but locked)
+    relation: row.my_trainer ? "trainer" : row.my_client ? "client" : row.friends ? "friend" : "none",
   }));
 }
 

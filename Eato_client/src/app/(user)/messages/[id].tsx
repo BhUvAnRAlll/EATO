@@ -169,7 +169,12 @@ export default function ConversationScreen() {
     }
   };
 
-  const menuActions: SheetAction[] = other ? [{ label: `Block ${other.name}`, destructive: true, onPress: () => setConfirmingBlock(true) }] : [];
+  const menuActions: SheetAction[] = other
+    ? [
+        { label: "View profile", onPress: () => router.push({ pathname: "/community/profile/[userId]", params: { userId: other.id } }) },
+        { label: `Block ${other.name}`, destructive: true, onPress: () => setConfirmingBlock(true) },
+      ]
+    : [];
 
   // Unconfirmed sends sit at the bottom (index 0 of an inverted list), newest last
   const items: Item[] = [
@@ -183,9 +188,11 @@ export default function ConversationScreen() {
     if (item.kind === "message") {
       const { message } = item;
       return (
-        <View className={message.isOwn ? "bubble bubble--own" : "bubble"} accessibilityLabel={`${message.isOwn ? "You" : other?.name ?? "They"}: ${message.body}`}>
-          <Text className={message.isOwn ? "bubble__text bubble__text--own" : "bubble__text"}>{message.body}</Text>
-          <Text className="bubble__time mt-1" style={message.isOwn ? { color: "rgba(255,255,255,0.7)", textAlign: "right" } : undefined}>{time(message.createdAt)}</Text>
+        <View className={message.isOwn ? "max-w-[78%] items-end self-end" : "max-w-[78%] items-start self-start"}>
+          <View className={message.isOwn ? "bubble bubble--own max-w-full" : "bubble max-w-full"} accessibilityLabel={`${message.isOwn ? "You" : other?.name ?? "They"}: ${message.body}`}>
+            <Text className={message.isOwn ? "bubble__text bubble__text--own" : "bubble__text"}>{message.body}</Text>
+          </View>
+          <Text className="bubble__time mx-2 mt-1">{time(message.createdAt)}</Text>
         </View>
       );
     }
@@ -218,18 +225,18 @@ export default function ConversationScreen() {
     <View className="flex-1 bg-cream">
       <StatusBar style="dark" />
       <SafeAreaView style={{ flex: 1 }}>
-        <View className="h-12 flex-row items-center gap-3 px-5">
-          <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Back">
-            <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={20} tintColor={colors.forestInk} />
+        <View className="screen-bar">
+          <Pressable onPress={() => router.back()} hitSlop={12} className="screen-bar__back" accessibilityRole="button" accessibilityLabel="Back">
+            <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={20} tintColor={colors.ink} />
           </Pressable>
-          {other && <Avatar member={other} size={32} />}
-          <Text className="type-subhead flex-1 text-forest-ink" numberOfLines={1}>
-            {other?.name ?? "Conversation"}
-          </Text>
-          {other && (
-            <Pressable onPress={() => setMenuOpen(true)} hitSlop={12} className="h-8 w-8 items-center justify-center" accessibilityRole="button" accessibilityLabel="Conversation options">
-              <SymbolView name={{ ios: "ellipsis", android: "more_horiz", web: "more_horiz" }} size={20} tintColor={colors.forestInk} />
+          <Text className="screen-bar__title" numberOfLines={1}>{other?.name ?? "Conversation"}</Text>
+          {other ? (
+            // The photo opens the options: View profile, Block
+            <Pressable onPress={() => setMenuOpen(true)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Conversation options">
+              <Avatar member={other} size={36} />
             </Pressable>
+          ) : (
+            <View className="screen-bar__back" />
           )}
         </View>
 
@@ -261,20 +268,25 @@ export default function ConversationScreen() {
             </Pressable>
           )}
           {lockReason ? (
-            <View className="flex-row items-center gap-3 border-t border-cream-line bg-cream px-5 py-3">
-              <SymbolView name={{ ios: "lock", android: "lock", web: "lock" }} size={16} tintColor={colors.muted} />
-              <Text className="home__note flex-1">{lockReason}</Text>
-              {other && (
-                <Pressable onPress={() => router.push({ pathname: "/community/profile/[userId]", params: { userId: other.id } })} className="admin__action" accessibilityRole="button" accessibilityLabel={`Open ${other.name}'s profile`}>
-                  <Text className="admin__action-label">Profile</Text>
-                </Pressable>
-              )}
+            // The chat stays readable; only sending is locked
+            <View className="compose__footer">
+              <View className="info-banner flex-1 items-start">
+                <SymbolView name={{ ios: "lock", android: "lock", web: "lock" }} size={16} tintColor={colors.inkSoft} />
+                <View className="flex-1 gap-1">
+                  <Text className="info-banner__text">{lockReason}</Text>
+                  {other && (
+                    <Pressable onPress={() => router.push({ pathname: "/community/profile/[userId]", params: { userId: other.id } })} hitSlop={6} accessibilityRole="button" accessibilityLabel={`Open ${other.name}'s profile`}>
+                      <Text className="gym-section__link">View profile</Text>
+                    </Pressable>
+                  )}
+                </View>
+              </View>
             </View>
           ) : (
-            <View className="flex-row items-end gap-2 border-t border-cream-line bg-cream px-5 py-3">
-              <TextInput className="reply" value={text} onChangeText={setText} placeholder="Message" placeholderTextColor={colors.faint} multiline maxLength={MAX_LENGTH} accessibilityLabel="Message" />
-              <Pressable onPress={send} disabled={!text.trim()} className="reply__send" style={{ opacity: text.trim() ? 1 : 0.5 }} accessibilityRole="button" accessibilityLabel="Send message">
-                <SymbolView name={{ ios: "arrow.up", android: "arrow_upward", web: "arrow_upward" }} size={20} tintColor={colors.white} />
+            <View className="comment-bar">
+              <TextInput className="comment-bar__input" value={text} onChangeText={setText} placeholder="Message" placeholderTextColor={colors.faint} multiline numberOfLines={1} maxLength={MAX_LENGTH} accessibilityLabel="Message" />
+              <Pressable onPress={send} disabled={!text.trim()} className={text.trim() ? "comment-bar__send" : "comment-bar__send comment-bar__send--disabled"} accessibilityRole="button" accessibilityLabel="Send message" accessibilityState={{ disabled: !text.trim() }}>
+                <SymbolView name={{ ios: "paperplane.fill", android: "send", web: "send" }} size={18} tintColor={colors.white} />
               </Pressable>
             </View>
           )}

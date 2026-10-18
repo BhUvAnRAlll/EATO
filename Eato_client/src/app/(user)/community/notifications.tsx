@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { SymbolView } from "expo-symbols";
@@ -71,6 +71,7 @@ export default function CommunityNotifications() {
   const [rows, setRows] = useState<Row[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadedAt, setLoadedAt] = useState(0); // when the list was loaded: "New" is the day before it
 
   const load = useCallback(async () => {
     const token = await getToken();
@@ -82,6 +83,7 @@ export default function CommunityNotifications() {
       ...result.data.gymRequests.map((gym): Row => ({ kind: "gym", gym })),
       ...result.data.activity.map((activity): Row => ({ kind: "activity", activity })),
     ]);
+    setLoadedAt(Date.now());
     setError(null);
     loadUnread(token);
   }, [getToken, loadUnread]);
@@ -112,114 +114,129 @@ export default function CommunityNotifications() {
 
   const openMember = (userId: string) => router.push({ pathname: "/community/profile/[userId]", params: { userId } });
 
+  // New: requests waiting on you and the last day's activity; Earlier: everything older
+  const DAY = 24 * 60 * 60 * 1000;
+  const isNew = (row: Row) => row.kind !== "activity" || loadedAt - new Date(row.activity.at).getTime() < DAY;
+  const keyOf = (row: Row) => (row.kind === "request" ? `request-${row.request.member.id}` : row.kind === "friend" ? `friend-${row.request.member.id}` : row.kind === "gym" ? `gym-${row.gym.gymId}` : activityKey(row.activity));
+  const fresh = (rows ?? []).filter(isNew);
+  const earlier = (rows ?? []).filter((row) => !isNew(row));
+
+  const renderRow = (item: Row, index: number, list: Row[], unread: boolean) => {
+    const edge = ["notification", unread ? "notification--new" : "", index === 0 ? "friend-row--first" : "", index === list.length - 1 ? "friend-row--last" : ""].join(" ");
+    const dot = unread ? <View className="notification__dot" /> : null;
+    if (item.kind === "friend" || item.kind === "request") {
+      const friend = item.kind === "friend";
+      return (
+        <View key={keyOf(item)} className={edge}>
+          <Pressable onPress={() => openMember(item.request.member.id)} accessibilityRole="button" accessibilityLabel={item.request.member.name}>
+            <Avatar member={item.request.member} size={44} />
+          </Pressable>
+          <View className="min-w-0 flex-1">
+            <Text className="notification__title" numberOfLines={2}>{item.request.member.name} {friend ? "wants to be friends" : "wants to follow you"}</Text>
+            <Text className="notification__time">{timeAgo(item.request.requestedAt)}</Text>
+            <View className="mt-2 flex-row items-center gap-2">
+              <Pressable onPress={() => (friend ? answerFriend(item.request.member.id, true) : answer(item.request.member.id, true))} className="gym-join gym-join--filled" accessibilityRole="button" accessibilityLabel={friend ? `Accept ${item.request.member.name}'s friend request` : `Accept ${item.request.member.name}`}>
+                <Text className="gym-join__label gym-join__label--filled">Accept</Text>
+              </Pressable>
+              <Pressable onPress={() => (friend ? answerFriend(item.request.member.id, false) : answer(item.request.member.id, false))} className="gym-join" accessibilityRole="button" accessibilityLabel={friend ? `Decline ${item.request.member.name}'s friend request` : `Decline ${item.request.member.name}`}>
+                <Text className="gym-join__label">Decline</Text>
+              </Pressable>
+            </View>
+          </View>
+          {dot}
+        </View>
+      );
+    }
+    if (item.kind === "gym") {
+      return (
+        <Pressable key={keyOf(item)} onPress={() => router.push({ pathname: "/community/gyms/[id]/manage/members", params: { id: item.gym.gymId, list: "pending" } })} className={edge} accessibilityRole="button" accessibilityLabel={`${item.gym.waiting} join requests for ${item.gym.gymName}`}>
+          <View className="notification__icon">
+            <SymbolView name={{ ios: "dumbbell.fill", android: "fitness_center", web: "fitness_center" }} size={20} tintColor={colors.ink} />
+          </View>
+          <View className="min-w-0 flex-1">
+            <Text className="notification__title" numberOfLines={1}>{item.gym.gymName}</Text>
+            <Text className="notification__text">{`${item.gym.waiting} ${item.gym.waiting === 1 ? "person wants" : "people want"} to join`}</Text>
+            <Text className="notification__time">{timeAgo(item.gym.latestAt)}</Text>
+          </View>
+          {dot}
+        </Pressable>
+      );
+    }
+    const activity = item.activity;
+    const icon = ICONS[activity.type];
+    const title =
+      activity.type === "like" ? `${activity.member.name} liked your post`
+      : activity.type === "comment" ? `${activity.member.name} commented on your post`
+      : "member" in activity ? `${activity.member.name} ${activity.preview}`
+      : activity.preview;
+    const detail = activity.type === "like" || activity.type === "comment" ? `“${activity.preview}”` : null;
+    return (
+      <Pressable key={keyOf(item)} onPress={() => openActivity(activity)} className={edge} accessibilityRole="button" accessibilityLabel={activityLabel(activity)}>
+        {"member" in activity ? (
+          <View>
+            <Avatar member={activity.member} size={44} />
+            <View className="notification__badge">
+              <SymbolView name={icon.icon} size={10} tintColor={colors.white} />
+            </View>
+          </View>
+        ) : (
+          <View className="notification__icon">
+            <SymbolView name={icon.icon} size={20} tintColor={colors.ink} />
+          </View>
+        )}
+        <View className="min-w-0 flex-1">
+          <Text className="notification__title" numberOfLines={2}>{title}</Text>
+          {detail && <Text className="notification__text" numberOfLines={2}>{detail}</Text>}
+          <Text className="notification__time">{timeAgo(activity.at)}</Text>
+        </View>
+        {dot}
+      </Pressable>
+    );
+  };
+
   return (
     <View className="flex-1 bg-cream">
       <StatusBar style="dark" />
       <SafeAreaView style={{ flex: 1 }} edges={["top", "left", "right"]}>
-        <View className="h-12 flex-row items-center px-5">
-          <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Back">
-            <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={20} tintColor={colors.forestInk} />
+        <View className="screen-bar">
+          <Pressable onPress={() => router.back()} hitSlop={12} className="screen-bar__back" accessibilityRole="button" accessibilityLabel="Back">
+            <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={20} tintColor={colors.ink} />
           </Pressable>
-          <Text className="type-subhead ml-3 flex-1 text-forest-ink">Notifications</Text>
+          <Text className="screen-bar__title">Notifications</Text>
+          <View className="screen-bar__back" />
         </View>
         {rows === null && !error ? (
           <ActivityIndicator color={colors.forest} className="mt-6" />
         ) : (
-          <FlatList
-            data={rows ?? []}
-            keyExtractor={(row) => (row.kind === "request" ? `request-${row.request.member.id}` : row.kind === "friend" ? `friend-${row.request.member.id}` : row.kind === "gym" ? `gym-${row.gym.gymId}` : activityKey(row.activity))}
-            contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: 24, gap: 10 }}
-            ListHeaderComponent={error ? (
+          <ScrollView contentContainerStyle={{ padding: 20, gap: 12, paddingBottom: 32 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.forest} />} showsVerticalScrollIndicator={false}>
+            {error && (
               <Pressable onPress={() => setError(null)}>
                 <FormAlert message={error} />
               </Pressable>
-            ) : null}
-            ListEmptyComponent={
+            )}
+            {(rows ?? []).length === 0 ? (
               error ? (
                 <EmptyState icon={isOffline(error) ? { ios: "wifi.slash", android: "wifi_off", web: "wifi_off" } : { ios: "bell.slash", android: "notifications_off", web: "notifications_off" }} title={isOffline(error) ? "You're offline" : "Couldn't load notifications"} text={error} actionLabel="Retry" onAction={load} />
               ) : (
                 <EmptyState icon={{ ios: "bell", android: "notifications", web: "notifications" }} title="You're all caught up" text="Requests, likes, comments, your trainer's updates and gym news appear here." />
               )
-            }
-            renderItem={({ item }) =>
-              item.kind === "friend" ? (
-                <View className="post__card flex-row items-center gap-3">
-                  <Pressable onPress={() => openMember(item.request.member.id)} accessibilityRole="button" accessibilityLabel={item.request.member.name}>
-                    <Avatar member={item.request.member} />
-                  </Pressable>
-                  <View className="flex-1">
-                    <Text className="post__author" numberOfLines={1}>{item.request.member.name}</Text>
-                    <Text className="post__time">wants to be friends · {timeAgo(item.request.requestedAt)}</Text>
+            ) : (
+              <>
+                {fresh.length > 0 && (
+                  <View className="gap-2">
+                    <Text className="gym-group__title">New · {fresh.length}</Text>
+                    <View>{fresh.map((row, index) => renderRow(row, index, fresh, true))}</View>
                   </View>
-                  <Pressable onPress={() => answerFriend(item.request.member.id, true)} className="group__join" accessibilityRole="button" accessibilityLabel={`Accept ${item.request.member.name}'s friend request`}>
-                    <Text className="group__join-label">Accept</Text>
-                  </Pressable>
-                  <Pressable onPress={() => answerFriend(item.request.member.id, false)} hitSlop={8} className="h-9 w-9 items-center justify-center" accessibilityRole="button" accessibilityLabel={`Decline ${item.request.member.name}'s friend request`}>
-                    <SymbolView name={{ ios: "xmark", android: "close", web: "close" }} size={18} tintColor={colors.muted} />
-                  </Pressable>
-                </View>
-              ) : item.kind === "gym" ? (
-                <Pressable onPress={() => router.push({ pathname: "/community/gyms/[id]/manage", params: { id: item.gym.gymId } })} className="post__card flex-row items-center gap-3" accessibilityRole="button" accessibilityLabel={`${item.gym.waiting} join requests for ${item.gym.gymName}`}>
-                  <View className="group__tile">
-                    <SymbolView name={{ ios: "dumbbell.fill", android: "fitness_center", web: "fitness_center" }} size={20} tintColor={colors.leaf} />
+                )}
+                {earlier.length > 0 && (
+                  <View className="mt-2 gap-2">
+                    <Text className="gym-group__title">Earlier</Text>
+                    <View>{earlier.map((row, index) => renderRow(row, index, earlier, false))}</View>
                   </View>
-                  <View className="flex-1">
-                    <Text className="post__author" numberOfLines={1}>{item.gym.gymName}</Text>
-                    <Text className="post__time">{`${item.gym.waiting} ${item.gym.waiting === 1 ? "person wants" : "people want"} to join · ${timeAgo(item.gym.latestAt)}`}</Text>
-                  </View>
-                  <SymbolView name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }} size={16} tintColor={colors.muted} />
-                </Pressable>
-              ) : item.kind === "request" ? (
-                <View className="post__card flex-row items-center gap-3">
-                  <Pressable onPress={() => openMember(item.request.member.id)} accessibilityRole="button" accessibilityLabel={item.request.member.name}>
-                    <Avatar member={item.request.member} />
-                  </Pressable>
-                  <View className="flex-1">
-                    <Text className="post__author" numberOfLines={1}>{item.request.member.name}</Text>
-                    <Text className="post__time">wants to follow you · {timeAgo(item.request.requestedAt)}</Text>
-                  </View>
-                  <Pressable onPress={() => answer(item.request.member.id, true)} className="group__join" accessibilityRole="button" accessibilityLabel={`Accept ${item.request.member.name}`}>
-                    <Text className="group__join-label">Accept</Text>
-                  </Pressable>
-                  <Pressable onPress={() => answer(item.request.member.id, false)} hitSlop={8} className="h-9 w-9 items-center justify-center" accessibilityRole="button" accessibilityLabel={`Decline ${item.request.member.name}`}>
-                    <SymbolView name={{ ios: "xmark", android: "close", web: "close" }} size={18} tintColor={colors.muted} />
-                  </Pressable>
-                </View>
-              ) : (
-                <Pressable onPress={() => openActivity(item.activity)} className="post__card flex-row items-center gap-3" accessibilityRole="button" accessibilityLabel={activityLabel(item.activity)}>
-                  {"member" in item.activity ? (
-                    <Avatar member={item.activity.member} />
-                  ) : (
-                    <View className="group__tile">
-                      <SymbolView name={ICONS[item.activity.type].icon} size={20} tintColor={colors.leaf} />
-                    </View>
-                  )}
-                  <View className="flex-1">
-                    {item.activity.type === "like" || item.activity.type === "comment" ? (
-                      <>
-                        <Text className="post__body" numberOfLines={2}>
-                          <Text className="post__author" style={{ fontSize: 15 }}>{item.activity.member.name}</Text>
-                          {item.activity.type === "like" ? " liked your post" : " commented on your post"}
-                        </Text>
-                        <Text className="post__time" numberOfLines={1}>{item.activity.preview} · {timeAgo(item.activity.at)}</Text>
-                      </>
-                    ) : (
-                      <>
-                        <Text className="post__body" numberOfLines={2}>
-                          {"member" in item.activity && <Text className="post__author" style={{ fontSize: 15 }}>{`${item.activity.member.name} `}</Text>}
-                          {item.activity.preview}
-                        </Text>
-                        <Text className="post__time">{timeAgo(item.activity.at)}</Text>
-                      </>
-                    )}
-                  </View>
-                  <SymbolView name={ICONS[item.activity.type].icon} size={18} tintColor={ICONS[item.activity.type].tint} />
-                </Pressable>
-              )
-            }
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.forest} />}
-            showsVerticalScrollIndicator={false}
-          />
+                )}
+              </>
+            )}
+          </ScrollView>
         )}
       </SafeAreaView>
     </View>

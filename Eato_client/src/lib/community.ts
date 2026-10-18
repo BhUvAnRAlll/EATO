@@ -97,7 +97,8 @@ export type CloseFriend = { member: Member; isCloseFriend: boolean };
 // One member's active stories, as the stories row shows them
 export type StoryGroup = { member: Member; isOwn: boolean; stories: Story[]; allViewed: boolean };
 
-export type Conversation = { id: string; other: Member; lastMessage: string | null; lastMessageAt: string | null; unreadCount: number };
+// relation: why the two may message (none = the chat is readable but locked)
+export type Conversation = { id: string; other: Member; lastMessage: string | null; lastFromMe: boolean; lastMessageAt: string | null; unreadCount: number; relation: "trainer" | "client" | "friend" | "none" };
 
 export type Message = { id: string; conversationId: string; senderId: string; body: string; isOwn: boolean; createdAt: string };
 
