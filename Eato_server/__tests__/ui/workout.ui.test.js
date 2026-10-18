@@ -144,8 +144,11 @@ describe("ui workout: the Fitness hub and a training day", () => {
     } else {
       await h.expectText("Recharge to come back stronger");
     }
-    // A plan made today doesn't count the days before it: only today onwards is scheduled
-    await page.waitFor(`/0 of [1-3] done/.test(document.body.innerText)`, NAV_TIMEOUT, "0 of n done");
+    // A plan made today doesn't count the days before it: only today onwards is scheduled.
+    // The week runs Monday to Sunday, so on a late weekday this can be 0 (for example a Sunday rest day).
+    const mondayIndex = (weekday) => (weekday + 6) % 7;
+    const expected = days.filter((d) => mondayIndex(d.weekday) >= mondayIndex(weekdayOf(state.today))).length;
+    await page.waitFor(`document.body.innerText.includes("0 of ${expected} done")`, NAV_TIMEOUT, `0 of ${expected} done`);
     assert.equal(await page.evaluate(`document.querySelectorAll('[aria-label$=": Missed"]').length`), 0, "nothing is missed yet");
     await h.expectText("No sessions yet");
     await snapshotAllWidths("workout-hub-new");

@@ -227,6 +227,8 @@ describe("ui gyms: a gym community from the owner's side", () => {
 
     await clickLabel("Gym Profile");
     await page.waitFor(`location.pathname.endsWith("/manage/profile")`, NAV_TIMEOUT, "profile page");
+    // The form appears once the gym has loaded, so wait for the field before typing
+    await page.waitFor(`[...document.querySelectorAll('[aria-label="Facilities"]')].some((e) => e.getClientRects().length > 0)`, NAV_TIMEOUT, "the profile form");
     await page.setInput('[aria-label="Facilities"]', "Free weights, Sauna");
     await page.setInput('[aria-label="Opening hours"]', "Mon–Fri: 5am–11pm");
     await clickLabel("Save gym profile");
