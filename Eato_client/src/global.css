@@ -1670,7 +1670,7 @@
   color: var(--color-white);
 }
 
-/* Segmented Feed / Groups switch (the auth tabs, a little taller) */
+/* Segmented switch (the gym screen's Feed / Members / Events / About; the auth tabs, a little taller) */
 @utility segment {
   height: 48px;
   padding: 4px;
@@ -1727,7 +1727,7 @@
   border-radius: var(--radius-pill);
   border-width: 2px;
   border-color: var(--color-cream);
-  background-color: var(--color-primary);
+  background-color: var(--color-ink);
   align-items: center;
   justify-content: center;
 }
@@ -1740,6 +1740,118 @@
   color: var(--color-ink-soft);
   max-width: 72px;
   text-align: center;
+}
+
+/* Community header icons (notifications, messages): a bare icon in a 44px touch target, with community__badge */
+@utility community__icon-button {
+  width: 44px;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+}
+/* Community section tabs: text labels with an ink underline on the active one (Feed, Friends, Trainers, Gyms) */
+@utility section-tabs {
+  flex-direction: row;
+  gap: 22px;
+  border-bottom-width: 1px;
+  border-color: var(--color-cream-line);
+}
+
+@utility section-tabs__item {
+  padding-top: 6px;
+  padding-bottom: 10px;
+  border-bottom-width: 2px;
+  border-color: transparent;
+  margin-bottom: -1px;
+}
+
+@utility section-tabs__item--active {
+  border-color: var(--color-ink);
+}
+
+@utility section-tabs__label {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 500;
+  color: var(--color-muted);
+}
+
+@utility section-tabs__label--active {
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+/* Quick post on the feed: caption, divider, then photo, Create Post, audience and Post */
+@utility quick-post {
+  padding: 14px;
+  padding-bottom: 12px;
+  border-radius: 20px;
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-white);
+  box-shadow: var(--shadow-card);
+}
+
+@utility quick-post__divider {
+  height: 1px;
+  margin-top: 6px;
+  margin-bottom: 8px;
+  background-color: var(--color-cream-line);
+}
+
+@utility quick-post__tool {
+  width: 36px;
+  height: 40px;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Shrinks (its label truncates) so Post always fits on a 320px screen */
+@utility quick-post__audience {
+  flex-shrink: 1;
+  min-width: 0;
+  height: 30px;
+  padding-inline: 10px;
+  border-radius: var(--radius-pill);
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+}
+
+@utility quick-post__audience-label {
+  flex-shrink: 1;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+@utility quick-post__submit {
+  flex-shrink: 0;
+  min-width: 56px;
+  height: 34px;
+  margin-left: 8px;
+  padding-inline: 14px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-ink);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility quick-post__submit--disabled {
+  background-color: var(--color-faint);
+}
+
+@utility quick-post__submit-label {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 18px;
+  font-weight: 600;
+  color: var(--color-white);
 }
 
 /* Composer row: avatar, prompt, image button */
@@ -1865,6 +1977,110 @@
   line-height: 21px;
   font-weight: 400;
   color: var(--color-ink);
+}
+
+/* Screen bar: back chevron, centred title, hairline below (Post detail) */
+@utility screen-bar {
+  height: 52px;
+  padding-inline: 12px;
+  flex-direction: row;
+  align-items: center;
+  border-bottom-width: 1px;
+  border-color: var(--color-cream-line);
+}
+
+@utility screen-bar__back {
+  width: 36px;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+}
+
+@utility screen-bar__title {
+  flex: 1;
+  text-align: center;
+  font-family: var(--font-sans);
+  font-size: 17px;
+  line-height: 22px;
+  font-weight: 700;
+  color: var(--color-ink);
+}
+
+/* Post detail comments: "Comments (n)", then a white bubble per comment beside the avatar */
+@utility comments__heading {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 20px;
+  font-weight: 700;
+  color: var(--color-ink);
+}
+
+@utility comment__bubble {
+  flex: 1;
+  min-width: 0;
+  padding-inline: 13px;
+  padding-block: 9px;
+  border-radius: 16px;
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-white);
+}
+
+@utility comment__meta {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 18px;
+  font-weight: 400;
+  color: var(--color-faint);
+}
+
+@utility comment__author {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-ink);
+}
+
+/* Comment box on Post detail: your avatar, a pill field and a round send button */
+@utility comment-bar {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  padding-inline: 20px;
+  padding-block: 10px;
+  border-top-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-cream);
+}
+
+@utility comment-bar__input {
+  flex: 1;
+  min-width: 0;
+  min-height: 42px;
+  max-height: 120px;
+  padding-inline: 16px;
+  padding-top: 11px;
+  padding-bottom: 11px;
+  border-radius: 21px;
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-white);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 20px;
+  color: var(--color-ink);
+}
+
+@utility comment-bar__send {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-ink);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility comment-bar__send--disabled {
+  background-color: var(--color-faint);
 }
 
 /* Text box at the bottom of comments and conversations */
@@ -2118,6 +2334,290 @@
   line-height: 20px;
   font-weight: 700;
   color: var(--color-ink);
+}
+
+/* Create Post: "Posting to" card, type chips, fields, the photo tile and the options card */
+@utility compose__place {
+  min-height: 64px;
+  padding-inline: 14px;
+  padding-block: 10px;
+  border-radius: 18px;
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-white);
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+}
+
+@utility compose__place-kicker {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--color-muted);
+}
+
+@utility compose__place-name {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 21px;
+  font-weight: 700;
+  color: var(--color-ink);
+}
+
+@utility compose__label {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 600;
+  color: var(--color-ink-soft);
+}
+
+@utility compose__required {
+  color: var(--color-danger);
+}
+
+@utility compose__type {
+  height: 36px;
+  padding-inline: 16px;
+  border-radius: var(--radius-pill);
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-white);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility compose__type--selected {
+  border-color: var(--color-ink);
+  background-color: var(--color-ink);
+}
+
+@utility compose__type-label {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 600;
+  color: var(--color-ink-soft);
+}
+
+@utility compose__type-label--selected {
+  color: var(--color-white);
+}
+
+@utility compose__input {
+  min-height: 46px;
+  padding-inline: 14px;
+  border-radius: 14px;
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-white);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 20px;
+  color: var(--color-ink);
+}
+
+@utility compose__caption {
+  min-height: 112px;
+  max-height: 220px;
+  padding-inline: 14px;
+  padding-block: 12px;
+  border-radius: 14px;
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-white);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 21px;
+  color: var(--color-ink);
+}
+
+@utility compose__remove {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-cream-deep);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility compose__add {
+  width: 84px;
+  height: 84px;
+  border-radius: 14px;
+  border-width: 1.5px;
+  border-style: dashed;
+  border-color: var(--color-faint);
+  background-color: var(--color-white);
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+@utility compose__add-label {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 16px;
+  color: var(--color-muted);
+}
+
+@utility compose__options {
+  border-radius: 18px;
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-white);
+  overflow: hidden;
+}
+
+@utility compose__option {
+  min-height: 62px;
+  padding-inline: 14px;
+  padding-block: 10px;
+  flex-direction: row;
+  align-items: center;
+  gap: 14px;
+}
+
+@utility compose__option-divider {
+  height: 1px;
+  background-color: var(--color-cream-line);
+}
+
+@utility compose__option-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background-color: var(--color-cream-deep);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility compose__option-title {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 21px;
+  font-weight: 700;
+  color: var(--color-ink);
+}
+
+@utility compose__option-hint {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+@utility compose__option-input {
+  flex: 1;
+  min-width: 0;
+  height: 40px;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 20px;
+  color: var(--color-ink);
+}
+
+/* Post card: the details box a progress, meal or achievement post leads with */
+@utility post__details {
+  padding: 14px;
+  border-radius: 16px;
+  background-color: var(--color-accent-soft);
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+@utility post__details-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background-color: var(--color-white);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility post__details-kicker {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 700;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+@utility post__details-title {
+  margin-top: 4px;
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 21px;
+  font-weight: 700;
+  color: var(--color-ink);
+}
+
+@utility post__details-sub {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 19px;
+  color: var(--color-ink-soft);
+}
+
+/* "with Sarah Chen" under a post */
+@utility post__with {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+@utility post__with-name {
+  font-weight: 700;
+  color: var(--color-ink);
+}
+
+/* Poll options: a row per choice, filled to its share of the votes */
+@utility poll__option {
+  min-height: 44px;
+  padding-inline: 14px;
+  padding-block: 10px;
+  border-radius: 12px;
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-white);
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  overflow: hidden;
+}
+
+@utility poll__option--mine {
+  border-color: var(--color-ink);
+}
+
+@utility poll__fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  background-color: var(--color-accent-soft);
+}
+
+@utility poll__label {
+  flex: 1;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+@utility poll__share {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 600;
+  color: var(--color-ink-soft);
 }
 
 /* Photo counter on a post with several photos */

@@ -5,14 +5,14 @@ import { StatusBar } from "expo-status-bar";
 import { SymbolView } from "expo-symbols";
 import { router, useFocusEffect } from "expo-router";
 
-import { ActionSheet, type SheetAction } from "@/components/community/ActionSheet";
-import { Avatar } from "@/components/community/Avatar";
 import { EmptyState, PostSkeleton } from "@/components/community/CommunityStates";
-import { DeletePostSheet } from "@/components/community/DeletePostSheet";
 import { FriendsPanel } from "@/components/community/FriendsPanel";
 import { GymsPanel } from "@/components/community/GymsPanel";
 import { PostCard } from "@/components/community/PostCard";
+import { PostMenu } from "@/components/community/PostMenu";
+import { QuickPostComposer } from "@/components/community/QuickPostComposer";
 import { StoriesRow } from "@/components/community/StoriesRow";
+import { TrainersPanel } from "@/components/community/TrainersPanel";
 import { FormAlert } from "@/components/FormAlert";
 import { community, isOffline, type Post } from "@/lib/community";
 import { useMe } from "@/lib/me";
@@ -20,12 +20,17 @@ import { useSessionToken } from "@/lib/session";
 import { useCommunityStore } from "@/store/community";
 import { colors } from "@/theme";
 
-type Tab = "feed" | "friends" | "gyms";
-const tabLabels: Record<Tab, string> = { feed: "Feed", friends: "Friends", gyms: "Gyms" };
+type Tab = "feed" | "friends" | "trainers" | "gyms";
+const tabs: { key: Tab; label: string }[] = [
+  { key: "feed", label: "Feed" },
+  { key: "friends", label: "Friends" },
+  { key: "trainers", label: "Trainers" },
+  { key: "gyms", label: "Gyms" },
+];
 const PAGE_PADDING = 20;
 
-// Community: Feed (stories, composer, posts), Friends (search, requests) and Gyms (my gyms,
-// explore, join by code)
+// Community: Feed (stories, quick post, posts), Friends (search, requests), Trainers (my
+// trainer, find trainers) and Gyms (my gyms, explore, join by code)
 export default function Community() {
   const { width } = useWindowDimensions();
   const getToken = useSessionToken();
@@ -34,7 +39,6 @@ export default function Community() {
   const [tab, setTab] = useState<Tab>("feed");
   const [refreshing, setRefreshing] = useState(false);
   const [menuPost, setMenuPost] = useState<Post | null>(null);
-  const [deletingPost, setDeletingPost] = useState<Post | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
   // Load (or refresh after the freshness window) each time the tab is shown
@@ -59,38 +63,19 @@ export default function Community() {
     setRefreshing(false);
   };
 
+  // A poll vote answers with the post and its new counts
+  const vote = async (post: Post, optionId: string) => {
+    const result = await community.vote(await getToken(), post.id, optionId);
+    if (result.ok) store.upsertPost(result.data.post);
+    else setNotice(result.error);
+  };
+
   const like = async (post: Post) => {
     const error = await store.toggleLike(await getToken(), post.id);
     if (error) setNotice(error);
   };
 
-  const menuActions = (post: Post): SheetAction[] => {
-    const actions: SheetAction[] = [];
-    if (post.isOwn) {
-      actions.push({ label: "Edit post", onPress: () => router.push({ pathname: "/community/compose", params: { postId: post.id } }) });
-      actions.push({ label: "Delete post", destructive: true, onPress: () => setDeletingPost(post) });
-    } else {
-      actions.push({ label: `View ${post.author.name.split(" ")[0]}'s profile`, onPress: () => openProfile(post.author.id) });
-      actions.push({ label: `Message ${post.author.name.split(" ")[0]}`, onPress: () => openConversation(post.author.id) });
-      actions.push({
-        label: "Report post",
-        destructive: true,
-        onPress: async () => {
-          const result = await community.report(await getToken(), { postId: post.id }, "Reported from the feed");
-          setNotice(result.ok ? "Thanks, we'll review this post." : result.error);
-        },
-      });
-    }
-    return actions;
-  };
-
   const openProfile = (userId: string) => router.push({ pathname: "/community/profile/[userId]", params: { userId } });
-
-  const openConversation = async (userId: string) => {
-    const result = await community.openConversation(await getToken(), userId);
-    if (result.ok) router.push({ pathname: "/messages/[id]", params: { id: result.data.conversation.id } });
-    else setNotice(result.error);
-  };
 
   const header = (
     <View>
@@ -99,17 +84,17 @@ export default function Community() {
           <Text className="community__kicker">Train together</Text>
           <Text className="community__title mt-1">Community</Text>
         </Pressable>
-        <View className="flex-row gap-2">
-        <Pressable onPress={() => router.push("/community/notifications")} className="home__icon-button" accessibilityRole="button" accessibilityLabel={store.requestCount > 0 ? `Notifications, ${store.requestCount} follow requests` : "Notifications"}>
-          <SymbolView name={{ ios: "bell", android: "notifications", web: "notifications" }} size={20} tintColor={colors.forestInk} />
+        <View className="flex-row gap-1">
+        <Pressable onPress={() => router.push("/community/notifications")} className="community__icon-button" accessibilityRole="button" accessibilityLabel={store.requestCount > 0 ? `Notifications, ${store.requestCount} follow requests` : "Notifications"}>
+          <SymbolView name={{ ios: "bell", android: "notifications", web: "notifications" }} size={24} tintColor={colors.forestInk} />
           {store.requestCount > 0 && (
             <View className="community__badge">
               <Text className="community__badge-label">{store.requestCount > 99 ? "99+" : store.requestCount}</Text>
             </View>
           )}
         </Pressable>
-        <Pressable onPress={() => router.push("/messages")} className="home__icon-button" accessibilityRole="button" accessibilityLabel={store.unreadCount > 0 ? `Messages, ${store.unreadCount} unread` : "Messages"}>
-          <SymbolView name={{ ios: "bubble.left", android: "chat_bubble_outline", web: "chat_bubble_outline" }} size={20} tintColor={colors.forestInk} />
+        <Pressable onPress={() => router.push("/messages")} className="community__icon-button" accessibilityRole="button" accessibilityLabel={store.unreadCount > 0 ? `Messages, ${store.unreadCount} unread` : "Messages"}>
+          <SymbolView name={{ ios: "bubble.left", android: "chat_bubble_outline", web: "chat_bubble_outline" }} size={24} tintColor={colors.forestInk} />
           {store.unreadCount > 0 && (
             <View className="community__badge">
               <Text className="community__badge-label">{store.unreadCount > 99 ? "99+" : store.unreadCount}</Text>
@@ -119,10 +104,10 @@ export default function Community() {
         </View>
       </View>
 
-      <View className="segment mx-5 mt-4" accessibilityRole="tablist">
-        {(["feed", "friends", "gyms"] as Tab[]).map((item) => (
-          <Pressable key={item} onPress={() => setTab(item)} className={tab === item ? "segment__item segment__item--active" : "segment__item"} accessibilityRole="tab" accessibilityState={{ selected: tab === item }}>
-            <Text className={tab === item ? "segment__label segment__label--active" : "segment__label"}>{tabLabels[item]}</Text>
+      <View className="section-tabs mx-5 mt-5" accessibilityRole="tablist">
+        {tabs.map((item) => (
+          <Pressable key={item.key} onPress={() => setTab(item.key)} hitSlop={{ top: 6, bottom: 6 }} className={tab === item.key ? "section-tabs__item section-tabs__item--active" : "section-tabs__item"} accessibilityRole="tab" accessibilityState={{ selected: tab === item.key }}>
+            <Text className={tab === item.key ? "section-tabs__label section-tabs__label--active" : "section-tabs__label"}>{item.label}</Text>
           </Pressable>
         ))}
       </View>
@@ -149,13 +134,9 @@ export default function Community() {
               onOpen={(memberId) => router.push({ pathname: "/community/story/[memberId]", params: { memberId } })}
             />
           </View>
-          <Pressable onPress={() => router.push("/community/compose")} className="composer mx-5 mt-5" accessibilityRole="button" accessibilityLabel="Share your progress">
-            <Avatar member={me} size={40} />
-            <Text className="composer__prompt">Share your progress...</Text>
-            <View className="composer__image">
-              <SymbolView name={{ ios: "photo.badge.plus", android: "add_photo_alternate", web: "add_photo_alternate" }} size={20} tintColor={colors.forest} />
-            </View>
-          </Pressable>
+          <View className="mx-5 mt-5">
+            <QuickPostComposer me={me} getToken={getToken} onError={setNotice} />
+          </View>
         </View>
       ) : null}
     </View>
@@ -207,6 +188,7 @@ export default function Community() {
                   onOpenComments={() => router.push({ pathname: "/community/post/[id]", params: { id: item.id } })}
                   onMenu={() => setMenuPost(item)}
                   onAuthor={() => openProfile(item.author.id)}
+                  onVote={(optionId) => vote(item, optionId)}
                 />
               </View>
             )}
@@ -214,16 +196,18 @@ export default function Community() {
             onEndReachedThreshold={0.4}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.forest} />}
             showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
           />
         ) : tab === "friends" ? (
           <FriendsPanel header={header} />
+        ) : tab === "trainers" ? (
+          <TrainersPanel header={header} />
         ) : (
           <GymsPanel header={header} />
         )}
       </SafeAreaView>
 
-      <ActionSheet visible={menuPost !== null} title={menuPost ? `${menuPost.author.name}'s post` : undefined} actions={menuPost ? menuActions(menuPost) : []} onClose={() => setMenuPost(null)} />
-      <DeletePostSheet post={deletingPost} onClose={() => setDeletingPost(null)} onDeleted={(post) => store.removePost(post.id)} onError={setNotice} />
+      <PostMenu post={menuPost} source="the feed" onClose={() => setMenuPost(null)} onDeleted={(post) => store.removePost(post.id)} onNotice={setNotice} />
     </View>
   );
 }

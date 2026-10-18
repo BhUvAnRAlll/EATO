@@ -27,7 +27,7 @@ export function StoriesRow({ me, groups, onAddStory, onOpen }: StoriesRowProps) 
         <View>
           <StoryAvatar member={me} size={56} ring={storyRingFor(mine)} onPress={mine ? () => onOpen(me.id) : onAddStory} accessibilityLabel={mine ? "Your story" : "Add a story"} />
           <Pressable onPress={onAddStory} className="story__add" hitSlop={6} accessibilityRole="button" accessibilityLabel="Add a story">
-            <SymbolView name={{ ios: "plus", android: "add", web: "add" }} size={14} tintColor={colors.forestInk} />
+            <SymbolView name={{ ios: "plus", android: "add", web: "add" }} size={13} tintColor={colors.white} />
           </Pressable>
         </View>
         <Text className="story__name">Your story</Text>

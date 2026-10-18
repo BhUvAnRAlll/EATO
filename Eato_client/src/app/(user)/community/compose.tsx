@@ -1,16 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from "react-native";
+import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { SymbolView } from "expo-symbols";
 import * as Crypto from "expo-crypto";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 
+import { ActionSheet } from "@/components/community/ActionSheet";
 import { Avatar } from "@/components/community/Avatar";
 import { MediaStrip, type DraftPhoto } from "@/components/community/MediaStrip";
-import { PostCard } from "@/components/community/PostCard";
+import { TagPeopleSheet } from "@/components/community/TagPeopleSheet";
 import { FormAlert } from "@/components/FormAlert";
-import { audienceLabels, audiencesFor, categoryLabels, community, composeCategories, type Post, type PostAudience, type PostCategory } from "@/lib/community";
+import { audienceLabels, audiencesFor, categoryLabels, community, postTypes, type Member, type NewPost, type Post, type PostAudience, type PostCategory } from "@/lib/community";
 import { gyms } from "@/lib/gyms";
 import { pickPhotos } from "@/lib/media";
 import { useMe } from "@/lib/me";
@@ -20,14 +21,28 @@ import { colors } from "@/theme";
 
 const MAX_LENGTH = 1000;
 const MAX_PHOTOS = 4;
+const MAX_POLL_OPTIONS = 6;
 
-// Create a post (caption, photos, category, audience) with a preview before publishing, or
-// edit one of your own (postId param). A gym post gets gymId and goes to the gym (held for
-// staff if the gym moderates posts). Publishing uploads each photo, then saves the post with one client key, so a
-// double tap or a retry never creates a second post.
+// Where a new post goes: your feed, or a gym you may post in
+type Place = { kind: "feed" } | { kind: "gym"; id: string; name: string };
+
+const typeLabels: Record<PostCategory, string> = { ...categoryLabels, general: "Text" };
+const audienceIcons = {
+  public: { ios: "globe", android: "public", web: "public" },
+  followers: { ios: "person.2", android: "group", web: "group" },
+  only_me: { ios: "lock", android: "lock", web: "lock" },
+} as const;
+
+// Whole numbers only ("" means not given)
+const wholeOrNull = (value: string) => (value.trim() === "" ? null : Number(value.trim()));
+
+// Create Post: where it goes (your feed or a gym), the type (Photo, Progress, Meal,
+// Achievement, Question, Poll) and that type's fields, a caption, photos, an optional location,
+// tagged friends and the audience. Editing (postId) keeps the post's place and type. Publishing
+// uploads each photo first, then saves the post with one client key, so a double tap or a retry
+// never creates a second post. The server checks every rule again.
 export default function ComposePost() {
   const { postId, gymId, gymName } = useLocalSearchParams<{ postId?: string; gymId?: string; gymName?: string }>();
-  const { width } = useWindowDimensions();
   const getToken = useSessionToken();
   const me = useMe();
   const upsertPost = useCommunityStore((state) => state.upsertPost);
@@ -35,16 +50,27 @@ export default function ComposePost() {
   const clientKey = useRef(Crypto.randomUUID());
 
   const [original, setOriginal] = useState<Post | null>(null); // the post being edited
+  const [place, setPlace] = useState<Place>(gymId ? { kind: "gym", id: gymId, name: gymName ?? "the gym" } : { kind: "feed" });
+  const [postableGyms, setPostableGyms] = useState<{ id: string; name: string }[]>([]);
+  const [type, setType] = useState<PostCategory>("photo");
   const [body, setBody] = useState("");
-  const [category, setCategory] = useState<PostCategory>("general");
+  const [headline, setHeadline] = useState("");
+  const [detail, setDetail] = useState("");
+  const [detailDate, setDetailDate] = useState("");
+  const [mealKcal, setMealKcal] = useState("");
+  const [mealProtein, setMealProtein] = useState("");
+  const [pollOptions, setPollOptions] = useState<string[]>(["", ""]);
+  const [location, setLocation] = useState("");
+  const [showLocation, setShowLocation] = useState(false);
+  const [tagged, setTagged] = useState<Member[]>([]);
   const [audience, setAudience] = useState<PostAudience>("public");
   const [photos, setPhotos] = useState<DraftPhoto[]>([]);
   const [isPrivate, setIsPrivate] = useState<boolean | null>(null); // null until the account is loaded
+  const [sheet, setSheet] = useState<"place" | "audience" | "photo" | "tags" | null>(null);
   const [loading, setLoading] = useState(Boolean(postId));
   const [publishing, setPublishing] = useState(false);
   const [progress, setProgress] = useState<{ current: number; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [preview, setPreview] = useState(false);
 
   // The account's privacy decides which audiences are offered. Loaded each time the screen
   // is shown, so a change made meanwhile (on the profile) is picked up before publishing.
@@ -63,6 +89,19 @@ export default function ComposePost() {
     }, [loadAccount]),
   );
 
+  // A new post can go to any gym where you may post (the server checks again)
+  useEffect(() => {
+    if (postId) return;
+    let cancelled = false;
+    (async () => {
+      const result = await gyms.list(await getToken());
+      if (!cancelled && result.ok) setPostableGyms(result.data.mine.filter((gym) => gym.can.post).map((gym) => ({ id: gym.id, name: gym.name })));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [postId, getToken]);
+
   // Editing: start from the saved post, its photos already on the server
   useEffect(() => {
     if (!postId) return;
@@ -73,8 +112,16 @@ export default function ComposePost() {
       if (result.ok) {
         const post = result.data.post;
         setOriginal(post);
+        setType(post.category);
         setBody(post.body);
-        setCategory(post.category);
+        setHeadline(post.headline ?? "");
+        setDetail(post.detail ?? "");
+        setDetailDate(post.detailDate ?? "");
+        setMealKcal(post.mealKcal === null ? "" : String(post.mealKcal));
+        setMealProtein(post.mealProteinG === null ? "" : String(post.mealProteinG));
+        setLocation(post.location ?? "");
+        setShowLocation(Boolean(post.location));
+        setTagged(post.tagged);
         setAudience(post.audience);
         setPhotos(post.media.map((item) => ({ key: item.id, uri: item.url, data: null, mediaType: null, mediaId: item.id, status: "done" })));
       } else setError(result.error);
@@ -85,12 +132,16 @@ export default function ComposePost() {
     };
   }, [postId, getToken]);
 
+  const editing = Boolean(postId);
   // A gym post (or an older group post) is shared with that gym or group, so it has no audience choice
-  const inGroup = Boolean(gymId || original?.gymId || original?.groupId);
-  const placeName = gymName ?? (original?.groupId ? "the group" : "the gym");
+  const inPlace = editing ? Boolean(original?.gymId || original?.groupId) : place.kind === "gym";
+  const placeName = editing ? (original?.groupId ? "the group" : gymName ?? "the gym") : place.kind === "gym" ? place.name : "My EATO feed";
   const audiences = audiencesFor(isPrivate === true);
   const busy = publishing || loading;
   const failedPhotos = photos.filter((photo) => photo.status === "failed").length;
+  const hasTitle = type === "progress" || type === "meal" || type === "achievement";
+  const captionRequired = type === "general" || type === "workout" || type === "question" || type === "poll";
+  const takesPhotos = type !== "poll";
 
   const addPhotos = async (source: "camera" | "library") => {
     const room = MAX_PHOTOS - photos.length;
@@ -119,20 +170,37 @@ export default function ComposePost() {
       return next;
     });
 
-  // One friendly line, or null when the draft can be published
+  // One friendly line, or null when the draft can be published (the server checks again)
   const validate = (): string | null => {
-    if (!body.trim()) return "Write a caption before publishing.";
+    if (captionRequired && !body.trim()) return type === "question" ? "Write your question." : type === "poll" ? "Write the poll question." : "Write a caption before publishing.";
     if (body.length > MAX_LENGTH) return `Keep the caption under ${MAX_LENGTH} characters.`;
+    // An older meal or progress post may have no title: editing its caption doesn't force one
+    if (hasTitle && !headline.trim() && !(editing && !original?.headline)) return type === "meal" ? "Add the meal's name." : "Add a title.";
+    if (type === "photo" && photos.length === 0) return "Add at least one photo.";
     if (photos.length > MAX_PHOTOS) return `A post can have up to ${MAX_PHOTOS} photos.`;
-    if (!inGroup && isPrivate && audience === "public") return "Your account is private, so choose Followers or Only me.";
+    if (type === "progress" && detailDate.trim() && !/^\d{4}-\d{2}-\d{2}$/.test(detailDate.trim())) return "Write the date as YYYY-MM-DD.";
+    if (type === "meal") {
+      for (const [value, label, max] of [[mealKcal, "Calories", 5000], [mealProtein, "Protein", 500]] as const) {
+        const n = wholeOrNull(value);
+        if (n !== null && (!Number.isInteger(n) || n < 0 || n > max)) return `${label} must be a whole number from 0 to ${max}.`;
+      }
+    }
+    if (type === "poll" && !editing) {
+      const options = pollOptions.map((option) => option.trim());
+      if (options.some((option) => option === "")) return "Fill in every poll option, or remove the empty ones.";
+      if (options.length < 2) return "A poll needs at least 2 options.";
+      if (new Set(options.map((option) => option.toLowerCase())).size !== options.length) return "Each poll option must be different.";
+    }
+    if (!inPlace && isPrivate && audience === "public") return "Your account is private, so choose Followers or Only me.";
     return null;
   };
 
-  const openPreview = () => {
-    const problem = validate();
-    if (problem) return setError(problem);
-    setError(null);
-    setPreview(true);
+  // The type's details, as the server expects them (only the fields that type uses)
+  const details = () => {
+    if (type === "progress") return { headline: headline.trim(), detail: detail.trim() || null, detailDate: detailDate.trim() || null };
+    if (type === "meal") return { headline: headline.trim(), mealKcal: wholeOrNull(mealKcal), mealProteinG: wholeOrNull(mealProtein) };
+    if (type === "achievement") return { headline: headline.trim(), detail: detail.trim() || null };
+    return {};
   };
 
   const publish = async () => {
@@ -159,7 +227,6 @@ export default function ComposePost() {
         setPhotos([...uploaded]);
         setProgress(null);
         setPublishing(false);
-        setPreview(false);
         return setError(`Photo ${i + 1} couldn't be uploaded: ${result.error} Tap Retry to try again.`);
       }
       uploaded[i] = { ...photo, status: "done", mediaId: result.data.media.id };
@@ -169,16 +236,26 @@ export default function ComposePost() {
     setProgress(null);
 
     // 2. Save the post with the uploaded photos (the server checks they're this member's)
-    const mediaIds = uploaded.flatMap((photo) => (photo.mediaId ? [photo.mediaId] : []));
+    const mediaIds = takesPhotos ? uploaded.flatMap((photo) => (photo.mediaId ? [photo.mediaId] : [])) : [];
     const text = body.trim();
+    const where = location.trim() || null;
+    const draft: NewPost = {
+      body: text,
+      category: type,
+      mediaIds,
+      location: where,
+      taggedUserIds: tagged.map((member) => member.id),
+      clientKey: clientKey.current,
+      ...details(),
+      ...(type === "poll" ? { pollOptions: pollOptions.map((option) => option.trim()) } : {}),
+    };
     const result = postId
-      ? await community.updatePost(token, postId, { body: text, category, audience, mediaIds })
-      : gymId
-        ? await gyms.createPost(token, gymId, { body: text, category, mediaIds, clientKey: clientKey.current })
-        : await community.createPost(token, { body: text, category, audience, mediaIds, clientKey: clientKey.current });
+      ? await community.updatePost(token, postId, { body: text, mediaIds, location: where, ...(inPlace ? {} : { audience }), ...details() })
+      : place.kind === "gym"
+        ? await gyms.createPost(token, place.id, draft)
+        : await community.createPost(token, { ...draft, audience });
     setPublishing(false);
     if (!result.ok) {
-      setPreview(false);
       // The account went private while this draft was open: a valid audience is needed now
       if (result.status === 409) {
         setIsPrivate(true);
@@ -190,131 +267,161 @@ export default function ComposePost() {
     router.back();
   };
 
-  const title = postId ? "Edit Post" : "Create Post";
-  const publishLabel = failedPhotos > 0 ? "Retry" : postId ? "Save changes" : "Publish";
-
-  const draft: Post = {
-    id: original?.id ?? "draft",
-    author: me,
-    groupId: original?.groupId ?? null,
-    gymId: gymId ?? original?.gymId ?? null,
-    reviewStatus: original?.reviewStatus ?? "published",
-    category,
-    audience: inGroup ? "public" : audience,
-    body: body.trim(),
-    imageUrl: photos[0]?.uri ?? null,
-    media: photos.map((photo) => ({ id: photo.key, url: photo.uri })),
-    likeCount: original?.likeCount ?? 0,
-    commentCount: original?.commentCount ?? 0,
-    liked: original?.liked ?? false,
-    isOwn: true,
-    createdAt: original?.createdAt ?? new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
-
-  const header = (
-    <View className="h-12 flex-row items-center px-5">
-      <Pressable onPress={() => (preview ? setPreview(false) : router.back())} hitSlop={12} accessibilityRole="button" accessibilityLabel="Back">
-        <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={20} tintColor={colors.forestInk} />
-      </Pressable>
-      <Text className="type-subhead ml-3 flex-1 text-forest-ink">{preview ? "Preview" : title}</Text>
-    </View>
-  );
-
-  const errorLine = error && (
-    <Pressable onPress={() => setError(null)} accessibilityLabel="Dismiss error">
-      <FormAlert message={error} />
-    </Pressable>
-  );
-
-  if (preview) {
-    return (
-      <View className="flex-1 bg-cream">
-        <StatusBar style="dark" />
-        <SafeAreaView style={{ flex: 1 }}>
-          {header}
-          <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: 24, gap: 12 }}>
-            <Text className="home__note">This is how your post will look.</Text>
-            <PostCard post={draft} width={width - 40} onLike={() => {}} onOpenComments={() => {}} onMenu={() => {}} />
-            <Text className="home__note">
-              {inGroup ? `Shared with ${placeName}` : `Visible to: ${audienceLabels[audience].label}`}
-              {category !== "general" ? ` · ${categoryLabels[category]}` : ""}
-              {photos.length > 0 ? ` · ${photos.length} ${photos.length === 1 ? "photo" : "photos"}` : ""}
-            </Text>
-            {progress && (
-              <View className="gap-1.5">
-                <Text className="home__note">Uploading photo {progress.current} of {progress.total}</Text>
-                <View className="compose__progress">
-                  <View className="compose__progress-fill" style={{ width: `${Math.round(((progress.current - 1) / progress.total) * 100)}%` }} />
-                </View>
-              </View>
-            )}
-            {errorLine}
-          </ScrollView>
-          <View className="compose__footer">
-            <Pressable onPress={() => setPreview(false)} disabled={busy} className="btn-outline flex-1" accessibilityRole="button">
-              <Text className="btn-outline__label">Edit</Text>
-            </Pressable>
-            <Pressable onPress={publish} disabled={busy} className="btn-forest flex-1" style={{ opacity: busy ? 0.6 : 1 }} accessibilityRole="button" accessibilityLabel={publishLabel}>
-              {publishing ? <ActivityIndicator color={colors.white} /> : <Text className="btn-forest__label">{publishLabel}</Text>}
-            </Pressable>
-          </View>
-        </SafeAreaView>
-      </View>
-    );
-  }
+  const publishLabel = failedPhotos > 0 ? "Retry" : editing ? "Save changes" : "Post";
 
   return (
     <View className="flex-1 bg-cream">
       <StatusBar style="dark" />
       <SafeAreaView style={{ flex: 1 }}>
-        {header}
+        <View className="screen-bar">
+          <Pressable onPress={() => router.back()} hitSlop={12} className="screen-bar__back" accessibilityRole="button" accessibilityLabel="Back">
+            <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={20} tintColor={colors.ink} />
+          </Pressable>
+          <Text className="screen-bar__title">{editing ? "Edit Post" : "Create Post"}</Text>
+          <View className="screen-bar__back" />
+        </View>
 
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-          <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: 24 }} keyboardShouldPersistTaps="handled">
-            {loading ? (
-              <ActivityIndicator color={colors.forest} className="mt-6" />
-            ) : (
-              <View className="gap-5">
-                <View className="flex-row items-center gap-3">
-                  <Avatar member={me} size={44} />
-                  <View className="flex-1">
-                    <Text className="compose__author" numberOfLines={1}>{me.name}</Text>
-                    <Text className="post__time">{inGroup ? `Posting in ${placeName}` : `Posting to ${audienceLabels[audience].label}`}</Text>
+          {loading ? (
+            <ActivityIndicator color={colors.forest} className="mt-6" />
+          ) : (
+            <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 24, gap: 18 }} keyboardShouldPersistTaps="handled">
+              {/* Posting to: your feed or a gym (fixed when editing) */}
+              <Pressable
+                onPress={() => setSheet("place")}
+                disabled={editing || busy || postableGyms.length === 0}
+                className="compose__place"
+                accessibilityRole="button"
+                accessibilityLabel={`Posting to ${placeName}`}
+              >
+                <Avatar member={me} size={40} />
+                <View className="min-w-0 flex-1">
+                  <Text className="compose__place-kicker">Posting to</Text>
+                  <Text className="compose__place-name" numberOfLines={1}>{placeName}</Text>
+                </View>
+                {!editing && postableGyms.length > 0 && <SymbolView name={{ ios: "chevron.down", android: "expand_more", web: "expand_more" }} size={16} tintColor={colors.ink} />}
+              </Pressable>
+
+              {/* Post type (fixed when editing) */}
+              {editing ? (
+                <Text className="home__note">Post type: {typeLabels[type]}</Text>
+              ) : (
+                <View className="gap-2">
+                  <Text className="compose__label">Post type</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }} style={{ marginHorizontal: -20 }}>
+                    <View className="w-3" />
+                    {postTypes.map((item) => (
+                      <Pressable key={item} onPress={() => { setType(item); setError(null); }} disabled={busy} className={type === item ? "compose__type compose__type--selected" : "compose__type"} accessibilityRole="radio" accessibilityState={{ selected: type === item }} accessibilityLabel={`Post type: ${typeLabels[item]}`}>
+                        <Text className={type === item ? "compose__type-label compose__type-label--selected" : "compose__type-label"}>{typeLabels[item]}</Text>
+                      </Pressable>
+                    ))}
+                    <View className="w-3" />
+                  </ScrollView>
+                </View>
+              )}
+
+              {/* The type's own fields */}
+              {hasTitle && (
+                <View className="gap-2">
+                  <Text className="compose__label">{type === "meal" ? "Meal name" : "Title"}</Text>
+                  <TextInput className="compose__input" value={headline} onChangeText={setHeadline} maxLength={120} editable={!busy} placeholder={type === "meal" ? "Paneer tikka bowl" : type === "progress" ? "Week 12 check-in" : "First pull-up"} placeholderTextColor={colors.faint} accessibilityLabel={type === "meal" ? "Meal name" : "Title"} />
+                </View>
+              )}
+              {type === "progress" && (
+                <View className="flex-row gap-3">
+                  <View className="min-w-0 flex-1 gap-2">
+                    <Text className="compose__label">Milestone <Text className="setup__optional">(optional)</Text></Text>
+                    <TextInput className="compose__input" value={detail} onChangeText={setDetail} maxLength={120} editable={!busy} placeholder="-6 kg" placeholderTextColor={colors.faint} accessibilityLabel="Milestone" />
+                  </View>
+                  <View className="w-32 gap-2">
+                    <Text className="compose__label">Date <Text className="setup__optional">(optional)</Text></Text>
+                    <TextInput className="compose__input" value={detailDate} onChangeText={setDetailDate} maxLength={10} editable={!busy} placeholder="YYYY-MM-DD" placeholderTextColor={colors.faint} keyboardType="numbers-and-punctuation" accessibilityLabel="Date" />
                   </View>
                 </View>
-
-                <View>
-                  <TextInput
-                    className="post__body"
-                    value={body}
-                    onChangeText={setBody}
-                    placeholder="Share your progress..."
-                    placeholderTextColor={colors.faint}
-                    multiline
-                    maxLength={MAX_LENGTH}
-                    editable={!busy}
-                    style={{ minHeight: 120, textAlignVertical: "top" }}
-                    accessibilityLabel="Post text"
-                  />
-                  <Text className="home__note text-right">{body.length}/{MAX_LENGTH}</Text>
+              )}
+              {type === "meal" && (
+                <View className="gap-2">
+                  <View className="flex-row gap-3">
+                    <View className="min-w-0 flex-1 gap-2">
+                      <Text className="compose__label">Calories <Text className="setup__optional">(optional)</Text></Text>
+                      <TextInput className="compose__input" value={mealKcal} onChangeText={setMealKcal} maxLength={4} editable={!busy} placeholder="kcal" placeholderTextColor={colors.faint} keyboardType="number-pad" accessibilityLabel="Calories" />
+                    </View>
+                    <View className="min-w-0 flex-1 gap-2">
+                      <Text className="compose__label">Protein <Text className="setup__optional">(optional)</Text></Text>
+                      <TextInput className="compose__input" value={mealProtein} onChangeText={setMealProtein} maxLength={3} editable={!busy} placeholder="g" placeholderTextColor={colors.faint} keyboardType="number-pad" accessibilityLabel="Protein" />
+                    </View>
+                  </View>
+                  <Text className="home__note">Sharing a meal doesn&apos;t log it to your Macro diary.</Text>
                 </View>
+              )}
+              {type === "achievement" && (
+                <View className="gap-2">
+                  <Text className="compose__label">Description <Text className="setup__optional">(optional)</Text></Text>
+                  <TextInput className="compose__input" value={detail} onChangeText={setDetail} maxLength={300} editable={!busy} placeholder="Six months of trying" placeholderTextColor={colors.faint} accessibilityLabel="Description" />
+                </View>
+              )}
 
-                <View className="gap-3">
+              {/* Caption (the question itself on a question or poll) */}
+              <View className="gap-2">
+                <Text className="compose__label">
+                  {type === "question" ? "Question" : type === "poll" ? "Poll question" : "Caption"}
+                  {captionRequired ? <Text className="compose__required"> *</Text> : null}
+                </Text>
+                <TextInput
+                  className="compose__caption"
+                  value={body}
+                  onChangeText={setBody}
+                  placeholder={type === "question" ? "What would you like to ask?" : type === "poll" ? "What should people vote on?" : "Share what you've been working on..."}
+                  placeholderTextColor={colors.faint}
+                  multiline
+                  maxLength={MAX_LENGTH}
+                  editable={!busy}
+                  textAlignVertical="top"
+                  accessibilityLabel="Post text"
+                />
+              </View>
+
+              {/* Poll options: 2 to 6, fixed once posted */}
+              {type === "poll" && !editing && (
+                <View className="gap-2">
+                  <Text className="compose__label">Options<Text className="compose__required"> *</Text></Text>
+                  {pollOptions.map((option, index) => (
+                    <View key={index} className="flex-row items-center gap-2">
+                      <TextInput className="compose__input min-w-0 flex-1" value={option} onChangeText={(value) => setPollOptions((current) => current.map((item, i) => (i === index ? value : item)))} maxLength={80} editable={!busy} placeholder={`Option ${index + 1}`} placeholderTextColor={colors.faint} accessibilityLabel={`Option ${index + 1}`} />
+                      {pollOptions.length > 2 && (
+                        <Pressable onPress={() => setPollOptions((current) => current.filter((_, i) => i !== index))} hitSlop={8} className="compose__remove" accessibilityRole="button" accessibilityLabel={`Remove option ${index + 1}`}>
+                          <SymbolView name={{ ios: "xmark", android: "close", web: "close" }} size={14} tintColor={colors.muted} />
+                        </Pressable>
+                      )}
+                    </View>
+                  ))}
+                  {pollOptions.length < MAX_POLL_OPTIONS && (
+                    <Pressable onPress={() => setPollOptions((current) => [...current, ""])} className="admin__action self-start" accessibilityRole="button" accessibilityLabel="Add option">
+                      <Text className="admin__action-label">+ Add option</Text>
+                    </Pressable>
+                  )}
+                </View>
+              )}
+
+              {/* Photos (required on a photo post; none on a poll) */}
+              {takesPhotos && (
+                <View className="gap-2">
                   <View className="flex-row items-center justify-between">
-                    <Text className="auth__label">Photos</Text>
-                    <Text className="home__note">{photos.length}/{MAX_PHOTOS}</Text>
+                    <Text className="compose__label">
+                      Photos{type === "photo" ? <Text className="compose__required"> *</Text> : null}
+                    </Text>
+                    {photos.length > 0 && <Text className="home__note">{photos.length}/{MAX_PHOTOS}</Text>}
                   </View>
-                  <MediaStrip photos={photos} disabled={busy} onRemove={removePhoto} onMove={movePhoto} />
-                  <View className="flex-row gap-2">
-                    <Pressable onPress={() => addPhotos("camera")} disabled={busy || photos.length >= MAX_PHOTOS} className="admin__action" style={{ opacity: photos.length >= MAX_PHOTOS ? 0.5 : 1 }} accessibilityRole="button" accessibilityLabel="Take photo">
-                      <SymbolView name={{ ios: "camera", android: "photo_camera", web: "photo_camera" }} size={16} tintColor={colors.forestInk} />
-                      <Text className="admin__action-label">Camera</Text>
-                    </Pressable>
-                    <Pressable onPress={() => addPhotos("library")} disabled={busy || photos.length >= MAX_PHOTOS} className="admin__action" style={{ opacity: photos.length >= MAX_PHOTOS ? 0.5 : 1 }} accessibilityRole="button" accessibilityLabel="Choose from gallery">
-                      <SymbolView name={{ ios: "photo", android: "image", web: "image" }} size={16} tintColor={colors.forestInk} />
-                      <Text className="admin__action-label">Gallery</Text>
-                    </Pressable>
+                  <View className="flex-row items-start gap-3">
+                    {photos.length < MAX_PHOTOS && (
+                      <Pressable onPress={() => setSheet("photo")} disabled={busy} className="compose__add" accessibilityRole="button" accessibilityLabel="Add photos">
+                        <SymbolView name={{ ios: "photo.badge.plus", android: "add_photo_alternate", web: "add_photo_alternate" }} size={24} tintColor={colors.inkSoft} />
+                        <Text className="compose__add-label">Add</Text>
+                      </Pressable>
+                    )}
+                    <View className="min-w-0 flex-1">
+                      <MediaStrip photos={photos} disabled={busy} onRemove={removePhoto} onMove={movePhoto} />
+                    </View>
                   </View>
                   {progress && (
                     <View className="gap-1.5">
@@ -325,49 +432,104 @@ export default function ComposePost() {
                     </View>
                   )}
                 </View>
+              )}
 
-                <View>
-                  <Text className="auth__label mb-2">Category (optional)</Text>
-                  <View className="flex-row flex-wrap gap-2">
-                    {composeCategories.map((item) => (
-                      <Pressable key={item} onPress={() => setCategory(item)} disabled={busy} className={category === item ? "setup__chip setup__chip--selected" : "setup__chip"} accessibilityRole="radio" accessibilityState={{ selected: category === item }}>
-                        <Text className={category === item ? "setup__chip-label setup__chip-label--selected" : "setup__chip-label"}>{categoryLabels[item]}</Text>
-                      </Pressable>
-                    ))}
+              {/* Location, tags and audience */}
+              <View className="compose__options">
+                <Pressable onPress={() => setShowLocation(true)} disabled={busy} className="compose__option" accessibilityRole="button" accessibilityLabel={location.trim() ? `Location: ${location.trim()}` : "Add location"}>
+                  <View className="compose__option-icon">
+                    <SymbolView name={{ ios: "mappin.and.ellipse", android: "place", web: "place" }} size={18} tintColor={colors.ink} />
                   </View>
-                </View>
-
-                {inGroup ? (
-                  <Text className="home__note">Shared with everyone in {placeName}.</Text>
-                ) : (
-                  <View>
-                    <Text className="auth__label mb-2">Who can see this</Text>
-                    <View className="flex-row flex-wrap gap-2">
-                      {audiences.map((item) => (
-                        <Pressable key={item} onPress={() => setAudience(item)} disabled={busy} className={audience === item ? "setup__chip setup__chip--selected" : "setup__chip"} accessibilityRole="radio" accessibilityState={{ selected: audience === item }} accessibilityLabel={`Audience: ${audienceLabels[item].label}`}>
-                          <Text className={audience === item ? "setup__chip-label setup__chip-label--selected" : "setup__chip-label"}>{audienceLabels[item].label}</Text>
-                        </Pressable>
-                      ))}
+                  {showLocation ? (
+                    <TextInput className="compose__option-input" value={location} onChangeText={setLocation} maxLength={120} editable={!busy} autoFocus={!location} placeholder="Gym, park or city" placeholderTextColor={colors.faint} accessibilityLabel="Location" />
+                  ) : (
+                    <Text className="compose__option-title">Add location</Text>
+                  )}
+                </Pressable>
+                <View className="compose__option-divider" />
+                <Pressable onPress={() => setSheet("tags")} disabled={busy || editing} className="compose__option" accessibilityRole="button" accessibilityLabel={tagged.length > 0 ? `Tagged: ${tagged.map((m) => m.name).join(", ")}` : "Tag people"}>
+                  <View className="compose__option-icon">
+                    <SymbolView name={{ ios: "tag", android: "sell", web: "sell" }} size={18} tintColor={colors.ink} />
+                  </View>
+                  <View className="min-w-0 flex-1">
+                    <Text className="compose__option-title">Tag people</Text>
+                    {tagged.length > 0 && <Text className="compose__option-hint" numberOfLines={1}>with {tagged.map((m) => m.name).join(", ")}</Text>}
+                  </View>
+                </Pressable>
+                <View className="compose__option-divider" />
+                {inPlace ? (
+                  <View className="compose__option">
+                    <View className="compose__option-icon">
+                      <SymbolView name={{ ios: "person.3", android: "groups", web: "groups" }} size={18} tintColor={colors.ink} />
                     </View>
-                    <Text className="home__note mt-2">{isPrivate ? "Your account is private, so posts can't be shared with everyone." : audienceLabels[audience].hint}</Text>
+                    <View className="min-w-0 flex-1">
+                      <Text className="compose__option-title">Shared with {placeName}</Text>
+                      <Text className="compose__option-hint">Members of the gym see it in its feed.</Text>
+                    </View>
                   </View>
+                ) : (
+                  <Pressable onPress={() => setSheet("audience")} disabled={busy} className="compose__option" accessibilityRole="button" accessibilityLabel={`Audience: ${audienceLabels[audience].label}`}>
+                    <View className="compose__option-icon">
+                      <SymbolView name={audienceIcons[audience]} size={18} tintColor={colors.ink} />
+                    </View>
+                    <View className="min-w-0 flex-1">
+                      <Text className="compose__option-title">Audience: {audienceLabels[audience].label}</Text>
+                      <Text className="compose__option-hint">{isPrivate ? "Your account is private, so posts can't be shared with everyone." : audienceLabels[audience].hint}</Text>
+                    </View>
+                    <SymbolView name={{ ios: "chevron.down", android: "expand_more", web: "expand_more" }} size={16} tintColor={colors.ink} />
+                  </Pressable>
                 )}
-
-                {errorLine}
               </View>
-            )}
-          </ScrollView>
+              {editing && <Text className="home__note">Tags and poll options can&apos;t be changed after posting.</Text>}
+
+              {error && (
+                <Pressable onPress={() => setError(null)} accessibilityLabel="Dismiss error">
+                  <FormAlert message={error} />
+                </Pressable>
+              )}
+            </ScrollView>
+          )}
 
           <View className="compose__footer">
-            <Pressable onPress={openPreview} disabled={busy} className="btn-outline flex-1" accessibilityRole="button" accessibilityLabel="Preview">
-              <Text className="btn-outline__label">Preview</Text>
-            </Pressable>
             <Pressable onPress={publish} disabled={busy} className="btn-forest flex-1" style={{ opacity: busy ? 0.6 : 1 }} accessibilityRole="button" accessibilityLabel={publishLabel}>
               {publishing ? <ActivityIndicator color={colors.white} /> : <Text className="btn-forest__label">{publishLabel}</Text>}
             </Pressable>
           </View>
         </KeyboardAvoidingView>
       </SafeAreaView>
+
+      <ActionSheet
+        visible={sheet === "place"}
+        title="Posting to"
+        actions={[{ label: "My EATO feed", onPress: () => setPlace({ kind: "feed" }) }, ...postableGyms.map((gym) => ({ label: gym.name, onPress: () => setPlace({ kind: "gym" as const, id: gym.id, name: gym.name }) }))]}
+        onClose={() => setSheet(null)}
+      />
+      <ActionSheet
+        visible={sheet === "audience"}
+        title="Who can see this post?"
+        actions={audiences.map((item) => ({ label: audienceLabels[item].label, onPress: () => setAudience(item) }))}
+        onClose={() => setSheet(null)}
+      />
+      <ActionSheet
+        visible={sheet === "photo"}
+        title="Add photos"
+        actions={[
+          { label: "Take photo", onPress: () => addPhotos("camera") },
+          { label: "Choose from gallery", onPress: () => addPhotos("library") },
+        ]}
+        onClose={() => setSheet(null)}
+      />
+      {sheet === "tags" && (
+        <TagPeopleSheet
+          visible
+          selected={tagged}
+          onDone={(members) => {
+            setTagged(members);
+            setSheet(null);
+          }}
+          onClose={() => setSheet(null)}
+        />
+      )}
     </View>
   );
 }

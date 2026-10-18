@@ -1,5 +1,5 @@
 import { apiFetch, type ApiResult } from "@/lib/api";
-import type { Member, Page, Post, PostCategory } from "@/lib/community";
+import type { Member, NewPost, Page, Post } from "@/lib/community";
 import type { GymRole, GymVisibility, MembershipStatus } from "@/lib/gymRules";
 
 // Calls for gym communities (Eato_server/gyms/). `token` is the Clerk session token. The
@@ -91,7 +91,7 @@ export const gyms = {
   removeMember: (token: string | null, gymId: string, userId: string) => call<{ removed: true }>(token, `/${gymId}/members/${encodeURIComponent(userId)}`, { method: "DELETE" }),
 
   posts: (token: string | null, gymId: string, cursor: string | null = null) => call<Page<"posts", Post>>(token, `/${gymId}/posts${q({ cursor, limit: "20" })}`),
-  createPost: (token: string | null, gymId: string, body: { body: string; category: PostCategory; mediaIds?: string[]; clientKey?: string }) =>
+  createPost: (token: string | null, gymId: string, body: Omit<NewPost, "audience">) =>
     call<{ post: Post }>(token, `/${gymId}/posts`, { method: "POST", body }),
   approvePost: (token: string | null, gymId: string, postId: string) => call<{ id: string; reviewStatus: "published" }>(token, `/${gymId}/posts/${postId}/approve`, { method: "POST" }),
   removePost: (token: string | null, gymId: string, postId: string) => call<{ deleted: true }>(token, `/${gymId}/posts/${postId}`, { method: "DELETE" }),

@@ -11,7 +11,10 @@ const UUID = "11111111-2222-4333-8444-555555555555";
 
 describe("community validation", () => {
   it("posts: text within limits, a known category, optional own image", () => {
-    assert.deepEqual(v.validatePost({ body: "  Hit a PR  " }), { body: "Hit a PR", category: "general", audience: "public", mediaIds: [], groupId: null, clientKey: null });
+    assert.deepEqual(v.validatePost({ body: "  Hit a PR  " }), {
+      body: "Hit a PR", category: "general", audience: "public", mediaIds: [], groupId: null, clientKey: null,
+      headline: null, detail: null, detailDate: null, mealKcal: null, mealProteinG: null, location: null, taggedUserIds: [], pollOptions: [],
+    });
     assert.deepEqual(v.validatePost({ body: "x", category: "meal", mediaId: UUID.toUpperCase() }).mediaIds, [UUID]);
     assert.equal(v.validatePost({ body: "x", category: "workout" }).category, "workout");
     rejects(() => v.validatePost({ body: "" }), /Post text is required/);
@@ -73,10 +76,65 @@ describe("community validation", () => {
     assert.equal(v.validatePost({ body: "line one\nline two \u0000\u0007 🔥" }).body, "line one\nline two  🔥");
   });
 
+  it("post types: each type takes only its own details, and photo and poll posts have their own rules", () => {
+    const progress = v.validatePost({ category: "progress", headline: " Week 12 check-in ", detail: "-6 kg", detailDate: "2026-10-01" });
+    assert.deepEqual([progress.body, progress.headline, progress.detail, progress.detailDate], ["", "Week 12 check-in", "-6 kg", "2026-10-01"], "caption optional on a progress post");
+    const meal = v.validatePost({ category: "meal", body: "Lunch", headline: "Paneer bowl", mealKcal: 540, mealProteinG: 38 });
+    assert.deepEqual([meal.headline, meal.mealKcal, meal.mealProteinG, meal.detail], ["Paneer bowl", 540, 38, null]);
+    assert.equal(v.validatePost({ category: "achievement", headline: "First pull-up", detail: "Six months of trying" }).detail, "Six months of trying");
+    assert.equal(v.validatePost({ category: "meal", body: "older app build" }).headline, null, "the title is optional on the server");
+    rejects(() => v.validatePost({ category: "meal", headline: "Bowl", detail: "x" }), /meal post can't have detail/);
+    rejects(() => v.validatePost({ category: "general", body: "x", headline: "sneaky" }), /general post can't have headline/);
+    rejects(() => v.validatePost({ category: "meal", headline: "Bowl", mealKcal: 5001 }), /Calories must be a whole number/);
+    rejects(() => v.validatePost({ category: "meal", headline: "Bowl", mealProteinG: 12.5 }), /Protein must be a whole number/);
+    rejects(() => v.validatePost({ category: "meal", headline: "Bowl", mealKcal: "500" }), /Calories/);
+    rejects(() => v.validatePost({ category: "progress", headline: "x", detailDate: "2026-02-30" }), /Date must be a date/);
+    rejects(() => v.validatePost({ category: "progress", headline: "x", detailDate: "2999-01-01" }), /future/);
+    rejects(() => v.validatePost({ category: "progress", headline: "x".repeat(121) }), /too long/);
+
+    // Photo: at least one photo, caption optional. Question: caption required.
+    assert.equal(v.validatePost({ category: "photo", mediaIds: [UUID] }).body, "");
+    rejects(() => v.validatePost({ category: "photo", body: "no photo" }), /at least one photo/);
+    rejects(() => v.validatePost({ category: "question" }), /Question is required/);
+
+    // Poll: 2 to 6 distinct options, no photos; only polls have options
+    assert.deepEqual(v.validatePost({ category: "poll", body: "Best leg day?", pollOptions: [" Squats ", "Lunges"] }).pollOptions, ["Squats", "Lunges"]);
+    rejects(() => v.validatePost({ category: "poll", body: "?", pollOptions: ["One"] }), /2 to 6 options/);
+    rejects(() => v.validatePost({ category: "poll", body: "?", pollOptions: ["a", "b", "c", "d", "e", "f", "g"] }), /2 to 6 options/);
+    rejects(() => v.validatePost({ category: "poll", body: "?", pollOptions: ["Squats", "squats"] }), /must be different/);
+    rejects(() => v.validatePost({ category: "poll", body: "?", pollOptions: ["a", ""] }), /Option 2 is required/);
+    rejects(() => v.validatePost({ category: "poll", body: "?", pollOptions: ["a", "b"], mediaIds: [UUID] }), /can't have photos/);
+    rejects(() => v.validatePost({ category: "poll", body: "?" }), /2 to 6 options/);
+    rejects(() => v.validatePost({ body: "x", pollOptions: ["a", "b"] }), /Only a poll has options/);
+  });
+
+  it("post location and tags: short text, up to 10 distinct Clerk ids, nothing that looks like SQL", () => {
+    const tagged = ["user_2abcdefghijk", "user_3abcdefghijk"];
+    const post = v.validatePost({ body: "x", location: " Cult, Indiranagar ", taggedUserIds: tagged });
+    assert.deepEqual([post.location, post.taggedUserIds], ["Cult, Indiranagar", tagged]);
+    rejects(() => v.validatePost({ body: "x", location: "x".repeat(121) }), /Location is too long/);
+    rejects(() => v.validatePost({ body: "x", taggedUserIds: "user_2abcdefghijk" }), /must be a list/);
+    rejects(() => v.validatePost({ body: "x", taggedUserIds: [tagged[0], tagged[0]] }), /tagged once/);
+    rejects(() => v.validatePost({ body: "x", taggedUserIds: ["user_x' OR '1'='1"] }), /tagged member isn't valid/);
+    rejects(() => v.validatePost({ body: "x", taggedUserIds: Array.from({ length: 11 }, (_, i) => `user_${String(i).padStart(12, "a")}`) }), /up to 10/);
+  });
+
+  it("poll votes: one option id", () => {
+    assert.deepEqual(v.validateVote({ optionId: UUID.toUpperCase() }), { optionId: UUID });
+    rejects(() => v.validateVote({ optionId: "1 OR 1=1" }), /option isn't valid/);
+    rejects(() => v.validateVote({ optionId: UUID, userId: "user_x" }), /unexpected field: userId/);
+  });
+
   it("post updates: only text and category, and at least one of them", () => {
     assert.deepEqual(v.validatePostUpdate({ body: "new" }), { body: "new" });
     rejects(() => v.validatePostUpdate({}), /Nothing to change/);
     rejects(() => v.validatePostUpdate({ likeCount: 999 }), /unexpected field: likeCount/);
+    assert.deepEqual(v.validatePostUpdate({ headline: "New title", location: "" }), { location: null, detailInput: { headline: "New title" } });
+    rejects(() => v.validatePostUpdate({ category: "poll" }), /can't be changed into that type/);
+    rejects(() => v.validatePostUpdate({ pollOptions: ["a", "b"] }), /unexpected field: pollOptions/);
+    rejects(() => v.validatePostUpdate({ taggedUserIds: [] }), /unexpected field: taggedUserIds/);
+    assert.equal(v.validateDetailUpdate("meal", { headline: "Bowl", mealKcal: 400 }).mealKcal, 400);
+    rejects(() => v.validateDetailUpdate("photo", { headline: "x" }), /photo post can't have headline/);
   });
 
   it("comments, stories, reports and messages", () => {

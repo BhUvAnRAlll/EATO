@@ -4,7 +4,7 @@
 const { ValidationError } = require("../profile");
 const { memberSummary } = require("./members");
 const { assertOwnMediaList, removeIfUnreferenced, mediaUrl } = require("./media");
-const { encodeCursor } = require("./validate");
+const { encodeCursor, validateDetailUpdate, CAPTION_OPTIONAL, DETAIL_FIELDS: DETAIL_FIELDS_FOR } = require("./validate");
 const { VISIBLE_POST_SQL, visiblePostParams, canSeeAccount } = require("./visibility");
 
 // Safe-to-show errors: the shared handler answers with the status and the message
@@ -25,6 +25,7 @@ class ForbiddenError extends Error {
 
 const POST_SELECT = `
   SELECT p.id, p.user_id, p.group_id, p.gym_id, p.review_status, p.category, p.audience, p.body, p.media_id, p.like_count, p.comment_count,
+         p.headline, p.detail, DATE_FORMAT(p.detail_date, '%Y-%m-%d') AS detail_date, p.meal_kcal, p.meal_protein_g, p.location,
          p.created_at, p.updated_at, u.full_name,
          EXISTS (SELECT 1 FROM community_post_likes l WHERE l.post_id = p.id AND l.user_id = ?) AS liked
   FROM community_posts p
@@ -39,7 +40,40 @@ async function mediaByPost(pool, postIds) {
   return result;
 }
 
-function postToApi(row, viewerId, media = []) {
+// Tagged friends and poll results for a page of posts, in three queries whatever the page size.
+// Suspended members are left out of the tags. Vote counts are live; myVote is the viewer's own.
+async function extrasByPost(pool, viewerId, postIds) {
+  const result = new Map(postIds.map((id) => [id, { tagged: [], poll: null }]));
+  if (postIds.length === 0) return result;
+  const [tags] = await pool.query(
+    `SELECT t.post_id, u.id AS user_id, u.full_name
+     FROM community_post_tags t
+     JOIN users u ON u.id = t.user_id
+     LEFT JOIN community_profiles cp ON cp.user_id = u.id
+     WHERE t.post_id IN (?) AND (cp.status IS NULL OR cp.status <> 'suspended')
+     ORDER BY t.post_id, u.full_name`,
+    [postIds],
+  );
+  for (const row of tags) result.get(row.post_id).tagged.push(memberSummary(row));
+  const [options] = await pool.query(
+    `SELECT o.id, o.post_id, o.label,
+            (SELECT COUNT(*) FROM community_poll_votes v WHERE v.post_id = o.post_id AND v.option_id = o.id) AS votes
+     FROM community_poll_options o WHERE o.post_id IN (?) ORDER BY o.post_id, o.position`,
+    [postIds],
+  );
+  if (options.length === 0) return result;
+  const [mine] = await pool.query("SELECT post_id, option_id FROM community_poll_votes WHERE user_id = ? AND post_id IN (?)", [viewerId, postIds]);
+  const myVotes = new Map(mine.map((row) => [row.post_id, row.option_id]));
+  for (const row of options) {
+    const extras = result.get(row.post_id);
+    extras.poll ??= { options: [], totalVotes: 0, myVote: myVotes.get(row.post_id) ?? null };
+    extras.poll.options.push({ id: row.id, label: row.label, votes: Number(row.votes) });
+    extras.poll.totalVotes += Number(row.votes);
+  }
+  return result;
+}
+
+function postToApi(row, viewerId, media = [], extras = { tagged: [], poll: null }) {
   return {
     id: row.id,
     author: memberSummary(row),
@@ -49,6 +83,15 @@ function postToApi(row, viewerId, media = []) {
     category: row.category,
     audience: row.audience,
     body: row.body,
+    // The type's details (null where the type has none)
+    headline: row.headline ?? null,
+    detail: row.detail ?? null,
+    detailDate: row.detail_date ?? null,
+    mealKcal: row.meal_kcal ?? null,
+    mealProteinG: row.meal_protein_g ?? null,
+    location: row.location ?? null,
+    tagged: extras.tagged,
+    poll: extras.poll, // { options: [{ id, label, votes }], totalVotes, myVote } on a poll, else null
     imageUrl: media[0]?.url ?? mediaUrl(row.media_id), // the cover, for anything that shows one image
     media,
     likeCount: row.like_count,
@@ -77,8 +120,9 @@ async function listPosts(pool, userId, { gymId = null, authorId = null, cursor =
   params.push(limit + 1);
   const [rows] = await pool.query(`${POST_SELECT} ${where} ORDER BY p.created_at DESC, p.id DESC LIMIT ?`, params);
   const page = rows.slice(0, limit);
-  const media = await mediaByPost(pool, page.map((row) => row.id));
-  return { posts: page.map((row) => postToApi(row, userId, media.get(row.id))), nextCursor: rows.length > limit ? encodeCursor(page[page.length - 1]) : null };
+  const ids = page.map((row) => row.id);
+  const [media, extras] = await Promise.all([mediaByPost(pool, ids), extrasByPost(pool, userId, ids)]);
+  return { posts: page.map((row) => postToApi(row, userId, media.get(row.id), extras.get(row.id))), nextCursor: rows.length > limit ? encodeCursor(page[page.length - 1]) : null };
 }
 
 // A post the viewer may see; anything else is a 404 (never confirms a hidden post exists)
@@ -86,8 +130,8 @@ async function getPost(pool, userId, postId) {
   const [rows] = await pool.query(`${POST_SELECT} WHERE p.id = ? AND p.deleted_at IS NULL AND ${VISIBLE_POST_SQL}`, [userId, postId, ...visiblePostParams(userId)]);
   const row = rows[0];
   if (!row) throw new NotFoundError("That post no longer exists.");
-  const media = await mediaByPost(pool, [row.id]);
-  return postToApi(row, userId, media.get(row.id));
+  const [media, extras] = await Promise.all([mediaByPost(pool, [row.id]), extrasByPost(pool, userId, [row.id])]);
+  return postToApi(row, userId, media.get(row.id), extras.get(row.id));
 }
 
 // Whether the viewer may see a live post the image belongs to (for the media route). A
@@ -135,6 +179,17 @@ async function findByClientKey(pool, userId, clientKey) {
   return rows[0]?.id ?? null;
 }
 
+// Only accepted friends can be tagged (never yourself); checked inside the caller's transaction
+async function assertTaggable(connection, userId, taggedUserIds) {
+  if (taggedUserIds.length === 0) return;
+  const [[{ friends }]] = await connection.query(
+    `SELECT COUNT(*) AS friends FROM community_friendships
+     WHERE status = 'accepted' AND ((user_low = ? AND user_high IN (?)) OR (user_high = ? AND user_low IN (?)))`,
+    [userId, taggedUserIds, userId, taggedUserIds],
+  );
+  if (Number(friends) !== taggedUserIds.length) throw new ValidationError("You can only tag your friends.");
+}
+
 // Writes the ordered photo list for a post (inside the caller's transaction)
 async function writePostMedia(connection, postId, mediaIds) {
   await connection.query("DELETE FROM community_post_media WHERE post_id = ?", [postId]);
@@ -157,13 +212,23 @@ async function createPost(pool, userId, values) {
   try {
     await connection.beginTransaction();
     await assertAudienceAllowed(connection, userId, values.audience, values.groupId || values.gymId);
+    const tagged = values.taggedUserIds ?? [];
+    await assertTaggable(connection, userId, tagged);
     const [[{ id }]] = await connection.query("SELECT UUID() AS id");
     postId = id;
     await connection.query(
-      "INSERT INTO community_posts (id, user_id, group_id, gym_id, review_status, category, audience, body, media_id, client_key) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-      [postId, userId, values.groupId, values.gymId ?? null, values.reviewStatus ?? "published", values.category, values.audience, values.body, media[0]?.id ?? null, values.clientKey],
+      `INSERT INTO community_posts (id, user_id, group_id, gym_id, review_status, category, audience, body,
+         headline, detail, detail_date, meal_kcal, meal_protein_g, location, media_id, client_key)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [postId, userId, values.groupId, values.gymId ?? null, values.reviewStatus ?? "published", values.category, values.audience, values.body,
+        values.headline ?? null, values.detail ?? null, values.detailDate ?? null, values.mealKcal ?? null, values.mealProteinG ?? null, values.location ?? null,
+        media[0]?.id ?? null, values.clientKey],
     );
     await writePostMedia(connection, postId, media.map((row) => row.id));
+    for (const taggedId of tagged) await connection.query("INSERT INTO community_post_tags (post_id, user_id) VALUES (?, ?)", [postId, taggedId]);
+    for (const [position, label] of (values.pollOptions ?? []).entries()) {
+      await connection.query("INSERT INTO community_poll_options (post_id, position, label) VALUES (?, ?, ?)", [postId, position, label]);
+    }
     await connection.commit();
   } catch (error) {
     await connection.rollback();
@@ -185,11 +250,30 @@ async function createPost(pool, userId, values) {
 async function updatePost(pool, userId, postId, changes) {
   const visible = await getPost(pool, userId, postId);
   if (!visible.isOwn) throw new ForbiddenError("Only the author can edit this post.");
+  // A photo, question or poll post keeps its type, and a type change starts from those types too
+  const category = changes.category ?? visible.category;
+  if (changes.category !== undefined && changes.category !== visible.category && ["photo", "question", "poll"].includes(visible.category)) {
+    throw new ValidationError("This post's type can't be changed.");
+  }
+  const body = changes.body ?? visible.body;
+  if (body === "" && !CAPTION_OPTIONAL.includes(category)) throw new ValidationError("Post text is required.");
+  if (changes.mediaIds !== undefined && category === "photo" && changes.mediaIds.length === 0) throw new ValidationError("Add at least one photo.");
+  if (changes.mediaIds !== undefined && category === "poll" && changes.mediaIds.length > 0) throw new ValidationError("A poll can't have photos.");
   const media = changes.mediaIds === undefined ? null : await assertOwnMediaList(pool, changes.mediaIds, userId);
   const sets = [];
   const params = [];
   if (changes.body !== undefined) { sets.push("body = ?"); params.push(changes.body); }
   if (changes.category !== undefined) { sets.push("category = ?"); params.push(changes.category); }
+  // Details: the saved ones the type still uses, with the edits on top, checked for that type.
+  // Fields the new type doesn't use are cleared.
+  if (changes.category !== undefined || changes.detailInput) {
+    const saved = { headline: visible.headline, detail: visible.detail, detailDate: visible.detailDate, mealKcal: visible.mealKcal, mealProteinG: visible.mealProteinG };
+    const kept = Object.fromEntries(Object.entries(saved).filter(([key]) => (DETAIL_FIELDS_FOR[category] ?? []).includes(key)));
+    const details = validateDetailUpdate(category, { ...kept, ...changes.detailInput });
+    sets.push("headline = ?", "detail = ?", "detail_date = ?", "meal_kcal = ?", "meal_protein_g = ?");
+    params.push(details.headline, details.detail, details.detailDate, details.mealKcal, details.mealProteinG);
+  }
+  if (changes.location !== undefined) { sets.push("location = ?"); params.push(changes.location); }
   if (changes.audience !== undefined) { sets.push("audience = ?"); params.push(changes.audience); }
   if (media !== null) { sets.push("media_id = ?"); params.push(media[0]?.id ?? null); }
   params.push(postId);
@@ -210,6 +294,20 @@ async function updatePost(pool, userId, postId, changes) {
     const kept = new Set(media.map((row) => row.id));
     for (const item of visible.media) if (!kept.has(item.id)) await removeIfUnreferenced(pool, item.id);
   }
+  return getPost(pool, userId, postId);
+}
+
+// A vote on a poll the viewer can see (a hidden post is a 404). One vote per member; voting
+// again moves it. The option must belong to this poll.
+async function votePoll(pool, userId, postId, optionId) {
+  const post = await getPost(pool, userId, postId);
+  if (post.category !== "poll") throw new ValidationError("This post isn't a poll.");
+  const [options] = await pool.query("SELECT id FROM community_poll_options WHERE id = ? AND post_id = ?", [optionId, postId]);
+  if (options.length === 0) throw new ValidationError("That option isn't part of this poll.");
+  await pool.query(
+    "INSERT INTO community_poll_votes (post_id, user_id, option_id) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE option_id = VALUES(option_id)",
+    [postId, userId, optionId],
+  );
   return getPost(pool, userId, postId);
 }
 
@@ -408,6 +506,6 @@ async function resolveReport(pool, reportId, status) {
 
 module.exports = {
   NotFoundError, ForbiddenError, canSeePostMedia, reportEvidenceMediaId,
-  listPosts, getPost, createPost, updatePost, deletePost, setLike,
+  listPosts, getPost, createPost, updatePost, deletePost, setLike, votePoll,
   listComments, createComment, deleteComment, reportContent, listReports, getReport, resolveReport,
 };

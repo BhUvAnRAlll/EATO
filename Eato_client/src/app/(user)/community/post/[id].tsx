@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, Pressable, Text, TextInput, useWindowDimensions, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
@@ -9,20 +9,25 @@ import { ActionSheet, type SheetAction } from "@/components/community/ActionShee
 import { Avatar } from "@/components/community/Avatar";
 import { EmptyState } from "@/components/community/CommunityStates";
 import { PostCard } from "@/components/community/PostCard";
+import { PostMenu } from "@/components/community/PostMenu";
 import { FormAlert } from "@/components/FormAlert";
 import { community, timeAgo, type Comment, type Post } from "@/lib/community";
+import { useMe } from "@/lib/me";
 import { useSessionToken } from "@/lib/session";
 import { useCommunityStore } from "@/store/community";
 import { colors } from "@/theme";
 
 const MAX_LENGTH = 500;
 
-// One post with its comments (paged, oldest first) and a reply box
+// One post with its comments (paged, oldest first) and a comment box. A long press on a
+// comment opens its options (Delete or Report).
 export default function PostComments() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { width } = useWindowDimensions();
   const getToken = useSessionToken();
+  const me = useMe();
   const store = useCommunityStore();
+  const input = useRef<TextInput>(null);
   const [post, setPost] = useState<Post | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
@@ -31,6 +36,7 @@ export default function PostComments() {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [menuComment, setMenuComment] = useState<Comment | null>(null);
+  const [menuPost, setMenuPost] = useState<Post | null>(null);
 
   const load = useCallback(async () => {
     setStatus("loading");
@@ -75,6 +81,14 @@ export default function PostComments() {
     }
     setPost((current) => (current ? { ...current, ...result.data } : current));
     store.patchPost(post.id, result.data);
+  };
+
+  const vote = async (optionId: string) => {
+    if (!post) return;
+    const result = await community.vote(await getToken(), post.id, optionId);
+    if (!result.ok) return setError(result.error);
+    setPost(result.data.post);
+    store.upsertPost(result.data.post);
   };
 
   const send = async () => {
@@ -122,11 +136,12 @@ export default function PostComments() {
     <View className="flex-1 bg-cream">
       <StatusBar style="dark" />
       <SafeAreaView style={{ flex: 1 }}>
-        <View className="h-12 flex-row items-center px-5">
-          <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Back">
-            <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={20} tintColor={colors.forestInk} />
+        <View className="screen-bar">
+          <Pressable onPress={() => router.back()} hitSlop={12} className="screen-bar__back" accessibilityRole="button" accessibilityLabel="Back">
+            <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={20} tintColor={colors.ink} />
           </Pressable>
-          <Text className="type-subhead ml-3 flex-1 text-forest-ink">Comments</Text>
+          <Text className="screen-bar__title">Post</Text>
+          <View className="screen-bar__back" />
         </View>
 
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
@@ -142,14 +157,14 @@ export default function PostComments() {
               keyExtractor={(comment) => comment.id}
               ListHeaderComponent={
                 post ? (
-                  <View className="px-5 pb-4">
-                    <PostCard post={post} width={width - 40} onLike={like} onOpenComments={() => {}} onMenu={() => {}} onAuthor={() => router.push({ pathname: "/community/profile/[userId]", params: { userId: post.author.id } })} />
+                  <View className="px-5 pb-3 pt-4">
+                    <PostCard post={post} width={width - 40} onLike={like} onOpenComments={() => input.current?.focus()} onMenu={() => setMenuPost(post)} onVote={vote} onAuthor={() => router.push({ pathname: "/community/profile/[userId]", params: { userId: post.author.id } })} />
                     {error && (
                       <Pressable onPress={() => setError(null)} className="mt-3">
                         <FormAlert message={error} />
                       </Pressable>
                     )}
-                    <Text className="setup__section mt-4">{post.commentCount === 1 ? "1 comment" : `${post.commentCount} comments`}</Text>
+                    <Text className="comments__heading mt-6">Comments ({post.commentCount})</Text>
                   </View>
                 ) : null
               }
@@ -160,19 +175,22 @@ export default function PostComments() {
                 </Pressable>
               ) : <View className="h-3" />}
               renderItem={({ item }) => (
-                <View className="flex-row gap-3 px-5 py-2">
-                  <Avatar member={item.author} size={36} />
-                  <View className="flex-1">
-                    <View className="flex-row items-center gap-2">
-                      <Text className="post__author" style={{ fontSize: 14 }}>{item.author.name}</Text>
-                      <Text className="post__time">{timeAgo(item.createdAt)}</Text>
-                      <View className="flex-1" />
-                      <Pressable onPress={() => setMenuComment(item)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Comment options">
-                        <SymbolView name={{ ios: "ellipsis", android: "more_horiz", web: "more_horiz" }} size={16} tintColor={colors.muted} />
-                      </Pressable>
-                    </View>
+                <View className="flex-row gap-3 px-5 py-1.5">
+                  <Avatar member={item.author} size={34} />
+                  <Pressable
+                    onLongPress={() => setMenuComment(item)}
+                    delayLongPress={350}
+                    className="comment__bubble"
+                    accessibilityLabel={`${item.author.name}: ${item.body}`}
+                    accessibilityHint="Long press for options"
+                    accessibilityActions={[{ name: "longpress", label: "Comment options" }]}
+                    onAccessibilityAction={() => setMenuComment(item)}
+                  >
+                    <Text className="comment__meta" numberOfLines={1}>
+                      <Text className="comment__author">{item.author.name}</Text> · {timeAgo(item.createdAt)}
+                    </Text>
                     <Text className="comment__body mt-0.5">{item.body}</Text>
-                  </View>
+                  </Pressable>
                 </View>
               )}
               keyboardShouldPersistTaps="handled"
@@ -180,16 +198,27 @@ export default function PostComments() {
             />
           )}
 
-          <View className="flex-row items-end gap-2 border-t border-cream-line bg-cream px-5 py-3">
-            <TextInput className="reply" value={text} onChangeText={setText} placeholder="Write a comment" placeholderTextColor={colors.faint} multiline maxLength={MAX_LENGTH} accessibilityLabel="Write a comment" />
-            <Pressable onPress={send} disabled={!text.trim() || sending} className="reply__send" style={{ opacity: text.trim() && !sending ? 1 : 0.5 }} accessibilityRole="button" accessibilityLabel="Send comment">
-              {sending ? <ActivityIndicator color={colors.white} /> : <SymbolView name={{ ios: "arrow.up", android: "arrow_upward", web: "arrow_upward" }} size={20} tintColor={colors.white} />}
+          <View className="comment-bar">
+            <Avatar member={me} size={34} />
+            <TextInput ref={input} className="comment-bar__input" value={text} onChangeText={setText} placeholder="Add a comment..." placeholderTextColor={colors.faint} multiline numberOfLines={1} maxLength={MAX_LENGTH} accessibilityLabel="Add a comment" />
+            <Pressable onPress={send} disabled={!text.trim() || sending} className={text.trim() && !sending ? "comment-bar__send" : "comment-bar__send comment-bar__send--disabled"} accessibilityRole="button" accessibilityLabel="Send comment" accessibilityState={{ disabled: !text.trim() || sending, busy: sending }}>
+              {sending ? <ActivityIndicator color={colors.white} /> : <SymbolView name={{ ios: "paperplane.fill", android: "send", web: "send" }} size={18} tintColor={colors.white} />}
             </Pressable>
           </View>
         </KeyboardAvoidingView>
       </SafeAreaView>
 
       <ActionSheet visible={menuComment !== null} actions={menuComment ? commentActions(menuComment) : []} onClose={() => setMenuComment(null)} />
+      <PostMenu
+        post={menuPost}
+        source="the post screen"
+        onClose={() => setMenuPost(null)}
+        onDeleted={(deleted) => {
+          store.removePost(deleted.id);
+          router.back();
+        }}
+        onNotice={setError}
+      />
     </View>
   );
 }

@@ -88,7 +88,14 @@ describe("ui community: feed, stories and messages for a signed-in member", () =
     await client.send("DOM.enable", {}, page.sessionId);
     await client.send("Page.setInterceptFileChooserDialog", { enabled: true }, page.sessionId);
     const opened = new Promise((resolve) => client.on((msg) => { if (msg.sessionId === page.sessionId && msg.method === "Page.fileChooserOpened") resolve(msg.params); }));
-    await clickLabel("Choose from gallery");
+    // Create Post opens a sheet from its Add tile; the story screen has the gallery button itself
+    const hasAddTile = await page.evaluate(`[...document.querySelectorAll('[aria-label="Add photos"]')].some((e) => e.getClientRects().length > 0)`);
+    if (hasAddTile) {
+      await clickLabel("Add photos");
+      await page.clickText("Choose from gallery");
+    } else {
+      await clickLabel("Choose from gallery");
+    }
     const chooser = await Promise.race([opened, new Promise((_, reject) => setTimeout(() => reject(new Error("the file chooser did not open")), NAV_TIMEOUT))]);
     await client.send("DOM.setFileInputFiles", { files: [file], backendNodeId: chooser.backendNodeId }, page.sessionId);
     await client.send("Page.setInterceptFileChooserDialog", { enabled: false }, page.sessionId);
@@ -148,7 +155,7 @@ describe("ui community: feed, stories and messages for a signed-in member", () =
     if (problems.length > 0) throw new Error(`cleanup incomplete: ${problems.join("; ")}`);
   });
 
-  it("1. Community opens from the tab bar with Feed, Friends and Gyms (no Leagues, no Groups)", run("open", async () => {
+  it("1. Community opens from the tab bar with Feed, Friends, Trainers and Gyms (no Leagues, no Groups, no Challenges)", run("open", async () => {
     await viewport(390, 844);
     await signInAs(page, h, identities.a);
     await h.expectPath("/home");
@@ -158,12 +165,16 @@ describe("ui community: feed, stories and messages for a signed-in member", () =
     await h.expectText("TRAIN TOGETHER");
     await h.expectText("Feed");
     await h.expectText("Friends");
+    await h.expectText("Trainers");
     await h.expectText("Gyms");
     assert.equal(await page.hasText("Groups"), false, "the Groups tab was removed");
+    assert.equal(await page.hasText("Challenges"), false, "Challenges were dropped");
     assert.equal(await page.hasText("Leagues"), false, "there is no Leagues tab");
     assert.equal(await page.hasText("Leaderboard"), false);
     await h.expectText("Your story");
-    await h.expectText("Share your progress...");
+    // The quick post: a caption field (its placeholder isn't page text) and a Post button that waits for text
+    await page.waitFor(`(() => { const el = document.querySelector('[aria-label="Share your progress"]'); return !!el && el.placeholder === "Share your progress..."; })()`, NAV_TIMEOUT, "quick post caption");
+    await page.waitFor(`document.querySelector('[aria-label="Post"]')?.getAttribute("aria-disabled") === "true"`, NAV_TIMEOUT, "Post disabled while empty");
     await h.expectText("Rohan Mehta");
     await h.expectText("Consistency pays.");
     await noOverflow("community feed");
@@ -179,38 +190,51 @@ describe("ui community: feed, stories and messages for a signed-in member", () =
     await waitForLikeCount(0);
   }));
 
-  it("3. a new post with a photo is previewed, published once, and appears at the top of the feed", run("post", async () => {
-    await page.clickText("Share your progress...");
+  it("3. Create Post: a meal with its details, a photo, a location and an audience is published once, at the top of the feed", run("post", async () => {
+    await clickLabel("Create post");
     await h.expectPath("/community/compose");
     await h.expectText("Create Post");
-    await h.expectText("Posting to Everyone"); // the author row (the name shown comes from the Clerk account)
-    await h.expectText("Who can see this");
-    // Validation: nothing to publish yet
-    await clickLabel("Preview");
-    await h.expectText("Write a caption before publishing.");
+    await h.expectText("Posting to");
+    await h.expectText("My EATO feed");
+    await h.expectText("Post type");
+    await noOverflow("compose");
+    await snapshotAllWidths("community-compose");
+    // Validation: a photo post needs a photo, a meal needs its name
+    await clickLabel("Post");
+    await h.expectText("Add at least one photo.");
+    await clickLabel("Post type: Meal");
+    await h.expectText("Meal name");
+    await clickLabel("Post");
+    await h.expectText("Add the meal's name.");
+    await page.setInput('[aria-label="Meal name"]', "Paneer tikka bowl");
+    await page.setInput('[aria-label="Calories"]', "540");
+    await page.setInput('[aria-label="Protein"]', "38");
     await page.setInput('[aria-label="Post text"]', "Week one of meal prep done. Four lunches boxed and ready.");
-    await page.clickText("Meal");
-    await clickLabel("Audience: Followers");
-    await h.expectText("Members you've accepted as followers");
+    // Audience: a sheet with the account's choices
     await clickLabel("Audience: Everyone");
+    await h.expectText("Who can see this post?");
+    await page.clickText("Followers");
+    await h.expectText("Members you've accepted as followers");
+    await clickLabel("Audience: Followers");
+    await page.clickText("Everyone");
     await h.expectText("Anyone on EATO");
+    await clickLabel("Add location");
+    await page.setInput('[aria-label="Location"]', "Cult, Indiranagar");
     await choosePhotoFromGallery(photoFile);
     await h.expectText("1/4");
     await page.waitFor(`!!document.querySelector('[aria-label="Remove photo 1"]')`, NAV_TIMEOUT, "photo thumbnail");
-    await noOverflow("compose");
-    await snapshotAllWidths("community-compose");
-    await clickLabel("Preview");
-    await h.expectText("This is how your post will look.");
-    await h.expectText("Visible to: Everyone · Meal · 1 photo");
-    await h.expectText("Four lunches boxed and ready.");
-    await snapshot("community-preview-390");
-    await clickLabel("Publish");
+    await noOverflow("compose meal");
+    await snapshotAllWidths("community-compose-meal");
+    await clickLabel("Post");
     await h.expectPath("/community");
     await h.expectText("Four lunches boxed and ready.");
-    const [posts] = await connection.query("SELECT id, user_id, category, media_id, client_key FROM community_posts WHERE user_id = ?", [identities.a.id]);
+    await h.expectText("Paneer tikka bowl");
+    await h.expectText("540 kcal · 38 g protein");
+    await h.expectText("Cult, Indiranagar");
+    const [posts] = await connection.query("SELECT id, user_id, category, headline, meal_kcal, meal_protein_g, location, media_id, client_key FROM community_posts WHERE user_id = ?", [identities.a.id]);
     assert.equal(posts.length, 1, "published exactly once");
     const row = posts[0];
-    assert.equal(row.category, "meal");
+    assert.deepEqual([row.category, row.headline, row.meal_kcal, row.meal_protein_g, row.location], ["meal", "Paneer tikka bowl", 540, 38, "Cult, Indiranagar"]);
     assert.ok(row.client_key, "the draft's client key was saved");
     assert.ok(row.media_id, "the photo is attached");
     assert.ok(fs.existsSync(path.join(uploadDir, `${row.media_id}.png`)), "the photo's file was written");
@@ -223,38 +247,66 @@ describe("ui community: feed, stories and messages for a signed-in member", () =
     await snapshotAllWidths("community-feed-with-post");
   }));
 
-  it("3b. the author edits the post: the caption changes and the photo stays", run("edit", async () => {
+  it("3b. the author edits the post: the caption changes; the type, details and photo stay", run("edit", async () => {
     await clickLabel("Post options", 0); // the member's own post is first
     await page.clickText("Edit post");
     await h.expectPath("/community/compose");
     await h.expectText("Edit Post");
+    await h.expectText("Post type: Meal");
     await h.expectText("1/4"); // the saved photo is listed
     await page.setInput('[aria-label="Post text"]', "Week one of meal prep done. Five lunches boxed and ready.");
     await snapshot("community-edit-390");
     await clickLabel("Save changes");
     await h.expectPath("/community");
     await h.expectText("Five lunches boxed and ready.");
-    const [[row]] = await connection.query("SELECT body, media_id FROM community_posts WHERE user_id = ?", [identities.a.id]);
+    const [[row]] = await connection.query("SELECT body, category, headline, meal_kcal, media_id FROM community_posts WHERE user_id = ?", [identities.a.id]);
     assert.match(row.body, /Five lunches/);
+    assert.deepEqual([row.category, row.headline, row.meal_kcal], ["meal", "Paneer tikka bowl", 540]);
     assert.ok(row.media_id, "the photo stayed on the post");
   }));
 
-  it("4. comments open from a post, are saved, and the count follows", run("comments", async () => {
+  it("4. comments open from a post, are saved, and the count follows; the post menu and a long press work there", run("comments", async () => {
     await clickLabel("0 comments");
     await page.waitFor(`location.pathname.startsWith("/community/post/")`, NAV_TIMEOUT, "comments screen");
-    await h.expectText("Comments");
+    await h.expectText("Comments (0)");
+    // The comment icon on the post focuses the comment box
+    await clickLabel("0 comments", -1);
+    await page.waitFor(`document.activeElement?.getAttribute("aria-label") === "Add a comment"`, NAV_TIMEOUT, "comment box focused");
+    // The post's ⋯ works here too: the author's own post offers Edit and Delete
+    await clickLabel("Post options", -1);
+    await h.expectText("Edit post");
+    await h.expectText("Delete post");
+    await clickLabel("Close");
+    await h.expectNoText("Edit post");
     // The reply box occasionally misses the first synthetic input while the screen is still
     // mounting: type until the Send button is enabled (it stays disabled for an empty box)
     for (let attempt = 0; attempt < 5; attempt++) {
-      await page.setInput('[aria-label="Write a comment"]', "Huge lift, well done!");
+      await page.setInput('[aria-label="Add a comment"]', "Huge lift, well done!");
       const enabled = await page.evaluate(`(() => { const el = document.querySelector('[aria-label="Send comment"]'); return !!el && el.getAttribute("aria-disabled") !== "true" && !el.disabled; })()`);
       if (enabled) break;
       await new Promise((r) => setTimeout(r, 500));
     }
     await clickLabel("Send comment");
     await h.expectText("Huge lift, well done!");
-    await h.expectText("1 comment");
-    await snapshot("community-comments-390");
+    await h.expectText("Comments (1)");
+    await noOverflow("post detail");
+    await snapshotAllWidths("community-post-detail");
+    // A long press on the comment opens its options (no ⋯ on the bubble). The bubble is measured
+    // fresh on each try: the screenshots above just resized the window, so the layout may still move.
+    let opened = false;
+    for (let attempt = 0; attempt < 3 && !opened; attempt++) {
+      const bubble = await page.waitFor(`(() => { const el = [...document.querySelectorAll('[aria-label$=": Huge lift, well done!"]')].find((e) => e.getClientRects().length > 0); if (!el) return null; el.scrollIntoView({ block: "center" }); const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`, NAV_TIMEOUT, "comment bubble");
+      await new Promise((r) => setTimeout(r, 300));
+      await client.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: bubble.x, y: bubble.y }, page.sessionId);
+      await client.send("Input.dispatchMouseEvent", { type: "mousePressed", x: bubble.x, y: bubble.y, button: "left", clickCount: 1 }, page.sessionId);
+      await new Promise((r) => setTimeout(r, 900));
+      await client.send("Input.dispatchMouseEvent", { type: "mouseReleased", x: bubble.x, y: bubble.y, button: "left", clickCount: 1 }, page.sessionId);
+      opened = await page.waitFor(`document.body.innerText.includes("Delete comment")`, 3000, "comment options").catch(() => false);
+    }
+    await h.expectText("Delete comment");
+    await snapshot("community-comment-options-390");
+    await clickLabel("Close");
+    await h.expectNoText("Delete comment");
     // The post that was opened is in the URL (the newest post is first, so it is the member's own)
     const postId = (await page.path()).split("/").pop();
     const [[row]] = await connection.query("SELECT comment_count, user_id FROM community_posts WHERE id = ?", [postId]);
@@ -502,15 +554,133 @@ describe("ui community: feed, stories and messages for a signed-in member", () =
 
   it("7c. a private account can't address everyone: the compose screen offers Followers and Only me", run("private-audience", async () => {
     await connection.query("INSERT INTO community_profiles (user_id, is_private) VALUES (?, TRUE) ON DUPLICATE KEY UPDATE is_private = TRUE", [identities.a.id]);
-    await page.clickText("Share your progress...");
+    await clickLabel("Create post");
     await h.expectPath("/community/compose");
     await h.expectText("Your account is private, so posts can't be shared with everyone.");
-    await h.expectText("Posting to Followers");
-    await page.waitFor(`!document.querySelector('[aria-label="Audience: Everyone"]') && !!document.querySelector('[aria-label="Audience: Followers"]')`, NAV_TIMEOUT, "audience chips without Everyone");
+    await h.expectText("Audience: Followers");
+    // Only rendered elements count: the feed's quick post stays mounted (hidden) under this screen
+    const shown = (label) => `[...document.querySelectorAll('[aria-label="${label}"]')].some((e) => e.getClientRects().length > 0)`;
+    await page.waitFor(`!${shown("Audience: Everyone")} && ${shown("Audience: Followers")}`, NAV_TIMEOUT, "the audience row is on Followers");
+    // The audience menu offers Followers and Only me, never Everyone
+    await clickLabel("Audience: Followers");
+    await h.expectText("Who can see this post?");
+    await h.expectText("Only me");
+    await page.waitFor(`![...document.querySelectorAll("body *")].some((e) => e.childElementCount === 0 && e.textContent.trim() === "Everyone" && e.getClientRects().length > 0)`, NAV_TIMEOUT, "no Everyone option");
     await snapshot("community-compose-private-390");
+    await clickLabel("Close");
+    await h.expectNoText("Who can see this post?");
     await clickLabel("Back");
     await h.expectPath("/community");
     await connection.query("UPDATE community_profiles SET is_private = FALSE WHERE user_id = ?", [identities.a.id]);
+  }));
+
+  it("7d. the quick post publishes in place with its audience, and the Trainers tab opens", run("quick-post", async () => {
+    const text = "Quick post from the feed: 10k steps before breakfast.";
+    // 7c made the account public again after the feed was shown: leave and come back so the
+    // quick post re-reads the account (it checks each time the tab is focused)
+    await clickTab("Home");
+    await clickTab("Community");
+    await page.waitFor(`[...document.querySelectorAll('[aria-label="Share your progress"]')].some((e) => e.getClientRects().length > 0)`, NAV_TIMEOUT, "quick post shown");
+    await page.setInput('[aria-label="Share your progress"]', text);
+    await page.waitFor(`document.querySelector('[aria-label="Post"]')?.getAttribute("aria-disabled") !== "true"`, NAV_TIMEOUT, "Post enabled with text");
+    // The audience menu: 7c's private account may have left it on Followers (a choice is kept),
+    // so start from whatever it shows, switch to Everyone, then to Followers
+    const current = await page.evaluate(`[...document.querySelectorAll('[aria-label^="Audience: "]')].find((e) => e.getClientRects().length > 0)?.getAttribute("aria-label") ?? null`);
+    assert.ok(current, "the quick post shows its audience");
+    await clickLabel(current);
+    await h.expectText("Who can see this post?");
+    await page.clickText("Everyone");
+    await clickLabel("Audience: Everyone");
+    await h.expectText("Who can see this post?");
+    await snapshot("community-quick-post-audience-390");
+    await page.clickText("Followers");
+    await page.waitFor(`!!document.querySelector('[aria-label="Audience: Followers"]')`, NAV_TIMEOUT, "audience is Followers");
+    await clickLabel("Post");
+    await h.expectText(text);
+    await page.waitFor(`document.querySelector('[aria-label="Share your progress"]')?.value === ""`, NAV_TIMEOUT, "caption cleared after posting");
+    const [rows] = await connection.query("SELECT audience, category, gym_id, deleted_at FROM community_posts WHERE user_id = ? AND body = ?", [identities.a.id, text]);
+    assert.equal(rows.length, 1, "published exactly once");
+    assert.deepEqual({ ...rows[0] }, { audience: "followers", category: "general", gym_id: null, deleted_at: null });
+    await snapshot("community-quick-post-published-390");
+
+    // A private account: the menu offers Followers and Only me, never Everyone
+    await connection.query("INSERT INTO community_profiles (user_id, is_private) VALUES (?, TRUE) ON DUPLICATE KEY UPDATE is_private = TRUE", [identities.a.id]);
+    try {
+      await page.clickText("Friends");
+      await page.clickText("Feed");
+      await clickTab("Home");
+      await clickTab("Community");
+      await clickLabel("Audience: Followers");
+      await h.expectText("Who can see this post?");
+      await h.expectText("Only me");
+      await page.waitFor(`![...document.querySelectorAll("body *")].some((e) => e.childElementCount === 0 && e.textContent.trim() === "Everyone" && e.getClientRects().length > 0)`, NAV_TIMEOUT, "no Everyone option");
+      await page.clickText("Only me");
+      await page.waitFor(`!!document.querySelector('[aria-label="Audience: Only me"]')`, NAV_TIMEOUT, "audience is Only me");
+    } finally {
+      await connection.query("UPDATE community_profiles SET is_private = FALSE WHERE user_id = ?", [identities.a.id]);
+    }
+
+    await page.clickText("Trainers");
+    await h.expectText("My Trainer");
+    await h.expectText("Find Trainers");
+    await noOverflow("community trainers");
+    await snapshotAllWidths("community-trainers");
+    await page.clickText("Feed");
+    await h.expectText(text);
+  }));
+
+  it("7e. Create Post: a progress post tagging a friend, and a poll the member votes on from the feed", run("post-types", async () => {
+    // Rohan becomes a's friend for this test only (tags are for accepted friends)
+    const [low, high] = [identities.a.id, identities.b.id].sort((x, y) => (x.toLowerCase() < y.toLowerCase() ? -1 : 1));
+    await connection.query("INSERT INTO community_friendships (user_low, user_high, requester_id, status) VALUES (?, ?, ?, 'accepted')", [low, high, identities.a.id]);
+    try {
+      await clickLabel("Create post");
+      await h.expectPath("/community/compose");
+      await clickLabel("Post type: Progress");
+      await page.setInput('[aria-label="Title"]', "Week 12 check-in");
+      await page.setInput('[aria-label="Milestone"]', "-6 kg");
+      await page.setInput('[aria-label="Date"]', "2026-10-01");
+      await page.setInput('[aria-label="Post text"]', "Twelve weeks into my cut.");
+      await clickLabel("Tag people");
+      await h.expectText("Tag people");
+      await clickLabel("Tag Rohan Mehta");
+      await clickLabel("Done tagging");
+      await h.expectText("with Rohan Mehta");
+      await snapshotAllWidths("community-compose-progress");
+      await clickLabel("Post");
+      await h.expectPath("/community");
+      await h.expectText("Week 12 check-in");
+      await h.expectText("PROGRESS UPDATE"); // the box's kicker (innerText follows the uppercase style)
+      const [[progress]] = await connection.query("SELECT id, headline, detail, DATE_FORMAT(detail_date, '%Y-%m-%d') AS d FROM community_posts WHERE user_id = ? AND category = 'progress'", [identities.a.id]);
+      assert.deepEqual([progress.headline, progress.detail, progress.d], ["Week 12 check-in", "-6 kg", "2026-10-01"]);
+      const [tags] = await connection.query("SELECT user_id FROM community_post_tags WHERE post_id = ?", [progress.id]);
+      assert.deepEqual(tags.map((t) => t.user_id), [identities.b.id]);
+
+      // A poll: two options are required, a third is added, then a vote from the feed
+      await clickLabel("Create post");
+      await h.expectPath("/community/compose");
+      await clickLabel("Post type: Poll");
+      await page.setInput('[aria-label="Post text"]', "Best leg day finisher?");
+      await clickLabel("Post");
+      await h.expectText("Fill in every poll option, or remove the empty ones.");
+      await page.setInput('[aria-label="Option 1"]', "Walking lunges");
+      await page.setInput('[aria-label="Option 2"]', "Wall sit");
+      await clickLabel("Add option");
+      await page.setInput('[aria-label="Option 3"]', "Sled push");
+      await snapshotAllWidths("community-compose-poll");
+      await clickLabel("Post");
+      await h.expectPath("/community");
+      await h.expectText("Best leg day finisher?");
+      await clickLabel("Sled push, 0%");
+      await page.waitFor(`!!document.querySelector('[aria-label="Sled push, 100%, your vote"]')`, NAV_TIMEOUT, "the vote is shown");
+      await h.expectText("1 vote");
+      await snapshotAllWidths("community-feed-poll");
+      const [[poll]] = await connection.query("SELECT id FROM community_posts WHERE user_id = ? AND category = 'poll'", [identities.a.id]);
+      const [votes] = await connection.query("SELECT o.label FROM community_poll_votes v JOIN community_poll_options o ON o.id = v.option_id WHERE v.post_id = ? AND v.user_id = ?", [poll.id, identities.a.id]);
+      assert.deepEqual(votes.map((v) => v.label), ["Sled push"]);
+    } finally {
+      await connection.query("DELETE FROM community_friendships WHERE user_low = ? AND user_high = ?", [low, high]);
+    }
   }));
 
   it("8. an admin reviews the report on the moderation screen, suspends the author and reinstates them", run("moderation", async () => {

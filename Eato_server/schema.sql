@@ -420,9 +420,15 @@ CREATE TABLE community_posts (
   group_id       CHAR(36)      NULL,
   gym_id         CHAR(36)      NULL,
   review_status  ENUM('published', 'pending') NOT NULL DEFAULT 'published',
-  category       ENUM('general', 'meal', 'workout', 'progress', 'achievement') NOT NULL DEFAULT 'general',
+  category       ENUM('general', 'meal', 'workout', 'progress', 'achievement', 'photo', 'question', 'poll') NOT NULL DEFAULT 'general',  -- the post type
   audience       ENUM('public', 'followers', 'only_me') NOT NULL DEFAULT 'public',  -- who may see it (group posts: the group)
   body           VARCHAR(1000) NOT NULL,
+  headline       VARCHAR(120)  NULL,                -- progress title, meal name or achievement title
+  detail         VARCHAR(300)  NULL,                -- progress milestone or achievement description
+  detail_date    DATE          NULL,                -- progress date
+  meal_kcal      SMALLINT UNSIGNED NULL,
+  meal_protein_g SMALLINT UNSIGNED NULL,
+  location       VARCHAR(120)  NULL,
   media_id       CHAR(36)      NULL,                -- the first image (cover); the full ordered list is community_post_media
   client_key     CHAR(36)      NULL,                -- set by the app per draft, so a repeated Publish can't save twice
   like_count     INT UNSIGNED  NOT NULL DEFAULT 0,
@@ -439,7 +445,9 @@ CREATE TABLE community_posts (
   CONSTRAINT fk_posts_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
   CONSTRAINT fk_posts_group FOREIGN KEY (group_id) REFERENCES community_groups (id) ON DELETE CASCADE,
   CONSTRAINT fk_posts_gym FOREIGN KEY (gym_id) REFERENCES gyms (id) ON DELETE RESTRICT,
-  CONSTRAINT fk_posts_media FOREIGN KEY (media_id) REFERENCES community_media (id) ON DELETE SET NULL
+  CONSTRAINT fk_posts_media FOREIGN KEY (media_id) REFERENCES community_media (id) ON DELETE SET NULL,
+  CONSTRAINT chk_posts_meal_kcal CHECK (meal_kcal <= 5000),
+  CONSTRAINT chk_posts_meal_protein CHECK (meal_protein_g <= 500)
 ) ENGINE = InnoDB;
 
 -- The images on a post, in the order they are shown (up to a few per post). The post's
@@ -462,6 +470,42 @@ CREATE TABLE community_post_likes (
   PRIMARY KEY (post_id, user_id),                   -- a member likes a post once
   CONSTRAINT fk_likes_post FOREIGN KEY (post_id) REFERENCES community_posts (id) ON DELETE CASCADE,
   CONSTRAINT fk_likes_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+) ENGINE = InnoDB;
+
+-- Friends tagged on a post ("with Sarah Chen"): accepted friends only, checked by the server.
+-- Cascades stay one level below posts (a three-level chain orphans rows on MySQL 9.7).
+CREATE TABLE community_post_tags (
+  post_id     CHAR(36)    NOT NULL,
+  user_id     VARCHAR(64) NOT NULL,
+  PRIMARY KEY (post_id, user_id),
+  KEY idx_post_tags_user (user_id),
+  CONSTRAINT fk_post_tags_post FOREIGN KEY (post_id) REFERENCES community_posts (id) ON DELETE CASCADE,
+  CONSTRAINT fk_post_tags_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+) ENGINE = InnoDB;
+
+-- A poll's choices, 2 to 6, in order; fixed once the poll is posted
+CREATE TABLE community_poll_options (
+  id        CHAR(36)         NOT NULL DEFAULT (UUID()),
+  post_id   CHAR(36)         NOT NULL,
+  position  TINYINT UNSIGNED NOT NULL,
+  label     VARCHAR(80)      NOT NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_poll_options_position (post_id, position),
+  CONSTRAINT fk_poll_options_post FOREIGN KEY (post_id) REFERENCES community_posts (id) ON DELETE CASCADE
+) ENGINE = InnoDB;
+
+-- One vote per member per poll (changing it replaces the row). option_id is checked by the
+-- server against the poll's options, not a foreign key (that would be a three-level chain).
+CREATE TABLE community_poll_votes (
+  post_id     CHAR(36)    NOT NULL,
+  user_id     VARCHAR(64) NOT NULL,
+  option_id   CHAR(36)    NOT NULL,
+  created_at  TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at  TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (post_id, user_id),
+  KEY idx_poll_votes_option (option_id),
+  CONSTRAINT fk_poll_votes_post FOREIGN KEY (post_id) REFERENCES community_posts (id) ON DELETE CASCADE,
+  CONSTRAINT fk_poll_votes_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 ) ENGINE = InnoDB;
 
 CREATE TABLE community_comments (

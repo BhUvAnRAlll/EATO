@@ -6,7 +6,26 @@ import type { FriendState } from "@/lib/friends";
 
 export type Member = { id: string; name: string; initial: string };
 
-export type PostCategory = "general" | "meal" | "workout" | "progress" | "achievement";
+// A post's type. Create Post offers photo, progress, meal, achievement, question and poll;
+// "general" (the feed's quick post) and "workout" come from older posts.
+export type PostCategory = "general" | "meal" | "workout" | "progress" | "achievement" | "photo" | "question" | "poll";
+
+// The types Create Post offers, in chip order. "general" (shown as Text) is last, for a post
+// that is just words, such as an update in a gym.
+export type PostType = "photo" | "progress" | "meal" | "achievement" | "question" | "poll" | "general";
+export const postTypes: PostType[] = ["photo", "progress", "meal", "achievement", "question", "poll", "general"];
+
+// A poll's results: live counts, and the viewer's own choice (null until they vote)
+export type Poll = { options: { id: string; label: string; votes: number }[]; totalVotes: number; myVote: string | null };
+
+// The details a type carries (null where the type has none)
+export type PostDetails = {
+  headline: string | null; // progress title, meal name or achievement title
+  detail: string | null; // progress milestone or achievement description
+  detailDate: string | null; // "YYYY-MM-DD", progress only
+  mealKcal: number | null;
+  mealProteinG: number | null;
+};
 
 // Who may see a post: everyone eligible, accepted followers, or only the author
 export type PostAudience = "public" | "followers" | "only_me";
@@ -24,6 +43,14 @@ export type Post = {
   category: PostCategory;
   audience: PostAudience;
   body: string;
+  headline: string | null;
+  detail: string | null;
+  detailDate: string | null;
+  mealKcal: number | null;
+  mealProteinG: number | null;
+  location: string | null;
+  tagged: Member[]; // friends tagged on the post ("with Sarah Chen")
+  poll: Poll | null;
   imageUrl: string | null; // the first photo (cover), or null
   media: PostMedia[]; // every photo, in display order
   likeCount: number;
@@ -33,6 +60,18 @@ export type Post = {
   createdAt: string;
   updatedAt: string;
 };
+
+// What Create Post sends. A gym post leaves out the audience (the gym decides who sees it).
+export type NewPost = {
+  body: string;
+  category: PostCategory;
+  audience?: PostAudience;
+  mediaIds?: string[];
+  clientKey?: string;
+  location?: string | null;
+  taggedUserIds?: string[];
+  pollOptions?: string[];
+} & Partial<PostDetails>;
 
 export type Comment = { id: string; postId: string; author: Member; body: string; isOwn: boolean; createdAt: string };
 
@@ -140,7 +179,7 @@ export const community = {
     return apiFetch(`/api/community/feed${query({ cursor, limit: 20 })}`, { token });
   },
   // clientKey is made once per draft: publishing it twice (a double tap, a retry) saves one post
-  createPost(token: string | null, body: { body: string; category: PostCategory; audience?: PostAudience; mediaIds?: string[]; clientKey?: string }): Promise<ApiResult<{ post: Post }>> {
+  createPost(token: string | null, body: NewPost): Promise<ApiResult<{ post: Post }>> {
     if (!token) return signedOut();
     return apiFetch("/api/community/posts", { method: "POST", body, token });
   },
@@ -148,9 +187,14 @@ export const community = {
     if (!token) return signedOut();
     return apiFetch(`/api/community/posts/${postId}`, { token });
   },
-  updatePost(token: string | null, postId: string, changes: { body?: string; category?: PostCategory; audience?: PostAudience; mediaIds?: string[] }): Promise<ApiResult<{ post: Post }>> {
+  updatePost(token: string | null, postId: string, changes: { body?: string; category?: PostCategory; audience?: PostAudience; mediaIds?: string[]; location?: string | null } & Partial<PostDetails>): Promise<ApiResult<{ post: Post }>> {
     if (!token) return signedOut();
     return apiFetch(`/api/community/posts/${postId}`, { method: "PATCH", body: changes, token });
+  },
+  // One vote per member; voting again moves it. Answers with the post and its new counts.
+  vote(token: string | null, postId: string, optionId: string): Promise<ApiResult<{ post: Post }>> {
+    if (!token) return signedOut();
+    return apiFetch(`/api/community/posts/${postId}/vote`, { method: "POST", body: { optionId }, token });
   },
   deletePost(token: string | null, postId: string): Promise<ApiResult<{ deleted: true }>> {
     if (!token) return signedOut();
@@ -337,10 +381,16 @@ export function timeAgo(iso: string, now = new Date()): string {
   return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
 }
 
-export const categoryLabels: Record<PostCategory, string> = { general: "General", meal: "Meal", workout: "Workout", progress: "Progress", achievement: "Achievement" };
-
-// The categories offered when composing ("General" means no tag; "Achievement" stays on older posts)
-export const composeCategories: PostCategory[] = ["meal", "workout", "progress", "general"];
+export const categoryLabels: Record<PostCategory, string> = {
+  general: "General",
+  meal: "Meal",
+  workout: "Workout",
+  progress: "Progress",
+  achievement: "Achievement",
+  photo: "Photo",
+  question: "Question",
+  poll: "Poll",
+};
 
 export const audienceLabels: Record<PostAudience, { label: string; hint: string }> = {
   public: { label: "Everyone", hint: "Anyone on EATO" },

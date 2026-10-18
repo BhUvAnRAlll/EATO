@@ -229,9 +229,11 @@ describe("ui gyms: a gym community from the owner's side", () => {
     await page.clickText("Feed");
     await clickLabel("Share with Iron Temple");
     await h.expectPath("/community/compose");
-    await h.expectText("Posting in Iron Temple");
+    await h.expectText("Posting to");
+    await h.expectText("Iron Temple");
+    await clickLabel("Post type: Text"); // Create Post starts on Photo, which needs a photo
     await page.setInput('[aria-label="Post text"]', "New squat racks arrive Monday.");
-    await clickLabel("Publish");
+    await clickLabel("Post");
     await page.waitFor(`location.pathname === "/community/gyms/${state.gym}"`, NAV_TIMEOUT, "back on the gym");
     await h.expectText("New squat racks arrive Monday.");
     const [[row]] = await connection.query("SELECT gym_id, review_status FROM community_posts WHERE body = 'New squat racks arrive Monday.'");

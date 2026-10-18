@@ -69,6 +69,12 @@ router.delete("/posts/:postId", route(async (req, res) => {
   res.json({ deleted: true });
 }));
 
+// A poll vote (one per member; voting again moves it). Answers with the post and its counts.
+router.post("/posts/:postId/vote", smallBody, withUser, route(async (req, res) => {
+  const { optionId } = v.validateVote(req.body);
+  res.json({ post: await posts.votePoll(req.app.locals.pool, req.userId, v.id(req.params.postId, "The post"), optionId) });
+}));
+
 router.post("/posts/:postId/like", withUser, route(async (req, res) => {
   res.json(await posts.setLike(req.app.locals.pool, req.userId, v.id(req.params.postId, "The post"), true));
 }));

@@ -14,9 +14,37 @@ const limits = {
   storyHours: 24, // how long a story stays up
   activeStories: 30, // stories one member can have up at once
   postMedia: 4, // photos per post
+  headline: 120, // progress title, meal name, achievement title
+  milestone: 120,
+  achievementDetail: 300,
+  location: 120,
+  tags: 10, // friends tagged on one post
+  pollOptionsMin: 2,
+  pollOptionsMax: 6,
+  pollOption: 80,
+  mealKcal: 5000,
+  mealProtein: 500,
 };
 
-const CATEGORIES = ["general", "meal", "workout", "progress", "achievement"];
+// A post's type. "general" and "workout" are the older types (no details); Create Post offers
+// photo, progress, meal, achievement, question and poll.
+const CATEGORIES = ["general", "meal", "workout", "progress", "achievement", "photo", "question", "poll"];
+// Types fixed once posted: a photo post needs its photos and a poll its options
+const FIXED_CATEGORIES = ["photo", "question", "poll"];
+// Which detail fields each type may carry (anything else is refused)
+const DETAIL_FIELDS = {
+  general: [],
+  workout: [],
+  photo: [],
+  question: [],
+  poll: [],
+  progress: ["headline", "detail", "detailDate"],
+  meal: ["headline", "mealKcal", "mealProteinG"],
+  achievement: ["headline", "detail"],
+};
+// Types whose caption may be left empty (their photo or details say enough)
+const CAPTION_OPTIONAL = ["photo", "progress", "meal", "achievement"];
+const DETAIL_KEYS = ["headline", "detail", "detailDate", "mealKcal", "mealProteinG"];
 const AUDIENCES = ["public", "followers", "only_me"];
 // Who sees a story: everyone eligible, accepted followers, or the owner's Close Friends
 const STORY_AUDIENCES = ["public", "followers", "close_friends"];
@@ -100,32 +128,101 @@ function mediaIdList(body) {
   return ids;
 }
 
+// "YYYY-MM-DD", a real calendar date, not after tomorrow (time zones), not before 2000
+function optionalDate(value, label) {
+  if (value === undefined || value === null || value === "") return null;
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) throw new ValidationError(`${label} must be a date.`);
+  const date = new Date(`${value}T00:00:00Z`);
+  if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value) throw new ValidationError(`${label} must be a date.`);
+  const tomorrow = Date.now() + 24 * 60 * 60 * 1000;
+  if (date.getTime() > tomorrow || value < "2000-01-01") throw new ValidationError(`${label} can't be in the future.`);
+  return value;
+}
+
+function optionalWhole(value, label, max) {
+  if (value === undefined || value === null || value === "") return null;
+  if (!Number.isInteger(value) || value < 0 || value > max) throw new ValidationError(`${label} must be a whole number from 0 to ${max}.`);
+  return value;
+}
+
+// The details a type carries: a field the type doesn't use is refused. The headline is optional
+// here so older app builds (which sent a meal or progress post with no details) keep working;
+// Create Post asks for it. Returns every detail column, null where unused, so a type's other
+// fields can never linger.
+function postDetails(category, body) {
+  const allowed = DETAIL_FIELDS[category];
+  for (const key of DETAIL_KEYS) {
+    if (body[key] !== undefined && body[key] !== null && !allowed.includes(key)) throw new ValidationError(`A ${category} post can't have ${key}.`);
+  }
+  const headlineLabel = category === "meal" ? "Meal name" : "Title";
+  const headline = allowed.includes("headline") ? optionalText(body.headline, headlineLabel, limits.headline) : null;
+  return {
+    headline,
+    detail: allowed.includes("detail") ? optionalText(body.detail, category === "progress" ? "Milestone" : "Description", category === "progress" ? limits.milestone : limits.achievementDetail) : null,
+    detailDate: allowed.includes("detailDate") ? optionalDate(body.detailDate, "Date") : null,
+    mealKcal: allowed.includes("mealKcal") ? optionalWhole(body.mealKcal, "Calories", limits.mealKcal) : null,
+    mealProteinG: allowed.includes("mealProteinG") ? optionalWhole(body.mealProteinG, "Protein", limits.mealProtein) : null,
+  };
+}
+
+// Friends to tag: distinct Clerk user ids, up to limits.tags (friendship is checked by posts.js)
+function taggedUserIdList(value) {
+  if (value === undefined || value === null) return [];
+  if (!Array.isArray(value)) throw new ValidationError("taggedUserIds must be a list.");
+  if (value.length > limits.tags) throw new ValidationError(`Tag up to ${limits.tags} people.`);
+  const ids = value.map((item) => clerkUserId(item, "A tagged member"));
+  if (new Set(ids).size !== ids.length) throw new ValidationError("Each person can be tagged once.");
+  return ids;
+}
+
+// A poll's choices: 2 to 6, each 1 to 80 characters, no two the same (ignoring case)
+function pollOptionList(value) {
+  if (!Array.isArray(value)) throw new ValidationError(`A poll needs ${limits.pollOptionsMin} to ${limits.pollOptionsMax} options.`);
+  if (value.length < limits.pollOptionsMin || value.length > limits.pollOptionsMax) throw new ValidationError(`A poll needs ${limits.pollOptionsMin} to ${limits.pollOptionsMax} options.`);
+  const options = value.map((item, index) => text(item, `Option ${index + 1}`, { max: limits.pollOption }));
+  if (new Set(options.map((option) => option.toLowerCase())).size !== options.length) throw new ValidationError("Each poll option must be different.");
+  return options;
+}
+
 function validatePost(body) {
   requireObject(body, "post");
-  rejectUnknownKeys(body, ["body", "category", "audience", "mediaId", "mediaIds", "clientKey"], "The post");
+  rejectUnknownKeys(body, ["body", "category", "audience", "mediaId", "mediaIds", "clientKey", ...DETAIL_KEYS, "location", "taggedUserIds", "pollOptions"], "The post");
   const category = body.category === undefined ? "general" : body.category;
   if (!CATEGORIES.includes(category)) throw new ValidationError("Category isn't a valid choice.");
   const audience = body.audience === undefined ? "public" : body.audience;
   if (!AUDIENCES.includes(audience)) throw new ValidationError("Audience isn't a valid choice.");
+  const mediaIds = mediaIdList(body);
+  if (category === "photo" && mediaIds.length === 0) throw new ValidationError("Add at least one photo.");
+  if (category === "poll" && mediaIds.length > 0) throw new ValidationError("A poll can't have photos.");
+  if (category !== "poll" && body.pollOptions !== undefined) throw new ValidationError("Only a poll has options.");
+  const captionLabel = category === "question" ? "Question" : category === "poll" ? "Poll question" : "Post text";
   return {
-    body: text(body.body, "Post text", { max: limits.postBody }),
+    body: text(body.body ?? (CAPTION_OPTIONAL.includes(category) ? "" : undefined), captionLabel, { min: CAPTION_OPTIONAL.includes(category) ? 0 : 1, max: limits.postBody }),
     category,
     audience,
-    mediaIds: mediaIdList(body),
+    mediaIds,
+    ...postDetails(category, body),
+    location: optionalText(body.location, "Location", limits.location),
+    taggedUserIds: taggedUserIdList(body.taggedUserIds),
+    pollOptions: category === "poll" ? pollOptionList(body.pollOptions) : [],
     groupId: null, // Groups were removed: new posts never join one (old group posts stay private)
     // A UUID the app makes once per draft: a repeated Publish with the same key returns the saved post
     clientKey: optionalId(body.clientKey, "The client key"),
   };
 }
 
-// PATCH: text, category, audience and the photo list can change (never the author or the group)
+// PATCH: the text, audience, photos, location and the type's details can change (never the
+// author, the group, the tags or a poll's options). A post's type can change only among the
+// older types; photo, question and poll posts keep theirs. posts.js applies the details for
+// the type the post ends up with.
 function validatePostUpdate(body) {
   requireObject(body, "changes");
-  rejectUnknownKeys(body, ["body", "category", "audience", "mediaIds"], "The changes");
+  rejectUnknownKeys(body, ["body", "category", "audience", "mediaIds", ...DETAIL_KEYS, "location"], "The changes");
   const changes = {};
-  if (body.body !== undefined) changes.body = text(body.body, "Post text", { max: limits.postBody });
+  if (body.body !== undefined) changes.body = text(body.body, "Post text", { min: 0, max: limits.postBody });
   if (body.category !== undefined) {
     if (!CATEGORIES.includes(body.category)) throw new ValidationError("Category isn't a valid choice.");
+    if (FIXED_CATEGORIES.includes(body.category)) throw new ValidationError("A post can't be changed into that type.");
     changes.category = body.category;
   }
   if (body.audience !== undefined) {
@@ -133,8 +230,25 @@ function validatePostUpdate(body) {
     changes.audience = body.audience;
   }
   if (body.mediaIds !== undefined) changes.mediaIds = mediaIdList({ mediaIds: body.mediaIds });
+  if (body.location !== undefined) changes.location = optionalText(body.location, "Location", limits.location);
+  // The raw details, checked by validateDetailUpdate once posts.js knows the post's type
+  const detailInput = Object.fromEntries(DETAIL_KEYS.filter((key) => body[key] !== undefined).map((key) => [key, body[key]]));
+  if (Object.keys(detailInput).length > 0) changes.detailInput = detailInput;
   if (Object.keys(changes).length === 0) throw new ValidationError("Nothing to change.");
   return changes;
+}
+
+// The details sent with an edit, checked against the type the post ends up with (posts.js
+// calls this once it knows the post's current type)
+function validateDetailUpdate(category, body) {
+  return postDetails(category, body);
+}
+
+// A poll vote: the chosen option's id
+function validateVote(body) {
+  requireObject(body, "vote");
+  rejectUnknownKeys(body, ["optionId"], "The vote");
+  return { optionId: id(body.optionId, "The option") };
 }
 
 function validateComment(body) {
@@ -195,5 +309,5 @@ function clerkUserId(value, label) {
 module.exports = {
   limits, CATEGORIES, AUDIENCES, STORY_AUDIENCES, validateProfileSettings, requireObject, rejectUnknownKeys, text, optionalText,
   id, optionalId, pageSize, encodeCursor, decodeCursor, searchTerm, clerkUserId,
-  validatePost, validatePostUpdate, validateComment, validateStory, validateReport, validateMessage,
+  validatePost, validatePostUpdate, validateDetailUpdate, validateVote, validateComment, FIXED_CATEGORIES, CAPTION_OPTIONAL, DETAIL_FIELDS, validateStory, validateReport, validateMessage,
 };
