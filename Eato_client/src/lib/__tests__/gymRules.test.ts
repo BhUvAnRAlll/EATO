@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { attendance, formatCode, hoursText, isEventPast, membershipButton, parseFacilities, parseHours, parseTiers, splitEvents, tiersText } from "../gymRules.ts";
+import { attendance, codeFromScan, formatCode, hoursText, isEventPast, membershipButton, parseFacilities, parseHours, parseTiers, splitEvents, tiersText } from "../gymRules.ts";
 
 describe("gym rules", () => {
   it("the membership button follows the membership and how the gym is joined", () => {
@@ -44,5 +44,14 @@ describe("gym rules", () => {
     assert.deepEqual(tiers, [{ name: "Basic", price: "₹1,499/mo", perks: "Floor | lockers" }]);
     assert.equal(tiersText(tiers), "Basic | ₹1,499/mo | Floor | lockers");
     assert.deepEqual(parseFacilities("Free weights, Sauna\nPool,, "), ["Free weights", "Sauna", "Pool"]);
+  });
+
+  it("a scanned QR code gives back the gym code, from a link or bare", () => {
+    assert.equal(codeFromScan("eato://community/gyms/invite/ABCD2345"), "ABCD2345");
+    assert.equal(codeFromScan("http://localhost:8081/community/gyms/invite/abcd2345?x=1"), "ABCD2345");
+    assert.equal(codeFromScan(" abcd-2345 "), "ABCD2345");
+    assert.equal(codeFromScan("ABCDE23456"), "ABCDE23456");
+    assert.equal(codeFromScan("https://example.com/something-else"), null);
+    assert.equal(codeFromScan("hello"), null);
   });
 });

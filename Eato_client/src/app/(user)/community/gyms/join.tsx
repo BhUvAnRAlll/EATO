@@ -1,21 +1,22 @@
-import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { SymbolView } from "expo-symbols";
+import { CameraView, useCameraPermissions, type BarcodeScanningResult } from "expo-camera";
 import { router, useLocalSearchParams } from "expo-router";
 
 import { AuthImage } from "@/components/community/AuthImage";
 import { FormAlert } from "@/components/FormAlert";
-import { formatCode, roleLabels } from "@/lib/gymRules";
+import { codeFromScan, formatCode, roleLabels } from "@/lib/gymRules";
 import { gyms, type Gym } from "@/lib/gyms";
 import { useSessionToken } from "@/lib/session";
 import { colors } from "@/theme";
 
 // Join a gym with a code: a gym's own code or a staff invitation (from a link, a QR code or a
-// message). Enter it, check which gym it opens, then accept. An invitation skips approval and
-// can make you a trainer. Opened from a link (/community/gyms/invite/CODE) the code is filled in.
-// Scanning a QR code with the camera isn't built yet: the code printed under the QR works here.
+// message). Scan the gym's QR code or type the code, check which gym it opens, then accept. An
+// invitation skips approval and can make you a trainer. Opened from a link
+// (/community/gyms/invite/CODE) the code is filled in.
 export default function JoinGym() {
   const params = useLocalSearchParams<{ code?: string }>();
   const getToken = useSessionToken();
@@ -24,6 +25,9 @@ export default function JoinGym() {
   const [checking, setChecking] = useState(false);
   const [joining, setJoining] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [scanning, setScanning] = useState(false);
+  const [permission, requestPermission] = useCameraPermissions();
+  const scanned = useRef(false); // the camera reports a code many times a second; act on the first
 
   const check = useCallback(async (value: string) => {
     const clean = value.replace(/[\s-]/g, "");
@@ -55,6 +59,26 @@ export default function JoinGym() {
     router.replace({ pathname: "/community/gyms/[id]", params: { id: result.data.gym.id } });
   };
 
+  // Open the scanner, asking for the camera first if needed
+  const openScanner = async () => {
+    setError(null);
+    const granted = permission?.granted || (await requestPermission()).granted;
+    if (!granted) return setError("Camera access is off. Allow it in Settings, or type the code instead.");
+    scanned.current = false;
+    setScanning(true);
+  };
+
+  const onScan = ({ data }: BarcodeScanningResult) => {
+    if (scanned.current) return;
+    scanned.current = true;
+    setScanning(false);
+    const found = codeFromScan(data);
+    if (!found) return setError("That QR code isn't an EATO gym code.");
+    setCode(found);
+    setPreview(null);
+    check(found);
+  };
+
   const already = preview?.gym.membership?.status === "active";
 
   return (
@@ -71,8 +95,12 @@ export default function JoinGym() {
           <ScrollView contentContainerStyle={{ padding: 20, gap: 16 }} keyboardShouldPersistTaps="handled">
             <View className="setup__info">
               <SymbolView name={{ ios: "qrcode", android: "qr_code", web: "qr_code" }} size={18} tintColor={colors.forest} />
-              <Text className="setup__card-text flex-1">{"Enter the invite code from your gym. It's printed under the gym's QR code and in invite links."}</Text>
+              <Text className="setup__card-text flex-1">{"Scan your gym's QR code, or type the code printed under it."}</Text>
             </View>
+            <Pressable onPress={openScanner} className="btn-outline flex-row items-center justify-center gap-2" accessibilityRole="button" accessibilityLabel="Scan a QR code">
+              <SymbolView name={{ ios: "qrcode.viewfinder", android: "qr_code_scanner", web: "qr_code_scanner" }} size={18} tintColor={colors.forestInk} />
+              <Text className="btn-outline__label">Scan QR code</Text>
+            </Pressable>
             <View>
               <Text className="auth__label mb-2">Invite code</Text>
               <TextInput
@@ -124,6 +152,17 @@ export default function JoinGym() {
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
+      <Modal visible={scanning} animationType="slide" onRequestClose={() => setScanning(false)}>
+        <View style={{ flex: 1, backgroundColor: colors.black }}>
+          <CameraView style={{ flex: 1 }} facing="back" barcodeScannerSettings={{ barcodeTypes: ["qr"] }} onBarcodeScanned={scanning ? onScan : undefined} />
+          <SafeAreaView edges={["bottom"]} style={{ position: "absolute", left: 0, right: 0, bottom: 0, padding: 20, gap: 12 }}>
+            <Text style={{ color: colors.white, textAlign: "center", fontSize: 15 }}>{"Point the camera at the gym's QR code"}</Text>
+            <Pressable onPress={() => setScanning(false)} className="btn-outline" accessibilityRole="button" accessibilityLabel="Close the scanner">
+              <Text className="btn-outline__label">Cancel</Text>
+            </Pressable>
+          </SafeAreaView>
+        </View>
+      </Modal>
     </View>
   );
 }

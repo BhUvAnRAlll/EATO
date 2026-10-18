@@ -32,7 +32,15 @@
       ],
       "expo-secure-store",
       "@react-native-community/datetimepicker",
-      "@clerk/expo"
+      "@clerk/expo",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "EATO uses the camera to scan a gym's QR code so you can join it.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

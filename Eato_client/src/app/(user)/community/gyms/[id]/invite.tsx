@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { SymbolView } from "expo-symbols";
 import * as Linking from "expo-linking";
+import QRCode from "react-native-qrcode-svg";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 
 import { EmptyState } from "@/components/community/CommunityStates";
@@ -126,12 +127,16 @@ export default function InviteToGym() {
             {gym?.inviteCode && (
               <View className="post__card items-center gap-2">
                 <Text className="setup__section">Gym code</Text>
+                {/* The QR holds the invite link: scanning it in EATO (Join a gym → Scan) or with the phone's camera opens the join screen */}
+                <View className="my-2 rounded-lg bg-white p-3" accessibilityLabel={`QR code for ${gym.name}'s invite link`}>
+                  <QRCode value={linkFor(gym.inviteCode)} size={180} color={colors.forestInk} backgroundColor={colors.white} />
+                </View>
                 <Text selectable className="type-display text-forest-ink" style={{ letterSpacing: 4 }} accessibilityLabel={`Gym code ${gym.inviteCode.split("").join(" ")}`}>{formatCode(gym.inviteCode)}</Text>
                 <Text className="home__note text-center">Anyone with this code joins as a member, without approval. Print it by the front desk or share it.</Text>
                 <Pressable onPress={() => share(gym.inviteCode ?? "")} className="btn-forest mt-1 w-full" accessibilityRole="button" accessibilityLabel="Share gym code">
                   <Text className="btn-forest__label">Share code</Text>
                 </Pressable>
-                <Text className="home__note text-center">{"A scannable QR image needs a QR library, which isn't installed yet. The code works the same way."}</Text>
+                <Text className="home__note text-center">Members scan this QR code in Community → Gyms → Join, or type the code under it.</Text>
                 {gym.can.manage && (
                   <Pressable onPress={() => setConfirmingRotate(true)} className="mt-1" accessibilityRole="button" accessibilityLabel="Replace the gym code">
                     <Text className="home__note" style={{ color: colors.danger }}>Code leaked? Replace it</Text>

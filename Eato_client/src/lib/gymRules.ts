@@ -114,3 +114,12 @@ export const tiersText = (tiers: { name: string; price: string; perks: string }[
 // Facilities: comma or line separated; guidelines: one per line
 export const parseFacilities = (text: string) => text.split(/[,\n]/).map((item) => item.trim()).filter(Boolean);
 export const parseGuidelines = lines;
+
+// What a scanned QR code holds: an invite link (".../community/gyms/invite/CODE", from the
+// invite screen) or a bare code. Returns the code, or null for anything else.
+export function codeFromScan(data: string): string | null {
+  const text = data.trim();
+  const fromLink = /\/gyms\/invite\/([A-Za-z0-9-]{8,12})\/?(?:[?#].*)?$/.exec(text);
+  const code = (fromLink ? fromLink[1] : text).replace(/-/g, "").toUpperCase();
+  return /^[A-Z0-9]{8,10}$/.test(code) ? code : null;
+}
