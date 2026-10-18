@@ -26,13 +26,13 @@ import { colors } from "@/theme";
 // the pinned announcement, posts), Members, Events and About. Private and hidden gyms show
 // their content to members only; the server enforces it.
 export default function GymScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, tab: startTab } = useLocalSearchParams<{ id: string; tab?: string }>();
   const { width } = useWindowDimensions();
   const getToken = useSessionToken();
   const me = useMe();
   const [gym, setGym] = useState<Gym | null>(null);
   const [allNotes, setAllNotes] = useState(false);
-  const [tab, setTab] = useState<Tab>("feed");
+  const [tab, setTab] = useState<Tab>(startTab === "members" || startTab === "events" || startTab === "about" ? startTab : "feed");
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [posts, setPosts] = useState<Post[] | null>(null); // null until the feed has loaded
   const [cursor, setCursor] = useState<string | null>(null);

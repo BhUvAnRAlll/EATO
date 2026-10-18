@@ -200,31 +200,50 @@ describe("ui gyms: a gym community from the owner's side", () => {
     await snapshotAllWidths("gyms-about");
   }));
 
-  it("3. Manage: settings save at once and the profile saves its changes", run("manage", async () => {
+  it("3. Manage Gym: the hub opens Community Settings (saves at once), Subscription, Gym Profile and Members", run("manage", async () => {
     await clickLabel("Manage gym");
-    await page.waitFor(`location.pathname.endsWith("/manage")`, NAV_TIMEOUT, "manage screen");
-    await h.expectText("No requests");
-    await page.clickText("Settings");
-    await h.expectText("Who can post");
+    await page.waitFor(`location.pathname.endsWith("/manage")`, NAV_TIMEOUT, "manage hub");
+    await h.expectText("Manage Gym");
+    await h.expectText("Gym Profile");
+    await h.expectText("Community Settings");
+    await h.expectText("Invitations");
+    await noOverflow("manage hub");
+    await snapshotAllWidths("gyms-manage");
+
+    await clickLabel("Community Settings");
+    await page.waitFor(`location.pathname.endsWith("/manage/settings")`, NAV_TIMEOUT, "settings page");
+    await h.expectText("Changes apply immediately across the gym community.");
+    await h.expectText("WHO CAN POST"); // innerText follows the uppercase style
     await clickLabel("Post moderation");
     await waitForRow("SELECT post_moderation FROM gyms WHERE id = ?", [state.gym], (row) => row.post_moderation === 1, "post moderation on");
-    await h.expectText("no payment is taken");
     await snapshotAllWidths("gyms-manage-settings");
     await clickLabel("Post moderation"); // back off, so the owner's post below is published either way
     await waitForRow("SELECT post_moderation FROM gyms WHERE id = ?", [state.gym], (row) => row.post_moderation === 0, "post moderation off");
-    await page.clickText("Profile");
+    await clickLabel("Back");
+
+    await clickLabel("Subscription");
+    await h.expectText("no payment is taken");
+    await clickLabel("Back");
+
+    await clickLabel("Gym Profile");
+    await page.waitFor(`location.pathname.endsWith("/manage/profile")`, NAV_TIMEOUT, "profile page");
     await page.setInput('[aria-label="Facilities"]', "Free weights, Sauna");
     await page.setInput('[aria-label="Opening hours"]', "Mon–Fri: 5am–11pm");
     await clickLabel("Save gym profile");
     const row = await waitForRow("SELECT facilities, hours FROM gyms WHERE id = ?", [state.gym], (r) => Array.isArray(r.facilities) && r.facilities.length === 2, "profile saved");
     assert.deepEqual(row.hours, [{ label: "Mon–Fri", value: "5am–11pm" }]);
     await snapshotAllWidths("gyms-manage-profile");
+    await clickLabel("Back");
+
     // Rohan joins from his own account; he shows up under Members
     assert.equal((await apiAs("b", "POST", `/api/gyms/${state.gym}/join`)).status, 200);
-    await page.clickText("Members"); // the section chip
-    await page.clickText("Members", 1); // the list chip inside it (Requests · Members · Suspended)
+    await clickLabel("Members");
+    await page.waitFor(`location.pathname.endsWith("/manage/members")`, NAV_TIMEOUT, "members page");
     await h.expectText("Rohan Mehta");
-    await page.evaluate("history.back()");
+    await h.expectText("Active (2)");
+    await snapshotAllWidths("gyms-manage-members");
+    await clickLabel("Back");
+    await clickLabel("Back");
     await page.waitFor(`location.pathname === "/community/gyms/${state.gym}"`, NAV_TIMEOUT, "back on the gym");
   }));
 
@@ -321,9 +340,14 @@ describe("ui gyms: a gym community from the owner's side", () => {
   }));
 
   it("6. the invite screen shows the gym code and records an invitation without sending anything", run("invite", async () => {
-    await h.goto(`/community/gyms/${state.gym}/invite`, "Gym code");
+    await h.goto(`/community/gyms/${state.gym}/invite`, "Invite Members");
     const [[gym]] = await connection.query("SELECT invite_code FROM gyms WHERE id = ?", [state.gym]);
     await h.expectText(`${gym.invite_code.slice(0, 4)}-${gym.invite_code.slice(4)}`);
+    await h.expectText("Invited people skip the approval queue");
+    await snapshotAllWidths("gyms-invite-link");
+    await page.clickText("QR Code");
+    await h.expectText("Scan to join");
+    await page.clickText("Phone/Email");
     await page.setInput('[aria-label="Email to invite"]', "friend@example.com");
     await clickLabel("Record invitation");
     await h.expectText("Nothing was sent");
