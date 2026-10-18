@@ -105,13 +105,22 @@ function postToApi(row, viewerId, media = [], extras = { tagged: [], poll: null 
 // A page of the main feed (no gym), of a gym, or of one member's profile,
 // newest first. Only posts the viewer may see are returned (see visibility.js). A gym feed's
 // caller has already checked the viewer may read that gym (gyms/routes.js).
-async function listPosts(pool, userId, { gymId = null, authorId = null, cursor = null, limit }) {
-  if (authorId && !(await canSeeAccount(pool, userId, authorId))) throw new ForbiddenError("This account is private.");
+// taggedId: main-feed posts that tag that member (each still visible to the viewer on its own terms)
+async function listPosts(pool, userId, { gymId = null, authorId = null, taggedId = null, cursor = null, limit }) {
+  const owner = authorId ?? taggedId;
+  if (owner && !(await canSeeAccount(pool, userId, owner))) throw new ForbiddenError("This account is private.");
   const params = [userId, ...visiblePostParams(userId)];
-  const scope = gymId ? "p.gym_id = ?" : authorId ? "p.gym_id IS NULL AND p.user_id = ?" : "p.gym_id IS NULL";
+  const scope = gymId
+    ? "p.gym_id = ?"
+    : authorId
+      ? "p.gym_id IS NULL AND p.user_id = ?"
+      : taggedId
+        ? "p.gym_id IS NULL AND EXISTS (SELECT 1 FROM community_post_tags t WHERE t.post_id = p.id AND t.user_id = ?)"
+        : "p.gym_id IS NULL";
   let where = `WHERE p.deleted_at IS NULL AND ${VISIBLE_POST_SQL} AND ${scope}`;
   if (gymId) params.push(gymId);
   if (authorId) params.push(authorId);
+  if (taggedId) params.push(taggedId);
   if (cursor) {
     where += " AND (p.created_at < ? OR (p.created_at = ? AND p.id < ?))";
     params.push(cursor.createdAt, cursor.createdAt, cursor.id);

@@ -202,6 +202,28 @@ describe("community post types e2e: details, tags, polls and votes", () => {
     assert.equal((await patch(tokens.friend, state.progress, { headline: "hijack" })).status, 403);
   });
 
+  test("6b. a profile's Tagged list: posts that tag that member, as each viewer may see them", async () => {
+    const tagged = (await api("GET", `/api/community/profiles/${ids.friend}/tagged`, tokens.stranger)).json.posts.map((p) => p.id);
+    assert.deepEqual(tagged, [state.progress], "the public progress post that tags the friend");
+    assert.deepEqual((await api("GET", `/api/community/profiles/${ids.author}/tagged`, tokens.friend)).json.posts, [], "nobody tagged the author");
+    // An only-me post that tags the friend stays hidden from everyone but its author
+    const hidden = await create(tokens.author, { body: "Just for me", audience: "only_me", taggedUserIds: [ids.friend] });
+    assert.equal(hidden.status, 201, JSON.stringify(hidden.json));
+    const asStranger = (await api("GET", `/api/community/profiles/${ids.friend}/tagged`, tokens.stranger)).json.posts.map((p) => p.id);
+    assert.equal(asStranger.includes(hidden.json.post.id), false);
+    const asAuthor = (await api("GET", `/api/community/profiles/${ids.friend}/tagged`, tokens.author)).json.posts.map((p) => p.id);
+    assert.equal(asAuthor.includes(hidden.json.post.id), true);
+    assert.equal((await api("GET", "/api/community/profiles/user_x'%20OR%201=1/tagged", tokens.author)).status, 400);
+    assert.equal((await api("GET", `/api/community/profiles/${ids.friend}/tagged`, null)).status, 401);
+    // A block either way shuts the list, as it does the member's own posts
+    assert.equal((await api("POST", `/api/community/profiles/${ids.stranger}/block`, tokens.friend)).status, 200);
+    const blocked = await api("GET", `/api/community/profiles/${ids.friend}/tagged`, tokens.stranger);
+    assert.equal(blocked.status, 403);
+    assert.equal(JSON.stringify(blocked.json).includes(state.progress), false);
+    assert.equal((await api("GET", `/api/community/profiles/${ids.friend}/posts`, tokens.stranger)).status, 403, "the same answer as the posts route");
+    await api("DELETE", `/api/community/profiles/${ids.stranger}/block`, tokens.friend);
+  });
+
   test("7. deleting a member leaves no orphaned tags, options or votes", async () => {
     // The friend (tagged on a post, with a vote) leaves: their tag and vote go with them
     await db.deleteUsers(connection, [ids.friend]);

@@ -40,6 +40,9 @@ export default function ProfileScreen() {
   const [deletingPost, setDeletingPost] = useState<Post | null>(null);
   const [friendBusy, setFriendBusy] = useState(false);
   const [confirmingFriend, setConfirmingFriend] = useState<"cancel" | "remove" | null>(null);
+  const [tab, setTab] = useState<"posts" | "tagged">("posts");
+  const [tagged, setTagged] = useState<Post[] | null>(null); // loaded with the profile when posts are visible
+  const [taggedCursor, setTaggedCursor] = useState<string | null>(null);
 
   // The stories row is refreshed alongside, so the ring on the photo is never stale
   const load = useCallback(async () => {
@@ -53,14 +56,20 @@ export default function ProfileScreen() {
     }
     setProfile(result.data.profile);
     if (result.data.profile.canViewPosts) {
-      const page = await community.profilePosts(token, userId);
+      const [page, tags] = await Promise.all([community.profilePosts(token, userId), community.taggedPosts(token, userId)]);
       if (page.ok) {
         setPosts(page.data.posts);
         setCursor(page.data.nextCursor);
       }
+      if (tags.ok) {
+        setTagged(tags.data.posts);
+        setTaggedCursor(tags.data.nextCursor);
+      }
     } else {
       setPosts([]);
       setCursor(null);
+      setTagged([]);
+      setTaggedCursor(null);
     }
     setError(null);
     setStatus("ready");
@@ -79,6 +88,15 @@ export default function ProfileScreen() {
   };
 
   const loadMore = async () => {
+    if (tab === "tagged") {
+      if (!taggedCursor) return;
+      const page = await community.taggedPosts(await getToken(), userId, taggedCursor);
+      if (page.ok) {
+        setTagged((current) => [...(current ?? []), ...page.data.posts.filter((p) => !(current ?? []).some((item) => item.id === p.id))]);
+        setTaggedCursor(page.data.nextCursor);
+      }
+      return;
+    }
     if (!cursor) return;
     const page = await community.profilePosts(await getToken(), userId, cursor);
     if (page.ok) {
@@ -146,11 +164,16 @@ export default function ProfileScreen() {
     await store.loadFeed(await getToken(), { force: true });
   };
 
+  // A like shows at once in whichever list the post is in (Posts or Tagged), then follows the server
   const like = async (post: Post) => {
     const liked = !post.liked;
-    setPosts((current) => current.map((item) => (item.id === post.id ? { ...item, liked, likeCount: Math.max(0, item.likeCount + (liked ? 1 : -1)) } : item)));
+    const update = (change: (item: Post) => Post) => {
+      setPosts((current) => current.map((item) => (item.id === post.id ? change(item) : item)));
+      setTagged((current) => current?.map((item) => (item.id === post.id ? change(item) : item)) ?? current);
+    };
+    update((item) => ({ ...item, liked, likeCount: Math.max(0, item.likeCount + (liked ? 1 : -1)) }));
     const result = await community.setLike(await getToken(), post.id, liked);
-    setPosts((current) => current.map((item) => (item.id === post.id ? { ...item, ...(result.ok ? result.data : { liked: post.liked, likeCount: post.likeCount }) } : item)));
+    update((item) => ({ ...item, ...(result.ok ? result.data : { liked: post.liked, likeCount: post.likeCount }) }));
     if (result.ok) store.patchPost(post.id, result.data);
     else setError(result.error);
   };
@@ -185,17 +208,17 @@ export default function ProfileScreen() {
     <View className="flex-1 bg-cream">
       <StatusBar style="dark" />
       <SafeAreaView style={{ flex: 1 }} edges={["top", "left", "right"]}>
-        <View className="h-12 flex-row items-center px-5">
-          <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Back">
-            <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={20} tintColor={colors.forestInk} />
+        <View className="screen-bar">
+          <Pressable onPress={() => router.back()} hitSlop={12} className="screen-bar__back" accessibilityRole="button" accessibilityLabel="Back">
+            <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={20} tintColor={colors.ink} />
           </Pressable>
-          <Text className="type-subhead ml-3 flex-1 text-forest-ink" numberOfLines={1}>
-            {profile?.member.name ?? "Profile"}
-          </Text>
-          {profile && !profile.isOwn && (
-            <Pressable onPress={() => setMenuOpen(true)} hitSlop={10} accessibilityRole="button" accessibilityLabel="Profile options">
-              <SymbolView name={{ ios: "ellipsis", android: "more_horiz", web: "more_horiz" }} size={20} tintColor={colors.forestInk} />
+          <Text className="screen-bar__title" numberOfLines={1}>{profile?.member.name ?? "Profile"}</Text>
+          {profile && !profile.isOwn ? (
+            <Pressable onPress={() => setMenuOpen(true)} hitSlop={10} className="screen-bar__back" accessibilityRole="button" accessibilityLabel="Profile options">
+              <SymbolView name={{ ios: "ellipsis", android: "more_horiz", web: "more_horiz" }} size={20} tintColor={colors.ink} />
             </Pressable>
+          ) : (
+            <View className="screen-bar__back" />
           )}
         </View>
 
@@ -211,57 +234,60 @@ export default function ProfileScreen() {
           </View>
         ) : (
           <FlatList
-            data={posts}
+            data={tab === "posts" ? posts : tagged ?? []}
             keyExtractor={(post) => post.id}
             ListHeaderComponent={
               profile ? (
-                <View className="px-5 pb-4">
-                  <View className="post__card items-center">
+                <View className="px-5 pb-4 pt-5">
+                  <View className="items-center">
                     {storyGroup ? (
-                      <StoryAvatar member={profile.member} size={72} ring={storyRingFor(storyGroup)} onPress={() => router.push({ pathname: "/community/story/[memberId]", params: { memberId: storyGroup.member.id } })} accessibilityLabel={profile.isOwn ? "Open your story" : `Open ${profile.member.name}'s story`} />
+                      <StoryAvatar member={profile.member} size={92} ring={storyRingFor(storyGroup)} onPress={() => router.push({ pathname: "/community/story/[memberId]", params: { memberId: storyGroup.member.id } })} accessibilityLabel={profile.isOwn ? "Open your story" : `Open ${profile.member.name}'s story`} />
                     ) : (
-                      <Avatar member={profile.member} size={72} />
+                      <Avatar member={profile.member} size={92} />
                     )}
-                    <Text className="post__author mt-3" style={{ fontSize: 20 }}>{profile.member.name}</Text>
-                    {profile.bio && <Text className="post__time mt-1 text-center">{profile.bio}</Text>}
-                    <View className="mt-4 flex-row gap-8">
-                      {[["Posts", profile.postCount], ["Followers", profile.followers], ["Following", profile.following]].map(([label, count]) => (
-                        <View key={String(label)} className="items-center">
-                          <Text className="post__author">{count}</Text>
-                          <Text className="post__time">{label}</Text>
+                    <Text className="profile__name">{profile.member.name}</Text>
+                    {profile.bio && <Text className="profile__bio">{profile.bio}</Text>}
+
+                    <View className="profile__stats">
+                      {([["Posts", profile.postCount], ["Followers", profile.followers], ["Following", profile.following]] as const).map(([label, count], index) => (
+                        <View key={label} className={index === 0 ? "profile__stat" : "profile__stat profile__stat--divided"}>
+                          <Text className="profile__stat-count">{count.toLocaleString("en-IN")}</Text>
+                          <Text className="gym-card__meta">{label}</Text>
                         </View>
                       ))}
                     </View>
+
                     {profile.suspended ? (
                       <Text className="home__note mt-4">This account is suspended.</Text>
                     ) : profile.isOwn ? (
-                      <View className="mt-4 w-full flex-row items-center justify-between">
-                        <View className="flex-1 pr-3">
-                          <Text className="auth__label">Private account</Text>
-                          <Text className="home__note">Only accepted followers see your posts and stories.</Text>
+                      <View className="join-card mt-4 w-full gap-3">
+                        <View className="flex-row items-center justify-between">
+                          <View className="flex-1 pr-3">
+                            <Text className="auth__label">Private account</Text>
+                            <Text className="home__note">Only accepted followers see your posts and stories.</Text>
+                          </View>
+                          <Switch value={profile.isPrivate} onValueChange={togglePrivate} trackColor={{ true: colors.forest }} accessibilityLabel="Private account" />
                         </View>
-                        <Switch value={profile.isPrivate} onValueChange={togglePrivate} trackColor={{ true: colors.forest }} accessibilityLabel="Private account" />
+                        <Pressable onPress={() => router.push("/community/close-friends")} className="flex-row items-center justify-between" accessibilityRole="button" accessibilityLabel="Close Friends">
+                          <View className="flex-1 pr-3">
+                            <Text className="auth__label">Close Friends</Text>
+                            <Text className="home__note">Choose who sees your Close Friends stories.</Text>
+                          </View>
+                          <SymbolView name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }} size={16} tintColor={colors.muted} />
+                        </Pressable>
                       </View>
-                    ) : null}
-                    {profile.suspended ? null : profile.isOwn ? (
-                      <Pressable onPress={() => router.push("/community/close-friends")} className="mt-3 w-full flex-row items-center justify-between" accessibilityRole="button" accessibilityLabel="Close Friends">
-                        <View className="flex-1 pr-3">
-                          <Text className="auth__label">Close Friends</Text>
-                          <Text className="home__note">Choose who sees your Close Friends stories.</Text>
-                        </View>
-                        <SymbolView name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }} size={16} tintColor={colors.muted} />
-                      </Pressable>
                     ) : (
-                      <View className="mt-4 flex-row gap-2">
-                        <Pressable onPress={toggleFollow} disabled={busy || profile.blocked} className={profile.followState === "none" ? "group__join" : "group__join group__join--joined"} style={{ opacity: busy || profile.blocked ? 0.5 : 1 }} accessibilityRole="button" accessibilityLabel={followLabel}>
-                          <Text className={profile.followState === "none" ? "group__join-label" : "group__join-label group__join-label--joined"}>{followLabel}</Text>
+                      <View className="mt-4 w-full flex-row items-center gap-2">
+                        <Pressable onPress={onFriend} disabled={friendBusy || profile.blocked} className={friendButton(profile.friendState).tone === "primary" ? "profile__button profile__button--filled flex-1" : "profile__button flex-1"} style={{ opacity: friendBusy || profile.blocked ? 0.5 : 1 }} accessibilityRole="button" accessibilityLabel={friendButton(profile.friendState).label}>
+                          {profile.friendState === "friends" && <SymbolView name={{ ios: "checkmark", android: "check", web: "check" }} size={14} tintColor={colors.ink} />}
+                          {profile.friendState === "none" && <SymbolView name={{ ios: "person.badge.plus", android: "person_add", web: "person_add" }} size={15} tintColor={colors.white} />}
+                          <Text className={friendButton(profile.friendState).tone === "primary" ? "profile__button-label profile__button-label--filled" : "profile__button-label"}>{friendButton(profile.friendState).label}</Text>
                         </Pressable>
-                        <Pressable onPress={onFriend} disabled={friendBusy || profile.blocked} className={friendButton(profile.friendState).tone === "primary" ? "group__join" : "group__join group__join--joined"} style={{ opacity: friendBusy || profile.blocked ? 0.5 : 1 }} accessibilityRole="button" accessibilityLabel={friendButton(profile.friendState).label}>
-                          <Text className={friendButton(profile.friendState).tone === "primary" ? "group__join-label" : "group__join-label group__join-label--joined"}>{friendButton(profile.friendState).label}</Text>
+                        <Pressable onPress={toggleFollow} disabled={busy || profile.blocked} className="profile__button" style={{ opacity: busy || profile.blocked ? 0.5 : 1 }} accessibilityRole="button" accessibilityLabel={followLabel}>
+                          <Text className="profile__button-label">{followLabel}</Text>
                         </Pressable>
-                        <Pressable onPress={message} disabled={profile.blocked || profile.friendState !== "friends"} className="admin__action flex-row items-center gap-1.5" style={{ opacity: profile.blocked || profile.friendState !== "friends" ? 0.5 : 1 }} accessibilityRole="button" accessibilityLabel={profile.friendState === "friends" ? "Message" : "Message, locked"}>
-                          {profile.friendState !== "friends" && <SymbolView name={{ ios: "lock", android: "lock", web: "lock" }} size={12} tintColor={colors.muted} />}
-                          <Text className="admin__action-label">Message</Text>
+                        <Pressable onPress={message} disabled={profile.blocked || profile.friendState !== "friends"} className="profile__round" style={{ opacity: profile.blocked || profile.friendState !== "friends" ? 0.5 : 1 }} accessibilityRole="button" accessibilityLabel={profile.friendState === "friends" ? "Message" : "Message, locked"}>
+                          <SymbolView name={profile.friendState === "friends" ? { ios: "bubble.left", android: "chat_bubble_outline", web: "chat_bubble_outline" } : { ios: "lock", android: "lock", web: "lock" }} size={18} tintColor={colors.ink} />
                         </Pressable>
                       </View>
                     )}
@@ -280,6 +306,19 @@ export default function ProfileScreen() {
                       <FormAlert message={error} />
                     </Pressable>
                   )}
+                  {profile.canViewPosts && (
+                    <View className="section-tabs mt-6" accessibilityRole="tablist">
+                      {(["posts", "tagged"] as const).map((key) => {
+                        const count = key === "posts" ? profile.postCount : tagged?.length ?? 0;
+                        const more = key === "tagged" && taggedCursor ? "+" : "";
+                        return (
+                          <Pressable key={key} onPress={() => setTab(key)} hitSlop={{ top: 6, bottom: 6 }} className={tab === key ? "section-tabs__item section-tabs__item--active" : "section-tabs__item"} accessibilityRole="tab" accessibilityState={{ selected: tab === key }}>
+                            <Text className={tab === key ? "section-tabs__label section-tabs__label--active" : "section-tabs__label"}>{key === "posts" ? "Posts" : "Tagged"} ({count}{more})</Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  )}
                 </View>
               ) : null
             }
@@ -294,11 +333,15 @@ export default function ProfileScreen() {
                 </View>
               ) : (
                 <View className="px-5">
-                  <EmptyState icon={{ ios: "text.bubble", android: "forum", web: "forum" }} title="No posts yet" text={profile?.isOwn ? "Share your first post from the feed." : "Nothing shared yet."} />
+                  {tab === "tagged" ? (
+                    <EmptyState icon={{ ios: "tag", android: "sell", web: "sell" }} title="No tagged posts" text={profile?.isOwn ? "Posts your friends tag you in show here." : "Posts that tag them show here."} />
+                  ) : (
+                    <EmptyState icon={{ ios: "text.bubble", android: "forum", web: "forum" }} title="No posts yet" text={profile?.isOwn ? "Share your first post from the feed." : "Nothing shared yet."} />
+                  )}
                 </View>
               )
             }
-            ListFooterComponent={cursor ? <ActivityIndicator color={colors.forest} className="my-4" /> : <View className="h-4" />}
+            ListFooterComponent={(tab === "posts" ? cursor : taggedCursor) ? <ActivityIndicator color={colors.forest} className="my-4" /> : <View className="h-4" />}
             onEndReached={loadMore}
             onEndReachedThreshold={0.4}
             renderItem={({ item }) => (

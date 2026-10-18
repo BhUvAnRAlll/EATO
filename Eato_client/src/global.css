@@ -2815,6 +2815,96 @@
   color: var(--color-white);
 }
 
+/* Member profile: name, bio, the stats card, friend / follow / message buttons */
+@utility profile__name {
+  margin-top: 12px;
+  font-family: var(--font-sans);
+  font-size: 24px;
+  line-height: 30px;
+  font-weight: 800;
+  text-align: center;
+  color: var(--color-ink);
+}
+
+@utility profile__bio {
+  margin-top: 6px;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 21px;
+  text-align: center;
+  color: var(--color-ink-soft);
+}
+
+@utility profile__stats {
+  width: 100%;
+  margin-top: 18px;
+  padding-block: 14px;
+  border-radius: 18px;
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-white);
+  flex-direction: row;
+}
+
+@utility profile__stat {
+  flex: 1;
+  align-items: center;
+}
+
+@utility profile__stat--divided {
+  border-left-width: 1px;
+  border-color: var(--color-cream-line);
+}
+
+@utility profile__stat-count {
+  font-family: var(--font-sans);
+  font-size: 20px;
+  line-height: 25px;
+  font-weight: 800;
+  color: var(--color-ink);
+}
+
+@utility profile__button {
+  height: 44px;
+  padding-inline: 16px;
+  border-radius: var(--radius-pill);
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-white);
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+@utility profile__button--filled {
+  border-color: var(--color-ink);
+  background-color: var(--color-ink);
+}
+
+@utility profile__button-label {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 19px;
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+@utility profile__button-label--filled {
+  color: var(--color-white);
+}
+
+@utility profile__round {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-pill);
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-white);
+  align-items: center;
+  justify-content: center;
+}
+
 /* The Friends search box: a pill */
 @utility search--pill {
   height: 50px;

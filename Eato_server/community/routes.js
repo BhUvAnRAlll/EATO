@@ -252,6 +252,11 @@ router.get("/profiles/:userId/posts", route(async (req, res) => {
   res.json(await posts.listPosts(req.app.locals.pool, req.userId, { authorId: memberId(req), ...page(req) }));
 }));
 
+// Posts that tag this member (the profile's Tagged tab)
+router.get("/profiles/:userId/tagged", route(async (req, res) => {
+  res.json(await posts.listPosts(req.app.locals.pool, req.userId, { taggedId: memberId(req), ...page(req) }));
+}));
+
 router.post("/profiles/:userId/follow", withUser, route(async (req, res) => {
   res.json({ profile: await profiles.follow(req.app.locals.pool, req.userId, memberId(req)) });
 }));

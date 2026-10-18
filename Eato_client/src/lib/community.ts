@@ -271,7 +271,12 @@ export const community = {
     if (!token) return signedOut();
     return apiFetch(`/api/community/profiles/${encodeURIComponent(userId)}/posts${query({ cursor, limit: 20 })}`, { token });
   },
-  setFollow(token: string | null, userId: string, follow: boolean): Promise<ApiResult<{ profile: Profile }>> {
+  // Posts that tag this member
+  taggedPosts(token: string | null, userId: string, cursor: string | null = null): Promise<ApiResult<Page<"posts", Post>>> {
+    if (!token) return signedOut();
+    return apiFetch(`/api/community/profiles/${encodeURIComponent(userId)}/tagged${query({ cursor, limit: 20 })}`, { token });
+  },
+    setFollow(token: string | null, userId: string, follow: boolean): Promise<ApiResult<{ profile: Profile }>> {
     if (!token) return signedOut();
     return apiFetch(`/api/community/profiles/${encodeURIComponent(userId)}/follow`, { method: follow ? "POST" : "DELETE", token });
   },
