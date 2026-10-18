@@ -226,6 +226,16 @@ describe("ui trainers: a member and their trainer", () => {
     await h.expectText("Active · Personal (calculated)");
   }));
 
+  it("5b. the bell lists the trainer's updates and opens the right screen", run("bell", async () => {
+    await h.goto("/community/notifications", "Notifications");
+    await h.expectText("accepted you as a client");
+    await h.expectText("shared your diet plan: Lean phase");
+    await noOverflow("notifications");
+    await snapshotAllWidths("trainers-notifications");
+    await clickLabel("Tara Trainer shared your diet plan: Lean phase");
+    await h.expectPath("/community/trainers/plan");
+  }));
+
   it("6. Tara's trainer area: the dashboard, her client and the client's page", run("trainer-area", async () => {
     await page.evaluate(`window.Clerk.signOut({ redirectUrl: "/sign-in" })`);
     await page.waitFor(`!(window.Clerk && window.Clerk.session)`, 15000, "member signed out");

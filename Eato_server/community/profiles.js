@@ -193,33 +193,8 @@ async function listSuspended(pool) {
   return rows.map((row) => ({ member: memberSummary(row), since: new Date(row.updated_at).toISOString() }));
 }
 
-// What the bell shows: follow requests plus recent likes and comments on the caller's posts
-async function listNotifications(pool, userId) {
-  const requests = await listFollowRequests(pool, userId);
-  const [likes] = await pool.query(
-    `SELECT l.user_id, l.post_id, l.created_at, u.full_name, p.body FROM community_post_likes l
-     JOIN community_posts p ON p.id = l.post_id JOIN users u ON u.id = l.user_id
-     WHERE p.user_id = ? AND l.user_id <> ? AND p.deleted_at IS NULL
-       AND NOT EXISTS (SELECT 1 FROM community_blocks b WHERE (b.blocker_id = ? AND b.blocked_id = l.user_id) OR (b.blocker_id = l.user_id AND b.blocked_id = ?))
-     ORDER BY l.created_at DESC LIMIT 30`,
-    [userId, userId, userId, userId],
-  );
-  const [comments] = await pool.query(
-    `SELECT c.user_id, c.post_id, c.created_at, c.body, u.full_name FROM community_comments c
-     JOIN community_posts p ON p.id = c.post_id JOIN users u ON u.id = c.user_id
-     WHERE p.user_id = ? AND c.user_id <> ? AND c.deleted_at IS NULL AND p.deleted_at IS NULL
-       AND NOT EXISTS (SELECT 1 FROM community_blocks b WHERE (b.blocker_id = ? AND b.blocked_id = c.user_id) OR (b.blocker_id = c.user_id AND b.blocked_id = ?))
-     ORDER BY c.created_at DESC LIMIT 30`,
-    [userId, userId, userId, userId],
-  );
-  const activity = [
-    ...likes.map((row) => ({ type: "like", member: memberSummary(row), postId: row.post_id, preview: row.body.slice(0, 60), at: new Date(row.created_at).toISOString() })),
-    ...comments.map((row) => ({ type: "comment", member: memberSummary(row), postId: row.post_id, preview: row.body.slice(0, 60), at: new Date(row.created_at).toISOString() })),
-  ].sort((a, b) => (a.at < b.at ? 1 : -1)).slice(0, 40);
-  return { followRequests: requests, activity };
-}
 
 module.exports = {
   getProfile, updateOwnProfile, follow, unfollow, listFollowRequests, answerFollowRequest, block, unblock, listBlocked,
-  listCloseFriends, addCloseFriend, removeCloseFriend, setSuspended, listSuspended, listNotifications,
+  listCloseFriends, addCloseFriend, removeCloseFriend, setSuspended, listSuspended,
 };

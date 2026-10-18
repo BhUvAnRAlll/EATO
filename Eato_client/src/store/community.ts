@@ -79,7 +79,7 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
       feedLoadedAt: Date.now(),
       stories: stories.ok ? stories.data.members : get().stories,
       unreadCount: conversations.ok ? conversations.data.unreadCount : get().unreadCount,
-      requestCount: notifications.ok ? notifications.data.followRequests.length : get().requestCount,
+      requestCount: notifications.ok ? notifications.data.requestCount : get().requestCount,
     });
   },
 
@@ -98,7 +98,7 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
   loadUnread: async (token) => {
     const [conversations, notifications] = await Promise.all([community.conversations(token), community.notifications(token)]);
     if (conversations.ok) set({ unreadCount: conversations.data.unreadCount });
-    if (notifications.ok) set({ requestCount: notifications.data.followRequests.length });
+    if (notifications.ok) set({ requestCount: notifications.data.requestCount });
   },
 
   upsertPost: (post) =>

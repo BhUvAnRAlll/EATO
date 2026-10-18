@@ -14,6 +14,7 @@ const stories = require("./stories");
 const messages = require("./messages");
 const profiles = require("./profiles");
 const friends = require("./friends");
+const notifications = require("./notifications");
 const gyms = require("../gyms/gyms");
 const { isSuspended } = require("./visibility");
 const v = require("./validate");
@@ -233,7 +234,7 @@ router.get("/me/blocked", route(async (req, res) => {
 }));
 
 router.get("/notifications", route(async (req, res) => {
-  res.json(await profiles.listNotifications(req.app.locals.pool, req.userId));
+  res.json(await notifications.listNotifications(req.app.locals.pool, req.userId));
 }));
 
 router.get("/profiles/:userId", route(async (req, res) => {

@@ -102,7 +102,17 @@ export type ReportDetail = {
 
 export type SuspendedMember = { member: Member; since: string };
 
-export type Activity = { type: "like" | "comment"; member: Member; postId: string; preview: string; at: string };
+// One entry under the bell. Likes and comments point at a post; trainer entries come from the
+// member's trainer; gym entries point at a gym. The server builds the preview line.
+export type Activity =
+  | { type: "like" | "comment"; member: Member; postId: string; preview: string; at: string }
+  | { type: "friend_accepted"; member: Member; preview: string; at: string }
+  | { type: "trainer_accepted" | "plan_updated" | "workout_updated" | "recommendation"; member: Member; preview: string; at: string }
+  | { type: "gym_approved"; gymId: string; preview: string; at: string }
+  | { type: "rsvp"; member: Member; gymId: string; preview: string; at: string };
+
+// Join requests waiting in a gym the viewer owns or administers
+export type GymRequestSummary = { gymId: string; gymName: string; waiting: number; latestAt: string };
 
 // The message apiFetch gives when the request never reached the server
 export const OFFLINE_MESSAGE = "Couldn't reach the server. Check your connection and try again.";
@@ -224,7 +234,8 @@ export const community = {
     if (!token) return signedOut();
     return apiFetch(`/api/community/profiles/${encodeURIComponent(userId)}/block`, { method: blocked ? "POST" : "DELETE", token });
   },
-  notifications(token: string | null): Promise<ApiResult<{ followRequests: FollowRequest[]; activity: Activity[] }>> {
+  // requestCount (the bell's badge) counts what the viewer can act on: follow, friend and gym join requests
+  notifications(token: string | null): Promise<ApiResult<{ followRequests: FollowRequest[]; friendRequests: FriendRequest[]; gymRequests: GymRequestSummary[]; requestCount: number; activity: Activity[] }>> {
     if (!token) return signedOut();
     return apiFetch("/api/community/notifications", { token });
   },
