@@ -93,10 +93,15 @@ describe("ui friends: requests between real accounts and the messaging lock", ()
   };
   // Filter chips are clicked by their accessible name ("Friends" is also the tab's text).
   // Re-selecting the open chip doesn't reload, so hop through another filter.
+  // The filter chips carry live counts ("Friends (1)"), so they're found by the start of their label
+  const clickChip = async (prefix) => {
+    const pos = await page.waitFor(`(() => { const el = [...document.querySelectorAll('[role="tab"][aria-label^=${JSON.stringify(prefix)}]')].find((e) => e.getClientRects().length > 0); if (!el) return null; el.scrollIntoView({ block: "center" }); const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`, NAV_TIMEOUT, `chip ${prefix}`);
+    await page.clickAt(pos.x, pos.y);
+  };
   const showFilter = async (label, via) => {
-    await clickLabel(via);
+    await clickChip(via);
     await h.settle();
-    await clickLabel(label);
+    await clickChip(label);
     await h.settle();
   };
 
@@ -153,19 +158,25 @@ describe("ui friends: requests between real accounts and the messaging lock", ()
     if (problems.length > 0) throw new Error(`cleanup incomplete: ${problems.join("; ")}`);
   });
 
-  it("1. the Friends tab starts empty and offers suggestions", run("empty", async () => {
+  it("1. the Friends tab opens on suggestions; the Friends list starts empty", run("empty", async () => {
     await viewport(390, 844);
     await signInAs(page, h, identities.a);
     await h.expectPath("/home");
     await clickTab("Community");
     await h.expectPath("/community");
     await page.clickText("Friends");
+    await h.expectText("Rohan Mehta");
+    await h.expectText("Chitra Iyer");
+    assert.equal(await hasLabel("Messaging Rohan is locked until you're friends"), true, "a lock beside everyone who isn't a friend");
+    await noOverflow("friends suggested");
+    await snapshotAllWidths("friends-suggested");
+    await h.expectText("Friends (0)");
+    await h.expectText("Requests sent (0)");
+    await clickChip("Friends (");
     await h.expectText("No friends yet");
-    await noOverflow("friends empty");
     await snapshotAllWidths("friends-empty");
     await page.clickText("Find friends");
     await h.expectText("Rohan Mehta");
-    await h.expectText("Chitra Iyer");
     assert.equal(await page.hasText("Priya Sharma"), false, "you aren't suggested to yourself");
   }));
 
@@ -175,7 +186,8 @@ describe("ui friends: requests between real accounts and the messaging lock", ()
     await page.waitFor(`!!document.querySelector('[aria-label="Cancel your request to Rohan Mehta"]')`, NAV_TIMEOUT, "Requested button");
     assert.equal(await hasLabel("Messaging Rohan Mehta unlocks when they accept"), true, "the lock shows beside the request");
     await snapshotAllWidths("friends-requested");
-    await clickLabel("Requests");
+    await h.expectText("Requests sent (1)");
+    await clickChip("Requests sent");
     await h.expectText("Request sent");
   }));
 
@@ -184,7 +196,7 @@ describe("ui friends: requests between real accounts and the messaging lock", ()
     assert.equal(accepted.status, 200, JSON.stringify(accepted.json));
     await showFilter("Friends", "Suggested");
     await h.expectText("Rohan Mehta");
-    await h.expectText("Became friends");
+    await h.expectText("Friends since");
     await snapshotAllWidths("friends-list");
     await clickLabel("Message Rohan Mehta");
     await page.waitFor(`location.pathname.startsWith("/messages/")`, NAV_TIMEOUT, "the conversation");
@@ -192,13 +204,12 @@ describe("ui friends: requests between real accounts and the messaging lock", ()
     assert.equal(await hasLabel("Send message"), true, "the composer is there for a friend");
   }));
 
-  it("4. a received request shows on the Requests chip and can be accepted", run("incoming", async () => {
+  it("4. a received request shows Accept when you find that member (it also arrives in Notifications)", run("incoming", async () => {
     const sent = await apiAs("c", "POST", `/api/community/friends/${identities.a.id}/request`);
     assert.equal(sent.status, 200, JSON.stringify(sent.json));
     await h.goto("/community", "TRAIN TOGETHER");
     await page.clickText("Friends");
-    await h.expectText("Requests · 1");
-    await page.clickText("Requests · 1");
+    await page.setInput('[aria-label="Search members"]', "Chitra");
     await h.expectText("Wants to be friends");
     await snapshotAllWidths("friends-requests");
     await clickLabel("Accept Chitra Iyer's request");
@@ -207,6 +218,7 @@ describe("ui friends: requests between real accounts and the messaging lock", ()
   }));
 
   it("5. removing a friend asks first; the chat keeps its history but locks the composer", run("remove", async () => {
+    await page.setInput('[aria-label="Search members"]', ""); // test 4 left a search in the box, which hides the chips
     await showFilter("Friends", "Suggested");
     await clickLabel("Remove Rohan Mehta as a friend");
     await h.expectText("Remove Rohan as a friend?");

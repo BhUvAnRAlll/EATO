@@ -123,9 +123,10 @@ export type FollowRequest = { member: Member; requestedAt: string };
 // Where a friendship stands, from the viewer's side. Friendship is separate from following:
 // it unlocks messaging, never a private account's posts.
 export type { FriendState };
-export type Friend = { member: Member; since: string };
-export type FriendRequest = { member: Member; requestedAt: string };
-export type FriendCandidate = { member: Member; friendState: FriendState };
+// bio: the member's short community bio, shown under their name (null when they have none)
+export type Friend = { member: Member; bio: string | null; since: string };
+export type FriendRequest = { member: Member; bio: string | null; requestedAt: string };
+export type FriendCandidate = { member: Member; bio: string | null; friendState: FriendState };
 type FriendAnswer = { userId: string; friendState: FriendState };
 
 // A report as the moderation screen shows it (admins only)

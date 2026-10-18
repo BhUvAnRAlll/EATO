@@ -139,7 +139,8 @@ const OTHER_SQL = `
 
 async function listFor(pool, viewerId, statusSql) {
   const [rows] = await pool.query(
-    `SELECT x.*, u.full_name FROM (${OTHER_SQL} AND ${statusSql}) x
+    `SELECT x.*, u.full_name, (SELECT cp.bio FROM community_profiles cp WHERE cp.user_id = x.other_id) AS bio
+     FROM (${OTHER_SQL} AND ${statusSql}) x
      JOIN users u ON u.id = x.other_id
      WHERE NOT EXISTS (SELECT 1 FROM community_profiles cp WHERE cp.user_id = x.other_id AND cp.status = 'suspended')
        AND NOT EXISTS (SELECT 1 FROM community_blocks b WHERE (b.blocker_id = ? AND b.blocked_id = x.other_id) OR (b.blocker_id = x.other_id AND b.blocked_id = ?))
@@ -153,13 +154,13 @@ async function listFor(pool, viewerId, statusSql) {
 // The viewer's own friends (never another member's list)
 async function listFriends(pool, viewerId) {
   const rows = await listFor(pool, viewerId, "f.status = 'accepted'");
-  return rows.map((row) => ({ member: memberSummary({ user_id: row.other_id, full_name: row.full_name }), since: new Date(row.responded_at ?? row.requested_at).toISOString() }));
+  return rows.map((row) => ({ member: memberSummary({ user_id: row.other_id, full_name: row.full_name }), bio: row.bio ?? null, since: new Date(row.responded_at ?? row.requested_at).toISOString() }));
 }
 
 // The viewer's pending requests, split into received and sent
 async function listRequests(pool, viewerId) {
   const rows = await listFor(pool, viewerId, "f.status = 'pending'");
-  const toApi = (row) => ({ member: memberSummary({ user_id: row.other_id, full_name: row.full_name }), requestedAt: new Date(row.requested_at).toISOString() });
+  const toApi = (row) => ({ member: memberSummary({ user_id: row.other_id, full_name: row.full_name }), bio: row.bio ?? null, requestedAt: new Date(row.requested_at).toISOString() });
   return {
     incoming: rows.filter((row) => row.requester_id !== viewerId).map(toApi),
     outgoing: rows.filter((row) => row.requester_id === viewerId).map(toApi),
@@ -182,7 +183,7 @@ async function searchMembers(pool, viewerId, { search = null, limit = 20 }) {
   }
   params.push(limit);
   const [rows] = await pool.query(
-    `SELECT u.id, u.full_name, f.requester_id, f.status
+    `SELECT u.id, u.full_name, f.requester_id, f.status, (SELECT cp.bio FROM community_profiles cp WHERE cp.user_id = u.id) AS bio
      FROM users u
      LEFT JOIN community_friendships f
        ON (f.user_low = u.id AND f.user_high = ?) OR (f.user_high = u.id AND f.user_low = ?)
@@ -194,7 +195,8 @@ async function searchMembers(pool, viewerId, { search = null, limit = 20 }) {
      LIMIT ?`,
     params,
   );
-  return rows.map((row) => ({ member: memberSummary(row), friendState: stateOf(row, viewerId) }));
+  // bio: the member's short community bio (the same line their profile shows to anyone not blocked)
+  return rows.map((row) => ({ member: memberSummary(row), bio: row.bio ?? null, friendState: stateOf(row, viewerId) }));
 }
 
 module.exports = {

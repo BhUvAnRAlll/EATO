@@ -107,8 +107,12 @@ describe("community friends e2e: requests, answers, removal and the messaging lo
     const search = await api("GET", "/api/community/friends/search?search=asha", tokens.b);
     assert.equal(search.status, 200);
     assert.deepEqual(search.json.members.map((m) => m.member.id), [ids.a], "the trainer named Asha isn't listed");
-    assert.deepEqual(search.json.members[0], { member: { id: ids.a, name: "Asha Rao", initial: "A" }, friendState: "none" });
+    assert.deepEqual(search.json.members[0], { member: { id: ids.a, name: "Asha Rao", initial: "A" }, bio: null, friendState: "none" });
     assert.equal(Object.hasOwn(search.json.members[0].member, "email"), false, "no email");
+    // The member's own bio shows under their name (the same line their profile shows)
+    assert.equal((await api("PATCH", "/api/community/me", tokens.a, { bio: "Morning lifter" })).status, 200);
+    assert.equal((await api("GET", "/api/community/friends/search?search=asha", tokens.b)).json.members[0].bio, "Morning lifter");
+    assert.equal((await api("PATCH", "/api/community/me", tokens.a, { bio: "" })).status, 200);
     const suggested = await api("GET", "/api/community/friends/search", tokens.a);
     assert.deepEqual(suggested.json.members.map((m) => m.member.id).sort(), [ids.b, ids.c].sort(), "everyone but me and the trainer");
     // SQL and LIKE wildcards in the search are plain text

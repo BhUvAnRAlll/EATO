@@ -2156,6 +2156,116 @@
   gap: 10px;
 }
 
+/* The Friends search box: a pill */
+@utility search--pill {
+  height: 50px;
+  border-radius: var(--radius-pill);
+}
+
+/* Friends filter chips: Suggested / Friends (n) / Requests sent (n) */
+@utility friend-chip {
+  height: 36px;
+  padding-inline: 14px;
+  border-radius: var(--radius-pill);
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-white);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility friend-chip--selected {
+  border-color: var(--color-ink);
+  background-color: var(--color-ink);
+}
+
+@utility friend-chip__label {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 600;
+  color: var(--color-ink-soft);
+}
+
+@utility friend-chip__label--selected {
+  color: var(--color-white);
+}
+
+/* A member row; consecutive rows form one card (first and last round its corners) */
+@utility friend-row {
+  min-height: 72px;
+  padding-inline: 14px;
+  padding-block: 12px;
+  border-top-width: 1px;
+  border-left-width: 1px;
+  border-right-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-white);
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+}
+
+@utility friend-row--first {
+  border-top-left-radius: 20px;
+  border-top-right-radius: 20px;
+}
+
+@utility friend-row--last {
+  border-bottom-width: 1px;
+  border-bottom-left-radius: 20px;
+  border-bottom-right-radius: 20px;
+}
+
+@utility friend-row__name {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 21px;
+  font-weight: 700;
+  color: var(--color-ink);
+}
+
+@utility friend-row__note {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+@utility friend-row__icon {
+  width: 32px;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+}
+
+@utility friend-button {
+  height: 36px;
+  padding-inline: 14px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-ink);
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+@utility friend-button--soft {
+  background-color: var(--color-cream-tab);
+}
+
+@utility friend-button__label {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 600;
+  color: var(--color-white);
+}
+
+@utility friend-button__label--soft {
+  color: var(--color-ink);
+}
+
 @utility search__input {
   flex: 1;
   padding: 0;

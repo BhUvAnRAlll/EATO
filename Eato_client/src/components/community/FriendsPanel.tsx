@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type ReactElement } from "react";
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from "react-native";
 import { SymbolView } from "expo-symbols";
 import { router } from "expo-router";
 
@@ -12,25 +12,30 @@ import { friendButton, friendConfirm } from "@/lib/friends";
 import { useSessionToken } from "@/lib/session";
 import { colors } from "@/theme";
 
-type Filter = "friends" | "suggested" | "requests";
+type Filter = "suggested" | "friends" | "sent";
 type Row = { member: Member; state: FriendState; note: string | null };
 type Pending = { row: Row; action: "cancel" | "remove" };
 
-const filters: { key: Filter; label: string }[] = [
-  { key: "friends", label: "Friends" },
+// The line under a name: the member's bio, else where the friendship stands
+const noteFor = (bio: string | null, fallback: string | null) => (bio && bio.trim() ? bio.trim() : fallback);
+
+// The Friends tab: search by name, or browse Suggested / Friends / Requests sent. A friendship
+// starts as a request and messaging stays locked (the lock icon) until the other member
+// accepts. Requests you receive arrive in Notifications; a search shows Accept on that person
+// too. `header` is the Community header (title, tabs), drawn above so the page scrolls as one.
+// The chips, with counts once they've loaded
+const filters = (counts: { friends: number; sent: number } | null): { key: Filter; label: string }[] => [
   { key: "suggested", label: "Suggested" },
-  { key: "requests", label: "Requests" },
+  { key: "friends", label: counts ? `Friends (${counts.friends})` : "Friends" },
+  { key: "sent", label: counts ? `Requests sent (${counts.sent})` : "Requests sent" },
 ];
 
-// The Friends tab: search by name, or browse Friends / Suggested / Requests. A friendship
-// starts as a request and messaging stays locked until the other member accepts. `header`
-// is the Community header (title, tabs), drawn above the list so the page scrolls as one.
 export function FriendsPanel({ header }: { header: ReactElement }) {
   const getToken = useSessionToken();
-  const [filter, setFilter] = useState<Filter>("friends");
+  const [filter, setFilter] = useState<Filter>("suggested");
   const [search, setSearch] = useState("");
   const [rows, setRows] = useState<Row[] | null>(null);
-  const [incomingCount, setIncomingCount] = useState(0);
+  const [counts, setCounts] = useState<{ friends: number; sent: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -39,24 +44,20 @@ export function FriendsPanel({ header }: { header: ReactElement }) {
   const load = useCallback(async () => {
     const token = await getToken();
     const term = search.trim();
-    // The Requests count shows on its chip whichever list is open
-    const requests = await community.friendRequests(token);
-    if (requests.ok) setIncomingCount(requests.data.incoming.length);
+    // The chip counts show whichever list is open
+    const [friends, requests] = await Promise.all([community.friends(token), community.friendRequests(token)]);
+    if (friends.ok && requests.ok) setCounts({ friends: friends.data.friends.length, sent: requests.data.outgoing.length });
     let next: Row[] | null = null;
     let failure: string | null = null;
     if (term || filter === "suggested") {
       const result = await community.findFriends(token, term || null);
-      if (result.ok) next = result.data.members.map((m) => ({ member: m.member, state: m.friendState, note: null }));
+      if (result.ok) next = result.data.members.map((m) => ({ member: m.member, state: m.friendState, note: noteFor(m.bio, null) }));
       else failure = result.error;
     } else if (filter === "friends") {
-      const result = await community.friends(token);
-      if (result.ok) next = result.data.friends.map((f) => ({ member: f.member, state: "friends", note: `Became friends ${timeAgo(f.since)}` }));
-      else failure = result.error;
+      if (friends.ok) next = friends.data.friends.map((f) => ({ member: f.member, state: "friends", note: noteFor(f.bio, `Friends since ${timeAgo(f.since)}`) }));
+      else failure = friends.error;
     } else if (requests.ok) {
-      next = [
-        ...requests.data.incoming.map((r): Row => ({ member: r.member, state: "incoming", note: `Wants to be friends · ${timeAgo(r.requestedAt)}` })),
-        ...requests.data.outgoing.map((r): Row => ({ member: r.member, state: "outgoing", note: `Request sent · ${timeAgo(r.requestedAt)}` })),
-      ];
+      next = requests.data.outgoing.map((r): Row => ({ member: r.member, state: "outgoing", note: `Request sent ${timeAgo(r.requestedAt)}` }));
     } else failure = requests.error;
     if (next) setRows(next);
     setError(failure);
@@ -90,8 +91,8 @@ export function FriendsPanel({ header }: { header: ReactElement }) {
     else if (search.trim() || filter === "suggested") {
       const state = result.data.friendState;
       setRows((current) => current?.map((item) => (item.member.id === id ? { ...item, state } : item)) ?? current);
-      const requests = await community.friendRequests(token);
-      if (requests.ok) setIncomingCount(requests.data.incoming.length);
+      const [friends, requests] = await Promise.all([community.friends(token), community.friendRequests(token)]);
+      if (friends.ok && requests.ok) setCounts({ friends: friends.data.friends.length, sent: requests.data.outgoing.length });
     } else await load();
     setBusyId(null);
     setPending(null);
@@ -118,7 +119,7 @@ export function FriendsPanel({ header }: { header: ReactElement }) {
     }
     if (searching) return <EmptyState icon={{ ios: "magnifyingglass", android: "search", web: "search" }} title="No members found" text="Try another name." />;
     if (filter === "friends") return <EmptyState icon={{ ios: "person.2", android: "group", web: "group" }} title="No friends yet" text="Add friends to message them and see who's training." actionLabel="Find friends" onAction={() => setFilter("suggested")} />;
-    if (filter === "requests") return <EmptyState icon={{ ios: "tray", android: "inbox", web: "inbox" }} title="No requests" text="Requests you send and receive show here." />;
+    if (filter === "sent") return <EmptyState icon={{ ios: "paperplane", android: "send", web: "send" }} title="No requests sent" text="Requests you send show here until they're answered. Requests you receive arrive in Notifications." />;
     return <EmptyState icon={{ ios: "sparkles", android: "auto_awesome", web: "auto_awesome" }} title="No suggestions right now" text="Search by name to find someone." />;
   };
 
@@ -132,22 +133,21 @@ export function FriendsPanel({ header }: { header: ReactElement }) {
         ListHeaderComponent={
           <View>
             {header}
-            <View className="search mx-5 mt-5">
+            <View className="search search--pill mx-5 mt-5">
               <SymbolView name={{ ios: "magnifyingglass", android: "search", web: "search" }} size={18} tintColor={colors.muted} />
-              <TextInput className="search__input" value={search} onChangeText={setSearch} placeholder="Search members by name" placeholderTextColor={colors.faint} autoCorrect={false} accessibilityLabel="Search members" />
+              <TextInput className="search__input" value={search} onChangeText={setSearch} placeholder="Search friends by name" placeholderTextColor={colors.faint} autoCorrect={false} accessibilityLabel="Search members" />
             </View>
             {!searching && (
-              <View className="mx-5 mt-3 flex-row gap-2" accessibilityRole="tablist">
-                {filters.map((item) => {
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mt-3" contentContainerStyle={{ paddingHorizontal: 20, gap: 8 }} accessibilityRole="tablist">
+                {filters(counts).map((item) => {
                   const selected = filter === item.key;
-                  const label = item.key === "requests" && incomingCount > 0 ? `${item.label} · ${incomingCount}` : item.label;
                   return (
-                    <Pressable key={item.key} onPress={() => setFilter(item.key)} className={selected ? "setup__chip setup__chip--selected" : "setup__chip"} accessibilityRole="tab" accessibilityState={{ selected }} accessibilityLabel={item.key === "requests" && incomingCount > 0 ? `Requests, ${incomingCount} received` : item.label}>
-                      <Text className={selected ? "setup__chip-label setup__chip-label--selected" : "setup__chip-label"}>{label}</Text>
+                    <Pressable key={item.key} onPress={() => setFilter(item.key)} className={selected ? "friend-chip friend-chip--selected" : "friend-chip"} accessibilityRole="tab" accessibilityState={{ selected }} accessibilityLabel={item.label}>
+                      <Text className={selected ? "friend-chip__label friend-chip__label--selected" : "friend-chip__label"}>{item.label}</Text>
                     </Pressable>
                   );
                 })}
-              </View>
+              </ScrollView>
             )}
             {error && rows !== null && (
               <Pressable onPress={() => setError(null)} className="mx-5 mt-3">
@@ -159,41 +159,48 @@ export function FriendsPanel({ header }: { header: ReactElement }) {
         ListHeaderComponentStyle={{ marginBottom: 8 }}
         ListEmptyComponent={<View className="px-5 pt-2">{empty()}</View>}
         contentContainerStyle={{ paddingBottom: 16 }}
-        renderItem={({ item }) => {
+        renderItem={({ item, index }) => {
           const button = friendButton(item.state);
           const busy = busyId === item.member.id;
+          const first = item.member.name.split(" ")[0];
+          const edge = [index === 0 ? "friend-row--first" : "", index === (rows?.length ?? 0) - 1 ? "friend-row--last" : ""].join(" ");
           return (
-            <View className="flex-row items-center gap-3 px-5 py-2.5">
-              <Pressable onPress={() => router.push({ pathname: "/community/profile/[userId]", params: { userId: item.member.id } })} className="flex-1 flex-row items-center gap-3" accessibilityRole="button" accessibilityLabel={`Open ${item.member.name}'s profile`}>
+            <View className={`friend-row mx-5 ${edge}`}>
+              <Pressable onPress={() => router.push({ pathname: "/community/profile/[userId]", params: { userId: item.member.id } })} className="min-w-0 flex-1 flex-row items-center gap-3" accessibilityRole="button" accessibilityLabel={`Open ${item.member.name}'s profile`}>
                 <Avatar member={item.member} size={44} />
-                <View className="flex-1">
-                  <Text className="post__author" numberOfLines={1}>{item.member.name}</Text>
-                  {item.note && <Text className="post__time" numberOfLines={1}>{item.note}</Text>}
+                <View className="min-w-0 flex-1">
+                  <Text className="friend-row__name" numberOfLines={1}>{item.member.name}</Text>
+                  {/* "Wants to be friends" follows the live state, so it goes once the request is accepted */}
+                  {(item.note ?? (item.state === "incoming" ? "Wants to be friends" : null)) && (
+                    <Text className="friend-row__note" numberOfLines={1}>{item.note ?? "Wants to be friends"}</Text>
+                  )}
                 </View>
               </Pressable>
               {item.state === "friends" ? (
-                <Pressable onPress={() => message(item.member)} className="home__icon-button" accessibilityRole="button" accessibilityLabel={`Message ${item.member.name}`}>
-                  <SymbolView name={{ ios: "bubble.left", android: "chat_bubble_outline", web: "chat_bubble_outline" }} size={18} tintColor={colors.forestInk} />
+                <Pressable onPress={() => message(item.member)} hitSlop={8} className="friend-row__icon" accessibilityRole="button" accessibilityLabel={`Message ${item.member.name}`}>
+                  <SymbolView name={{ ios: "bubble.left", android: "chat_bubble_outline", web: "chat_bubble_outline" }} size={20} tintColor={colors.ink} />
                 </Pressable>
-              ) : item.state === "outgoing" ? (
-                <View className="home__icon-button" style={{ opacity: 0.5 }} accessibilityLabel={`Messaging ${item.member.name} unlocks when they accept`}>
-                  <SymbolView name={{ ios: "lock", android: "lock", web: "lock" }} size={16} tintColor={colors.muted} />
+              ) : (
+                <View className="friend-row__icon" accessibilityLabel={item.state === "outgoing" ? `Messaging ${item.member.name} unlocks when they accept` : `Messaging ${first} is locked until you're friends`}>
+                  <SymbolView name={{ ios: "lock", android: "lock", web: "lock" }} size={18} tintColor={colors.ink} />
                 </View>
-              ) : null}
-              {item.state === "incoming" && (
-                <Pressable onPress={() => act(item, "decline")} disabled={busy} className="group__join group__join--joined" style={{ opacity: busy ? 0.5 : 1 }} accessibilityRole="button" accessibilityLabel={`Decline ${item.member.name}'s request`}>
-                  <Text className="group__join-label group__join-label--joined">Decline</Text>
-                </Pressable>
               )}
               <Pressable
                 onPress={() => onButton(item)}
                 disabled={busy}
-                className={button.tone === "primary" ? "group__join" : "group__join group__join--joined"}
+                className={button.tone === "primary" ? "friend-button" : "friend-button friend-button--soft"}
                 style={{ opacity: busy ? 0.5 : 1 }}
                 accessibilityRole="button"
                 accessibilityLabel={button.action === "request" ? `Add ${item.member.name} as a friend` : button.action === "accept" ? `Accept ${item.member.name}'s request` : button.action === "cancel" ? `Cancel your request to ${item.member.name}` : `Remove ${item.member.name} as a friend`}
               >
-                {busy ? <ActivityIndicator color={button.tone === "primary" ? colors.white : colors.forest} /> : <Text className={button.tone === "primary" ? "group__join-label" : "group__join-label group__join-label--joined"}>{button.label}</Text>}
+                {busy ? (
+                  <ActivityIndicator color={button.tone === "primary" ? colors.white : colors.ink} />
+                ) : (
+                  <>
+                    {button.action === "request" && <SymbolView name={{ ios: "person.badge.plus", android: "person_add", web: "person_add" }} size={16} tintColor={colors.white} />}
+                    <Text className={button.tone === "primary" ? "friend-button__label" : "friend-button__label friend-button__label--soft"}>{button.label}</Text>
+                  </>
+                )}
               </Pressable>
             </View>
           );
