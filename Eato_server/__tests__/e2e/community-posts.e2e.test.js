@@ -19,7 +19,7 @@ const { clerkFor, describeClerkError } = require("./clerk-identities.js");
 // A 1×1 PNG, as the app would send it
 const TINY_PNG = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
 const COMMUNITY_TABLES = ["community_reports", "community_comments", "community_post_likes", "community_post_media", "community_posts",
-  "community_group_members", "community_media", "community_follows", "community_profiles"];
+  "community_media", "community_follows", "community_profiles"];
 
 describe("community posts e2e: publish, edit and delete with photos", () => {
   const runId = crypto.randomBytes(4).toString("hex");
@@ -174,7 +174,7 @@ describe("community posts e2e: publish, edit and delete with photos", () => {
     state.privateFollowers = (await publish(tokens.author, "Private, followers", { audience: "followers" })).id;
     state.privateOnlyMe = (await publish(tokens.author, "Private, only me", { audience: "only_me" })).id;
     // Groups were removed: a post can't name one
-    const [[group]] = await connection.query("SELECT id FROM community_groups WHERE slug = 'fat-loss'");
+    const group = { id: crypto.randomUUID() };
     assert.equal((await api("POST", "/api/community/posts", tokens.author, { body: "In the group", groupId: group.id })).status, 400);
     // Privacy changes while a draft is open: the photo was uploaded while public, the
     // account went private, so publishing to Everyone fails and a valid audience succeeds

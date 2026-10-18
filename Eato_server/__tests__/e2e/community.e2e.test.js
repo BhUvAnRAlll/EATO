@@ -19,7 +19,7 @@ const { clerkFor, describeClerkError } = require("./clerk-identities.js");
 // A 1×1 PNG, as the app would send it
 const TINY_PNG = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
 const COMMUNITY_TABLES = ["messages", "conversation_members", "conversations", "community_reports", "community_story_views", "community_stories",
-  "community_comments", "community_post_likes", "community_posts", "community_group_members", "community_media", "community_friendships"];
+  "community_comments", "community_post_likes", "community_posts", "community_media", "community_friendships"];
 
 describe("community e2e: posts, stories and messages with real sessions", () => {
   const runId = crypto.randomBytes(4).toString("hex");
@@ -250,21 +250,16 @@ describe("community e2e: posts, stories and messages with real sessions", () => 
     assert.ok(fs.existsSync(path.join(uploadDir, `${upload.json.media.id}.png`)), "the file is kept until the purge (see community-stories e2e)");
   });
 
-  test("9. groups are gone: their routes answer 404, posts can't name one, old group posts stay private", async () => {
-    const [[fatLoss]] = await connection.query("SELECT id FROM community_groups WHERE slug = 'fat-loss'");
-    for (const [method, route] of [["GET", "/api/community/groups"], ["GET", `/api/community/groups/${fatLoss.id}`], ["GET", `/api/community/groups/${fatLoss.id}/posts`], ["POST", `/api/community/groups/${fatLoss.id}/join`], ["POST", "/api/community/groups"]]) {
+  test("9. groups are gone: their routes answer 404, posts can't name one, and the tables are dropped", async () => {
+    const someId = crypto.randomUUID();
+    for (const [method, route] of [["GET", "/api/community/groups"], ["GET", `/api/community/groups/${someId}`], ["GET", `/api/community/groups/${someId}/posts`], ["POST", `/api/community/groups/${someId}/join`], ["POST", "/api/community/groups"]]) {
       assert.equal((await api(method, route, tokens.admin, method === "POST" ? {} : undefined)).status, 404, `${method} ${route}`);
     }
-    assert.equal((await api("POST", "/api/community/posts", tokens.a, { body: "Week 1 check-in", groupId: fatLoss.id })).status, 400);
-    // A post from before the removal, in a private group: still only for that group's members
-    await connection.query("INSERT INTO community_groups (slug, name, topic, description, is_private) VALUES ('coaches-only', 'Coaches Only', 'Private', 'Invite only.', TRUE)");
-    const [[secret]] = await connection.query("SELECT id FROM community_groups WHERE slug = 'coaches-only'");
-    const [[{ id: oldPost }]] = await connection.query("SELECT UUID() AS id");
-    await connection.query("INSERT INTO community_posts (id, user_id, group_id, body) VALUES (?, ?, ?, 'from before')", [oldPost, identities.admin.id, secret.id]);
-    assert.equal((await api("GET", `/api/community/posts/${oldPost}`, tokens.a)).status, 404);
-    assert.equal((await api("GET", "/api/community/feed", tokens.a)).json.posts.some((p) => p.id === oldPost), false);
-    await connection.query("DELETE FROM community_posts WHERE id = ?", [oldPost]);
-    await connection.query("DELETE FROM community_groups WHERE id = ?", [secret.id]);
+    assert.equal((await api("POST", "/api/community/posts", tokens.a, { body: "Week 1 check-in", groupId: someId })).status, 400);
+    const [tables] = await connection.query("SELECT TABLE_NAME AS t FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('community_groups', 'community_group_members')");
+    assert.deepEqual(tables, [], "the group tables don't exist");
+    const [columns] = await connection.query("SELECT COLUMN_NAME AS c FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'community_posts' AND COLUMN_NAME = 'group_id'");
+    assert.deepEqual(columns, [], "posts have no group_id");
   });
 
   test("10. direct messages: only members of a conversation can read or write it", async () => {

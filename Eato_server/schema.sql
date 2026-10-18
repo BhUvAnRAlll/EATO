@@ -319,10 +319,10 @@ INSERT INTO promotions (title, eyebrow, headline, description, image_url, image_
   ('Fuel your day', 'FUEL YOUR DAY', 'Better nutrition starts here', 'Find meals that fit your lifestyle and daily macros.', 'asset:hero-delivery', 'Packed EATO meal boxes', 'View Menu', 'explore', 'published', 3);
 
 -- ---------------------------------------------------------------------------
--- Community: feed, stories, groups, direct messages
+-- Community: feed, stories, direct messages
 -- ---------------------------------------------------------------------------
 
--- An image a member uploaded (post, story or group cover). The bytes live on the server's
+-- An image a member uploaded (post, story, gym logo or cover). The bytes live on the server's
 -- disk under uploads/<id>.<ext> and are served only to signed-in members; the row keeps
 -- the owner, type and size so files can be checked and cleaned up.
 CREATE TABLE community_media (
@@ -334,36 +334,6 @@ CREATE TABLE community_media (
   PRIMARY KEY (id),
   KEY idx_media_user (user_id),
   CONSTRAINT fk_media_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
-) ENGINE = InnoDB;
-
--- Discoverable groups. Seeded ones are public; private groups show only to their members.
-CREATE TABLE community_groups (
-  id              CHAR(36)     NOT NULL DEFAULT (UUID()),
-  slug            VARCHAR(64)  NOT NULL,
-  name            VARCHAR(80)  NOT NULL,
-  topic           VARCHAR(40)  NOT NULL,            -- e.g. "Fat loss", searched with the name
-  description     VARCHAR(300) NOT NULL,
-  cover_media_id  CHAR(36)     NULL,
-  is_private      BOOLEAN      NOT NULL DEFAULT FALSE,
-  member_count    INT UNSIGNED NOT NULL DEFAULT 0,  -- kept in step with community_group_members
-  created_by      VARCHAR(64)  NULL,
-  created_at      TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (id),
-  UNIQUE KEY uq_groups_slug (slug),
-  KEY idx_groups_name (name),
-  CONSTRAINT fk_groups_cover FOREIGN KEY (cover_media_id) REFERENCES community_media (id) ON DELETE SET NULL,
-  CONSTRAINT fk_groups_creator FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL
-) ENGINE = InnoDB;
-
-CREATE TABLE community_group_members (
-  group_id   CHAR(36)    NOT NULL,
-  user_id    VARCHAR(64) NOT NULL,
-  role       ENUM('member', 'admin') NOT NULL DEFAULT 'member',
-  joined_at  TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (group_id, user_id),                  -- one membership per member and group
-  KEY idx_group_members_user (user_id),
-  CONSTRAINT fk_group_members_group FOREIGN KEY (group_id) REFERENCES community_groups (id) ON DELETE CASCADE,
-  CONSTRAINT fk_group_members_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 ) ENGINE = InnoDB;
 
 -- Gym communities. A platform admin creates a gym and names its owner (gym_members role
@@ -411,17 +381,15 @@ CREATE TABLE gyms (
   CONSTRAINT fk_gyms_creator FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL
 ) ENGINE = InnoDB;
 
--- Feed posts. group_id and gym_id NULL = the main feed; otherwise the post belongs to that
--- group or gym. review_status 'pending' = held for gym staff (post moderation is on).
+-- Feed posts. gym_id NULL = the main feed; otherwise the post belongs to that gym. review_status 'pending' = held for gym staff (post moderation is on).
 -- Counts are kept in step by the server inside the same transaction as the like/comment.
 CREATE TABLE community_posts (
   id             CHAR(36)      NOT NULL DEFAULT (UUID()),
   user_id        VARCHAR(64)   NOT NULL,
-  group_id       CHAR(36)      NULL,
   gym_id         CHAR(36)      NULL,
   review_status  ENUM('published', 'pending') NOT NULL DEFAULT 'published',
   category       ENUM('general', 'meal', 'workout', 'progress', 'achievement', 'photo', 'question', 'poll') NOT NULL DEFAULT 'general',  -- the post type
-  audience       ENUM('public', 'followers', 'only_me') NOT NULL DEFAULT 'public',  -- who may see it (group posts: the group)
+  audience       ENUM('public', 'followers', 'only_me') NOT NULL DEFAULT 'public',  -- who may see it (gym posts: the gym)
   body           VARCHAR(1000) NOT NULL,
   headline       VARCHAR(120)  NULL,                -- progress title, meal name or achievement title
   detail         VARCHAR(300)  NULL,                -- progress milestone or achievement description
@@ -438,12 +406,10 @@ CREATE TABLE community_posts (
   deleted_at     TIMESTAMP     NULL,                -- soft delete, so reports keep their context
   PRIMARY KEY (id),
   KEY idx_posts_feed (deleted_at, created_at, id),  -- newest first, cursor on (created_at, id)
-  KEY idx_posts_group (group_id, deleted_at, created_at),
   KEY idx_posts_gym (gym_id, deleted_at, created_at),
   KEY idx_posts_user (user_id, created_at),
   UNIQUE KEY uq_posts_client_key (user_id, client_key),
   CONSTRAINT fk_posts_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
-  CONSTRAINT fk_posts_group FOREIGN KEY (group_id) REFERENCES community_groups (id) ON DELETE CASCADE,
   CONSTRAINT fk_posts_gym FOREIGN KEY (gym_id) REFERENCES gyms (id) ON DELETE RESTRICT,
   CONSTRAINT fk_posts_media FOREIGN KEY (media_id) REFERENCES community_media (id) ON DELETE SET NULL,
   CONSTRAINT chk_posts_meal_kcal CHECK (meal_kcal <= 5000),
@@ -763,14 +729,6 @@ CREATE TABLE gym_event_rsvps (
   CONSTRAINT fk_gym_event_rsvps_event FOREIGN KEY (event_id) REFERENCES gym_events (id) ON DELETE CASCADE,
   CONSTRAINT fk_gym_event_rsvps_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 ) ENGINE = InnoDB;
-
--- Starting groups (public; member counts grow as members join)
-INSERT INTO community_groups (slug, name, topic, description) VALUES
-  ('healthy-eating', 'Healthy Eating', 'Healthy eating', 'Everyday habits, balanced plates and recipe swaps that stick.'),
-  ('fat-loss', 'Fat Loss', 'Fat loss', 'Sustainable deficits, weekly check-ins and staying full on fewer calories.'),
-  ('muscle-gain', 'Muscle Gain', 'Muscle gain', 'Training splits, progressive overload and eating enough to grow.'),
-  ('high-protein-meals', 'High-Protein Meals', 'High protein', 'Meal ideas and EATO orders that hit your protein target.'),
-  ('meal-prep', 'Meal Prep', 'Meal preparation', 'Batch cooking, storage tips and weekly prep routines.');
 
 -- Macro diary: the meals and water a member logs for themselves. Separate from the
 -- delivery menu (`meals`) and from `food_log` (kept for logging delivered orders).

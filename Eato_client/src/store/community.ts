@@ -105,8 +105,8 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
     set((state) => {
       const exists = state.feed.some((item) => item.id === post.id);
       if (exists) return { feed: state.feed.map((item) => (item.id === post.id ? post : item)) };
-      // A main-feed post goes to the top; group and gym posts live on their own screens
-      return post.groupId || post.gymId ? {} : { feed: [post, ...state.feed] };
+      // A main-feed post goes to the top; gym posts live on the gym's screen
+      return post.gymId ? {} : { feed: [post, ...state.feed] };
     }),
 
   removePost: (postId) => set((state) => ({ feed: state.feed.filter((post) => post.id !== postId) })),

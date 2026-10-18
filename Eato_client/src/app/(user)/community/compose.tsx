@@ -134,8 +134,8 @@ export default function ComposePost() {
 
   const editing = Boolean(postId);
   // A gym post (or an older group post) is shared with that gym or group, so it has no audience choice
-  const inPlace = editing ? Boolean(original?.gymId || original?.groupId) : place.kind === "gym";
-  const placeName = editing ? (original?.groupId ? "the group" : gymName ?? "the gym") : place.kind === "gym" ? place.name : "My EATO feed";
+  const inPlace = editing ? Boolean(original?.gymId) : place.kind === "gym";
+  const placeName = editing ? gymName ?? "the gym" : place.kind === "gym" ? place.name : "My EATO feed";
   const audiences = audiencesFor(isPrivate === true);
   const busy = publishing || loading;
   const failedPhotos = photos.filter((photo) => photo.status === "failed").length;

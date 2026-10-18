@@ -93,11 +93,10 @@ const REFERENCED_SQL = `(
   EXISTS (SELECT 1 FROM community_posts p WHERE p.media_id = m.id AND ${KEPT_POST_SQL})
   OR EXISTS (SELECT 1 FROM community_post_media pm JOIN community_posts p ON p.id = pm.post_id WHERE pm.media_id = m.id AND ${KEPT_POST_SQL})
   OR EXISTS (SELECT 1 FROM community_stories s WHERE s.media_id = m.id)
-  OR EXISTS (SELECT 1 FROM community_groups g WHERE g.cover_media_id = m.id)
   OR EXISTS (SELECT 1 FROM gyms gy WHERE gy.logo_media_id = m.id OR gy.cover_media_id = m.id)
 )`;
 
-// Whether an upload isn't used by any post, story, group cover or gym logo/cover yet (a photo picked for a
+// Whether an upload isn't used by any post, story or gym logo/cover yet (a photo picked for a
 // draft). Only then does its uploader see it without the visibility rules; once attached,
 // the post's or story's own rules decide, so deleted or ended content is hidden from
 // everyone, the uploader included.
@@ -107,7 +106,6 @@ async function isUnattached(pool, mediaId) {
        AND NOT EXISTS (SELECT 1 FROM community_posts p WHERE p.media_id = m.id)
        AND NOT EXISTS (SELECT 1 FROM community_post_media pm WHERE pm.media_id = m.id)
        AND NOT EXISTS (SELECT 1 FROM community_stories s WHERE s.media_id = m.id)
-       AND NOT EXISTS (SELECT 1 FROM community_groups g WHERE g.cover_media_id = m.id)
        AND NOT EXISTS (SELECT 1 FROM gyms gy WHERE gy.logo_media_id = m.id OR gy.cover_media_id = m.id)`,
     [mediaId],
   );

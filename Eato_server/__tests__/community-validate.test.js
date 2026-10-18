@@ -12,7 +12,7 @@ const UUID = "11111111-2222-4333-8444-555555555555";
 describe("community validation", () => {
   it("posts: text within limits, a known category, optional own image", () => {
     assert.deepEqual(v.validatePost({ body: "  Hit a PR  " }), {
-      body: "Hit a PR", category: "general", audience: "public", mediaIds: [], groupId: null, clientKey: null,
+      body: "Hit a PR", category: "general", audience: "public", mediaIds: [], clientKey: null,
       headline: null, detail: null, detailDate: null, mealKcal: null, mealProteinG: null, location: null, taggedUserIds: [], pollOptions: [],
     });
     assert.deepEqual(v.validatePost({ body: "x", category: "meal", mediaId: UUID.toUpperCase() }).mediaIds, [UUID]);

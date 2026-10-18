@@ -151,7 +151,7 @@ export function PostCard({ post, width, onLike, onOpenComments, onMenu, onAuthor
           <View className="flex-row items-center gap-1.5">
             <Text className="post__time">{timeAgo(post.createdAt)}</Text>
             {/* Group and gym posts are shown to members, so their audience setting doesn't apply */}
-            {!post.groupId && !post.gymId && (
+            {!post.gymId && (
               <>
                 <Text className="post__time">·</Text>
                 <SymbolView name={audienceIcons[post.audience]} size={12} tintColor={colors.faint} accessibilityLabel={audienceLabels[post.audience]} />

@@ -26,7 +26,7 @@ const EVIDENCE_DIR = path.join(os.tmpdir(), "eato-ui-evidence");
 const SCREENSHOT_DIR = process.env.EATO_SCREENSHOT_DIR || null;
 const WIDTHS = [[320, 568], [390, 844], [430, 932]];
 const COMMUNITY_TABLES = ["messages", "conversation_members", "conversations", "community_reports", "community_story_views", "community_stories",
-  "community_comments", "community_post_likes", "community_post_media", "community_posts", "community_group_members", "community_media", "community_profiles"];
+  "community_comments", "community_post_likes", "community_post_media", "community_posts", "community_media", "community_profiles"];
 // A 1×1 PNG, written to a file so the browser's file chooser can hand it to the picker
 const TINY_PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
 

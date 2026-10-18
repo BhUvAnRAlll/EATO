@@ -36,7 +36,6 @@ export type PostMedia = { id: string; url: string };
 export type Post = {
   id: string;
   author: Member;
-  groupId: string | null;
   gymId: string | null;
   // "pending" = held for gym staff (post moderation); only the author and staff see it
   reviewStatus: "published" | "pending";

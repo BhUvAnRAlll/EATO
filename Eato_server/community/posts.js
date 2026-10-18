@@ -24,7 +24,7 @@ class ForbiddenError extends Error {
 }
 
 const POST_SELECT = `
-  SELECT p.id, p.user_id, p.group_id, p.gym_id, p.review_status, p.category, p.audience, p.body, p.media_id, p.like_count, p.comment_count,
+  SELECT p.id, p.user_id, p.gym_id, p.review_status, p.category, p.audience, p.body, p.media_id, p.like_count, p.comment_count,
          p.headline, p.detail, DATE_FORMAT(p.detail_date, '%Y-%m-%d') AS detail_date, p.meal_kcal, p.meal_protein_g, p.location,
          p.created_at, p.updated_at, u.full_name,
          EXISTS (SELECT 1 FROM community_post_likes l WHERE l.post_id = p.id AND l.user_id = ?) AS liked
@@ -77,7 +77,6 @@ function postToApi(row, viewerId, media = [], extras = { tagged: [], poll: null 
   return {
     id: row.id,
     author: memberSummary(row),
-    groupId: row.group_id,
     gymId: row.gym_id,
     reviewStatus: row.review_status, // "pending" = held for gym staff; only the author and staff see it
     category: row.category,
@@ -103,13 +102,13 @@ function postToApi(row, viewerId, media = [], extras = { tagged: [], poll: null 
   };
 }
 
-// A page of the main feed (no group or gym), of a gym, or of one member's profile,
+// A page of the main feed (no gym), of a gym, or of one member's profile,
 // newest first. Only posts the viewer may see are returned (see visibility.js). A gym feed's
 // caller has already checked the viewer may read that gym (gyms/routes.js).
 async function listPosts(pool, userId, { gymId = null, authorId = null, cursor = null, limit }) {
   if (authorId && !(await canSeeAccount(pool, userId, authorId))) throw new ForbiddenError("This account is private.");
   const params = [userId, ...visiblePostParams(userId)];
-  const scope = gymId ? "p.gym_id = ?" : authorId ? "p.group_id IS NULL AND p.gym_id IS NULL AND p.user_id = ?" : "p.group_id IS NULL AND p.gym_id IS NULL";
+  const scope = gymId ? "p.gym_id = ?" : authorId ? "p.gym_id IS NULL AND p.user_id = ?" : "p.gym_id IS NULL";
   let where = `WHERE p.deleted_at IS NULL AND ${VISIBLE_POST_SQL} AND ${scope}`;
   if (gymId) params.push(gymId);
   if (authorId) params.push(authorId);
@@ -162,8 +161,8 @@ async function reportEvidenceMediaId(pool, reportId) {
 // Who a post may address is decided here, from the account's saved privacy, never from the
 // app: a private account can't publish to Everyone. Checked inside the saving transaction so
 // a privacy change during composition is caught at publish time.
-async function assertAudienceAllowed(connection, userId, audience, groupId) {
-  if (groupId || audience !== "public") return; // a group or gym post's audience is its group or gym
+async function assertAudienceAllowed(connection, userId, audience, gymId) {
+  if (gymId || audience !== "public") return; // a gym post's audience is its gym
   const [rows] = await connection.query("SELECT is_private FROM community_profiles WHERE user_id = ?", [userId]);
   if (rows[0]?.is_private) {
     const error = new ValidationError("Your account is private, so choose Followers or Only me.");
@@ -211,16 +210,16 @@ async function createPost(pool, userId, values) {
   let postId;
   try {
     await connection.beginTransaction();
-    await assertAudienceAllowed(connection, userId, values.audience, values.groupId || values.gymId);
+    await assertAudienceAllowed(connection, userId, values.audience, values.gymId);
     const tagged = values.taggedUserIds ?? [];
     await assertTaggable(connection, userId, tagged);
     const [[{ id }]] = await connection.query("SELECT UUID() AS id");
     postId = id;
     await connection.query(
-      `INSERT INTO community_posts (id, user_id, group_id, gym_id, review_status, category, audience, body,
+      `INSERT INTO community_posts (id, user_id, gym_id, review_status, category, audience, body,
          headline, detail, detail_date, meal_kcal, meal_protein_g, location, media_id, client_key)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [postId, userId, values.groupId, values.gymId ?? null, values.reviewStatus ?? "published", values.category, values.audience, values.body,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [postId, userId, values.gymId ?? null, values.reviewStatus ?? "published", values.category, values.audience, values.body,
         values.headline ?? null, values.detail ?? null, values.detailDate ?? null, values.mealKcal ?? null, values.mealProteinG ?? null, values.location ?? null,
         media[0]?.id ?? null, values.clientKey],
     );
@@ -280,7 +279,7 @@ async function updatePost(pool, userId, postId, changes) {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
-    await assertAudienceAllowed(connection, userId, changes.audience ?? visible.audience, visible.groupId || visible.gymId);
+    await assertAudienceAllowed(connection, userId, changes.audience ?? visible.audience, visible.gymId);
     await connection.query(`UPDATE community_posts SET ${sets.join(", ")} WHERE id = ?`, params);
     if (media !== null) await writePostMedia(connection, postId, media.map((row) => row.id));
     await connection.commit();
@@ -358,7 +357,7 @@ function commentToApi(row, viewerId) {
 
 // Comments on a post, oldest first
 async function listComments(pool, userId, postId, { cursor = null, limit }) {
-  await getPost(pool, userId, postId); // existence and group visibility
+  await getPost(pool, userId, postId); // existence and visibility
   const params = [postId];
   let where = "WHERE c.post_id = ? AND c.deleted_at IS NULL";
   if (cursor) {

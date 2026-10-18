@@ -17,7 +17,7 @@ const { clerkFor, describeClerkError } = require("./clerk-identities.js");
 
 const TINY_PNG = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
 const COMMUNITY_TABLES = ["messages", "conversation_members", "conversations", "community_reports", "community_story_views", "community_stories",
-  "community_comments", "community_post_likes", "community_posts", "community_group_members", "community_media", "community_follows", "community_blocks", "community_profiles"];
+  "community_comments", "community_post_likes", "community_posts", "community_media", "community_follows", "community_blocks", "community_profiles"];
 
 describe("community privacy e2e: audiences, private accounts, blocks and suspension", () => {
   const runId = crypto.randomBytes(4).toString("hex");
@@ -252,7 +252,7 @@ describe("community privacy e2e: audiences, private accounts, blocks and suspens
     assert.equal(new Set(seen).size, seen.length, "no duplicates across pages");
     assert.ok(!seen.some((id) => id === state.onlyMePost), "the author's only-me post never appears");
     const [[visible]] = await connection.query(
-      "SELECT COUNT(*) AS n FROM community_posts WHERE deleted_at IS NULL AND group_id IS NULL AND (audience = 'public' OR user_id = ?)", [ids.follower],
+      "SELECT COUNT(*) AS n FROM community_posts WHERE deleted_at IS NULL AND gym_id IS NULL AND (audience = 'public' OR user_id = ?)", [ids.follower],
     );
     assert.equal(seen.length, visible.n, "every post the follower may see appears exactly once");
   });

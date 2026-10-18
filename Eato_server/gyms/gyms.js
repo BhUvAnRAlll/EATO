@@ -393,7 +393,7 @@ async function createGymPost(pool, userId, gymId, values) {
   const { gym, membership } = await access(pool, gymId, userId);
   if (!perms.canPost(gym, membership)) throw new ForbiddenError("You can't post in this gym.");
   const audience = "public"; // a gym post's audience is the gym (visibility.js)
-  return posts.createPost(pool, userId, { ...values, audience, groupId: null, gymId, reviewStatus: perms.postNeedsReview(gym, membership) ? "pending" : "published" });
+  return posts.createPost(pool, userId, { ...values, audience, gymId, reviewStatus: perms.postNeedsReview(gym, membership) ? "pending" : "published" });
 }
 
 // The gym post for a moderation action, or a 404 (another gym's post can't be reached here)

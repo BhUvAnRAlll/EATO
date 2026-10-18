@@ -205,7 +205,6 @@ function validatePost(body) {
     location: optionalText(body.location, "Location", limits.location),
     taggedUserIds: taggedUserIdList(body.taggedUserIds),
     pollOptions: category === "poll" ? pollOptionList(body.pollOptions) : [],
-    groupId: null, // Groups were removed: new posts never join one (old group posts stay private)
     // A UUID the app makes once per draft: a repeated Publish with the same key returns the saved post
     clientKey: optionalId(body.clientKey, "The client key"),
   };

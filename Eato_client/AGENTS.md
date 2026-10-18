@@ -72,11 +72,9 @@ Every Express route except the health check verifies the caller's Clerk session 
 
 ### Community notes
 
-- **Groups were removed** (2026-10-17). The app has no Groups tab or screens, the server has no
-  `/api/community/groups` routes, and `POST /api/community/posts` refuses a `groupId`. The tables
-  `community_groups` and `community_group_members` and any old group posts are still in the
-  database; old group posts stay visible only to that group's members (`community/visibility.js`).
-  Dropping the tables or their rows needs the user's approval.
+- **Groups were removed** (2026-10-17) and their data dropped (2026-10-18, migration
+  `2026-10-23-drop-groups.sql`): no Groups tab, screens, routes or tables, and `community_posts` has
+  no `group_id`. `POST /api/community/posts` refuses a `groupId`.
 - **Gyms:** roles are owner > admin > trainer > member, and a role only counts while the membership
   is `active`. Visibility is `public`, `private` (listed; content for members; joining needs
   approval) or `hidden` (members and invite codes only). A gym is never hard-deleted (posts
@@ -86,8 +84,11 @@ Every Express route except the health check verifies the caller's Clerk session 
   invitations (member or trainer role, 14 days, revocable; a code is shown only to staff who could
   grant that role themselves, or to its creator). Platform admins list every gym, hidden ones
   included, at `GET /api/gyms/admin/all`. EATO
-  sends no SMS or email; phone and email invitations are only recorded. Scanning a QR code with the
-  camera is not built (no QR or camera library is installed); the code is entered by hand.
+  sends no SMS or email; phone and email invitations are only recorded. The invite screen shows the
+  gym's invite link as a QR code (`react-native-qrcode-svg`); Join a gym can scan one with the camera
+  (`expo-camera`'s `CameraView`, permission text in `app.json`), or the code is typed by hand.
+  `codeFromScan` in `src/lib/gymRules.ts` reads the code from a scanned link or bare code. The camera
+  module needs a new development build on iOS and Android (Expo Go and web work as they are).
 - **Plans** on a gym are a label only. No payment exists, and the screens say so.
 - **Trainers:** a trainer is an account with the Clerk role `trainer` who saved a profile
   (`PUT /api/trainers/me/profile`). Connecting is a request the trainer accepts or declines from
