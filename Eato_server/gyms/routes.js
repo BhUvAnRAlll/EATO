@@ -11,6 +11,7 @@ const { isSuspended } = require("../community/visibility");
 const cv = require("../community/validate");
 const v = require("./validate");
 const gyms = require("./gyms");
+const assistant = require("../whatsapp/assistant");
 
 const router = express.Router();
 const smallBody = express.json({ limit: "20kb" });
@@ -26,6 +27,18 @@ const withUser = route(async (req, res, next) => {
   if (await isSuspended(pool(req), req.userId)) return res.status(403).json({ error: "Your community access is suspended." });
   next();
 });
+
+// ---- assistant (the same agent as WhatsApp) -------------------------------------------
+
+// A member asks the gym's assistant one question. Only someone who may see the gym's content
+// can ask, and the answer comes only from that gym's approved facts.
+router.post("/:gymId/assistant", smallBody, route(async (req, res) => {
+  cv.rejectUnknownKeys(cv.requireObject(req.body, "question"), ["question"], "The request");
+  const question = cv.text(req.body.question, "Question", { max: 500 });
+  const gym = await gyms.getGym(pool(req), req.userId, gymId(req));
+  if (!gym.can.viewContent) throw Object.assign(new ValidationError("Join the gym to ask its assistant."), { status: 403 });
+  res.json(await assistant.ask(pool(req), req.userId, gym, question));
+}));
 
 // ---- gyms ----------------------------------------------------------------------------
 

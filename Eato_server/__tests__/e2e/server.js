@@ -41,7 +41,7 @@ async function startTestServer(env) {
       DB_NAME: env.DB_NAME, CLERK_SECRET_KEY: env.CLERK_SECRET_KEY,
       ...(env.UPLOAD_DIR ? { UPLOAD_DIR: env.UPLOAD_DIR } : {}), // community images go to a throwaway folder in tests
       // WhatsApp tests pass fake Meta settings (never real ones) and point Graph calls at a local fake
-      ...Object.fromEntries(Object.entries(env).filter(([key]) => /^(META_|WHATSAPP_)/.test(key))),
+      ...Object.fromEntries(Object.entries(env).filter(([key]) => /^(META_|WHATSAPP_|AI_)/.test(key))),
     },
     stdio: ["ignore", "pipe", "pipe"],
   });

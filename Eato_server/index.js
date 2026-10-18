@@ -36,6 +36,9 @@ const { whatsappConfig } = require("./whatsapp/config");
 const { webhookRouter } = require("./whatsapp/webhook");
 const { createWorker } = require("./whatsapp/worker");
 const { eventHandler } = require("./whatsapp/process");
+const { afterInbound, replyHandler } = require("./whatsapp/reply");
+const { createAiProvider } = require("./whatsapp/aiProvider");
+const { createMetaClient } = require("./whatsapp/metaClient");
 
 const app = express();
 app.disable("x-powered-by"); // no need to advertise the framework
@@ -365,7 +368,10 @@ if (process.env.NODE_ENV !== "test") {
 // The WhatsApp job worker (saved webhook events, later replies and campaigns). Off in tests,
 // which run it themselves, and when WHATSAPP_WORKER=off.
 if (process.env.NODE_ENV !== "test" && process.env.WHATSAPP_WORKER !== "off") {
-  createWorker(pool, { "whatsapp.event": eventHandler() }).start(); // stays off (one log line) until the migration has run
+  createWorker(pool, {
+    "whatsapp.event": eventHandler({ afterInbound }),
+    "whatsapp.reply": replyHandler({ provider: createAiProvider(), meta: createMetaClient(whatsapp) }),
+  }).start(); // stays off (one log line) until the migration has run
 }
 
 const port = Number(process.env.PORT ?? 4000);

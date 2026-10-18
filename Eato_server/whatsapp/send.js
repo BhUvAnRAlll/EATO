@@ -3,13 +3,13 @@
 // last 24 hours (WhatsApp's customer-service window): outside it only an approved template may
 // be sent (campaigns, phase G). The message is stored as "queued" first, so a crash after Meta
 // accepts it still leaves a record; Meta's id and the status follow.
+const { ValidationError } = require("../profile");
 const { sendingConnection } = require("./connections");
 const { recordUsage } = require("./usage");
 
-class SendRefused extends Error {
+class SendRefused extends ValidationError {
   constructor(message, code) {
     super(message);
-    this.name = "ValidationError";
     this.status = 409;
     this.code = code;
     this.publicMessage = code;

@@ -23,7 +23,9 @@ async function claimNext(pool, workerId) {
   try {
     await connection.beginTransaction();
     const [rows] = await connection.query(
-      "SELECT id FROM jobs WHERE status = 'queued' AND run_at <= NOW() ORDER BY run_at, created_at LIMIT 1 FOR UPDATE SKIP LOCKED",
+      // Incoming events before anything else that is due, so a burst of messages is stored
+      // before a reply is written (the reply then sees the whole burst)
+      "SELECT id FROM jobs WHERE status = 'queued' AND run_at <= NOW() ORDER BY kind <> 'whatsapp.event', run_at, created_at LIMIT 1 FOR UPDATE SKIP LOCKED",
     );
     if (rows.length === 0) {
       await connection.commit();

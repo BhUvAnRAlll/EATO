@@ -52,7 +52,8 @@ async function storeInbound(pool, gymId, event) {
       [conversation.id, gymId],
     );
     await recordUsage(db, gymId, "inbound", 1);
-    return { conversationId: conversation.id, contactId: contact.id, type: event.type, body: event.body };
+    const [[message]] = await db.query("SELECT id FROM whatsapp_messages WHERE provider_message_id = ? AND gym_id = ?", [event.providerMessageId, gymId]);
+    return { conversationId: conversation.id, contactId: contact.id, messageId: message.id, type: event.type, body: event.body };
   });
 }
 
