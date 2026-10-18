@@ -279,16 +279,44 @@ describe("ui gyms: a gym community from the owner's side", () => {
     await snapshotAllWidths("gyms-invite");
   }));
 
-  it("7. joining a hidden gym with its code: preview, accept, open", run("join", async () => {
-    await h.goto("/community/gyms/join", "Invite code");
-    await page.setInput('[aria-label="Invite code"]', state.hiddenCode.toLowerCase());
-    await clickLabel("Find gym");
+  it("7. Join a Gym: Search finds gyms by name and opens a typed code; QR Code offers the scanner and the owner's own QR", run("join-tabs", async () => {
+    await h.goto("/community/gyms/join", "Join a Gym");
+    await page.clickText("Search");
+    await page.setInput('[aria-label="Search gyms or enter a code"]', "Iron");
+    await h.expectText("Iron Temple");
+    await h.expectText("Owner");
+    await page.setInput('[aria-label="Search gyms or enter a code"]', state.hiddenCode);
+    await page.waitFor(`[...document.querySelectorAll('[aria-label$="opens Secret Barbell Club"]')].some((e) => e.getClientRects().length > 0)`, NAV_TIMEOUT, "the code's gym");
+    await noOverflow("join search");
+    await snapshotAllWidths("gyms-join-search");
+    await page.clickText("QR Code");
+    await h.expectText("Scan a gym QR code");
+    await h.expectText("Invite a friend to your gym"); // a owns Iron Temple, so its QR is offered
+    await h.expectText("Scan to join");
+    await noOverflow("join qr");
+    await snapshotAllWidths("gyms-join-qr");
+    await page.setInput('[aria-label="Invite code"]', "nope");
+    await clickLabel("Continue");
+    await h.expectText("isn't an EATO invitation link or code");
+  }));
+
+  it("7b. an emailed invitation: listed under Your invitations, opened on the Gym Invitation screen, accepted once", run("join", async () => {
+    await page.clickText("Invite Link");
+    await h.expectText("Your invitations");
+    await h.expectText("Invited by Rohan Mehta");
+    await snapshotAllWidths("gyms-join-link");
+    await clickLabel("View the invitation to Secret Barbell Club");
+    await page.waitFor(`location.pathname.startsWith("/community/gyms/invite/")`, NAV_TIMEOUT, "the invitation screen");
+    await h.expectText("Gym Invitation");
+    await h.expectText("Rohan Mehta invited you to join");
     await h.expectText("Secret Barbell Club");
-    await h.expectText("adds you as a member");
-    await snapshotAllWidths("gyms-join");
+    await noOverflow("invitation");
+    await snapshotAllWidths("gyms-invitation");
     await clickLabel("Accept invitation");
     await page.waitFor(`location.pathname === "/community/gyms/${state.hidden}"`, NAV_TIMEOUT, "the hidden gym");
     await h.expectText("Secret Barbell Club");
     await waitForRow("SELECT role, status FROM gym_members WHERE gym_id = ? AND user_id = ?", [state.hidden, identities.a.id], (row) => row.status === "active", "joined");
+    const [[invite]] = await connection.query("SELECT status, accepted_by FROM gym_invitations WHERE gym_id = ? AND channel = 'email'", [state.hidden]);
+    assert.deepEqual({ ...invite }, { status: "accepted", accepted_by: identities.a.id }, "the emailed invitation is used up");
   }));
 });

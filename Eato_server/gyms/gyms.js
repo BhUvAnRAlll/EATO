@@ -284,7 +284,8 @@ async function findCode(db, code) {
   const [gyms] = await db.query(`SELECT ${GYM_COLUMNS} FROM gyms g WHERE g.invite_code = ?`, [code]);
   if (gyms[0]) return { gym: gyms[0], invitation: null, role: "member" };
   const [invites] = await db.query(
-    "SELECT id, gym_id, role, status, expires_at <= NOW() AS expired FROM gym_invitations WHERE code = ?",
+    `SELECT i.id, i.gym_id, i.role, i.status, i.expires_at <= NOW() AS expired, i.invited_by, u.full_name AS inviter_name
+     FROM gym_invitations i LEFT JOIN users u ON u.id = i.invited_by WHERE i.code = ?`,
     [code],
   );
   const invite = invites[0];
@@ -298,7 +299,8 @@ async function previewCode(pool, userId, code) {
   const found = await findCode(pool, code);
   if (!found) throw new NotFoundError("That invite code isn't valid or has expired.");
   const membership = await membershipOf(pool, found.gym.id, userId);
-  return { gym: gymToApi(found.gym, membership), role: found.role };
+  const invitedBy = found.invitation?.invited_by ? memberSummary({ user_id: found.invitation.invited_by, full_name: found.invitation.inviter_name }) : null;
+  return { gym: gymToApi(found.gym, membership), role: found.role, invitedBy };
 }
 
 // Accepting a code is an invitation: it skips approval. An existing member keeps their place

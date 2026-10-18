@@ -386,6 +386,14 @@ describe("gyms e2e: communities, roles, joining, posts, events and invitations",
     const expired = await invite(identities.outsider.emailAddress);
     await connection.query("UPDATE gym_invitations SET expires_at = NOW() - INTERVAL 1 MINUTE WHERE id = ?", [expired.id]);
     assert.deepEqual((await mine("outsider")).map((i) => i.code), [sent.code]);
+    // The invitation screen's preview names who sent it; a gym's own code has no sender
+    const preview = (await as("outsider").get(`/api/gyms/codes/${sent.code}`)).json;
+    assert.deepEqual([preview.gym.name, preview.role, preview.invitedBy.name], ["Banner Gym", "member", "Omar Owner"]);
+    assert.deepEqual(Object.keys(preview.invitedBy).sort(), ["id", "initial", "name"], "only the public member summary: no email, phone or role");
+    assert.equal((await as("outsider").get(`/api/gyms/codes/${revoked.code}`)).status, 404, "a revoked code reveals nothing, not even who sent it");
+    assert.equal((await as("outsider").get(`/api/gyms/codes/${expired.code}`)).status, 404);
+    const ownCode = (await as("owner").get(`/api/gyms/${gym}`)).json.gym.inviteCode;
+    assert.equal((await as("outsider").get(`/api/gyms/codes/${ownCode}`)).json.invitedBy, null);
     // Accepting it makes the outsider a member, and the banner goes
     assert.equal((await as("outsider").post("/api/gyms/join-by-code", { code: sent.code })).status, 200);
     assert.deepEqual(await mine("outsider"), []);

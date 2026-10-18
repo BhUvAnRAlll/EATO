@@ -1,3 +1,5 @@
+import * as Linking from "expo-linking";
+
 import { apiFetch, type ApiResult } from "@/lib/api";
 import type { Member, NewPost, Page, Post } from "@/lib/community";
 import type { GymRole, GymVisibility, MembershipStatus } from "@/lib/gymRules";
@@ -87,7 +89,8 @@ export const gyms = {
 
   join: (token: string | null, gymId: string) => call<{ gym: Gym }>(token, `/${gymId}/join`, { method: "POST" }),
   leave: (token: string | null, gymId: string) => call<{ left: true }>(token, `/${gymId}/join`, { method: "DELETE" }),
-  previewCode: (token: string | null, code: string) => call<{ gym: Gym; role: "member" | "trainer" }>(token, `/codes/${encodeURIComponent(code)}`),
+  // Which gym a code opens, its role, and who sent it (null for a gym's own code)
+  previewCode: (token: string | null, code: string) => call<{ gym: Gym; role: "member" | "trainer"; invitedBy: Member | null }>(token, `/codes/${encodeURIComponent(code)}`),
   joinByCode: (token: string | null, code: string) => call<{ gym: Gym }>(token, "/join-by-code", { method: "POST", body: { code } }),
 
   members: (token: string | null, gymId: string, status: MembershipStatus = "active") => call<{ members: GymMember[] }>(token, `/${gymId}/members${q({ status })}`),
@@ -120,3 +123,6 @@ export const gyms = {
   changeInvitation: (token: string | null, gymId: string, id: string, action: "revoke" | "renew") =>
     call<{ invitation: Invitation }>(token, `/${gymId}/invitations/${id}/${action}`, { method: "POST" }),
 };
+
+// The link that opens an invitation in EATO (eato://community/gyms/invite/CODE in a build)
+export const inviteLink = (code: string) => Linking.createURL(`/community/gyms/invite/${code}`);

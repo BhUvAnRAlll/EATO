@@ -2353,6 +2353,107 @@
   color: var(--color-leaf);
 }
 
+/* Join a Gym: white cards, the scan tile, a link box and the QR frame */
+@utility join-card {
+  padding: 16px;
+  border-radius: 18px;
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-white);
+}
+
+@utility join-card__title {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 21px;
+  font-weight: 700;
+  color: var(--color-ink);
+}
+
+@utility join-card__hint {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+@utility join-card__scan {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background-color: var(--color-ink);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility join-card__link {
+  padding-inline: 14px;
+  padding-block: 12px;
+  border-radius: 12px;
+  background-color: var(--color-cream-deep);
+}
+
+@utility join-card__link-text {
+  font-family: Menlo, monospace;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--color-ink-soft);
+}
+
+@utility join-card__qr {
+  padding: 18px;
+  border-radius: 18px;
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-white);
+}
+
+/* Gym Invitation: the card over the cover, with the logo on its top edge */
+@utility invite-card {
+  margin-top: -40px;
+  padding-inline: 18px;
+  padding-bottom: 18px;
+  border-radius: 20px;
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-white);
+  box-shadow: var(--shadow-card);
+  align-items: center;
+}
+
+@utility invite-card__logo {
+  margin-top: -34px;
+  border-radius: 18px;
+  border-width: 3px;
+  border-color: var(--color-white);
+  background-color: var(--color-white);
+}
+
+@utility invite-card__from {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+@utility invite-card__name {
+  margin-top: 6px;
+  font-family: var(--font-sans);
+  font-size: 24px;
+  line-height: 30px;
+  font-weight: 800;
+  text-align: center;
+  color: var(--color-ink);
+}
+
+@utility invite-card__tagline {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 20px;
+  text-align: center;
+  color: var(--color-muted);
+}
+
 /* The Friends search box: a pill */
 @utility search--pill {
   height: 50px;
