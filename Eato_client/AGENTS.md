@@ -27,7 +27,7 @@ Main areas of the app:
 - **Subscribe**: plan picker, subscription builder, review, my subscription (skip days, wallet credit)
 - **Nutrition**: food diary, water and supplement tracking, add food, barcode scan, photo scan, weight log
 - **Training**: workout plans, active workout, summary, exercise library, cardio, progress charts
-- **Community**: feed, stories, posts, friends, gym communities, messages, chat (trainers are planned; challenges were dropped)
+- **Community**: feed, stories, posts, friends, trainers, gym communities, messages, chat (challenges were dropped)
 - **AI Coach**: chat-based and video-based AI fitness and nutrition coach
 - **Profile**: orders, wallet, coupons, addresses, goals, achievements, notifications, settings, Pro
 
@@ -65,6 +65,7 @@ Do not introduce new major libraries unless there is a strong reason.
 | App data (meals, orders, diary, weigh-ins, trainer ↔ client links) | MySQL via the Express server (`Eato_server/`) | Shared, queryable data that outlives one device |
 | Friendships and the messaging rule | MySQL `community_friendships` via `/api/community/friends/*` (`Eato_server/community/friends.js`, pure rules in `friendRules.js`). New conversations and new messages need an accepted friendship; older chats stay readable | Messaging is for friends only, checked on the server for every send |
 | Gym communities | MySQL `gyms`, `gym_members`, `gym_invitations`, `gym_announcements`, `gym_events`, `gym_event_rsvps`, and gym posts in `community_posts` (`gym_id`, `review_status`), via `/api/gyms/*` (`Eato_server/gyms/`: `permissions.js` and `validate.js` are pure and unit-tested). Platform admins create gyms (`POST /api/gyms`) and name the owner; each gym's owner and admins run it | Every role, visibility and setting is checked on the server from `gym_members` for the verified caller; hidden gyms answer 404 to non-members |
+| Trainers and coaching | MySQL `trainer_profiles`, `trainer_connections`, `trainer_target_recommendations`, `diet_plans`, `diet_plan_meals`, `diet_plan_meal_items`, `diet_plan_completions` (migration `2026-10-21-trainers.sql`), via `/api/trainers/*` (`Eato_server/trainers/`: `rules.js` and `validate.js` are pure and unit-tested). Member screens under `app/(user)/community/trainers/`, the trainer's under `app/trainer/` | A member has one trainer; a trainer acts on a member only while `trainer_clients` holds the pair (checked on every call), and trainer-only routes check the Clerk role each time |
 | Community photos (posts, stories, gym logos and covers) | Files on the Express server's disk, `Eato_server/uploads/` (or `UPLOAD_DIR`), with a `community_media` row per file; served only to signed-in members through `GET /api/media/:id` (`Eato_server/community/media.js`) | Current implementation, not object storage: one server, no CDN, and the folder must be persistent and backed up. A hosted bucket (for example DigitalOcean Spaces with presigned uploads) is the planned replacement and would need a new dependency and approval |
 
 Every Express route except the health check verifies the caller's Clerk session token with `requireUser` (`Eato_server/auth.js`) before doing anything.
@@ -88,6 +89,26 @@ Every Express route except the health check verifies the caller's Clerk session 
   sends no SMS or email; phone and email invitations are only recorded. Scanning a QR code with the
   camera is not built (no QR or camera library is installed); the code is entered by hand.
 - **Plans** on a gym are a label only. No payment exists, and the screens say so.
+- **Trainers:** a trainer is an account with the Clerk role `trainer` who saved a profile
+  (`PUT /api/trainers/me/profile`). Connecting is a request the trainer accepts or declines from
+  their own account; until then the full profile, messaging, diet plan, workout and targets stay
+  locked. One trainer per member (a unique virtual column on `trainer_connections`); switching
+  needs `{ replace: true }` after a confirmation. Ending a connection (either side, or a switch)
+  removes the `trainer_clients` row, supersedes the diet plan and the trainer's workout, and swaps a
+  trainer target back for the member's own. Logged meals stay.
+- **Trainer targets:** a recommendation is stored apart from `nutrition_targets` and becomes active
+  only when the member taps Apply (`applyTrainerOverride` with the trainer's grams). The member's
+  own target at that moment is saved on the recommendation, and `restorePersonalTargets` in
+  `src/lib/nutrition/record.ts` is the way back (the plain reset stays blocked while a trainer's
+  target is active).
+- **Diet plans:** five meals (breakfast, morning snack, lunch, evening snack, dinner). Logging a plan
+  meal writes to the Macro diary (`macro_meal_logs.source = 'plan'`); `plan_log_key`
+  (`date:mealId:n`, unique per member) makes a repeated tap return the first log instead of a copy.
+  Both snacks log into the diary's one `snack` slot.
+- **Workouts:** the trainer writes `workout_plans` rows with `source = 'trainer'` and `created_by`,
+  superseding the member's active plan; the Fitness tab shows it unchanged. After the coaching ends,
+  `ensurePlan` generates an engine plan again. Messaging: a connected trainer and client may write to
+  each other (`sendAccess` in `community/messages.js`), on top of the friends rule.
 
 ---
 

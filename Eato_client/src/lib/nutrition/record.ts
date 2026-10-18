@@ -108,6 +108,8 @@ export function applyUserAdjustment(
 }
 
 // A trainer sets the target. Needs a reason and the trainer's id.
+// A trainer's target. With `macros` the trainer's own grams are used as given (a trainer
+// recommendation names them); without, the calculator splits the calories for the member's goal.
 export function applyTrainerOverride(
   record: TargetRecord,
   calories: number,
@@ -115,18 +117,28 @@ export function applyTrainerOverride(
   trainerId: string,
   now: Date = new Date(),
   config: CalculatorConfig = calculatorConfig,
+  macros?: Macros,
 ): RecordUpdate {
   if (!reason.trim()) return { ok: false, error: "A reason is required for a trainer override." };
   if (!trainerId.trim()) return { ok: false, error: "The trainer making the change must be recorded." };
-  const manual = manualTargetMacros(calories, record.inputs.weightKg, record.inputs.fitnessGoal, config);
-  if (!manual.ok) return manual;
+  let chosen: Macros;
+  if (macros) {
+    const grams = [macros.proteinG, macros.carbsG, macros.fatG];
+    if (!grams.every((g) => Number.isFinite(g) && g >= 0)) return { ok: false, error: "The trainer's macros must be zero or more grams." };
+    if (!Number.isFinite(calories) || calories < 800 || calories > 6000) return { ok: false, error: "The trainer's calories must be between 800 and 6000." };
+    chosen = { proteinG: Math.round(macros.proteinG), carbsG: Math.round(macros.carbsG), fatG: Math.round(macros.fatG) };
+  } else {
+    const manual = manualTargetMacros(calories, record.inputs.weightKg, record.inputs.fitnessGoal, config);
+    if (!manual.ok) return manual;
+    chosen = manual.macros;
+  }
   return {
     ok: true,
     record: {
       ...record,
       active: {
         calories,
-        macros: manual.macros,
+        macros: chosen,
         source: "trainer_adjusted",
         reason,
         actor: trainerId,
@@ -137,6 +149,30 @@ export function applyTrainerOverride(
 }
 
 // Back to the calculated target (not while a trainer's target is active)
+// The way back from a trainer's target: the target the member had when they applied it
+// (`saved`, kept by the server), or the calculation when there is nothing saved. A saved
+// target that was itself a trainer's falls through to the calculation. resetToCalculated
+// refuses while a trainer's target is active, so this is the one path out of it.
+export function restorePersonalTargets(record: TargetRecord, saved: TargetRecord["active"] | null, now: Date = new Date()): RecordUpdate {
+  if (record.active.source !== "trainer_adjusted") return { ok: false, error: "Your own target is already active." };
+  if (saved && saved.source !== "trainer_adjusted") {
+    return { ok: true, record: { ...record, active: { ...saved, updatedAt: now.toISOString() } } };
+  }
+  if (!record.calculated) return { ok: false, error: "There's no earlier target to go back to." };
+  return {
+    ok: true,
+    record: {
+      ...record,
+      active: {
+        calories: record.calculated.displayCalories,
+        macros: record.calculated.macros,
+        source: "calculated",
+        updatedAt: now.toISOString(),
+      },
+    },
+  };
+}
+
 export function resetToCalculated(record: TargetRecord, now: Date = new Date()): RecordUpdate {
   if (record.active.source === "trainer_adjusted") {
     return { ok: false, error: "Your trainer set this target. Ask them to change it." };

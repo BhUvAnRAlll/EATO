@@ -31,6 +31,7 @@ const stories = require("./community/stories");
 const { macroRouter } = require("./macro/routes");
 const { workoutRouter } = require("./workout/routes");
 const { gymsRouter } = require("./gyms/routes");
+const { trainersRouter } = require("./trainers/routes");
 
 const app = express();
 app.disable("x-powered-by"); // no need to advertise the framework
@@ -57,6 +58,7 @@ const mediaLimiter = createRateLimiter(rateLimits.community); // image downloads
 const macroLimiter = createRateLimiter(rateLimits.community); // the Macro diary: day, week strip, meals, favourites
 const workoutLimiter = createRateLimiter(rateLimits.community); // the Fitness tab: plan, training day, history
 const gymsLimiter = createRateLimiter(rateLimits.community); // gym communities: gyms, members, posts, events, invitations
+const trainersLimiter = createRateLimiter(rateLimits.community); // trainers: discovery, connections, diet and workout plans, recommendations
 
 // Quick check that the server is up and can reach MySQL (public: no token needed)
 app.get("/api/health", async (req, res) => {
@@ -285,6 +287,9 @@ app.use("/api/workout", requireUser, limitPerUser(workoutLimiter), workoutRouter
 
 // Gym communities (see gyms/routes.js): joining, members, gym posts, announcements, events, invitations
 app.use("/api/gyms", requireUser, limitPerUser(gymsLimiter), gymsRouter);
+
+// Trainers (see trainers/routes.js): finding a trainer, the connection, diet and workout plans, targets
+app.use("/api/trainers", requireUser, limitPerUser(trainersLimiter), trainersRouter);
 
 // An uploaded image, for signed-in members only. The path comes from the database row,
 // never from the request, so there is nothing to traverse.

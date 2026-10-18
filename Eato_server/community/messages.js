@@ -7,9 +7,10 @@
 // into it is refused. The rule applies to direct (two-member) conversations only; a
 // conversation with more members is never hidden by a block between two of them.
 //
-// Who may message whom: accepted friends only. A conversation from before a friendship
-// ended stays readable, but nothing new can be sent into it, and a new conversation can only
-// be opened with a friend. The reason is returned so the chat screen can explain the lock.
+// Who may message whom: accepted friends, and a trainer with a client they coach. A conversation
+// from before a friendship or coaching ended stays readable, but nothing new can be sent into it,
+// and a new conversation needs the relationship. The reason is returned so the chat screen can
+// explain the lock.
 //
 // Retries: the app may send a message with its own id (a UUID it generated). Sending the
 // same id again, for example after a timeout where the first attempt did reach the
@@ -21,8 +22,14 @@ const { ValidationError } = require("../profile");
 const { isBlocked, isSuspended } = require("./visibility");
 const { friendState, messageLockReason } = require("./friends");
 
-// Whether the viewer may send to this member, and why not
+// Whether the viewer may send to this member, and why not: accepted friends, or a trainer and
+// a client with a connected coaching relationship (trainer_connections, either way round)
 async function sendAccess(pool, viewerId, other) {
+  const [coaching] = await pool.query(
+    "SELECT 1 FROM trainer_connections WHERE status = 'connected' AND ((trainer_id = ? AND client_id = ?) OR (trainer_id = ? AND client_id = ?)) LIMIT 1",
+    [viewerId, other.user_id, other.user_id, viewerId],
+  );
+  if (coaching.length > 0) return { canSend: true, lockReason: null };
   const lockReason = messageLockReason(await friendState(pool, viewerId, other.user_id), other.full_name);
   return { canSend: lockReason === null, lockReason };
 }

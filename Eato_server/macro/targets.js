@@ -89,4 +89,4 @@ async function reset(pool, userId) {
   return toStatus(result.record);
 }
 
-module.exports = { status, setManual, reset, validateManual };
+module.exports = { status, setManual, reset, validateManual, recordFor, save };

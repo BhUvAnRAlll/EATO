@@ -24,6 +24,7 @@ export {
   recalculateRecord,
   recalibrationSuggestion,
   resetToCalculated,
+  restorePersonalTargets,
   verifyStoredRecord,
   weeklyAverages,
 } from "./record.ts";

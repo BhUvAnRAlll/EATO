@@ -13,6 +13,7 @@ import {
   recalculateRecord,
   recalibrationSuggestion,
   resetToCalculated,
+  restorePersonalTargets,
   verifyStoredRecord,
   weeklyAverages,
   type TargetRecord,
@@ -66,6 +67,30 @@ describe("7. Saved target, manual and trainer overrides", () => {
     assert.equal(record.active.source, "trainer_adjusted");
     assert.equal(record.active.reason, "Cutting phase");
     assert.equal(record.active.actor, "trainer_9");
+  });
+
+  it("a trainer override can carry the trainer's own macros, within limits", () => {
+    const { record } = unwrap(applyTrainerOverride(newRecord(), 2100, "Lean bulk", "trainer_9", now, undefined, { proteinG: 160.4, carbsG: 220, fatG: 60 }));
+    assert.deepEqual(record.active.macros, { proteinG: 160, carbsG: 220, fatG: 60 });
+    assert.equal(record.active.calories, 2100);
+    assert.equal(applyTrainerOverride(newRecord(), 2100, "x", "trainer_9", now, undefined, { proteinG: -1, carbsG: 220, fatG: 60 }).ok, false);
+    assert.equal(applyTrainerOverride(newRecord(), 700, "x", "trainer_9", now, undefined, { proteinG: 100, carbsG: 100, fatG: 30 }).ok, false);
+  });
+
+  it("restorePersonalTargets goes back to the saved target, or the calculation, and only from a trainer's", () => {
+    const own = unwrap(applyUserAdjustment(newRecord(), 2600, "more food", "user_1", now)).record;
+    const trainers = unwrap(applyTrainerOverride(own, 2200, "Cutting phase", "trainer_9", now)).record;
+    assert.equal(resetToCalculated(trainers, now).ok, false, "reset stays blocked while the trainer's target is active");
+    const restored = unwrap(restorePersonalTargets(trainers, own.active, now)).record;
+    assert.equal(restored.active.source, "user_adjusted");
+    assert.equal(restored.active.calories, 2600);
+    assert.equal(restored.active.updatedAt, now.toISOString());
+    const calculated = unwrap(restorePersonalTargets(trainers, null, now)).record;
+    assert.equal(calculated.active.source, "calculated");
+    assert.equal(calculated.active.calories, trainers.calculated?.displayCalories);
+    // A saved target that was itself a trainer's can't be restored; the calculation is used
+    assert.equal(unwrap(restorePersonalTargets(trainers, trainers.active, now)).record.active.source, "calculated");
+    assert.equal(restorePersonalTargets(own, null, now).ok, false, "nothing to restore when the member's own target is active");
   });
 
   it("a user can't overwrite or reset a trainer's target", () => {

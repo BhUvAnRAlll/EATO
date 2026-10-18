@@ -139,8 +139,8 @@ async function logMeal(pool, userId, meal) {
     if (n >= limits.mealsPerDay) throw new ValidationError("Too many meals logged for one day");
     const [[{ id }]] = await connection.query("SELECT UUID() AS id");
     await connection.query(
-      "INSERT INTO macro_meal_logs (id, user_id, log_date, slot, title, logged_at, source) VALUES (?, ?, ?, ?, ?, ?, ?)",
-      [id, userId, meal.date, meal.slot, meal.title, new Date(meal.loggedAt), meal.source],
+      "INSERT INTO macro_meal_logs (id, user_id, log_date, slot, title, logged_at, source, plan_log_key) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+      [id, userId, meal.date, meal.slot, meal.title, new Date(meal.loggedAt), meal.source, meal.planLogKey ?? null],
     );
     await connection.query(
       "INSERT INTO macro_meal_items (macro_meal_id, user_id, position, name, quantity, unit, kcal, protein_g, carbs_g, fat_g) VALUES ?",

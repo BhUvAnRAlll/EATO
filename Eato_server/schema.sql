@@ -740,9 +740,11 @@ CREATE TABLE macro_meal_logs (
   slot        ENUM('breakfast', 'lunch', 'snack', 'dinner') NOT NULL,
   title       VARCHAR(120) NOT NULL,
   logged_at   TIMESTAMP(3) NOT NULL,                  -- when it was eaten; orders the day
-  source      ENUM('manual', 'favorite', 'repeat') NOT NULL DEFAULT 'manual',
+  source      ENUM('manual', 'favorite', 'repeat', 'plan') NOT NULL DEFAULT 'manual',
+  plan_log_key VARCHAR(80) NULL,                      -- "<date>:<plan meal id>:<n>" for a diet-plan meal, so a repeated tap can't log it twice
   created_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
+  UNIQUE KEY uq_meal_logs_plan_key (user_id, plan_log_key),
   KEY idx_meal_logs_user_day (user_id, log_date, logged_at),
   KEY idx_meal_logs_user_recent (user_id, logged_at),
   CONSTRAINT fk_meal_logs_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
@@ -930,7 +932,8 @@ CREATE TABLE workout_plans (
   days_per_week                 TINYINT UNSIGNED  NOT NULL,
   split                         ENUM('auto', 'full_body', 'upper_lower', 'push_pull_legs') NOT NULL DEFAULT 'auto',
   source                        ENUM('engine', 'member', 'trainer') NOT NULL DEFAULT 'engine',
-  created_by                    VARCHAR(64)       NULL,   -- the trainer, for trainer-written plans (none exist yet)
+  created_by                    VARCHAR(64)       NULL,   -- the trainer, for trainer-written plans
+  trainer_note                  VARCHAR(300)      NULL,   -- the trainer's note to the member about the latest change
   status                        ENUM('active', 'superseded', 'archived') NOT NULL DEFAULT 'active',
   engine_version                SMALLINT UNSIGNED NULL,
   input_hash                    CHAR(8)           NULL,
@@ -1045,4 +1048,152 @@ CREATE TABLE workout_set_logs (
   CONSTRAINT chk_workout_set_logs_values CHECK (
     (reps IS NULL OR reps <= 1000) AND (weight_kg IS NULL OR (weight_kg >= 0 AND weight_kg <= 1000)) AND
     (duration_sec IS NULL OR duration_sec <= 3600))
+) ENGINE = InnoDB;
+
+-- ---------------------------------------------------------------------------
+-- Trainers: profiles, client connections, diet plans and target recommendations
+-- ---------------------------------------------------------------------------
+-- A trainer is an account whose Clerk role is "trainer" and who saved a profile here. A member
+-- has at most one trainer (trainer_connections); an accepted connection also lives in
+-- trainer_clients, which every trainer action is checked against. Every table cascades straight
+-- from users (plan_id / meal_id are indexed columns the server checks) because of the
+-- three-level cascade defect in the MySQL version in use.
+
+CREATE TABLE trainer_profiles (
+  user_id           VARCHAR(64)   NOT NULL,
+  title             VARCHAR(80)   NOT NULL,          -- e.g. "Strength coach"
+  specialties       JSON          NOT NULL,          -- ["weight_loss", "muscle_gain", "nutrition", "strength", "yoga"]
+  years_experience  TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  bio               VARCHAR(300)  NOT NULL,
+  coaching_mode     ENUM('online', 'in_person', 'both') NOT NULL DEFAULT 'online',
+  offers_nutrition  BOOLEAN       NOT NULL DEFAULT FALSE,
+  accepting_clients BOOLEAN       NOT NULL DEFAULT TRUE,
+  availability      VARCHAR(120)  NULL,              -- "Mon–Sat, 6–10am"
+  approach          VARCHAR(1000) NULL,              -- shown after acceptance
+  qualifications    JSON          NULL,              -- ["ACE CPT", ...], shown after acceptance
+  languages         JSON          NULL,              -- ["English", "Kannada"], shown after acceptance
+  photo_media_id    CHAR(36)      NULL,
+  created_at        TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at        TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (user_id),
+  KEY idx_trainer_profiles_accepting (accepting_clients, title),
+  CONSTRAINT fk_trainer_profiles_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+  CONSTRAINT fk_trainer_profiles_photo FOREIGN KEY (photo_media_id) REFERENCES community_media (id) ON DELETE SET NULL,
+  CONSTRAINT chk_trainer_profiles_years CHECK (years_experience <= 60)
+) ENGINE = InnoDB;
+
+-- Every connection request, kept as history. open_client is the client id only while the row
+-- is requested or connected, and it is unique: a member has one trainer (or one open request).
+CREATE TABLE trainer_connections (
+  id            CHAR(36)    NOT NULL DEFAULT (UUID()),
+  trainer_id    VARCHAR(64) NOT NULL,
+  client_id     VARCHAR(64) NOT NULL,
+  status        ENUM('requested', 'connected', 'declined', 'cancelled', 'ended') NOT NULL DEFAULT 'requested',
+  ended_by      VARCHAR(64) NULL,                    -- who ended or declined it
+  requested_at  TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  responded_at  TIMESTAMP   NULL,
+  ended_at      TIMESTAMP   NULL,
+  open_client   VARCHAR(64) AS (IF(status IN ('requested', 'connected'), client_id, NULL)) VIRTUAL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_trainer_connections_open (open_client),
+  KEY idx_trainer_connections_trainer (trainer_id, status, requested_at),
+  KEY idx_trainer_connections_client (client_id, status),
+  CONSTRAINT fk_trainer_connections_trainer FOREIGN KEY (trainer_id) REFERENCES users (id) ON DELETE CASCADE,
+  CONSTRAINT fk_trainer_connections_client FOREIGN KEY (client_id) REFERENCES users (id) ON DELETE CASCADE,
+  CONSTRAINT chk_trainer_connections_self CHECK (trainer_id <> client_id)
+) ENGINE = InnoDB;
+
+-- What the trainer recommends as the client's daily target. Kept separate from the client's own
+-- target (nutrition_targets): it becomes active only when the client applies it, and the target
+-- they had at that moment is saved here so they can go back to it. A row newer than the one
+-- applied shows as "New".
+CREATE TABLE trainer_target_recommendations (
+  id            CHAR(36)          NOT NULL DEFAULT (UUID()),
+  trainer_id    VARCHAR(64)       NOT NULL,
+  client_id     VARCHAR(64)       NOT NULL,
+  calories      SMALLINT UNSIGNED NOT NULL,
+  protein_g     SMALLINT UNSIGNED NOT NULL,
+  carbs_g       SMALLINT UNSIGNED NOT NULL,
+  fat_g         SMALLINT UNSIGNED NOT NULL,
+  note          VARCHAR(300)      NULL,
+  applied_at    TIMESTAMP         NULL,
+  prior_target  JSON              NULL,              -- the client's active target when they applied this one
+  created_at    TIMESTAMP         NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_trainer_recs_client (client_id, created_at),
+  CONSTRAINT fk_trainer_recs_trainer FOREIGN KEY (trainer_id) REFERENCES users (id) ON DELETE CASCADE,
+  CONSTRAINT fk_trainer_recs_client FOREIGN KEY (client_id) REFERENCES users (id) ON DELETE CASCADE,
+  CONSTRAINT chk_trainer_recs_calories CHECK (calories BETWEEN 800 AND 6000),
+  CONSTRAINT chk_trainer_recs_macros CHECK (protein_g <= 600 AND carbs_g <= 900 AND fat_g <= 600)
+) ENGINE = InnoDB;
+
+-- A diet plan a trainer wrote for a client: five meals a day with foods and quantities. One
+-- active plan per client (active_client is unique); replacing it supersedes the old one.
+CREATE TABLE diet_plans (
+  id             CHAR(36)     NOT NULL DEFAULT (UUID()),
+  trainer_id     VARCHAR(64)  NOT NULL,
+  client_id      VARCHAR(64)  NOT NULL,
+  name           VARCHAR(80)  NOT NULL,
+  goal           ENUM('fat_loss', 'muscle_gain', 'maintenance') NOT NULL,
+  start_date     DATE         NOT NULL,
+  end_date       DATE         NULL,
+  notes          VARCHAR(1000) NULL,
+  status         ENUM('active', 'superseded') NOT NULL DEFAULT 'active',
+  active_client  VARCHAR(64)  AS (IF(status = 'active', client_id, NULL)) VIRTUAL,
+  created_at     TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at     TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_diet_plans_one_active (active_client),
+  KEY idx_diet_plans_client (client_id, status),
+  KEY idx_diet_plans_trainer (trainer_id),
+  CONSTRAINT fk_diet_plans_trainer FOREIGN KEY (trainer_id) REFERENCES users (id) ON DELETE CASCADE,
+  CONSTRAINT fk_diet_plans_client FOREIGN KEY (client_id) REFERENCES users (id) ON DELETE CASCADE
+) ENGINE = InnoDB;
+
+CREATE TABLE diet_plan_meals (
+  id         CHAR(36)         NOT NULL DEFAULT (UUID()),
+  plan_id    CHAR(36)         NOT NULL,
+  client_id  VARCHAR(64)      NOT NULL,
+  slot       ENUM('breakfast', 'morning_snack', 'lunch', 'evening_snack', 'dinner') NOT NULL,
+  name       VARCHAR(120)     NOT NULL,
+  meal_time  TIME             NOT NULL,
+  note       VARCHAR(300)     NULL,
+  position   TINYINT UNSIGNED NOT NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_diet_plan_meals_slot (plan_id, slot),
+  KEY idx_diet_plan_meals_plan (plan_id, position),
+  KEY idx_diet_plan_meals_client (client_id),
+  CONSTRAINT fk_diet_plan_meals_client FOREIGN KEY (client_id) REFERENCES users (id) ON DELETE CASCADE
+) ENGINE = InnoDB;
+
+-- The foods in a plan meal: the same columns as the diary's items, so logging copies them over
+CREATE TABLE diet_plan_meal_items (
+  id         CHAR(36)          NOT NULL DEFAULT (UUID()),
+  meal_id    CHAR(36)          NOT NULL,
+  client_id  VARCHAR(64)       NOT NULL,
+  position   TINYINT UNSIGNED  NOT NULL,
+  name       VARCHAR(120)      NOT NULL,
+  quantity   DECIMAL(7,2)      NOT NULL,
+  unit       VARCHAR(40)       NOT NULL,
+  kcal       DECIMAL(6,1)      NOT NULL,
+  protein_g  DECIMAL(6,1)      NOT NULL,
+  carbs_g    DECIMAL(6,1)      NOT NULL,
+  fat_g      DECIMAL(6,1)      NOT NULL,
+  PRIMARY KEY (id),
+  KEY idx_diet_plan_meal_items_meal (meal_id, position),
+  KEY idx_diet_plan_meal_items_client (client_id),
+  CONSTRAINT fk_diet_plan_meal_items_client FOREIGN KEY (client_id) REFERENCES users (id) ON DELETE CASCADE,
+  CONSTRAINT chk_diet_plan_meal_items_quantity CHECK (quantity > 0 AND quantity <= 10000),
+  CONSTRAINT chk_diet_plan_meal_items_kcal CHECK (kcal BETWEEN 0 AND 5000),
+  CONSTRAINT chk_diet_plan_meal_items_macros CHECK (protein_g BETWEEN 0 AND 2000 AND carbs_g BETWEEN 0 AND 2000 AND fat_g BETWEEN 0 AND 2000)
+) ENGINE = InnoDB;
+
+-- "Mark done": a plan meal eaten but not logged, per day (it never counts toward the macros)
+CREATE TABLE diet_plan_completions (
+  client_id  VARCHAR(64) NOT NULL,
+  meal_id    CHAR(36)    NOT NULL,
+  done_date  DATE        NOT NULL,
+  created_at TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (client_id, meal_id, done_date),
+  CONSTRAINT fk_diet_plan_completions_client FOREIGN KEY (client_id) REFERENCES users (id) ON DELETE CASCADE
 ) ENGINE = InnoDB;
