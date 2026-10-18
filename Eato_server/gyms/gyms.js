@@ -14,6 +14,7 @@ const { NotFoundError, ForbiddenError } = require("../community/posts");
 const posts = require("../community/posts");
 const { assertOwnMedia, mediaUrl } = require("../community/media");
 const perms = require("./permissions");
+const { provisionAgent } = require("../whatsapp/provision");
 
 const INVITE_DAYS = 14;
 const GONE = "That gym doesn't exist.";
@@ -165,6 +166,7 @@ async function createGym(pool, adminId, values) {
           [id, values.name, values.tagline, values.location, newCode(8), values.visibility, values.memberApproval, adminId],
         );
         await connection.query("INSERT INTO gym_members (gym_id, user_id, role, status, joined_at) VALUES (?, ?, 'owner', 'active', NOW())", [id, ownerId]);
+        await provisionAgent(connection, id); // its WhatsApp connection (disconnected) and agent (disabled)
         return id;
       });
       // The creating admin may not be a member (or able to see a hidden gym), so answer from the row

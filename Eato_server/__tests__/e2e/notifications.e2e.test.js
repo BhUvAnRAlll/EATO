@@ -14,7 +14,7 @@ const { startTestServer } = require("./server.js");
 const { clerkFor, describeClerkError } = require("./clerk-identities.js");
 
 const TODAY = new Date().toISOString().slice(0, 10);
-const CLEANUP_TABLES = ["gym_event_rsvps", "gym_events", "gym_members", "gyms", "diet_plan_meal_items", "diet_plan_meals", "diet_plans", "trainer_target_recommendations",
+const CLEANUP_TABLES = ["gym_event_rsvps", "gym_events", "gym_members", "whatsapp_agent_settings", "whatsapp_connections", "gyms", "diet_plan_meal_items", "diet_plan_meals", "diet_plans", "trainer_target_recommendations",
   "trainer_connections", "trainer_profiles", "trainer_clients", "workout_day_exercises", "workout_days", "workout_plans", "community_friendships", "community_blocks", "nutrition_targets", "profiles"];
 const FOOD = { name: "Oats", quantity: 60, unit: "g", kcal: 230, proteinG: 8, carbsG: 40, fatG: 4 };
 
