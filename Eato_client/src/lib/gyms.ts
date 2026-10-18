@@ -1,7 +1,7 @@
 import * as Linking from "expo-linking";
 
 import { apiFetch, type ApiResult } from "@/lib/api";
-import type { Member, NewPost, Page, Post } from "@/lib/community";
+import type { FriendState, Member, NewPost, Page, Post } from "@/lib/community";
 import type { GymRole, GymVisibility, MembershipStatus } from "@/lib/gymRules";
 
 // Calls for gym communities (Eato_server/gyms/). `token` is the Clerk session token. The
@@ -43,11 +43,13 @@ export type Gym = {
   can: { viewContent: boolean; post: boolean; comment: boolean; createEvents: boolean; invite: boolean; manage: boolean; moderate: boolean; leave: boolean };
 };
 
-export type GymMember = { member: Member; role: GymRole; status: MembershipStatus; since: string; isMe: boolean };
+// title: a trainer's headline; friendState: the viewer's friendship with them (message or lock)
+export type GymMember = { member: Member; role: GymRole; status: MembershipStatus; since: string; isMe: boolean; title: string | null; friendState: FriendState };
 export type Announcement = { id: string; gymId: string; title: string; body: string; pinned: boolean; author: Member | null; createdAt: string; updatedAt: string };
 export type GymEvent = {
   id: string; gymId: string; title: string; description: string; date: string; startTime: string; endTime: string; location: string;
   maxAttendees: number | null; attendeeCount: number; full: boolean; going: boolean; host: Member | null; isHost: boolean;
+  attendeesPreview?: Member[]; // the first few going (event lists only)
 };
 export type Invitation = {
   id: string; code: string; channel: "link" | "qr" | "email" | "phone"; contact: string | null; role: "member" | "trainer";
@@ -98,6 +100,10 @@ export const gyms = {
     call<{ userId: string; role: GymRole; status: MembershipStatus }>(token, `/${gymId}/members/${encodeURIComponent(userId)}`, { method: "PATCH", body: change }),
   removeMember: (token: string | null, gymId: string, userId: string) => call<{ removed: true }>(token, `/${gymId}/members/${encodeURIComponent(userId)}`, { method: "DELETE" }),
 
+  // One event with everyone going; canCancel for the host and gym admins
+  event: (token: string | null, gymId: string, eventId: string) => call<{ event: GymEvent & { attendees: Member[]; canCancel: boolean } }>(token, `/${gymId}/events/${eventId}`),
+  // The gym's assistant (same agent as WhatsApp): one question, an answer from the gym's own facts
+  ask: (token: string | null, gymId: string, question: string) => call<{ reply: string; escalated: boolean; contact: string | null }>(token, `/${gymId}/assistant`, { method: "POST", body: { question } }),
   posts: (token: string | null, gymId: string, cursor: string | null = null) => call<Page<"posts", Post>>(token, `/${gymId}/posts${q({ cursor, limit: "20" })}`),
   createPost: (token: string | null, gymId: string, body: Omit<NewPost, "audience">) =>
     call<{ post: Post }>(token, `/${gymId}/posts`, { method: "POST", body }),

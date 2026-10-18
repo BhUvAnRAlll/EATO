@@ -11,7 +11,7 @@ import { Avatar } from "@/components/community/Avatar";
 import { MediaStrip, type DraftPhoto } from "@/components/community/MediaStrip";
 import { TagPeopleSheet } from "@/components/community/TagPeopleSheet";
 import { FormAlert } from "@/components/FormAlert";
-import { audienceLabels, audiencesFor, categoryLabels, community, postTypes, type Member, type NewPost, type Post, type PostAudience, type PostCategory } from "@/lib/community";
+import { audienceLabels, audiencesFor, categoryLabels, community, postTypes, type Member, type NewPost, type Post, type PostAudience, type PostCategory, type PostType } from "@/lib/community";
 import { gyms } from "@/lib/gyms";
 import { pickPhotos } from "@/lib/media";
 import { useMe } from "@/lib/me";
@@ -42,7 +42,7 @@ const wholeOrNull = (value: string) => (value.trim() === "" ? null : Number(valu
 // uploads each photo first, then saves the post with one client key, so a double tap or a retry
 // never creates a second post. The server checks every rule again.
 export default function ComposePost() {
-  const { postId, gymId, gymName } = useLocalSearchParams<{ postId?: string; gymId?: string; gymName?: string }>();
+  const { postId, gymId, gymName, type: startType } = useLocalSearchParams<{ postId?: string; gymId?: string; gymName?: string; type?: string }>();
   const getToken = useSessionToken();
   const me = useMe();
   const upsertPost = useCommunityStore((state) => state.upsertPost);
@@ -52,7 +52,8 @@ export default function ComposePost() {
   const [original, setOriginal] = useState<Post | null>(null); // the post being edited
   const [place, setPlace] = useState<Place>(gymId ? { kind: "gym", id: gymId, name: gymName ?? "the gym" } : { kind: "feed" });
   const [postableGyms, setPostableGyms] = useState<{ id: string; name: string }[]>([]);
-  const [type, setType] = useState<PostCategory>("photo");
+  // A shortcut can open Create Post on a type (the gym feed's Photo, Achievement and Poll)
+  const [type, setType] = useState<PostCategory>(postTypes.includes(startType as PostType) ? (startType as PostType) : "photo");
   const [body, setBody] = useState("");
   const [headline, setHeadline] = useState("");
   const [detail, setDetail] = useState("");

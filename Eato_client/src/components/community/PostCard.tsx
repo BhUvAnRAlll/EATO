@@ -17,6 +17,8 @@ type PostCardProps = {
   onAuthor?: () => void;
   // Vote on a poll (without it the poll shows its results only)
   onVote?: (optionId: string) => void;
+  // A tag beside the author's name, e.g. "Trainer" in a gym feed
+  badge?: string | null;
 };
 
 const audienceIcons = {
@@ -133,7 +135,7 @@ function PostPhotos({ media, width, author }: { media: PostMedia[]; width: numbe
 
 // A feed post: author, time and audience, optional category tag, text, edge-to-edge photos,
 // then like, comment and share on the left
-export function PostCard({ post, width, onLike, onOpenComments, onMenu, onAuthor, onVote }: PostCardProps) {
+export function PostCard({ post, width, onLike, onOpenComments, onMenu, onAuthor, onVote, badge = null }: PostCardProps) {
   const hasBox = Boolean(post.headline) && (post.category === "progress" || post.category === "meal" || post.category === "achievement");
   const tag = hasBox ? { label: "", className: "" } : categoryTags[post.category];
   const share = () => Share.share({ message: `${post.author.name} on EATO: ${post.body}` }).catch(() => {});
@@ -145,9 +147,16 @@ export function PostCard({ post, width, onLike, onOpenComments, onMenu, onAuthor
           <Avatar member={post.author} />
         </Pressable>
         <View className="flex-1">
-          <Text className="post__author" numberOfLines={1}>
-            {post.author.name}
-          </Text>
+          <View className="flex-row items-center gap-2">
+            <Text className="post__author flex-shrink" numberOfLines={1}>
+              {post.author.name}
+            </Text>
+            {badge && (
+              <View className="gym-badge gym-badge--member" style={{ height: 22 }}>
+                <Text className="gym-badge__label" style={{ fontSize: 12 }}>{badge}</Text>
+              </View>
+            )}
+          </View>
           <View className="flex-row items-center gap-1.5">
             <Text className="post__time">{timeAgo(post.createdAt)}</Text>
             {/* Group and gym posts are shown to members, so their audience setting doesn't apply */}

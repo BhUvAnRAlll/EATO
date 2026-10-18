@@ -134,7 +134,7 @@ describe("whatsapp e2e: the AI agent's replies and the in-app assistant", () => 
 
   const test = (name, fn) => it(name, async (t) => { if (skipReason) return t.skip(skipReason); await fn(); });
 
-  test("1. a disabled agent (every gym's default) stores the message and never replies", async () => {
+  test("1. an agent in testing (every gym's default) stores WhatsApp messages and never replies there", async () => {
     const customer = newCustomer();
     await say(PHONE_A, customer, "What are your timings?");
     await worker.runOnce();

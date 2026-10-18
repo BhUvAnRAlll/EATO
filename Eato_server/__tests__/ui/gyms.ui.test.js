@@ -25,7 +25,7 @@ const EXPO_PORT = 8090;
 const EVIDENCE_DIR = path.join(os.tmpdir(), "eato-ui-evidence");
 const SCREENSHOT_DIR = process.env.EATO_SCREENSHOT_DIR || null;
 const WIDTHS = [[320, 568], [390, 844], [430, 932]];
-const CLEANUP_TABLES = ["gym_event_rsvps", "gym_events", "gym_announcements", "gym_invitations", "community_comments", "community_post_likes", "community_post_media", "community_posts", "gym_members", "whatsapp_agent_settings", "whatsapp_connections", "gyms"];
+const CLEANUP_TABLES = ["gym_event_rsvps", "gym_events", "gym_announcements", "gym_invitations", "community_comments", "community_post_likes", "community_post_media", "community_posts", "gym_members", "gym_faqs", "whatsapp_usage", "whatsapp_agent_settings", "whatsapp_connections", "gyms"];
 
 describe("ui gyms: a gym community from the owner's side", () => {
   const runId = crypto.randomBytes(4).toString("hex");
@@ -95,7 +95,7 @@ describe("ui gyms: a gym community from the owner's side", () => {
     try { connection = await db.connect(env); } catch (error) { skipReason = `test database unreachable (${error?.code ?? "refused"})`; return; }
     assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in eato_test`);
     clerk = clerkFor(env.CLERK_SECRET_KEY);
-    server = await startTestServer(env);
+    server = await startTestServer({ ...env, AI_PROVIDER: "fake" }); // the gym assistant uses the test-only fake AI, never a paid model
     expo = await startExpoWeb({ port: EXPO_PORT, apiUrl: `http://localhost:${env.PORT}` });
     chrome = await launchChrome();
     client = await connect(chrome.browserWsUrl);
@@ -194,8 +194,10 @@ describe("ui gyms: a gym community from the owner's side", () => {
     await noOverflow("gym screen");
     await snapshotAllWidths("gyms-detail");
     await page.clickText("About");
-    await h.expectText("Nothing here yet");
+    await h.expectText("Location");
+    await h.expectText("Trainers & staff (1)");
     assert.equal(await page.hasText("Leave gym"), false, "the owner can't leave");
+    await snapshotAllWidths("gyms-about");
   }));
 
   it("3. Manage: settings save at once and the profile saves its changes", run("manage", async () => {
@@ -240,16 +242,57 @@ describe("ui gyms: a gym community from the owner's side", () => {
     await page.waitFor(`location.pathname === "/community/gyms/${state.gym}"`, NAV_TIMEOUT, "back on the gym");
     await page.clickText("Events");
     await h.expectText("Deadlift clinic");
-    await h.expectText("0 of 5 going");
-    await snapshotAllWidths("gyms-events");
+    await h.expectText("0 / 5 going");
     await clickLabel("RSVP to Deadlift clinic");
     await waitForRow("SELECT attendee_count FROM gym_events WHERE gym_id = ?", [state.gym], (row) => row.attendee_count === 1, "RSVP saved");
-    await h.expectText("1 of 5 going");
+    await h.expectText("1 / 5 going");
+    await h.expectText("Going ✓");
+    await snapshotAllWidths("gyms-events");
+  }));
+
+  it("4b. an event opens its page: date, time, place, spots left, attendees; Cancel RSVP from there", run("event-detail", async () => {
+    const pos = await page.waitFor(`(() => { const el = [...document.querySelectorAll('[aria-label^="Deadlift clinic, "]')].find((e) => e.getClientRects().length > 0); if (!el) return null; const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`, NAV_TIMEOUT, "the event card");
+    await page.clickAt(pos.x, pos.y);
+    await page.waitFor(`location.pathname.includes("/events/")`, NAV_TIMEOUT, "the event page");
+    await h.expectText("Upcoming");
+    await h.expectText("Hosted by");
+    await h.expectText("1 going · 4 spots left");
+    await h.expectText("Attendees (1)");
+    assert.equal(await page.evaluate(`!!document.querySelector('[aria-label="Cancel event"]')`), true, "the host can cancel");
+    await noOverflow("event page");
+    await snapshotAllWidths("gyms-event-detail");
+    await clickLabel("Cancel my RSVP");
+    await waitForRow("SELECT attendee_count FROM gym_events WHERE gym_id = ?", [state.gym], (row) => row.attendee_count === 0, "RSVP cancelled");
+    await h.expectText("Attendees (0)");
+    await clickLabel("Back");
+    await page.waitFor(`location.pathname === "/community/gyms/${state.gym}"`, NAV_TIMEOUT, "back on the gym");
+  }));
+
+  it("4c. Members: owners and trainers apart from members, a lock for anyone who isn't a friend; Ask the gym answers from its facts", run("members-ask", async () => {
+    await page.clickText("Members");
+    await h.expectText("OWNERS & TRAINERS · 1"); // innerText follows the uppercase style
+    await h.expectText("MEMBERS · 1");
+    const lockLabel = JSON.stringify(`[aria-label=${JSON.stringify("Messaging Rohan Mehta is locked until you're friends")}]`);
+    assert.equal(await page.evaluate(`!!document.querySelector(${lockLabel})`), true, "a lock beside a member who isn't a friend");
+    await snapshotAllWidths("gyms-members");
+    await connection.query("INSERT INTO gym_faqs (gym_id, question, answer) VALUES (?, 'What are your opening hours?', 'Iron Temple is open 5am to 11pm on weekdays.')", [state.gym]);
+    await clickLabel("Ask the gym");
+    await page.waitFor(`location.pathname.endsWith("/ask")`, NAV_TIMEOUT, "the assistant");
+    await h.expectText("Ask Iron Temple");
+    await clickLabel("Ask: Opening hours");
+    await h.expectText("Iron Temple is open 5am to 11pm on weekdays.");
+    await page.setInput('[aria-label="Ask the gym"]', "Do you have a swimming pool?");
+    await clickLabel("Send question");
+    await h.expectText("A team member will follow up"); // the fake AI can't answer: it escalates
+    await noOverflow("ask");
+    await snapshotAllWidths("gyms-ask");
+    await clickLabel("Back");
+    await page.waitFor(`location.pathname === "/community/gyms/${state.gym}"`, NAV_TIMEOUT, "back on the gym");
   }));
 
   it("5. a post in the gym stays in the gym", run("post", async () => {
     await page.clickText("Feed");
-    await clickLabel("Share with Iron Temple");
+    await clickLabel("Share something with Iron Temple");
     await h.expectPath("/community/compose");
     await h.expectText("Posting to");
     await h.expectText("Iron Temple");

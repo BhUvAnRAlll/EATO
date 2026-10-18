@@ -123,3 +123,21 @@ export function codeFromScan(data: string): string | null {
   const code = (fromLink ? fromLink[1] : text).replace(/-/g, "").toUpperCase();
   return /^[A-Z0-9]{8,10}$/.test(code) ? code : null;
 }
+
+// "09:00" → "9:00 AM", "18:30" → "6:30 PM"
+export function formatTime(hhmm: string): string {
+  const [h, m] = hhmm.split(":").map(Number);
+  const suffix = h >= 12 ? "PM" : "AM";
+  return `${h % 12 === 0 ? 12 : h % 12}:${String(m).padStart(2, "0")} ${suffix}`;
+}
+
+// The date block on an event card: { month: "OCT", day: "19", weekday: "Mon" } (a calendar date, no time zone shift)
+export function eventDateParts(date: string): { month: string; day: string; weekday: string } {
+  const [y, m, d] = date.split("-").map(Number);
+  const value = new Date(y, m - 1, d);
+  return {
+    month: value.toLocaleDateString("en-GB", { month: "short" }).toUpperCase(),
+    day: String(d),
+    weekday: value.toLocaleDateString("en-GB", { weekday: "short" }),
+  };
+}

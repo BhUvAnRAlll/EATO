@@ -58,6 +58,7 @@ export type Post = {
   isOwn: boolean;
   createdAt: string;
   updatedAt: string;
+  authorRole?: "owner" | "admin" | "trainer" | "member" | null; // gym feeds only: the author's role in that gym
 };
 
 // What Create Post sends. A gym post leaves out the audience (the gym decides who sees it).

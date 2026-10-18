@@ -83,23 +83,23 @@ describe("whatsapp e2e: agent provisioning per gym", () => {
 
   const test = (name, fn) => it(name, async (t) => { if (skipReason) return t.skip(skipReason); await fn(); });
 
-  test("1. two gyms registered through the existing admin flow each get one disconnected connection and one disabled agent", async () => {
+  test("1. two gyms registered through the existing admin flow each get one disconnected connection and an agent in testing (in-app only)", async () => {
     for (const [key, name, owner] of [["gymA", "Gym Alpha", "ownerA"], ["gymB", "Gym Beta", "ownerB"]]) {
       const created = await api("POST", "/api/gyms", tokens.platform, { name, location: "Indiranagar", ownerEmail: identities[owner].emailAddress });
       assert.equal(created.status, 201, JSON.stringify(created.json));
       state[key] = created.json.gym.id;
-      assert.deepEqual(await rowsFor(state[key]), { connections: 1, connection: "disconnected", phone: null, agents: 1, agent: "disabled" });
+      assert.deepEqual(await rowsFor(state[key]), { connections: 1, connection: "disconnected", phone: null, agents: 1, agent: "testing" });
     }
     assert.notEqual(state.gymA, state.gymB);
   });
 
   test("2. provisioning again (a retry or the migration back-fill) never adds a second row or resets settings", async () => {
-    await connection.query("UPDATE whatsapp_agent_settings SET agent_status = 'testing' WHERE gym_id = ?", [state.gymA]);
+    await connection.query("UPDATE whatsapp_agent_settings SET agent_status = 'active' WHERE gym_id = ?", [state.gymA]);
     await provisionAgent(connection, state.gymA);
     await provisionAgent(connection, state.gymA);
     await connection.query("INSERT IGNORE INTO whatsapp_connections (gym_id) SELECT id FROM gyms");
     await connection.query("INSERT IGNORE INTO whatsapp_agent_settings (gym_id) SELECT id FROM gyms");
-    assert.deepEqual(await rowsFor(state.gymA), { connections: 1, connection: "disconnected", phone: null, agents: 1, agent: "testing" }, "kept, not reset");
+    assert.deepEqual(await rowsFor(state.gymA), { connections: 1, connection: "disconnected", phone: null, agents: 1, agent: "active" }, "kept, not reset");
     const [[{ n }]] = await connection.query("SELECT COUNT(*) AS n FROM whatsapp_connections");
     assert.equal(n, 2, "one per gym, two gyms");
   });

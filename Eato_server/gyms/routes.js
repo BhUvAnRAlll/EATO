@@ -161,6 +161,10 @@ router.get("/:gymId/events", route(async (req, res) => {
   res.json({ events: await gyms.listEvents(pool(req), req.userId, gymId(req)) });
 }));
 
+router.get("/:gymId/events/:eventId", route(async (req, res) => {
+  res.json({ event: await gyms.getEvent(pool(req), req.userId, gymId(req), cv.id(req.params.eventId, "The event")) });
+}));
+
 router.post("/:gymId/events", smallBody, withUser, route(async (req, res) => {
   res.status(201).json({ event: await gyms.createEvent(pool(req), req.userId, gymId(req), v.validateEvent(req.body, Date.now())) });
 }));

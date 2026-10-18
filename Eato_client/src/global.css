@@ -2454,6 +2454,308 @@
   color: var(--color-muted);
 }
 
+/* Gym page: hero buttons over the cover, the logo over its edge, actions, groups, feed pieces */
+@utility gym-hero__bar {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  flex-direction: row;
+  justify-content: space-between;
+}
+
+@utility gym-hero__button {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-white);
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-card);
+}
+
+@utility gym-hero__logo {
+  margin-top: -40px;
+  align-self: flex-start;
+  border-radius: 20px;
+  border-width: 3px;
+  border-color: var(--color-white);
+  background-color: var(--color-white);
+}
+
+@utility gym-hero__name {
+  margin-top: 10px;
+  font-family: var(--font-sans);
+  font-size: 24px;
+  line-height: 30px;
+  font-weight: 800;
+  color: var(--color-ink);
+}
+
+@utility gym-action {
+  height: 38px;
+  padding-inline: 12px;
+  border-radius: var(--radius-pill);
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-white);
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+}
+
+@utility gym-action--filled {
+  border-color: var(--color-ink);
+  background-color: var(--color-ink);
+}
+
+@utility gym-action__label {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 19px;
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+@utility gym-action__label--filled {
+  color: var(--color-white);
+}
+
+@utility gym-group__title {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 700;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+@utility gym-about__title {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 21px;
+  font-weight: 700;
+  color: var(--color-ink);
+}
+
+@utility gym-share {
+  padding: 14px;
+  border-radius: 20px;
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-white);
+}
+
+@utility gym-share__prompt {
+  flex: 1;
+  height: 42px;
+  padding-inline: 16px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-cream-deep);
+  justify-content: center;
+}
+
+@utility gym-share__prompt-text {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 20px;
+  color: var(--color-faint);
+}
+
+@utility gym-share__shortcut {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 600;
+  color: var(--color-ink-soft);
+}
+
+@utility gym-note {
+  padding: 16px;
+  border-radius: 18px;
+  border-width: 1px;
+  border-left-width: 4px;
+  border-color: var(--color-cream-line);
+  border-left-color: var(--color-leaf);
+  background-color: var(--color-white);
+}
+
+@utility gym-note__kicker {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 700;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: var(--color-ink-soft);
+}
+
+@utility gym-pending {
+  height: 26px;
+  padding-inline: 12px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-warning-soft);
+  justify-content: center;
+}
+
+@utility gym-pending__label {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+/* Event cards and the event page */
+@utility event-card {
+  overflow: hidden;
+  border-radius: 18px;
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-white);
+}
+
+@utility event-card__date {
+  width: 56px;
+  height: 60px;
+  border-radius: 14px;
+  background-color: var(--color-ink);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility event-card__month {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--color-white);
+}
+
+@utility event-card__day {
+  font-family: var(--font-sans);
+  font-size: 22px;
+  line-height: 26px;
+  font-weight: 800;
+  color: var(--color-white);
+}
+
+@utility event-card__title {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 21px;
+  font-weight: 700;
+  color: var(--color-ink);
+}
+
+@utility event-card__footer {
+  padding-inline: 16px;
+  padding-block: 10px;
+  border-top-width: 1px;
+  border-color: var(--color-cream-line);
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+@utility event-card__face {
+  border-radius: var(--radius-pill);
+  border-width: 2px;
+  border-color: var(--color-white);
+}
+
+@utility event-going {
+  height: 38px;
+  padding-inline: 16px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-accent-soft);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility event-going__label {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 19px;
+  font-weight: 600;
+  color: var(--color-leaf);
+}
+
+/* A row in a white card list (opening hours, event facts); pairs with friend-row--first / --last */
+@utility about-row {
+  min-height: 52px;
+  padding-inline: 14px;
+  padding-block: 10px;
+  border-top-width: 1px;
+  border-left-width: 1px;
+  border-right-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-white);
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+}
+
+@utility about-row__value {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 700;
+  color: var(--color-ink);
+}
+
+@utility staff-card {
+  width: 140px;
+  padding: 14px;
+  border-radius: 18px;
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-white);
+  align-items: center;
+}
+
+/* Ask the gym: chat bubbles */
+@utility ask__who {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 600;
+  color: var(--color-muted);
+}
+
+@utility ask__bubble {
+  max-width: 86%;
+  align-self: flex-start;
+  padding-inline: 16px;
+  padding-block: 12px;
+  border-radius: 18px;
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-white);
+}
+
+@utility ask__bubble--you {
+  align-self: flex-end;
+  border-color: var(--color-ink);
+  background-color: var(--color-ink);
+}
+
+@utility ask__bubble--failed {
+  border-color: var(--color-danger);
+}
+
+@utility ask__text {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 21px;
+  color: var(--color-ink);
+}
+
+@utility ask__text--you {
+  color: var(--color-white);
+}
+
 /* The Friends search box: a pill */
 @utility search--pill {
   height: 50px;

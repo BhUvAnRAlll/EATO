@@ -398,4 +398,34 @@ describe("gyms e2e: communities, roles, joining, posts, events and invitations",
     assert.equal((await as("outsider").post("/api/gyms/join-by-code", { code: sent.code })).status, 200);
     assert.deepEqual(await mine("outsider"), []);
   });
+
+  test("13. the gym page's extras: friend state and trainer titles on members, one event with its attendees, authors' gym roles", async () => {
+    const gym = (await as("platform").post("/api/gyms", { name: "Extras Gym", ownerEmail: identities.owner.emailAddress, visibility: "private", memberApproval: false })).json.gym.id;
+    const code = (await as("owner").get(`/api/gyms/${gym}`)).json.gym.inviteCode;
+    assert.equal((await as("member").post("/api/gyms/join-by-code", { code })).status, 200);
+    // Owner and member become friends; the outsider stays out of this private gym
+    await db.befriend(connection, ids.owner, ids.member);
+    await connection.query("INSERT INTO trainer_profiles (user_id, title, specialties, bio) VALUES (?, 'Strength coach', '[]', 'Bio') ON DUPLICATE KEY UPDATE title = 'Strength coach'", [ids.owner]);
+    const people = (await as("member").get(`/api/gyms/${gym}/members`)).json.members;
+    const owner = people.find((row) => row.member.id === ids.owner);
+    const self = people.find((row) => row.member.id === ids.member);
+    assert.deepEqual([owner.friendState, owner.title, self.friendState, self.isMe], ["friends", "Strength coach", "none", true]);
+    assert.equal(Object.hasOwn(owner.member, "email"), false);
+
+    const date = new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10);
+    const event = (await as("owner").post(`/api/gyms/${gym}/events`, { title: "Open mat", description: "Bring a towel.", date, startTime: "07:00", endTime: "08:00", location: "Main floor", maxAttendees: 3 })).json.event;
+    await as("member").post(`/api/gyms/${gym}/events/${event.id}/rsvp`);
+    const asMember = (await as("member").get(`/api/gyms/${gym}/events/${event.id}`)).json.event;
+    assert.deepEqual([asMember.attendees.map((m) => m.id), asMember.canCancel, asMember.going], [[ids.member], false, true]);
+    assert.equal((await as("owner").get(`/api/gyms/${gym}/events/${event.id}`)).json.event.canCancel, true, "the host can cancel");
+    assert.equal((await as("outsider").get(`/api/gyms/${gym}/events/${event.id}`)).status, 403, "a private gym's event is for members");
+    assert.equal((await as("member").get(`/api/gyms/${state.gym}/events/${event.id}`)).status, 404, "an event is found only under its own gym");
+    assert.equal((await as("member").get(`/api/gyms/${gym}/events/not-an-id`)).status, 400);
+    const listed = (await as("member").get(`/api/gyms/${gym}/events`)).json.events.find((e) => e.id === event.id);
+    assert.deepEqual(listed.attendeesPreview.map((m) => m.id), [ids.member]);
+
+    await as("owner").post(`/api/gyms/${gym}/posts`, { body: "Welcome to Extras", category: "general" });
+    const posts = (await as("member").get(`/api/gyms/${gym}/posts`)).json.posts;
+    assert.equal(posts[0].authorRole, "owner");
+  });
 });

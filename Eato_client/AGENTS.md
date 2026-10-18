@@ -83,7 +83,7 @@ and it decides which gym an event belongs to only from the receiving phone-numbe
   (replies through the gym's own number, only inside WhatsApp's 24-hour window), `metaClient.js`
   (the only code calling Meta's Graph API), `secrets.js` (AES-256-GCM for each gym's token).
 - Every gym gets one `whatsapp_connections` row (disconnected) and one `whatsapp_agent_settings` row
-  (disabled) when it is created. Gym-owned WhatsApp tables use `ON DELETE RESTRICT`, so test clean-ups
+  (`testing`: the in-app assistant answers members, WhatsApp replies only once `active`) when it is created. Gym-owned WhatsApp tables use `ON DELETE RESTRICT`, so test clean-ups
   must delete them before `gyms`.
 - Tests use a fake Meta and made-up settings; never real Meta credentials.
 

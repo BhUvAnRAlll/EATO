@@ -1256,7 +1256,7 @@ CREATE TABLE whatsapp_connections (
 -- One per gym: whether the agent replies, and the owner's extra instructions
 CREATE TABLE whatsapp_agent_settings (
   gym_id             CHAR(36)      NOT NULL,
-  agent_status       ENUM('disabled', 'testing', 'active') NOT NULL DEFAULT 'disabled',
+  agent_status       ENUM('disabled', 'testing', 'active') NOT NULL DEFAULT 'testing',  -- testing: the in-app assistant answers; WhatsApp only when active
   instructions       VARCHAR(2000) NULL,
   escalation_contact VARCHAR(120)  NULL,
   daily_reply_limit  INT UNSIGNED  NOT NULL DEFAULT 500,

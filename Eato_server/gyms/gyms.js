@@ -10,6 +10,7 @@ const crypto = require("node:crypto");
 
 const { ValidationError } = require("../profile");
 const { memberSummary, ensureUser } = require("../community/members");
+const { stateOf } = require("../community/friendRules");
 const { NotFoundError, ForbiddenError } = require("../community/posts");
 const posts = require("../community/posts");
 const { assertOwnMedia, mediaUrl } = require("../community/media");
@@ -166,7 +167,7 @@ async function createGym(pool, adminId, values) {
           [id, values.name, values.tagline, values.location, newCode(8), values.visibility, values.memberApproval, adminId],
         );
         await connection.query("INSERT INTO gym_members (gym_id, user_id, role, status, joined_at) VALUES (?, ?, 'owner', 'active', NOW())", [id, ownerId]);
-        await provisionAgent(connection, id); // its WhatsApp connection (disconnected) and agent (disabled)
+        await provisionAgent(connection, id); // its WhatsApp connection (disconnected) and agent (testing: in-app only)
         return id;
       });
       // The creating admin may not be a member (or able to see a hidden gym), so answer from the row
@@ -332,12 +333,16 @@ async function listMembers(pool, userId, gymId, { status = "active" }) {
   const { membership } = await readable(pool, gymId, userId);
   if (status !== "active" && !perms.canManage(membership)) throw new ForbiddenError("Only gym admins can see requests.");
   const [rows] = await pool.query(
-    `SELECT m.user_id, m.role, m.status, m.joined_at, m.requested_at, u.full_name
+    `SELECT m.user_id, m.role, m.status, m.joined_at, m.requested_at, u.full_name, tp.title AS trainer_title,
+            f.requester_id, f.status AS friendship
      FROM gym_members m JOIN users u ON u.id = m.user_id
+     LEFT JOIN trainer_profiles tp ON tp.user_id = m.user_id AND m.role IN ('trainer', 'admin', 'owner')
+     LEFT JOIN community_friendships f
+       ON (f.user_low = m.user_id AND f.user_high = ?) OR (f.user_high = m.user_id AND f.user_low = ?)
      WHERE m.gym_id = ? AND m.status = ?
      ORDER BY FIELD(m.role, 'owner', 'admin', 'trainer', 'member'), u.full_name, m.user_id
      LIMIT 500`,
-    [gymId, status],
+    [userId, userId, gymId, status],
   );
   return rows.map((row) => ({
     member: memberSummary(row),
@@ -345,6 +350,9 @@ async function listMembers(pool, userId, gymId, { status = "active" }) {
     status: row.status,
     since: new Date(row.joined_at ?? row.requested_at).toISOString(),
     isMe: row.user_id === userId,
+    title: row.trainer_title ?? null, // a trainer's own headline, e.g. "Strength coach"
+    // The viewer's friendship with this member (it decides the message icon or the lock)
+    friendState: row.user_id === userId ? "none" : stateOf(row.friendship ? { requester_id: row.requester_id, status: row.friendship } : null, userId),
   }));
 }
 
@@ -389,7 +397,12 @@ async function removeMember(pool, actorId, gymId, targetId) {
 
 async function listGymPosts(pool, userId, gymId, page) {
   await readable(pool, gymId, userId);
-  return posts.listPosts(pool, userId, { gymId, ...page });
+  const result = await posts.listPosts(pool, userId, { gymId, ...page });
+  const authors = [...new Set(result.posts.map((post) => post.author.id))];
+  if (authors.length === 0) return result;
+  const [roles] = await pool.query("SELECT user_id, role FROM gym_members WHERE gym_id = ? AND status = 'active' AND user_id IN (?)", [gymId, authors]);
+  const roleOf = new Map(roles.map((row) => [row.user_id, row.role]));
+  return { ...result, posts: result.posts.map((post) => ({ ...post, authorRole: roleOf.get(post.author.id) ?? null })) };
 }
 
 // Who may post comes from the settings; with post moderation on, members' posts wait for staff
@@ -505,13 +518,31 @@ const EVENT_SELECT = `SELECT e.*, u.full_name, EXISTS (SELECT 1 FROM gym_event_r
 // past by its own clock. Older events fall off the list, so a gym that runs classes for years
 // still gets its upcoming events back (events are never deleted automatically).
 const PAST_EVENT_DAYS = 60;
+// The first few people going to each event (for the faces on an event card)
+async function attendeeFaces(db, eventIds, perEvent = 4) {
+  const result = new Map();
+  if (eventIds.length === 0) return result;
+  const [rows] = await db.query(
+    `SELECT r.event_id, r.user_id, u.full_name FROM gym_event_rsvps r JOIN users u ON u.id = r.user_id
+     WHERE r.event_id IN (?) ORDER BY r.event_id, r.created_at, r.user_id`,
+    [eventIds],
+  );
+  for (const row of rows) {
+    const list = result.get(row.event_id) ?? [];
+    if (list.length < perEvent) list.push(memberSummary(row));
+    result.set(row.event_id, list);
+  }
+  return result;
+}
+
 async function listEvents(pool, userId, gymId) {
   await readable(pool, gymId, userId);
   const [rows] = await pool.query(
     `${EVENT_SELECT} WHERE e.gym_id = ? AND e.event_date >= CURRENT_DATE - INTERVAL ? DAY ORDER BY e.event_date, e.start_time, e.id LIMIT 200`,
     [userId, gymId, PAST_EVENT_DAYS],
   );
-  return rows.map((row) => eventToApi(row, userId));
+  const faces = await attendeeFaces(pool, rows.map((row) => row.id));
+  return rows.map((row) => ({ ...eventToApi(row, userId), attendeesPreview: faces.get(row.id) ?? [] }));
 }
 
 async function createEvent(pool, userId, gymId, values) {
@@ -539,6 +570,20 @@ async function deleteEvent(pool, userId, gymId, eventId) {
 
 // Going / not going. Active members only; the event row is locked so capacity holds, and a
 // repeat changes nothing. Past events (by date, a day's grace for time zones) are closed.
+// One event with everyone going, for whoever may read the gym (a hidden or private gym's event
+// is a 404 or 403 to others, as the gym itself is). canCancel: the host or a gym admin.
+async function getEvent(pool, userId, gymId, eventId) {
+  const { membership } = await readable(pool, gymId, userId);
+  const [rows] = await pool.query(`${EVENT_SELECT} WHERE e.id = ? AND e.gym_id = ?`, [userId, eventId, gymId]);
+  if (!rows[0]) throw new NotFoundError("That event no longer exists.");
+  const [people] = await pool.query(
+    "SELECT r.user_id, u.full_name FROM gym_event_rsvps r JOIN users u ON u.id = r.user_id WHERE r.event_id = ? ORDER BY r.created_at, r.user_id LIMIT 500",
+    [eventId],
+  );
+  const event = eventToApi(rows[0], userId);
+  return { ...event, attendees: people.map((row) => memberSummary(row)), canCancel: event.isHost || perms.canManage(membership) };
+}
+
 async function setRsvp(pool, userId, gymId, eventId, going) {
   const { membership } = await access(pool, gymId, userId);
   if (!perms.activeRole(membership)) throw new ForbiddenError("Join this gym to RSVP.");
@@ -671,6 +716,6 @@ module.exports = {
   listMembers, changeMember, removeMember,
   listGymPosts, createGymPost, approvePost, removePost, assertCanComment,
   listAnnouncements, createAnnouncement, updateAnnouncement, deleteAnnouncement,
-  listEvents, createEvent, deleteEvent, setRsvp,
+  listEvents, getEvent, createEvent, deleteEvent, setRsvp,
   listInvitations, createInvitation, changeInvitation, myInvitations, canSeeGymMedia,
 };

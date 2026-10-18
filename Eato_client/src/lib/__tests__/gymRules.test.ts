@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { attendance, codeFromScan, formatCode, hoursText, isEventPast, membershipButton, parseFacilities, parseHours, parseTiers, splitEvents, tiersText } from "../gymRules.ts";
+import { attendance, codeFromScan, eventDateParts, formatCode, formatTime, hoursText, isEventPast, membershipButton, parseFacilities, parseHours, parseTiers, splitEvents, tiersText } from "../gymRules.ts";
 
 describe("gym rules", () => {
   it("the membership button follows the membership and how the gym is joined", () => {
@@ -53,5 +53,18 @@ describe("gym rules", () => {
     assert.equal(codeFromScan("ABCDE23456"), "ABCDE23456");
     assert.equal(codeFromScan("https://example.com/something-else"), null);
     assert.equal(codeFromScan("hello"), null);
+  });
+});
+
+describe("event times and dates", () => {
+  it("shows 12-hour times with AM and PM", () => {
+    assert.equal(formatTime("09:00"), "9:00 AM");
+    assert.equal(formatTime("00:15"), "12:15 AM");
+    assert.equal(formatTime("12:00"), "12:00 PM");
+    assert.equal(formatTime("18:30"), "6:30 PM");
+  });
+
+  it("splits a calendar date into the card's month, day and weekday", () => {
+    assert.deepEqual(eventDateParts("2026-10-19"), { month: "OCT", day: "19", weekday: "Mon" });
   });
 });

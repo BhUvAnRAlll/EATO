@@ -1,40 +1,37 @@
-import { useCallback, useRef, useState, type ReactNode } from "react";
-import { ActivityIndicator, Linking, Pressable, RefreshControl, ScrollView, Text, useWindowDimensions, View } from "react-native";
+import { useCallback, useRef, useState } from "react";
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, useWindowDimensions, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { SymbolView } from "expo-symbols";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 
 import { ActionSheet, type SheetAction } from "@/components/community/ActionSheet";
-import { AuthImage } from "@/components/community/AuthImage";
 import { Avatar } from "@/components/community/Avatar";
 import { EmptyState, PostSkeleton } from "@/components/community/CommunityStates";
 import { ConfirmSheet } from "@/components/community/ConfirmSheet";
 import { PostCard } from "@/components/community/PostCard";
+import { GymAboutTab } from "@/components/gyms/GymAboutTab";
+import { GymEventsTab } from "@/components/gyms/GymEventsTab";
+import { GymHeader, type GymTab as Tab } from "@/components/gyms/GymHeader";
+import { GymMembersTab } from "@/components/gyms/GymMembersTab";
 import { FormAlert } from "@/components/FormAlert";
-import { community, isOffline, type Post } from "@/lib/community";
-import { attendance, eventWhen, membershipButton, roleLabels, splitEvents, visibilityLabels } from "@/lib/gymRules";
+import { community, isOffline, timeAgo, type Post } from "@/lib/community";
+import { membershipButton, roleLabels } from "@/lib/gymRules";
 import { gyms, type Announcement, type Gym, type GymEvent, type GymMember } from "@/lib/gyms";
+import { useMe } from "@/lib/me";
 import { useSessionToken } from "@/lib/session";
-import type { Icon } from "@/types/profile";
 import { colors } from "@/theme";
 
-type Tab = "feed" | "members" | "events" | "about";
-const tabs: { key: Tab; label: string }[] = [
-  { key: "feed", label: "Feed" },
-  { key: "members", label: "Members" },
-  { key: "events", label: "Events" },
-  { key: "about", label: "About" },
-];
-
-// One gym: header (cover, logo, name, membership), then Feed (announcements, pinned first, and
-// posts), Members, Events (RSVP, capacity) and About (hours, facilities, tiers, contact, rules,
-// leave). Private and hidden gyms show their content to members only; the server enforces it.
+// One gym: the header (cover, logo, name, where you stand, actions, tabs), then Feed (share box,
+// the pinned announcement, posts), Members, Events and About. Private and hidden gyms show
+// their content to members only; the server enforces it.
 export default function GymScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { width } = useWindowDimensions();
   const getToken = useSessionToken();
+  const me = useMe();
   const [gym, setGym] = useState<Gym | null>(null);
+  const [allNotes, setAllNotes] = useState(false);
   const [tab, setTab] = useState<Tab>("feed");
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [posts, setPosts] = useState<Post[] | null>(null); // null until the feed has loaded
@@ -61,7 +58,7 @@ export default function GymScreen() {
       if (notes.ok) setAnnouncements(notes.data.announcements);
       const failed = [feed, notes].find((r) => !r.ok);
       if (failed && !failed.ok) setNotice(failed.error);
-    } else if (which === "members") {
+    } else if (which === "members" || which === "about") {
       const people = await gyms.members(token, id);
       if (people.ok) setMembers(people.data.members);
       else setNotice(people.error);
@@ -176,11 +173,24 @@ export default function GymScreen() {
     return actions;
   };
 
+  // Message a member who is a friend (the server checks friendship again)
+  const message = async (row: GymMember) => {
+    const result = await community.openConversation(await getToken(), row.member.id);
+    if (result.ok) router.push({ pathname: "/messages/[id]", params: { id: result.data.conversation.id } });
+    else setNotice(result.error);
+  };
+
   if (status === "error" || !gym) {
     return (
       <View className="flex-1 bg-cream">
         <SafeAreaView style={{ flex: 1 }} edges={["top", "left", "right"]}>
-          <BackBar title="Gym" />
+          <View className="screen-bar">
+            <Pressable onPress={() => router.back()} hitSlop={12} className="screen-bar__back" accessibilityRole="button" accessibilityLabel="Back">
+              <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={20} tintColor={colors.ink} />
+            </Pressable>
+            <Text className="screen-bar__title">Gym</Text>
+            <View className="screen-bar__back" />
+          </View>
           <View className="px-5 pt-4">
             {status === "loading" ? (
               <PostSkeleton />
@@ -193,8 +203,6 @@ export default function GymScreen() {
     );
   }
 
-  const button = membershipButton(gym.membership, gym.joinMode);
-  const { upcoming, past } = splitEvents(events ?? [], new Date());
   const locked = (
     <EmptyState
       icon={{ ios: "lock", android: "lock", web: "lock" }}
@@ -202,308 +210,130 @@ export default function GymScreen() {
       text={gym.membership?.status === "pending" ? "You'll see posts, members and events once an admin approves your request." : gym.membership?.status === "suspended" ? "A gym admin has suspended your membership." : `Join ${gym.name} to see what members share.`}
     />
   );
+  const shownNotes = allNotes ? announcements : announcements.slice(0, 1);
+  const staff = (members ?? []).filter((row) => row.role !== "member");
 
   return (
     <View className="flex-1 bg-cream">
       <StatusBar style="dark" />
-      <SafeAreaView style={{ flex: 1 }} edges={["top", "left", "right"]}>
-        <BackBar title={gym.name} />
-        <ScrollView
-          contentContainerStyle={{ paddingBottom: 32 }}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.forest} />}
-          showsVerticalScrollIndicator={false}
-          onScroll={({ nativeEvent }) => {
-            const nearEnd = nativeEvent.layoutMeasurement.height + nativeEvent.contentOffset.y >= nativeEvent.contentSize.height - 400;
-            if (nearEnd && tab === "feed") loadMore();
-          }}
-          scrollEventThrottle={400}
-        >
-          {/* Header */}
-          <View className="gym__header mx-5">
-            {gym.coverUrl ? <AuthImage path={gym.coverUrl} style={{ width: "100%", height: 140 }} /> : <View className="h-24 bg-forest-soft" />}
-            <View className="p-4">
-              <View className="flex-row items-center gap-3">
-                {gym.logoUrl ? (
-                  <AuthImage path={gym.logoUrl} style={{ width: 56, height: 56, borderRadius: 16 }} />
-                ) : (
-                  <View className="group__tile h-14 w-14">
-                    <SymbolView name={{ ios: "dumbbell.fill", android: "fitness_center", web: "fitness_center" }} size={24} tintColor={colors.leaf} />
-                  </View>
-                )}
-                <View className="flex-1">
-                  <Text className="type-headline text-forest-ink" numberOfLines={2}>{gym.name}</Text>
-                  <Text className="post__time" numberOfLines={1}>{[gym.location, `${gym.memberCount.toLocaleString("en-IN")} ${gym.memberCount === 1 ? "member" : "members"}`].filter(Boolean).join(" · ")}</Text>
-                </View>
-              </View>
-              {gym.tagline && <Text className="post__body mt-3">{gym.tagline}</Text>}
-              <View className="mt-2 flex-row items-center gap-1.5">
-                <SymbolView name={gym.visibility === "public" ? { ios: "globe", android: "public", web: "public" } : { ios: "lock", android: "lock", web: "lock" }} size={12} tintColor={colors.muted} />
-                <Text className="home__note">{visibilityLabels[gym.visibility].label} gym</Text>
-              </View>
-              <View className="mt-4 flex-row flex-wrap gap-2">
-                <Pressable
-                  onPress={onMembership}
-                  disabled={busy === "membership" || button.action === null}
-                  className={button.tone === "primary" ? "group__join" : "group__join group__join--joined"}
-                  style={{ opacity: busy === "membership" ? 0.5 : 1 }}
-                  accessibilityRole="button"
-                  accessibilityLabel={button.action === "leave" ? `${button.label}. Tap to leave ${gym.name}` : button.action === "cancel" ? "Pending approval. Tap to cancel your request" : button.label}
-                >
-                  {busy === "membership" ? <ActivityIndicator color={button.tone === "primary" ? colors.white : colors.forest} /> : <Text className={button.tone === "primary" ? "group__join-label" : "group__join-label group__join-label--joined"}>{button.label}</Text>}
-                </Pressable>
-                {gym.can.invite && (
-                  <Pressable onPress={() => router.push({ pathname: "/community/gyms/[id]/invite", params: { id: gym.id } })} className="admin__action flex-row items-center gap-1.5" accessibilityRole="button" accessibilityLabel="Invite members">
-                    <SymbolView name={{ ios: "person.badge.plus", android: "person_add", web: "person_add" }} size={14} tintColor={colors.forestInk} />
-                    <Text className="admin__action-label">Invite</Text>
-                  </Pressable>
-                )}
-                {gym.can.manage && (
-                  <Pressable onPress={() => router.push({ pathname: "/community/gyms/[id]/manage", params: { id: gym.id } })} className="admin__action flex-row items-center gap-1.5" accessibilityRole="button" accessibilityLabel="Manage gym">
-                    <SymbolView name={{ ios: "gearshape", android: "settings", web: "settings" }} size={14} tintColor={colors.forestInk} />
-                    <Text className="admin__action-label">Manage</Text>
-                  </Pressable>
-                )}
-              </View>
-            </View>
-          </View>
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: 40 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.forest} />}
+        showsVerticalScrollIndicator={false}
+        onScroll={({ nativeEvent }) => {
+          const nearEnd = nativeEvent.layoutMeasurement.height + nativeEvent.contentOffset.y >= nativeEvent.contentSize.height - 400;
+          if (nearEnd && tab === "feed") loadMore();
+        }}
+        scrollEventThrottle={400}
+      >
+        <GymHeader gym={gym} tab={tab} busy={busy === "membership"} onTab={setTab} onMembership={onMembership} />
 
-          <View className="segment mx-5 mt-4" accessibilityRole="tablist">
-            {tabs.map((item) => (
-              <Pressable key={item.key} onPress={() => setTab(item.key)} className={tab === item.key ? "segment__item segment__item--active" : "segment__item"} accessibilityRole="tab" accessibilityState={{ selected: tab === item.key }}>
-                <Text className={tab === item.key ? "segment__label segment__label--active" : "segment__label"}>{item.label}</Text>
-              </Pressable>
-            ))}
-          </View>
-
-          {notice && (
-            <Pressable onPress={() => setNotice(null)} className="mx-5 mt-3">
-              <FormAlert message={notice} />
-            </Pressable>
-          )}
-
-          <View className="mt-4 gap-3 px-5">
-            {tab === "about" ? (
-              <About gym={gym} onLeave={gym.can.leave ? askLeave : null} />
-            ) : !gym.can.viewContent ? (
-              locked
-            ) : tab === "feed" ? (
-              <>
-                {announcements.map((note) => (
-                  <View key={note.id} className="post__card">
-                    <View className="flex-row items-center gap-2">
-                      <SymbolView name={{ ios: note.pinned ? "pin.fill" : "megaphone", android: note.pinned ? "push_pin" : "campaign", web: note.pinned ? "push_pin" : "campaign" }} size={14} tintColor={colors.leaf} />
-                      <Text className="post__time">{note.pinned ? "Pinned announcement" : "Announcement"}</Text>
-                    </View>
-                    <Text className="post__author mt-2">{note.title}</Text>
-                    <Text className="post__body mt-1">{note.body}</Text>
-                  </View>
-                ))}
-                {gym.can.post && (
-                  <Pressable onPress={() => router.push({ pathname: "/community/compose", params: { gymId: gym.id, gymName: gym.name } })} className="composer" accessibilityRole="button" accessibilityLabel={`Share with ${gym.name}`}>
-                    <Text className="composer__prompt">Share with the gym...</Text>
-                    <SymbolView name={{ ios: "square.and.pencil", android: "edit", web: "edit" }} size={18} tintColor={colors.forest} />
-                  </Pressable>
-                )}
-                {gym.settings.postModeration && gym.can.post && !gym.can.moderate && <Text className="home__note">Posts in this gym are reviewed by staff before others see them.</Text>}
-                {posts === null ? (
-                  <PostSkeleton />
-                ) : posts.length === 0 ? (
-                  <EmptyState icon={{ ios: "text.bubble", android: "forum", web: "forum" }} title="No posts yet" text={gym.can.post ? "Be the first to share something with the gym." : "Posts from the gym will show here."} />
-                ) : (
-                  posts.map((post) => (
-                    <View key={post.id}>
-                      {post.reviewStatus === "pending" && (
-                        <View className="mb-1 flex-row items-center gap-1.5">
-                          <SymbolView name={{ ios: "clock", android: "schedule", web: "schedule" }} size={12} tintColor={colors.warning} />
-                          <Text className="home__note">Awaiting review by gym staff</Text>
-                        </View>
-                      )}
-                      <PostCard post={post} width={width - 40} onLike={() => like(post)} onOpenComments={() => router.push({ pathname: "/community/post/[id]", params: { id: post.id } })} onMenu={() => setMenuPost(post)} onAuthor={() => router.push({ pathname: "/community/profile/[userId]", params: { userId: post.author.id } })} />
-                    </View>
-                  ))
-                )}
-                {cursor && <ActivityIndicator color={colors.forest} className="my-2" />}
-              </>
-            ) : tab === "members" ? (
-              members === null ? (
-                <ActivityIndicator color={colors.forest} />
-              ) : (
-                members.map((row) => (
-                  <Pressable key={row.member.id} onPress={() => router.push({ pathname: "/community/profile/[userId]", params: { userId: row.member.id } })} className="flex-row items-center gap-3 py-1.5" accessibilityRole="button" accessibilityLabel={`${row.member.name}, ${roleLabels[row.role]}`}>
-                    <Avatar member={row.member} size={44} />
-                    <Text className="post__author flex-1" numberOfLines={1}>{row.member.name}{row.isMe ? " (you)" : ""}</Text>
-                    {row.role !== "member" && (
-                      <View className="rounded-pill bg-forest-soft px-3 py-1">
-                        <Text className="post__time" style={{ color: colors.forestInk }}>{roleLabels[row.role]}</Text>
-                      </View>
-                    )}
-                  </Pressable>
-                ))
-              )
-            ) : (
-              <>
-                {gym.can.createEvents && (
-                  <Pressable onPress={() => router.push({ pathname: "/community/gyms/[id]/event-new", params: { id: gym.id } })} className="btn-forest" accessibilityRole="button" accessibilityLabel="Create event">
-                    <Text className="btn-forest__label">Create Event</Text>
-                  </Pressable>
-                )}
-                {events === null ? (
-                  <ActivityIndicator color={colors.forest} />
-                ) : upcoming.length === 0 && past.length === 0 ? (
-                  <EmptyState icon={{ ios: "calendar", android: "event", web: "event" }} title="No events yet" text="Classes, clinics and meet-ups will show here." />
-                ) : (
-                  <>
-                    {upcoming.length > 0 && <Text className="setup__section">Upcoming</Text>}
-                    {upcoming.map((event) => (
-                      <EventCard
-                        key={event.id}
-                        event={event}
-                        busy={busy === `event-${event.id}`}
-                        canRsvp={gym.membership?.status === "active"}
-                        canCancel={event.isHost || gym.can.manage}
-                        onRsvp={() => run(`event-${event.id}`, (token) => gyms.setRsvp(token, gym.id, event.id, !event.going))}
-                        onCancel={() => setConfirm({ title: `Cancel ${event.title}?`, text: "Everyone who said they're going will see it's gone.", label: "Cancel event", run: async () => { await run(`event-${event.id}`, (token) => gyms.deleteEvent(token, gym.id, event.id)); setConfirm(null); } })}
-                      />
-                    ))}
-                    {past.length > 0 && <Text className="setup__section mt-2">Past</Text>}
-                    {past.map((event) => <EventCard key={event.id} event={event} past />)}
-                  </>
-                )}
-              </>
-            )}
-          </View>
-        </ScrollView>
-      </SafeAreaView>
-      <ActionSheet visible={menuPost !== null} actions={menuPost ? postActions(menuPost) : []} onClose={() => setMenuPost(null)} />
-      <ConfirmSheet visible={confirm !== null} title={confirm?.title ?? ""} text={confirm?.text ?? ""} confirmLabel={confirm?.label ?? ""} busy={busy !== null} onConfirm={() => confirm?.run()} onCancel={() => setConfirm(null)} />
-    </View>
-  );
-}
-
-function BackBar({ title }: { title: string }) {
-  return (
-    <View className="h-12 flex-row items-center px-5">
-      <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Back">
-        <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={20} tintColor={colors.forestInk} />
-      </Pressable>
-      <Text className="type-subhead ml-3 flex-1 text-forest-ink" numberOfLines={1}>{title}</Text>
-    </View>
-  );
-}
-
-type EventCardProps = { event: GymEvent; past?: boolean; busy?: boolean; canRsvp?: boolean; canCancel?: boolean; onRsvp?: () => void; onCancel?: () => void };
-
-function EventCard({ event, past = false, busy = false, canRsvp = false, canCancel = false, onRsvp, onCancel }: EventCardProps) {
-  return (
-    <View className="post__card" style={{ opacity: past ? 0.7 : 1 }}>
-      <Text className="post__time">{eventWhen(event)}</Text>
-      <Text className="post__author mt-1">{event.title}</Text>
-      <Text className="post__body mt-1">{event.description}</Text>
-      <View className="mt-2 flex-row items-center gap-1.5">
-        <SymbolView name={{ ios: "mappin", android: "place", web: "place" }} size={12} tintColor={colors.muted} />
-        <Text className="home__note flex-1" numberOfLines={1}>{event.location}</Text>
-      </View>
-      <View className="mt-3 flex-row items-center justify-between gap-2">
-        <Text className="home__note">{attendance(event)}{event.host ? ` · hosted by ${event.host.name.split(" ")[0]}` : ""}</Text>
-        {!past && canRsvp && (
-          <Pressable
-            onPress={onRsvp}
-            disabled={busy || (event.full && !event.going)}
-            className={event.going ? "group__join group__join--joined" : "group__join"}
-            style={{ opacity: busy || (event.full && !event.going) ? 0.5 : 1 }}
-            accessibilityRole="button"
-            accessibilityLabel={event.going ? `Cancel your RSVP for ${event.title}` : event.full ? `${event.title} is full` : `RSVP to ${event.title}`}
-          >
-            <Text className={event.going ? "group__join-label group__join-label--joined" : "group__join-label"}>{event.going ? "Going ✓" : event.full ? "Full" : "RSVP"}</Text>
+        {notice && (
+          <Pressable onPress={() => setNotice(null)} className="mx-5 mt-3">
+            <FormAlert message={notice} />
           </Pressable>
         )}
-      </View>
-      {!past && canCancel && (
-        <Pressable onPress={onCancel} className="mt-2 self-start" accessibilityRole="button" accessibilityLabel={`Cancel ${event.title}`}>
-          <Text className="home__note" style={{ color: colors.danger }}>Cancel event</Text>
-        </Pressable>
-      )}
-    </View>
-  );
-}
 
-function About({ gym, onLeave }: { gym: Gym; onLeave: (() => void) | null }) {
-  const contact: { label: string; url: string; icon: Icon }[] = [];
-  if (gym.contact.phone) contact.push({ label: gym.contact.phone, url: `tel:${gym.contact.phone.replace(/\s/g, "")}`, icon: { ios: "phone", android: "call", web: "call" } });
-  if (gym.contact.email) contact.push({ label: gym.contact.email, url: `mailto:${gym.contact.email}`, icon: { ios: "envelope", android: "mail", web: "mail" } });
-  if (gym.contact.website) contact.push({ label: gym.contact.website, url: gym.contact.website, icon: { ios: "globe", android: "public", web: "public" } });
-  const empty = !gym.description && !gym.address && gym.hours.length === 0 && gym.facilities.length === 0 && gym.membershipTiers.length === 0 && contact.length === 0 && gym.guidelines.length === 0;
-  return (
-    <>
-      {empty && <EmptyState icon={{ ios: "info.circle", android: "info", web: "info" }} title="Nothing here yet" text="The gym hasn't added its details." />}
-      {gym.description && <Section title="About"><Text className="post__body">{gym.description}</Text></Section>}
-      {gym.address && (
-        <Section title="Address">
-          <Pressable onPress={() => Linking.openURL(`https://maps.google.com/?q=${encodeURIComponent(gym.address ?? "")}`)} accessibilityRole="link" accessibilityLabel={`Open ${gym.address} in maps`}>
-            <Text className="post__body" style={{ color: colors.leaf }}>{gym.address}</Text>
-          </Pressable>
-        </Section>
-      )}
-      {gym.hours.length > 0 && (
-        <Section title="Opening hours">
-          {gym.hours.map((row) => (
-            <View key={row.label} className="flex-row justify-between py-0.5">
-              <Text className="post__body">{row.label}</Text>
-              <Text className="post__body">{row.value}</Text>
-            </View>
-          ))}
-        </Section>
-      )}
-      {gym.facilities.length > 0 && (
-        <Section title="Facilities">
-          <View className="flex-row flex-wrap gap-2">
-            {gym.facilities.map((item) => (
-              <View key={item} className="rounded-pill bg-forest-soft px-3 py-1">
-                <Text className="post__time" style={{ color: colors.forestInk }}>{item}</Text>
-              </View>
-            ))}
-          </View>
-        </Section>
-      )}
-      {gym.membershipTiers.length > 0 && (
-        <Section title="Membership">
-          {gym.membershipTiers.map((tier) => (
-            <View key={tier.name} className="py-1">
-              <View className="flex-row justify-between"><Text className="post__author">{tier.name}</Text><Text className="post__author">{tier.price}</Text></View>
-              {tier.perks ? <Text className="post__time">{tier.perks}</Text> : null}
-            </View>
-          ))}
-        </Section>
-      )}
-      {contact.length > 0 && (
-        <Section title="Contact">
-          {contact.map((item) => (
-            <Pressable key={item.url} onPress={() => Linking.openURL(item.url)} className="flex-row items-center gap-2 py-1" accessibilityRole="link" accessibilityLabel={item.label}>
-              <SymbolView name={item.icon} size={14} tintColor={colors.leaf} />
-              <Text className="post__body" style={{ color: colors.leaf }}>{item.label}</Text>
-            </Pressable>
-          ))}
-        </Section>
-      )}
-      {gym.guidelines.length > 0 && (
-        <Section title="Guidelines">
-          {gym.guidelines.map((rule, index) => <Text key={index} className="post__body py-0.5">{`${index + 1}. ${rule}`}</Text>)}
-        </Section>
-      )}
-      {onLeave && (
-        <Pressable onPress={onLeave} className="btn-outline" accessibilityRole="button" accessibilityLabel={`Leave ${gym.name}`}>
-          <Text className="btn-outline__label" style={{ color: colors.danger }}>Leave gym</Text>
-        </Pressable>
-      )}
-    </>
-  );
-}
+        <View className="mt-5 gap-3 px-5">
+          {tab === "about" ? (
+            <GymAboutTab gym={gym} staff={gym.can.viewContent ? staff : []} onLeave={gym.can.leave ? askLeave : null} />
+          ) : !gym.can.viewContent ? (
+            locked
+          ) : tab === "feed" ? (
+            <>
+              {gym.can.post && (
+                <View className="gym-share">
+                  <Pressable onPress={() => router.push({ pathname: "/community/compose", params: { gymId: gym.id, gymName: gym.name } })} className="flex-row items-center gap-3" accessibilityRole="button" accessibilityLabel={`Share something with ${gym.name}`}>
+                    <Avatar member={me} size={40} />
+                    <View className="gym-share__prompt">
+                      <Text className="gym-share__prompt-text" numberOfLines={1}>Share something with {gym.name}...</Text>
+                    </View>
+                  </Pressable>
+                  <View className="mt-3 flex-row justify-around">
+                    {([
+                      ["photo", "Photo", { ios: "photo", android: "image", web: "image" }],
+                      ["achievement", "Achievement", { ios: "trophy", android: "emoji_events", web: "emoji_events" }],
+                      ["poll", "Poll", { ios: "chart.bar", android: "poll", web: "poll" }],
+                    ] as const).map(([type, label, icon]) => (
+                      <Pressable key={type} onPress={() => router.push({ pathname: "/community/compose", params: { gymId: gym.id, gymName: gym.name, type } })} className="flex-row items-center gap-1.5 px-2 py-1" accessibilityRole="button" accessibilityLabel={`Share a ${label.toLowerCase()} with ${gym.name}`}>
+                        <SymbolView name={icon} size={18} tintColor={colors.inkSoft} />
+                        <Text className="gym-share__shortcut">{label}</Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                </View>
+              )}
+              {gym.settings.postModeration && gym.can.post && !gym.can.moderate && <Text className="home__note">Posts in this gym are reviewed by staff before others see them.</Text>}
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <View className="post__card">
-      <Text className="setup__section mb-2">{title}</Text>
-      {children}
+              {shownNotes.map((note) => (
+                <View key={note.id} className="gym-note">
+                  <View className="flex-row items-center gap-2">
+                    <SymbolView name={{ ios: "megaphone", android: "campaign", web: "campaign" }} size={15} tintColor={colors.inkSoft} />
+                    <Text className="gym-note__kicker flex-1">Announcement</Text>
+                    {note.pinned && (
+                      <View className="gym-badge gym-badge--staff flex-row items-center gap-1" style={{ height: 22 }}>
+                        <SymbolView name={{ ios: "pin", android: "push_pin", web: "push_pin" }} size={11} tintColor={colors.white} />
+                        <Text className="gym-badge__label gym-badge__label--staff" style={{ fontSize: 12 }}>Pinned</Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text className="join-card__title mt-2">{note.title}</Text>
+                  <Text className="post__body mt-1">{note.body}</Text>
+                  <Text className="gym-card__meta mt-2">{[note.author?.name, timeAgo(note.updatedAt)].filter(Boolean).join(" · ")}</Text>
+                </View>
+              ))}
+              {(announcements.length > 1 || (gym.can.manage && announcements.length > 0)) && (
+                <View className="flex-row items-center justify-between">
+                  {announcements.length > 1 ? (
+                    <Pressable onPress={() => setAllNotes((value) => !value)} hitSlop={8} accessibilityRole="button" accessibilityLabel={allNotes ? "Show fewer announcements" : `Show all announcements (${announcements.length})`}>
+                      <Text className="gym-section__link">{allNotes ? "Show fewer" : `Show all announcements (${announcements.length})`}</Text>
+                    </Pressable>
+                  ) : <View />}
+                  {gym.can.manage && (
+                    <Pressable onPress={() => router.push({ pathname: "/community/gyms/[id]/manage", params: { id: gym.id } })} hitSlop={8} accessibilityRole="button" accessibilityLabel="Manage announcements">
+                      <Text className="gym-section__link">Manage</Text>
+                    </Pressable>
+                  )}
+                </View>
+              )}
+
+              {posts === null ? (
+                <PostSkeleton />
+              ) : posts.length === 0 ? (
+                <EmptyState icon={{ ios: "text.bubble", android: "forum", web: "forum" }} title="No posts yet" text={gym.can.post ? "Be the first to share something with the gym." : "Posts from the gym will show here."} />
+              ) : (
+                posts.map((post) => (
+                  <View key={post.id}>
+                    {post.reviewStatus === "pending" && (
+                      <View className="gym-pending mb-1.5 self-start">
+                        <Text className="gym-pending__label">Awaiting admin review</Text>
+                      </View>
+                    )}
+                    <PostCard
+                      post={post}
+                      width={width - 40}
+                      badge={post.authorRole && post.authorRole !== "member" ? roleLabels[post.authorRole] : null}
+                      onLike={() => like(post)}
+                      onOpenComments={() => router.push({ pathname: "/community/post/[id]", params: { id: post.id } })}
+                      onMenu={() => setMenuPost(post)}
+                      onAuthor={() => router.push({ pathname: "/community/profile/[userId]", params: { userId: post.author.id } })}
+                    />
+                  </View>
+                ))
+              )}
+              {cursor && <ActivityIndicator color={colors.forest} className="my-2" />}
+            </>
+          ) : tab === "members" ? (
+            members === null ? <ActivityIndicator color={colors.forest} /> : <GymMembersTab members={members} onMessage={message} />
+          ) : events === null ? (
+            <ActivityIndicator color={colors.forest} />
+          ) : (
+            <GymEventsTab gym={gym} events={events} busyId={busy?.startsWith("event-") ? busy.slice(6) : null} onRsvp={(event: GymEvent) => run(`event-${event.id}`, (token) => gyms.setRsvp(token, gym.id, event.id, !event.going))} />
+          )}
+        </View>
+      </ScrollView>
+      <ActionSheet visible={menuPost !== null} actions={menuPost ? postActions(menuPost) : []} onClose={() => setMenuPost(null)} />
+      <ConfirmSheet visible={confirm !== null} title={confirm?.title ?? ""} text={confirm?.text ?? ""} confirmLabel={confirm?.label ?? ""} busy={busy !== null} onConfirm={() => confirm?.run()} onCancel={() => setConfirm(null)} />
     </View>
   );
 }
