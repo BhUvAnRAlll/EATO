@@ -610,6 +610,31 @@ async function createInvitation(pool, userId, gymId, values) {
   }
 }
 
+// Invitations addressed to the caller: pending, unexpired email invitations whose address is one
+// of the caller's verified emails, for gyms they aren't already active in. Only the invitee sees
+// these (the code lets them open the invitation screen and accept).
+async function myInvitations(pool, userId, emails) {
+  if (emails.length === 0) return [];
+  const [rows] = await pool.query(
+    `SELECT i.code, i.role, i.expires_at, i.invited_by, u.full_name, g.id AS gym_id, g.name, g.location, g.logo_media_id
+     FROM gym_invitations i
+     JOIN gyms g ON g.id = i.gym_id
+     LEFT JOIN users u ON u.id = i.invited_by
+     WHERE i.channel = 'email' AND i.status = 'pending' AND i.expires_at > NOW() AND i.contact IN (?)
+       AND NOT EXISTS (SELECT 1 FROM gym_members m WHERE m.gym_id = i.gym_id AND m.user_id = ? AND m.status = 'active')
+     ORDER BY i.created_at DESC
+     LIMIT 10`,
+    [emails, userId],
+  );
+  return rows.map((row) => ({
+    code: row.code,
+    role: row.role,
+    expiresAt: new Date(row.expires_at).toISOString(),
+    invitedBy: row.invited_by ? memberSummary({ user_id: row.invited_by, full_name: row.full_name }) : null,
+    gym: { id: row.gym_id, name: row.name, location: row.location, logoUrl: mediaUrl(row.logo_media_id) },
+  }));
+}
+
 // Revoke (the inviter or an admin) or renew (admins: a fresh 14 days for a pending or expired one)
 async function changeInvitation(pool, userId, gymId, invitationId, action) {
   const { membership } = await access(pool, gymId, userId);
@@ -645,5 +670,5 @@ module.exports = {
   listGymPosts, createGymPost, approvePost, removePost, assertCanComment,
   listAnnouncements, createAnnouncement, updateAnnouncement, deleteAnnouncement,
   listEvents, createEvent, deleteEvent, setRsvp,
-  listInvitations, createInvitation, changeInvitation, canSeeGymMedia,
+  listInvitations, createInvitation, changeInvitation, myInvitations, canSeeGymMedia,
 };

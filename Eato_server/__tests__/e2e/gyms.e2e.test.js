@@ -368,4 +368,26 @@ describe("gyms e2e: communities, roles, joining, posts, events and invitations",
     assert.equal((await as("outsider").get(`/api/media/${mine}`)).status, 200, "the outsider is now a member of the hidden gym");
     assert.equal((await as("member").get(`/api/media/${mine}`)).status, 404, "non-members can't load a hidden gym's logo");
   });
+
+  test("12. invitations addressed to me: only the invitee sees them, by verified email, until used, revoked or expired", async () => {
+    const gym = (await as("platform").post("/api/gyms", { name: "Banner Gym", ownerEmail: identities.owner.emailAddress, visibility: "private" })).json.gym.id;
+    const invite = async (contact) => (await as("owner").post(`/api/gyms/${gym}/invitations`, { channel: "email", contact })).json.invitation;
+    const mine = async (tag) => (await as(tag).get("/api/gyms/invitations/mine")).json.invitations;
+    const sent = await invite(identities.outsider.emailAddress.toUpperCase()); // stored lowercased
+    await invite("someone-else@example.com");
+    const seen = await mine("outsider");
+    assert.equal(seen.length, 1);
+    assert.deepEqual({ name: seen[0].gym.name, role: seen[0].role, from: seen[0].invitedBy.name, code: seen[0].code }, { name: "Banner Gym", role: "member", from: "Omar Owner", code: sent.code });
+    assert.deepEqual(await mine("member"), [], "nobody else sees it");
+    assert.equal((await api("GET", "/api/gyms/invitations/mine", null)).status, 401);
+    // Revoked and expired invitations disappear
+    const revoked = await invite(identities.outsider.emailAddress);
+    await as("owner").post(`/api/gyms/${gym}/invitations/${revoked.id}/revoke`);
+    const expired = await invite(identities.outsider.emailAddress);
+    await connection.query("UPDATE gym_invitations SET expires_at = NOW() - INTERVAL 1 MINUTE WHERE id = ?", [expired.id]);
+    assert.deepEqual((await mine("outsider")).map((i) => i.code), [sent.code]);
+    // Accepting it makes the outsider a member, and the banner goes
+    assert.equal((await as("outsider").post("/api/gyms/join-by-code", { code: sent.code })).status, 200);
+    assert.deepEqual(await mine("outsider"), []);
+  });
 });

@@ -4,7 +4,7 @@
 // req.userId; ids in the body are never trusted (the route ids name the gym and the target).
 const express = require("express");
 
-const { requireAdmin } = require("../auth");
+const { requireAdmin, verifiedEmails } = require("../auth");
 const { ValidationError } = require("../profile");
 const { ensureUser } = require("../community/members");
 const { isSuspended } = require("../community/visibility");
@@ -27,6 +27,13 @@ const withUser = route(async (req, res, next) => {
   if (await isSuspended(pool(req), req.userId)) return res.status(403).json({ error: "Your community access is suspended." });
   next();
 });
+
+// ---- invitations addressed to me ------------------------------------------------------
+
+// Email invitations sent to one of the caller's Clerk-verified addresses (Gyms tab banners)
+router.get("/invitations/mine", route(async (req, res) => {
+  res.json({ invitations: await gyms.myInvitations(pool(req), req.userId, await verifiedEmails(req.userId)) });
+}));
 
 // ---- assistant (the same agent as WhatsApp) -------------------------------------------
 

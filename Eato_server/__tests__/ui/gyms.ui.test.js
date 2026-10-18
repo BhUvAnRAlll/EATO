@@ -147,7 +147,10 @@ describe("ui gyms: a gym community from the owner's side", () => {
     if (problems.length > 0) throw new Error(`cleanup incomplete: ${problems.join("; ")}`);
   });
 
-  it("1. the Gyms tab lists the owner's gym under My Gyms", run("tab", async () => {
+  it("1. the Gyms tab lists the owner's gym under My Gyms, with an invitation banner and the Explore preview", run("tab", async () => {
+    // The hidden gym's owner invites a by email: the banner shows only to a (by verified email)
+    const invited = await apiAs("b", "POST", `/api/gyms/${state.hidden}/invitations`, { channel: "email", contact: identities.a.emailAddress });
+    assert.equal(invited.status, 201, JSON.stringify(invited.json));
     await viewport(390, 844);
     await signInAs(page, h, identities.a);
     await h.expectPath("/home");
@@ -157,9 +160,28 @@ describe("ui gyms: a gym community from the owner's side", () => {
     await h.expectText("My Gyms");
     await h.expectText("Iron Temple");
     await h.expectText("Owner");
-    assert.equal(await page.hasText("Secret Barbell Club"), false, "a hidden gym isn't listed");
+    await h.expectText("Secret Barbell Club invited you");
+    assert.equal(await page.evaluate(`[...document.querySelectorAll('[aria-label="Review the invitation from Secret Barbell Club"]')].some((e) => e.getClientRects().length > 0)`), true);
+    await h.expectText("Explore Gyms");
+    await h.expectText("View All");
     await noOverflow("gyms tab");
     await snapshotAllWidths("gyms-tab");
+  }));
+
+  it("1b. View All opens Explore: search by name or area and filter by how a gym takes members; hidden gyms never show", run("explore", async () => {
+    await clickLabel("View all gyms");
+    await h.expectPath("/community/gyms/explore");
+    await h.expectText("Explore Gyms");
+    await h.expectText("Iron Temple");
+    assert.equal(await page.hasText("Secret Barbell Club"), false, "a hidden gym isn't listed");
+    await noOverflow("explore");
+    await snapshotAllWidths("gyms-explore");
+    await page.setInput('[aria-label="Search gyms"]', "zzz-no-such-gym");
+    await h.expectText("No gyms found");
+    await page.setInput('[aria-label="Search gyms"]', "");
+    await h.expectText("Iron Temple");
+    await clickLabel("Back");
+    await h.expectPath("/community");
   }));
 
   it("2. the gym screen shows the header, owner tools and empty states", run("detail", async () => {

@@ -2156,6 +2156,203 @@
   gap: 10px;
 }
 
+/* Gyms tab and Explore: gym cards (cover, logo over its edge), badges, invitation banners */
+@utility gym-card {
+  overflow: hidden;
+  border-radius: 20px;
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-white);
+  box-shadow: var(--shadow-card);
+}
+
+@utility gym-cover {
+  width: 100%;
+  background-color: var(--color-cream-deep);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility gym-card__logo {
+  margin-top: -26px;
+  border-radius: 16px;
+  border-width: 3px;
+  border-color: var(--color-white);
+  background-color: var(--color-white);
+}
+
+@utility gym-card__logo--small {
+  margin-top: -20px;
+  align-self: flex-start;
+  border-radius: 12px;
+}
+
+@utility gym-logo {
+  background-color: var(--color-leaf);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility gym-logo__initials {
+  font-family: var(--font-sans);
+  font-weight: 800;
+  color: var(--color-white);
+}
+
+@utility gym-card__name {
+  font-family: var(--font-sans);
+  font-size: 17px;
+  line-height: 22px;
+  font-weight: 700;
+  color: var(--color-ink);
+}
+
+@utility gym-card__meta {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+@utility gym-card__members {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 18px;
+  color: var(--color-ink-soft);
+}
+
+@utility gym-badge {
+  height: 24px;
+  padding-inline: 10px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-cream-tab);
+  justify-content: center;
+}
+
+@utility gym-badge--member {
+  background-color: var(--color-accent-soft);
+}
+
+@utility gym-badge--staff {
+  background-color: var(--color-ink);
+}
+
+@utility gym-badge__label {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 600;
+  color: var(--color-ink-soft);
+}
+
+@utility gym-badge__label--staff {
+  color: var(--color-white);
+}
+
+@utility gym-join {
+  height: 38px;
+  padding-inline: 18px;
+  border-radius: var(--radius-pill);
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-white);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility gym-join--filled {
+  border-color: var(--color-ink);
+  background-color: var(--color-ink);
+}
+
+@utility gym-join__label {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 19px;
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+@utility gym-join__label--filled {
+  color: var(--color-white);
+}
+
+@utility gym-invite {
+  padding: 14px;
+  border-radius: 18px;
+  border-width: 1.5px;
+  border-color: var(--color-leaf);
+  background-color: var(--color-white);
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+}
+
+@utility gym-invite__title {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 21px;
+  font-weight: 700;
+  color: var(--color-ink);
+}
+
+@utility gym-invite__from {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+@utility gym-invite__review {
+  height: 36px;
+  padding-inline: 16px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-ink);
+  justify-content: center;
+}
+
+@utility gym-invite__review-label {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 18px;
+  font-weight: 600;
+  color: var(--color-white);
+}
+
+@utility gym-section__title {
+  font-family: var(--font-sans);
+  font-size: 19px;
+  line-height: 24px;
+  font-weight: 700;
+  color: var(--color-ink);
+}
+
+@utility gym-section__join {
+  height: 36px;
+  padding-inline: 14px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-accent-soft);
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+}
+
+@utility gym-section__join-label {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 18px;
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+@utility gym-section__link {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 19px;
+  font-weight: 600;
+  color: var(--color-leaf);
+}
+
 /* The Friends search box: a pill */
 @utility search--pill {
   height: 50px;

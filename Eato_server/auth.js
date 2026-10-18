@@ -70,4 +70,13 @@ async function requireAdmin(req, res, next) {
   next();
 }
 
-module.exports = { requireUser, requireAdmin, getAccount, grantTrainerRole };
+// The account's email addresses that Clerk has verified, lowercased (an unverified address
+// proves nothing, so it never unlocks anything sent to that address)
+async function verifiedEmails(userId) {
+  const user = await clerk.users.getUser(userId);
+  return user.emailAddresses
+    .filter((address) => address.verification?.status === "verified" && typeof address.emailAddress === "string")
+    .map((address) => address.emailAddress.toLowerCase());
+}
+
+module.exports = { requireUser, requireAdmin, getAccount, grantTrainerRole, verifiedEmails };

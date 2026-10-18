@@ -52,6 +52,9 @@ export type Invitation = {
   status: "pending" | "accepted" | "revoked" | "expired"; invitedBy: Member | null; expiresAt: string; createdAt: string;
 };
 
+// An email invitation addressed to the signed-in member (shown as a banner on the Gyms tab)
+export type MyInvitation = { code: string; role: "member" | "trainer"; expiresAt: string; invitedBy: Member | null; gym: { id: string; name: string; location: string | null; logoUrl: string | null } };
+
 export type GymProfileChanges = Partial<{
   name: string; tagline: string | null; description: string | null; location: string | null; address: string | null;
   logoMediaId: string | null; coverMediaId: string | null; hours: Gym["hours"]; facilities: string[]; membershipTiers: MembershipTier[];
@@ -71,6 +74,8 @@ const call = <T>(token: string | null, path: string, init: { method?: "POST" | "
 export const gyms = {
   list: (token: string | null, search: string | null = null) => call<{ mine: Gym[]; explore: Gym[] }>(token, `${q({ search })}`),
   get: (token: string | null, gymId: string) => call<{ gym: Gym }>(token, `/${gymId}`),
+  // Invitations sent to one of the caller's verified emails
+  myInvitations: (token: string | null) => call<{ invitations: MyInvitation[] }>(token, "/invitations/mine"),
   // Platform admins only: every gym, hidden ones included
   listAll: (token: string | null) => call<{ gyms: Gym[] }>(token, "/admin/all"),
   // Gym admins: a new gym code (the old one stops working)
