@@ -107,3 +107,18 @@ describe("meta webhook parsing", () => {
     assert.equal(event.body.length, 4096);
   });
 });
+
+describe("whatsapp worker start-up", () => {
+  const { createWorker } = require("../whatsapp/worker.js");
+
+  it("stays off with one log line when the database hasn't had the WhatsApp migration", async () => {
+    const logs = [];
+    const missing = Object.assign(new Error("Table 'eato.jobs' doesn't exist"), { code: "ER_NO_SUCH_TABLE", errno: 1146, sqlState: "42S02" });
+    const pool = { query: async () => { throw missing; } };
+    const worker = createWorker(pool, {}, { log: (entry) => logs.push(entry) });
+    assert.equal(await worker.start(), false);
+    assert.equal(logs.length, 1);
+    assert.match(logs[0].off, /2026-10-24-whatsapp-agent\.sql/);
+    assert.equal(JSON.stringify(logs[0]).includes("eato.jobs"), false, "the database message isn't logged");
+  });
+});

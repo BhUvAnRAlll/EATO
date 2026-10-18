@@ -32,6 +32,10 @@ const { macroRouter } = require("./macro/routes");
 const { workoutRouter } = require("./workout/routes");
 const { gymsRouter } = require("./gyms/routes");
 const { trainersRouter } = require("./trainers/routes");
+const { whatsappConfig } = require("./whatsapp/config");
+const { webhookRouter } = require("./whatsapp/webhook");
+const { createWorker } = require("./whatsapp/worker");
+const { eventHandler } = require("./whatsapp/process");
 
 const app = express();
 app.disable("x-powered-by"); // no need to advertise the framework
@@ -59,6 +63,12 @@ const macroLimiter = createRateLimiter(rateLimits.community); // the Macro diary
 const workoutLimiter = createRateLimiter(rateLimits.community); // the Fitness tab: plan, training day, history
 const gymsLimiter = createRateLimiter(rateLimits.community); // gym communities: gyms, members, posts, events, invitations
 const trainersLimiter = createRateLimiter(rateLimits.community); // trainers: discovery, connections, diet and workout plans, recommendations
+
+// Meta's WhatsApp webhook: the one route without a Clerk session, because Meta calls it. It
+// checks Meta's signature over the raw body instead (whatsapp/webhook.js), routes each event to
+// a gym only by the receiving phone-number id, and queues the work for the worker below.
+const whatsapp = whatsappConfig();
+app.use("/api/whatsapp", webhookRouter({ pool, config: whatsapp, limiter: createRateLimiter({ limit: 600, windowMs: 60 * 1000 }) }));
 
 // Quick check that the server is up and can reach MySQL (public: no token needed)
 app.get("/api/health", async (req, res) => {
@@ -350,6 +360,12 @@ if (process.env.NODE_ENV !== "test") {
       .catch((error) => logRequestError({ method: "SWEEP", path: "/uploads" }, error));
   setTimeout(sweep, 60 * 1000).unref();
   setInterval(sweep, 60 * 60 * 1000).unref();
+}
+
+// The WhatsApp job worker (saved webhook events, later replies and campaigns). Off in tests,
+// which run it themselves, and when WHATSAPP_WORKER=off.
+if (process.env.NODE_ENV !== "test" && process.env.WHATSAPP_WORKER !== "off") {
+  createWorker(pool, { "whatsapp.event": eventHandler() }).start(); // stays off (one log line) until the migration has run
 }
 
 const port = Number(process.env.PORT ?? 4000);

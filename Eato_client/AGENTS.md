@@ -69,6 +69,23 @@ Do not introduce new major libraries unless there is a strong reason.
 | Community photos (posts, stories, gym logos and covers) | Files on the Express server's disk, `Eato_server/uploads/` (or `UPLOAD_DIR`), with a `community_media` row per file; served only to signed-in members through `GET /api/media/:id` (`Eato_server/community/media.js`) | Current implementation, not object storage: one server, no CDN, and the folder must be persistent and backed up. A hosted bucket (for example DigitalOcean Spaces with presigned uploads) is the planned replacement and would need a new dependency and approval |
 
 Every Express route except the health check verifies the caller's Clerk session token with `requireUser` (`Eato_server/auth.js`) before doing anything.
+The one other exception is Meta's WhatsApp webhook (`/api/whatsapp/webhook`): Meta calls it, so
+instead of a session it checks Meta's `X-Hub-Signature-256` over the raw body with `META_APP_SECRET`,
+and it decides which gym an event belongs to only from the receiving phone-number id
+(`whatsapp_connections`), never from the message.
+
+### WhatsApp gym agent (in progress)
+
+- Server code is in `Eato_server/whatsapp/`: `webhook.js` (signed webhook, events saved once and
+  queued), `jobs.js` + `worker.js` (a MySQL job queue polled inside the server; off in tests and with
+  `WHATSAPP_WORKER=off`; it stays off with one log line until `migrations/2026-10-24-whatsapp-agent.sql`
+  has run), `process.js` (events into contacts, conversations and messages, per gym), `send.js`
+  (replies through the gym's own number, only inside WhatsApp's 24-hour window), `metaClient.js`
+  (the only code calling Meta's Graph API), `secrets.js` (AES-256-GCM for each gym's token).
+- Every gym gets one `whatsapp_connections` row (disconnected) and one `whatsapp_agent_settings` row
+  (disabled) when it is created. Gym-owned WhatsApp tables use `ON DELETE RESTRICT`, so test clean-ups
+  must delete them before `gyms`.
+- Tests use a fake Meta and made-up settings; never real Meta credentials.
 
 ### Community notes
 
