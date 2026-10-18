@@ -10,6 +10,7 @@ import { FormAlert } from "@/components/FormAlert";
 import { isOffline } from "@/lib/community";
 import { gyms, type Gym, type MyInvitation } from "@/lib/gyms";
 import { useSessionToken } from "@/lib/session";
+import { useOwnerStore } from "@/store/owner";
 import { colors } from "@/theme";
 
 const PREVIEW = 4; // gyms in the Explore preview (two rows of two)
@@ -106,6 +107,29 @@ export function GymsPanel({ header }: { header: ReactElement }) {
         </View>
       ) : (
         <>
+          {(() => {
+            // Gyms the viewer owns or runs open the owner portal (the server re-checks)
+            const managed = lists.mine.find((gym) => gym.membership?.status === "active" && (gym.membership.role === "owner" || gym.membership.role === "admin"));
+            if (!managed) return null;
+            return (
+              <Pressable
+                onPress={() => {
+                  useOwnerStore.getState().setGym(managed.id);
+                  router.push("/owner");
+                }}
+                className="owner-entry mx-5 mt-5"
+                accessibilityRole="button"
+                accessibilityLabel={`Gym owner portal for ${managed.name}`}
+              >
+                <SymbolView name={{ ios: "building.2", android: "apartment", web: "apartment" }} size={22} tintColor={colors.white} />
+                <View className="min-w-0 flex-1">
+                  <Text className="owner-entry__title">Gym owner portal</Text>
+                  <Text className="owner-entry__note" numberOfLines={1}>Run {managed.name}: members, renewals and more</Text>
+                </View>
+                <SymbolView name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }} size={16} tintColor={colors.white} />
+              </Pressable>
+            );
+          })()}
           <View className="mx-5 mt-6 flex-row items-center justify-between">
             <Text className="gym-section__title">My Gyms</Text>
             <Pressable onPress={() => router.push("/community/gyms/join")} className="gym-section__join" accessibilityRole="button" accessibilityLabel="Join Gym">

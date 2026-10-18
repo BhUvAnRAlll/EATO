@@ -52,6 +52,11 @@ function RootStack() {
       <Stack.Protected guard={role === "trainer"}>
         <Stack.Screen name="trainer" />
       </Stack.Protected>
+      {/* The gym owner portal: open to every signed-in role; the server allows a gym's own
+          owner and admins, and EATO platform admins */}
+      <Stack.Protected guard={role !== null}>
+        <Stack.Screen name="owner" />
+      </Stack.Protected>
     </Stack>
   );
 }

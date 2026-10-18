@@ -128,6 +128,23 @@ and it decides which gym an event belongs to only from the receiving phone-numbe
   `ensurePlan` generates an engine plan again. Messaging: a connected trainer and client may write to
   each other (`sendAccess` in `community/messages.js`), on top of the friends rule.
 
+
+### Gym owner portal (in progress)
+
+- Spec and mockups: `Gym Owner Portal Screens and Workflow/` at the repo root, built in phases (1 Home,
+  Members and Renewals; 2 QR check-in; 3 Community and Notify; 4 Review; 5 Gym tab, assistant replies).
+  Colours come from the tokens, not the mockups.
+- App: `app/owner/` (its own tabs: Home, Members, Check-in, Community, Review, Gym), open to every
+  signed-in role; `lib/owner.ts`, `store/owner.ts` (open gym, summary, tab badges). Entry points: the
+  "Gym owner portal" button on Community › Gyms (gym owners and admins), and Admin › Gyms (EATO admins
+  open any gym's portal). Members see their own package in the gym's About tab (`MyGymPlan`).
+- Server: `/api/owner` (`Eato_server/owner/`; pure rules in `rules.js`). Every gym route allows the
+  gym's active owner or admins (`gym_members`), or an EATO admin (Clerk role, read live); gym trainers
+  and members get 403, and a hidden gym looks missing (404). There is no "gym owner" Clerk role.
+- Renewals use `gym_member_plans`: +1 or +3 months from the later of the end date and today (an
+  expired package restarts today; a member without one gets the gym's first tier). Recorded only,
+  never a payment.
+
 ---
 
 ## Development Philosophy

@@ -32,6 +32,7 @@ const { macroRouter } = require("./macro/routes");
 const { workoutRouter } = require("./workout/routes");
 const { gymsRouter } = require("./gyms/routes");
 const { trainersRouter } = require("./trainers/routes");
+const { ownerRouter } = require("./owner/routes");
 const { whatsappConfig } = require("./whatsapp/config");
 const { webhookRouter } = require("./whatsapp/webhook");
 const { createWorker } = require("./whatsapp/worker");
@@ -66,6 +67,7 @@ const macroLimiter = createRateLimiter(rateLimits.community); // the Macro diary
 const workoutLimiter = createRateLimiter(rateLimits.community); // the Fitness tab: plan, training day, history
 const gymsLimiter = createRateLimiter(rateLimits.community); // gym communities: gyms, members, posts, events, invitations
 const trainersLimiter = createRateLimiter(rateLimits.community); // trainers: discovery, connections, diet and workout plans, recommendations
+const ownerLimiter = createRateLimiter(rateLimits.community); // the gym owner portal: dashboard, renewals
 
 // Meta's WhatsApp webhook: the one route without a Clerk session, because Meta calls it. It
 // checks Meta's signature over the raw body instead (whatsapp/webhook.js), routes each event to
@@ -303,6 +305,9 @@ app.use("/api/gyms", requireUser, limitPerUser(gymsLimiter), gymsRouter);
 
 // Trainers (see trainers/routes.js): finding a trainer, the connection, diet and workout plans, targets
 app.use("/api/trainers", requireUser, limitPerUser(trainersLimiter), trainersRouter);
+
+// The gym owner portal (see owner/routes.js): a gym's owner and admins (or EATO admins) only
+app.use("/api/owner", requireUser, limitPerUser(ownerLimiter), ownerRouter);
 
 // An uploaded image, for signed-in members only. The path comes from the database row,
 // never from the request, so there is nothing to traverse.

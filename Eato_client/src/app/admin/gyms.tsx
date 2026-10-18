@@ -7,13 +7,14 @@ import { FormAlert } from "@/components/FormAlert";
 import { visibilityLabels, type GymVisibility } from "@/lib/gymRules";
 import { gyms, type Gym } from "@/lib/gyms";
 import { useSessionToken } from "@/lib/session";
+import { useOwnerStore } from "@/store/owner";
 import { colors } from "@/theme";
 
 const input = { height: 48, borderRadius: 14, borderWidth: 1, borderColor: colors.creamLine, backgroundColor: colors.white, paddingHorizontal: 14, fontSize: 15, color: colors.forestInk } as const;
 
 // Platform admins create gyms and name each one's owner (an existing EATO account, by email).
-// The owner then runs the gym from Community → Gyms → Manage. The server allows this to
-// platform admins only.
+// The owner then runs the gym from Community → Gyms → Gym owner portal. Tapping a gym here opens
+// its owner portal (platform admins may open any gym's). The server allows this to platform admins only.
 export default function AdminGyms() {
   const getToken = useSessionToken();
   const [list, setList] = useState<Gym[]>([]);
@@ -82,7 +83,16 @@ export default function AdminGyms() {
           <Text className="home__note">No gyms yet.</Text>
         ) : (
           list.map((gym) => (
-            <Pressable key={gym.id} onPress={() => router.push({ pathname: "/community/gyms/[id]", params: { id: gym.id } })} className="py-2" accessibilityRole="button" accessibilityLabel={`Open ${gym.name}`}>
+            <Pressable
+              key={gym.id}
+              onPress={() => {
+                useOwnerStore.getState().setGym(gym.id);
+                router.push("/owner");
+              }}
+              className="py-2"
+              accessibilityRole="button"
+              accessibilityLabel={`Open the owner portal for ${gym.name}`}
+            >
               <Text className="post__author">{gym.name}</Text>
               <Text className="post__time">{[gym.location, visibilityLabels[gym.visibility].label, `${gym.memberCount} ${gym.memberCount === 1 ? "member" : "members"}`].filter(Boolean).join(" · ")}</Text>
             </Pressable>

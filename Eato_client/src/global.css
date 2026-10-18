@@ -4146,3 +4146,227 @@
   background-color: rgba(255, 255, 255, 0.12);
   padding-block: var(--spacing-md);
 }
+
+/* Gym owner portal (app/owner): stat tiles, quick actions, the attention list, the new-members
+   chart and renewal badges. Lists reuse friend-row; filters reuse friend-chip. */
+@utility owner__subtitle {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--color-muted);
+}
+
+@utility owner__header-button {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-pill);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility owner-stat {
+  flex: 1;
+  min-height: 92px;
+  padding: 14px;
+  gap: 4px;
+  border-radius: var(--radius-md);
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-white);
+}
+
+@utility owner-stat--highlight {
+  border-color: var(--color-warning);
+  background-color: var(--color-warning-soft);
+}
+
+@utility owner-stat__label {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+@utility owner-stat__value {
+  font-family: var(--font-sans);
+  font-size: 22px;
+  line-height: 28px;
+  font-weight: 800;
+  color: var(--color-ink);
+}
+
+@utility owner-quick {
+  height: 40px;
+  padding-inline: 14px;
+  border-radius: var(--radius-pill);
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-white);
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+@utility owner-quick--primary {
+  border-color: var(--color-ink);
+  background-color: var(--color-ink);
+}
+
+@utility owner-quick__label {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+@utility owner-quick__label--primary {
+  color: var(--color-white);
+}
+
+/* The icon square at the start of an attention row */
+@utility owner-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+  background-color: var(--color-warning-soft);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility owner-icon--danger {
+  background-color: var(--color-danger-soft);
+}
+
+@utility owner-icon--neutral {
+  background-color: var(--color-surface-alt);
+}
+
+@utility owner-card {
+  padding: 16px;
+  gap: 12px;
+  border-radius: var(--radius-lg);
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-white);
+}
+
+@utility owner-chart__track {
+  flex: 1;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-cream-tab);
+  overflow: hidden;
+}
+
+@utility owner-chart__fill {
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-leaf);
+}
+
+@utility owner-chart__label {
+  width: 36px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 17px;
+  color: var(--color-muted);
+}
+
+@utility owner-chart__count {
+  width: 24px;
+  text-align: right;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 17px;
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+/* Renewal and role badges: a small pill with its own label colour */
+@utility owner-badge {
+  padding-inline: 10px;
+  padding-block: 4px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface-alt);
+}
+
+@utility owner-badge--danger {
+  background-color: var(--color-danger-soft);
+}
+
+@utility owner-badge--warning {
+  background-color: var(--color-warning-soft);
+}
+
+@utility owner-badge--accent {
+  background-color: var(--color-accent-soft);
+}
+
+@utility owner-badge__label {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 700;
+  color: var(--color-ink);
+}
+
+/* The tab bar's count bubble (Members, Review) */
+@utility owner-tab-badge {
+  position: absolute;
+  top: -4px;
+  right: -10px;
+  min-width: 18px;
+  height: 18px;
+  padding-inline: 5px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-danger);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility owner-tab-badge__label {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  line-height: 13px;
+  font-weight: 700;
+  color: var(--color-white);
+}
+
+/* The member's own package on the gym page */
+@utility owner-plan {
+  padding: 14px;
+  gap: 2px;
+  border-radius: var(--radius-md);
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-white);
+}
+
+/* The entry button on Community › Gyms */
+@utility owner-entry {
+  min-height: 56px;
+  padding-inline: 14px;
+  padding-block: 12px;
+  border-radius: var(--radius-md);
+  background-color: var(--color-ink);
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+}
+
+@utility owner-entry__title {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 700;
+  color: var(--color-white);
+}
+
+@utility owner-entry__note {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 17px;
+  color: var(--color-primary);
+}

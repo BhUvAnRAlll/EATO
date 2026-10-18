@@ -5,6 +5,7 @@ import { router } from "expo-router";
 
 import { Avatar } from "@/components/community/Avatar";
 import { EmptyState } from "@/components/community/CommunityStates";
+import { MyGymPlan } from "@/components/owner/MyGymPlan";
 import { roleLabels } from "@/lib/gymRules";
 import type { Gym, GymMember } from "@/lib/gyms";
 import type { Icon } from "@/types/profile";
@@ -28,6 +29,7 @@ export function GymAboutTab({ gym, staff, onLeave }: GymAboutTabProps) {
 
   return (
     <View className="gap-5">
+      {gym.membership?.status === "active" && gym.membership.role !== "owner" && <MyGymPlan gymId={gym.id} />}
       {empty && <EmptyState icon={{ ios: "info.circle", android: "info", web: "info" }} title="Nothing here yet" text="The gym hasn't added its details." />}
       {gym.description && (
         <Section title="About">

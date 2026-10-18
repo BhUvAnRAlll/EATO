@@ -4,24 +4,35 @@ import { SymbolView } from "expo-symbols";
 import type { BottomTabBarProps } from "expo-router/js-tabs";
 
 import { homeTabs } from "@/data/home";
+import type { Icon } from "@/types/profile";
 import { colors } from "@/theme";
 
-// The floating pill tab bar under the user's screens (see app/(user)/(tabs)/_layout.tsx).
-// It replaces the navigator's own bar, so there is never a second one behind it. Tabs come
-// from data/home.ts; a route without an entry there isn't shown.
-export function BottomTabBar({ state, navigation }: BottomTabBarProps) {
+export type TabItem = { name: string; label: string; icon: Icon };
+
+type Props = BottomTabBarProps & {
+  // The tabs to show, in order (default: the member's five, from data/home.ts)
+  tabs?: TabItem[];
+  // A count bubble on a tab's icon (route name → count; 0 hides it)
+  badges?: Record<string, number>;
+};
+
+// The floating pill tab bar under the member's screens (app/(user)/(tabs)/_layout.tsx) and the
+// gym owner portal's (app/owner/(tabs)/_layout.tsx). It replaces the navigator's own bar, so
+// there is never a second one behind it. A route without an entry in `tabs` isn't shown.
+export function BottomTabBar({ state, navigation, tabs = homeTabs, badges = {} }: Props) {
   const insets = useSafeAreaInsets();
-  // Narrow phones: five labels only fit at a smaller size
+  // Narrow phones (or six tabs): the labels only fit at a smaller size
   const { width } = useWindowDimensions();
-  const narrow = width < 360;
+  const narrow = width < 360 || (tabs.length > 5 && width < 400);
 
   return (
     <View className="bg-cream pt-2" style={{ paddingBottom: Math.max(insets.bottom, 10) }}>
       <View className="tabbar" style={narrow ? { marginHorizontal: 8, padding: 4 } : undefined} accessibilityRole="tablist">
         {state.routes.map((route, routeIndex) => {
-          const tab = homeTabs.find((candidate) => candidate.name === route.name);
+          const tab = tabs.find((candidate) => candidate.name === route.name);
           if (!tab) return null;
           const active = state.index === routeIndex;
+          const badge = badges[tab.name] ?? 0;
 
           const onPress = () => {
             const event = navigation.emit({ type: "tabPress", target: route.key, canPreventDefault: true });
@@ -35,9 +46,16 @@ export function BottomTabBar({ state, navigation }: BottomTabBarProps) {
               className={active ? "tabbar__item tabbar__item--active" : "tabbar__item"}
               accessibilityRole="tab"
               accessibilityState={{ selected: active }}
-              accessibilityLabel={tab.label}
+              accessibilityLabel={badge > 0 ? `${tab.label}, ${badge} waiting` : tab.label}
             >
-              <SymbolView name={tab.icon} size={22} tintColor={active ? colors.leafDark : colors.muted} />
+              <View>
+                <SymbolView name={tab.icon} size={22} tintColor={active ? colors.leafDark : colors.muted} />
+                {badge > 0 && (
+                  <View className="owner-tab-badge">
+                    <Text className="owner-tab-badge__label">{badge > 99 ? "99+" : badge}</Text>
+                  </View>
+                )}
+              </View>
               <Text className={active ? "tabbar__label tabbar__label--active" : "tabbar__label"} style={narrow ? { fontSize: 10, lineHeight: 12 } : undefined} numberOfLines={1}>
                 {tab.label}
               </Text>
