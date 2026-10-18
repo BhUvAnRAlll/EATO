@@ -232,11 +232,22 @@ describe("ui gyms: a gym community from the owner's side", () => {
     await page.clickText("Events");
     await clickLabel("Create event");
     await page.waitFor(`location.pathname.endsWith("/event-new")`, NAV_TIMEOUT, "event form");
+    await h.expectText("Create Event");
+    // Validation: nothing filled in yet
+    await clickLabel("Create event");
+    await h.expectText("Give the event a title.");
     await page.setInput('[aria-label="Title"]', "Deadlift clinic");
     await page.setInput('[aria-label="Description"]', "Form check for all levels.");
+    // A date from the strip, three days ahead
     const d = new Date(Date.now() + 3 * 86400000);
-    await page.setInput('[aria-label="Date"]', `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
+    await clickLabel(`Date: ${d.toLocaleDateString("en-GB", { weekday: "short" })} ${d.getDate()} ${d.toLocaleDateString("en-GB", { month: "short" })}`);
+    // Times from the list: the end defaults to an hour after the start
+    await clickLabel("Start time");
+    await clickLabel("Start at 7:00 AM");
+    await page.waitFor(`!!document.querySelector('[aria-label="End time: 8:00 AM"]')`, NAV_TIMEOUT, "the end time follows");
     await page.setInput('[aria-label="Location"]', "Main floor");
+    await noOverflow("create event");
+    await snapshotAllWidths("gyms-create-event");
     await page.setInput('[aria-label="Maximum attendees (optional)"]', "5");
     await clickLabel("Create event");
     await page.waitFor(`location.pathname === "/community/gyms/${state.gym}"`, NAV_TIMEOUT, "back on the gym");

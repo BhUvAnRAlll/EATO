@@ -2756,6 +2756,65 @@
   color: var(--color-white);
 }
 
+/* Create Event: the date strip and the time list */
+@utility date-chip {
+  width: 58px;
+  height: 74px;
+  border-radius: 16px;
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-white);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility date-chip--selected {
+  border-color: var(--color-ink);
+  background-color: var(--color-ink);
+}
+
+@utility date-chip__small {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 15px;
+  color: var(--color-ink-soft);
+}
+
+@utility date-chip__day {
+  font-family: var(--font-sans);
+  font-size: 20px;
+  line-height: 25px;
+  font-weight: 800;
+  color: var(--color-ink);
+}
+
+@utility date-chip__text--selected {
+  color: var(--color-white);
+}
+
+@utility time-option {
+  height: 46px;
+  border-radius: 12px;
+  justify-content: center;
+  align-items: center;
+}
+
+@utility time-option--selected {
+  background-color: var(--color-ink);
+}
+
+@utility time-option__label {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 20px;
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+@utility time-option__label--selected {
+  color: var(--color-white);
+}
+
 /* The Friends search box: a pill */
 @utility search--pill {
   height: 50px;
