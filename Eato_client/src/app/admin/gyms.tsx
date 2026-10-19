@@ -91,7 +91,7 @@ export default function AdminGyms() {
               }}
               className="py-2"
               accessibilityRole="button"
-              accessibilityLabel={`Open the owner portal for ${gym.name}`}
+              accessibilityLabel={`Open Gym Manager for ${gym.name}`}
             >
               <Text className="post__author">{gym.name}</Text>
               <Text className="post__time">{[gym.location, visibilityLabels[gym.visibility].label, `${gym.memberCount} ${gym.memberCount === 1 ? "member" : "members"}`].filter(Boolean).join(" · ")}</Text>

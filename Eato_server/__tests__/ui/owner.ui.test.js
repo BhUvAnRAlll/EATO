@@ -284,7 +284,7 @@ describe("ui owner: the gym owner portal for owners, members and platform admins
   it("7. a platform admin opens any gym's owner portal from Admin › Gyms", run("platform", async () => {
     await signInAsAdmin(identities.platform);
     await h.goto("/admin/gyms", "Iron Temple");
-    await clickLabel("Open the owner portal for Iron Temple");
+    await clickLabel("Open Gym Manager for Iron Temple");
     await page.waitFor(`location.pathname === "/owner"`, NAV_TIMEOUT, "owner home");
     await h.expectText("IRON TEMPLE · EATO ADMIN");
     await h.expectText("Needs your attention");

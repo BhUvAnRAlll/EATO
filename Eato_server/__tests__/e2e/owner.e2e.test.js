@@ -137,7 +137,7 @@ describe("owner e2e: the gym owner portal's access, Home summary and renewals", 
     for (const tag of ["coach", "member"]) {
       const res = await as(tag).get(`/api/owner/gyms/${state.gym}/summary`);
       assert.equal(res.status, 403, tag);
-      assert.equal(res.json.error, "Only this gym's owner and admins can open the owner portal.");
+      assert.equal(res.json.error, "Only this gym's owner and admins can open Gym Manager.");
       assert.equal((await as(tag).get(`/api/owner/gyms/${state.gym}/renewals`)).status, 403, tag);
       assert.equal((await as(tag).post(`/api/owner/gyms/${state.gym}/renewals/${ids.member}`, { months: 1 })).status, 403, tag);
     }

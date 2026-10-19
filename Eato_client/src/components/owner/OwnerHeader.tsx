@@ -36,7 +36,7 @@ export function OwnerHeader({ title, subtitle }: Props) {
           <Text className="home__eyebrow" numberOfLines={1}>{platform ? `${gymName} · EATO admin` : gymName}</Text>
           {canSwitch && <SymbolView name={{ ios: "chevron.down", android: "expand_more", web: "expand_more" }} size={12} tintColor={colors.muted} />}
         </Pressable>
-        <Pressable onPress={() => router.replace("/")} hitSlop={8} className="owner__header-button" accessibilityRole="button" accessibilityLabel="Leave the owner portal">
+        <Pressable onPress={() => router.replace("/")} hitSlop={8} className="owner__header-button" accessibilityRole="button" accessibilityLabel="Leave Gym Manager">
           <SymbolView name={{ ios: "arrow.left.arrow.right", android: "swap_horiz", web: "swap_horiz" }} size={20} tintColor={colors.ink} />
         </Pressable>
       </View>

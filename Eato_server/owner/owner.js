@@ -12,7 +12,7 @@ const perms = require("../gyms/permissions");
 const rules = require("./rules");
 
 const GONE = "That gym doesn't exist.";
-const STAFF_ONLY = "Only this gym's owner and admins can open the owner portal.";
+const STAFF_ONLY = "Only this gym's owner and admins can open Gym Manager.";
 
 // Runs fn(connection) in one transaction
 async function inTransaction(pool, fn) {

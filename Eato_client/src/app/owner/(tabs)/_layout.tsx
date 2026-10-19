@@ -37,7 +37,7 @@ export default function OwnerTabsLayout() {
           <EmptyState
             icon={{ ios: "building.2", android: "apartment", web: "apartment" }}
             title="No gym to manage"
-            text="The owner portal is for a gym's owner and admins. EATO sets the owner when it creates a gym."
+            text="Gym Manager is for a gym's owner and admins. EATO sets the owner when it creates a gym."
             actionLabel="Back to EATO"
             onAction={() => router.replace("/")}
           />
