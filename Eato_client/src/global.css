@@ -4499,3 +4499,325 @@
   line-height: 17px;
   color: var(--color-primary);
 }
+
+/* The emoji above a workout prompt ("Do it today instead?") */
+@utility workout-sheet__emoji {
+  font-size: 34px;
+  line-height: 42px;
+  text-align: center;
+  margin-bottom: var(--spacing-sm);
+}
+
+/* ---- Workout session player: the dark, focused screen read at arm's length (ink surface) ---- */
+@utility player {
+  flex: 1;
+  background-color: var(--color-ink);
+}
+
+@utility player__column {
+  flex: 1;
+  width: 100%;
+  max-width: 560px;
+  align-self: center;
+  padding-inline: var(--spacing-xl);
+  gap: var(--spacing-lg);
+}
+
+@utility player__round {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-pill);
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(255, 255, 255, 0.14);
+}
+
+@utility player__overline {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--color-primary);
+}
+
+@utility player__name {
+  font-family: var(--font-sans);
+  font-size: 28px;
+  line-height: 34px;
+  font-weight: 800;
+  color: var(--color-white);
+}
+
+@utility player__figure {
+  font-family: var(--font-sans);
+  font-size: 72px;
+  line-height: 80px;
+  font-weight: 800;
+  color: var(--color-white);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+@utility player__unit {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.7);
+  text-align: center;
+}
+
+@utility player__done {
+  width: 64px;
+  height: 64px;
+  border-radius: var(--radius-pill);
+  align-items: center;
+  justify-content: center;
+  background-color: var(--color-primary);
+}
+
+@utility player__card {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+  border-radius: var(--radius-lg);
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+@utility player__badge {
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius-md);
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(255, 255, 255, 0.12);
+}
+
+@utility player__badge-value {
+  font-family: var(--font-sans);
+  font-size: 18px;
+  line-height: 22px;
+  font-weight: 800;
+  color: var(--color-white);
+}
+
+@utility player__caption {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 16px;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+@utility player__title {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 21px;
+  font-weight: 700;
+  color: var(--color-white);
+}
+
+@utility player__segment {
+  flex: 1;
+  height: 3px;
+  border-radius: var(--radius-pill);
+  background-color: rgba(255, 255, 255, 0.2);
+  overflow: hidden;
+}
+
+@utility player__entry {
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md);
+  border-radius: var(--radius-lg);
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+@utility player__entry-row {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-md);
+}
+
+@utility player__step {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-pill);
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(255, 255, 255, 0.14);
+}
+
+@utility player__error {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding-inline: var(--spacing-lg);
+  padding-block: var(--spacing-sm);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-danger);
+}
+
+@utility player__error-label {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 19px;
+  font-weight: 700;
+  color: var(--color-ink); /* ink on danger: white is below AA here */
+}
+
+@utility player__button {
+  height: 52px;
+  border-radius: var(--radius-pill);
+  align-items: center;
+  justify-content: center;
+  background-color: var(--color-white);
+}
+
+@utility player__button-label {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-ink);
+}
+
+/* ---- Workout preferences ---- */
+/* The 46pt icon disc at the start of a setting row */
+@utility workout-pref__icon {
+  width: 46px;
+  height: 46px;
+  border-radius: var(--radius-pill);
+  align-items: center;
+  justify-content: center;
+  background-color: var(--color-forest-soft);
+}
+
+/* The pencil disc at the end of an editable setting row */
+@utility workout-pref__edit {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-pill);
+  align-items: center;
+  justify-content: center;
+  background-color: var(--color-cream-tab);
+}
+
+/* One weekday toggle in the Workout days sheet */
+@utility workout-pref__day {
+  flex: 1;
+  height: 44px;
+  border-radius: var(--radius-md);
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-surface);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility workout-pref__day--on {
+  border-color: var(--color-ink);
+  background-color: var(--color-ink);
+}
+
+/* ---- Rebuild my plan ---- */
+/* The three-node stepper in the flow's bar */
+@utility recreate__node {
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-pill);
+  border-width: 1.5px;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Each state sets its own border and fill (no override of a base colour) */
+@utility recreate__node--active {
+  border-color: var(--color-ink);
+  background-color: var(--color-surface);
+}
+
+@utility recreate__node--done {
+  border-color: var(--color-ink);
+  background-color: var(--color-ink);
+}
+
+@utility recreate__node--todo {
+  border-color: var(--color-cream-line);
+  background-color: var(--color-surface);
+}
+
+@utility recreate__node-label {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 700;
+  color: var(--color-faint);
+}
+
+@utility recreate__node-label--active {
+  color: var(--color-ink);
+}
+
+@utility recreate__node-name {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 600;
+  color: var(--color-muted);
+}
+
+@utility recreate__line {
+  width: 12px;
+  height: 1.5px;
+  border-radius: var(--radius-pill);
+}
+
+/* One stage of "Creating your plan": an empty dot, then a filled tick */
+@utility recreate__stage {
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-pill);
+  border-width: 1.5px;
+  border-color: var(--color-cream-line);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility recreate__stage--done {
+  border-color: var(--color-leaf);
+  background-color: var(--color-leaf);
+}
+
+/* The weekday badge on a reveal session row; filled when that session is today */
+@utility recreate__day {
+  width: 46px;
+  height: 46px;
+  border-radius: var(--radius-md);
+  background-color: var(--color-forest-soft);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility recreate__day--today {
+  background-color: var(--color-leaf);
+}
+
+/* A safety note (injury answered yes, or a plan that needs a professional's review) */
+@utility workout-safety {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-warning-soft);
+}
+
+@utility workout-safety__text {
+  flex: 1;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--color-ink);
+}

@@ -13,6 +13,12 @@ export default function UserLayout() {
       }}
     >
       <Stack.Screen name="(tabs)" />
+      {/* The session player fades in: a slide under a full-screen timer reads as a glitch */}
+      <Stack.Screen name="workout/session" options={{ animation: "fade" }} />
+      {/* Changing the plan interrupts rather than drills down: a full-screen modal */}
+      <Stack.Screen name="workout/preferences" options={{ presentation: "fullScreenModal" }} />
+      {/* "Rebuild my plan" opens over Preferences as its own full-screen modal */}
+      <Stack.Screen name="workout/recreate" options={{ presentation: "fullScreenModal" }} />
     </Stack>
   );
 }

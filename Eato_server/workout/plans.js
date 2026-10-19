@@ -7,6 +7,8 @@
 // from the request. Structural links (plan_id, day_id) are not foreign keys (see the Workout
 // section of schema.sql), so every lookup here also filters on user_id.
 const workout = require("../../Eato_client/src/lib/workout/index.ts");
+// A failed check the member should read word for word (the route answers 400 with it)
+const { ValidationError } = require("../profile");
 
 const SECTION_ORDER = "FIELD(e.section, 'warmup', 'workout', 'cooldown')";
 
@@ -130,33 +132,7 @@ async function ensurePlan(pool, userId, today) {
       return { planId: existing.id, created: false };
     }
 
-    await syncLibrary(conn);
-    const { library, idByName } = await programmableLibrary(conn);
-    const { eato, saved } = await memberSources(conn, userId);
-    const inputs = workout.inputsForMember(eato, saved, today);
-    const plan = workout.generatePlan(inputs, library);
-
-    const [[{ id: planId }]] = await conn.query("SELECT UUID() AS id");
-    await conn.query(
-      `INSERT INTO workout_plans
-         (id, user_id, name, goal, level, days_per_week, split, source, status, engine_version, input_hash, inputs_snapshot, calibration, requires_professional_review, start_date)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 'engine', 'active', ?, ?, ?, ?, ?, ?)`,
-      [planId, userId, plan.name, plan.goal, plan.level, plan.daysPerWeek, plan.split, plan.engineVersion, plan.inputHash,
-        JSON.stringify(inputs), JSON.stringify(plan.calibration), plan.requiresProfessionalReview, today],
-    );
-    for (const day of plan.days) {
-      const [[{ id: dayId }]] = await conn.query("SELECT UUID() AS id");
-      await conn.query("INSERT INTO workout_days (id, plan_id, user_id, weekday, title, session_type) VALUES (?, ?, ?, ?, ?, ?)", [dayId, planId, userId, day.weekday, day.title, day.sessionType]);
-      for (const e of day.exercises) {
-        const exerciseId = idByName(e.name);
-        if (!exerciseId) throw new Error(`The engine chose an exercise the library doesn't have: ${e.name}`);
-        await conn.query(
-          `INSERT INTO workout_day_exercises (day_id, plan_id, user_id, exercise_id, section, position, sets, rest_sec, role, reps_min, reps_max, note)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [dayId, planId, userId, exerciseId, e.section, e.order, JSON.stringify(e.sets), e.restSec, e.role, e.repsMin ?? null, e.repsMax ?? null, e.note ?? null],
-        );
-      }
-    }
+    const { planId } = await generateAndStore(conn, userId, today, "engine");
     await conn.commit();
     return { planId, created: true };
   } catch (error) {
@@ -170,6 +146,42 @@ async function ensurePlan(pool, userId, today) {
   } finally {
     conn.release();
   }
+}
+
+/**
+ * Runs the engine on the member's current answers and stores the plan it produced as the
+ * active one, stamped with the engine version, the input hash, the inputs and the calibration.
+ * The caller holds the transaction and has already retired any previous active plan.
+ */
+async function generateAndStore(conn, userId, today, source) {
+  await syncLibrary(conn);
+  const { library, idByName } = await programmableLibrary(conn);
+  const { eato, saved } = await memberSources(conn, userId);
+  const inputs = workout.inputsForMember(eato, saved, today);
+  const plan = workout.generatePlan(inputs, library);
+
+  const [[{ id: planId }]] = await conn.query("SELECT UUID() AS id");
+  await conn.query(
+    `INSERT INTO workout_plans
+       (id, user_id, name, goal, level, days_per_week, split, source, status, engine_version, input_hash, inputs_snapshot, calibration, requires_professional_review, start_date)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?, ?)`,
+    [planId, userId, plan.name, plan.goal, plan.level, plan.daysPerWeek, plan.split, source, plan.engineVersion, plan.inputHash,
+      JSON.stringify(inputs), JSON.stringify(plan.calibration), plan.requiresProfessionalReview, today],
+  );
+  for (const day of plan.days) {
+    const [[{ id: dayId }]] = await conn.query("SELECT UUID() AS id");
+    await conn.query("INSERT INTO workout_days (id, plan_id, user_id, weekday, title, session_type) VALUES (?, ?, ?, ?, ?, ?)", [dayId, planId, userId, day.weekday, day.title, day.sessionType]);
+    for (const e of day.exercises) {
+      const exerciseId = idByName(e.name);
+      if (!exerciseId) throw new Error(`The engine chose an exercise the library doesn't have: ${e.name}`);
+      await conn.query(
+        `INSERT INTO workout_day_exercises (day_id, plan_id, user_id, exercise_id, section, position, sets, rest_sec, role, reps_min, reps_max, note)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [dayId, planId, userId, exerciseId, e.section, e.order, JSON.stringify(e.sets), e.restSec, e.role, e.repsMin ?? null, e.repsMax ?? null, e.note ?? null],
+      );
+    }
+  }
+  return { planId, plan };
 }
 
 function planToApi(plan, weekdays) {
@@ -335,4 +347,307 @@ async function history(pool, userId, { from, to, today }) {
   });
 }
 
-module.exports = { syncLibrary, ensurePlan, home, history, resolveDates };
+// ---- rescheduling ------------------------------------------------------------------
+
+/**
+ * Runs `work` in one transaction with the member's users row locked, so two reschedules (or
+ * a reschedule and a session start) for the same member can't interleave.
+ */
+async function withMemberLock(pool, userId, work) {
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    await conn.query("SELECT id FROM users WHERE id = ? FOR UPDATE", [userId]);
+    const result = await work(conn);
+    await conn.commit();
+    return result;
+  } catch (error) {
+    await conn.rollback().catch(() => {});
+    throw error;
+  } finally {
+    conn.release();
+  }
+}
+
+// "On this date, run that day": the only thing move and swap write. The plan stays as it is.
+const pointDate = (conn, userId, date, dayId) =>
+  conn.query(
+    "INSERT INTO workout_day_overrides (user_id, on_date, day_id) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE day_id = VALUES(day_id), created_at = CURRENT_TIMESTAMP",
+    [userId, date, dayId],
+  );
+
+// Which of these day ids are the member's own: a stray row pointing at someone else's day is
+// treated as no session at all, so it can never be copied onto another date
+async function ownDayIds(conn, userId, dayIds) {
+  const wanted = [...new Set(dayIds.filter(Boolean))];
+  if (wanted.length === 0) return new Set();
+  const [rows] = await conn.query("SELECT id FROM workout_days WHERE user_id = ? AND id IN (?)", [userId, wanted]);
+  return new Set(rows.map((r) => r.id));
+}
+
+/** "Do it today instead?": point today at a missed day's session. */
+async function moveSessionToToday(pool, userId, { from, today }) {
+  if (from >= today) throw new ValidationError("Only a past session can be moved");
+  return withMemberLock(pool, userId, async (conn) => {
+    const plan = await activePlanRow(conn, userId);
+    if (!plan) throw new ValidationError("No active plan");
+    const [past, now] = await resolveDates(conn, userId, plan.id, [from, today], today, plan.start_date);
+    const own = await ownDayIds(conn, userId, [past.dayId]);
+    if (!past.dayId || !own.has(past.dayId)) throw new ValidationError("Nothing was scheduled that day");
+    if (past.status === "completed") throw new ValidationError("That session is already done");
+    if (now.status === "completed") throw new ValidationError("Today's session is already done");
+    if (now.status === "in_progress") throw new ValidationError("Finish today's session before moving another one here");
+    await pointDate(conn, userId, today, past.dayId);
+    return { date: today, dayId: past.dayId };
+  });
+}
+
+/** "Swap with today?": two dates trade sessions. */
+async function swapDays(pool, userId, { a, b, today }) {
+  if (a === b) throw new ValidationError("Pick two different dates");
+  if (a < today || b < today) throw new ValidationError("A past session cannot be swapped");
+  return withMemberLock(pool, userId, async (conn) => {
+    const plan = await activePlanRow(conn, userId);
+    if (!plan) throw new ValidationError("No active plan");
+    const [first, second] = await resolveDates(conn, userId, plan.id, [a, b], today, plan.start_date);
+    const own = await ownDayIds(conn, userId, [first.dayId, second.dayId]);
+    if (!own.has(first.dayId) || !own.has(second.dayId)) throw new ValidationError("Both days need a session to swap");
+    if (first.status === "completed" || second.status === "completed") throw new ValidationError("A finished session cannot be swapped");
+    if (first.status === "in_progress" || second.status === "in_progress") throw new ValidationError("A session already under way cannot be swapped");
+    await pointDate(conn, userId, a, second.dayId);
+    await pointDate(conn, userId, b, first.dayId);
+    return { swapped: [a, b] };
+  });
+}
+
+// ---- running a session -------------------------------------------------------------
+
+const SET_LOG_CAP = 500; // sessionProgress: never more set rows than this in one answer
+
+function logToApi(row) {
+  return { id: row.id, date: row.date, dayId: row.day_id, status: row.status, startedAt: row.started_at, completedAt: row.completed_at };
+}
+
+const LOG_COLUMNS = "id, DATE_FORMAT(on_date, '%Y-%m-%d') AS date, day_id, status, started_at, completed_at";
+
+/** The completed log for a date if there is one, else the one in progress, with its sets. */
+async function sessionProgress(pool, userId, { date }) {
+  const [logs] = await pool.query(
+    `SELECT ${LOG_COLUMNS} FROM workout_logs
+     WHERE user_id = ? AND on_date = ? AND status IN ('completed', 'in_progress')
+     ORDER BY status = 'completed' DESC, started_at DESC LIMIT 1`,
+    [userId, date],
+  );
+  if (logs.length === 0) return { log: null, sets: [] };
+  const [sets] = await pool.query(
+    `SELECT day_exercise_id, set_index, reps, weight_kg, duration_sec FROM workout_set_logs
+     WHERE log_id = ? AND user_id = ? ORDER BY completed_at, set_index LIMIT ?`,
+    [logs[0].id, userId, SET_LOG_CAP],
+  );
+  return {
+    log: logToApi(logs[0]),
+    sets: sets.map((s) => ({ dayExerciseId: s.day_exercise_id, setIndex: s.set_index, reps: s.reps, weightKg: s.weight_kg, durationSec: s.duration_sec })),
+  };
+}
+
+/** Today's running log, created the first time. Only today can be started. */
+async function startSession(pool, userId, { date, today }) {
+  if (date !== today) throw new ValidationError("Only today's session can be started");
+  return withMemberLock(pool, userId, async (conn) => {
+    const plan = await activePlanRow(conn, userId);
+    if (!plan) throw new ValidationError("No active plan");
+    const [resolved] = await resolveDates(conn, userId, plan.id, [today], today, plan.start_date);
+    const own = await ownDayIds(conn, userId, [resolved.dayId]);
+    if (!resolved.dayId || !own.has(resolved.dayId)) throw new ValidationError("Nothing is scheduled today");
+    if (resolved.status === "completed") throw new ValidationError("That session is already done");
+    const [[running]] = await conn.query(`SELECT ${LOG_COLUMNS} FROM workout_logs WHERE user_id = ? AND on_date = ? AND status = 'in_progress'`, [userId, today]);
+    if (running) return { log: logToApi(running), created: false };
+    const [[{ id }]] = await conn.query("SELECT UUID() AS id");
+    await conn.query("INSERT INTO workout_logs (id, user_id, plan_id, day_id, on_date, status) VALUES (?, ?, ?, ?, ?, 'in_progress')", [id, userId, plan.id, resolved.dayId, today]);
+    const [[created]] = await conn.query(`SELECT ${LOG_COLUMNS} FROM workout_logs WHERE id = ?`, [id]);
+    return { log: logToApi(created), created: true };
+  });
+}
+
+// The member's own running log, or the spec's refusal. Someone else's log reads as missing.
+async function runningLog(conn, userId, logId) {
+  const [[log]] = await conn.query("SELECT id, day_id, status FROM workout_logs WHERE id = ? AND user_id = ?", [logId, userId]);
+  if (!log) throw new ValidationError("Session not found");
+  if (log.status !== "in_progress") throw new ValidationError("That session is no longer running");
+  return log;
+}
+
+/** One finished set, written at once. Doing a set again replaces it (one row per set). */
+async function logSet(pool, userId, { logId, dayExerciseId, setIndex, reps, weightKg, durationSec }) {
+  return withMemberLock(pool, userId, async (conn) => {
+    const log = await runningLog(conn, userId, logId);
+    const [[exercise]] = await conn.query("SELECT sets FROM workout_day_exercises WHERE id = ? AND user_id = ? AND day_id = ?", [dayExerciseId, userId, log.day_id]);
+    if (!exercise) throw new ValidationError("That exercise is not part of this session");
+    if (setIndex >= parseSets(exercise.sets).length) throw new ValidationError("Invalid set");
+    await conn.query(
+      `INSERT INTO workout_set_logs (log_id, user_id, day_exercise_id, set_index, reps, weight_kg, duration_sec)
+       VALUES (?, ?, ?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE reps = VALUES(reps), weight_kg = VALUES(weight_kg), duration_sec = VALUES(duration_sec), completed_at = CURRENT_TIMESTAMP(3)`,
+      [logId, userId, dayExerciseId, setIndex, reps ?? null, weightKg ?? null, durationSec ?? null],
+    );
+    return { logged: { dayExerciseId, setIndex, reps: reps ?? null, weightKg: weightKg ?? null, durationSec: durationSec ?? null } };
+  });
+}
+
+/** Finish: the log is completed. End early: abandoned, so the date goes back to planned (sets are kept). */
+async function closeSession(pool, userId, { logId }, outcome) {
+  return withMemberLock(pool, userId, async (conn) => {
+    await runningLog(conn, userId, logId);
+    if (outcome === "completed") await conn.query("UPDATE workout_logs SET status = 'completed', completed_at = CURRENT_TIMESTAMP(3) WHERE id = ? AND user_id = ?", [logId, userId]);
+    else await conn.query("UPDATE workout_logs SET status = 'abandoned' WHERE id = ? AND user_id = ?", [logId, userId]);
+    const [[row]] = await conn.query(`SELECT ${LOG_COLUMNS} FROM workout_logs WHERE id = ?`, [logId]);
+    return { log: logToApi(row) };
+  });
+}
+
+// ---- preferences -------------------------------------------------------------------
+
+/** The four settings of the active plan, and whether the member may change them. */
+async function preferences(pool, userId) {
+  const plan = await activePlanRow(pool, userId);
+  if (!plan) throw new ValidationError("No active plan");
+  const [days] = await pool.query("SELECT weekday FROM workout_days WHERE plan_id = ? AND user_id = ?", [plan.id, userId]);
+  return {
+    goal: plan.goal,
+    level: plan.level,
+    weekdays: workout.sortWeekdays(days.map((d) => d.weekday)),
+    split: plan.split,
+    editable: plan.source !== "trainer",
+  };
+}
+
+/**
+ * Saves goal, level, training days and split as the member's answers, generates a new plan
+ * from them and makes it the active one; the old plan is kept as superseded, with its logs.
+ * A trainer's plan is never replaced from here. A level the member picks becomes their
+ * experience, and the fitness scores follow it, so the engine calibrates to that level
+ * (a safety-mode answer still keeps the plan at beginner).
+ */
+async function updatePreferences(pool, userId, { today, goal, level, weekdays, split }) {
+  return withMemberLock(pool, userId, async (conn) => {
+    const current = await activePlanRow(conn, userId);
+    if (current?.source === "trainer") throw new ValidationError("Your trainer manages this plan");
+    const [[profile]] = await conn.query("SELECT user_id FROM profiles WHERE user_id = ?", [userId]);
+    if (!profile) throw new ValidationError("Profile missing");
+
+    const levelChanged = !current || current.level !== level;
+    const base = workout.fitnessBaseFromExperience(level);
+    await conn.query(
+      `INSERT INTO workout_profiles (user_id, goal, experience, weekdays, split${levelChanged ? ", fitness_base, squat_score, push_score, pull_score" : ""})
+       VALUES (?, ?, ?, ?, ?${levelChanged ? ", ?, NULL, NULL, NULL" : ""})
+       ON DUPLICATE KEY UPDATE goal = VALUES(goal), experience = VALUES(experience), weekdays = VALUES(weekdays), split = VALUES(split)${
+         levelChanged ? ", fitness_base = VALUES(fitness_base), squat_score = NULL, push_score = NULL, pull_score = NULL" : ""
+       }`,
+      [userId, goal, level, JSON.stringify(weekdays), split, ...(levelChanged ? [base] : [])],
+    );
+
+    // The old plan stays (superseded) with its days and logs. Sessions moved or swapped onto
+    // today or later pointed at its days, so they go; past ones stay as history.
+    if (current) await conn.query("UPDATE workout_plans SET status = 'superseded' WHERE id = ? AND user_id = ?", [current.id, userId]);
+    await conn.query("DELETE FROM workout_day_overrides WHERE user_id = ? AND on_date >= ?", [userId, today]);
+    const { planId, plan } = await generateAndStore(conn, userId, today, "member");
+    return { planId, level: plan.level, goal: plan.goal, daysPerWeek: plan.daysPerWeek, requiresProfessionalReview: plan.requiresProfessionalReview };
+  });
+}
+
+// ---- rebuild my plan ---------------------------------------------------------------
+
+/**
+ * The thirteen answers that seed the rebuild flow: what the member saved before, else what
+ * their setup profile already says (gender, age, weight, height, goal), else null (asked).
+ */
+async function recreateInputs(pool, userId, { today }) {
+  const plan = await activePlanRow(pool, userId);
+  const { eato, saved } = await memberSources(pool, userId);
+  const fromSetup = workout.engineProfileFor(eato, {});
+  const age = saved.ageYears ?? (eato.dob ? workout.ageOn(eato.dob, today) : null);
+  return {
+    answers: {
+      gender: saved.gender ?? fromSetup.gender ?? null,
+      ageYears: age !== null && age >= 13 && age <= 100 ? age : null,
+      weightKg: saved.weightKg ?? fromSetup.weightKg ?? null,
+      heightCm: saved.heightCm ?? (fromSetup.heightCm !== undefined ? Math.round(fromSetup.heightCm) : null),
+      bodyType: saved.bodyType ?? null,
+      goal: saved.goal ?? fromSetup.goal ?? null,
+      weekdays: saved.weekdays ?? null,
+      pace: saved.pace ?? null,
+      fitnessBase: saved.fitnessBase ?? null,
+      squatScore: saved.squatScore ?? null,
+      pushScore: saved.pushScore ?? null,
+      pullScore: saved.pullScore ?? null,
+      seriousInjury: saved.seriousInjury ?? null,
+    },
+    units: { weight: "kg", height: "cm" },
+    hasPlan: plan !== null,
+    trainerManaged: plan?.source === "trainer",
+  };
+}
+
+/**
+ * Saves all thirteen answers, generates a plan from them (split automatic: the flow asks
+ * about the body, not the split), makes it the active one, and writes the calibrated level
+ * back as the member's experience. The old plan stays, superseded, with its history.
+ */
+async function recreatePlan(pool, userId, { today, answers }) {
+  return withMemberLock(pool, userId, async (conn) => {
+    const current = await activePlanRow(conn, userId);
+    if (current?.source === "trainer") throw new ValidationError("Your trainer manages your current plan, so it cannot be recreated here.");
+    const [[profile]] = await conn.query("SELECT user_id FROM profiles WHERE user_id = ?", [userId]);
+    if (!profile) throw new ValidationError("Profile missing");
+    const a = answers;
+    await conn.query(
+      `INSERT INTO workout_profiles (user_id, gender, age_years, weight_kg, height_cm, body_type, goal, weekdays, pace, fitness_base, squat_score, push_score, pull_score, serious_injury, split)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'auto')
+       ON DUPLICATE KEY UPDATE gender = VALUES(gender), age_years = VALUES(age_years), weight_kg = VALUES(weight_kg), height_cm = VALUES(height_cm),
+         body_type = VALUES(body_type), goal = VALUES(goal), weekdays = VALUES(weekdays), pace = VALUES(pace), fitness_base = VALUES(fitness_base),
+         squat_score = VALUES(squat_score), push_score = VALUES(push_score), pull_score = VALUES(pull_score), serious_injury = VALUES(serious_injury), split = 'auto'`,
+      [userId, a.gender, a.ageYears, a.weightKg, a.heightCm, a.bodyType, a.goal, JSON.stringify(a.weekdays), a.pace, a.fitnessBase, a.squatScore, a.pushScore, a.pullScore, a.seriousInjury],
+    );
+    if (current) await conn.query("UPDATE workout_plans SET status = 'superseded' WHERE id = ? AND user_id = ?", [current.id, userId]);
+    await conn.query("DELETE FROM workout_day_overrides WHERE user_id = ? AND on_date >= ?", [userId, today]);
+    const { planId, plan } = await generateAndStore(conn, userId, today, "member");
+    // The level the engine calibrated becomes the member's experience (Preferences shows it)
+    await conn.query("UPDATE workout_profiles SET experience = ? WHERE user_id = ?", [plan.level, userId]);
+    return { planId, level: plan.level, goal: plan.goal, daysPerWeek: plan.daysPerWeek, requiresProfessionalReview: plan.requiresProfessionalReview };
+  });
+}
+
+/**
+ * What the reveal shows, read from what was saved: the plan's facts, every session with its
+ * minutes and exercise count (workout section only), and the first session's exercises.
+ */
+async function planOverview(pool, userId) {
+  const plan = await activePlanRow(pool, userId);
+  if (!plan) throw new ValidationError("No active plan");
+  const [[stamp]] = await pool.query("SELECT inputs_snapshot FROM workout_plans WHERE id = ? AND user_id = ?", [plan.id, userId]);
+  const inputs = typeof stamp.inputs_snapshot === "string" ? JSON.parse(stamp.inputs_snapshot) : stamp.inputs_snapshot;
+  const [days] = await pool.query("SELECT id, weekday, title, session_type FROM workout_days WHERE plan_id = ? AND user_id = ?", [plan.id, userId]);
+  const ordered = [...days].sort((x, y) => ((x.weekday + 6) % 7) - ((y.weekday + 6) % 7));
+  const summaries = await daySummaries(pool, userId, ordered.map((d) => d.id));
+  const first = ordered[0] ? await dayDetail(pool, userId, ordered[0].id, null) : null;
+  return {
+    goal: plan.goal,
+    level: plan.level,
+    daysPerWeek: plan.days_per_week,
+    pace: inputs?.pace ?? null,
+    split: plan.split,
+    requiresProfessionalReview: Boolean(plan.requires_professional_review),
+    sessions: ordered.map((d) => ({ dayId: d.id, weekday: d.weekday, title: d.title, sessionType: d.session_type, minutes: summaries.get(d.id)?.minutes ?? 0, exerciseCount: summaries.get(d.id)?.exerciseCount ?? 0 })),
+    firstSession: first
+      ? { weekday: first.weekday, title: first.title, exercises: first.exercises.filter((e) => e.section === "workout").map((e) => ({ id: e.id, name: e.name, sets: e.sets, repsMin: e.repsMin, repsMax: e.repsMax, restSec: e.restSec })) }
+      : null,
+  };
+}
+
+module.exports = {
+  recreateInputs, recreatePlan, planOverview,
+  preferences, updatePreferences,
+  syncLibrary, ensurePlan, home, history, resolveDates, moveSessionToToday, swapDays, withMemberLock,
+  sessionProgress, startSession, logSet, completeSession: (pool, userId, body) => closeSession(pool, userId, body, "completed"),
+  abandonSession: (pool, userId, body) => closeSession(pool, userId, body, "abandoned"), SET_LOG_CAP,
+};

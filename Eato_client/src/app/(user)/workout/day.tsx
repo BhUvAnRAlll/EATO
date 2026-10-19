@@ -7,6 +7,7 @@ import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 
 import { ActionSheet } from "@/components/community/ActionSheet";
 import { DashedBlock } from "@/components/macro/DashedBlock";
+import { WorkoutSheet } from "@/components/workout/WorkoutSheet";
 import { isValidIso, longDate, todayIso } from "@/lib/macro";
 import { useSessionToken } from "@/lib/session";
 import {
@@ -33,11 +34,11 @@ import {
 import { colors } from "@/theme";
 
 // One day's session in full: what it trains, the exercise list by section, and the facts
-// about it. Opened from the hub with a `date`, falling back to today. The session player
-// (Start Workout) is the next slice; until then the footer shows the day's status only.
+// about it, with the way into the session player. Opened from the hub with a `date`, falling
+// back to today. Only today's session can be started; a session under way can be ended early.
 
 type Tab = "exercises" | "muscles" | "about";
-type Ready = { plan: Plan; status: Extract<WorkoutHome, { plan: object }>["status"]; day: TrainingDay | null };
+type Ready = { plan: Plan; status: Extract<WorkoutHome, { plan: object }>["status"]; day: TrainingDay | null; logId: string | null };
 
 const SECTIONS: Section[] = ["warmup", "workout", "cooldown"];
 
@@ -52,6 +53,8 @@ export default function TrainingDayScreen() {
   const [tab, setTab] = useState<Tab>("exercises");
   const [menuFor, setMenuFor] = useState<DayExercise | null>(null);
   const [howTo, setHowTo] = useState<DayExercise | null>(null);
+  const [ending, setEnding] = useState<"ask" | "busy" | null>(null);
+  const [endError, setEndError] = useState<string | null>(null);
   const latest = useRef(0);
 
   const refresh = useCallback(async () => {
@@ -61,7 +64,14 @@ export default function TrainingDayScreen() {
     if (request !== latest.current) return;
     if (!result.ok) return setLoad({ state: "failed", error: result.error });
     if (result.data.plan === null) return setLoad({ state: "failed", error: "You don't have a workout plan yet" });
-    setLoad({ state: "ready", plan: result.data.plan, status: result.data.status, day: result.data.day });
+    // The running log, only while a session is under way (End session needs its id)
+    let logId: string | null = null;
+    if (result.data.status === "in_progress" && date === today) {
+      const progress = await workoutApi.session(token, date, today);
+      if (request !== latest.current) return;
+      if (progress.ok && progress.data.log?.status === "in_progress") logId = progress.data.log.id;
+    }
+    setLoad({ state: "ready", plan: result.data.plan, status: result.data.status, day: result.data.day, logId });
   }, [getToken, date, today]);
 
   useFocusEffect(
@@ -100,7 +110,23 @@ export default function TrainingDayScreen() {
     );
   }
 
-  const { plan, day, status } = load;
+  const { plan, day, status, logId } = load;
+  // Today's session that isn't finished can be started (or picked up) from any exercise
+  const canStart = isToday && status !== "completed";
+  const play = (exerciseId?: string) => router.push({ pathname: "/workout/session", params: exerciseId ? { date, exercise: exerciseId } : { date } });
+  const endSession = async () => {
+    if (!logId) return setEndError("Could not end the session. Try again.");
+    setEnding("busy");
+    setEndError(null);
+    const token = await getToken().catch(() => null);
+    const result = await workoutApi.abandonSession(token, logId);
+    if (!result.ok) {
+      setEnding("ask");
+      return setEndError("Could not end the session. Try again.");
+    }
+    setEnding(null);
+    refresh();
+  };
   const share = () => {
     const lines = day.exercises.map((e) => `• ${e.name}: ${formatSets(e)}`);
     Share.share({ message: [`${day.title} · ${longDate(date)}`, `${day.minutes} min`, "", ...lines].join("\n") }).catch(() => {});
@@ -109,7 +135,7 @@ export default function TrainingDayScreen() {
   return (
     <View className="flex-1 bg-cream">
       <StatusBar style="light" />
-      <ScrollView contentContainerStyle={{ paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 180 }} showsVerticalScrollIndicator={false}>
         {/* Art: the session's figure on the dark surface (the plan has no photos yet) */}
         <View className="bg-ink" style={{ paddingTop: insets.top + 64, paddingHorizontal: 20, paddingBottom: 48, gap: 12 }}>
           <View className="absolute right-6" style={{ top: insets.top + 56 }}>
@@ -148,7 +174,7 @@ export default function TrainingDayScreen() {
             ))}
           </View>
 
-          {tab === "exercises" && <ExercisesTab day={day} onMore={setMenuFor} />}
+          {tab === "exercises" && <ExercisesTab day={day} onMore={setMenuFor} onPlay={canStart ? play : undefined} />}
           {tab === "muscles" && <MusclesTab day={day} />}
           {tab === "about" && <AboutTab plan={plan} day={day} />}
         </View>
@@ -162,16 +188,35 @@ export default function TrainingDayScreen() {
 
       {/* Footer: the day's status (the session player comes in the next slice) */}
       <View className="absolute bottom-0 left-0 right-0 border-t border-cream-line bg-cream px-5 pt-3" style={{ paddingBottom: Math.max(insets.bottom, 12) + 4 }}>
-        <Footer status={status} isToday={isToday} date={date} today={today} />
+        <Footer status={status} isToday={isToday} date={date} today={today} onPlay={() => play()} onEnd={logId ? () => { setEndError(null); setEnding("ask"); } : undefined} />
       </View>
 
       <ActionSheet
         visible={menuFor !== null}
         title={menuFor ? `${menuFor.name}: ${formatSets(menuFor)}` : undefined}
-        actions={menuFor ? [{ label: "How to do it", onPress: () => setHowTo(menuFor) }] : []}
+        actions={
+          menuFor
+            ? [
+                ...(canStart ? [{ label: "Start from this exercise", onPress: () => play(menuFor.id) }] : []),
+                ...(menuFor.instructions.length > 0 ? [{ label: "How to do it", onPress: () => setHowTo(menuFor) }] : []),
+              ]
+            : []
+        }
         onClose={() => setMenuFor(null)}
       />
       <HowToSheet exercise={howTo} onClose={() => setHowTo(null)} />
+      <WorkoutSheet
+        visible={ending !== null}
+        emoji="🛑"
+        title="End this session?"
+        text="The sets you logged are kept. Today goes back to planned, so you can start again or move another session here."
+        confirmLabel="End session"
+        cancelLabel="Keep going"
+        busy={ending === "busy"}
+        error={endError}
+        onConfirm={endSession}
+        onCancel={() => setEnding(null)}
+      />
     </View>
   );
 }
@@ -203,7 +248,7 @@ function Stat({ value, unit, label }: { value: string; unit?: string; label: str
   );
 }
 
-function ExercisesTab({ day, onMore }: { day: TrainingDay; onMore: (e: DayExercise) => void }) {
+function ExercisesTab({ day, onMore, onPlay }: { day: TrainingDay; onMore: (e: DayExercise) => void; onPlay?: (exerciseId: string) => void }) {
   const groups = SECTIONS.map((section) => ({ section, items: day.exercises.filter((e) => e.section === section) })).filter((g) => g.items.length > 0);
   return (
     <View style={{ gap: 18 }}>
@@ -218,7 +263,7 @@ function ExercisesTab({ day, onMore }: { day: TrainingDay; onMore: (e: DayExerci
           </View>
           {SECTION_HINT[section] && <Text className="post__time">{SECTION_HINT[section]}</Text>}
           {items.map((e) => (
-            <ExerciseRow key={e.id} exercise={e} onMore={() => onMore(e)} />
+            <ExerciseRow key={e.id} exercise={e} onMore={() => onMore(e)} onPress={onPlay ? () => onPlay(e.id) : undefined} />
           ))}
         </View>
       ))}
@@ -226,7 +271,7 @@ function ExercisesTab({ day, onMore }: { day: TrainingDay; onMore: (e: DayExerci
   );
 }
 
-function ExerciseRow({ exercise: e, onMore }: { exercise: DayExercise; onMore: () => void }) {
+function ExerciseRow({ exercise: e, onMore, onPress }: { exercise: DayExercise; onMore: () => void; onPress?: () => void }) {
   const timed = isTimed(e);
   const muscle = MUSCLE_LABEL[e.muscleGroup] ?? e.muscleGroup;
   const focus = PATTERN_FOCUS[e.pattern];
@@ -234,22 +279,26 @@ function ExerciseRow({ exercise: e, onMore }: { exercise: DayExercise; onMore: (
   const subtitle = focus && focus !== muscle ? `${muscle} · ${focus}` : muscle;
   const right = timed ? `${e.sets.length} ${e.sets.length === 1 ? "set" : "sets"}` : `${e.sets.length} × ${e.repsMin ?? e.sets[0]?.reps ?? 0}–${e.repsMax ?? e.sets[0]?.reps ?? 0}`;
   const under = timed ? formatSeconds(e.sets[0]?.durationSec ?? 0) : "sets × reps";
+  // Today, tapping a row starts the player at that exercise. The menu button sits beside the
+  // tappable area, not inside it (a button inside a button breaks on web).
   return (
     <View className="home__card gap-2" style={{ padding: 12 }}>
       <View className="flex-row items-center gap-3">
-        <View className="items-center justify-center rounded-md" style={{ width: 52, height: 52, backgroundColor: colors.forestSoft }}>
-          <SymbolView name={MUSCLE_ICON[e.muscleGroup] ?? MUSCLE_ICON.full_body} size={24} tintColor={colors.forest} />
-        </View>
-        <View className="min-w-0 flex-1">
-          <Text className="card__title" numberOfLines={2}>{e.name}</Text>
-          <Text className="post__time" numberOfLines={1}>{subtitle}</Text>
-        </View>
-        <View className="items-end">
-          <Text className="type-subhead text-forest-ink">{right}</Text>
-          <Text className="post__time">{under}</Text>
-        </View>
-        {/* Only exercises with steps to read get the menu (the warm-ups have none) */}
-        {e.instructions.length > 0 ? (
+        <Pressable onPress={onPress} disabled={!onPress} className="min-w-0 flex-1 flex-row items-center gap-3" accessibilityRole={onPress ? "button" : undefined} accessibilityLabel={onPress ? `Start from ${e.name}` : undefined}>
+          <View className="items-center justify-center rounded-md" style={{ width: 52, height: 52, backgroundColor: colors.forestSoft }}>
+            <SymbolView name={MUSCLE_ICON[e.muscleGroup] ?? MUSCLE_ICON.full_body} size={24} tintColor={colors.forest} />
+          </View>
+          <View className="min-w-0 flex-1">
+            <Text className="card__title" numberOfLines={2}>{e.name}</Text>
+            <Text className="post__time" numberOfLines={1}>{subtitle}</Text>
+          </View>
+          <View className="items-end">
+            <Text className="type-subhead text-forest-ink">{right}</Text>
+            <Text className="post__time">{under}</Text>
+          </View>
+        </Pressable>
+        {/* The menu: start from here (today) and how to do it (when there are steps to read) */}
+        {e.instructions.length > 0 || onPress ? (
           <Pressable onPress={onMore} hitSlop={10} className="h-9 w-9 items-center justify-center" accessibilityRole="button" accessibilityLabel={`More about ${e.name}`}>
             <SymbolView name={{ ios: "ellipsis", android: "more_horiz", web: "more_horiz" }} size={18} tintColor={colors.muted} />
           </Pressable>
@@ -314,7 +363,9 @@ function AboutTab({ plan, day }: { plan: Plan; day: TrainingDay }) {
   );
 }
 
-function Footer({ status, isToday, date, today }: { status: Ready["status"]; isToday: boolean; date: string; today: string }) {
+type FooterProps = { status: Ready["status"]; isToday: boolean; date: string; today: string; onPlay: () => void; onEnd?: () => void };
+
+function Footer({ status, isToday, date, today, onPlay, onEnd }: FooterProps) {
   if (isToday && status === "completed") {
     return (
       <View className="h-control-lg flex-row items-center justify-center gap-2 rounded-full" style={{ backgroundColor: colors.successSoft }}>
@@ -326,10 +377,24 @@ function Footer({ status, isToday, date, today }: { status: Ready["status"]; isT
   const label = isToday
     ? status === "in_progress" ? "Continue Workout" : "Start Workout"
     : status === "completed" ? "Completed" : status === "missed" ? "Missed" : date > today ? "Not yet" : "Not today";
-  // Starting a session belongs to the session player (next slice), so the button can't start one yet
+  // Only today's session starts; every other date shows its status on a disabled button
+  if (!isToday) {
+    return (
+      <View className="btn-forest" style={{ opacity: 0.45 }} accessibilityRole="button" accessibilityState={{ disabled: true }} accessibilityLabel={label}>
+        <Text className="btn-forest__label">{label}</Text>
+      </View>
+    );
+  }
   return (
-    <View className="btn-forest" style={{ opacity: 0.45 }} accessibilityRole="button" accessibilityState={{ disabled: true }} accessibilityLabel={label}>
-      <Text className="btn-forest__label">{label}</Text>
+    <View className="gap-2">
+      <Pressable onPress={onPlay} className="btn-forest" accessibilityRole="button" accessibilityLabel={label}>
+        <Text className="btn-forest__label">{label}</Text>
+      </Pressable>
+      {status === "in_progress" && onEnd && (
+        <Pressable onPress={onEnd} className="btn-outline" accessibilityRole="button" accessibilityLabel="End session">
+          <Text className="btn-outline__label">End session</Text>
+        </Pressable>
+      )}
     </View>
   );
 }

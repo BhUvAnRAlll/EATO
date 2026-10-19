@@ -4,8 +4,10 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { SymbolView } from "expo-symbols";
 import { router, useFocusEffect } from "expo-router";
+import * as Haptics from "expo-haptics";
 
 import { DashedBlock } from "@/components/macro/DashedBlock";
+import { WorkoutSheet } from "@/components/workout/WorkoutSheet";
 import { addDays, dateOf, todayIso } from "@/lib/macro";
 import { useSessionToken } from "@/lib/session";
 import {
@@ -14,6 +16,7 @@ import {
   historyDate,
   sessionIcon,
   weekOf,
+  weekdayName,
   workoutApi,
   type DayStatus,
   type HistoryDay,
@@ -41,6 +44,10 @@ const pillColors: Record<Exclude<DayStatus, "rest">, { background: string; text:
   planned: { background: colors.surfaceAlt, text: colors.muted },
 };
 
+// A tapped day that asks before it changes anything: a missed one can move to today, and a
+// later one can swap with today's session
+type Prompt = { kind: "move" | "swap"; date: string };
+
 const moon = { ios: "moon.stars.fill", android: "bedtime", web: "bedtime" } as const;
 const chevron = { ios: "chevron.right", android: "chevron_right", web: "chevron_right" } as const;
 
@@ -48,6 +55,9 @@ export default function WorkoutHub() {
   const getToken = useSessionToken();
   const [load, setLoad] = useState<Load>({ state: "loading" });
   const [showAll, setShowAll] = useState(false);
+  const [prompt, setPrompt] = useState<Prompt | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [promptError, setPromptError] = useState<string | null>(null);
   const latest = useRef(0);
 
   // The plan, this week and the last seven days. With no plan yet one is built from the
@@ -84,15 +94,53 @@ export default function WorkoutHub() {
     refresh();
   };
   const openDay = (date: string) => router.push({ pathname: "/workout/day", params: { date } });
+  const ask = (next: Prompt) => {
+    setPromptError(null);
+    setPrompt(next);
+  };
+  const closePrompt = () => {
+    if (busy) return;
+    setPrompt(null);
+    setPromptError(null);
+  };
+
+  // Move or swap, then reload the hub so the week and today's card show the new order
+  const confirmPrompt = async () => {
+    if (!prompt || busy) return;
+    setBusy(true);
+    setPromptError(null);
+    const today = todayIso();
+    const token = await getToken().catch(() => null);
+    const result = prompt.kind === "move" ? await workoutApi.moveToToday(token, prompt.date, today) : await workoutApi.swapWithToday(token, prompt.date, today);
+    setBusy(false);
+    if (!result.ok) return setPromptError(result.error || "That did not work. Try again.");
+    setPrompt(null);
+    await refresh();
+  };
 
   return (
     <View className="flex-1 bg-cream">
       <StatusBar style="dark" />
       <SafeAreaView style={{ flex: 1 }} edges={["top", "left", "right"]}>
         <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 110, gap: 20 }} showsVerticalScrollIndicator={false}>
-          <View className="pt-2">
-            <Text className="type-title text-forest-ink">Workout</Text>
-            <Text className="home__note">Stay consistent, get stronger</Text>
+          <View className="flex-row items-start justify-between pt-2">
+            <View>
+              <Text className="type-title text-forest-ink">Workout</Text>
+              <Text className="home__note">Stay consistent, get stronger</Text>
+            </View>
+            {/* Preferences: only once there is a plan to change */}
+            <Pressable
+              onPress={() => router.push("/workout/preferences")}
+              disabled={load.state !== "ready"}
+              hitSlop={8}
+              className="h-11 w-11 items-center justify-center rounded-full bg-surface"
+              style={{ opacity: load.state === "ready" ? 1 : 0.4 }}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: load.state !== "ready" }}
+              accessibilityLabel="Workout preferences"
+            >
+              <SymbolView name={{ ios: "gearshape.fill", android: "settings", web: "settings" }} size={20} tintColor={colors.forestInk} />
+            </Pressable>
           </View>
 
           {load.state === "loading" || load.state === "building" ? (
@@ -108,22 +156,54 @@ export default function WorkoutHub() {
               onPress={retry}
             />
           ) : (
-            <Ready home={load.home} history={load.history} showAll={showAll} onToggleAll={() => setShowAll((v) => !v)} openDay={openDay} />
+            <Ready home={load.home} history={load.history} showAll={showAll} onToggleAll={() => setShowAll((v) => !v)} openDay={openDay} ask={ask} />
           )}
         </ScrollView>
       </SafeAreaView>
+      <WorkoutSheet
+        visible={prompt !== null}
+        emoji={prompt?.kind === "swap" ? "🔁" : "💪"}
+        title={prompt?.kind === "swap" ? "Swap with today?" : "Do it today instead?"}
+        text={
+          prompt?.kind === "swap"
+            ? `Today's session and ${weekdayName(prompt.date)} will trade places.`
+            : `You missed ${prompt ? weekdayName(prompt.date) : "that day"}. Move that session to today and pick up where you left off.`
+        }
+        confirmLabel={prompt?.kind === "swap" ? "Swap days" : "Move to today"}
+        cancelLabel="Not now"
+        busy={busy}
+        error={promptError}
+        onConfirm={confirmPrompt}
+        onCancel={closePrompt}
+      />
     </View>
   );
 }
 
-type ReadyProps = { home: Extract<WorkoutHome, { plan: object }>; history: HistoryDay[]; showAll: boolean; onToggleAll: () => void; openDay: (date: string) => void };
+type ReadyProps = {
+  home: Extract<WorkoutHome, { plan: object }>;
+  history: HistoryDay[];
+  showAll: boolean;
+  onToggleAll: () => void;
+  openDay: (date: string) => void;
+  ask: (prompt: Prompt) => void;
+};
 
-function Ready({ home, history, showAll, onToggleAll, openDay }: ReadyProps) {
+function Ready({ home, history, showAll, onToggleAll, openDay, ask }: ReadyProps) {
   const { plan, day, status, date: today, week } = home;
   const scheduled = week.filter((d) => d.status !== "rest").length;
   const done = week.filter((d) => d.status === "completed").length;
   const visible = showAll ? history : history.slice(0, 3);
   const action = status === "completed" ? "Review" : status === "in_progress" ? "Continue" : "Start";
+
+  // Today opens; a past missed day offers to move here; a later scheduled day offers to swap
+  // with today's session (when today has one); anything else just opens
+  const tapDay = (date: string, dayStatus: DayStatus) => {
+    if (date === today) return openDay(date);
+    if (date < today && dayStatus === "missed") return ask({ kind: "move", date });
+    if (date > today && dayStatus === "planned" && day) return ask({ kind: "swap", date });
+    openDay(date);
+  };
 
   return (
     <>
@@ -194,7 +274,10 @@ function Ready({ home, history, showAll, onToggleAll, openDay }: ReadyProps) {
             return (
               <Pressable
                 key={date}
-                onPress={() => openDay(date)}
+                onPress={() => {
+                  if (!isToday) Haptics.selectionAsync().catch(() => {});
+                  tapDay(date, dayStatus);
+                }}
                 className={isToday ? "workout__tile workout__tile--today" : "workout__tile"}
                 accessibilityRole="button"
                 accessibilityLabel={`${d.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}: ${STATUS_LABEL[dayStatus]}`}
@@ -229,7 +312,7 @@ function Ready({ home, history, showAll, onToggleAll, openDay }: ReadyProps) {
               return (
                 <Pressable
                   key={row.date}
-                  onPress={() => openDay(row.date)}
+                  onPress={() => tapDay(row.date, row.status)}
                   className="home__card flex-row items-center gap-3"
                   accessibilityRole="button"
                   accessibilityLabel={`${row.title ?? "Session"}, ${historyDate(row.date)}: ${STATUS_LABEL[row.status]}`}
