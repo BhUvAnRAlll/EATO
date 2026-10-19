@@ -4370,3 +4370,132 @@
   line-height: 17px;
   color: var(--color-primary);
 }
+
+/* Owner portal, check-in: the scanner, the verification result, QR codes and the display */
+@utility owner-stat--accent {
+  border-color: var(--color-leaf);
+  background-color: var(--color-accent-soft);
+}
+
+@utility owner-card--warning {
+  border-color: var(--color-warning);
+  background-color: var(--color-warning-soft);
+  gap: 2px;
+}
+
+@utility owner-scan__title {
+  flex: 1;
+  text-align: center;
+  font-family: var(--font-sans);
+  font-size: 17px;
+  line-height: 22px;
+  font-weight: 700;
+  color: var(--color-white);
+}
+
+/* The viewfinder square over the camera */
+@utility owner-scan__frame {
+  width: 220px;
+  height: 220px;
+  border-radius: var(--radius-lg);
+  border-width: 3px;
+  border-color: rgba(255, 255, 255, 0.85);
+}
+
+@utility owner-scan__hint {
+  text-align: center;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 21px;
+  font-weight: 600;
+  color: var(--color-white);
+}
+
+@utility owner-scan__sheet {
+  padding: 16px;
+  gap: 10px;
+  flex-direction: row;
+  align-items: center;
+  border-top-left-radius: var(--radius-xl);
+  border-top-right-radius: var(--radius-xl);
+  background-color: var(--color-cream);
+}
+
+@utility owner-result {
+  width: 84px;
+  height: 84px;
+  border-radius: var(--radius-pill);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility owner-result--ok {
+  background-color: var(--color-accent-soft);
+}
+
+@utility owner-result--bad {
+  background-color: var(--color-danger-soft);
+}
+
+@utility owner-result__title {
+  text-align: center;
+  font-family: var(--font-sans);
+  font-size: 24px;
+  line-height: 30px;
+  font-weight: 800;
+  color: var(--color-ink);
+}
+
+@utility owner-qr {
+  padding: 18px;
+  border-radius: var(--radius-lg);
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-white);
+}
+
+@utility owner-qr--large {
+  padding: 24px;
+  box-shadow: var(--shadow-card);
+}
+
+/* The check-out code, typed out under its QR */
+@utility owner-code {
+  font-family: monospace;
+  font-size: 15px;
+  line-height: 20px;
+  letter-spacing: 1px;
+  color: var(--color-muted);
+}
+
+@utility owner-display__title {
+  text-align: center;
+  font-family: var(--font-sans);
+  font-size: 26px;
+  line-height: 32px;
+  font-weight: 800;
+  color: var(--color-ink);
+}
+
+/* The member's active session card on Home */
+@utility visit-card {
+  padding: 16px;
+  gap: 10px;
+  border-radius: var(--radius-lg);
+  background-color: var(--color-ink);
+}
+
+@utility visit-card__title {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 21px;
+  font-weight: 700;
+  color: var(--color-white);
+}
+
+@utility visit-card__note {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 17px;
+  color: var(--color-primary);
+}

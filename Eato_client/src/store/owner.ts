@@ -10,6 +10,12 @@ type OwnerState = {
   gyms: ManagedGym[] | null;
   summary: OwnerSummary | null;
   error: string | null;
+  // The member code the front desk just scanned (kept here, not in the address bar)
+  scan: string | null;
+  setScan: (code: string | null) => void;
+  // Set by "Scan again" / "Scan next member": the Check-in tab reopens its scanner
+  rescan: boolean;
+  setRescan: (rescan: boolean) => void;
   // Open a gym (the entry button, the switcher, or Admin › Gyms for a platform admin)
   setGym: (gymId: string) => void;
   // The caller's gyms; with none chosen yet, the first one opens
@@ -23,6 +29,10 @@ export const useOwnerStore = create<OwnerState>((set, get) => ({
   gyms: null,
   summary: null,
   error: null,
+  scan: null,
+  setScan: (scan) => set({ scan }),
+  rescan: false,
+  setRescan: (rescan) => set({ rescan }),
   setGym: (gymId) => set((state) => (state.gymId === gymId ? state : { gymId, summary: null, error: null })),
   loadGyms: async (token) => {
     const result = await owner.gyms(token);

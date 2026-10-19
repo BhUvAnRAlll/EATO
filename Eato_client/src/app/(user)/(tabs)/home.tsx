@@ -11,6 +11,7 @@ import { PromotionCarousel } from "@/components/home/PromotionCarousel";
 import { QuickActionCard } from "@/components/home/QuickActionCard";
 import { SectionHeader } from "@/components/home/SectionHeader";
 import { TodayMealCard } from "@/components/home/TodayMealCard";
+import { ActiveVisitCard } from "@/components/owner/ActiveVisitCard";
 import { routeFor, sampleDeliveryPincode, sampleMeals, sampleNutrition, sampleTodayOrder } from "@/data/home";
 import { formatShortDate } from "@/lib/date";
 import { useSessionToken } from "@/lib/session";
@@ -98,6 +99,9 @@ export default function Home() {
             onNotificationsPress={() => router.push("/notifications")}
             onProfilePress={() => router.push("/profile")}
           />
+
+          {/* The member's active gym session (only while checked in somewhere) */}
+          <ActiveVisitCard />
 
           <View className="mt-3">
             <PromotionCarousel promotions={promotions} width={width} onOpen={open} />

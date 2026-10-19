@@ -144,6 +144,13 @@ and it decides which gym an event belongs to only from the receiving phone-numbe
 - Renewals use `gym_member_plans`: +1 or +3 months from the later of the end date and today (an
   expired package restarts today; a member without one gets the gym's first tier). Recorded only,
   never a payment.
+- QR attendance (phase 2, migration `2026-10-26-gym-attendance.sql`): a member's pass (`/my-qr`) is
+  `EATO1.<user>.<expiry>.<HMAC>`, valid two minutes, signed with a key derived from `CLERK_SECRET_KEY`
+  (`owner/passes.js`; no extra secret). The front desk verifies, then checks in (`owner/attendance.js`);
+  `gym_visits.open_member` allows one open visit per member per gym, so a double tap can't check in
+  twice. Every refused scan is a `gym_scan_failures` row; another gym's member stays anonymous. Members
+  check out by scanning the gym's `EATO-OUT-<code>` QR (switchable, regenerable) from the Home card,
+  or staff end the visit. On the web the scanner takes a typed code (`QrScanner`), which the tests use.
 
 ---
 

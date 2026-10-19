@@ -116,6 +116,17 @@ export default function OwnerHome() {
           ))}
         </View>
 
+        <Pressable onPress={() => router.navigate("/owner/checkin")} className="owner-card mx-5 mt-4 flex-row items-center gap-3" accessibilityRole="button" accessibilityLabel={`${s.inGymNow} in the gym now. Open Check-in`}>
+          <View className="owner-icon owner-icon--neutral">
+            <SymbolView name={{ ios: "qrcode.viewfinder", android: "qr_code_scanner", web: "qr_code_scanner" }} size={18} tintColor={colors.ink} />
+          </View>
+          <View className="min-w-0 flex-1">
+            <Text className="friend-row__name">{s.inGymNow} in the gym now</Text>
+            <Text className="friend-row__note">Scan member QR codes to check people in</Text>
+          </View>
+          <Text className="gym-section__link">Check-in</Text>
+        </Pressable>
+
         {memberApp && (
           <View className="mx-5 mt-4 flex-row flex-wrap gap-2">
             <Pressable onPress={() => router.push({ pathname: "/community/gyms/[id]/invite", params: { id: gymId } })} className="owner-quick owner-quick--primary" accessibilityRole="button" accessibilityLabel="Invite">

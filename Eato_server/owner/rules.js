@@ -39,4 +39,25 @@ function renewedEnd(currentEnd, today, months) {
   return target.toISOString().slice(0, 10);
 }
 
-module.exports = { renewalFlag, byDaysLeft, lastMonths, renewedEnd };
+// Why a member can't check in now, or null when they may. `membership` is their gym_members row
+// (or null), `plan` their latest package ({ status, daysLeft } or null), `openVisit` whether they
+// are already checked in. A member without a recorded package may check in (many gyms don't
+// record packages); an expired, paused or cancelled package may not.
+function checkinRefusal({ membership, plan, openVisit }) {
+  if (!membership) return "not_member";
+  if (membership.status !== "active") return "inactive";
+  if (plan && (plan.status !== "active" || (plan.daysLeft !== null && plan.daysLeft < 0))) return "inactive";
+  if (openVisit) return "already_in";
+  return null;
+}
+
+// The front desk's one-line explanation of each refusal
+const refusalMessages = {
+  invalid: "Invalid QR code. This isn't an EATO member code.",
+  expired: "This code has expired. Ask the member to open My QR code again.",
+  not_member: "Not a member here. This person isn't a member of this gym.",
+  inactive: "Membership not active. This membership is pending, suspended or expired, so they can't check in.",
+  already_in: "Already checked in. This member is in the gym now.",
+};
+
+module.exports = { renewalFlag, byDaysLeft, lastMonths, renewedEnd, checkinRefusal, refusalMessages };

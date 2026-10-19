@@ -5,6 +5,7 @@ const express = require("express");
 
 const cv = require("../community/validate");
 const owner = require("./owner");
+const attendance = require("./attendance");
 
 const router = express.Router();
 const smallBody = express.json({ limit: "4kb" });
@@ -37,6 +38,62 @@ router.post("/gyms/:gymId/renewals/:userId", smallBody, route(async (req, res) =
 // A member's own package in a gym (the member's side of renewals)
 router.get("/my-plan/:gymId", route(async (req, res) => {
   res.json(await owner.myPlan(pool(req), req.userId, gymId(req)));
+}));
+
+// ---- QR attendance (attendance.js) ----
+
+const visitId = (req) => cv.id(req.params.visitId, "The visit");
+
+// Front desk: who a scanned pass names and whether they may check in (a refusal is recorded)
+router.post("/gyms/:gymId/attendance/verify", smallBody, route(async (req, res) => {
+  res.json(await attendance.verify(pool(req), req.userId, gymId(req), attendance.validateScan(req.body)));
+}));
+
+// Front desk: check the member in (409 with the reason when they can't)
+router.post("/gyms/:gymId/attendance/checkin", smallBody, route(async (req, res) => {
+  res.status(201).json(await attendance.checkIn(pool(req), req.userId, gymId(req), attendance.validateScan(req.body)));
+}));
+
+// The Check-in tab: counts, in the gym now, completed today, recent activity
+router.get("/gyms/:gymId/attendance/today", route(async (req, res) => {
+  res.json(await attendance.today(pool(req), req.userId, gymId(req)));
+}));
+
+// Today's list (?filter=all|in|out&search=name)
+router.get("/gyms/:gymId/attendance/visits", route(async (req, res) => {
+  const filter = req.query.filter === undefined ? "all" : String(req.query.filter);
+  res.json(await attendance.listVisits(pool(req), req.userId, gymId(req), { filter, search: cv.searchTerm(req.query.search) }));
+}));
+
+router.get("/gyms/:gymId/attendance/visits/:visitId", route(async (req, res) => {
+  res.json(await attendance.getVisit(pool(req), req.userId, gymId(req), visitId(req)));
+}));
+
+// Staff end a visit
+router.post("/gyms/:gymId/attendance/visits/:visitId/checkout", route(async (req, res) => {
+  res.json(await attendance.staffCheckout(pool(req), req.userId, gymId(req), visitId(req)));
+}));
+
+// The gym's check-out QR: read (made on first use), switch on or off, regenerate
+router.get("/gyms/:gymId/checkout-qr", route(async (req, res) => {
+  res.json(await attendance.checkoutQr(pool(req), req.userId, gymId(req)));
+}));
+router.patch("/gyms/:gymId/checkout-qr", smallBody, route(async (req, res) => {
+  res.json(await attendance.setCheckoutQr(pool(req), req.userId, gymId(req), attendance.validateCheckoutQr(req.body)));
+}));
+router.post("/gyms/:gymId/checkout-qr/rotate", route(async (req, res) => {
+  res.json(await attendance.rotateCheckoutQr(pool(req), req.userId, gymId(req)));
+}));
+
+// The member's side: their own pass, their open visit, and checking out with the gym's QR
+router.get("/me/pass", route(async (req, res) => {
+  res.json(attendance.myPass(req.userId));
+}));
+router.get("/me/visit", route(async (req, res) => {
+  res.json(await attendance.myVisit(pool(req), req.userId));
+}));
+router.post("/me/checkout", smallBody, route(async (req, res) => {
+  res.json(await attendance.memberCheckout(pool(req), req.userId, attendance.validateCheckoutScan(req.body)));
 }));
 
 module.exports = { ownerRouter: router };

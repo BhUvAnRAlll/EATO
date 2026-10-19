@@ -29,7 +29,16 @@ export function GymAboutTab({ gym, staff, onLeave }: GymAboutTabProps) {
 
   return (
     <View className="gap-5">
-      {gym.membership?.status === "active" && gym.membership.role !== "owner" && <MyGymPlan gymId={gym.id} />}
+      {gym.membership?.status === "active" && gym.membership.role !== "owner" && (
+        <View className="gap-3">
+          <MyGymPlan gymId={gym.id} />
+          {/* The member's pass for the front desk's QR check-in */}
+          <Pressable onPress={() => router.push("/my-qr")} className="owner-quick" accessibilityRole="button" accessibilityLabel="Check in with my QR code">
+            <SymbolView name={{ ios: "qrcode", android: "qr_code_2", web: "qr_code_2" }} size={16} tintColor={colors.ink} />
+            <Text className="owner-quick__label">Check in with my QR code</Text>
+          </Pressable>
+        </View>
+      )}
       {empty && <EmptyState icon={{ ios: "info.circle", android: "info", web: "info" }} title="Nothing here yet" text="The gym hasn't added its details." />}
       {gym.description && (
         <Section title="About">

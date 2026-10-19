@@ -88,8 +88,9 @@ async function summary(pool, userId, gymId) {
        (SELECT COUNT(*) FROM community_posts WHERE gym_id = ? AND deleted_at IS NULL AND review_status = 'pending') AS posts_to_review,
        (SELECT COUNT(DISTINCT r.post_id) FROM community_reports r JOIN community_posts p ON p.id = r.post_id
           WHERE p.gym_id = ? AND p.deleted_at IS NULL AND r.status = 'open') AS reported_posts,
-       (SELECT COUNT(*) FROM gym_invitations WHERE gym_id = ? AND status = 'pending' AND expires_at > NOW()) AS invitations_pending`,
-    Array(8).fill(gymId),
+       (SELECT COUNT(*) FROM gym_invitations WHERE gym_id = ? AND status = 'pending' AND expires_at > NOW()) AS invitations_pending,
+       (SELECT COUNT(*) FROM gym_visits WHERE gym_id = ? AND checked_out_at IS NULL) AS in_gym_now`,
+    Array(9).fill(gymId),
   );
 
   let expired = 0;
@@ -137,6 +138,7 @@ async function summary(pool, userId, gymId) {
       postsThisWeek: n(counts.posts_this_week),
       plan: gym.plan,
     },
+    inGymNow: n(counts.in_gym_now),
     attention: {
       joinRequests: n(counts.join_requests),
       postsToReview: n(counts.posts_to_review),

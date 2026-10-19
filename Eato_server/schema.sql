@@ -367,6 +367,8 @@ CREATE TABLE gyms (
   who_can_create_events  ENUM('admins', 'trainers', 'members') NOT NULL DEFAULT 'trainers',
   member_approval        BOOLEAN       NOT NULL DEFAULT FALSE,
   post_moderation        BOOLEAN       NOT NULL DEFAULT FALSE,
+  checkout_qr_enabled    BOOLEAN       NOT NULL DEFAULT TRUE,   -- members may check out by scanning the gym's code
+  checkout_code          CHAR(12)      NULL,            -- the check-out QR's code (made on first use, replaced on regenerate)
   plan                   ENUM('starter', 'pro', 'elite') NOT NULL DEFAULT 'starter',
   member_count           INT UNSIGNED  NOT NULL DEFAULT 0,  -- active members, kept in step by the server
   created_by             VARCHAR(64)   NULL,            -- the platform admin who created it
@@ -375,6 +377,7 @@ CREATE TABLE gyms (
   PRIMARY KEY (id),
   UNIQUE KEY uq_gyms_name (name),
   UNIQUE KEY uq_gyms_invite_code (invite_code),
+  UNIQUE KEY uq_gyms_checkout_code (checkout_code),
   KEY idx_gyms_visibility (visibility, name),
   CONSTRAINT fk_gyms_logo FOREIGN KEY (logo_media_id) REFERENCES community_media (id) ON DELETE SET NULL,
   CONSTRAINT fk_gyms_cover FOREIGN KEY (cover_media_id) REFERENCES community_media (id) ON DELETE SET NULL,
@@ -729,6 +732,46 @@ CREATE TABLE gym_event_rsvps (
   CONSTRAINT fk_gym_event_rsvps_event FOREIGN KEY (event_id) REFERENCES gym_events (id) ON DELETE CASCADE,
   CONSTRAINT fk_gym_event_rsvps_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 ) ENGINE = InnoDB;
+
+-- One row per visit. A member has at most one open visit per gym (open_member), so a repeated tap
+-- or a second scan can never check them in twice. Visits are kept when a gym is closed
+-- (gyms are never deleted) and go with the member's account.
+CREATE TABLE gym_visits (
+  id               CHAR(36)     NOT NULL DEFAULT (UUID()),
+  gym_id           CHAR(36)     NOT NULL,
+  user_id          VARCHAR(64)  NOT NULL,
+  checked_in_at    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  checked_in_by    VARCHAR(64)  NULL,                   -- the staff member who scanned them in
+  checked_out_at   TIMESTAMP    NULL,
+  checkout_method  ENUM('qr', 'staff') NULL,            -- scanned the gym's code, or staff ended it
+  checked_out_by   VARCHAR(64)  NULL,                   -- the staff member, for 'staff'
+  open_member      VARCHAR(101) AS (IF(checked_out_at IS NULL, CONCAT(gym_id, ':', user_id), NULL)) VIRTUAL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_gym_visits_open (open_member),
+  KEY idx_gym_visits_gym_day (gym_id, checked_in_at),
+  KEY idx_gym_visits_user (user_id, checked_in_at),
+  CONSTRAINT fk_gym_visits_gym FOREIGN KEY (gym_id) REFERENCES gyms (id) ON DELETE RESTRICT,
+  CONSTRAINT fk_gym_visits_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+  CONSTRAINT fk_gym_visits_in_by FOREIGN KEY (checked_in_by) REFERENCES users (id) ON DELETE SET NULL,
+  CONSTRAINT fk_gym_visits_out_by FOREIGN KEY (checked_out_by) REFERENCES users (id) ON DELETE SET NULL,
+  CONSTRAINT chk_gym_visits_out CHECK (checked_out_at IS NULL OR checked_out_at >= checked_in_at),
+  CONSTRAINT chk_gym_visits_method CHECK ((checked_out_at IS NULL) = (checkout_method IS NULL))
+);
+
+-- A scan that didn't check anyone in, and why. user_id only when the code named a real member.
+CREATE TABLE gym_scan_failures (
+  id          CHAR(36)     NOT NULL DEFAULT (UUID()),
+  gym_id      CHAR(36)     NOT NULL,
+  scanned_by  VARCHAR(64)  NULL,
+  user_id     VARCHAR(64)  NULL,
+  reason      ENUM('invalid', 'expired', 'not_member', 'inactive', 'already_in') NOT NULL,
+  created_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_gym_scan_failures_gym_day (gym_id, created_at),
+  CONSTRAINT fk_gym_scan_failures_gym FOREIGN KEY (gym_id) REFERENCES gyms (id) ON DELETE RESTRICT,
+  CONSTRAINT fk_gym_scan_failures_by FOREIGN KEY (scanned_by) REFERENCES users (id) ON DELETE SET NULL,
+  CONSTRAINT fk_gym_scan_failures_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE SET NULL
+);
 
 -- Macro diary: the meals and water a member logs for themselves. Separate from the
 -- delivery menu (`meals`) and from `food_log` (kept for logging delivered orders).

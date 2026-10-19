@@ -3,7 +3,7 @@
 const assert = require("node:assert/strict");
 const { describe, it } = require("node:test");
 
-const { renewalFlag, byDaysLeft, lastMonths, renewedEnd } = require("../owner/rules");
+const { renewalFlag, byDaysLeft, lastMonths, renewedEnd, checkinRefusal, refusalMessages } = require("../owner/rules");
 
 describe("owner rules", () => {
   it("flags a package by the days left on it", () => {
@@ -40,5 +40,19 @@ describe("owner rules", () => {
     assert.equal(renewedEnd("2027-01-31", "2026-10-18", 1), "2027-02-28");
     assert.equal(renewedEnd("2028-01-31", "2026-10-18", 1), "2028-02-29", "leap year");
     assert.equal(renewedEnd("2026-11-30", "2026-10-18", 3), "2027-02-28");
+  });
+
+  it("decides who may check in: active members with no expired package, not already in", () => {
+    const active = { status: "active", role: "member" };
+    assert.equal(checkinRefusal({ membership: active, plan: null, openVisit: false }), null, "no package recorded is fine");
+    assert.equal(checkinRefusal({ membership: active, plan: { status: "active", daysLeft: 0 }, openVisit: false }), null, "ends today");
+    assert.equal(checkinRefusal({ membership: active, plan: { status: "active", daysLeft: null }, openVisit: false }), null, "no end date");
+    assert.equal(checkinRefusal({ membership: null, plan: null, openVisit: false }), "not_member");
+    assert.equal(checkinRefusal({ membership: { status: "pending" }, plan: null, openVisit: false }), "inactive");
+    assert.equal(checkinRefusal({ membership: { status: "suspended" }, plan: null, openVisit: false }), "inactive");
+    assert.equal(checkinRefusal({ membership: active, plan: { status: "active", daysLeft: -1 }, openVisit: false }), "inactive");
+    assert.equal(checkinRefusal({ membership: active, plan: { status: "paused", daysLeft: 20 }, openVisit: false }), "inactive");
+    assert.equal(checkinRefusal({ membership: active, plan: null, openVisit: true }), "already_in");
+    for (const reason of ["invalid", "expired", "not_member", "inactive", "already_in"]) assert.ok(refusalMessages[reason], reason);
   });
 });
