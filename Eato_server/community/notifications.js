@@ -1,6 +1,6 @@
 // The bell. Nothing is stored for it: every entry is read from the rows the events already
 // wrote (a like, a comment, a friendship answered, a trainer accepting, a plan saved, a gym
-// approval, an RSVP), always for the verified caller only. Two kinds of entry:
+// approval, an RSVP, a gym's notice), always for the verified caller only. Two kinds of entry:
 //   - requests the caller can act on (follow requests, friend requests, and join requests in
 //     gyms they manage); their count is the badge on the bell
 //   - activity from the last 30 days, newest first
@@ -102,6 +102,20 @@ async function rsvps(pool, userId) {
   return rows.map((row) => ({ type: "rsvp", member: member(row), gymId: row.gym_id, preview: `is going to ${row.title}`, at: iso(row.created_at) }));
 }
 
+// Notices the caller's gyms sent them (Notify members, reminders, check-in and renewal notes)
+async function gymNotices(pool, userId) {
+  const [rows] = await pool.query(
+    `SELECT n.id, n.gym_id, n.title, n.body, n.target, n.created_at, g.name AS gym_name
+     FROM gym_notice_recipients r JOIN gym_notices n ON n.id = r.notice_id JOIN gyms g ON g.id = n.gym_id
+     WHERE r.user_id = ? AND n.created_at >= NOW() - INTERVAL ? DAY
+     ORDER BY n.created_at DESC, n.id LIMIT 30`,
+    [userId, WINDOW_DAYS],
+  );
+  return rows.map((row) => ({
+    type: "gym_notice", noticeId: row.id, gymId: row.gym_id, gymName: row.gym_name, title: row.title, preview: row.body, target: row.target, at: iso(row.created_at),
+  }));
+}
+
 // Join requests waiting in gyms the caller owns or administers (actionable on the gym's Manage screen)
 async function gymJoinRequests(pool, userId) {
   const [rows] = await pool.query(
@@ -126,6 +140,7 @@ async function listNotifications(pool, userId) {
     fromMyTrainer(pool, userId),
     gymApprovals(pool, userId),
     rsvps(pool, userId),
+    gymNotices(pool, userId),
   ]);
   const activity = groups.flat().sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0)).slice(0, ACTIVITY_LIMIT);
   const friendRequests = friends.incoming;

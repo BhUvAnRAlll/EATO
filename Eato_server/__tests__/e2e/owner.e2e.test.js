@@ -14,7 +14,7 @@ const { startTestServer } = require("./server.js");
 const { clerkFor, describeClerkError } = require("./clerk-identities.js");
 
 const CLEANUP_TABLES = ["gym_member_plans", "whatsapp_agent_settings", "whatsapp_connections", "gym_event_rsvps", "gym_events",
-  "gym_invitations", "gym_members", "community_reports", "community_posts", "gym_visits", "gym_scan_failures", "gyms", "trainer_connections", "trainer_profiles"];
+  "gym_invitations", "gym_members", "community_reports", "community_posts", "gym_visits", "gym_scan_failures", "gym_notices", "gyms", "trainer_connections", "trainer_profiles"];
 
 describe("owner e2e: the gym owner portal's access, Home summary and renewals", () => {
   const runId = crypto.randomBytes(4).toString("hex");

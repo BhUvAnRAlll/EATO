@@ -71,6 +71,16 @@ export default function OwnerRenewals() {
     await loadSummary(token);
   };
 
+  const remind = async (row: RenewalRow | null) => {
+    if (!gymId || busy) return;
+    setBusy(true);
+    setNotice(null);
+    const result = row ? await owner.remind(await getToken(), gymId, row.member.id) : await owner.remindDue(await getToken(), gymId);
+    setBusy(false);
+    if (!result.ok) return setError(result.error);
+    setNotice(row ? `Reminder sent to ${row.member.name}.` : `Reminder sent to ${result.data.reach} ${result.data.reach === 1 ? "member" : "members"} expired or ending this week.`);
+  };
+
   const shown = (rows ?? []).filter((row) => filter === "all" || row.flag === filter);
   const counts = (key: Filter) => (rows ?? []).filter((row) => key === "all" || row.flag === key).length;
 
@@ -100,6 +110,10 @@ export default function OwnerRenewals() {
                 );
               })}
             </View>
+            <Pressable onPress={() => remind(null)} disabled={busy} className="owner-quick mx-5" style={{ alignSelf: "flex-start", opacity: busy ? 0.5 : 1 }} accessibilityRole="button" accessibilityLabel="Remind everyone due">
+              <SymbolView name={{ ios: "bell", android: "notifications", web: "notifications" }} size={16} tintColor={colors.ink} />
+              <Text className="owner-quick__label">Remind everyone due</Text>
+            </Pressable>
             {notice && <Text className="friend-row__note mx-5" accessibilityLiveRegion="polite">{notice}</Text>}
             {error && rows && (
               <Pressable onPress={() => setError(null)} className="mx-5">
@@ -159,6 +173,7 @@ export default function OwnerRenewals() {
             ? [
                 { label: "Renew for 1 month", onPress: () => renew(selected, 1) },
                 { label: "Renew for 3 months", onPress: () => renew(selected, 3) },
+                { label: "Send renewal reminder", onPress: () => remind(selected) },
               ]
             : []
         }

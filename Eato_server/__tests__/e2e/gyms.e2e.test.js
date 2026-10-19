@@ -16,7 +16,7 @@ const { startTestServer } = require("./server.js");
 const { clerkFor, describeClerkError } = require("./clerk-identities.js");
 
 const CLEANUP_TABLES = ["gym_event_rsvps", "gym_events", "gym_announcements", "gym_invitations", "community_comments", "community_post_likes",
-  "community_post_media", "community_reports", "community_posts", "gym_members", "whatsapp_agent_settings", "whatsapp_connections", "gym_visits", "gym_scan_failures", "gyms", "community_media"];
+  "community_post_media", "community_reports", "community_posts", "gym_members", "whatsapp_agent_settings", "whatsapp_connections", "gym_visits", "gym_scan_failures", "gym_notices", "gyms", "community_media"];
 
 describe("gyms e2e: communities, roles, joining, posts, events and invitations", () => {
   const runId = crypto.randomBytes(4).toString("hex");

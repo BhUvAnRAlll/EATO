@@ -150,7 +150,9 @@ export type Activity =
   | { type: "friend_accepted"; member: Member; preview: string; at: string }
   | { type: "trainer_accepted" | "plan_updated" | "workout_updated" | "recommendation"; member: Member; preview: string; at: string }
   | { type: "gym_approved"; gymId: string; preview: string; at: string }
-  | { type: "rsvp"; member: Member; gymId: string; preview: string; at: string };
+  | { type: "rsvp"; member: Member; gymId: string; preview: string; at: string }
+  // A notice from one of the member's gyms (Notify members, reminders, check-in and renewal notes)
+  | { type: "gym_notice"; noticeId: string; gymId: string; gymName: string; title: string; preview: string; target: "gym" | "events" | "my_qr" | "session" | "none"; at: string };
 
 // Join requests waiting in a gym the viewer owns or administers
 export type GymRequestSummary = { gymId: string; gymName: string; waiting: number; latestAt: string };

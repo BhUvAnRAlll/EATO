@@ -141,6 +141,10 @@ export default function OwnerHome() {
               <SymbolView name={{ ios: "calendar.badge.plus", android: "event", web: "event" }} size={16} tintColor={colors.ink} />
               <Text className="owner-quick__label">Event</Text>
             </Pressable>
+            <Pressable onPress={() => router.push("/owner/notify")} className="owner-quick" accessibilityRole="button" accessibilityLabel="Notify">
+              <SymbolView name={{ ios: "bell", android: "notifications", web: "notifications" }} size={16} tintColor={colors.ink} />
+              <Text className="owner-quick__label">Notify</Text>
+            </Pressable>
           </View>
         )}
 

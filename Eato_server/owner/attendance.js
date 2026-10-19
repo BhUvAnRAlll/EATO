@@ -130,12 +130,15 @@ async function checkIn(pool, staffId, gymId, { code }) {
       if (error?.code === "ER_DUP_ENTRY") return { refused: "already_in", userId: read.userId };
       throw error;
     }
-    return { visitId: id };
+    return { visitId: id, userId: read.userId, gymName: gym.name };
   });
   if (outcome.refused) {
     await recordFailure(pool, gymId, staffId, outcome.userId, outcome.refused);
     throw conflict(rules.refusalMessages[outcome.refused]);
   }
+  // The member's bell says they're in (opens their active session)
+  await require("./notices").notifyMember(pool, gymId, staffId, outcome.userId, "checkin", "Checked in",
+    `You're checked in at ${outcome.gymName}. Scan the check-out QR on your way out.`, "session");
   return { visit: await visitById(pool, gymId, outcome.visitId) };
 }
 

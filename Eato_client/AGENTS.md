@@ -151,6 +151,12 @@ and it decides which gym an event belongs to only from the receiving phone-numbe
   twice. Every refused scan is a `gym_scan_failures` row; another gym's member stays anonymous. Members
   check out by scanning the gym's `EATO-OUT-<code>` QR (switchable, regenerable) from the Home card,
   or staff end the visit. On the web the scanner takes a typed code (`QrScanner`), which the tests use.
+- Notices (phase 3, migration `2026-10-27-gym-notices.sql`): `owner/notices.js` works out each audience
+  on the server from active members only (everyone, in the gym now, renewal due, no visit in 14 days,
+  staff, chosen), saves the notice and its recipients, and rate limits each sender (30 an hour). Check-ins
+  and renewals add a note for the member; reminders go from Renewals. Members see them in the bell
+  (`community/notifications.js`, type `gym_notice`), and a tap opens its target. The Community tab's
+  counts come from `GET /api/owner/gyms/:id/community`.
 
 ---
 

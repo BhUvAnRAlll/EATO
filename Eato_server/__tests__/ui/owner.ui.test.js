@@ -28,7 +28,7 @@ const EVIDENCE_DIR = path.join(os.tmpdir(), "eato-ui-evidence");
 const SCREENSHOT_DIR = process.env.EATO_SCREENSHOT_DIR || null;
 const WIDTHS = [[320, 568], [390, 844], [430, 932]];
 const CLEANUP_TABLES = ["gym_member_plans", "gym_event_rsvps", "gym_events", "gym_invitations", "gym_members", "gym_faqs", "whatsapp_usage",
-  "whatsapp_agent_settings", "whatsapp_connections", "gym_visits", "gym_scan_failures", "gyms", "trainer_connections", "trainer_profiles"];
+  "whatsapp_agent_settings", "whatsapp_connections", "gym_visits", "gym_scan_failures", "gym_notices", "gyms", "trainer_connections", "trainer_profiles"];
 
 describe("ui owner: the gym owner portal for owners, members and platform admins", () => {
   const runId = crypto.randomBytes(4).toString("hex");
@@ -255,7 +255,7 @@ describe("ui owner: the gym owner portal for owners, members and platform admins
     await page.waitFor(`location.pathname === "/owner/gym"`, NAV_TIMEOUT, "gym tab");
     for (const label of ["Gym profile", "Subscription", "Trainers", "Members", "Renewals", "Invite & invitations", "Announcements", "Community settings", "Gym page"]) assert.equal(await hasLabel(label), true, label);
     await snapshotAllWidths("owner-gym");
-    await clickTab("Community");
+    await clickTab("Review");
     await h.expectText("Coming soon");
     await clickTab("Gym");
     await clickLabel("Gym page");

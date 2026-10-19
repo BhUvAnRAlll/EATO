@@ -6,6 +6,7 @@ const express = require("express");
 const cv = require("../community/validate");
 const owner = require("./owner");
 const attendance = require("./attendance");
+const notices = require("./notices");
 
 const router = express.Router();
 const smallBody = express.json({ limit: "4kb" });
@@ -30,6 +31,14 @@ router.get("/gyms/:gymId/renewals", route(async (req, res) => {
   res.json(await owner.renewals(pool(req), req.userId, gymId(req)));
 }));
 
+// Renewal reminders: everyone expired or ending this week (before /:userId, which would match it)
+router.post("/gyms/:gymId/renewals/remind-due", route(async (req, res) => {
+  res.status(201).json(await notices.remindDue(pool(req), req.userId, gymId(req)));
+}));
+router.post("/gyms/:gymId/renewals/:userId/remind", route(async (req, res) => {
+  res.status(201).json(await notices.remindOne(pool(req), req.userId, gymId(req), memberId(req)));
+}));
+
 // Renew one member's package by 1 or 3 months (recorded only, no payment)
 router.post("/gyms/:gymId/renewals/:userId", smallBody, route(async (req, res) => {
   res.json(await owner.renew(pool(req), req.userId, gymId(req), memberId(req), owner.validateRenewal(req.body)));
@@ -38,6 +47,24 @@ router.post("/gyms/:gymId/renewals/:userId", smallBody, route(async (req, res) =
 // A member's own package in a gym (the member's side of renewals)
 router.get("/my-plan/:gymId", route(async (req, res) => {
   res.json(await owner.myPlan(pool(req), req.userId, gymId(req)));
+}));
+
+// ---- Community tab and Notify members (notices.js) ----
+
+// The Community tab: a live count for each part of the gym, and the latest posts
+router.get("/gyms/:gymId/community", route(async (req, res) => {
+  res.json(await owner.community(pool(req), req.userId, gymId(req)));
+}));
+
+// Notify members: how many each audience reaches, the sent list, and sending (or a test to yourself)
+router.get("/gyms/:gymId/notices/audiences", route(async (req, res) => {
+  res.json(await notices.audiences(pool(req), req.userId, gymId(req)));
+}));
+router.get("/gyms/:gymId/notices", route(async (req, res) => {
+  res.json(await notices.sent(pool(req), req.userId, gymId(req)));
+}));
+router.post("/gyms/:gymId/notices", express.json({ limit: "32kb" }), route(async (req, res) => {
+  res.status(201).json(await notices.send(pool(req), req.userId, gymId(req), notices.validateNotice(req.body)));
 }));
 
 // ---- QR attendance (attendance.js) ----

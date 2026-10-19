@@ -64,6 +64,16 @@ export type AttendanceToday = {
   activity: ActivityItem[];
 };
 export type CheckoutQr = { gym: { id: string; name: string; logoUrl: string | null }; enabled: boolean; code: string; qrText: string; checkoutsToday: number };
+export type NoticeTarget = "gym" | "events" | "my_qr" | "session" | "none";
+export type NoticeAudience = "everyone" | "in_gym" | "renewal_due" | "inactive" | "staff" | "chosen" | "test";
+export type SentNotice = { id: string; kind: "message" | "reminder"; title: string; body: string; target: NoticeTarget; audience: NoticeAudience; reach: number; sentAt: string; sentBy: string | null };
+export type CommunitySummary = {
+  gym: ManagedGym;
+  counts: { postsToReview: number; posts: number; announcements: number; pinnedAnnouncements: number; upcomingEvents: number; upcomingRsvps: number; noticesSent: number; invitationsPending: number };
+  inviteCode: string;
+  rules: { visibility: Gym["visibility"]; whoCanPost: string; whoCanComment: string; whoCanCreateEvents: string; memberApproval: boolean; postModeration: boolean };
+  latestPosts: { id: string; author: Member; preview: string; at: string }[];
+};
 export type MyVisit = { id: string; gym: { id: string; name: string }; checkedInAt: string; minutes: number };
 
 const signedOut = <T>(): Promise<ApiResult<T>> => Promise.resolve({ ok: false, error: "Please sign in again." });
@@ -91,6 +101,15 @@ export const owner = {
   checkoutQr: (token: string | null, gymId: string) => call<CheckoutQr>(token, `/gyms/${gymId}/checkout-qr`),
   setCheckoutQr: (token: string | null, gymId: string, enabled: boolean) => call<CheckoutQr>(token, `/gyms/${gymId}/checkout-qr`, { method: "PATCH", body: { enabled } }),
   rotateCheckoutQr: (token: string | null, gymId: string) => call<CheckoutQr>(token, `/gyms/${gymId}/checkout-qr/rotate`, { method: "POST" }),
+
+  // The Community tab and Notify members
+  community: (token: string | null, gymId: string) => call<CommunitySummary>(token, `/gyms/${gymId}/community`),
+  audiences: (token: string | null, gymId: string) => call<{ counts: Record<Exclude<NoticeAudience, "chosen" | "test">, number> }>(token, `/gyms/${gymId}/notices/audiences`),
+  notices: (token: string | null, gymId: string) => call<{ notices: SentNotice[] }>(token, `/gyms/${gymId}/notices`),
+  sendNotice: (token: string | null, gymId: string, body: { title: string; body: string; target: NoticeTarget; audience?: NoticeAudience; userIds?: string[]; test?: boolean }) =>
+    call<{ notice: { id: string; reach: number } }>(token, `/gyms/${gymId}/notices`, { method: "POST", body }),
+  remind: (token: string | null, gymId: string, userId: string) => call<{ reach: number }>(token, `/gyms/${gymId}/renewals/${encodeURIComponent(userId)}/remind`, { method: "POST" }),
+  remindDue: (token: string | null, gymId: string) => call<{ reach: number }>(token, `/gyms/${gymId}/renewals/remind-due`, { method: "POST" }),
 
   // The member's side
   myPass: (token: string | null) => call<{ pass: string; expiresAt: string }>(token, "/me/pass"),

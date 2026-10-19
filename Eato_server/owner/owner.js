@@ -229,6 +229,10 @@ async function renew(pool, userId, gymId, memberId, { months }) {
     [result],
   );
   const shaped = planToApi(plan);
+  const [[gym]] = await pool.query("SELECT name FROM gyms WHERE id = ?", [gymId]);
+  // Required here: notices.js uses ownerAccess from this file
+  await require("./notices").notifyMember(pool, gymId, userId, memberId, "renewal", "Membership renewed",
+    `Your ${gym.name} ${shaped.name} package now runs until ${shaped.endsOn}.`, "gym");
   return { plan: shaped, flag: rules.renewalFlag(shaped.daysLeft) };
 }
 
@@ -246,4 +250,46 @@ async function myPlan(pool, userId, gymId) {
   return { plan: shaped, flag: rules.renewalFlag(shaped ? shaped.daysLeft : null) };
 }
 
-module.exports = { ownerAccess, managedGyms, summary, renewals, validateRenewal, renew, myPlan, STAFF_ONLY };
+// ---- Community tab ----------------------------------------------------------------------
+
+// Everything members see in the gym, with a live count for each card, and the latest posts
+async function community(pool, userId, gymId) {
+  const { gym, as } = await ownerAccess(pool, gymId, userId);
+  const [[g]] = await pool.query(
+    "SELECT invite_code, visibility, who_can_post, who_can_comment, who_can_create_events, member_approval, post_moderation FROM gyms WHERE id = ?",
+    [gymId],
+  );
+  const [[counts]] = await pool.query(
+    `SELECT
+       (SELECT COUNT(*) FROM community_posts WHERE gym_id = ? AND deleted_at IS NULL AND review_status = 'pending') AS to_review,
+       (SELECT COUNT(*) FROM community_posts WHERE gym_id = ? AND deleted_at IS NULL AND review_status = 'published') AS posts,
+       (SELECT COUNT(*) FROM gym_announcements WHERE gym_id = ?) AS announcements,
+       (SELECT COUNT(*) FROM gym_announcements WHERE gym_id = ? AND pinned) AS pinned,
+       (SELECT COUNT(*) FROM gym_events WHERE gym_id = ? AND event_date >= CURDATE()) AS upcoming,
+       (SELECT COALESCE(SUM(attendee_count), 0) FROM gym_events WHERE gym_id = ? AND event_date >= CURDATE()) AS rsvps,
+       (SELECT COUNT(*) FROM gym_notices WHERE gym_id = ? AND kind IN ('message', 'reminder')) AS notices,
+       (SELECT COUNT(*) FROM gym_invitations WHERE gym_id = ? AND status = 'pending' AND expires_at > NOW()) AS invitations`,
+    Array(8).fill(gymId),
+  );
+  const [latest] = await pool.query(
+    `SELECT p.id, p.body, p.created_at, p.user_id, u.full_name FROM community_posts p JOIN users u ON u.id = p.user_id
+     WHERE p.gym_id = ? AND p.deleted_at IS NULL AND p.review_status = 'published' ORDER BY p.created_at DESC, p.id LIMIT 3`,
+    [gymId],
+  );
+  const n = (v) => Number(v);
+  return {
+    gym: gymCard(gym, as),
+    counts: {
+      postsToReview: n(counts.to_review), posts: n(counts.posts), announcements: n(counts.announcements), pinnedAnnouncements: n(counts.pinned),
+      upcomingEvents: n(counts.upcoming), upcomingRsvps: n(counts.rsvps), noticesSent: n(counts.notices), invitationsPending: n(counts.invitations),
+    },
+    inviteCode: g.invite_code,
+    rules: {
+      visibility: g.visibility, whoCanPost: g.who_can_post, whoCanComment: g.who_can_comment, whoCanCreateEvents: g.who_can_create_events,
+      memberApproval: Boolean(g.member_approval), postModeration: Boolean(g.post_moderation),
+    },
+    latestPosts: latest.map((p) => ({ id: p.id, author: memberSummary(p), preview: p.body.slice(0, 120), at: new Date(p.created_at).toISOString() })),
+  };
+}
+
+module.exports = { ownerAccess, managedGyms, summary, renewals, validateRenewal, renew, myPlan, community, STAFF_ONLY };

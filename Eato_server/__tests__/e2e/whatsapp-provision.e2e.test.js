@@ -13,7 +13,7 @@ const { startTestServer } = require("./server.js");
 const { clerkFor, describeClerkError } = require("./clerk-identities.js");
 const { provisionAgent } = require("../../whatsapp/provision.js");
 
-const CLEANUP_TABLES = ["whatsapp_link_codes", "gym_member_plans", "whatsapp_agent_settings", "whatsapp_connections", "gym_members", "gym_visits", "gym_scan_failures", "gyms"];
+const CLEANUP_TABLES = ["whatsapp_link_codes", "gym_member_plans", "whatsapp_agent_settings", "whatsapp_connections", "gym_members", "gym_visits", "gym_scan_failures", "gym_notices", "gyms"];
 
 describe("whatsapp e2e: agent provisioning per gym", () => {
   const runId = crypto.randomBytes(4).toString("hex");
