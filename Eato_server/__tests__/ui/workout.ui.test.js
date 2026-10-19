@@ -199,7 +199,14 @@ describe("ui workout: the Fitness hub and a training day", () => {
     await h.expectText(target === state.today ? "Start Workout" : "Not yet");
     await snapshotAllWidths("workout-day-exercises");
 
-    await clickLabelStarting("More about ");
+    // An exercise with steps to read (on a training day today, warm-ups get a menu too, but
+    // theirs only offers "Start from this exercise")
+    const dayId = state.days.find((d) => d.weekday === weekdayOf(target)).id;
+    const [[withSteps]] = await connection.query(
+      "SELECT l.name FROM workout_day_exercises e JOIN workout_exercise_library l ON l.id = e.exercise_id WHERE e.day_id = ? AND JSON_LENGTH(l.instructions) > 0 ORDER BY FIELD(e.section, 'warmup', 'workout', 'cooldown'), e.position LIMIT 1",
+      [dayId],
+    );
+    await clickLabelStarting(`More about ${withSteps.name}`);
     await h.expectText("How to do it");
     await page.clickText("How to do it");
     await h.expectText("How to do it: ");
