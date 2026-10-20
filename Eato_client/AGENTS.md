@@ -157,6 +157,11 @@ and it decides which gym an event belongs to only from the receiving phone-numbe
   and renewals add a note for the member; reminders go from Renewals. Members see them in the bell
   (`community/notifications.js`, type `gym_notice`), and a tap opens its target. The Community tab's
   counts come from `GET /api/owner/gyms/:id/community`.
+- Review (phase 4, `owner/review.js`, no schema change): held gym posts are approved (published) or
+  rejected (soft-deleted); a reported gym post is kept (its open `community_reports` become `dismissed`)
+  or removed (soft-deleted, reports `reviewed`, in one transaction), the same statuses as EATO's admin
+  queue, so handled reports leave both. Reporters stay anonymous to the gym. The switch at the top is
+  `gyms.post_moderation`.
 
 ---
 

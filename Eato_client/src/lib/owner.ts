@@ -74,6 +74,13 @@ export type CommunitySummary = {
   rules: { visibility: Gym["visibility"]; whoCanPost: string; whoCanComment: string; whoCanCreateEvents: string; memberApproval: boolean; postModeration: boolean };
   latestPosts: { id: string; author: Member; preview: string; at: string }[];
 };
+export type ReviewPost = { id: string; author: Member; body: string; category: string; imageUrl: string | null; createdAt: string };
+export type ReviewQueue = {
+  gym: { id: string; name: string; as: OwnerAccess };
+  postModeration: boolean;
+  pending: ReviewPost[];
+  reported: { post: ReviewPost; reports: number; reasons: string[]; lastReportedAt: string }[];
+};
 export type MyVisit = { id: string; gym: { id: string; name: string }; checkedInAt: string; minutes: number };
 
 const signedOut = <T>(): Promise<ApiResult<T>> => Promise.resolve({ ok: false, error: "Please sign in again." });
@@ -110,6 +117,13 @@ export const owner = {
     call<{ notice: { id: string; reach: number } }>(token, `/gyms/${gymId}/notices`, { method: "POST", body }),
   remind: (token: string | null, gymId: string, userId: string) => call<{ reach: number }>(token, `/gyms/${gymId}/renewals/${encodeURIComponent(userId)}/remind`, { method: "POST" }),
   remindDue: (token: string | null, gymId: string) => call<{ reach: number }>(token, `/gyms/${gymId}/renewals/remind-due`, { method: "POST" }),
+
+  // Review: held posts and reported posts
+  review: (token: string | null, gymId: string) => call<ReviewQueue>(token, `/gyms/${gymId}/review`),
+  setPostModeration: (token: string | null, gymId: string, postModeration: boolean) =>
+    call<{ postModeration: boolean }>(token, `/gyms/${gymId}/review/settings`, { method: "PATCH", body: { postModeration } }),
+  reviewPost: (token: string | null, gymId: string, postId: string, action: "approve" | "reject" | "keep" | "remove") =>
+    call<{ id: string }>(token, `/gyms/${gymId}/review/posts/${postId}/${action}`, { method: "POST" }),
 
   // The member's side
   myPass: (token: string | null) => call<{ pass: string; expiresAt: string }>(token, "/me/pass"),

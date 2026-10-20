@@ -7,6 +7,7 @@ const cv = require("../community/validate");
 const owner = require("./owner");
 const attendance = require("./attendance");
 const notices = require("./notices");
+const review = require("./review");
 
 const router = express.Router();
 const smallBody = express.json({ limit: "4kb" });
@@ -66,6 +67,22 @@ router.get("/gyms/:gymId/notices", route(async (req, res) => {
 router.post("/gyms/:gymId/notices", express.json({ limit: "32kb" }), route(async (req, res) => {
   res.status(201).json(await notices.send(pool(req), req.userId, gymId(req), notices.validateNotice(req.body)));
 }));
+
+// ---- Review (review.js) ----
+
+// Held posts and reported posts, with the "review posts first" switch
+router.get("/gyms/:gymId/review", route(async (req, res) => {
+  res.json(await review.review(pool(req), req.userId, gymId(req)));
+}));
+router.patch("/gyms/:gymId/review/settings", smallBody, route(async (req, res) => {
+  res.json(await review.setModeration(pool(req), req.userId, gymId(req), review.validateModeration(req.body)));
+}));
+const postId = (req) => cv.id(req.params.postId, "The post");
+for (const action of ["approve", "reject", "keep", "remove"]) {
+  router.post(`/gyms/:gymId/review/posts/:postId/${action}`, route(async (req, res) => {
+    res.json(await review[action](pool(req), req.userId, gymId(req), postId(req)));
+  }));
+}
 
 // ---- QR attendance (attendance.js) ----
 

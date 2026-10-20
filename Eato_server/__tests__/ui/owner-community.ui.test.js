@@ -223,7 +223,41 @@ describe("ui owner community: the Community tab, Events and Notify members, and 
     await snapshotAllWidths("owner-renewals-reminders");
   }));
 
-  it("5. the member sees the gym's notice in their bell, and tapping it opens the gym", run("member", async () => {
+  it("5. Review: a held post is approved and a reported post is removed, after a confirmation", run("review", async () => {
+    const held = crypto.randomUUID();
+    const reported = crypto.randomUUID();
+    await connection.query("INSERT INTO community_posts (id, user_id, gym_id, review_status, body, created_at) VALUES (?, ?, ?, 'pending', 'Selling three unopened tubs of whey', NOW())", [held, identities.member.id, state.gym]);
+    await connection.query("INSERT INTO community_posts (id, user_id, gym_id, review_status, body) VALUES (?, ?, ?, 'published', 'Something rude about the trainers')", [reported, identities.lapsed.id, state.gym]);
+    await connection.query("INSERT INTO community_reports (id, reporter_id, post_id, reason) VALUES (UUID(), ?, ?, 'Harassment')", [identities.member.id, reported]);
+    await signInAs(page, h, identities.owner);
+    await h.expectPath("/home");
+    await clickTab("Community");
+    await page.clickText("Gyms");
+    await clickLabel("Gym owner portal for Iron Temple");
+    await page.waitFor(`location.pathname === "/owner"`, NAV_TIMEOUT, "owner home");
+    await clickTab("Review");
+    await page.waitFor(`location.pathname === "/owner/review"`, NAV_TIMEOUT, "review tab");
+    await h.expectText("Selling three unopened tubs of whey");
+    await h.expectText("Awaiting review");
+    await snapshotAllWidths("owner-review-pending");
+    await clickLabel("Approve Rohan Mehta's post");
+    await h.expectText("Approved: it's live in the gym feed.");
+    await waitForRow("SELECT review_status FROM community_posts WHERE id = ?", [held], (r) => r.review_status === "published", "approved");
+    await clickLabel("Reported (1)");
+    await h.expectText("Something rude about the trainers");
+    await h.expectText("Harassment");
+    assert.equal(await page.hasText("Rohan Mehta reported"), false, "reporters stay anonymous");
+    await snapshotAllWidths("owner-review-reported");
+    await clickLabel("Remove Zoe Adams's post");
+    await h.expectText("Remove this post?");
+    await page.clickText("Remove");
+    await h.expectText("Removed from the gym feed.");
+    const gone = await waitForRow("SELECT deleted_at FROM community_posts WHERE id = ?", [reported], (r) => r.deleted_at !== null, "removed");
+    assert.ok(gone.deleted_at);
+    assert.equal((await connection.query("SELECT status FROM community_reports WHERE post_id = ?", [reported]))[0][0].status, "reviewed");
+  }));
+
+  it("6. the member sees the gym's notice in their bell, and tapping it opens the gym", run("member", async () => {
     await signInAs(page, h, identities.member);
     await h.expectPath("/home");
     await page.navigate(`${expo.baseUrl}/community/notifications`);

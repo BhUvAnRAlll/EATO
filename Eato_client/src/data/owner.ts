@@ -11,11 +11,6 @@ export const ownerTabs: TabItem[] = [
   { name: "gym", label: "Gym", icon: { ios: "building.2", android: "apartment", web: "apartment" } },
 ];
 
-// Notes for the tabs that arrive in later phases (shown on their placeholder screens)
-export const ownerComingSoon = {
-  review: "Posts waiting for approval and posts members reported. Coming soon.",
-} as const;
-
 // Notify members: templates to start from (the owner edits them before sending)
 export const noticeTemplates: { label: string; title: string; body: string; target: NoticeTarget }[] = [
   { label: "Closing early", title: "Closing early today", body: "We're closing early today. Thanks for understanding, and see you tomorrow!", target: "gym" },

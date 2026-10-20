@@ -255,8 +255,6 @@ describe("ui owner: the gym owner portal for owners, members and platform admins
     await page.waitFor(`location.pathname === "/owner/gym"`, NAV_TIMEOUT, "gym tab");
     for (const label of ["Gym profile", "Subscription", "Trainers", "Members", "Renewals", "Invite & invitations", "Announcements", "Community settings", "Gym page"]) assert.equal(await hasLabel(label), true, label);
     await snapshotAllWidths("owner-gym");
-    await clickTab("Review");
-    await h.expectText("Coming soon");
     await clickTab("Gym");
     await clickLabel("Gym page");
     await page.waitFor(`location.pathname.startsWith("/community/gyms/")`, NAV_TIMEOUT, "the gym page opens");
@@ -284,6 +282,10 @@ describe("ui owner: the gym owner portal for owners, members and platform admins
   it("7. a platform admin opens any gym's owner portal from Admin › Gyms", run("platform", async () => {
     await signInAsAdmin(identities.platform);
     await h.goto("/admin/gyms", "Iron Temple");
+    // Admin › Gyms lists each gym as "<name>, <n> members · <plan> · <owner>"; its detail screen opens Gym Manager
+    const row = await page.waitFor(`(() => { const el = [...document.querySelectorAll("[aria-label]")].find((e) => e.getClientRects().length > 0 && e.getAttribute("aria-label").startsWith("Iron Temple, ")); if (!el) return null; el.scrollIntoView({ block: "center" }); const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`, NAV_TIMEOUT, "the Iron Temple row");
+    await page.clickAt(row.x, row.y);
+    await page.waitFor(`location.pathname.startsWith("/admin/gyms/")`, NAV_TIMEOUT, "the admin gym detail");
     await clickLabel("Open Gym Manager for Iron Temple");
     await page.waitFor(`location.pathname === "/owner"`, NAV_TIMEOUT, "owner home");
     await h.expectText("IRON TEMPLE · EATO ADMIN");
