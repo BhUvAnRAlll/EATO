@@ -4500,6 +4500,24 @@
   color: var(--color-primary);
 }
 
+/* Owner portal, gym assistant: a member's question, and the team's reply in the member's chat */
+@utility owner-quote {
+  padding: 12px;
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface-alt);
+}
+
+@utility owner-team-reply {
+  align-self: flex-start;
+  max-width: 88%;
+  padding: 12px;
+  gap: 4px;
+  border-radius: var(--radius-lg);
+  border-width: 1px;
+  border-color: var(--color-leaf);
+  background-color: var(--color-accent-soft);
+}
+
 /* The emoji above a workout prompt ("Do it today instead?") */
 @utility workout-sheet__emoji {
   font-size: 34px;

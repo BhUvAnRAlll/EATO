@@ -26,7 +26,7 @@ const EVIDENCE_DIR = path.join(os.tmpdir(), "eato-ui-evidence");
 const SCREENSHOT_DIR = process.env.EATO_SCREENSHOT_DIR || null;
 const WIDTHS = [[320, 568], [390, 844], [430, 932]];
 const CLEANUP_TABLES = ["gym_notices", "gym_visits", "gym_scan_failures", "gym_member_plans", "gym_announcements", "gym_event_rsvps", "gym_events", "community_posts",
-  "gym_members", "gym_faqs", "whatsapp_usage", "whatsapp_agent_settings", "whatsapp_connections", "gyms"];
+  "gym_members", "gym_faqs", "whatsapp_usage", "whatsapp_agent_settings", "whatsapp_connections", "gym_assistant_questions", "gyms"];
 
 describe("ui owner community: the Community tab, Events and Notify members, and the member's bell", () => {
   const runId = crypto.randomBytes(4).toString("hex");
@@ -95,7 +95,7 @@ describe("ui owner community: the Community tab, Events and Notify members, and 
     try { connection = await db.connect(env); } catch (error) { skipReason = `test database unreachable (${error?.code ?? "refused"})`; return; }
     assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in eato_test`);
     clerk = clerkFor(env.CLERK_SECRET_KEY);
-    server = await startTestServer(env);
+    server = await startTestServer({ ...env, AI_PROVIDER: "fake" }); // the gym assistant uses the test-only fake AI
     expo = await startExpoWeb({ port: EXPO_PORT, apiUrl: `http://localhost:${env.PORT}` });
     chrome = await launchChrome();
     client = await connect(chrome.browserWsUrl);
@@ -172,7 +172,7 @@ describe("ui owner community: the Community tab, Events and Notify members, and 
     await page.waitFor(`location.pathname === "/owner"`, NAV_TIMEOUT, "owner home");
     await clickTab("Community");
     await page.waitFor(`location.pathname === "/owner/community"`, NAV_TIMEOUT, "community tab");
-    for (const label of ["Gym feed, 1 post", "Announcements, 1 live", "Events, 1 upcoming · 0 RSVPs", "Member notifications, 0 sent", "Invites", "Rules & permissions", "Gym assistant"]) {
+    for (const label of ["Gym feed, 1 post", "Announcements, 1 live", "Events, 1 upcoming · 0 RSVPs", "Member notifications, 0 sent", "Invites", "Rules & permissions", "Gym assistant, 0 custom answers"]) {
       await page.waitFor(`[...document.querySelectorAll(${JSON.stringify(`[aria-label=${JSON.stringify(label)}]`)})].some((e) => e.getClientRects().length > 0)`, NAV_TIMEOUT, label);
     }
     await h.expectText("Week one of meal prep done");
@@ -266,5 +266,43 @@ describe("ui owner community: the Community tab, Events and Notify members, and 
     await page.clickText("Iron Temple: Closing early today");
     await page.waitFor(`location.pathname.startsWith("/community/gyms/")`, NAV_TIMEOUT, "the gym page");
     await h.expectText("Lift heavy, lift often");
+  }));
+
+  it("7. Gym assistant: a question the assistant couldn't answer is replied to, and the member sees the reply in Ask", run("assistant", async () => {
+    // A fresh session token: the one made in before() has expired by now
+    const fresh = await clerk.mintToken(identities.member.id);
+    tokens.member = fresh.jwt;
+    sessions.memberLate = fresh.sessionId;
+    const asked = await apiAs("member", "POST", `/api/gyms/${state.gym}/assistant`, { question: "Do you have a student discount?" });
+    assert.equal(asked.json.escalated, true, JSON.stringify(asked.json));
+    await signInAs(page, h, identities.owner);
+    await h.expectPath("/home");
+    await clickTab("Community");
+    await page.clickText("Gyms");
+    await clickLabel("Gym owner portal for Iron Temple");
+    await page.waitFor(`location.pathname === "/owner"`, NAV_TIMEOUT, "owner home");
+    await h.expectText("1 question for the team");
+    await clickLabel("1 question for the team. The gym assistant couldn't answer these. Reply and it reaches them in chat");
+    await page.waitFor(`location.pathname === "/owner/assistant"`, NAV_TIMEOUT, "gym assistant");
+    await h.expectText("Do you have a student discount?");
+    await snapshotAllWidths("owner-assistant-questions");
+    await page.setInput('[aria-label="Reply to Rohan Mehta"]', "Yes, 15% off with a college ID.");
+    await clickLabel("Send reply to Rohan Mehta");
+    await h.expectText("Reply sent to Rohan Mehta.");
+    await waitForRow("SELECT status FROM gym_assistant_questions WHERE gym_id = ?", [state.gym], (r) => r.status === "answered", "answered");
+    await clickLabel("Custom answers (0)");
+    await clickLabel("Add a custom answer");
+    await page.setInput('[aria-label="Custom answer question"]', "Guest pass");
+    await page.setInput('[aria-label="Custom answer text"]', "Members can bring one guest a month.");
+    await clickLabel("Save custom answer");
+    await h.expectText("Members can bring one guest a month.");
+    await snapshotAllWidths("owner-assistant-answers");
+    // The member sees the team's reply above their chat with the assistant
+    await signInAs(page, h, identities.member);
+    await h.expectPath("/home");
+    await page.navigate(`${expo.baseUrl}/community/gyms/${state.gym}/ask`);
+    await h.expectText("YOUR QUESTIONS TO THE TEAM");
+    await h.expectText("Yes, 15% off with a college ID.");
+    await snapshotAllWidths("member-ask-team-reply");
   }));
 });

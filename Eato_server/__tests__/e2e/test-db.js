@@ -106,6 +106,6 @@ async function befriend(connection, a, b) {
 // How many tables schema.sql creates. Every suite that rebuilds eato_test checks it, so a
 // table added to schema.sql (or a migration missing from it) is caught at once. Update it
 // here, in one place, when schema.sql gains or loses a table.
-const SCHEMA_TABLE_COUNT = 80;
+const SCHEMA_TABLE_COUNT = 81;
 
 module.exports = { SCHEMA_TABLE_COUNT, PROFILE_TABLES, loadTestEnv, connect, schemaStatements, resetSchema, rowCounts, rowsForUser, deleteUsers, befriend };

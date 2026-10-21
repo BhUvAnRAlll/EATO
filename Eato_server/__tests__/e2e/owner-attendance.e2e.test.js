@@ -14,7 +14,7 @@ const db = require("./test-db.js");
 const { startTestServer } = require("./server.js");
 const { clerkFor, describeClerkError } = require("./clerk-identities.js");
 
-const CLEANUP_TABLES = ["gym_visits", "gym_scan_failures", "gym_member_plans", "whatsapp_agent_settings", "whatsapp_connections", "gym_members", "gym_notices", "gyms"];
+const CLEANUP_TABLES = ["gym_visits", "gym_scan_failures", "gym_member_plans", "whatsapp_agent_settings", "whatsapp_connections", "gym_members", "gym_notices", "gym_assistant_questions", "gyms"];
 
 describe("owner attendance e2e: passes, check-in, check-out and the front desk lists", () => {
   const runId = crypto.randomBytes(4).toString("hex");

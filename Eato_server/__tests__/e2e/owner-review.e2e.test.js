@@ -14,7 +14,7 @@ const db = require("./test-db.js");
 const { startTestServer } = require("./server.js");
 const { clerkFor, describeClerkError } = require("./clerk-identities.js");
 
-const CLEANUP_TABLES = ["community_reports", "community_posts", "gym_notices", "gym_visits", "gym_scan_failures", "whatsapp_agent_settings", "whatsapp_connections", "gym_members", "gyms"];
+const CLEANUP_TABLES = ["community_reports", "community_posts", "gym_notices", "gym_visits", "gym_scan_failures", "whatsapp_agent_settings", "whatsapp_connections", "gym_members", "gym_assistant_questions", "gyms"];
 
 describe("owner review e2e: held posts and reported posts", () => {
   const runId = crypto.randomBytes(4).toString("hex");

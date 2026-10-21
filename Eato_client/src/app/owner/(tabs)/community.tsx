@@ -49,8 +49,9 @@ function cards(s: CommunitySummary, memberApp: boolean): Card[] {
     },
     {
       key: "assistant", icon: { ios: "bubble.left.and.text.bubble.right", android: "smart_toy", web: "smart_toy" }, title: "Gym assistant",
-      badge: null, text: "Answers questions about hours, prices, trainers and joining, any time.", who: "Anyone who can see your gym page can ask.",
-      primary: { label: "Answer questions", to: null, note: "Coming soon" },
+      badge: c.questionsToAnswer > 0 ? `${c.questionsToAnswer} to answer` : `${c.customAnswers} custom ${c.customAnswers === 1 ? "answer" : "answers"}`, warn: c.questionsToAnswer > 0,
+      text: "Answers questions about hours, prices, trainers and joining, any time. Questions it can't answer come to you.", who: "Anyone who can see your gym page can ask.",
+      primary: { label: "Answer questions", to: "/owner/assistant" },
       secondary: { label: "Try it", to: app({ pathname: "/community/gyms/[id]/ask", params: { id } }) },
     },
     {

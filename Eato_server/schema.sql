@@ -1584,3 +1584,27 @@ CREATE TABLE whatsapp_audit (
   CONSTRAINT fk_whatsapp_audit_gym FOREIGN KEY (gym_id) REFERENCES gyms (id) ON DELETE RESTRICT,
   CONSTRAINT fk_whatsapp_audit_actor FOREIGN KEY (actor_id) REFERENCES users (id) ON DELETE SET NULL
 ) ENGINE = InnoDB;
+
+-- ---- Gym owner portal: questions for the gym's team ----
+
+-- One row per question passed to the team. Gyms are never deleted (RESTRICT); the asker's account
+-- going takes their questions with it; a staff account going leaves its replies.
+CREATE TABLE gym_assistant_questions (
+  id           CHAR(36)      NOT NULL DEFAULT (UUID()),
+  gym_id       CHAR(36)      NOT NULL,
+  user_id      VARCHAR(64)   NOT NULL,                 -- who asked (the verified caller)
+  question     VARCHAR(500)  NOT NULL,
+  ai_reply     VARCHAR(1000) NULL,                     -- what the assistant told them at the time
+  status       ENUM('open', 'answered', 'dismissed') NOT NULL DEFAULT 'open',
+  answer       VARCHAR(1000) NULL,                     -- the team's reply
+  answered_by  VARCHAR(64)   NULL,
+  answered_at  TIMESTAMP     NULL,
+  created_at   TIMESTAMP(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (id),
+  KEY idx_gym_questions_gym (gym_id, status, created_at),
+  KEY idx_gym_questions_user (user_id, gym_id, created_at),
+  CONSTRAINT fk_gym_questions_gym FOREIGN KEY (gym_id) REFERENCES gyms (id) ON DELETE RESTRICT,
+  CONSTRAINT fk_gym_questions_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+  CONSTRAINT fk_gym_questions_answerer FOREIGN KEY (answered_by) REFERENCES users (id) ON DELETE SET NULL,
+  CONSTRAINT chk_gym_questions_answer CHECK ((status = 'answered') = (answer IS NOT NULL))
+);

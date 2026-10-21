@@ -152,6 +152,8 @@ export type Activity =
   | { type: "gym_approved"; gymId: string; preview: string; at: string }
   | { type: "rsvp"; member: Member; gymId: string; preview: string; at: string }
   // A notice from one of the member's gyms (Notify members, reminders, check-in and renewal notes)
+  // The gym team's reply to a question the member asked the gym's assistant
+  | { type: "gym_reply"; questionId: string; gymId: string; gymName: string; title: string; preview: string; at: string }
   | { type: "gym_notice"; noticeId: string; gymId: string; gymName: string; title: string; preview: string; target: "gym" | "events" | "my_qr" | "session" | "none"; at: string };
 
 // Join requests waiting in a gym the viewer owns or administers

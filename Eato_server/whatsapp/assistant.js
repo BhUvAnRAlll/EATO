@@ -24,6 +24,8 @@ async function ask(pool, userId, gym, question) {
   if (!knowledge || knowledge.agentStatus === "disabled") throw new AssistantUnavailable("This gym's assistant isn't switched on yet.", 409);
   const result = await answer(getProvider(), knowledge, [{ role: "user", content: question }], { channel: "app" });
   await recordUsage(pool, gym.id, "ai", 1, { inputTokens: result.inputTokens, outputTokens: result.outputTokens });
+  // Questions it couldn't answer go to the gym's team (owner portal › Gym assistant)
+  if (result.escalate) await require("../owner/questions").recordQuestion(pool, gym.id, userId, question, result.reply);
   return { reply: result.reply, escalated: result.escalate, contact: result.escalate ? knowledge.escalationContact : null };
 }
 

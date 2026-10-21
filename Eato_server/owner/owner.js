@@ -89,8 +89,9 @@ async function summary(pool, userId, gymId) {
        (SELECT COUNT(DISTINCT r.post_id) FROM community_reports r JOIN community_posts p ON p.id = r.post_id
           WHERE p.gym_id = ? AND p.deleted_at IS NULL AND r.status = 'open') AS reported_posts,
        (SELECT COUNT(*) FROM gym_invitations WHERE gym_id = ? AND status = 'pending' AND expires_at > NOW()) AS invitations_pending,
-       (SELECT COUNT(*) FROM gym_visits WHERE gym_id = ? AND checked_out_at IS NULL) AS in_gym_now`,
-    Array(9).fill(gymId),
+       (SELECT COUNT(*) FROM gym_visits WHERE gym_id = ? AND checked_out_at IS NULL) AS in_gym_now,
+       (SELECT COUNT(*) FROM gym_assistant_questions WHERE gym_id = ? AND status = 'open') AS open_questions`,
+    Array(10).fill(gymId),
   );
 
   let expired = 0;
@@ -146,6 +147,7 @@ async function summary(pool, userId, gymId) {
       membershipsExpired: expired,
       membershipsEndingThisWeek: endingThisWeek,
       invitationsPending: n(counts.invitations_pending),
+      questionsForTeam: n(counts.open_questions),
     },
     newMembers: months.map((month) => ({ month, count: joinedBy.get(month) ?? 0 })),
     coachingTeam: team.map((row) => ({ member: memberSummary(row), title: row.title ?? null, clients: n(row.clients) })),
@@ -268,8 +270,10 @@ async function community(pool, userId, gymId) {
        (SELECT COUNT(*) FROM gym_events WHERE gym_id = ? AND event_date >= CURDATE()) AS upcoming,
        (SELECT COALESCE(SUM(attendee_count), 0) FROM gym_events WHERE gym_id = ? AND event_date >= CURDATE()) AS rsvps,
        (SELECT COUNT(*) FROM gym_notices WHERE gym_id = ? AND kind IN ('message', 'reminder')) AS notices,
-       (SELECT COUNT(*) FROM gym_invitations WHERE gym_id = ? AND status = 'pending' AND expires_at > NOW()) AS invitations`,
-    Array(8).fill(gymId),
+       (SELECT COUNT(*) FROM gym_invitations WHERE gym_id = ? AND status = 'pending' AND expires_at > NOW()) AS invitations,
+       (SELECT COUNT(*) FROM gym_assistant_questions WHERE gym_id = ? AND status = 'open') AS questions,
+       (SELECT COUNT(*) FROM gym_faqs WHERE gym_id = ? AND active) AS faqs`,
+    Array(10).fill(gymId),
   );
   const [latest] = await pool.query(
     `SELECT p.id, p.body, p.created_at, p.user_id, u.full_name FROM community_posts p JOIN users u ON u.id = p.user_id
@@ -282,6 +286,7 @@ async function community(pool, userId, gymId) {
     counts: {
       postsToReview: n(counts.to_review), posts: n(counts.posts), announcements: n(counts.announcements), pinnedAnnouncements: n(counts.pinned),
       upcomingEvents: n(counts.upcoming), upcomingRsvps: n(counts.rsvps), noticesSent: n(counts.notices), invitationsPending: n(counts.invitations),
+      questionsToAnswer: n(counts.questions), customAnswers: n(counts.faqs),
     },
     inviteCode: g.invite_code,
     rules: {

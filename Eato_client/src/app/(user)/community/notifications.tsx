@@ -31,6 +31,7 @@ const ICONS: Record<Activity["type"], { icon: Icon; tint: string }> = {
   recommendation: { icon: { ios: "target", android: "track_changes", web: "track_changes" }, tint: colors.leaf },
   gym_approved: { icon: { ios: "checkmark.seal.fill", android: "verified", web: "verified" }, tint: colors.leaf },
   rsvp: { icon: { ios: "calendar.badge.checkmark", android: "event_available", web: "event_available" }, tint: colors.leaf },
+  gym_reply: { icon: { ios: "bubble.left.and.text.bubble.right", android: "smart_toy", web: "smart_toy" }, tint: colors.leaf },
   gym_notice: { icon: { ios: "megaphone", android: "campaign", web: "campaign" }, tint: colors.leaf },
 };
 
@@ -52,6 +53,8 @@ function openActivity(activity: Activity) {
     case "gym_approved":
     case "rsvp":
       return router.push({ pathname: "/community/gyms/[id]", params: { id: activity.gymId } });
+    case "gym_reply":
+      return router.push({ pathname: "/community/gyms/[id]/ask", params: { id: activity.gymId } });
     case "gym_notice":
       // Where the gym's notice points
       if (activity.target === "events") return router.push({ pathname: "/community/gyms/[id]", params: { id: activity.gymId, tab: "events" } });
@@ -67,10 +70,11 @@ function activityLabel(a: Activity): string {
   if (a.type === "like") return `${a.member.name} liked your post: ${a.preview}`;
   if (a.type === "comment") return `${a.member.name} commented on your post: ${a.preview}`;
   if (a.type === "gym_notice") return `${a.gymName}: ${a.title}. ${a.preview}`;
+  if (a.type === "gym_reply") return `${a.gymName} team replied to “${a.title}”: ${a.preview}`;
   return "member" in a ? `${a.member.name} ${a.preview}` : a.preview;
 }
 
-const activityKey = (a: Activity) => a.type === "gym_notice" ? `gym_notice-${a.noticeId}` : `${a.type}-${"member" in a ? a.member.id : ""}-${"postId" in a ? a.postId : ""}-${"gymId" in a ? a.gymId : ""}-${a.at}`;
+const activityKey = (a: Activity) => a.type === "gym_notice" ? `gym_notice-${a.noticeId}` : a.type === "gym_reply" ? `gym_reply-${a.questionId}` : `${a.type}-${"member" in a ? a.member.id : ""}-${"postId" in a ? a.postId : ""}-${"gymId" in a ? a.gymId : ""}-${a.at}`;
 
 // The bell: requests to act on (follows, friends, gym joins), then recent activity: likes and
 // comments on your posts, friends accepting, your trainer's updates, gym approvals and RSVPs
@@ -177,9 +181,10 @@ export default function CommunityNotifications() {
       activity.type === "like" ? `${activity.member.name} liked your post`
       : activity.type === "comment" ? `${activity.member.name} commented on your post`
       : activity.type === "gym_notice" ? `${activity.gymName}: ${activity.title}`
+      : activity.type === "gym_reply" ? `${activity.gymName} team replied`
       : "member" in activity ? `${activity.member.name} ${activity.preview}`
       : activity.preview;
-    const detail = activity.type === "like" || activity.type === "comment" ? `“${activity.preview}”` : activity.type === "gym_notice" ? activity.preview : null;
+    const detail = activity.type === "like" || activity.type === "comment" ? `“${activity.preview}”` : activity.type === "gym_notice" || activity.type === "gym_reply" ? activity.preview : null;
     return (
       <Pressable key={keyOf(item)} onPress={() => openActivity(activity)} className={edge} accessibilityRole="button" accessibilityLabel={activityLabel(activity)}>
         {"member" in activity ? (

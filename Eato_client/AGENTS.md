@@ -129,7 +129,7 @@ and it decides which gym an event belongs to only from the receiving phone-numbe
   each other (`sendAccess` in `community/messages.js`), on top of the friends rule.
 
 
-### Gym owner portal (in progress)
+### Gym owner portal
 
 - Spec and mockups: `Gym Owner Portal Screens and Workflow/` at the repo root, built in phases (1 Home,
   Members and Renewals; 2 QR check-in; 3 Community and Notify; 4 Review; 5 Gym tab, assistant replies).
@@ -162,6 +162,12 @@ and it decides which gym an event belongs to only from the receiving phone-numbe
   or removed (soft-deleted, reports `reviewed`, in one transaction), the same statuses as EATO's admin
   queue, so handled reports leave both. Reporters stay anonymous to the gym. The switch at the top is
   `gyms.post_moderation`.
+- Gym assistant, owner side (phase 5, migration `2026-10-29-gym-assistant-questions.sql`): when the in-app
+  assistant escalates, `whatsapp/assistant.js` calls `owner/questions.recordQuestion` (it never throws).
+  The owner portal lists open questions and replies once or dismisses; the asker sees replies in the
+  Ask chat (`MyTeamReplies`) and the bell (`gym_reply`), never who on the team wrote them. Custom answers
+  are `gym_faqs` rows edited through `/api/owner/gyms/:id/faqs` (`owner/faqs.js`); the agent reads the
+  active ones first. Tests use `AI_PROVIDER: "fake"`.
 
 ---
 

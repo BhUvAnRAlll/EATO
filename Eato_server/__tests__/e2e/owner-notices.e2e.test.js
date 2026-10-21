@@ -15,7 +15,7 @@ const { startTestServer } = require("./server.js");
 const { clerkFor, describeClerkError } = require("./clerk-identities.js");
 
 const CLEANUP_TABLES = ["gym_notices", "gym_visits", "gym_scan_failures", "gym_member_plans", "gym_announcements", "gym_events", "community_posts", "community_profiles",
-  "whatsapp_agent_settings", "whatsapp_connections", "gym_members", "gyms"];
+  "whatsapp_agent_settings", "whatsapp_connections", "gym_members", "gym_assistant_questions", "gyms"];
 
 describe("owner notices e2e: Notify members, reminders, automatic notes and the Community tab", () => {
   const runId = crypto.randomBytes(4).toString("hex");

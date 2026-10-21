@@ -28,6 +28,7 @@ function attentionRows(s: OwnerSummary, memberApp: boolean): AttentionRow[] {
   if (a.reportedPosts > 0) rows.push({ key: "reported", icon: { ios: "flag", android: "flag", web: "flag" }, tone: "danger", title: plural(a.reportedPosts, "reported post", "reported posts"), note: "Members flagged posts in your gym", to: "/owner/review" });
   const ending = a.membershipsExpired + a.membershipsEndingThisWeek;
   if (ending > 0) rows.push({ key: "renewals", icon: { ios: "calendar.badge.clock", android: "event_busy", web: "event_busy" }, tone: "danger", title: plural(ending, "membership ending", "memberships ending"), note: `${a.membershipsExpired} expired · ${a.membershipsEndingThisWeek} end this week. Renew them`, to: "/owner/renewals" });
+  if (a.questionsForTeam > 0) rows.push({ key: "questions", icon: { ios: "bubble.left.and.text.bubble.right", android: "smart_toy", web: "smart_toy" }, tone: "warning", title: plural(a.questionsForTeam, "question for the team", "questions for the team"), note: "The gym assistant couldn't answer these. Reply and it reaches them in chat", to: "/owner/assistant" });
   if (a.invitationsPending > 0 && memberApp) rows.push({ key: "invites", icon: { ios: "envelope", android: "mail", web: "mail" }, tone: "warning", title: plural(a.invitationsPending, "invitation not accepted yet", "invitations not accepted yet"), note: "Share them again or revoke them", to: { pathname: "/community/gyms/[id]/invite", params: { id: s.gym.id } } });
   return rows;
 }

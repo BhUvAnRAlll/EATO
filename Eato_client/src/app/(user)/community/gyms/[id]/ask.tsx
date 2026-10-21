@@ -6,6 +6,7 @@ import { SymbolView } from "expo-symbols";
 import { router, useLocalSearchParams } from "expo-router";
 
 import { GymLogo } from "@/components/community/GymCard";
+import { MyTeamReplies } from "@/components/owner/MyTeamReplies";
 import { gyms, type Gym } from "@/lib/gyms";
 import { useSessionToken } from "@/lib/session";
 import { colors } from "@/theme";
@@ -17,7 +18,8 @@ const MAX_QUESTION = 500;
 
 // Ask the gym: a chat with the gym's assistant, the same agent as its WhatsApp. It answers from
 // the gym's approved facts only; when it can't, it says so and shows the gym's contact. Each
-// question is a separate paid AI call, limited per member by the server. Nothing is stored.
+// question is a separate paid AI call, limited per member by the server. A question it can't answer
+// is kept for the gym's team; their replies show above the chat (MyTeamReplies).
 export default function AskGym() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const getToken = useSessionToken();
@@ -75,6 +77,7 @@ export default function AskGym() {
 
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
           <ScrollView ref={scroll} contentContainerStyle={{ padding: 20, gap: 12 }} onContentSizeChange={() => scroll.current?.scrollToEnd({ animated: true })} keyboardShouldPersistTaps="handled">
+            <MyTeamReplies gymId={id} gymName={name} />
             <View className="flex-row items-center gap-1.5">
               <SymbolView name={{ ios: "sparkles", android: "smart_toy", web: "smart_toy" }} size={13} tintColor={colors.muted} />
               <Text className="ask__who">Assistant</Text>

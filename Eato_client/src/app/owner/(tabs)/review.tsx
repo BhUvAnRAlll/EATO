@@ -124,7 +124,7 @@ export default function OwnerReview() {
                 <Text className="friend-row__name">Review posts before they go live</Text>
                 <Text className="friend-row__note">Posts from members (not staff) wait here for approval.</Text>
               </View>
-              <Switch value={data.postModeration} onValueChange={toggle} trackColor={{ true: colors.leaf }} accessibilityLabel="Review posts before they go live" />
+              <Switch value={data.postModeration} onValueChange={toggle} trackColor={{ true: colors.leaf, false: colors.creamTab }} accessibilityLabel="Review posts before they go live" />
             </View>
 
             <View className="segment" accessibilityRole="tablist">

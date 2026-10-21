@@ -116,6 +116,20 @@ async function gymNotices(pool, userId) {
   }));
 }
 
+// The team's replies to questions the caller asked a gym's assistant
+async function teamReplies(pool, userId) {
+  const [rows] = await pool.query(
+    `SELECT q.id, q.gym_id, q.question, q.answer, q.answered_at, g.name AS gym_name
+     FROM gym_assistant_questions q JOIN gyms g ON g.id = q.gym_id
+     WHERE q.user_id = ? AND q.status = 'answered' AND q.answered_at >= NOW() - INTERVAL ? DAY
+     ORDER BY q.answered_at DESC, q.id LIMIT 20`,
+    [userId, WINDOW_DAYS],
+  );
+  return rows.map((row) => ({
+    type: "gym_reply", questionId: row.id, gymId: row.gym_id, gymName: row.gym_name, title: row.question.slice(0, 80), preview: row.answer.slice(0, 160), at: iso(row.answered_at),
+  }));
+}
+
 // Join requests waiting in gyms the caller owns or administers (actionable on the gym's Manage screen)
 async function gymJoinRequests(pool, userId) {
   const [rows] = await pool.query(
@@ -141,6 +155,7 @@ async function listNotifications(pool, userId) {
     gymApprovals(pool, userId),
     rsvps(pool, userId),
     gymNotices(pool, userId),
+    teamReplies(pool, userId),
   ]);
   const activity = groups.flat().sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0)).slice(0, ACTIVITY_LIMIT);
   const friendRequests = friends.incoming;

@@ -8,6 +8,8 @@ const owner = require("./owner");
 const attendance = require("./attendance");
 const notices = require("./notices");
 const review = require("./review");
+const questions = require("./questions");
+const faqs = require("./faqs");
 
 const router = express.Router();
 const smallBody = express.json({ limit: "4kb" });
@@ -83,6 +85,41 @@ for (const action of ["approve", "reject", "keep", "remove"]) {
     res.json(await review[action](pool(req), req.userId, gymId(req), postId(req)));
   }));
 }
+
+// ---- Gym assistant (questions.js, faqs.js) ----
+
+const questionId = (req) => cv.id(req.params.questionId, "The question");
+const faqId = (req) => cv.id(req.params.faqId, "The custom answer");
+
+// Questions the assistant passed to the team: list, reply (once), dismiss
+router.get("/gyms/:gymId/questions", route(async (req, res) => {
+  res.json(await questions.list(pool(req), req.userId, gymId(req)));
+}));
+router.post("/gyms/:gymId/questions/:questionId/reply", smallBody, route(async (req, res) => {
+  res.json(await questions.reply(pool(req), req.userId, gymId(req), questionId(req), questions.validateReply(req.body)));
+}));
+router.post("/gyms/:gymId/questions/:questionId/dismiss", route(async (req, res) => {
+  res.json(await questions.dismiss(pool(req), req.userId, gymId(req), questionId(req)));
+}));
+
+// Custom answers the assistant uses first
+router.get("/gyms/:gymId/faqs", route(async (req, res) => {
+  res.json(await faqs.list(pool(req), req.userId, gymId(req)));
+}));
+router.post("/gyms/:gymId/faqs", smallBody, route(async (req, res) => {
+  res.status(201).json(await faqs.create(pool(req), req.userId, gymId(req), faqs.validateFaq(req.body)));
+}));
+router.patch("/gyms/:gymId/faqs/:faqId", smallBody, route(async (req, res) => {
+  res.json(await faqs.update(pool(req), req.userId, gymId(req), faqId(req), faqs.validateFaq(req.body, { partial: true })));
+}));
+router.delete("/gyms/:gymId/faqs/:faqId", route(async (req, res) => {
+  res.json(await faqs.remove(pool(req), req.userId, gymId(req), faqId(req)));
+}));
+
+// The asker's own questions in a gym, with the team's replies (the Ask chat)
+router.get("/my-questions/:gymId", route(async (req, res) => {
+  res.json(await questions.mine(pool(req), req.userId, gymId(req)));
+}));
 
 // ---- QR attendance (attendance.js) ----
 

@@ -19,6 +19,7 @@ export type OwnerSummary = {
     membershipsExpired: number;
     membershipsEndingThisWeek: number;
     invitationsPending: number;
+    questionsForTeam: number;
   };
   inGymNow: number;
   newMembers: { month: string; count: number }[];
@@ -69,7 +70,7 @@ export type NoticeAudience = "everyone" | "in_gym" | "renewal_due" | "inactive" 
 export type SentNotice = { id: string; kind: "message" | "reminder"; title: string; body: string; target: NoticeTarget; audience: NoticeAudience; reach: number; sentAt: string; sentBy: string | null };
 export type CommunitySummary = {
   gym: ManagedGym;
-  counts: { postsToReview: number; posts: number; announcements: number; pinnedAnnouncements: number; upcomingEvents: number; upcomingRsvps: number; noticesSent: number; invitationsPending: number };
+  counts: { postsToReview: number; posts: number; announcements: number; pinnedAnnouncements: number; upcomingEvents: number; upcomingRsvps: number; noticesSent: number; invitationsPending: number; questionsToAnswer: number; customAnswers: number };
   inviteCode: string;
   rules: { visibility: Gym["visibility"]; whoCanPost: string; whoCanComment: string; whoCanCreateEvents: string; memberApproval: boolean; postModeration: boolean };
   latestPosts: { id: string; author: Member; preview: string; at: string }[];
@@ -81,10 +82,13 @@ export type ReviewQueue = {
   pending: ReviewPost[];
   reported: { post: ReviewPost; reports: number; reasons: string[]; lastReportedAt: string }[];
 };
+export type TeamQuestion = { id: string; asker: Member; question: string; aiReply: string | null; status: "open" | "answered" | "dismissed"; answer: string | null; answeredBy: string | null; answeredAt: string | null; askedAt: string };
+export type MyTeamQuestion = { id: string; question: string; status: "open" | "answered" | "dismissed"; answer: string | null; answeredAt: string | null; askedAt: string };
+export type CustomAnswer = { id: string; question: string; answer: string; active: boolean; position: number };
 export type MyVisit = { id: string; gym: { id: string; name: string }; checkedInAt: string; minutes: number };
 
 const signedOut = <T>(): Promise<ApiResult<T>> => Promise.resolve({ ok: false, error: "Please sign in again." });
-const call = <T>(token: string | null, path: string, init: { method?: "POST" | "PATCH"; body?: unknown } = {}): Promise<ApiResult<T>> =>
+const call = <T>(token: string | null, path: string, init: { method?: "POST" | "PATCH" | "DELETE"; body?: unknown } = {}): Promise<ApiResult<T>> =>
   token ? apiFetch(`/api/owner${path}`, { ...init, token }) : signedOut();
 
 export const owner = {
@@ -124,6 +128,18 @@ export const owner = {
     call<{ postModeration: boolean }>(token, `/gyms/${gymId}/review/settings`, { method: "PATCH", body: { postModeration } }),
   reviewPost: (token: string | null, gymId: string, postId: string, action: "approve" | "reject" | "keep" | "remove") =>
     call<{ id: string }>(token, `/gyms/${gymId}/review/posts/${postId}/${action}`, { method: "POST" }),
+
+  // Gym assistant: questions for the team, and custom answers
+  questions: (token: string | null, gymId: string) => call<{ open: TeamQuestion[]; closed: TeamQuestion[] }>(token, `/gyms/${gymId}/questions`),
+  replyQuestion: (token: string | null, gymId: string, id: string, answer: string) => call<{ question: TeamQuestion }>(token, `/gyms/${gymId}/questions/${id}/reply`, { method: "POST", body: { answer } }),
+  dismissQuestion: (token: string | null, gymId: string, id: string) => call<{ id: string }>(token, `/gyms/${gymId}/questions/${id}/dismiss`, { method: "POST" }),
+  faqs: (token: string | null, gymId: string) => call<{ faqs: CustomAnswer[] }>(token, `/gyms/${gymId}/faqs`),
+  createFaq: (token: string | null, gymId: string, body: { question: string; answer: string }) => call<{ faq: CustomAnswer }>(token, `/gyms/${gymId}/faqs`, { method: "POST", body }),
+  updateFaq: (token: string | null, gymId: string, id: string, body: Partial<{ question: string; answer: string; active: boolean }>) =>
+    call<{ faq: CustomAnswer }>(token, `/gyms/${gymId}/faqs/${id}`, { method: "PATCH", body }),
+  deleteFaq: (token: string | null, gymId: string, id: string) => call<{ deleted: true }>(token, `/gyms/${gymId}/faqs/${id}`, { method: "DELETE" }),
+  // The asker's own questions in a gym (the Ask chat)
+  myQuestions: (token: string | null, gymId: string) => call<{ gymName: string | null; questions: MyTeamQuestion[] }>(token, `/my-questions/${gymId}`),
 
   // The member's side
   myPass: (token: string | null) => call<{ pass: string; expiresAt: string }>(token, "/me/pass"),
