@@ -1,16 +1,16 @@
-// What EATO already knows about a member, turned into the engine's inputs.
+// What JustFit already knows about a member, turned into the engine's inputs.
 //
 // Two sources, in this order of precedence for every field:
 //   1. the member's workout answers (workout_profiles: what Preferences and "Rebuild my
 //      plan" saved), which only ever shape training;
-//   2. the EATO profile from setup (profiles), which also drives nutrition targets and is
+//   2. the JustFit profile from setup (profiles), which also drives nutrition targets and is
 //      never written by the workout feature;
 // then the engine's own cautious defaults (inputsFromProfile in engine.ts).
 
 import { inputsFromProfile, type BodyType, type EngineProfile, type ExperienceLevel, type FitnessGoal, type Gender, type Pace, type PlanInputs, type PlanSplit, type Score } from "./engine.ts";
 
 /** The setup profile fields the engine can use (server row names, camel-cased). */
-export type EatoProfile = {
+export type MemberProfile = {
   dob?: string | null; // YYYY-MM-DD
   gender?: string | null; // 'male' | 'female' | 'other' | 'unspecified'
   goal?: string | null; // 'fat_loss' | 'maintenance' | 'muscle_gain' | 'healthy_eating'
@@ -39,9 +39,9 @@ export type WorkoutAnswers = {
   split?: PlanSplit | null;
 };
 
-// EATO's setup goals onto the engine's four. Maintenance and healthy eating both train
+// JustFit's setup goals onto the engine's four. Maintenance and healthy eating both train
 // the "stay fit" way in the engine, so the choice between them changes nothing.
-const GOAL_FROM_EATO: Record<string, FitnessGoal> = {
+const GOAL_FROM_PROFILE: Record<string, FitnessGoal> = {
   fat_loss: "lose_weight",
   muscle_gain: "build_muscle",
   maintenance: "stay_healthy",
@@ -55,20 +55,20 @@ const DAYS_FROM_FREQUENCY: Record<string, number> = { "1-2": 1, "3-4": 3, "5-6":
 const present = <T,>(value: T | null | undefined): T | undefined => (value === null || value === undefined ? undefined : value);
 
 /** The engine profile for a member: workout answers first, then the setup profile. */
-export function engineProfileFor(eato: EatoProfile, answers: WorkoutAnswers = {}): EngineProfile {
-  const eatoGender: Gender | undefined = eato.gender === "male" || eato.gender === "female" ? eato.gender : eato.gender ? "other" : undefined;
-  const eatoGoal = eato.goal ? GOAL_FROM_EATO[eato.goal] : undefined;
-  const flagged = Array.isArray(eato.healthFlags) && eato.healthFlags.length > 0;
+export function engineProfileFor(member: MemberProfile, answers: WorkoutAnswers = {}): EngineProfile {
+  const memberGender: Gender | undefined = member.gender === "male" || member.gender === "female" ? member.gender : member.gender ? "other" : undefined;
+  const memberGoal = member.goal ? GOAL_FROM_PROFILE[member.goal] : undefined;
+  const flagged = Array.isArray(member.healthFlags) && member.healthFlags.length > 0;
   return {
-    gender: present(answers.gender) ?? eatoGender,
-    dateOfBirth: present(eato.dob),
-    weightKg: present(answers.weightKg) ?? present(eato.weightKg),
-    heightCm: present(answers.heightCm) ?? present(eato.heightCm),
+    gender: present(answers.gender) ?? memberGender,
+    dateOfBirth: present(member.dob),
+    weightKg: present(answers.weightKg) ?? present(member.weightKg),
+    heightCm: present(answers.heightCm) ?? present(member.heightCm),
     bodyType: present(answers.bodyType),
-    goal: present(answers.goal) ?? eatoGoal,
+    goal: present(answers.goal) ?? memberGoal,
     experience: present(answers.experience),
     trainingWeekdays: present(answers.weekdays),
-    daysPerWeek: eato.workoutFrequency ? DAYS_FROM_FREQUENCY[eato.workoutFrequency] : undefined,
+    daysPerWeek: member.workoutFrequency ? DAYS_FROM_FREQUENCY[member.workoutFrequency] : undefined,
     pace: present(answers.pace),
     fitnessBase: present(answers.fitnessBase),
     squatScore: present(answers.squatScore),
@@ -84,10 +84,10 @@ export function engineProfileFor(eato: EatoProfile, answers: WorkoutAnswers = {}
  * The engine inputs for a member on `today` (YYYY-MM-DD). An age the member gave in
  * "Rebuild my plan" wins over the one implied by their date of birth.
  */
-export function inputsForMember(eato: EatoProfile, answers: WorkoutAnswers, today: string, overrides: Partial<PlanInputs> = {}): PlanInputs {
+export function inputsForMember(member: MemberProfile, answers: WorkoutAnswers, today: string, overrides: Partial<PlanInputs> = {}): PlanInputs {
   const ageYears = present(answers.ageYears);
   const split = present(answers.split);
-  return inputsFromProfile(engineProfileFor(eato, answers), today, {
+  return inputsFromProfile(engineProfileFor(member, answers), today, {
     ...(ageYears !== undefined ? { ageYears } : {}),
     ...(split !== undefined ? { split } : {}),
     ...overrides,

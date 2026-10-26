@@ -47,7 +47,7 @@ function openActivity(activity: Activity) {
     case "plan_updated":
       return router.push("/community/trainers/plan");
     case "workout_updated":
-      return router.push("/fitness");
+      return router.push("/workout");
     case "recommendation":
       return router.push("/community/trainers/targets");
     case "gym_approved":

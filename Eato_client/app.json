@@ -1,13 +1,17 @@
 {
   "expo": {
-    "name": "EATO",
-    "slug": "eato",
+    "name": "JustFit",
+    "slug": "justfit",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "eato",
+    "scheme": [
+      "justfit",
+      "eato"
+    ],
     "userInterfaceStyle": "automatic",
     "android": {
+      "package": "com.bhuvii3.justfit",
       "adaptiveIcon": {
         "backgroundColor": "#FFFFFF",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -23,9 +27,17 @@
     "plugins": [
       "expo-router",
       [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ],
+      [
         "expo-splash-screen",
         {
-          "backgroundColor": "#F5F5F7",
+          "backgroundColor": "#FFFFFF",
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 220
         }
@@ -36,7 +48,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "EATO uses the camera to scan a gym's QR code so you can join it.",
+          "cameraPermission": "JustFit uses the camera to scan a gym's QR code so you can join it.",
           "microphonePermission": false,
           "recordAudioAndroid": false
         }
@@ -47,7 +59,18 @@
       "reactCompiler": true
     },
     "ios": {
-      "bundleIdentifier": "com.bhuvii3.eato"
-    }
+      "bundleIdentifier": "com.bhuvii3.justfit"
+    },
+    "extra": {
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "eas": {
+        "projectId": "641e9360-4740-4bab-8070-4d877de52946"
+      }
+    },
+    "owner": "bhuvii3"
   }
 }

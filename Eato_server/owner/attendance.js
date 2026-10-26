@@ -3,7 +3,7 @@
 // Members check out by scanning the gym's check-out QR, or staff end the visit. Every scan that
 // doesn't check someone in is recorded with its reason.
 //
-// Staff routes go through ownerAccess (the gym's active owner or admins, or an EATO admin).
+// Staff routes go through ownerAccess (the gym's active owner or admins, or an JustFit admin).
 // Member routes act only on the verified caller's own visits. One open visit per member per gym
 // is enforced by the database (gym_visits.open_member), so a double tap can't check anyone in twice.
 const { ValidationError } = require("../profile");

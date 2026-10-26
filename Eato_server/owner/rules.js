@@ -53,7 +53,7 @@ function checkinRefusal({ membership, plan, openVisit }) {
 
 // The front desk's one-line explanation of each refusal
 const refusalMessages = {
-  invalid: "Invalid QR code. This isn't an EATO member code.",
+  invalid: "Invalid QR code. This isn't an JustFit member code.",
   expired: "This code has expired. Ask the member to open My QR code again.",
   not_member: "Not a member here. This person isn't a member of this gym.",
   inactive: "Membership not active. This membership is pending, suspended or expired, so they can't check in.",

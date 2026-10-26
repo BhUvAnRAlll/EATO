@@ -53,7 +53,7 @@ export function QrScanner({ visible, title, hint, onCode, onClose }: Props) {
             </View>
             <View className="flex-1 items-center justify-center gap-5 px-8">
               <View className="owner-scan__frame" />
-              <Text className="owner-scan__hint">{camera ? hint : Platform.OS === "web" ? "The camera scanner works in the EATO app on a phone. Type or paste the code below." : "Allow camera access in Settings to scan, or type the code below."}</Text>
+              <Text className="owner-scan__hint">{camera ? hint : Platform.OS === "web" ? "The camera scanner works in the JustFit app on a phone. Type or paste the code below." : "Allow camera access in Settings to scan, or type the code below."}</Text>
             </View>
             <View className="owner-scan__sheet">
               <TextInput

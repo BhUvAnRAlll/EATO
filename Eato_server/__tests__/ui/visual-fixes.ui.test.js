@@ -16,7 +16,7 @@ const { launchChrome, connect, openPage, CHROME } = require("./cdp.js");
 const { helpers } = require("./onboarding-steps.js");
 
 const EXPO_PORT = 8090;
-const EVIDENCE_DIR = path.join(os.tmpdir(), "eato-ui-evidence");
+const EVIDENCE_DIR = path.join(os.tmpdir(), "justfit-ui-evidence");
 const LOGO_SIZE = 20; // the button's 20 × 20 logo
 const AUTO_ADVANCE_MS = 1800; // onboarding slides advance on their own this often
 

@@ -23,7 +23,7 @@ const { launchChrome, connect, openPage, CHROME } = require("./cdp.js");
 const { helpers, signInAs, NAV_TIMEOUT } = require("./onboarding-steps.js");
 
 const EXPO_PORT = 8090;
-const EVIDENCE_DIR = path.join(os.tmpdir(), "eato-ui-evidence");
+const EVIDENCE_DIR = path.join(os.tmpdir(), "justfit-ui-evidence");
 const SCREENSHOT_DIR = process.env.EATO_SCREENSHOT_DIR || null;
 const WIDTHS = [[320, 568], [390, 844], [430, 932]];
 const CLEANUP_TABLES = ["diet_plan_completions", "diet_plan_meal_items", "diet_plan_meals", "diet_plans", "trainer_target_recommendations", "trainer_connections",
@@ -119,7 +119,7 @@ describe("ui trainers: a member and their trainer", () => {
     await connection.query("INSERT INTO profiles (user_id, dob, gender, goal, height_cm, weight_kg, activity, workout_frequency, health_flags, profile_complete) VALUES (?, '1995-05-10', 'female', 'muscle_gain', 165, 70, 'moderately_active', '3-4', '[]', TRUE)", [identities.a.id]);
     const inputs = JSON.stringify({ weightKg: 70, heightCm: 165, age: 31, gender: "female", fitnessGoal: "muscle_gain", activityLevel: "moderately_active" });
     const calculated = JSON.stringify({ rmrFormula: "mifflin_st_jeor", report: null, rmr: 1450, tdee: 2250, targetCalories: 2400, displayCalories: 2400, macros: { proteinG: 140, carbsG: 290, fatG: 75 } });
-    await connection.query("INSERT INTO nutrition_targets (user_id, formula, config_version, inputs, calculated, calculated_at, calories, protein_g, carbs_g, fat_g, source) VALUES (?, 'eato-calculator', 'test', ?, ?, NOW(), 2400, 140, 290, 75, 'calculated')", [identities.a.id, inputs, calculated]);
+    await connection.query("INSERT INTO nutrition_targets (user_id, formula, config_version, inputs, calculated, calculated_at, calories, protein_g, carbs_g, fat_g, source) VALUES (?, 'justfit-calculator', 'test', ?, ?, NOW(), 2400, 140, 290, 75, 'calculated')", [identities.a.id, inputs, calculated]);
     const profile = await apiAs("tara", "PUT", "/api/trainers/me/profile", { title: "Strength coach", specialties: ["strength", "nutrition"], yearsExperience: 8, bio: "Eight years coaching lifters of every level.", coachingMode: "both", offersNutrition: true, availability: "Mon–Sat, 6–10am", approach: "Progressive overload, patiently.", qualifications: ["ACE CPT"], languages: ["English"] });
     assert.equal(profile.status, 200, JSON.stringify(profile.json));
   });

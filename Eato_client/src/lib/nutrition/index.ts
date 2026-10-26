@@ -1,4 +1,4 @@
-// Eato calorie calculator. All targets in the app come from here.
+// JustFit calorie calculator. All targets in the app come from here.
 export { calculatorConfig } from "./config.ts";
 export { calculateTargets, manualTargetMacros } from "./calculate.ts";
 export { goalTarget, katchMcArdleRmr, mifflinStJeorRmr, roundToStep, totalDailyEnergy } from "./energy.ts";

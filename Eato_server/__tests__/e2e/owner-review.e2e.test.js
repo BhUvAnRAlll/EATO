@@ -172,7 +172,7 @@ describe("owner review e2e: held posts and reported posts", () => {
     assert.equal((await postRow(state.live)).deleted_at, null);
     assert.equal((await as("owner").post(route(`/review/posts/${state.live}/keep`))).status, 409, "no open reports left");
     const open = (await connection.query("SELECT COUNT(*) AS n FROM community_reports WHERE status = 'open' AND post_id = ?", [state.live]))[0][0].n;
-    assert.equal(open, 0, "nothing left for EATO's admin queue");
+    assert.equal(open, 0, "nothing left for JustFit's admin queue");
   });
 
   test("6. remove takes a reported post down and marks its reports reviewed, together", async () => {

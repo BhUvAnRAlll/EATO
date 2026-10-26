@@ -1,6 +1,6 @@
 // The owner portal's Review tab: posts held for approval in the gym, and the gym's posts that
-// members reported. The gym's owner and admins (or an EATO admin) approve or reject held posts,
-// and keep or remove reported ones. Reports use the same statuses as EATO's admin queue: keeping a
+// members reported. The gym's owner and admins (or an JustFit admin) approve or reject held posts,
+// and keep or remove reported ones. Reports use the same statuses as JustFit's admin queue: keeping a
 // post dismisses its open reports, removing it marks them reviewed, so handled reports leave both
 // queues. Reporters stay anonymous here: the gym sees each reason and how many people reported.
 const { ValidationError } = require("../profile");

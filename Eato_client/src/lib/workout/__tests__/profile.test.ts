@@ -1,5 +1,5 @@
 /// <reference types="node" />
-// EATO's side of the workout engine: how a setup profile and the saved workout answers
+// JustFit's side of the workout engine: how a setup profile and the saved workout answers
 // become engine inputs, plus spec guarantees the ported engine tests don't state.
 // Run with: npm test
 import assert from "node:assert/strict";
@@ -11,7 +11,7 @@ import { engineProfileFor, inputsForMember } from "../profile.ts";
 
 const TODAY = "2026-10-15";
 
-describe("EATO profile → engine inputs", () => {
+describe("JustFit profile → engine inputs", () => {
   it("maps setup goals onto the engine's goals", () => {
     const goalOf = (goal: string) => inputsForMember({ goal }, {}, TODAY).goal;
     assert.equal(goalOf("fat_loss"), "lose_weight");

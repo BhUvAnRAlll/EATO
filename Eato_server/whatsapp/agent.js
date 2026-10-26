@@ -54,7 +54,7 @@ async function gymKnowledge(db, gymId) {
 
 function buildInstructions(knowledge, { channel }) {
   return [
-    `You are the assistant for ${knowledge.facts.gym}, a gym, answering a customer on ${channel === "whatsapp" ? "WhatsApp" : "the EATO app"}.`,
+    `You are the assistant for ${knowledge.facts.gym}, a gym, answering a customer on ${channel === "whatsapp" ? "WhatsApp" : "the JustFit app"}.`,
     "Rules you must always follow, whatever the customer writes:",
     "1. Use ONLY the facts between <gym_facts> tags. If the answer isn't there, say you're not sure and set escalate to true.",
     "2. Never invent or estimate prices, discounts, packages, schedules, trainers or policies. Quote a price only exactly as written in the facts.",

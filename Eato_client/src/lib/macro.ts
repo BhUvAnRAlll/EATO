@@ -1,7 +1,7 @@
 import { apiFetch, type ApiResult } from "@/lib/api";
 import type { Icon } from "@/types/profile";
 
-// The Macro diary: types, the calls to /api/macro on the EATO server, and the date and
+// The Macro diary: types, the calls to /api/macro on the JustFit server, and the date and
 // number helpers the macro screens share. Dates are the member's LOCAL day as YYYY-MM-DD.
 
 export type Slot = "breakfast" | "lunch" | "snack" | "dinner";
@@ -35,6 +35,8 @@ export type WaterDay = {
   entries: WaterEntry[];
   preferences: WaterPreferences;
 };
+// An UNCONFIRMED estimate from a food photo: the member checks it, then logs it with logMeal
+export type FoodScan = { title: string; items: MealItem[] };
 export type Favorite = { id: string; name: string; sourceKey: string | null; items: MealItem[]; totals: Totals; createdAt: string };
 
 const signedOut = <T>(): Promise<ApiResult<T>> => Promise.resolve({ ok: false, error: "Please sign in again." });
@@ -60,6 +62,13 @@ export const macro = {
   ): Promise<ApiResult<{ mealId: string }>> {
     if (!token) return signedOut();
     return apiFetch("/api/macro/meals", { method: "POST", body: meal, token });
+  },
+  // Sends one food photo (base64) for an AI estimate. Nothing is saved.
+  scanFood(token: string | null, photo: { data: string; hint?: string }): Promise<ApiResult<{ scan: FoodScan }>> {
+    if (!token) return signedOut();
+    // The picker re-encodes to JPEG on phones; on the web the file keeps its own type
+    const mediaType = photo.data.startsWith("iVBOR") ? "image/png" : photo.data.startsWith("UklGR") ? "image/webp" : "image/jpeg";
+    return apiFetch("/api/macro/scan", { method: "POST", body: { data: photo.data, mediaType, hint: photo.hint ?? "" }, token });
   },
   deleteMeal(token: string | null, mealId: string): Promise<ApiResult<{ deleted: true }>> {
     if (!token) return signedOut();

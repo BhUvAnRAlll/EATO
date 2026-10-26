@@ -43,9 +43,9 @@ async function waitForSignInForm(page) {
   await page.waitFor(`!!(window.Clerk && window.Clerk.loaded)`, 60000, "Clerk to finish loading");
   for (let attempt = 0; attempt < 20; attempt++) {
     const tag = `t${Date.now()}${attempt}`;
-    const tagged = await page.evaluate(`(() => { const ins = ${SIGN_IN_INPUTS}; if (ins.length !== 2) return false; ins.forEach((e) => { e.dataset.eatoStable = ${JSON.stringify(tag)}; }); return true; })()`);
+    const tagged = await page.evaluate(`(() => { const ins = ${SIGN_IN_INPUTS}; if (ins.length !== 2) return false; ins.forEach((e) => { e.dataset.justfitStable = ${JSON.stringify(tag)}; }); return true; })()`);
     await new Promise((r) => setTimeout(r, 500));
-    if (tagged && (await page.evaluate(`(() => { const ins = ${SIGN_IN_INPUTS}; return ins.length === 2 && ins.every((e) => e.dataset.eatoStable === ${JSON.stringify(tag)}); })()`))) return;
+    if (tagged && (await page.evaluate(`(() => { const ins = ${SIGN_IN_INPUTS}; return ins.length === 2 && ins.every((e) => e.dataset.justfitStable === ${JSON.stringify(tag)}); })()`))) return;
   }
   throw new Error("the Log in form kept re-rendering after Clerk loaded");
 }
@@ -105,17 +105,21 @@ async function fillSetup(page, baseUrl, overrides = {}, age = 30) {
   await h.expectText("Prefer not to say");
   await page.clickText(a.gender);
   await h.expectNoText("Prefer not to say");
+  await page.setInput(h.input("170"), a.heightCm);
+  await page.setInput(h.input("70"), a.weightKg);
   await page.setInput(h.input("98765 43210"), a.phone);
   // The email is the account's, shown read-only: nothing to type
   await page.clickText("Next");
+  await h.expectPath("/setup/body-composition");
+
+  // Optional step: left empty, its button reads Skip
+  await page.clickText("Skip");
   await h.expectPath("/setup/goal");
 
   await page.clickText(a.goal);
   await page.clickText("Next");
-  await h.expectPath("/setup/body");
+  await h.expectPath("/setup/activity");
 
-  await page.setInput(h.input("170"), a.heightCm);
-  await page.setInput(h.input("70"), a.weightKg);
   await page.clickText("Select");
   await h.expectText("Extra active");
   await page.clickText(a.activity);

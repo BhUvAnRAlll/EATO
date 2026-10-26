@@ -135,7 +135,9 @@ async function listGyms(pool, userId, { search = null }) {
   const [rows] = await pool.query(
     `SELECT ${GYM_COLUMNS}, m.role AS my_role, m.status AS my_status
      FROM gyms g LEFT JOIN gym_members m ON m.gym_id = g.id AND m.user_id = ?
-     WHERE (g.visibility <> 'hidden' OR m.user_id IS NOT NULL)${filter}
+     WHERE (g.visibility <> 'hidden' OR m.user_id IS NOT NULL)
+       -- A gym an JustFit admin suspended leaves Explore; its members still see it
+       AND (g.status <> 'suspended' OR m.user_id IS NOT NULL)${filter}
      ORDER BY g.name LIMIT 100`,
     params,
   );
@@ -155,7 +157,7 @@ async function getGym(pool, userId, gymId) {
 async function createGym(pool, adminId, values) {
   await ensureUser(pool, adminId);
   const [owners] = await pool.query("SELECT id FROM users WHERE email = ?", [values.ownerEmail]);
-  if (!owners[0]) throw new NotFoundError("No EATO account uses that owner email.");
+  if (!owners[0]) throw new NotFoundError("No JustFit account uses that owner email.");
   const ownerId = owners[0].id;
   for (let attempt = 0; ; attempt++) {
     try {

@@ -108,8 +108,8 @@ export default function AdjustTargets() {
                 {status.lockedByTrainer
                   ? "Your trainer set these targets. Ask them if you'd like them changed."
                   : status.isManual
-                    ? "You set these by hand. EATO keeps them until you reset to the calculated target or update your profile."
-                    : "These were calculated from your profile. Change them and EATO will use your numbers instead."}
+                    ? "You set these by hand. JustFit keeps them until you reset to the calculated target or update your profile."
+                    : "These were calculated from your profile. Change them and JustFit will use your numbers instead."}
               </Text>
 
               <View className="gap-2">

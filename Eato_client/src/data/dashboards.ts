@@ -53,7 +53,7 @@ export const dashboards: Record<Role, Dashboard> = {
   },
   admin: {
     label: "Admin",
-    subtitle: "Manage people, menu and orders across EATO.",
+    subtitle: "Manage people, menu and orders across JustFit.",
     tiles: [
       {
         id: "home-screen",

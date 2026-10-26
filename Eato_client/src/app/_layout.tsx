@@ -53,7 +53,7 @@ function RootStack() {
         <Stack.Screen name="trainer" />
       </Stack.Protected>
       {/* The gym owner portal: open to every signed-in role; the server allows a gym's own
-          owner and admins, and EATO platform admins */}
+          owner and admins, and JustFit platform admins */}
       <Stack.Protected guard={role !== null}>
         <Stack.Screen name="owner" />
       </Stack.Protected>

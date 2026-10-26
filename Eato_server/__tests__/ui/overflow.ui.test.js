@@ -16,7 +16,7 @@ const { launchChrome, connect, openPage, CHROME } = require("./cdp.js");
 const { helpers } = require("./onboarding-steps.js");
 
 const EXPO_PORT = 8090;
-const EVIDENCE_DIR = path.join(os.tmpdir(), "eato-ui-evidence");
+const EVIDENCE_DIR = path.join(os.tmpdir(), "justfit-ui-evidence");
 const WIDTHS = [[320, 568], [375, 812], [430, 932]];
 // route, text that proves it rendered, its title utility, its primary button label, its decorative circle utility
 const ROUTES = [

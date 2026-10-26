@@ -24,7 +24,7 @@ const { launchChrome, connect, openPage, CHROME } = require("./cdp.js");
 const { helpers, signInAs, NAV_TIMEOUT } = require("./onboarding-steps.js");
 
 const EXPO_PORT = 8090;
-const EVIDENCE_DIR = path.join(os.tmpdir(), "eato-ui-evidence");
+const EVIDENCE_DIR = path.join(os.tmpdir(), "justfit-ui-evidence");
 const SCREENSHOT_DIR = process.env.EATO_SCREENSHOT_DIR || null;
 const WIDTHS = [[320, 568], [390, 844], [430, 932]];
 const COMMUNITY_TABLES = ["messages", "conversation_members", "conversations", "community_blocks", "community_profiles"];
@@ -269,11 +269,11 @@ describe("ui messages: inbox, conversation, polling, retry and block for a signe
   }));
 
   it("4. a message from the other member appears without a reload", run("poll", async () => {
-    await page.evaluate(`window.__eatoNoReload = ${JSON.stringify(runId)}`);
+    await page.evaluate(`window.__justfitNoReload = ${JSON.stringify(runId)}`);
     const sent = await api("POST", `/api/community/conversations/${state.conversation}/messages`, { body: "Are you bringing the resistance bands?" });
     assert.equal(sent.status, 201);
     await page.waitFor(`(document.body.innerText || "").includes("Are you bringing the resistance bands?")`, POLL_WAIT, "the new message, by polling");
-    assert.equal(await page.evaluate("window.__eatoNoReload"), runId, "the page did not reload");
+    assert.equal(await page.evaluate("window.__justfitNoReload"), runId, "the page did not reload");
     assert.equal(await unreadForA(), 0, "a message that arrived while the chat is open counts as read");
   }));
 
@@ -333,7 +333,7 @@ describe("ui messages: inbox, conversation, polling, retry and block for a signe
 
   it("6a. if the session token can't be refreshed, the block sheet closes with an error and nothing is blocked", run("block-offline", async () => {
     // Clerk can't hand out a token (offline with an expired one): the sheet must not spin forever
-    const patched = await page.evaluate(`(() => { const s = window.Clerk && window.Clerk.session; if (!s) return false; s.__eatoGetToken = s.getToken; s.getToken = () => Promise.reject(new Error("offline")); return true; })()`);
+    const patched = await page.evaluate(`(() => { const s = window.Clerk && window.Clerk.session; if (!s) return false; s.__justfitGetToken = s.getToken; s.getToken = () => Promise.reject(new Error("offline")); return true; })()`);
     assert.equal(patched, true, "the page has a Clerk session to patch");
     try {
       await clickLabel("Conversation options");
@@ -346,7 +346,7 @@ describe("ui messages: inbox, conversation, polling, retry and block for a signe
       const [[block]] = await connection.query("SELECT COUNT(*) AS n FROM community_blocks WHERE blocker_id = ? AND blocked_id = ?", [identities.a.id, identities.b.id]);
       assert.equal(block.n, 0, "nothing was blocked");
     } finally {
-      await page.evaluate(`(() => { const s = window.Clerk && window.Clerk.session; if (s && s.__eatoGetToken) { s.getToken = s.__eatoGetToken; delete s.__eatoGetToken; } })()`);
+      await page.evaluate(`(() => { const s = window.Clerk && window.Clerk.session; if (s && s.__justfitGetToken) { s.getToken = s.__justfitGetToken; delete s.__justfitGetToken; } })()`);
     }
   }));
 

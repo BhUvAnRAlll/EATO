@@ -20,7 +20,7 @@ const { launchChrome, connect, openPage, CHROME } = require("./cdp.js");
 const { fillSetup, fillSignInForm, helpers, NAV_TIMEOUT } = require("./onboarding-steps.js");
 
 const EXPO_PORT = 8090;
-const EVIDENCE_DIR = path.join(os.tmpdir(), "eato-ui-evidence");
+const EVIDENCE_DIR = path.join(os.tmpdir(), "justfit-ui-evidence");
 const CLERK_TEST_CODE = "424242"; // Clerk's fixed verification code for +clerk_test addresses on development instances
 
 describe("ui authenticated: sign in → onboarding → save → reload → update → sign out → isolation", () => {
@@ -130,7 +130,7 @@ describe("ui authenticated: sign in → onboarding → save → reload → updat
 
   it("1. the real sign-in screen authenticates the test identity and routes a new user to setup", run("sign-in", async () => {
     await signInAs(identities.a);
-    await h.expectPath("/setup/body-composition");
+    await h.expectPath("/setup/personal");
     await h.expectText("1/7");
     assert.ok(page.requests.some((u) => u.startsWith(`${apiUrl()}/api/profile`)), "the start screen should have asked the test server for the profile");
     assert.deepEqual(page.requests.filter((u) => /\/\/(localhost|127\.0\.0\.1):4000\b/.test(u)), [], "no request to the development server");
@@ -141,8 +141,6 @@ describe("ui authenticated: sign in → onboarding → save → reload → updat
   }));
 
   it("2. completing onboarding and pressing Finish saves the profile and opens home", run("finish", async () => {
-    await page.clickText("Skip, I'll enter manually");
-    await h.expectPath("/setup/personal");
     await fillSetup(page, expo.baseUrl, { fullName: "E2E Tester" });
     const before = page.requests.length;
     await page.clickText("Finish");
@@ -152,7 +150,7 @@ describe("ui authenticated: sign in → onboarding → save → reload → updat
     await clickProfile();
     await h.expectPath("/profile");
     await h.expectText("Sign out");
-    await h.expectText("Hi, E2E!");
+    await h.expectText("E2E Tester"); // the member card shows the account's full name
     assert.ok(page.requests.slice(before).some((u) => u === `${apiUrl()}/api/profile`), "Finish must call the test server's profile route");
     assert.deepEqual(await db.rowsForUser(connection, identities.a.id), { nutrition_targets: 1, body_composition_reports: 0, profiles: 1, users: 1 });
     const [[user]] = await connection.query("SELECT email, full_name FROM users WHERE id = ?", [identities.a.id]);
@@ -218,7 +216,7 @@ describe("ui authenticated: sign in → onboarding → save → reload → updat
   it("7. a second test user signs in, is sent to setup, and sees nothing of the first user's profile", run("isolation", async () => {
     await newIdentity("b");
     await signInAs(identities.b);
-    await h.expectPath("/setup/body-composition");
+    await h.expectPath("/setup/personal");
     await requireClerkGlobal();
     const { status, body } = await profileFromPage();
     assert.equal(status, 200, "the second user's own session must be accepted");

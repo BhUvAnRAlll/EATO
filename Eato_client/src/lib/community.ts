@@ -404,13 +404,13 @@ export const categoryLabels: Record<PostCategory, string> = {
 };
 
 export const audienceLabels: Record<PostAudience, { label: string; hint: string }> = {
-  public: { label: "Everyone", hint: "Anyone on EATO" },
+  public: { label: "Everyone", hint: "Anyone on JustFit" },
   followers: { label: "Followers", hint: "Members you've accepted as followers" },
   only_me: { label: "Only me", hint: "Just you" },
 };
 
 export const storyAudienceLabels: Record<StoryAudience, { label: string; hint: string }> = {
-  public: { label: "Everyone", hint: "Anyone on EATO, for 24 hours" },
+  public: { label: "Everyone", hint: "Anyone on JustFit, for 24 hours" },
   followers: { label: "Followers", hint: "Members you've accepted as followers" },
   close_friends: { label: "Close Friends", hint: "Only the people on your Close Friends list" },
 };

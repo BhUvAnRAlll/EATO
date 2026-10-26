@@ -7,7 +7,7 @@ import { ConfirmSheet } from "@/components/community/ConfirmSheet";
 import { FormAlert } from "@/components/FormAlert";
 import { timeAgo } from "@/lib/community";
 import { gyms, type Announcement } from "@/lib/gyms";
-import { colors } from "@/theme";
+import { colors, switchColors } from "@/theme";
 
 const input = { borderRadius: 14, borderWidth: 1, borderColor: colors.creamLine, backgroundColor: colors.white, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, color: colors.forestInk } as const;
 
@@ -152,7 +152,7 @@ export function GymAnnouncementsManager({ gymId, getToken, composeSignal = 0 }: 
             <TextInput value={body} onChangeText={setBody} placeholder="What members should know" placeholderTextColor={colors.faint} multiline maxLength={1000} accessibilityLabel="Announcement text" style={{ ...input, minHeight: 96, textAlignVertical: "top" }} />
             <View className="flex-row items-center justify-between">
               <Text className="auth__label">Pin to the top</Text>
-              <Switch value={pinned} onValueChange={setPinned} trackColor={{ true: colors.leaf }} thumbColor={colors.white} accessibilityLabel="Pin to the top" />
+              <Switch {...switchColors} value={pinned} onValueChange={setPinned} accessibilityLabel="Pin to the top" />
             </View>
             {error && <FormAlert message={error} />}
             <View className="flex-row gap-2">

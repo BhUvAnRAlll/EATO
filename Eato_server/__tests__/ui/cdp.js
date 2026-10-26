@@ -10,7 +10,7 @@ const CHROME = process.env.CHROME_PATH || "/Applications/Google Chrome.app/Conte
 
 async function launchChrome() {
   if (!fs.existsSync(CHROME)) throw new Error(`Chrome not found at ${CHROME}`);
-  const profile = fs.mkdtempSync(path.join(os.tmpdir(), "eato-ui-chrome-"));
+  const profile = fs.mkdtempSync(path.join(os.tmpdir(), "justfit-ui-chrome-"));
   const child = spawn(CHROME, [
     "--headless=new", "--disable-gpu", "--no-first-run", "--no-default-browser-check", "--disable-extensions",
     "--window-size=430,932", `--user-data-dir=${profile}`, "--remote-debugging-port=0", "about:blank",
@@ -120,6 +120,26 @@ async function openPage(client, url = "about:blank") {
     await clickAt(found.x, found.y);
     return found.count;
   };
+  // Clicks the rendered element whose accessibility label is exactly `label` (icon-only buttons,
+  // such as the setup screens' back chevron, have no text to click)
+  const clickLabel = async (label) => {
+    const locate = () => evaluate(`(() => {
+      const els = [...document.querySelectorAll('[aria-label=' + JSON.stringify(${JSON.stringify(label)}) + ']')].filter((e) => e.getClientRects().length > 0);
+      const el = els[0]; if (!el) return null;
+      el.scrollIntoView({ block: "center", inline: "nearest" });
+      const r = el.getBoundingClientRect(); const x = r.left + r.width / 2, y = r.top + r.height / 2;
+      const hit = document.elementFromPoint(x, y);
+      return { x, y, hittable: !!hit && (hit === el || el.contains(hit)) };
+    })()`);
+    let found = null;
+    for (let attempt = 0; attempt < 40 && !(found && found.hittable); attempt++) {
+      found = await locate();
+      if (!(found && found.hittable)) await new Promise((r) => setTimeout(r, 150));
+    }
+    if (!found) throw new Error(`no rendered element labelled "${label}"`);
+    if (!found.hittable) throw new Error(`element labelled "${label}" is covered by something else`);
+    await clickAt(found.x, found.y);
+  };
   // Types into an <input> the way React sees it: native value setter plus an input event
   const setInput = async (selector, value) => {
     const ok = await evaluate(`(() => {
@@ -137,7 +157,7 @@ async function openPage(client, url = "about:blank") {
   return {
     sessionId, targetId, requests,
     navigate: (to) => client.send("Page.navigate", { url: to }, sessionId),
-    evaluate, clickAt, clickText, setInput, inputValue, hasText, path,
+    evaluate, clickAt, clickText, clickLabel, setInput, inputValue, hasText, path,
     // Polls until the predicate (run in the page) is truthy
     async waitFor(expression, timeoutMs, label = expression) {
       const deadline = Date.now() + timeoutMs;

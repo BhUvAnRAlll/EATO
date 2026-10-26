@@ -82,6 +82,12 @@ export default function TrainerProfileScreen() {
             <View className="post__card items-center gap-2">
               {trainer.photoUrl ? <AuthImage path={trainer.photoUrl} style={{ width: 88, height: 88, borderRadius: 44 }} /> : <Avatar member={trainer.member} size={88} />}
               <Text className="type-headline text-forest-ink">{trainer.member.name}</Text>
+              {trainer.verified && (
+                <View className="flex-row items-center gap-1 rounded-pill bg-success-soft px-2.5 py-0.5" accessibilityLabel="Verified trainer">
+                  <SymbolView name={{ ios: "checkmark.seal.fill", android: "verified", web: "verified" }} size={13} tintColor={colors.success} />
+                  <Text className="post__time" style={{ color: colors.success, fontWeight: "700" }}>Verified</Text>
+                </View>
+              )}
               <Text className="post__time">{`${trainer.title} · ${trainer.yearsExperience} years`}</Text>
               <View className="mt-1 flex-row flex-wrap justify-center gap-2">
                 {trainer.specialties.map((s) => (

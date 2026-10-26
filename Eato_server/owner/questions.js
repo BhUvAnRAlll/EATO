@@ -2,7 +2,7 @@
 // whatsapp/assistant.js when it escalates), the owner portal's list and replies, and the asker's own
 // view of their questions. Replies reach the asker in the gym's Ask chat and in their bell.
 //
-// Staff routes go through ownerAccess (the gym's owner and admins, or an EATO admin). The asker
+// Staff routes go through ownerAccess (the gym's owner and admins, or an JustFit admin). The asker
 // only ever reads their own rows.
 const { ValidationError } = require("../profile");
 const { memberSummary } = require("../community/members");

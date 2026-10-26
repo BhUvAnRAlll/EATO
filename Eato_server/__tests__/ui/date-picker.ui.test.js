@@ -20,7 +20,7 @@ const { launchChrome, connect, openPage, CHROME } = require("./cdp.js");
 const { helpers, dateOfBirth, signInAs } = require("./onboarding-steps.js");
 
 const EXPO_PORT = 8090;
-const EVIDENCE_DIR = path.join(os.tmpdir(), "eato-ui-evidence");
+const EVIDENCE_DIR = path.join(os.tmpdir(), "justfit-ui-evidence");
 const DATE_INPUT = "[aria-modal] input";
 
 // The limits the app computes in lib/date.ts (ages 13 to 100), as the date input must carry them
@@ -145,10 +145,12 @@ describe("ui date picker: real HTML date input with the app's limits", () => {
     await page.setInput(h.input("Your full name"), "Date Tester");
     await page.setInput(h.input("98765 43210"), "98765"); // too short keeps Next disabled
     assert.equal(await page.evaluate(`(() => { const t = [...document.querySelectorAll("body *")].filter((e) => e.childElementCount === 0 && (e.textContent || "").trim() === "Next" && e.getClientRects().length > 0).pop(); let el = t; for (let i = 0; i < 5 && el; i++) { if (el.getAttribute("aria-disabled") !== null) return el.getAttribute("aria-disabled"); el = el.parentElement; } return null; })()`), "true");
+    await page.setInput(h.input("170"), "170");
+    await page.setInput(h.input("70"), "60");
     await page.setInput(h.input("98765 43210"), "9876543210");
     await page.clickText("Next");
-    await h.expectPath("/setup/goal");
-    await page.clickText("Back");
+    await h.expectPath("/setup/body-composition");
+    await page.clickLabel("Back");
     await h.expectPath("/setup/personal");
     await h.expectText(valid.shown);
     assert.equal(await page.inputValue(h.input("Your full name")), "Date Tester");

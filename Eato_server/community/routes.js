@@ -5,6 +5,8 @@
 const express = require("express");
 
 const { requireAdmin } = require("../auth");
+const { nameOf, recordAdminAction } = require("../admin/overview");
+const { ValidationError } = require("../profile");
 const { jsonBodyWithLimit } = require("../requestBody");
 const { uploadLimits } = require("../bodyComposition/upload");
 const { ensureUser, currentRole } = require("./members");
@@ -134,7 +136,11 @@ router.get("/reports/:reportId/media", requireAdmin, route(async (req, res) => {
 }));
 
 router.post("/reports/:reportId/resolve", requireAdmin, smallBody, route(async (req, res) => {
-  res.json(await posts.resolveReport(req.app.locals.pool, v.id(req.params.reportId, "The report"), req.body?.status));
+  const reportId = v.id(req.params.reportId, "The report");
+  const result = await posts.resolveReport(req.app.locals.pool, reportId, req.body?.status);
+  const dismissed = req.body?.status === "dismissed";
+  await recordAdminAction(req.app.locals.pool, req, dismissed ? "report.dismiss" : "report.review", "report", reportId, dismissed ? "Dismissed a report" : "Reviewed a report");
+  res.json(result);
 }));
 
 // ---- stories ----------------------------------------------------------------------
@@ -279,11 +285,21 @@ router.get("/admin/members/suspended", requireAdmin, route(async (req, res) => {
 }));
 
 router.post("/admin/members/:userId/suspend", requireAdmin, route(async (req, res) => {
-  res.json(await profiles.setSuspended(req.app.locals.pool, memberId(req), true));
+  const id = memberId(req);
+  // Nobody suspends themselves, and an JustFit admin account can't be suspended from here
+  if (id === req.userId) throw new ValidationError("You can't suspend your own account.");
+  const [[target]] = await req.app.locals.pool.query("SELECT role FROM users WHERE id = ?", [id]);
+  if (target?.role === "admin") throw new ValidationError("An admin account can't be suspended.");
+  const result = await profiles.setSuspended(req.app.locals.pool, id, true);
+  await recordAdminAction(req.app.locals.pool, req, "user.suspend", "user", id, `Suspended ${await nameOf(req.app.locals.pool, id)}`);
+  res.json(result);
 }));
 
 router.delete("/admin/members/:userId/suspend", requireAdmin, route(async (req, res) => {
-  res.json(await profiles.setSuspended(req.app.locals.pool, memberId(req), false));
+  const id = memberId(req);
+  const result = await profiles.setSuspended(req.app.locals.pool, id, false);
+  await recordAdminAction(req.app.locals.pool, req, "user.reinstate", "user", id, `Reinstated ${await nameOf(req.app.locals.pool, id)}`);
+  res.json(result);
 }));
 
 // ---- messages ---------------------------------------------------------------------

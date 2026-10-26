@@ -52,7 +52,7 @@ export default function LogFood() {
     }
   };
 
-  const go = (pathname: "/macro/manual" | "/macro/favorites" | "/macro/repeat-meal") => router.push({ pathname, params: forward });
+  const go = (pathname: "/macro/scan" | "/macro/manual" | "/macro/favorites" | "/macro/repeat-meal") => router.push({ pathname, params: forward });
 
   return (
     <View className="flex-1 bg-cream">
@@ -62,6 +62,17 @@ export default function LogFood() {
         <ScrollView contentContainerStyle={{ paddingBottom: 24, gap: 18 }} showsVerticalScrollIndicator={false}>
           <View className="gap-3 px-5">
             <Text className="type-headline text-forest-ink">How would you like to log?</Text>
+
+            <Pressable onPress={() => go("/macro/scan")} className="home__card flex-row items-center gap-3" accessibilityRole="button" accessibilityLabel="Scan food: estimate calories and macros from a photo">
+              <View className="macro__thumb" style={{ backgroundColor: colors.forestSoft }}>
+                <SymbolView name={{ ios: "camera.viewfinder", android: "photo_camera", web: "photo_camera" }} size={22} tintColor={colors.forest} />
+              </View>
+              <View className="flex-1">
+                <Text className="card__title">Scan Food</Text>
+                <Text className="post__time">Snap a photo, we estimate the macros</Text>
+              </View>
+              <SymbolView name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }} size={16} tintColor={colors.faint} />
+            </Pressable>
 
             <Pressable onPress={() => go("/macro/manual")} className="home__card flex-row items-center gap-3" accessibilityRole="button" accessibilityLabel="Manual entry: type calories and macros">
               <View className="macro__thumb" style={{ backgroundColor: colors.forestSoft }}>

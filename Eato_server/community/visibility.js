@@ -19,7 +19,7 @@ const VISIBLE_POST_SQL = `(
     AND NOT EXISTS (SELECT 1 FROM community_blocks b WHERE (b.blocker_id = ? AND b.blocked_id = p.user_id) OR (b.blocker_id = p.user_id AND b.blocked_id = ?))
     AND (
       (p.gym_id IS NOT NULL AND EXISTS (
-        SELECT 1 FROM gyms gy WHERE gy.id = p.gym_id AND (
+        SELECT 1 FROM gyms gy WHERE gy.id = p.gym_id AND gy.status <> 'suspended' AND (
           (p.review_status = 'published' AND (gy.visibility = 'public'
             OR EXISTS (SELECT 1 FROM gym_members gmv WHERE gmv.gym_id = gy.id AND gmv.user_id = ? AND gmv.status = 'active')))
           OR EXISTS (SELECT 1 FROM gym_members gms WHERE gms.gym_id = gy.id AND gms.user_id = ? AND gms.status = 'active' AND gms.role IN ('owner', 'admin', 'trainer'))

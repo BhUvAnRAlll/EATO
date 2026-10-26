@@ -2,7 +2,8 @@
 // database, as a signed-in member with a 2000 kcal target. Covers the hub (target ring, empty
 // day, week strip, past day), the logging flow (Add meal → Log food → Manual entry → back to
 // the hub), Home's Today's Macros card, Daily calories (today and a past day), Calories &
-// macros, Adjust targets, Water, Favourites, Repeat a meal, the meal sheet (heart, remove behind a confirmation) and screenshots at 3 widths.
+// macros, Adjust targets, Water, Favourites, Repeat a meal, the meal sheet (heart, remove behind a confirmation),
+// Scan food (a photo, the fake AI estimate, an edit, saved) and screenshots at 3 widths.
 //
 //   yarn test:ui      (needs Eato_server/.env.test and Google Chrome; otherwise skipped)
 //   EATO_SCREENSHOT_DIR=<dir> saves screenshots of each screen at three widths
@@ -21,9 +22,10 @@ const { launchChrome, connect, openPage, CHROME } = require("./cdp.js");
 const { helpers, signInAs, NAV_TIMEOUT } = require("./onboarding-steps.js");
 
 const EXPO_PORT = 8090;
-const EVIDENCE_DIR = path.join(os.tmpdir(), "eato-ui-evidence");
+const EVIDENCE_DIR = path.join(os.tmpdir(), "justfit-ui-evidence");
 const SCREENSHOT_DIR = process.env.EATO_SCREENSHOT_DIR || null;
 const WIDTHS = [[320, 568], [390, 844], [430, 932]];
+const TINY_PNG = path.join(os.tmpdir(), "justfit-food-scan-test.png");
 const MACRO_TABLES = ["macro_meal_items", "macro_meal_logs", "macro_favorite_foods", "macro_water_logs", "macro_hydration_days", "macro_hydration_preferences", "nutrition_targets"];
 
 describe("ui macro: the Macro tab hub and logging a meal by hand", () => {
@@ -82,7 +84,8 @@ describe("ui macro: the Macro tab hub and logging a meal by hand", () => {
     try { connection = await db.connect(env); } catch (error) { skipReason = `test database unreachable (${error?.code ?? "refused"})`; return; }
     assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in eato_test`);
     clerk = clerkFor(env.CLERK_SECRET_KEY);
-    server = await startTestServer(env);
+    server = await startTestServer({ ...env, AI_PROVIDER: "fake" }); // Scan food answers a fixed estimate, never a paid model
+    fs.writeFileSync(TINY_PNG, Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64"));
     expo = await startExpoWeb({ port: EXPO_PORT, apiUrl: `http://localhost:${env.PORT}` });
     chrome = await launchChrome();
     client = await connect(chrome.browserWsUrl);
@@ -99,7 +102,7 @@ describe("ui macro: the Macro tab hub and logging a meal by hand", () => {
     // active target in use (2000 kcal, so the numbers below are easy to follow)
     await connection.query(
       `INSERT INTO nutrition_targets (user_id, formula, config_version, inputs, calculated, calculated_at, calories, protein_g, carbs_g, fat_g)
-       VALUES (?, 'eato-calculator', 'test', ?, ?, NOW(), 2000, 150, 200, 60)`,
+       VALUES (?, 'justfit-calculator', 'test', ?, ?, NOW(), 2000, 150, 200, 60)`,
       [
         identities.a.id,
         JSON.stringify({ age: 30, gender: "female", heightCm: 165, weightKg: 70, activityLevel: "lightly_active", fitnessGoal: "fat_loss" }),
@@ -502,5 +505,45 @@ describe("ui macro: the Macro tab hub and logging a meal by hand", () => {
     await h.expectPath("/macro");
     await h.expectText("Add your first meal to start today."); // only the Macro hub says this (Home has its own "Nothing logged yet today.")
     await h.expectText("Add meal");
+  }));
+  // "Choose from library" opens the browser's file chooser on a hidden input: intercepted
+  // through DevTools so headless Chrome can't cancel it (as in body-scan.ui.test.js)
+  it("6. Scan food: a photo becomes an editable estimate, and Add to my day logs it", run("scan", async () => {
+    await h.goto("/macro/log", "How would you like to log?");
+    await clickLabel("Scan food: estimate calories and macros from a photo");
+    await h.expectPath("/macro/scan");
+    await h.expectText("Photograph your meal");
+    await snapshotAllWidths("macro-scan-start");
+
+    const before = (await meals()).length;
+    await page.setInput('input[aria-label="Note about the food"]', "2 rotis");
+    await client.send("Page.enable", {}, page.sessionId);
+    await client.send("Page.setInterceptFileChooserDialog", { enabled: true }, page.sessionId);
+    const chooser = new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error("the photo picker did not open a file chooser")), 10000);
+      client.on((m) => { if (m.sessionId === page.sessionId && m.method === "Page.fileChooserOpened") { clearTimeout(timer); resolve(m.params); } });
+    });
+    await page.clickText("Choose from library");
+    const { backendNodeId } = await chooser;
+    await client.send("DOM.setFileInputFiles", { backendNodeId, files: [TINY_PNG] }, page.sessionId);
+    await client.send("Page.setInterceptFileChooserDialog", { enabled: false }, page.sessionId);
+
+    await h.expectText("Foods we found");
+    for (const food of ["Dal tadka", "Jeera rice", "Roti"]) await h.expectText(food);
+    await h.expectText("590 kcal");
+    await page.setInput('input[aria-label="Roti kcal"]', "250");
+    await h.expectText("640 kcal");
+    await clickLabel("Remove Jeera rice");
+    await h.expectText("430 kcal");
+    assert.equal((await meals()).length, before, "scanning saves nothing");
+    await snapshotAllWidths("macro-scan-review");
+
+    await clickLabel("Add to my day");
+    await h.expectPath("/macro");
+    const saved = (await meals()).filter((m) => m.title === "Dal, rice and roti");
+    assert.equal(saved.length, 1);
+    assert.equal(saved[0].source, "manual");
+    const [items] = await connection.query("SELECT name, kcal FROM macro_meal_items WHERE macro_meal_id = ? ORDER BY name", [saved[0].id]);
+    assert.deepEqual(items.map((i) => [i.name, Number(i.kcal)]), [["Dal tadka", 180], ["Roti", 250]]);
   }));
 });

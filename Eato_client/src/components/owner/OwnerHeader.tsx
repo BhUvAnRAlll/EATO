@@ -33,7 +33,7 @@ export function OwnerHeader({ title, subtitle }: Props) {
           accessibilityRole={canSwitch ? "button" : "text"}
           accessibilityLabel={canSwitch ? `${gymName}. Switch gym` : gymName}
         >
-          <Text className="home__eyebrow" numberOfLines={1}>{platform ? `${gymName} · EATO admin` : gymName}</Text>
+          <Text className="home__eyebrow" numberOfLines={1}>{platform ? `${gymName} · JustFit admin` : gymName}</Text>
           {canSwitch && <SymbolView name={{ ios: "chevron.down", android: "expand_more", web: "expand_more" }} size={12} tintColor={colors.muted} />}
         </Pressable>
         <Pressable onPress={() => router.replace("/")} hitSlop={8} className="owner__header-button" accessibilityRole="button" accessibilityLabel="Leave Gym Manager">

@@ -1,12 +1,9 @@
 import { Pressable, Text, View } from "react-native";
 
-import { CircularNutritionProgress } from "@/components/home/CircularNutritionProgress";
+import { ProgressRing } from "@/components/ProgressRing";
 import { SectionHeader } from "@/components/home/SectionHeader";
 import type { NutritionToday } from "@/data/home";
 import { colors } from "@/theme";
-
-// The "Edit Goal" link uses the app's accent
-const LINK_COLOR = colors.leaf;
 
 type NutritionProgressCardProps = {
   heading: string;
@@ -19,45 +16,64 @@ type NutritionProgressCardProps = {
   onOpen: () => void;
 };
 
-// Ring colours: the theme's accent for calories and its macro colours for the rest
-const rings = [
-  { key: "calories", label: "Calories", unit: "kcal", color: colors.leaf, icon: { ios: "flame.fill", android: "local_fire_department", web: "local_fire_department" } },
-  { key: "proteinG", label: "Protein", unit: "g", color: colors.protein, icon: { ios: "dumbbell.fill", android: "fitness_center", web: "fitness_center" } },
-  { key: "carbsG", label: "Carbs", unit: "g", color: colors.carbs, icon: { ios: "leaf.fill", android: "grass", web: "grass" } },
-  { key: "fatG", label: "Fats", unit: "g", color: colors.fat, icon: { ios: "drop.fill", android: "water_drop", web: "water_drop" } },
+const stats = [
+  { key: "calories", label: "Calories", unit: "kcal", color: colors.leaf },
+  { key: "proteinG", label: "Protein", unit: "g", color: colors.protein },
+  { key: "carbsG", label: "Carbs", unit: "g", color: colors.carbs },
+  { key: "fatG", label: "Fats", unit: "g", color: colors.fat },
 ] as const;
 
-// "Today's Macros": four rings (calories, protein, carbs, fats) against the targets. No outer
-// card: the heading, the rings panel and the note sit straight on the page. The panel and the
-// note open the Macro tab; "Edit Goal" stays a separate link (no button inside a button).
+const amount = (n: number, unit: string) => (unit === "kcal" ? n.toLocaleString("en-IN") : `${n}g`);
+
+// "Today's Macros" (the admins' heading): one card with a ring for the share of today's
+// calories eaten and the four amounts beside it. The card opens the Macro tab; "Edit Goal" stays
+// a separate link (no button inside a button).
 export function NutritionProgressCard({ heading, actionLabel, nutrition, width, onEditGoal, onOpen }: NutritionProgressCardProps) {
-  // Panel padding (12 × 2) and three gaps between four rings. Never under 60pt: four 60pt
-  // rings still fit a 320pt phone and keep their labels readable.
-  const ringSize = Math.round(Math.min(76, Math.max(60, (width - 24 - 24) / 4)));
+  const { consumed, targets } = nutrition;
+  const share = targets.calories > 0 ? consumed.calories / targets.calories : 0;
+  const ringSize = width < 330 ? 84 : 96;
 
   return (
     <View>
-      <SectionHeader title={heading} actionLabel={actionLabel} onAction={onEditGoal} actionColor={LINK_COLOR} />
-      <Pressable onPress={onOpen} accessibilityRole="button" accessibilityLabel={`${heading}: ${nutrition.consumed.calories} of ${nutrition.targets.calories} kcal eaten. Open Macro`}>
-        <View className="ring__panel mt-4 flex-row justify-between">
-          {rings.map((ring) => (
-            <CircularNutritionProgress
-              key={ring.key}
-              label={ring.label}
-              value={nutrition.consumed[ring.key]}
-              target={nutrition.targets[ring.key]}
-              unit={ring.unit}
-              color={ring.color}
-              icon={ring.icon}
-              size={ringSize}
-            />
-          ))}
+      <SectionHeader title={heading} actionLabel={actionLabel} onAction={onEditGoal} />
+      <Pressable
+        onPress={onOpen}
+        className="card mt-3"
+        accessibilityRole="button"
+        accessibilityLabel={`${heading}: ${consumed.calories} of ${targets.calories} kcal eaten. Open Macro`}
+      >
+        <View className="flex-row items-center gap-4">
+          <ProgressRing progress={share} size={ringSize} stroke={9}>
+            {(shown) => <Text className="type-number-stat text-ink">{`${Math.round(Math.min(share, 9.99) * 100 * shown)}%`}</Text>}
+          </ProgressRing>
+          <View className="flex-1" accessibilityLabel={`Calories: ${amount(consumed.calories, "kcal")} of ${amount(targets.calories, "kcal")} kcal`}>
+            <Text className="type-number-big text-ink" numberOfLines={1}>
+              {amount(consumed.calories, "kcal")}
+            </Text>
+            <Text className="type-caption text-muted">{`of ${amount(targets.calories, "kcal")} kcal eaten`}</Text>
+          </View>
         </View>
-        <Text className="home__note mt-3 px-1">
+        <View className="mt-4 flex-row border-t border-line pt-3.5">
+          {stats
+            .filter((stat) => stat.key !== "calories")
+            .map((stat) => (
+              <View key={stat.key} className="flex-1" accessibilityLabel={`${stat.label}: ${amount(consumed[stat.key], stat.unit)} of ${amount(targets[stat.key], stat.unit)}`}>
+                <View className="flex-row items-center gap-1.5">
+                  <View className="h-2 w-2 rounded-full" style={{ backgroundColor: stat.color }} />
+                  <Text className="type-caption text-muted">{stat.label}</Text>
+                </View>
+                <Text className="type-subhead mt-0.5 text-ink" numberOfLines={1}>
+                  {amount(consumed[stat.key], stat.unit)}
+                  <Text className="type-caption text-muted">{` / ${amount(targets[stat.key], stat.unit)}`}</Text>
+                </Text>
+              </View>
+            ))}
+        </View>
+        <Text className="home__note mt-3">
           {nutrition.source === "sample"
             ? "Sample numbers: your targets couldn't be loaded."
-            : nutrition.consumed.calories > 0
-              ? `${nutrition.consumed.calories.toLocaleString("en-IN")} kcal logged today. Tap to see your meals.`
+            : consumed.calories > 0
+              ? `${consumed.calories.toLocaleString("en-IN")} kcal logged today. Tap to see your meals.`
               : "Nothing logged yet today. Tap to log a meal."}
         </Text>
       </Pressable>

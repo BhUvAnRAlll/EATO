@@ -13,7 +13,7 @@ import { isOffline, timeAgo } from "@/lib/community";
 import { owner, type ReviewPost, type ReviewQueue } from "@/lib/owner";
 import { useSessionToken } from "@/lib/session";
 import { useOwnerStore } from "@/store/owner";
-import { colors } from "@/theme";
+import { colors, switchColors } from "@/theme";
 
 type Action = "approve" | "reject" | "keep" | "remove";
 type View_ = "pending" | "reported";
@@ -124,7 +124,7 @@ export default function OwnerReview() {
                 <Text className="friend-row__name">Review posts before they go live</Text>
                 <Text className="friend-row__note">Posts from members (not staff) wait here for approval.</Text>
               </View>
-              <Switch value={data.postModeration} onValueChange={toggle} trackColor={{ true: colors.leaf, false: colors.creamTab }} accessibilityLabel="Review posts before they go live" />
+              <Switch {...switchColors} value={data.postModeration} onValueChange={toggle} accessibilityLabel="Review posts before they go live" />
             </View>
 
             <View className="segment" accessibilityRole="tablist">
@@ -165,7 +165,7 @@ export default function OwnerReview() {
                 ))
               )
             ) : data.reported.length === 0 ? (
-              <EmptyState icon={{ ios: "flag", android: "flag", web: "flag" }} title="No reports" text="Posts members report in your gym show here. EATO's team sees them too." />
+              <EmptyState icon={{ ios: "flag", android: "flag", web: "flag" }} title="No reports" text="Posts members report in your gym show here. JustFit's team sees them too." />
             ) : (
               data.reported.map(({ post, reports, reasons }) => (
                 <View key={post.id} className="owner-card" accessibilityLabel={`Reported post by ${post.author.name}`}>

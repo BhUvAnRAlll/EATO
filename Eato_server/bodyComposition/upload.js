@@ -53,4 +53,4 @@ function checkUpload(body) {
   return { ok: true, mediaType: actual, bytes };
 }
 
-module.exports = { uploadLimits, sniffMediaType, checkUpload };
+module.exports = { uploadLimits, decodeBase64, sniffMediaType, checkUpload };

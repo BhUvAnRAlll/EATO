@@ -42,7 +42,7 @@ export type SavedProfile = {
 
 export type SavedData = { profile: SavedProfile | null; nutrition: TargetRecord | null };
 
-// Saves the finished setup answers and the target record to the EATO server.
+// Saves the finished setup answers and the target record to the JustFit server.
 // `token` is the Clerk session token; the server works out who's saving from it.
 export async function saveProfile(token: string | null, body: { profile: Profile; nutrition: TargetRecord }): Promise<ApiResult<{ saved: true }>> {
   if (!token) return { ok: false, error: "Please sign in again." };

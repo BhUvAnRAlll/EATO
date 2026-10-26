@@ -8,7 +8,7 @@ import { FormAlert } from "@/components/FormAlert";
 import { coachingModeLabels, specialties, specialtyLabels, type CoachingMode, type Specialty } from "@/lib/trainerRules";
 import { trainers, type TrainerProfileDraft } from "@/lib/trainers";
 import { useSessionToken } from "@/lib/session";
-import { colors } from "@/theme";
+import { colors, switchColors } from "@/theme";
 
 const input = { borderRadius: 14, borderWidth: 1, borderColor: colors.creamLine, backgroundColor: colors.white, paddingHorizontal: 12, paddingVertical: 10, fontSize: 15, color: colors.forestInk } as const;
 const lines = (text: string) => text.split(/[,\n]/).map((s) => s.trim()).filter(Boolean);
@@ -108,11 +108,11 @@ export default function TrainerOwnProfile() {
         </View>
         <View className="flex-row items-center justify-between">
           <Text className="auth__label flex-1">Offer nutrition coaching (diet plans and targets)</Text>
-          <Switch value={offersNutrition} onValueChange={setOffersNutrition} trackColor={{ true: colors.forest }} accessibilityLabel="Offer nutrition coaching" />
+          <Switch {...switchColors} value={offersNutrition} onValueChange={setOffersNutrition} accessibilityLabel="Offer nutrition coaching" />
         </View>
         <View className="flex-row items-center justify-between">
           <Text className="auth__label flex-1">Accepting new clients</Text>
-          <Switch value={accepting} onValueChange={setAccepting} trackColor={{ true: colors.forest }} accessibilityLabel="Accepting new clients" />
+          <Switch {...switchColors} value={accepting} onValueChange={setAccepting} accessibilityLabel="Accepting new clients" />
         </View>
         {field("Availability", "availability", { placeholder: "Mon–Sat, 6–10am", max: 120 })}
         <Text className="home__note">Shown to your clients only, after you accept them:</Text>

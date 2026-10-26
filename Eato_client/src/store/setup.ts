@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-import type { BodyCompositionReport } from "@/lib/nutrition";
+import { estimateFieldText, type BodyScanEstimate } from "@/lib/bodyScanRules";
 import type { HealthFlag, Profile } from "@/types/profile";
 
 // Answers collected while the user moves through the profile setup steps
@@ -8,17 +8,17 @@ type SetupState = {
   profile: Profile;
   // Calorie target after the user adjusts it on the last step (null = use the calculated one)
   calorieOverride: number | null;
-  // Body composition report: values read from an upload, awaiting the user's check
-  reportDraft: BodyCompositionReport | null;
-  // ...and after the user confirmed every value (only this one is ever used)
-  report: BodyCompositionReport | null;
+  // Body scan: the result just scanned, waiting for "Use this result", and the one accepted.
+  // Kept in memory only; the accepted body fat % is saved with the profile like a typed value.
+  scanDraft: BodyScanEstimate | null;
+  scan: BodyScanEstimate | null;
   update: (changes: Partial<Profile>) => void;
   toggleCuisine: (cuisine: string) => void;
   toggleHealthFlag: (flag: HealthFlag) => void;
   setCalorieOverride: (calories: number | null) => void;
-  setReportDraft: (draft: BodyCompositionReport | null) => void;
-  confirmReport: (report: BodyCompositionReport) => void;
-  removeReport: () => void;
+  setScanDraft: (draft: BodyScanEstimate | null) => void;
+  acceptScan: () => void;
+  removeScan: () => void;
   reset: () => void;
 };
 
@@ -48,8 +48,8 @@ const emptyProfile: Profile = {
 export const useSetupStore = create<SetupState>((set) => ({
   profile: emptyProfile,
   calorieOverride: null,
-  reportDraft: null,
-  report: null,
+  scanDraft: null,
+  scan: null,
   update: (changes) => set((state) => ({ profile: { ...state.profile, ...changes } })),
   toggleCuisine: (cuisine) =>
     set((state) => {
@@ -64,21 +64,19 @@ export const useSetupStore = create<SetupState>((set) => ({
       return { profile: { ...state.profile, healthFlags: next } };
     }),
   setCalorieOverride: (calories) => set({ calorieOverride: calories }),
-  setReportDraft: (draft) => set({ reportDraft: draft }),
-  // Confirmed values also fill in the matching profile fields (the user can still edit them)
-  confirmReport: (report) =>
-    set((state) => ({
-      report,
-      reportDraft: null,
-      calorieOverride: null,
-      profile: {
-        ...state.profile,
-        gender: report.gender ?? state.profile.gender,
-        heightCm: report.heightCm != null ? String(report.heightCm) : state.profile.heightCm,
-        weightKg: report.weightKg != null ? String(report.weightKg) : state.profile.weightKg,
-        bodyFatPercent: "",
-      },
-    })),
-  removeReport: () => set({ report: null, reportDraft: null, calorieOverride: null }),
-  reset: () => set({ profile: emptyProfile, calorieOverride: null, reportDraft: null, report: null }),
+  setScanDraft: (draft) => set({ scanDraft: draft }),
+  // The scanned body fat % becomes the profile's, so the targets use it
+  acceptScan: () =>
+    set((state) =>
+      state.scanDraft
+        ? {
+            scan: state.scanDraft,
+            scanDraft: null,
+            calorieOverride: null,
+            profile: { ...state.profile, bodyFatPercent: estimateFieldText(state.scanDraft) },
+          }
+        : {},
+    ),
+  removeScan: () => set((state) => ({ scan: null, scanDraft: null, calorieOverride: null, profile: { ...state.profile, bodyFatPercent: "" } })),
+  reset: () => set({ profile: emptyProfile, calorieOverride: null, scanDraft: null, scan: null }),
 }));

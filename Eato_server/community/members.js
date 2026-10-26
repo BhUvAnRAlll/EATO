@@ -5,7 +5,7 @@ const { getAccount } = require("../auth");
 
 // The public shape of a member (no email, no phone)
 function memberSummary(row) {
-  const name = (row.full_name && row.full_name.trim()) || "EATO member";
+  const name = (row.full_name && row.full_name.trim()) || "JustFit member";
   return { id: row.user_id ?? row.id, name, initial: name.trim().charAt(0).toUpperCase() };
 }
 

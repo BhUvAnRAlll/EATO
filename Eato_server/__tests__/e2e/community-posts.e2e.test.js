@@ -68,7 +68,7 @@ describe("community posts e2e: publish, edit and delete with photos", () => {
     try { connection = await db.connect(env); } catch (error) { skipReason = `test database unreachable (${error?.code ?? "refused"})`; return; }
     assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in eato_test`);
     clerk = clerkFor(env.CLERK_SECRET_KEY);
-    uploadDir = fs.mkdtempSync(path.join(os.tmpdir(), "eato-posts-uploads-"));
+    uploadDir = fs.mkdtempSync(path.join(os.tmpdir(), "justfit-posts-uploads-"));
     server = await startTestServer({ ...env, UPLOAD_DIR: uploadDir });
     try {
       await newIdentity("author");

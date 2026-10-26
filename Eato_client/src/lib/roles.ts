@@ -1,6 +1,6 @@
 import { apiFetch } from "@/lib/api";
 
-// Who the signed-in person is in EATO. The role lives in the Clerk user's
+// Who the signed-in person is in JustFit. The role lives in the Clerk user's
 // `publicMetadata.role`, which only the server (Clerk dashboard or the
 // `npm run set-role` script) can change — so users can't promote themselves.
 export type Role = "user" | "admin" | "trainer";
@@ -28,7 +28,7 @@ export function needsTrainerRole(user: UserWithMetadata) {
   return user.publicMetadata.role === undefined && user.unsafeMetadata.accountType === "trainer";
 }
 
-// Asks the EATO server to make this account a trainer (POST /api/account-type; see
+// Asks the JustFit server to make this account a trainer (POST /api/account-type; see
 // grantTrainerRole in Eato_server/auth.js). `token` is the Clerk session token.
 export async function claimTrainerRole(token: string | null): Promise<{ ok: true } | { ok: false; error: string }> {
   if (!token) return { ok: false, error: "Please sign in again." };
@@ -42,5 +42,5 @@ export function getHomeRoute(user: UserWithMetadata) {
   const role = getRole(user);
   if (role === "admin") return "/admin";
   if (role === "trainer") return "/trainer";
-  return user.unsafeMetadata.profileComplete === true ? "/home" : "/setup/body-composition";
+  return user.unsafeMetadata.profileComplete === true ? "/home" : "/setup/personal";
 }

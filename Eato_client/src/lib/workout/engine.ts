@@ -233,7 +233,7 @@ export function fitnessBaseFromExperience(level: ExperienceLevel | undefined): S
  * back to cautious middles, so a plan can always be built; the recreate flow
  * is where they get asked.
  */
-/** The profile fields the engine reads (FORMA's names). See profile.ts for EATO's mapping. */
+/** The profile fields the engine reads (FORMA's names). See profile.ts for JustFit's mapping. */
 export type EngineProfile = {
   gender?: Gender;
   dateOfBirth?: string;

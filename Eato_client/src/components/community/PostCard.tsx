@@ -138,7 +138,7 @@ function PostPhotos({ media, width, author }: { media: PostMedia[]; width: numbe
 export function PostCard({ post, width, onLike, onOpenComments, onMenu, onAuthor, onVote, badge = null }: PostCardProps) {
   const hasBox = Boolean(post.headline) && (post.category === "progress" || post.category === "meal" || post.category === "achievement");
   const tag = hasBox ? { label: "", className: "" } : categoryTags[post.category];
-  const share = () => Share.share({ message: `${post.author.name} on EATO: ${post.body}` }).catch(() => {});
+  const share = () => Share.share({ message: `${post.author.name} on JustFit: ${post.body}` }).catch(() => {});
 
   return (
     <View className="post__card">

@@ -13,7 +13,7 @@ const NOW = Date.UTC(2026, 9, 19, 9, 0, 0);
 describe("member passes", () => {
   it("reads back a fresh pass as its member", () => {
     const { pass, expiresAt } = passes.issuePass(key, USER, NOW);
-    assert.match(pass, /^EATO1\.user_[A-Za-z0-9]+\.\d+\.[A-Za-z0-9_-]+$/);
+    assert.match(pass, /^JF1\.user_[A-Za-z0-9]+\.\d+\.[A-Za-z0-9_-]+$/);
     assert.equal(new Date(expiresAt).getTime(), NOW + passes.LIFETIME_SECONDS * 1000);
     assert.deepEqual(passes.readPass(key, pass, NOW + 1000), { ok: true, userId: USER });
     assert.deepEqual(passes.readPass(key, `  ${pass}\n`, NOW), { ok: true, userId: USER }, "surrounding spaces are ignored");
@@ -39,7 +39,7 @@ describe("member passes", () => {
   });
 
   it("refuses junk, injection attempts and the wrong types", () => {
-    for (const code of ["", "hello", "EATO1", "EATO1.a.b.c", "EATO1.user_x.1.sig", "' OR 1=1 --", "EATO-OUT-ABCDEFGHJKLM", "x".repeat(500), null, 42, {}]) {
+    for (const code of ["", "hello", "EATO1", "EATO1.a.b.c", "EATO1.user_x.1.sig", "' OR 1=1 --", "JUSTFIT-OUT-ABCDEFGHJKLM", "x".repeat(500), null, 42, {}]) {
       assert.deepEqual(passes.readPass(key, code, NOW), { ok: false, reason: "invalid" }, String(code));
     }
   });
@@ -57,12 +57,28 @@ describe("check-out codes", () => {
     assert.match(code, /^[A-HJ-NP-Z2-9]{12}$/);
     assert.notEqual(passes.newCheckoutCode(), code);
     assert.equal(passes.readCheckoutQr(passes.checkoutQrText(code)), code);
-    assert.equal(passes.readCheckoutQr(` eato-out-${code.toLowerCase()} `), code, "case and spaces don't matter");
+    assert.equal(passes.readCheckoutQr(` justfit-out-${code.toLowerCase()} `), code, "case and spaces don't matter");
   });
 
   it("refuses anything else", () => {
-    for (const text of ["", "EATO-OUT-", "EATO-OUT-ABC", "EATO-OUT-ABCDEFGHJKL0", "EATO1.user_x.1.s", "https://example.com", null, 7]) {
+    for (const text of ["", "JUSTFIT-OUT-", "JUSTFIT-OUT-ABC", "JUSTFIT-OUT-ABCDEFGHJKL0", "EATO-OUT-", "JF-OUT-ABCDEFGHJKLM", "JF1.user_x.1.s", "https://example.com", null, 7]) {
       assert.equal(passes.readCheckoutQr(text), null, String(text));
     }
+  });
+});
+
+describe("codes made before the JustFit rename", () => {
+  it("still reads an EATO1 pass: same signature and expiry rules", () => {
+    const { pass } = passes.issuePass(key, USER, NOW);
+    const legacy = pass.replace(/^JF1\./, "EATO1.");
+    assert.deepEqual(passes.readPass(key, legacy, NOW), { ok: true, userId: USER });
+    assert.equal(passes.readPass(key, legacy.replace("EATO1.", "EATO2."), NOW).ok, false, "only the two known prefixes");
+    assert.equal(passes.readPass(otherKey, legacy, NOW).ok, false, "a legacy pass still needs a valid signature");
+    assert.deepEqual(passes.readPass(key, legacy, NOW + 121_000), { ok: false, reason: "expired" });
+  });
+
+  it("still reads a printed EATO-OUT check-out QR", () => {
+    assert.equal(passes.readCheckoutQr("EATO-OUT-ABCDEFGHJKLM"), "ABCDEFGHJKLM");
+    assert.equal(passes.checkoutQrText("ABCDEFGHJKLM"), "JUSTFIT-OUT-ABCDEFGHJKLM", "new codes use the JustFit name");
   });
 });

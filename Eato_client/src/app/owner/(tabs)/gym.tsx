@@ -20,7 +20,7 @@ export default function OwnerGym() {
   const params = { id: gymId };
   const links: Link[] = [
     { label: "Gym profile", note: "Name, photos, hours, contact and more", icon: { ios: "pencil", android: "edit", web: "edit" }, to: { pathname: "/community/gyms/[id]/manage/profile", params } },
-    { label: "Subscription", note: "Your EATO plan (no payment is taken)", icon: { ios: "creditcard", android: "credit_card", web: "credit_card" }, to: { pathname: "/community/gyms/[id]/manage/plan", params } },
+    { label: "Subscription", note: "Your JustFit plan (no payment is taken)", icon: { ios: "creditcard", android: "credit_card", web: "credit_card" }, to: { pathname: "/community/gyms/[id]/manage/plan", params } },
     { label: "Trainers", note: "Your coaching team", icon: { ios: "dumbbell", android: "fitness_center", web: "fitness_center" }, to: { pathname: "/owner/members", params: { list: "staff" } } },
     { label: "Members", note: "Requests, roles and removals", icon: { ios: "person.2", android: "group", web: "group" }, to: "/owner/members" },
     { label: "Renewals", note: "Packages ending soon", icon: { ios: "calendar.badge.clock", android: "event_repeat", web: "event_repeat" }, to: "/owner/renewals" },
@@ -33,7 +33,7 @@ export default function OwnerGym() {
     { label: "Community settings", note: "Who can post, comment and create events", icon: { ios: "slider.horizontal.3", android: "tune", web: "tune" }, to: { pathname: "/community/gyms/[id]/manage/settings", params } },
     { label: "Gym page", note: "What members see", icon: { ios: "building.2", android: "apartment", web: "apartment" }, to: { pathname: "/community/gyms/[id]", params: { id: gymId } } },
   ];
-  // An EATO admin helping out reaches the portal's own screens; the member app's are the gym's
+  // An JustFit admin helping out reaches the portal's own screens; the member app's are the gym's
   const shown = platform ? links.filter((link) => typeof link.to === "string" || String((link.to as { pathname: string }).pathname).startsWith("/owner")) : links;
 
   return (

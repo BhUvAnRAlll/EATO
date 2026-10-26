@@ -91,7 +91,7 @@ export default function NutritionTargets() {
   const { signOut } = useClerk();
   // The server rejected the session: offer the way back to sign-in instead of a dead retry
   const [sessionExpired, setSessionExpired] = useState(false);
-  const { profile, calorieOverride, setCalorieOverride, reset, report } = useSetupStore();
+  const { profile, calorieOverride, setCalorieOverride, reset } = useSetupStore();
 
   // Only for gender "other"/"unspecified": the estimate the user picks (never chosen for them)
   const [equationGender, setEquationGender] = useState<EquationGender | null>(null);
@@ -111,13 +111,11 @@ export default function NutritionTargets() {
     activityLevel: profile.activity ?? undefined,
     fitnessGoal: profile.goal ?? undefined,
     healthFlags: profile.healthFlags,
-    // A confirmed report (or a typed body fat %) makes the calculator use
-    // Katch–McArdle; it decides itself whether the report is recent enough
+    // A typed (or photo-estimated) body fat % makes the calculator use Katch–McArdle
     bodyComposition:
-      report ??
-      (profile.bodyFatPercent !== ""
+      profile.bodyFatPercent !== ""
         ? manualBodyFatReport(Number(profile.weightKg), Number(profile.bodyFatPercent))
-        : undefined),
+        : undefined,
   };
   const result = calculateTargets(input);
   const weightKg = Number(profile.weightKg);
@@ -160,7 +158,7 @@ export default function NutritionTargets() {
     return applyUserAdjustment(record, calorieOverride, "Adjusted during setup", actor);
   };
 
-  // Saves the profile and target record to the EATO server (MySQL), then marks setup
+  // Saves the profile and target record to the JustFit server (MySQL), then marks setup
   // complete on the Clerk account so the start screen can route straight to home.
   // `isSaving` disables the button, so a double tap can't send two requests.
   const handleFinish = async () => {
@@ -178,8 +176,7 @@ export default function NutritionTargets() {
     setError(null);
     setSessionExpired(false);
     setIsSaving(true);
-    // The confirmed report values travel inside the record's inputs so the server can
-    // re-check the calculation; the uploaded file itself was never stored.
+    // The body fat value travels inside the record's inputs so the server can re-check the calculation
     const saved = await saveProfile(await getToken(), { profile, nutrition: built.record });
     if (!saved.ok) {
       if (isSessionExpired(saved)) {
@@ -337,22 +334,6 @@ export default function NutritionTargets() {
               />
               <Text className="setup__chip-label flex-1">Reset to the estimate ({result.displayCalories.toLocaleString("en-IN")} kcal)</Text>
             </Pressable>
-          )}
-
-          {/* The device's own suggestion: reference only, never used as the target */}
-          {result.rmrFormula === "katch_mcardle" && report?.printedRecommendedIntakeKcal != null && (
-            <Text className="setup__card-text mt-3">
-              {`Your body composition device printed a recommended intake of ${report.printedRecommendedIntakeKcal.toLocaleString("en-IN")} kcal. It's shown for reference only; your target above is calculated from your fat-free mass, activity and goal.`}
-            </Text>
-          )}
-
-          {result.reportExpired && (
-            <View className="setup__info mt-3">
-              <SymbolView name={{ ios: "doc.badge.clock", android: "update", web: "update" }} size={16} tintColor={colors.forest} />
-              <Text className="setup__card-text flex-1">
-                Your body composition report has expired. Upload a newer one from your profile to use it again.
-              </Text>
-            </View>
           )}
 
           {result.warnings.map((warning) => (

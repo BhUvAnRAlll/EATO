@@ -6,7 +6,7 @@ import { ConfirmSheet } from "@/components/community/ConfirmSheet";
 import { FormAlert } from "@/components/FormAlert";
 import { plans, settingOptions, visibilityLabels, type GymVisibility } from "@/lib/gymRules";
 import { gyms, type Gym, type GymSettingsChanges } from "@/lib/gyms";
-import { colors } from "@/theme";
+import { colors, switchColors } from "@/theme";
 
 type Props = { gym: Gym; getToken: () => Promise<string | null>; onSaved: (gym: Gym) => void };
 
@@ -68,7 +68,7 @@ export function GymSettingsForm({ gym, getToken, onSaved }: Props) {
         <Text className="join-card__title">{label}</Text>
         <Text className="join-card__hint">{hint}</Text>
       </View>
-      <Switch value={gym.settings[key]} onValueChange={(value) => save({ [key]: value })} disabled={saving} trackColor={{ true: colors.leaf }} thumbColor={colors.white} accessibilityLabel={label} />
+      <Switch {...switchColors} value={gym.settings[key]} onValueChange={(value) => save({ [key]: value })} disabled={saving} accessibilityLabel={label} />
     </View>
   );
 

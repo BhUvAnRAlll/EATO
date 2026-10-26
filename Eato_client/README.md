@@ -1,4 +1,4 @@
-# EATO
+# JustFit
 
 Fitness meal delivery and tracking app for India, built with Expo.
 

@@ -1,5 +1,5 @@
 import googleLogo from "../../assets/images/google-logo.png";
-import eatoWordmark from "../../assets/images/eato-wordmark.png";
+import justfitLogo from "../../assets/images/justfit-logo.png";
 import onboardingArtMeals from "../../assets/images/onboarding-art-meals.png";
 import onboardingArtNutrition from "../../assets/images/onboarding-art-nutrition.png";
 import onboardingArtProgress from "../../assets/images/onboarding-art-progress.png";
@@ -8,7 +8,6 @@ import authSignupBottomLeft from "../../assets/images/auth-signup-bottom-left.pn
 import authLeafLeft from "../../assets/images/auth-leaf-left.png";
 import authLeafBottomRight from "../../assets/images/auth-leaf-bottom-right.png";
 import authLoginArt from "../../assets/images/auth-login-art.png";
-import setupBcaReport from "../../assets/images/setup-bca-report.png";
 import bodySilhouette from "../../assets/images/body-silhouette.png";
 import homeHeroBowl from "../../assets/images/home-hero-bowl.jpg";
 import homeHeroMeals from "../../assets/images/home-hero-meals.jpg";
@@ -21,7 +20,7 @@ import homeMealLemonHerbChicken from "../../assets/images/home-meal-lemon-herb-c
 
 export const images = {
   googleLogo,
-  eatoWordmark,
+  justfitLogo,
   onboardingArtMeals,
   onboardingArtNutrition,
   onboardingArtProgress,
@@ -30,7 +29,6 @@ export const images = {
   authLeafLeft,
   authLeafBottomRight,
   authLoginArt,
-  setupBcaReport,
   bodySilhouette,
 };
 

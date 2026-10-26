@@ -1,4 +1,4 @@
-// EATO server: Express + MySQL. The Expo app (EATO-CLIENT) talks to it over HTTP.
+// JustFit server: Express + MySQL. The Expo app (JustFit-CLIENT) talks to it over HTTP.
 //
 //   yarn dev     restart on every file change (nodemon)
 //   yarn start   run once
@@ -24,15 +24,20 @@ const { limitPerUser, createRateLimiter, rateLimits } = require("./rateLimit");
 const { jsonBodyWithLimit } = require("./requestBody");
 const { checkUpload, uploadLimits } = require("./bodyComposition/upload");
 const { ExtractionError, extractReport } = require("./bodyComposition/extract");
+const { ScanError, checkScanRequest, requestScan, MAX_SCAN_BODY_BYTES } = require("./bodyComposition/scan");
 const home = require("./home");
 const { communityRouter, canSeeMedia } = require("./community/routes");
 const media = require("./community/media");
 const stories = require("./community/stories");
 const { macroRouter } = require("./macro/routes");
+const { coachRouter } = require("./coach/routes");
+const { FoodScanError, checkFoodPhoto, scanFood, scanLimits: foodScanLimits } = require("./macro/foodScan");
 const { workoutRouter } = require("./workout/routes");
 const { gymsRouter } = require("./gyms/routes");
 const { trainersRouter } = require("./trainers/routes");
 const { ownerRouter } = require("./owner/routes");
+const { adminPortalRouter } = require("./admin/routes");
+const { recordAdminAction } = require("./admin/overview");
 const { whatsappConfig } = require("./whatsapp/config");
 const { webhookRouter } = require("./whatsapp/webhook");
 const { createWorker } = require("./whatsapp/worker");
@@ -59,11 +64,14 @@ const MAX_UPLOAD_BODY_BYTES = Math.ceil(uploadLimits.maxPdfBytes * (4 / 3)) + 10
 const profileLimiter = createRateLimiter(rateLimits.standard);
 const accountLimiter = createRateLimiter(rateLimits.standard);
 const uploadLimiter = createRateLimiter(rateLimits.upload); // each upload is an OpenAI vision call
+const scanLimiter = createRateLimiter(rateLimits.upload); // each photo scan runs the Forma model for a few seconds
 const homeLimiter = createRateLimiter(rateLimits.standard); // members reading the home screen content
 const adminLimiter = createRateLimiter(rateLimits.standard); // admins editing it (also caps the Clerk role lookups)
 const communityLimiter = createRateLimiter(rateLimits.community); // feed, likes, comments, stories, groups, messages
 const mediaLimiter = createRateLimiter(rateLimits.community); // image downloads
 const macroLimiter = createRateLimiter(rateLimits.community); // the Macro diary: day, week strip, meals, favourites
+const foodScanLimiter = createRateLimiter(rateLimits.upload); // each food photo is an OpenAI vision call
+const coachLimiter = createRateLimiter(rateLimits.standard); // the AI Coach: the intake answers
 const workoutLimiter = createRateLimiter(rateLimits.community); // the Fitness tab: plan, training day, history
 const gymsLimiter = createRateLimiter(rateLimits.community); // gym communities: gyms, members, posts, events, invitations
 const trainersLimiter = createRateLimiter(rateLimits.community); // trainers: discovery, connections, diet and workout plans, recommendations
@@ -136,6 +144,21 @@ app.post("/api/body-composition", requireUser, limitPerUser(uploadLimiter), json
   }
 });
 
+// Estimates body fat % from a front and a side photo: { front, side, heightCm, weightKg, age,
+// sex, flipSide? } → { estimate } for the user to accept or ignore. The photos go to the Forma
+// scan server (bodyComposition/scan.js) and are never stored or logged. Same order as the
+// upload route: verified caller, scan budget, capped body, byte-level checks, then the model.
+app.post("/api/body-composition/scan", requireUser, limitPerUser(scanLimiter), jsonBodyWithLimit(MAX_SCAN_BODY_BYTES), async (req, res, next) => {
+  const checked = checkScanRequest(req.body);
+  if (!checked.ok) return res.status(checked.status).json({ error: checked.error });
+  try {
+    res.json({ estimate: await requestScan(checked) });
+  } catch (error) {
+    if (error instanceof ScanError) return res.status(error.status).json({ error: error.message });
+    next(error);
+  }
+});
+
 // Turns the account type picked at sign-up into the real role (see grantTrainerRole in
 // auth.js): POST → { role }. No body; the caller is the verified token's user.
 app.post("/api/account-type", requireUser, limitPerUser(accountLimiter), async (req, res) => {
@@ -174,6 +197,10 @@ app.get("/api/home-content", requireUser, limitPerUser(homeLimiter), async (req,
 const adminOnly = [requireUser, limitPerUser(adminLimiter), requireAdmin];
 const adminBody = express.json({ limit: "50kb" });
 
+// The Super Admin portal (see admin/routes.js): Overview, users, gyms and moderation, for JustFit
+// admins only (adminOnly checks the Clerk role on every request)
+app.use("/api/admin/portal", ...adminOnly, adminPortalRouter);
+
 app.get("/api/admin/promotions", ...adminOnly, async (req, res, next) => {
   try {
     res.json({ promotions: await home.listPromotions(pool) });
@@ -185,7 +212,9 @@ app.get("/api/admin/promotions", ...adminOnly, async (req, res, next) => {
 app.post("/api/admin/promotions", ...adminOnly, adminBody, async (req, res, next) => {
   try {
     const values = home.validatePromotion(req.body);
-    res.status(201).json({ promotion: await home.createPromotion(pool, values, req.userId) });
+    const promotion = await home.createPromotion(pool, values, req.userId);
+    await recordAdminAction(pool, req, values.status === "published" ? "promotion.publish" : "promotion.create", "promotion", promotion?.id, `${values.status === "published" ? "Published" : "Created"} promotion “${values.title}”`);
+    res.status(201).json({ promotion });
   } catch (error) {
     next(error);
   }
@@ -228,6 +257,8 @@ app.patch("/api/admin/promotions/:id", ...adminOnly, adminBody, async (req, res,
     const values = home.validatePromotion({ ...editable, ...req.body });
     const promotion = await home.updatePromotion(pool, id, values, req.userId);
     if (!promotion) return res.status(404).json({ error: "That promotion no longer exists." });
+    const published = values.status === "published" && existing.status !== "published";
+    await recordAdminAction(pool, req, published ? "promotion.publish" : "promotion.update", "promotion", id, `${published ? "Published" : "Updated"} promotion “${values.title}”`);
     res.json({ promotion });
   } catch (error) {
     next(error);
@@ -236,8 +267,11 @@ app.patch("/api/admin/promotions/:id", ...adminOnly, adminBody, async (req, res,
 
 app.delete("/api/admin/promotions/:id", ...adminOnly, async (req, res, next) => {
   try {
-    const deleted = await home.deletePromotion(pool, home.promotionId(req.params.id));
+    const id = home.promotionId(req.params.id);
+    const existing = await home.getPromotion(pool, id);
+    const deleted = await home.deletePromotion(pool, id);
     if (!deleted) return res.status(404).json({ error: "That promotion no longer exists." });
+    await recordAdminAction(pool, req, "promotion.delete", "promotion", id, `Deleted promotion “${existing?.title ?? "untitled"}”`);
     res.json({ deleted: true });
   } catch (error) {
     next(error);
@@ -292,7 +326,28 @@ app.use("/api/community", requireUser, limitPerUser(communityLimiter), community
 // Macro diary (see macro/routes.js): logged meals, the day view, favourites
 // ---------------------------------------------------------------------------
 
+// Estimates a meal from one photo: { data: base64, mediaType, hint? } → { scan: { title, items } }
+// for the member to check, then log through POST /api/macro/meals. Nothing is stored and the
+// photo is never logged. Before the router so it gets its own budget and body cap: verified
+// caller, scan budget, capped body, byte-level checks, and only then the OpenAI call.
+app.post("/api/macro/scan", requireUser, limitPerUser(foodScanLimiter), jsonBodyWithLimit(foodScanLimits.maxBodyBytes), async (req, res, next) => {
+  const photo = checkFoodPhoto(req.body);
+  if (!photo.ok) return res.status(photo.status).json({ error: photo.error });
+  try {
+    res.json({ scan: await scanFood(photo) });
+  } catch (error) {
+    if (error instanceof FoodScanError) return res.status(error.status).json({ error: error.message });
+    next(error);
+  }
+});
+
 app.use("/api/macro", requireUser, limitPerUser(macroLimiter), macroRouter);
+
+// ---------------------------------------------------------------------------
+// AI Coach (see coach/routes.js): the intake answers
+// ---------------------------------------------------------------------------
+
+app.use("/api/coach", requireUser, limitPerUser(coachLimiter), coachRouter);
 
 // ---------------------------------------------------------------------------
 // Workout (see workout/routes.js): the active plan, one training day, history
@@ -306,7 +361,7 @@ app.use("/api/gyms", requireUser, limitPerUser(gymsLimiter), gymsRouter);
 // Trainers (see trainers/routes.js): finding a trainer, the connection, diet and workout plans, targets
 app.use("/api/trainers", requireUser, limitPerUser(trainersLimiter), trainersRouter);
 
-// The gym owner portal (see owner/routes.js): a gym's owner and admins (or EATO admins) only
+// The gym owner portal (see owner/routes.js): a gym's owner and admins (or JustFit admins) only
 app.use("/api/owner", requireUser, limitPerUser(ownerLimiter), ownerRouter);
 
 // An uploaded image, for signed-in members only. The path comes from the database row,
@@ -382,5 +437,5 @@ if (process.env.NODE_ENV !== "test" && process.env.WHATSAPP_WORKER !== "off") {
 const port = Number(process.env.PORT ?? 4000);
 // 0.0.0.0 so a phone on the same Wi-Fi can reach it, not just this computer
 app.listen(port, "0.0.0.0", () => {
-  console.log(`EATO server listening on http://localhost:${port}`);
+  console.log(`JustFit server listening on http://localhost:${port}`);
 });

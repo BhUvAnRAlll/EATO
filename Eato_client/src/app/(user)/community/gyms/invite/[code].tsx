@@ -20,7 +20,7 @@ type Preview = { gym: Gym; role: "member" | "trainer"; invitedBy: Member | null 
 
 // Gym Invitation: what a code or link opens, before accepting. Works for hidden gyms too (the
 // code is the invitation). Accepting joins at once (no approval) with the code's role; a gym's
-// own code joins as a member. Opened from a link (eato://community/gyms/invite/CODE), a banner,
+// own code joins as a member. Opened from a link (justfit://community/gyms/invite/CODE, or an older eato:// one), a banner,
 // the join screen or a scan.
 export default function GymInvitation() {
   const params = useLocalSearchParams<{ code: string }>();

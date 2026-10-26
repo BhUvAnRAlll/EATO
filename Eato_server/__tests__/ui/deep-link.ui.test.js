@@ -20,7 +20,7 @@ const { launchChrome, connect, openPage, CHROME } = require("./cdp.js");
 const { helpers, signInAs, NAV_TIMEOUT } = require("./onboarding-steps.js");
 
 const EXPO_PORT = 8090;
-const EVIDENCE_DIR = path.join(os.tmpdir(), "eato-ui-evidence");
+const EVIDENCE_DIR = path.join(os.tmpdir(), "justfit-ui-evidence");
 const SCREENSHOT_DIR = process.env.EATO_SCREENSHOT_DIR || null;
 
 describe("ui deep links: a cold load onto a protected screen waits for the session", () => {

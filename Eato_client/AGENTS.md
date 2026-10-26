@@ -8,25 +8,40 @@ You should think like a senior mobile developer, but explain and implement like 
 
 ---
 
+## Brand (renamed 2026-10-26)
+
+The app was EATO and is now **JustFit** (logo: the JF mark with the JUSTFIT word, red and black).
+What changed and what deliberately did not:
+
+- Everything users see says JustFit: screen text, server messages, share texts, the app name, icon,
+  adaptive icon, splash, favicon and the in-app logo (`assets/images/justfit-logo.png`, shown by
+  `BrandWordmark`). Expo identity: slug `justfit`, scheme `justfit` (with `eato` still registered so
+  older invite links and QR codes open the app), iOS bundle id `com.bhuvii3.justfit`. A new
+  development build and the new redirect URL in Clerk / Google sign-in are needed.
+- Codes: member passes are `JF1.…` and gym check-out QR codes `JUSTFIT-OUT-…`; the server still
+  reads `EATO1.…` and `EATO-OUT-…` (`owner/passes.js`), so printed QR codes keep working.
+- Kept on purpose: the MySQL names (`eato`, `eato_test`, `eato_app`), the pass-signing label
+  `eato-member-pass` (part of the key), the Clerk test marker `eatoE2E` and the demo email domain.
+
 ## Project Overview
 
-We are building **EATO**, a fitness meal delivery and tracking mobile app for India, using Expo.
+We are building **JustFit**, a fitness meal delivery and tracking mobile app for India, using Expo.
 
 The repository has two apps side by side:
 
 - `Eato_client/` — the Expo app (this file's rules apply to it)
 - `Eato_server/` — a small Node.js + Express server in front of a MySQL database
 
-EATO combines healthy meal delivery (single orders and subscriptions) with nutrition and training tracking. The user's fitness goal drives meal recommendations, and every meal they order is logged to their nutrition diary automatically.
+JustFit combines healthy meal delivery (single orders and subscriptions) with nutrition and training tracking. The user's fitness goal drives meal recommendations, and every meal they order is logged to their nutrition diary automatically.
 
 Main areas of the app:
 
-- **Onboarding**: welcome → goal → body details → calculated targets → pincode check
+- **Onboarding**: welcome → sign up → setup: personal details (name, date of birth for the age, height, gender, weight, phone) → body composition (optional: Scan Body, instructions, two photos; no typed body fat %) → goal → activity and health conditions → food → lifestyle → calculated targets. No pincode step yet
 - **Home**: calorie ring, today's deliveries, streak, XP
 - **Food**: menu, meal detail, cart, checkout, order success, live order tracking
 - **Subscribe**: plan picker, subscription builder, review, my subscription (skip days, wallet credit)
 - **Nutrition**: food diary, water and supplement tracking, add food, barcode scan, photo scan, weight log
-- **Training**: workout plans, active workout, summary, exercise library, cardio, progress charts
+- **Training**: workout plans, active workout, summary, exercise library, cardio, progress charts. Since 2026-10-25 the Workout hub is `/workout` (`app/(user)/workout/index.tsx`), opened from Profile; its tab slot is the AI Coach tab (`app/(user)/(tabs)/coach.tsx`, a coming-soon screen until the coach is built)
 - **Community**: feed, stories, posts, friends, trainers, gym communities, messages, chat (challenges were dropped)
 - **AI Coach**: chat-based and video-based AI fitness and nutrition coach
 - **Profile**: orders, wallet, coupons, addresses, goals, achievements, notifications, settings, Pro
@@ -60,7 +75,9 @@ Do not introduce new major libraries unless there is a strong reason.
 | --- | --- | --- |
 | Sign up / in / out, password reset, Google SSO | Clerk SDK, called from the app | Clerk owns identity; the app never stores passwords |
 | Roles (`user`, `admin`, `trainer`) | Clerk `publicMetadata.role`, set only server-side (`POST /api/account-type` on the Express server, `scripts/set-role.mjs`) | The app can't promote itself |
-| Reading an uploaded body composition report | `POST /api/body-composition` on the Express server → OpenAI (`Eato_server/bodyComposition/`) | Keeps `OPENAI_API_KEY` off the device; the file is never stored |
+| Reading an uploaded body composition report (removed from the app's setup on 2026-10-25; the server route is still there, unused) | `POST /api/body-composition` on the Express server → OpenAI (`Eato_server/bodyComposition/`) | Keeps `OPENAI_API_KEY` off the device; the file is never stored |
+| Estimating body fat % from a front and a side photo (optional Body composition step `setup/body-composition.tsx`: Scan Body → `setup/scan-guide.tsx`: the instruction video only (`assets/videos/scan-instructions.mp4` via `constants/videos.ts`, played with `expo-video`, added 2026-10-25; autoplays on a loop with no controls, with sound on phones and muted on the web) and the privacy note. The written tips and pose drawings were removed at the user's request → `setup/body-scan.tsx` → the body composition report `setup/scan-report.tsx` (animated graphs in `components/setup/ReportGraphs.tsx` and `SegmentalChart.tsx`; graph ranges in `lib/bodyScanRules.ts`). The report lives in the setup store only (not saved yet), shows no model or technical wording, offers no download, and allows screenshots and screen recordings (the block added earlier on 2026-10-25 was removed at the user's request the same day; `lib/screenProtection.ts` and `expo-screen-capture` stay for reuse, unused. On iOS that block moves the whole app window into a secure layer, so never switch it on over the photo picker or mid-transition). There is no typed body fat field. After setup, Profile › Body composition › Scan Body runs the same screens with `?from=profile` (`lib/profileScan.ts`, pure and unit-tested): the report's Save to my profile shows the change, then on confirm saves through `POST /api/profile` with the targets recalculated; refused while a trainer's target is active, and a user-entered target is kept) | `POST /api/body-composition/scan` on the Express server → the Forma scan server at `FORMA_SCAN_URL` (`Eato_server/bodyComposition/scan.js`; a separate process, `Forma_BodyFat/forma_server.py`) | Photos pass through in memory and are never stored or logged; the answer is an estimate the user accepts as their body fat % (saved like a typed value, no `'scan'` report source yet). Forma's model is not validated against DEXA or InBody and the screen says so |
+| Scan food in the Macro tab (Log food › Scan Food, `app/(user)/macro/scan.tsx`, added 2026-10-25): one photo plus an optional note → an editable estimate per food (kcal, protein, carbs, fat) → logged through `POST /api/macro/meals` as a `manual` meal (the `source` ENUM has no `scan` value) | `POST /api/macro/scan` on the Express server → OpenAI (`Eato_server/macro/foodScan.js`, `OPENAI_MODEL`, default `gpt-4o`; photos only, upload rate budget; tests use `AI_PROVIDER=fake`) | Keeps `OPENAI_API_KEY` off the device; the photo is never stored or logged and scanning writes nothing |
 | Profile and nutrition targets from setup | MySQL (`users`, `profiles`, `nutrition_targets`, `body_composition_reports`) via `POST /api/profile` and `GET /api/profile` on the Express server; Clerk `unsafeMetadata.profileComplete` is only a routing shortcut | Server-verified identity, one transaction per save, the app's own calculator re-checks every record before it is stored |
 | App data (meals, orders, diary, weigh-ins, trainer ↔ client links) | MySQL via the Express server (`Eato_server/`) | Shared, queryable data that outlives one device |
 | Friendships and the messaging rule | MySQL `community_friendships` via `/api/community/friends/*` (`Eato_server/community/friends.js`, pure rules in `friendRules.js`). New conversations and new messages need an accepted friendship; older chats stay readable | Messaging is for friends only, checked on the server for every send |
@@ -100,7 +117,7 @@ and it decides which gym an event belongs to only from the receiving phone-numbe
   can replace it if it leaks: `POST /api/gyms/:id/code/rotate`), and staff can create 10-character
   invitations (member or trainer role, 14 days, revocable; a code is shown only to staff who could
   grant that role themselves, or to its creator). Platform admins list every gym, hidden ones
-  included, at `GET /api/gyms/admin/all`. EATO
+  included, at `GET /api/gyms/admin/all`. JustFit
   sends no SMS or email; phone and email invitations are only recorded. The invite screen shows the
   gym's invite link as a QR code (`react-native-qrcode-svg`); Join a gym can scan one with the camera
   (`expo-camera`'s `CameraView`, permission text in `app.json`), or the code is typed by hand.
@@ -136,10 +153,10 @@ and it decides which gym an event belongs to only from the receiving phone-numbe
   Colours come from the tokens, not the mockups.
 - App: `app/owner/` (its own tabs: Home, Members, Check-in, Community, Review, Gym), open to every
   signed-in role; `lib/owner.ts`, `store/owner.ts` (open gym, summary, tab badges). Entry points: the
-  "Gym owner portal" button on Community › Gyms (gym owners and admins), and Admin › Gyms (EATO admins
+  "Gym owner portal" button on Community › Gyms (gym owners and admins), and Admin › Gyms (JustFit admins
   open any gym's portal). Members see their own package in the gym's About tab (`MyGymPlan`).
 - Server: `/api/owner` (`Eato_server/owner/`; pure rules in `rules.js`). Every gym route allows the
-  gym's active owner or admins (`gym_members`), or an EATO admin (Clerk role, read live); gym trainers
+  gym's active owner or admins (`gym_members`), or an JustFit admin (Clerk role, read live); gym trainers
   and members get 403, and a hidden gym looks missing (404). There is no "gym owner" Clerk role.
 - Renewals use `gym_member_plans`: +1 or +3 months from the later of the end date and today (an
   expired package restarts today; a member without one gets the gym's first tier). Recorded only,
@@ -159,7 +176,7 @@ and it decides which gym an event belongs to only from the receiving phone-numbe
   counts come from `GET /api/owner/gyms/:id/community`.
 - Review (phase 4, `owner/review.js`, no schema change): held gym posts are approved (published) or
   rejected (soft-deleted); a reported gym post is kept (its open `community_reports` become `dismissed`)
-  or removed (soft-deleted, reports `reviewed`, in one transaction), the same statuses as EATO's admin
+  or removed (soft-deleted, reports `reviewed`, in one transaction), the same statuses as JustFit's admin
   queue, so handled reports leave both. Reporters stay anonymous to the gym. The switch at the top is
   `gyms.post_moderation`.
 - Gym assistant, owner side (phase 5, migration `2026-10-29-gym-assistant-questions.sql`): when the in-app
@@ -221,7 +238,7 @@ Eato_client/src/
   components/
   constants/
   data/           static, typed content (options, onboarding slides, dashboard tiles)
-  lib/            service helpers (api.ts, clerk.ts, roles.ts, session.ts, reportUpload.ts, nutrition/)
+  lib/            service helpers (api.ts, clerk.ts, roles.ts, session.ts, numberInput.ts, nutrition/)
   store/          Zustand stores
   types/
   theme/
@@ -233,7 +250,8 @@ Eato_server/
   profile.js      profile validation, the transactional save and the load for /api/profile
   rateLimit.js    per-user rate limiting (limitPerUser) for every authenticated route
   requestBody.js  capped JSON body parsing for the upload route
-  bodyComposition/  report upload checks (upload.js), OpenAI extraction (extract.js), clean-up (normalize.js)
+  bodyComposition/  report upload checks (upload.js), OpenAI extraction (extract.js), clean-up (normalize.js),
+                    photo scan checks and the call to the Forma scan server (scan.js, FORMA_SCAN_URL)
   logging.js      safe error logging (never the SQL, body, headers or a token)
   database.js     mysql2 connection pool, configured from .env
   schema.sql      the full MySQL schema (run once; it does not migrate)
@@ -338,29 +356,43 @@ Prefer reusable class patterns through utilities in `global.css`. If there isn't
 
 ### Colour theme
 
-EATO's colours come from the EITO web app (https://eito-app.vercel.app), colours only (not its
-features, buttons or layout). The palette lives in `src/theme/tokens.css` with a JS copy in
-`src/theme/index.ts`; keep the two in sync and never hard-code a hex value in a screen or
-component when a token exists.
+Since the 2026-10-25 redesign JustFit follows a premium, minimal, Apple-inspired look (the "global
+UI/UX redesign" brief and its reference image): white pages, soft off-white panels, near-black ink
+and buttons, hairline grey borders, a soft lavender accent for selection, sliders and progress.
+The palette lives in `src/theme/tokens.css` with a JS copy in `src/theme/index.ts`; keep the two
+in sync and never hard-code a hex value in a screen or component when a token exists.
 
 | Role | Token(s) | Value |
 | --- | --- | --- |
-| Page background | `cream`, `background` | `#F9F7F5` |
-| Cards and sheets | `surface`, `cream-light` | `#FFFFFF` |
-| Soft panels / tracks | `cream-deep`, `surface-alt` / `cream-tab` | `#F6F2EF` / `#E9E6E2` |
-| Borders | `cream-line`, `line` | `#EEEAE6` |
-| Ink: titles, body, primary buttons | `forest`, `forest-ink`, `ink`, `leaf-dark` | `#141515` |
-| Accent: chips, active tab, avatars | `primary` / `accent-soft`, `forest-soft`, `leaf-soft` | `#C5D3EA` / `#E2EBF6` |
-| Strong accent: links, rings, "today" | `leaf`, `success` | `#10213A` (navy) |
-| Muted / faint text | `muted` / `faint` | `#676A72` / `#8F9197` |
-| Danger / warning / info | `danger` / `warning` / `info` | `#F3435A` / `#C49A5A` / `#97BEF3` |
-| Macros | `protein` / `carbs` / `fat` | `#8E7BD6` / `#B49469` / `#6FA3EA` |
+| Page background, cards and sheets | `cream`, `background`, `surface`, `cream-light` | `#FFFFFF` |
+| Soft panels, fields, option tiles / tracks | `cream-deep`, `surface-alt` / `cream-tab` | `#F5F6F7` / `#ECEEF2` |
+| Borders and dividers | `cream-line`, `line`, `sand` | `#E8E9ED` |
+| Ink: titles and body | `forest-ink`, `ink`, `leaf-dark` | `#15151D` |
+| Primary buttons | `forest` | `#101018` |
+| Lavender accent: sliders, selected outline, avatars | `primary` | `#C8C4F5` |
+| Selected surface, soft fills | `accent-soft`, `forest-soft`, `leaf-soft`, `success-soft` | `#F0EFF8` |
+| Strong accent: links, rings, active tab, "today" | `leaf`, `success` | `#5E56C9` (AA on every surface) |
+| Secondary / faint text | `muted` / `faint` | `#6E7079` / `#A0A2AA` |
+| Danger / warning / info | `danger` / `warning` / `info` | `#E5484D` / `#C4923F` / `#8FB4EE` |
+| Macros | `protein` / `carbs` / `fat` | `#6CC28A` / `#A9A3F0` / `#F2C14E` |
 
-- Some token names (`forest`, `cream`, `leaf`) come from the earlier green theme. They keep their
-  roles; only the values changed. Use them by role, not by the colour their name suggests.
-- `danger` and `warning` are below WCAG AA contrast as small text on the page background. Prefer
-  them for icons, badges and fills; pair them with ink text where a message must be read.
-- Typography stays on the system font (San Francisco on Apple platforms) through `--font-sans`.
+- The brief's secondary grey `#777982` is 4.34:1 on white, under AA for small text, so `muted` is
+  the nearest passing shade (`#6E7079`). `faint` (`#A0A2AA`) is for placeholders and hints only.
+- Token names (`forest`, `cream`, `leaf`) come from earlier themes. They keep their roles; only the
+  values changed. Use them by role, not by the colour their name suggests.
+- `danger` and `warning` are fills and icons; pair them with ink text where a message must be read.
+- Type: system font (San Francisco) through `--font-sans`; titles 26–30 pt bold (`type-title`,
+  `setup__title`, `auth__title`), section headings 20 pt semibold (`type-headline`), body 15/14 pt
+  regular. Weight 800 is no longer used.
+- Shapes: cards 20 pt radius with a hairline border and a soft shadow (`card`); fields, option
+  tiles and chips sit on `#F5F6F7`; primary buttons are 54 pt dark pills (`PrimaryButton`,
+  `btn-forest`) with a pressed state; secondary buttons are 54 pt outlined pills (`btn-outline`).
+- Shared pieces: `components/ProgressRing.tsx` (animated lavender ring), `list-row` (settings-style
+  rows), `switchColors` in `theme/index.ts` for every `Switch`, the flat white tab bar
+  (`BottomTabBar`), and the setup frame (`SetupScreen`: back chevron, dashed progress, centred
+  title, one full-width action).
+- A backup of the app before the redesign is not in git; it was a scratchpad tarball from the
+  session that made it.
 
 Avoid large inline styles unless required.
 
@@ -605,7 +637,7 @@ When the user asks to build a feature:
 
 ---
 
-## EATO Development Rules
+## JustFit Development Rules
 
 These rules apply to every future implementation, in both `Eato_client/` and `Eato_server/`.
 
@@ -620,19 +652,19 @@ These rules apply to every future implementation, in both `Eato_client/` and `Ea
 9. **Approval required.** After each approved screen or feature is implemented and verified, provide the completion report and stop. Wait for the user's approval before starting the next screen, feature, phase, or any individual finding from an audit.
 10. **Database safety.** Never drop tables, delete existing data, change database permissions, modify the schema, or create persistent test data without the user's approval.
 11. **Security.** Never expose secrets, trust client-supplied identity or roles, or bypass existing authentication.
-12. **Keep instructions updated.** Preserve the current EATO architecture and existing project rules. Do not overwrite useful instructions.
-13. **Design source of truth.** `src/theme/tokens.css`, `src/theme/index.ts`, the utilities in `src/global.css`, and the mockups under `assets/design/` define EATO's look. Colours come from the tokens (see "Colour theme" above); the mockups still show the earlier green and cream colours, so use them for layout, spacing and composition, not colour. Preserve them. Do not introduce a new visual direction; when a screen and a mockup disagree, report the discrepancy and ask before changing the composition.
+12. **Keep instructions updated.** Preserve the current JustFit architecture and existing project rules. Do not overwrite useful instructions.
+13. **Design source of truth.** `src/theme/tokens.css`, `src/theme/index.ts` and the utilities in `src/global.css` define JustFit's look, following the 2026-10-25 redesign brief (premium minimal iOS style, see "Colour theme" above). The older mockups under `assets/design/` show earlier colours and some earlier compositions; use them only for content and flow. Do not introduce a further visual direction; when a screen and the design system disagree, report the discrepancy and ask before changing the composition.
 14. **Test isolation.** UI and integration tests use the `eato_test` database through `Eato_server/.env.test` and the test server on port 4100. Never point tests at port 4000 or the `eato` database. Run `npm test`, `npm run test:e2e` and `npm run test:ui` in `Eato_server/` as relevant.
 15. **Visual evidence.** After each approved UI change, capture screenshots at the supported widths with the existing test harness and include their paths in the report.
 16. **Git.** Never commit, push, amend, rewrite history, reset, stash or discard work without explicit approval. Review the staged diff before any commit. Keep `.env` files and generated artifacts out of commits.
 17. **Audits are checklists.** An audit report authorises nothing. Each finding is implemented only after its own approval, one at a time, following inspect, implement, test, review the diff, verify at supported sizes, report, wait.
-18. **Secure by default.** Every feature, bug fix, refactor, endpoint, schema change and integration also follows the EATO Secure Development Rules below.
+18. **Secure by default.** Every feature, bug fix, refactor, endpoint, schema change and integration also follows the JustFit Secure Development Rules below.
 
 ---
 
-## EATO Secure Development Rules
+## JustFit Secure Development Rules
 
-These rules supplement the EATO Development Rules above (they replace nothing) and apply to every
+These rules supplement the JustFit Development Rules above (they replace nothing) and apply to every
 change in both `Eato_client/` and `Eato_server/`. Security is never guaranteed: report what was
 confirmed, what remains a risk, and what was not tested.
 
@@ -828,7 +860,7 @@ Explain what changed and how to test.
 Before every feature implementation:
 
 - Read this file
-- Follow it strictly, including the EATO Development Rules and the EATO Secure Development Rules above
+- Follow it strictly, including the JustFit Development Rules and the JustFit Secure Development Rules above
 - Build clean, simple, teachable code
 - Replicate UI exactly when designs are provided
 

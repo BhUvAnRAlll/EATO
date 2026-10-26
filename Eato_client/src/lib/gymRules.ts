@@ -79,9 +79,9 @@ export function attendance(event: { attendeeCount: number; maxAttendees: number 
 // A code as people read it aloud: "ABCD-EFGH"
 export const formatCode = (code: string) => (code.length === 8 ? `${code.slice(0, 4)}-${code.slice(4)}` : code);
 
-// The text shared with an invite link (nothing is sent by EATO itself)
+// The text shared with an invite link (nothing is sent by JustFit itself)
 export function inviteMessage(gymName: string, code: string, link: string): string {
-  return `Join ${gymName} on EATO: ${link}\nOr enter the code ${formatCode(code)} under Community → Gyms → Join.`;
+  return `Join ${gymName} on JustFit: ${link}\nOr enter the code ${formatCode(code)} under Community → Gyms → Join.`;
 }
 
 // ---- the profile editor's plain-text lists ----

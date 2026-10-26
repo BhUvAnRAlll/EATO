@@ -16,7 +16,7 @@ const { startExpoWeb } = require("./expo-web.js");
 const { launchChrome, connect, openPage, CHROME } = require("./cdp.js");
 
 const EXPO_PORT = 8090;
-const EVIDENCE_DIR = path.join(os.tmpdir(), "eato-ui-evidence");
+const EVIDENCE_DIR = path.join(os.tmpdir(), "justfit-ui-evidence");
 
 describe("ui smoke: Expo web → headless Chrome → onboarding renders", () => {
   let skipReason = null;

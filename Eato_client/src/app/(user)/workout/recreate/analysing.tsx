@@ -75,7 +75,7 @@ export default function RecreateAnalysing() {
         <View className="items-center gap-3">
           <Ring failed={failed} />
           <Text className="type-title text-center text-forest-ink">{failed ? "Something went wrong" : "Creating your plan"}</Text>
-          <Text className="home__note text-center">{failed ? saved.error : "Built from your answers by EATO's workout engine."}</Text>
+          <Text className="home__note text-center">{failed ? saved.error : "Built from your answers by JustFit's workout engine."}</Text>
         </View>
 
         {!failed && (

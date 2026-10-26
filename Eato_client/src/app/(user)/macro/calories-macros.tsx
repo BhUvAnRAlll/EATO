@@ -53,7 +53,7 @@ export default function CaloriesMacros() {
     if (!summary) return;
     setNotice(null);
     const { avg, targets } = summary;
-    const message = `My ${periodWords[summary.period]} on EATO: ${whole(avg.kcal)} / ${targets.kcal} kcal · P ${whole(avg.proteinG)}g · C ${whole(avg.carbsG)}g · F ${whole(avg.fatG)}g`;
+    const message = `My ${periodWords[summary.period]} on JustFit: ${whole(avg.kcal)} / ${targets.kcal} kcal · P ${whole(avg.proteinG)}g · C ${whole(avg.carbsG)}g · F ${whole(avg.fatG)}g`;
     try {
       await Share.share({ message });
     } catch {

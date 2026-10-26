@@ -1,4 +1,4 @@
-import type { ImageSourcePropType } from "react-native";
+import type { ImageSource } from "expo-image";
 
 import { homeImages, type HomeImageKey } from "@/constants/images";
 import type { HomeContent, Meal, Promotion, PromotionFields } from "@/data/home";
@@ -12,7 +12,7 @@ const signedOut = <T>(): ApiResult<T> => ({ ok: false, error: "Please sign in ag
 // An image reference from the server → something <Image> can show. "asset:<key>" is a
 // bundled image; anything else is an https URL (the server allows nothing else). Unknown
 // keys fall back to the first hero image rather than a broken picture.
-export function resolveImage(imageUrl: string | null | undefined): ImageSourcePropType {
+export function resolveImage(imageUrl: string | null | undefined): number | ImageSource {
   if (!imageUrl) return homeImages["hero-bowl"];
   if (imageUrl.startsWith("asset:")) {
     const key = imageUrl.slice("asset:".length);

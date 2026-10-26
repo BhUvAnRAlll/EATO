@@ -47,7 +47,8 @@ describe("gym rules", () => {
   });
 
   it("a scanned QR code gives back the gym code, from a link or bare", () => {
-    assert.equal(codeFromScan("eato://community/gyms/invite/ABCD2345"), "ABCD2345");
+    assert.equal(codeFromScan("justfit://community/gyms/invite/ABCD2345"), "ABCD2345");
+    assert.equal(codeFromScan("eato://community/gyms/invite/ABCD2345"), "ABCD2345", "links made before the JustFit rename still work");
     assert.equal(codeFromScan("http://localhost:8081/community/gyms/invite/abcd2345?x=1"), "ABCD2345");
     assert.equal(codeFromScan(" abcd-2345 "), "ABCD2345");
     assert.equal(codeFromScan("ABCDE23456"), "ABCDE23456");

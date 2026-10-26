@@ -199,7 +199,7 @@ export default function OwnerNotify() {
               <Text className="friend-row__note" numberOfLines={3}>{body || "Your message appears here."}</Text>
             </View>
           </View>
-          <Text className="friend-row__note">Reaches {reach} {reach === 1 ? "person" : "people"}, in their EATO notifications. Pending and suspended members never get it.</Text>
+          <Text className="friend-row__note">Reaches {reach} {reach === 1 ? "person" : "people"}, in their JustFit notifications. Pending and suspended members never get it.</Text>
 
           <Text className="gym-section__title mt-2">Sent ({sent?.length ?? 0})</Text>
           {sent === null ? (

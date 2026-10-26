@@ -14,6 +14,8 @@ export type TrainerProfile = {
   coachingMode: CoachingMode;
   offersNutrition: boolean;
   acceptingClients: boolean;
+  // An JustFit admin checked the qualifications
+  verified: boolean;
   availability: string | null;
   // null until the trainer accepts the viewer (locked)
   approach: string | null;

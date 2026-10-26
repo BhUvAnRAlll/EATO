@@ -12,51 +12,54 @@
 
 @utility type-display {
   font-family: var(--font-sans);
-  font-size: 32px;
-  line-height: 37px;
-  font-weight: 800;
+  font-size: 30px;
+  line-height: 36px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
 }
 
 @utility type-title {
   font-family: var(--font-sans);
-  font-size: 24px;
-  line-height: 29px;
-  font-weight: 800;
+  font-size: 26px;
+  line-height: 32px;
+  font-weight: 700;
+  letter-spacing: -0.4px;
 }
 
 @utility type-headline {
   font-family: var(--font-sans);
-  font-size: 19px;
-  line-height: 24px;
-  font-weight: 800;
+  font-size: 20px;
+  line-height: 26px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
 }
 
 @utility type-subhead {
   font-family: var(--font-sans);
   font-size: 16px;
   line-height: 21px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 @utility type-body {
   font-family: var(--font-sans);
   font-size: 15px;
   line-height: 21px;
-  font-weight: 500;
+  font-weight: 400;
 }
 
 @utility type-callout {
   font-family: var(--font-sans);
   font-size: 14px;
   line-height: 19px;
-  font-weight: 500;
+  font-weight: 400;
 }
 
 @utility type-caption {
   font-family: var(--font-sans);
   font-size: 13px;
   line-height: 17px;
-  font-weight: 500;
+  font-weight: 400;
 }
 
 @utility type-overline {
@@ -72,17 +75,17 @@
 @utility type-number-big {
   font-family: var(--font-sans);
   font-size: 34px;
-  line-height: 38px;
-  font-weight: 800;
-  letter-spacing: -1px;
+  line-height: 40px;
+  font-weight: 700;
+  letter-spacing: -0.8px;
 }
 
 @utility type-number-stat {
   font-family: var(--font-sans);
-  font-size: 21px;
-  line-height: 25px;
-  font-weight: 800;
-  letter-spacing: -0.5px;
+  font-size: 22px;
+  line-height: 27px;
+  font-weight: 700;
+  letter-spacing: -0.4px;
 }
 
 /*
@@ -94,7 +97,7 @@
 @utility btn {
   height: var(--spacing-control-md);
   padding-inline: var(--spacing-xl);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-pill);
   align-items: center;
   justify-content: center;
   flex-direction: row;
@@ -109,7 +112,7 @@
 }
 
 @utility btn--primary {
-  background-color: var(--color-ink);
+  background-color: var(--color-forest);
 }
 
 @utility btn--secondary {
@@ -121,8 +124,8 @@
 @utility btn__label {
   font-family: var(--font-sans);
   font-size: 15px;
-  line-height: 21px;
-  font-weight: 700;
+  line-height: 20px;
+  font-weight: 600;
 }
 
 @utility btn__label--primary {
@@ -193,7 +196,9 @@
 /* Card row: icon tile + title + supporting line + chevron */
 @utility card {
   background-color: var(--color-surface);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
+  border-width: 1px;
+  border-color: var(--color-line);
   padding: var(--spacing-lg);
   box-shadow: var(--shadow-card);
 }
@@ -201,7 +206,7 @@
 @utility card__icon {
   width: 44px;
   height: 44px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-pill);
   background-color: var(--color-surface-alt);
   align-items: center;
   justify-content: center;
@@ -211,7 +216,7 @@
   font-family: var(--font-sans);
   font-size: 16px;
   line-height: 21px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--color-ink);
 }
 
@@ -219,7 +224,7 @@
   font-family: var(--font-sans);
   font-size: 14px;
   line-height: 19px;
-  font-weight: 500;
+  font-weight: 400;
   color: var(--color-muted);
 }
 
@@ -228,7 +233,7 @@
   font-family: var(--font-sans);
   font-size: 40px;
   line-height: 44px;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: -0.8px;
   color: var(--color-forest-ink);
 }
@@ -295,12 +300,10 @@
   background-color: var(--color-cream-deep);
 }
 
-
 /* Pill-shaped button modifier: <Pressable className="btn btn--primary btn--pill"> */
 @utility btn--pill {
   border-radius: var(--radius-pill);
 }
-
 
 /* Brand wordmark tagline: "BALANCED MEALS • STRONGER YOU" */
 @utility brand__tagline {
@@ -323,16 +326,10 @@
   color: var(--color-bronze);
 }
 
-/* Home header: a tighter tagline that fits beside the delivery pill */
-@utility brand__tagline--tight {
-  font-size: 10px;
-  line-height: 13px;
-  letter-spacing: 1.2px;
-}
-
 /* Forest-green pill button: <Pressable className="btn-forest"><Text className="btn-forest__label" /> */
 @utility btn-forest {
-  height: 44px;
+  height: var(--spacing-control-lg);
+  padding-inline: var(--spacing-xl);
   border-radius: var(--radius-pill);
   background-color: var(--color-forest);
   flex-direction: row;
@@ -353,26 +350,26 @@
 @utility auth__title {
   font-family: var(--font-sans);
   font-size: 30px;
-  line-height: 32px;
-  font-weight: 800;
-  letter-spacing: -0.6px;
+  line-height: 36px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
   color: var(--color-forest-ink);
 }
 
 @utility auth__subtitle {
   font-family: var(--font-sans);
   font-size: 15px;
-  line-height: 18px;
+  line-height: 21px;
   font-weight: 400;
   color: var(--color-muted);
 }
 
 /* Segmented Log in / Sign up switch */
 @utility auth__tabs {
-  height: 40px;
-  padding: 3px;
+  height: 44px;
+  padding: 4px;
   border-radius: var(--radius-pill);
-  background-color: var(--color-cream-tab);
+  background-color: var(--color-surface-alt);
   flex-direction: row;
 }
 
@@ -404,22 +401,22 @@
 /* Labelled input: <Text className="auth__label" /> + <View className="auth__field"><TextInput className="auth__input" /> */
 @utility auth__label {
   font-family: var(--font-sans);
-  font-size: 14px;
-  line-height: 18px;
-  font-weight: 600;
+  font-size: 13px;
+  line-height: 17px;
+  font-weight: 500;
   color: var(--color-ink-soft);
 }
 
 @utility auth__field {
-  height: 44px;
+  height: var(--spacing-control-lg);
   padding-inline: var(--spacing-lg);
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   border-width: 1px;
-  border-color: var(--color-cream-line);
-  background-color: var(--color-cream-light);
+  border-color: var(--color-surface-alt);
+  background-color: var(--color-surface-alt);
   flex-direction: row;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
 }
 
 @utility auth__input {
@@ -507,7 +504,7 @@
   font-size: 23px;
   line-height: 28px;
   letter-spacing: -0.3px;
-  font-weight: 800;
+  font-weight: 700;
   color: var(--color-forest);
 }
 
@@ -563,7 +560,7 @@
   font-family: var(--font-sans);
   font-size: 22px;
   line-height: 28px;
-  font-weight: 800;
+  font-weight: 700;
   color: var(--color-ink);
 }
 
@@ -584,17 +581,15 @@
 }
 
 /* Profile setup: header, progress, field rows, option cards, chips */
-@utility setup__progress {
-  flex: 1;
+/* Setup progress: one short dash per step, dark once reached */
+@utility setup__dash {
+  width: 22px;
   height: 4px;
   border-radius: var(--radius-pill);
-  background-color: var(--color-cream-line);
-  overflow: hidden;
+  background-color: var(--color-line);
 }
 
-@utility setup__progress-fill {
-  height: 100%;
-  border-radius: var(--radius-pill);
+@utility setup__dash--done {
   background-color: var(--color-forest);
 }
 
@@ -608,9 +603,9 @@
 
 @utility setup__title {
   font-family: var(--font-sans);
-  font-size: 24px;
-  line-height: 29px;
-  font-weight: 800;
+  font-size: 26px;
+  line-height: 32px;
+  font-weight: 700;
   letter-spacing: -0.4px;
   color: var(--color-forest-ink);
 }
@@ -630,13 +625,13 @@
 
 /* Field row: icon + small label + value (or input) + unit/chevron */
 @utility setup__field {
-  min-height: 58px;
+  min-height: 60px;
   padding-inline: var(--spacing-lg);
   padding-block: var(--spacing-sm);
   border-radius: var(--radius-md);
   border-width: 1px;
-  border-color: var(--color-cream-line);
-  background-color: var(--color-cream-light);
+  border-color: var(--color-surface-alt);
+  background-color: var(--color-surface-alt);
   flex-direction: row;
   align-items: center;
   gap: 14px;
@@ -673,17 +668,33 @@
 
 /* Selectable card (goal, diet, workout type/time). --selected adds the forest outline */
 @utility setup__card {
-  padding: var(--spacing-md);
-  border-radius: var(--radius-md);
-  border-width: 1px;
-  border-color: var(--color-cream-line);
-  background-color: var(--color-cream-light);
+  padding: var(--spacing-lg);
+  border-radius: var(--radius-lg);
+  border-width: 1.5px;
+  border-color: var(--color-surface-alt);
+  background-color: var(--color-surface-alt);
+}
+
+/* Goal grid tile icon: a white circle, lavender-tinted once selected */
+@utility setup__grid-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility setup__grid-icon--selected {
+  background-color: var(--color-surface);
+  border-width: 1.5px;
+  border-color: var(--color-primary);
 }
 
 @utility setup__card--selected {
   border-width: 1.5px;
-  border-color: var(--color-forest);
-  background-color: var(--color-forest-soft);
+  border-color: var(--color-primary);
+  background-color: var(--color-accent-soft);
 }
 
 @utility setup__card-title {
@@ -734,12 +745,12 @@
 
 /* Chip / segment: <Pressable className="setup__chip setup__chip--selected"><Text className="setup__chip-label …" /> */
 @utility setup__chip {
-  height: 36px;
-  padding-inline: 14px;
+  height: 38px;
+  padding-inline: 16px;
   border-radius: var(--radius-pill);
   border-width: 1px;
-  border-color: var(--color-cream-line);
-  background-color: var(--color-cream-light);
+  border-color: var(--color-surface-alt);
+  background-color: var(--color-surface-alt);
   align-items: center;
   justify-content: center;
 }
@@ -772,18 +783,19 @@
 
 /* Outline pill (Back) next to the forest Next button */
 @utility btn-outline {
-  height: 44px;
+  height: var(--spacing-control-lg);
+  padding-inline: var(--spacing-xl);
   border-radius: var(--radius-pill);
   border-width: 1px;
-  border-color: var(--color-cream-line);
-  background-color: var(--color-cream-light);
+  border-color: var(--color-line);
+  background-color: var(--color-surface);
   align-items: center;
   justify-content: center;
 }
 
 @utility btn-outline__label {
   font-family: var(--font-sans);
-  font-size: 15px;
+  font-size: 16px;
   line-height: 20px;
   font-weight: 600;
   color: var(--color-forest-ink);
@@ -794,7 +806,7 @@
   font-family: var(--font-sans);
   font-size: 28px;
   line-height: 34px;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: -0.5px;
   color: var(--color-forest-ink);
 }
@@ -803,7 +815,7 @@
   font-family: var(--font-sans);
   font-size: 18px;
   line-height: 22px;
-  font-weight: 800;
+  font-weight: 700;
   color: var(--color-forest-ink);
 }
 
@@ -892,12 +904,6 @@
   gap: 12px;
 }
 
-@utility upload__divider-line {
-  flex: 1;
-  height: 1px;
-  background-color: var(--color-cream-line);
-}
-
 @utility upload__option {
   flex: 1;
   min-height: 82px;
@@ -946,10 +952,10 @@
 
 /* Home screen: header pill and bell */
 @utility home__pill {
-  height: 44px;
-  padding-inline: 14px;
+  height: 34px;
+  padding-inline: 12px;
   border-radius: var(--radius-pill);
-  background-color: var(--color-cream-tab);
+  background-color: var(--color-surface-alt);
   flex-direction: row;
   align-items: center;
   gap: 6px;
@@ -957,8 +963,8 @@
 
 @utility home__pill-label {
   font-family: var(--font-sans);
-  font-size: 14px;
-  line-height: 18px;
+  font-size: 13px;
+  line-height: 17px;
   font-weight: 500;
   color: var(--color-forest-ink);
 }
@@ -974,12 +980,29 @@
   justify-content: center;
 }
 
+@utility home__avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-primary);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility home__avatar-label {
+  font-family: var(--font-sans);
+  font-size: 17px;
+  line-height: 22px;
+  font-weight: 600;
+  color: var(--color-forest-ink);
+}
+
 @utility home__unread {
   position: absolute;
-  top: 10px;
-  right: 11px;
-  width: 8px;
-  height: 8px;
+  top: 11px;
+  right: 12px;
+  width: 7px;
+  height: 7px;
   border-radius: var(--radius-pill);
   background-color: var(--color-danger);
 }
@@ -999,7 +1022,7 @@
   font-family: var(--font-sans);
   font-size: 27px;
   line-height: 31px;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: -0.6px;
   color: var(--color-ink);
 }
@@ -1097,15 +1120,10 @@
 
 /* Quick-action card */
 @utility quick__card {
-  padding: 14px;
-  padding-inline: 4px;
-  border-radius: 18px;
-  justify-content: center;
-  border-width: 1px;
-  border-color: var(--color-cream-line);
-  background-color: var(--color-white);
-  box-shadow: var(--shadow-card);
+  padding-block: 6px;
+  padding-inline: 2px;
   align-items: center;
+  justify-content: flex-start;
 }
 
 @utility quick__icon {
@@ -1131,18 +1149,9 @@
   text-align: center;
 }
 
-
-/* Nutrition rings (font sizes scale with the ring, set inline) */
-@utility ring__panel {
-  padding: var(--spacing-md);
-  padding-block: var(--spacing-lg);
-  border-radius: 20px;
-  background-color: var(--color-cream-deep);
-}
-
 @utility ring__value {
   font-family: var(--font-sans);
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: -0.4px;
   color: var(--color-ink);
 }
@@ -1321,40 +1330,37 @@
 
 /* Bottom tab bar: a floating white pill with five tabs */
 @utility tabbar {
-  margin-inline: var(--spacing-md);
-  padding: 6px;
-  border-radius: var(--radius-pill);
-  border-width: 1px;
-  border-color: var(--color-cream-line);
-  background-color: var(--color-white);
+  padding-top: 8px;
+  padding-inline: var(--spacing-sm);
+  border-top-width: 1px;
+  border-color: var(--color-line);
+  background-color: var(--color-surface);
   flex-direction: row;
-  box-shadow: 0 6px 20px rgba(11, 11, 15, 0.08);
 }
 
 @utility tabbar__item {
   flex: 1;
-  height: 56px;
-  border-radius: var(--radius-pill);
+  height: 52px;
   align-items: center;
   justify-content: center;
-  gap: 3px;
+  gap: 4px;
 }
 
 @utility tabbar__item--active {
-  background-color: var(--color-forest-soft);
+  background-color: transparent;
 }
 
 @utility tabbar__label {
   font-family: var(--font-sans);
-  font-size: 12px;
-  line-height: 14px;
+  font-size: 11px;
+  line-height: 13px;
   font-weight: 500;
-  color: var(--color-muted);
+  color: var(--color-faint);
 }
 
 @utility tabbar__label--active {
   font-weight: 600;
-  color: var(--color-leaf-dark);
+  color: var(--color-leaf);
 }
 
 /* Placeholder screen for areas that aren't built yet */
@@ -1594,7 +1600,7 @@
   font-family: var(--font-sans);
   font-size: 17px;
   line-height: 22px;
-  font-weight: 800;
+  font-weight: 700;
   color: var(--color-ink);
 }
 
@@ -1644,7 +1650,7 @@
   font-family: var(--font-sans);
   font-size: 32px;
   line-height: 38px;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: -0.6px;
   color: var(--color-ink);
 }
@@ -2195,7 +2201,7 @@
 
 @utility gym-logo__initials {
   font-family: var(--font-sans);
-  font-weight: 800;
+  font-weight: 700;
   color: var(--color-white);
 }
 
@@ -2441,7 +2447,7 @@
   font-family: var(--font-sans);
   font-size: 24px;
   line-height: 30px;
-  font-weight: 800;
+  font-weight: 700;
   text-align: center;
   color: var(--color-ink);
 }
@@ -2487,7 +2493,7 @@
   font-family: var(--font-sans);
   font-size: 24px;
   line-height: 30px;
-  font-weight: 800;
+  font-weight: 700;
   color: var(--color-ink);
 }
 
@@ -2637,7 +2643,7 @@
   font-family: var(--font-sans);
   font-size: 22px;
   line-height: 26px;
-  font-weight: 800;
+  font-weight: 700;
   color: var(--color-white);
 }
 
@@ -2784,7 +2790,7 @@
   font-family: var(--font-sans);
   font-size: 20px;
   line-height: 25px;
-  font-weight: 800;
+  font-weight: 700;
   color: var(--color-ink);
 }
 
@@ -2821,7 +2827,7 @@
   font-family: var(--font-sans);
   font-size: 24px;
   line-height: 30px;
-  font-weight: 800;
+  font-weight: 700;
   text-align: center;
   color: var(--color-ink);
 }
@@ -2860,7 +2866,7 @@
   font-family: var(--font-sans);
   font-size: 20px;
   line-height: 25px;
-  font-weight: 800;
+  font-weight: 700;
   color: var(--color-ink);
 }
 
@@ -3706,7 +3712,7 @@
   font-family: var(--font-sans);
   font-size: 32px;
   line-height: 36px;
-  font-weight: 800;
+  font-weight: 700;
   color: var(--color-forest-ink);
 }
 
@@ -3965,7 +3971,7 @@
   font-family: var(--font-sans);
   font-size: 40px;
   line-height: 46px;
-  font-weight: 800;
+  font-weight: 700;
   color: var(--color-primary);
 }
 
@@ -3981,7 +3987,7 @@
   font-family: var(--font-sans);
   font-size: 20px;
   line-height: 24px;
-  font-weight: 800;
+  font-weight: 700;
   color: var(--color-white);
 }
 
@@ -4191,7 +4197,7 @@
   font-family: var(--font-sans);
   font-size: 22px;
   line-height: 28px;
-  font-weight: 800;
+  font-weight: 700;
   color: var(--color-ink);
 }
 
@@ -4442,7 +4448,7 @@
   font-family: var(--font-sans);
   font-size: 24px;
   line-height: 30px;
-  font-weight: 800;
+  font-weight: 700;
   color: var(--color-ink);
 }
 
@@ -4473,7 +4479,7 @@
   font-family: var(--font-sans);
   font-size: 26px;
   line-height: 32px;
-  font-weight: 800;
+  font-weight: 700;
   color: var(--color-ink);
 }
 
@@ -4554,7 +4560,7 @@
   font-family: var(--font-sans);
   font-size: 13px;
   line-height: 18px;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 1.5px;
   text-transform: uppercase;
   color: var(--color-primary);
@@ -4564,7 +4570,7 @@
   font-family: var(--font-sans);
   font-size: 28px;
   line-height: 34px;
-  font-weight: 800;
+  font-weight: 700;
   color: var(--color-white);
 }
 
@@ -4572,7 +4578,7 @@
   font-family: var(--font-sans);
   font-size: 72px;
   line-height: 80px;
-  font-weight: 800;
+  font-weight: 700;
   color: var(--color-white);
   text-align: center;
   font-variant-numeric: tabular-nums;
@@ -4618,7 +4624,7 @@
   font-family: var(--font-sans);
   font-size: 18px;
   line-height: 22px;
-  font-weight: 800;
+  font-weight: 700;
   color: var(--color-white);
 }
 
@@ -4838,4 +4844,550 @@
   font-size: 13px;
   line-height: 18px;
   color: var(--color-ink);
+}
+
+/* ---- Super Admin portal (app/admin) ---- */
+/* A platform count on the Overview: three to a row; tinted when something needs attention */
+@utility admin-stat {
+  flex-basis: 30%;
+  flex-grow: 1;
+  gap: 4px;
+  padding: var(--spacing-md);
+  border-radius: var(--radius-lg);
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-surface);
+}
+
+@utility admin-stat--danger {
+  border-color: var(--color-danger);
+  background-color: var(--color-danger-soft);
+}
+
+@utility admin-stat--warning {
+  border-color: var(--color-warning);
+  background-color: var(--color-warning-soft);
+}
+
+@utility admin-stat__label {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--color-muted);
+}
+
+@utility admin-stat__value {
+  font-family: var(--font-sans);
+  font-size: 22px;
+  line-height: 28px;
+  font-weight: 700;
+  color: var(--color-ink);
+}
+
+/* A card of rows (To do, Recent admin activity, user and gym lists) */
+@utility admin-list {
+  border-radius: var(--radius-lg);
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-surface);
+  overflow: hidden;
+}
+
+@utility admin-row {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding-inline: var(--spacing-lg);
+  padding-block: var(--spacing-md);
+}
+
+@utility admin-row--divided {
+  border-top-width: 1px;
+  border-color: var(--color-cream-line);
+}
+
+@utility admin-row__icon {
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-md);
+  align-items: center;
+  justify-content: center;
+  background-color: var(--color-cream-deep);
+}
+
+/* A gym's initials in a dark square (Super Admin user and gym rows) */
+@utility admin-gym-badge {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+  align-items: center;
+  justify-content: center;
+  background-color: var(--color-ink);
+}
+
+@utility admin-gym-badge__label {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-white);
+}
+
+/* A destructive action on an admin page (Suspend account, Suspend gym) */
+@utility admin-danger-button {
+  height: 44px;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-danger-soft);
+}
+
+@utility admin-danger-button__label {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--color-ink);
+}
+
+/* One half of a two-way switch (Reports: Open / Resolved) */
+@utility admin-segment {
+  flex: 1;
+  height: 40px;
+  border-radius: var(--radius-pill);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility admin-segment--on {
+  background-color: var(--color-surface);
+}
+
+@utility admin-segment__label {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-muted);
+}
+
+@utility admin-segment__label--on {
+  color: var(--color-ink);
+}
+
+/* The reasons a piece of content was reported */
+@utility admin-flag {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md);
+  border-radius: var(--radius-md);
+  background-color: var(--color-danger-soft);
+}
+
+@utility admin-flag__text {
+  flex: 1;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--color-ink);
+}
+
+/* Body scan report (setup/scan-report, components/setup/ReportGraphs.tsx), laid out like the
+   scan's own report in the light theme */
+@utility report__chips {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+@utility report__chip {
+  padding-inline: 10px;
+  padding-block: 4px;
+  border-radius: var(--radius-pill);
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-surface);
+}
+
+@utility report__chip-label {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--color-muted);
+}
+
+@utility report__eyebrow {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  color: var(--color-muted);
+}
+
+@utility report__hero {
+  font-family: var(--font-sans);
+  font-size: 52px;
+  line-height: 58px;
+  font-weight: 700;
+  letter-spacing: -1.5px;
+  color: var(--color-forest-ink);
+}
+
+@utility report__hero-unit {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0;
+  color: var(--color-muted);
+}
+
+@utility report__tick {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  line-height: 14px;
+  color: var(--color-muted);
+}
+
+@utility report__band--low {
+  background-color: var(--color-info-soft);
+}
+
+@utility report__band--healthy {
+  background-color: var(--color-primary);
+}
+
+@utility report__band--elevated {
+  background-color: var(--color-warning-soft);
+}
+
+@utility report__band--high {
+  background-color: var(--color-danger-soft);
+}
+
+@utility report__kpi {
+  flex: 1;
+  padding: var(--spacing-md);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface-alt);
+}
+
+@utility report__kpi-value {
+  font-family: var(--font-sans);
+  font-size: 22px;
+  line-height: 28px;
+  font-weight: 700;
+  color: var(--color-forest-ink);
+}
+
+@utility report__pill {
+  align-self: flex-start;
+  padding-inline: var(--spacing-sm);
+  padding-block: 2px;
+  border-radius: var(--radius-pill);
+}
+
+@utility report__pill--good {
+  background-color: var(--color-success-soft);
+}
+
+@utility report__pill--info {
+  background-color: var(--color-info-soft);
+}
+
+@utility report__pill--warn {
+  background-color: var(--color-warning-soft);
+}
+
+@utility report__pill--bad {
+  background-color: var(--color-danger-soft);
+}
+
+@utility report__pill-label {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 700;
+  color: var(--color-forest-ink);
+}
+
+@utility report__stack {
+  height: 22px;
+  margin-block: 6px 12px;
+  flex-direction: row;
+  gap: 2px;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+@utility report__row {
+  min-height: 40px;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--spacing-sm);
+  border-bottom-width: 1px;
+  border-color: var(--color-cream-line);
+}
+
+@utility report__label {
+  flex: 1;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 18px;
+  color: var(--color-ink-soft);
+}
+
+@utility report__value {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 700;
+  color: var(--color-forest-ink);
+}
+
+@utility report__unit {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-muted);
+}
+
+@utility report__share {
+  width: 40px;
+  text-align: right;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+@utility report__lean {
+  margin-top: var(--spacing-sm);
+  padding: var(--spacing-md);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface-alt);
+  flex-direction: row;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+@utility report__zone-row {
+  padding-block: var(--spacing-md);
+  border-bottom-width: 1px;
+  border-color: var(--color-cream-line);
+}
+
+@utility report__track {
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-cream-tab);
+}
+
+@utility report__zone {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-info);
+}
+
+@utility report__gauge-label {
+  position: absolute;
+  top: 0;
+}
+
+@utility report__dot {
+  position: absolute;
+  top: -5px;
+  width: 18px;
+  height: 18px;
+  margin-left: -9px;
+  border-radius: var(--radius-pill);
+  border-width: 3px;
+  border-color: var(--color-surface);
+  background-color: var(--color-leaf);
+}
+
+@utility report__zone-label {
+  margin-top: 6px;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  line-height: 14px;
+  color: var(--color-muted);
+}
+
+@utility report__tile {
+  width: 48.5%;
+  padding: var(--spacing-md);
+  gap: 6px;
+  border-radius: var(--radius-md);
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-surface);
+}
+
+/* Settings-style list row (Profile and other menus): icon, label, chevron, hairline between rows */
+@utility list-row {
+  min-height: 52px;
+  padding-inline: 2px;
+  flex-direction: row;
+  align-items: center;
+  gap: 14px;
+  border-bottom-width: 1px;
+  border-color: var(--color-line);
+}
+
+@utility list-row__label {
+  flex: 1;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 500;
+  color: var(--color-forest-ink);
+}
+
+/* The tab bar's raised middle button (the member's AI Coach): a dark circle with a white ring,
+   lifted above the bar; lavender while its tab is open */
+@utility tabbar__raised {
+  width: 54px;
+  height: 54px;
+  /* Lifted so it takes up only an icon's height in the row: its bottom edge and its label line
+     up with the other tabs */
+  margin-top: -32px;
+  border-radius: var(--radius-pill);
+  border-width: 4px;
+  border-color: var(--color-surface);
+  background-color: var(--color-forest);
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6px 16px rgba(21, 21, 29, 0.18);
+}
+
+@utility tabbar__raised--active {
+  background-color: var(--color-leaf);
+}
+
+/* AI Coach: the intake (BEM: coach__element--modifier). White cards on the soft grey page,
+   round white header buttons, black for whatever is selected. */
+@utility coach__circle-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface);
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-card);
+}
+
+@utility coach__step {
+  height: 28px;
+  padding-inline: 10px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility coach__step-label {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+  color: var(--color-forest-ink);
+}
+
+@utility coach__track {
+  height: 4px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-cream-tab);
+  overflow: hidden;
+}
+
+@utility coach__card {
+  padding: var(--spacing-lg);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-card);
+  gap: var(--spacing-md);
+}
+
+@utility coach__option {
+  min-height: 64px;
+  padding: 14px var(--spacing-lg);
+  border-radius: var(--radius-lg);
+  border-width: 1.5px;
+  border-color: var(--color-surface);
+  background-color: var(--color-surface);
+  flex-direction: row;
+  align-items: center;
+  gap: var(--spacing-md);
+  box-shadow: var(--shadow-card);
+}
+
+@utility coach__option--selected {
+  border-color: var(--color-forest);
+}
+
+@utility coach__option-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface-alt);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility coach__option-icon--selected {
+  background-color: var(--color-forest);
+}
+
+@utility coach__check {
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-forest);
+  align-items: center;
+  justify-content: center;
+}
+
+/* Sized by the screen: flex 1, at most 40 pt, square */
+@utility coach__day {
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface-alt);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility coach__day--selected {
+  background-color: var(--color-forest);
+}
+
+@utility coach__tag {
+  align-self: flex-start;
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-warning-soft);
+}
+
+@utility coach__tag-label {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 600;
+  color: var(--color-forest-ink);
+}
+
+@utility coach__avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-accent-soft);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility coach__avatar-label {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 20px;
+  font-weight: 700;
+  color: var(--color-leaf);
 }

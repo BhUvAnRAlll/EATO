@@ -1,9 +1,9 @@
 import Constants from "expo-constants";
 
-// Port the EATO server (EATO-SERVER) listens on in development
+// Port the JustFit server (JustFit-SERVER) listens on in development
 const SERVER_PORT = 4000;
 
-// Where the EATO server is:
+// Where the JustFit server is:
 // - EXPO_PUBLIC_API_URL in .env, for a deployed server
 // - otherwise the computer running the Expo dev server, so a real phone on the
 //   same Wi-Fi reaches it too (not just the simulator)
@@ -25,7 +25,7 @@ type ApiOptions = {
 // session) and absent when the request never reached it
 export type ApiResult<T> = { ok: true; data: T } | { ok: false; error: string; status?: number };
 
-// Calls the EATO server. JSON in, JSON out, one friendly error line on failure.
+// Calls the JustFit server. JSON in, JSON out, one friendly error line on failure.
 export async function apiFetch<T>(path: string, options: ApiOptions = {}): Promise<ApiResult<T>> {
   const headers: Record<string, string> = {};
   if (options.body !== undefined) headers["Content-Type"] = "application/json";

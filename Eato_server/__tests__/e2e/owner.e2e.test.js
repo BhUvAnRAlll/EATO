@@ -1,6 +1,6 @@
 // The gym owner portal end to end: real Clerk development identities against the real Express
 // server and the isolated `eato_test` database. Covers who may open it (the gym's owner and
-// admins, and EATO platform admins; never its trainers, members or outsiders), the Home summary
+// admins, and JustFit platform admins; never its trainers, members or outsiders), the Home summary
 // built from real rows, renewals (extend, restart, a new package, validation, no payment), and a
 // member reading only their own package.
 //

@@ -35,7 +35,7 @@ const channelIcons = {
 const statusLabels: Record<Invitation["status"], string> = { pending: "Pending", accepted: "Accepted", revoked: "Revoked", expired: "Expired" };
 
 // Invite people (gym staff): share the gym's code or a one-off invitation link, or record an
-// invitation for an email or phone number. EATO sends nothing itself: sharing uses the phone's
+// invitation for an email or phone number. JustFit sends nothing itself: sharing uses the phone's
 // share sheet, and recorded invitations are only a list for staff. Admins can invite trainers.
 export default function InviteToGym() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -193,7 +193,7 @@ export default function InviteToGym() {
 
             {tab === "qr" && gym?.inviteCode && (
               <View className="join-card items-center gap-3">
-                {/* The QR holds the invite link: scanning it in EATO (Join a Gym › QR Code) or with the phone's camera opens the invitation */}
+                {/* The QR holds the invite link: scanning it in JustFit (Join a Gym › QR Code) or with the phone's camera opens the invitation */}
                 <View className="join-card__qr" accessibilityLabel={`QR code for ${gym.name}'s invite link`}>
                   <QRCode value={linkFor(gym.inviteCode)} size={190} color={colors.ink} backgroundColor={colors.white} />
                 </View>
@@ -239,7 +239,7 @@ export default function InviteToGym() {
                 <Pressable onPress={record} disabled={busy === "record" || !contact.trim()} className="btn-forest" style={{ opacity: busy === "record" || !contact.trim() ? 0.6 : 1 }} accessibilityRole="button" accessibilityLabel="Record invitation">
                   {busy === "record" ? <ActivityIndicator color={colors.white} /> : <Text className="btn-forest__label">Record invitation</Text>}
                 </Pressable>
-                <Text className="home__note">No SMS or email is sent. Email invitations also show to that person in EATO; for a phone number, pass the code on yourself.</Text>
+                <Text className="home__note">No SMS or email is sent. Email invitations also show to that person in JustFit; for a phone number, pass the code on yourself.</Text>
               </View>
             )}
 

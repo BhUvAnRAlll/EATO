@@ -82,7 +82,7 @@ describe("trainers e2e: profiles, connections, recommendations, diet and workout
     const inputs = JSON.stringify({ weightKg: 70, heightCm: 165, age: 31, gender: "female", fitnessGoal: "muscle_gain", activityLevel: "moderately_active" });
     const calculated = JSON.stringify({ rmrFormula: "mifflin_st_jeor", report: null, rmr: 1450, tdee: 2250, targetCalories: 2400, displayCalories: 2400, macros: { proteinG: 140, carbsG: 290, fatG: 75 } });
     await connection.query(
-      "INSERT INTO nutrition_targets (user_id, formula, config_version, inputs, calculated, calculated_at, calories, protein_g, carbs_g, fat_g, source) VALUES (?, 'eato-calculator', 'test', ?, ?, NOW(), 2400, 140, 290, 75, 'calculated')",
+      "INSERT INTO nutrition_targets (user_id, formula, config_version, inputs, calculated, calculated_at, calories, protein_g, carbs_g, fat_g, source) VALUES (?, 'justfit-calculator', 'test', ?, ?, NOW(), 2400, 140, 290, 75, 'calculated')",
       [ids.client, inputs, calculated],
     );
   });

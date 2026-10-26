@@ -125,7 +125,7 @@ export default function SignUp() {
             {/* The limit sits on a View: a Text's own maxWidth is ignored on web */}
             <View style={compact ? { maxWidth: Math.round(width * 0.4) } : undefined}>
               <Text className="auth__subtitle mt-3">
-                {compact ? "Start your journey to healthy, tasty meals with Eato." : "Start your journey to\nhealthy, tasty meals\nwith Eato."}
+                {compact ? "Start your journey to healthy, tasty meals with JustFit." : "Start your journey to\nhealthy, tasty meals\nwith JustFit."}
               </Text>
             </View>
 

@@ -2,7 +2,7 @@ import type { Href } from "expo-router";
 
 import type { Icon } from "@/types/profile";
 
-// The home screen's content comes from the EATO server (admins edit it there). The types
+// The home screen's content comes from the JustFit server (admins edit it there). The types
 // below mirror the API shape (see Eato_server/home.js); the defaults are what the screen
 // shows before the first successful load and when the server can't be reached.
 
@@ -14,7 +14,7 @@ export const destinationRoutes = {
   explore: "/meals", // older content saved as "explore" opens the Meals tab
   macro: "/macro",
   nutrition: "/macro", // older content saved as "nutrition" opens the Macro tab
-  fitness: "/fitness",
+  fitness: "/workout",
   community: "/community",
   plans: "/plans",
   orders: "/orders",
@@ -237,12 +237,13 @@ export const sampleDeliveryPincode = "110017";
 
 // Every bottom tab, in order
 // Home dashboard, meals and menu, macro balance (calories and macros), workouts, community
-export type HomeTab = { name: "home" | "meals" | "macro" | "fitness" | "community"; label: string; icon: Icon };
+export type HomeTab = { name: "home" | "meals" | "macro" | "coach" | "community"; label: string; icon: Icon; raised?: boolean };
 
 export const homeTabs: HomeTab[] = [
   { name: "home", label: "Home", icon: { ios: "house", android: "home", web: "home" } },
   { name: "meals", label: "Meals", icon: { ios: "fork.knife", android: "restaurant", web: "restaurant" } },
+  // AI Coach sits in the middle as a raised round button
+  { name: "coach", label: "AI Coach", icon: { ios: "sparkles", android: "auto_awesome", web: "auto_awesome" }, raised: true },
   { name: "macro", label: "Macro", icon: { ios: "scalemass", android: "balance", web: "balance" } },
-  { name: "fitness", label: "Fitness", icon: { ios: "dumbbell", android: "fitness_center", web: "fitness_center" } },
   { name: "community", label: "Community", icon: { ios: "person.2", android: "group", web: "group" } },
 ];

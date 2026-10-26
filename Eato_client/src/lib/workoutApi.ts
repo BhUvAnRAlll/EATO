@@ -3,7 +3,7 @@ import { addDays, dateOf } from "@/lib/macro";
 import type { Answers, Pace } from "@/lib/recreateRules";
 import type { Icon } from "@/types/profile";
 
-// The workout hub and day screen: types, the calls to /api/workout on the EATO server, and
+// The workout hub and day screen: types, the calls to /api/workout on the JustFit server, and
 // the labels and formatters those screens share (copy taken from the workout spec and its
 // source app). Dates are the member's LOCAL day (YYYY-MM-DD); weekdays are Sunday-first
 // (0 = Sunday), like Date.getDay().

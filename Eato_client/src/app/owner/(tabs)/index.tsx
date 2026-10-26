@@ -57,7 +57,7 @@ export default function OwnerHome() {
   };
 
   // Screens under the member app (manage, invite, events) open for the gym's own staff; an
-  // EATO admin helping out sees the dashboard and renewals
+  // JustFit admin helping out sees the dashboard and renewals
   const memberApp = summary?.gym.as !== "platform";
   const gymId = summary?.gym.id ?? "";
 

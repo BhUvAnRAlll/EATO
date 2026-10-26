@@ -123,7 +123,7 @@ describe("owner attendance e2e: passes, check-in, check-out and the front desk l
 
   test("2. a pass is the caller's own and short-lived; the front desk sees who it names", async () => {
     const res = await as("member").get("/api/owner/me/pass");
-    assert.match(res.json.pass, new RegExp(`^EATO1\\.${ids.member}\\.\\d+\\.`));
+    assert.match(res.json.pass, new RegExp(`^JF1\\.${ids.member}\\.\\d+\\.`));
     const seconds = (new Date(res.json.expiresAt).getTime() - Date.now()) / 1000;
     assert.ok(seconds > 100 && seconds <= 121, `about two minutes: ${seconds}`);
     const verified = await as("owner").post(route("/attendance/verify"), { code: res.json.pass });
@@ -139,7 +139,7 @@ describe("owner attendance e2e: passes, check-in, check-out and the front desk l
   test("3. every refusal is explained and recorded as a failed scan", async () => {
     const verify = (code) => as("owner").post(route("/attendance/verify"), { code });
     const forged = (await passOf("member")).replace(/\.[^.]+$/, ".AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
-    const expired = `EATO1.${ids.member}.1700000000.${"A".repeat(43)}`;
+    const expired = `JF1.${ids.member}.1700000000.${"A".repeat(43)}`;
     const cases = [
       ["hello", "invalid"], [forged, "invalid"], [expired, "invalid"], ["' OR 1=1 --", "invalid"],
       [await passOf("other"), "not_member"], [await passOf("pending"), "inactive"], [await passOf("suspended"), "inactive"], [await passOf("lapsed"), "inactive"],
@@ -219,7 +219,7 @@ describe("owner attendance e2e: passes, check-in, check-out and the front desk l
     const qr = await as("owner").get(route("/checkout-qr"));
     assert.equal(qr.status, 200);
     assert.equal(qr.json.enabled, true);
-    assert.match(qr.json.qrText, /^EATO-OUT-[A-HJ-NP-Z2-9]{12}$/);
+    assert.match(qr.json.qrText, /^JUSTFIT-OUT-[A-HJ-NP-Z2-9]{12}$/);
     assert.equal((await as("admin").get(route("/checkout-qr"))).json.code, qr.json.code, "the same code until regenerated");
 
     assert.equal((await as("owner").patch(route("/checkout-qr"), { enabled: false })).json.enabled, false);
@@ -232,7 +232,7 @@ describe("owner attendance e2e: passes, check-in, check-out and the front desk l
     const rotated = await as("owner").post(route("/checkout-qr/rotate"));
     assert.notEqual(rotated.json.code, qr.json.code);
     assert.equal((await as("member").post("/api/owner/me/checkout", { code: qr.json.qrText })).status, 400, "the old code stops working");
-    assert.equal((await as("member").post("/api/owner/me/checkout", { code: "EATO-OUT-ZZZZZZZZZZZZ" })).status, 400);
+    assert.equal((await as("member").post("/api/owner/me/checkout", { code: "JUSTFIT-OUT-ZZZZZZZZZZZZ" })).status, 400);
     assert.equal((await as("member").post("/api/owner/me/checkout", { code: "not a code" })).status, 400);
     assert.equal((await as("coach").post("/api/owner/me/checkout", { code: rotated.json.qrText })).status, 409, "not checked in");
 

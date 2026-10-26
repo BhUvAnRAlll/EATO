@@ -14,13 +14,14 @@ export default function ChooseGoal() {
       step="goal"
       title="What's your goal?"
       subtitle="Choose one that fits your current focus."
-      onNext={() => router.push("/setup/body")}
+      onNext={() => router.push("/setup/activity")}
       canContinue={profile.goal !== null}
     >
-      <View className="gap-3">
+      <View className="flex-row flex-wrap justify-between gap-y-3">
         {goalOptions.map((goal) => (
           <OptionCard
             key={goal.id}
+            layout="grid"
             label={goal.label}
             description={goal.description}
             icon={goal.icon}

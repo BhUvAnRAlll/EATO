@@ -370,12 +370,18 @@ CREATE TABLE gyms (
   checkout_qr_enabled    BOOLEAN       NOT NULL DEFAULT TRUE,   -- members may check out by scanning the gym's code
   checkout_code          CHAR(12)      NULL,            -- the check-out QR's code (made on first use, replaced on regenerate)
   plan                   ENUM('starter', 'pro', 'elite') NOT NULL DEFAULT 'starter',
+  -- Set by EATO admins (Super Admin portal): active, on a trial until trial_ends_at, or
+  -- suspended (hidden from Explore, its posts hidden from everyone)
+  status                 ENUM('active', 'trial', 'suspended') NOT NULL DEFAULT 'active',
+  trial_ends_at          DATE          NULL,
+  suspended_at           TIMESTAMP     NULL,
   member_count           INT UNSIGNED  NOT NULL DEFAULT 0,  -- active members, kept in step by the server
   created_by             VARCHAR(64)   NULL,            -- the platform admin who created it
   created_at             TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at             TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   UNIQUE KEY uq_gyms_name (name),
+  KEY idx_gyms_status (status),
   UNIQUE KEY uq_gyms_invite_code (invite_code),
   UNIQUE KEY uq_gyms_checkout_code (checkout_code),
   KEY idx_gyms_visibility (visibility, name),
@@ -1141,6 +1147,8 @@ CREATE TABLE trainer_profiles (
   coaching_mode     ENUM('online', 'in_person', 'both') NOT NULL DEFAULT 'online',
   offers_nutrition  BOOLEAN       NOT NULL DEFAULT FALSE,
   accepting_clients BOOLEAN       NOT NULL DEFAULT TRUE,
+  verified_at       TIMESTAMP     NULL,              -- an EATO admin checked the qualifications
+  verified_by       VARCHAR(64)   NULL,
   availability      VARCHAR(120)  NULL,              -- "Mon–Sat, 6–10am"
   approach          VARCHAR(1000) NULL,              -- shown after acceptance
   qualifications    JSON          NULL,              -- ["ACE CPT", ...], shown after acceptance
@@ -1152,6 +1160,7 @@ CREATE TABLE trainer_profiles (
   KEY idx_trainer_profiles_accepting (accepting_clients, title),
   CONSTRAINT fk_trainer_profiles_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
   CONSTRAINT fk_trainer_profiles_photo FOREIGN KEY (photo_media_id) REFERENCES community_media (id) ON DELETE SET NULL,
+  CONSTRAINT fk_trainer_profiles_verifier FOREIGN KEY (verified_by) REFERENCES users (id) ON DELETE SET NULL,
   CONSTRAINT chk_trainer_profiles_years CHECK (years_experience <= 60)
 ) ENGINE = InnoDB;
 
@@ -1585,6 +1594,25 @@ CREATE TABLE whatsapp_audit (
   CONSTRAINT fk_whatsapp_audit_actor FOREIGN KEY (actor_id) REFERENCES users (id) ON DELETE SET NULL
 ) ENGINE = InnoDB;
 
+-- ---------------------------------------------------------------------------
+-- Super Admin portal (migrations/2026-10-28-admin-portal.sql)
+-- ---------------------------------------------------------------------------
+
+-- Every admin action: who, what, on which thing, and a one-line summary for the Overview
+CREATE TABLE admin_audit_log (
+  id           CHAR(36)     NOT NULL DEFAULT (UUID()),
+  admin_id     VARCHAR(64)  NULL,
+  action       VARCHAR(40)  NOT NULL,                -- e.g. trainer.verify, gym.suspend, report.dismiss
+  target_type  ENUM('user', 'gym', 'post', 'report', 'promotion') NOT NULL,
+  target_id    VARCHAR(64)  NULL,
+  summary      VARCHAR(200) NOT NULL,                -- "Verified Marcus Johnson", shown as written
+  created_at   TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),  -- sub-second, so actions keep their order
+  PRIMARY KEY (id),
+  KEY idx_admin_audit_recent (created_at),
+  KEY idx_admin_audit_target (target_type, target_id),
+  CONSTRAINT fk_admin_audit_admin FOREIGN KEY (admin_id) REFERENCES users (id) ON DELETE SET NULL
+) ENGINE = InnoDB;
+
 -- ---- Gym owner portal: questions for the gym's team ----
 
 -- One row per question passed to the team. Gyms are never deleted (RESTRICT); the asker's account
@@ -1608,3 +1636,37 @@ CREATE TABLE gym_assistant_questions (
   CONSTRAINT fk_gym_questions_answerer FOREIGN KEY (answered_by) REFERENCES users (id) ON DELETE SET NULL,
   CONSTRAINT chk_gym_questions_answer CHECK ((status = 'answered') = (answer IS NOT NULL))
 );
+
+-- ---- AI Coach: the intake ----
+
+-- One row per member: their AI coach intake answers (goal, schedule, where they train, what to
+-- work around, food habits, the coach they picked). Read by the coach on the server only. The
+-- member's account going takes the row with it.
+CREATE TABLE coach_profiles (
+  user_id                 VARCHAR(64)       NOT NULL,
+  goal                    ENUM('build_muscle', 'lose_weight', 'get_stronger', 'endurance', 'stay_active', 'flexibility', 'sport', 'comeback') NOT NULL,
+  experience              ENUM('beginner', 'returning', 'intermediate', 'advanced', 'expert') NOT NULL,
+  currently_training      BOOLEAN           NOT NULL,
+  weekdays                JSON              NOT NULL,  -- training days, 0 = Sunday (as workout_profiles)
+  session_minutes         TINYINT UNSIGNED  NOT NULL,
+  main_spot               ENUM('gym', 'home', 'outdoors', 'travel', 'other') NOT NULL,
+  backup_spot             ENUM('gym', 'home', 'outdoors', 'travel', 'other') NULL,
+  main_equipment          ENUM('none', 'some', 'home_gym', 'full_gym', 'basic_gym', 'free_weights') NOT NULL,
+  backup_equipment        ENUM('none', 'some', 'home_gym', 'full_gym', 'basic_gym', 'free_weights') NULL,
+  joints                  JSON              NOT NULL,  -- joints to protect, e.g. ["knees"]
+  conditions              JSON              NOT NULL,  -- e.g. ["diabetes"]; any one makes the coach cautious
+  limitation_notes        VARCHAR(300)      NULL,
+  cooking_time            ENUM('none', 'quick', 'medium', 'long') NOT NULL,
+  food_budget             ENUM('low', 'medium', 'high') NOT NULL,
+  stress                  ENUM('low', 'moderate', 'high') NULL,
+  sleep                   ENUM('under_5', '5_6', '7_8', 'over_8') NULL,
+  coach                   ENUM('arjun', 'priya', 'rohan', 'meera', 'aditya') NOT NULL,
+  coach_style             ENUM('supportive', 'motivational', 'direct', 'analytical', 'funny') NOT NULL,
+  plan_notes              VARCHAR(500)      NULL,
+  disclaimer_accepted_at  TIMESTAMP         NOT NULL,  -- "Fitness guidance, not medical advice"
+  created_at              TIMESTAMP         NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at              TIMESTAMP         NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (user_id),
+  CONSTRAINT fk_coach_profiles_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+  CONSTRAINT chk_coach_profiles_minutes CHECK (session_minutes IN (15, 20, 30, 45, 60, 75))
+) ENGINE = InnoDB;

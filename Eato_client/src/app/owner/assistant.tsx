@@ -12,7 +12,7 @@ import { timeAgo } from "@/lib/community";
 import { owner, type CustomAnswer, type TeamQuestion } from "@/lib/owner";
 import { useSessionToken } from "@/lib/session";
 import { useOwnerStore } from "@/store/owner";
-import { colors } from "@/theme";
+import { colors, switchColors } from "@/theme";
 
 const input = { borderRadius: 14, borderWidth: 1, borderColor: colors.creamLine, backgroundColor: colors.white, paddingHorizontal: 14, fontSize: 15, color: colors.forestInk } as const;
 
@@ -223,7 +223,7 @@ export default function OwnerAssistant() {
                       <Text className="friend-row__name">{faq.question}</Text>
                       <Text className="friend-row__note" style={{ color: colors.ink }}>{faq.answer}</Text>
                     </View>
-                    <Switch value={faq.active} onValueChange={(v) => toggleFaq(faq, v)} trackColor={{ true: colors.leaf, false: colors.creamTab }} accessibilityLabel={`Use: ${faq.question}`} />
+                    <Switch {...switchColors} value={faq.active} onValueChange={(v) => toggleFaq(faq, v)} accessibilityLabel={`Use: ${faq.question}`} />
                   </View>
                   <View className="flex-row gap-2">
                     <Pressable onPress={() => setDraft({ id: faq.id, question: faq.question, answer: faq.answer })} className="owner-quick flex-1" style={{ height: 40 }} accessibilityRole="button" accessibilityLabel={`Edit ${faq.question}`}>

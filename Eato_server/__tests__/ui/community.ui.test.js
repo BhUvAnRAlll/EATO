@@ -22,7 +22,7 @@ const { launchChrome, connect, openPage, CHROME } = require("./cdp.js");
 const { helpers, signInAs, NAV_TIMEOUT } = require("./onboarding-steps.js");
 
 const EXPO_PORT = 8090;
-const EVIDENCE_DIR = path.join(os.tmpdir(), "eato-ui-evidence");
+const EVIDENCE_DIR = path.join(os.tmpdir(), "justfit-ui-evidence");
 const SCREENSHOT_DIR = process.env.EATO_SCREENSHOT_DIR || null;
 const WIDTHS = [[320, 568], [390, 844], [430, 932]];
 const COMMUNITY_TABLES = ["messages", "conversation_members", "conversations", "community_reports", "community_story_views", "community_stories",
@@ -110,8 +110,8 @@ describe("ui community: feed, stories and messages for a signed-in member", () =
     try { connection = await db.connect(env); } catch (error) { skipReason = `test database unreachable (${error?.code ?? "refused"})`; return; }
     assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in eato_test`);
     clerk = clerkFor(env.CLERK_SECRET_KEY);
-    uploadDir = fs.mkdtempSync(path.join(os.tmpdir(), "eato-ui-uploads-"));
-    photoFile = path.join(os.tmpdir(), `eato-ui-photo-${runId}.png`);
+    uploadDir = fs.mkdtempSync(path.join(os.tmpdir(), "justfit-ui-uploads-"));
+    photoFile = path.join(os.tmpdir(), `justfit-ui-photo-${runId}.png`);
     fs.writeFileSync(photoFile, TINY_PNG);
     server = await startTestServer({ ...env, UPLOAD_DIR: uploadDir });
     expo = await startExpoWeb({ port: EXPO_PORT, apiUrl: `http://localhost:${env.PORT}` });
@@ -195,7 +195,7 @@ describe("ui community: feed, stories and messages for a signed-in member", () =
     await h.expectPath("/community/compose");
     await h.expectText("Create Post");
     await h.expectText("Posting to");
-    await h.expectText("My EATO feed");
+    await h.expectText("My JustFit feed");
     await h.expectText("Post type");
     await noOverflow("compose");
     await snapshotAllWidths("community-compose");
@@ -217,7 +217,7 @@ describe("ui community: feed, stories and messages for a signed-in member", () =
     await h.expectText("Members you've accepted as followers");
     await clickLabel("Audience: Followers");
     await page.clickText("Everyone");
-    await h.expectText("Anyone on EATO");
+    await h.expectText("Anyone on JustFit");
     await clickLabel("Add location");
     await page.setInput('[aria-label="Location"]', "Cult, Indiranagar");
     await choosePhotoFromGallery(photoFile);
@@ -683,29 +683,38 @@ describe("ui community: feed, stories and messages for a signed-in member", () =
     }
   }));
 
-  it("8. an admin reviews the report on the moderation screen, suspends the author and reinstates them", run("moderation", async () => {
+  it("8. an admin reviews the report on the Reports tab, suspends and reinstates the author, then removes the post", run("moderation", async () => {
     await page.evaluate(`window.Clerk.signOut({ redirectUrl: "/sign-in" })`);
     await page.waitFor(`!(window.Clerk && window.Clerk.session)`, 15000, "member signed out");
     // The shared helper waits for a member's routes; an admin lands on /admin
     try { await signInAs(page, h, identities.admin); } catch (error) { if (!/route after|sign-in outcome/.test(error.message)) throw error; }
-    await page.waitFor(`location.pathname === "/admin"`, 30000, "admin dashboard");
-    await h.expectText("Community moderation");
-    await page.clickText("Community moderation");
-    await h.expectPath("/admin/moderation");
-    await h.expectText("Open reports");
-    await h.expectText("Reason: Reported from the feed");
+    await page.waitFor(`location.pathname === "/admin"`, 30000, "admin overview");
+    await h.expectText("Overview");
+    // The Reports tab (badged with the open report groups) holds the queue, grouped by post
+    const tab = await page.waitFor(`(() => { const el = [...document.querySelectorAll('[role="tab"][aria-label^="Reports"]')].filter((e) => e.getClientRects().length > 0)[0]; if (!el) return null; const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`, 30000, "the Reports tab");
+    await page.clickAt(tab.x, tab.y);
+    await h.expectPath("/admin/reports");
+    await h.expectText("Open (1)");
     await h.expectText("Consistency pays.");
+    await h.expectText("1 report: Reported from the feed");
     await snapshot("admin-moderation-390");
-    await page.clickText("Suspend author");
-    await h.expectText("(suspended)");
-    await h.expectText("Rohan Mehta");
-    await h.expectText("Reinstate");
-    const [[row]] = await connection.query("SELECT status FROM community_profiles WHERE user_id = ?", [identities.b.id]);
-    assert.equal(row.status, "suspended");
-    await page.clickText("Reinstate");
-    await h.expectText("Nobody is suspended.");
-    await page.clickText("Mark reviewed");
-    await h.expectText("No open reports.");
+    const status = async () => (await connection.query("SELECT status FROM community_profiles WHERE user_id = ?", [identities.b.id]))[0][0]?.status;
+    const poll = async (check, what) => {
+      const deadline = Date.now() + 15000;
+      while (!(await check()) && Date.now() < deadline) await new Promise((r) => setTimeout(r, 200));
+      assert.ok(await check(), what);
+    };
+    await clickLabel("Suspend Rohan Mehta");
+    await h.expectText("Suspend Rohan Mehta?");
+    await clickLabel("Suspend");
+    await poll(async () => (await status()) === "suspended", "the author is suspended");
+    await h.expectText("Rohan is suspended · Reinstate");
+    await clickLabel("Reinstate Rohan Mehta");
+    await poll(async () => (await status()) === "active", "the author is reinstated");
+    await clickLabel("Remove Rohan Mehta's post");
+    await h.expectText("Remove this post?");
+    await clickLabel("Remove"); // the sheet's button (the card's is labelled with the author)
+    await h.expectText("No open reports");
     const [[reviewed]] = await connection.query("SELECT status FROM community_reports LIMIT 1");
     assert.equal(reviewed.status, "reviewed");
     await noOverflow("moderation");

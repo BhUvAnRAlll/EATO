@@ -5,6 +5,7 @@
 const express = require("express");
 
 const { requireAdmin, verifiedEmails } = require("../auth");
+const { recordAdminAction } = require("../admin/overview");
 const { ValidationError } = require("../profile");
 const { ensureUser } = require("../community/members");
 const { isSuspended } = require("../community/visibility");
@@ -55,7 +56,9 @@ router.get("/", route(async (req, res) => {
 
 // Platform admins create a gym and name its owner
 router.post("/", requireAdmin, smallBody, route(async (req, res) => {
-  res.status(201).json({ gym: await gyms.createGym(pool(req), req.userId, v.validateGymCreate(req.body)) });
+  const gym = await gyms.createGym(pool(req), req.userId, v.validateGymCreate(req.body));
+  await recordAdminAction(pool(req), req, "gym.create", "gym", gym.id, `Created gym ${gym.name}`);
+  res.status(201).json({ gym });
 }));
 
 // Platform admins: every gym, hidden ones included

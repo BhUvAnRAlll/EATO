@@ -52,7 +52,7 @@ export default function RecreateReveal() {
 
   // Out of the flow onto the Fitness tab, then (optionally) the first session's day
   const leaveTo = (date?: string) => {
-    router.dismissTo("/fitness");
+    router.dismissTo("/workout");
     if (date) setTimeout(() => router.push({ pathname: "/workout/day", params: { date } }), 0);
   };
   const toPreferences = () => router.dismissTo("/workout/preferences");
@@ -87,7 +87,7 @@ export default function RecreateReveal() {
         {/* Hero: the plan's facts on the dark surface (sessions have no photos yet) */}
         <View className="bg-ink" style={{ paddingTop: insets.top + 32, paddingHorizontal: 20, paddingBottom: 28, gap: 10 }}>
           <Text className="type-overline" style={{ color: colors.primary }}>Your new plan</Text>
-          <Text className="text-white" style={{ fontSize: 30, lineHeight: 36, fontWeight: "800" }}>Your plan is ready</Text>
+          <Text className="text-white" style={{ fontSize: 30, lineHeight: 36, fontWeight: "700" }}>Your plan is ready</Text>
           <Text style={{ color: colors.white, opacity: 0.8 }}>Your workout plan has been built around your goal, fitness level and schedule.</Text>
           <View className="mt-1 flex-row flex-wrap gap-2">
             {[GOAL_LABEL[plan.goal], LEVEL_LABEL[plan.level], `${plan.daysPerWeek} days / week`].map((pill) => (

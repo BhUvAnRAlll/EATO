@@ -4,7 +4,7 @@ export default function Addresses() {
   return (
     <PlaceholderScreen
       title="Delivery address"
-      subtitle="Save your addresses and check whether EATO delivers to your pincode."
+      subtitle="Save your addresses and check whether JustFit delivers to your pincode."
       icon={{ ios: "mappin.and.ellipse", android: "location_on", web: "location_on" }}
     />
   );

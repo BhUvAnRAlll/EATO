@@ -21,7 +21,7 @@ const { helpers, signInAs } = require("./onboarding-steps.js");
 const nutrition = require("../../../Eato_client/src/lib/nutrition/index.ts");
 
 const EXPO_PORT = 8090;
-const EVIDENCE_DIR = path.join(os.tmpdir(), "eato-ui-evidence");
+const EVIDENCE_DIR = path.join(os.tmpdir(), "justfit-ui-evidence");
 const NAV_TIMEOUT = 20000;
 
 // The answers the test enters, and what the calculator must show for them
@@ -71,6 +71,18 @@ describe("ui flow: onboarding steps in Expo web (signed in, nothing saved)", () 
     assert.equal(await page.path(), route, `${label} should not navigate on ${route}`);
   };
   const input = (placeholder) => `input[placeholder=${JSON.stringify(placeholder)}]`;
+  // Saves the open screen at every supported width when EATO_SCREENSHOT_DIR is set
+  const shoot = async (name) => {
+    if (!SCREENSHOT_DIR) return;
+    fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
+    for (const [width, height] of WIDTHS) {
+      await client.send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: false }, page.sessionId);
+      await new Promise((r) => setTimeout(r, 500));
+      await page.screenshot(path.join(SCREENSHOT_DIR, `${name}-${width}.png`));
+    }
+    await client.send("Emulation.clearDeviceMetricsOverride", {}, page.sessionId);
+    await settle();
+  };
 
   before(async () => {
     const loaded = db.loadTestEnv();
@@ -117,28 +129,25 @@ describe("ui flow: onboarding steps in Expo web (signed in, nothing saved)", () 
     if (problems.length > 0) { console.error("CLEANUP INCOMPLETE; orphaned test identifiers:", Object.values(identities).map((i) => i.id).join(", ") || "none"); throw new Error("teardown problems: " + problems.join("; ")); }
   });
 
-  it("1. landing → Get Started reaches sign-up; signing in opens setup at step 1, which can be skipped", run("landing", async () => {
+  it("1. landing → Get Started reaches sign-up; signing in opens setup at the personal step", run("landing", async () => {
     await goto("/", "Get Started");
     await page.clickText("Get Started");
     await expectPath("/sign-up");
     await expectText("Create account");
     // A signed-in account with no profile is sent to the first setup step by the start screen
     await signInAs(page, h, identities.a);
-    await expectPath("/setup/body-composition");
-    await expectText("1/7");
-    await page.clickText("Skip, I'll enter manually");
     await expectPath("/setup/personal");
-    await expectText("2/7");
+    await expectText("1/7");
   }));
 
-  it("2. personal: the email is the account's and read-only; Next stays disabled until name, date of birth and phone are valid", run("personal-required", async () => {
+  it("2. personal: the email is the account's and read-only; Next stays disabled until name, date of birth, height, weight and phone are valid", run("personal-required", async () => {
     await goto("/setup/personal", "Let's get to know you");
     // The account's address is shown as text with its note, and no input offers to change it
     await expectText(identities.a.emailAddress);
     await expectText("From your account. It can't be changed here.");
     const emailInputs = await page.evaluate(`[...document.querySelectorAll("input")].filter((e) => e.getClientRects().length > 0 && (e.placeholder === "you@email.com" || e.value === ${JSON.stringify(identities.a.emailAddress)} || e.type === "email")).length`);
     assert.equal(emailInputs, 0, "the email must not be rendered as an input");
-    assert.equal(await page.evaluate(`[...document.querySelectorAll("input")].filter((e) => e.getClientRects().length > 0).length`), 2, "the personal step has exactly two inputs: name and phone");
+    assert.equal(await page.evaluate(`[...document.querySelectorAll("input")].filter((e) => e.getClientRects().length > 0).length`), 4, "the personal step has exactly four inputs: name, height, weight and phone");
     if (SCREENSHOT_DIR) {
       fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
       for (const [width, height] of WIDTHS) {
@@ -159,45 +168,66 @@ describe("ui flow: onboarding steps in Expo web (signed in, nothing saved)", () 
     await page.clickText("Done");
     await expectText(dobShown);
     await page.waitFor(`!(document.body.innerText || "").includes("Done")`, NAV_TIMEOUT, "date sheet closed");
+    await expectText(`Age ${AGE}`); // the age the targets use, from the date of birth
     await assertStuck("/setup/personal");
+    await page.setInput(input("170"), "1a7b0c"); // non-digits dropped
+    assert.equal(await page.inputValue(input("170")), "170");
+    await assertStuck("/setup/personal"); // weight still missing
+    await page.setInput(input("70"), "20"); // below the 30 kg minimum
+    await assertStuck("/setup/personal");
+    await page.setInput(input("70"), answers.weightKg);
     await page.setInput(input("98765 43210"), "12345"); // too short
-    await assertStuck("/setup/personal");
     await assertStuck("/setup/personal"); // phone too short
     await page.setInput(input("98765 43210"), "98765432101"); // one digit too many: the extra digit is dropped
     assert.equal(await page.inputValue(input("98765 43210")), answers.phone);
+    await shoot("setup-personal-filled");
   }));
 
-  it("3. personal: valid inputs and the gender picker move on to the goal step", run("personal-valid", async () => {
+  it("3. personal: valid inputs and the gender picker move on to the body composition step", run("personal-valid", async () => {
     await page.clickText("Select"); // the gender field (the only "Select" placeholder on this screen)
     await expectText("Prefer not to say");
     await page.clickText("Female");
     await page.waitFor(`!(document.body.innerText || "").includes("Prefer not to say")`, NAV_TIMEOUT, "gender sheet closed");
     await expectText("Female");
     await next();
+    await expectPath("/setup/body-composition");
+    await expectText("2/7");
+  }));
+
+  it("4. body composition: optional; there is no typed body fat field, Scan Body opens the photo instructions, and Skip moves on", run("body-composition", async () => {
+    await expectText("Scan Body");
+    await expectText("Two photos, front and side.");
+    assert.equal(await page.evaluate(`[...document.querySelectorAll("input")].filter((e) => e.getClientRects().length > 0).length`), 0, "the typed body fat field is gone");
+    await shoot("setup-body-composition");
+    await page.clickText("Scan Body");
+    await expectPath("/setup/scan-guide");
+    for (const text of ["How to take your photos", "Watch first", "Your photos stay private", "Start scan"]) await expectText(text);
+    // Only the video: the written tips and pose drawings were dropped for it
+    for (const gone of ["Before you start", "Photo 1", "Photo 2", "What to wear"]) assert.equal(await page.hasText(gone), false, `"${gone}" is gone`);
+    await shoot("setup-scan-guide");
+    await page.clickLabel("Back");
+    await expectPath("/setup/body-composition");
+    await next("Skip");
     await expectPath("/setup/goal");
     await expectText("3/7");
   }));
 
-  it("4. goal: a choice is required, then one option selects and continues", run("goal", async () => {
+  it("5. goal: a choice is required, then one option selects and continues", run("goal", async () => {
     await assertStuck("/setup/goal");
     await page.clickText("Lose fat");
     await next();
-    await expectPath("/setup/body");
+    await expectPath("/setup/activity");
     await expectText("4/7");
   }));
 
-  it("5. body: numeric fields are sanitised and range-checked; activity picker completes the step", run("body", async () => {
-    await page.setInput(input("170"), "1a7b0c"); // non-digits dropped
-    assert.equal(await page.inputValue(input("170")), "170");
-    await page.setInput(input("70"), "20"); // below the 30 kg minimum
-    await assertStuck("/setup/body");
-    await page.setInput(input("70"), answers.weightKg);
-    await assertStuck("/setup/body"); // activity still missing
+  it("5b. activity: the activity picker is required and completes the step", run("activity", async () => {
+    await assertStuck("/setup/activity");
     await page.clickText("Select");
     await expectText("Extra active");
     await page.clickText("Lightly active");
     await page.waitFor(`!(document.body.innerText || "").includes("Extra active")`, NAV_TIMEOUT, "activity sheet closed");
     await expectText("exercise 1–3 days per week");
+    await shoot("setup-activity");
     await next();
     await expectPath("/setup/food");
     await expectText("5/7");
@@ -234,22 +264,25 @@ describe("ui flow: onboarding steps in Expo web (signed in, nothing saved)", () 
   }));
 
   it("9. back navigation keeps every entered value", run("back", async () => {
-    await page.clickText("Back"); await expectPath("/setup/lifestyle");
-    await page.clickText("Back"); await expectPath("/setup/food");
+    await page.clickLabel("Back"); await expectPath("/setup/lifestyle");
+    await page.clickLabel("Back"); await expectPath("/setup/food");
     assert.equal(await page.inputValue(input("e.g. mushrooms, brinjal")), "okra");
-    await page.clickText("Back"); await expectPath("/setup/body");
+    await page.clickLabel("Back"); await expectPath("/setup/activity");
+    await expectText("Lightly active");
+    await page.clickLabel("Back"); await expectPath("/setup/goal");
+    await page.clickLabel("Back"); await expectPath("/setup/body-composition");
+    await page.clickLabel("Back"); await expectPath("/setup/personal");
+    assert.equal(await page.inputValue(input("Your full name")), answers.fullName);
     assert.equal(await page.inputValue(input("170")), answers.heightCm);
     assert.equal(await page.inputValue(input("70")), answers.weightKg);
-    await expectText("Lightly active");
-    await page.clickText("Back"); await expectPath("/setup/goal");
-    await page.clickText("Back"); await expectPath("/setup/personal");
-    assert.equal(await page.inputValue(input("Your full name")), answers.fullName);
     assert.equal(await page.inputValue(input("98765 43210")), answers.phone);
     await expectText(identities.a.emailAddress);
     await expectText(dobShown);
     await expectText("Female");
     // Forward again: each step still satisfied, so Next proceeds every time
-    for (const route of ["/setup/goal", "/setup/body", "/setup/food", "/setup/lifestyle", "/setup/targets"]) { await next(); await expectPath(route); }
+    await next(); await expectPath("/setup/body-composition");
+    await next("Skip"); await expectPath("/setup/goal");
+    for (const route of ["/setup/activity", "/setup/food", "/setup/lifestyle", "/setup/targets"]) { await next(); await expectPath(route); }
     await expectText(`${expectedCalories} kcal`);
   }));
 

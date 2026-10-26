@@ -138,7 +138,7 @@ describe("notifications e2e: the bell for friends, trainers and gyms", () => {
     assert.equal(recommendation.preview, "recommended 2100 kcal a day");
     assert.deepEqual(types((await bell("b")).activity), [], "another member sees none of it");
     // An applied recommendation is no longer news
-    await connection.query("INSERT INTO nutrition_targets (user_id, formula, config_version, inputs, calculated, calculated_at, calories, protein_g, carbs_g, fat_g) VALUES (?, 'eato-calculator', 'test', ?, NULL, NOW(), 2400, 140, 290, 75)",
+    await connection.query("INSERT INTO nutrition_targets (user_id, formula, config_version, inputs, calculated, calculated_at, calories, protein_g, carbs_g, fat_g) VALUES (?, 'justfit-calculator', 'test', ?, NULL, NOW(), 2400, 140, 290, 75)",
       [ids.a, JSON.stringify({ weightKg: 70, fitnessGoal: "muscle_gain" })]);
     assert.equal((await as("a").post("/api/trainers/me/recommendation/apply")).status, 200);
     assert.equal(types((await bell("a")).activity).includes("recommendation"), false);

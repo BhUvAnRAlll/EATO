@@ -80,7 +80,7 @@ export default function TrainingDayScreen() {
     }, [refresh]),
   );
 
-  const back = () => (router.canGoBack() ? router.back() : router.replace("/fitness"));
+  const back = () => (router.canGoBack() ? router.back() : router.replace("/workout"));
   const when = isToday ? "Today" : longDate(date);
 
   if (load.state !== "ready" || !load.day) {
@@ -151,7 +151,7 @@ export default function TrainingDayScreen() {
               </View>
             )}
           </View>
-          <Text className="text-white" style={{ fontSize: 28, lineHeight: 34, fontWeight: "800" }} numberOfLines={2}>
+          <Text className="text-white" style={{ fontSize: 28, lineHeight: 34, fontWeight: "700" }} numberOfLines={2}>
             {`${day.title} · ${GOAL_FOCUS[plan.goal]}`}
           </Text>
           <Text style={{ color: colors.white, opacity: 0.8 }}>{`${when} · Main Workout`}</Text>
@@ -239,7 +239,7 @@ function RoundButton({ icon, label, onPress, light = false }: { icon: React.Comp
 function Stat({ value, unit, label }: { value: string; unit?: string; label: string }) {
   return (
     <View className="flex-1 items-center">
-      <Text className="text-white" style={{ fontSize: 20, lineHeight: 24, fontWeight: "800" }}>
+      <Text className="text-white" style={{ fontSize: 20, lineHeight: 24, fontWeight: "700" }}>
         {value}
         {unit && <Text style={{ fontSize: 13, fontWeight: "600" }}>{` ${unit}`}</Text>}
       </Text>
@@ -349,7 +349,7 @@ function AboutTab({ plan, day }: { plan: Plan; day: TrainingDay }) {
     ["Duration", `${day.minutes} min`],
     ["Exercises", `${day.exerciseCount} · ${day.setCount} sets`],
     ...(day.kcal !== null ? ([["Estimated burn", `~${day.kcal} kcal`]] as [string, string][]) : []),
-    ["Planned by", plan.source === "trainer" ? "Your trainer" : "EATO workout engine"],
+    ["Planned by", plan.source === "trainer" ? "Your trainer" : "JustFit workout engine"],
   ];
   return (
     <View className="home__card" style={{ paddingVertical: 4 }}>

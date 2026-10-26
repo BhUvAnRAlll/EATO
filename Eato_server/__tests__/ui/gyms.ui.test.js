@@ -22,7 +22,7 @@ const { launchChrome, connect, openPage, CHROME } = require("./cdp.js");
 const { helpers, signInAs, NAV_TIMEOUT } = require("./onboarding-steps.js");
 
 const EXPO_PORT = 8090;
-const EVIDENCE_DIR = path.join(os.tmpdir(), "eato-ui-evidence");
+const EVIDENCE_DIR = path.join(os.tmpdir(), "justfit-ui-evidence");
 const SCREENSHOT_DIR = process.env.EATO_SCREENSHOT_DIR || null;
 const WIDTHS = [[320, 568], [390, 844], [430, 932]];
 const CLEANUP_TABLES = ["gym_event_rsvps", "gym_events", "gym_announcements", "gym_invitations", "community_comments", "community_post_likes", "community_post_media", "community_posts", "gym_members", "gym_faqs", "whatsapp_usage", "whatsapp_agent_settings", "whatsapp_connections", "gym_visits", "gym_scan_failures", "gym_notices", "gym_assistant_questions", "gyms"];
@@ -377,7 +377,7 @@ describe("ui gyms: a gym community from the owner's side", () => {
     await snapshotAllWidths("gyms-join-qr");
     await page.setInput('[aria-label="Invite code"]', "nope");
     await clickLabel("Continue");
-    await h.expectText("isn't an EATO invitation link or code");
+    await h.expectText("isn't an JustFit invitation link or code");
   }));
 
   it("7b. an emailed invitation: listed under Your invitations, opened on the Gym Invitation screen, accepted once", run("join", async () => {

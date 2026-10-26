@@ -13,6 +13,8 @@ export default function UserLayout() {
       }}
     >
       <Stack.Screen name="(tabs)" />
+      {/* Workout: opened from Profile since AI Coach took its tab */}
+      <Stack.Screen name="workout/index" />
       {/* The session player fades in: a slide under a full-screen timer reads as a glitch */}
       <Stack.Screen name="workout/session" options={{ animation: "fade" }} />
       {/* Changing the plan interrupts rather than drills down: a full-screen modal */}

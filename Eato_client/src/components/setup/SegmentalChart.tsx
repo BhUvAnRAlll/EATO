@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { Text, View, type LayoutChangeEvent } from "react-native";
+import { Animated, Text, View, type LayoutChangeEvent } from "react-native";
 import { Image } from "expo-image";
 import { SymbolView } from "expo-symbols";
 
+import { useGrow } from "@/components/setup/ReportGraphs";
 import { images } from "@/constants/images";
 import type { BodySegment, SegmentRating, SegmentReading } from "@/lib/nutrition";
 import type { Icon } from "@/types/profile";
@@ -15,7 +16,14 @@ type SegmentalChartProps = {
   tint: string;
   background: string;
   readings: Record<BodySegment, SegmentReading>;
+  // The callouts fade in one after another, starting after this many ms
+  delay?: number;
+  // As in a photo of someone facing you: their right arm and leg on the viewer's left
+  // (the body scan's convention). Off by default, the sheet's: their left on the viewer's left.
+  mirrored?: boolean;
 };
+
+const mirror: Record<BodySegment, BodySegment> = { leftArm: "rightArm", rightArm: "leftArm", leftLeg: "rightLeg", rightLeg: "leftLeg", trunk: "trunk" };
 
 // Width ÷ height of the silhouette image (the figure from the design mockup)
 const SILHOUETTE_RATIO = 501 / 900;
@@ -90,7 +98,18 @@ function Reading({ reading, segment, align }: { reading: SegmentReading; segment
 
 // One analysis (lean mass or fat): a body silhouette with a callout per region. Every
 // position is a share of the panel size, so it scales with the phone.
-export function SegmentalChart({ title, icon, tint, background, readings }: SegmentalChartProps) {
+export function SegmentalChart({ title, icon, tint, background, readings, delay = 0, mirrored = false }: SegmentalChartProps) {
+  // One fade per callout (left arm, right arm, left leg, right leg), then the trunk
+  const appear = [useGrow(delay), useGrow(delay + 120), useGrow(delay + 240), useGrow(delay + 360), useGrow(delay + 480)];
+  const fadeIn = (grow: Animated.Value) => ({
+    position: "absolute" as const,
+    left: 0,
+    top: 0,
+    right: 0,
+    bottom: 0,
+    opacity: grow,
+    transform: [{ translateY: grow.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) }],
+  });
   const [width, setWidth] = useState(0);
   const height = Math.round(width * PANEL_RATIO);
   const silhouetteHeight = Math.round(height * 0.9);
@@ -123,27 +142,30 @@ export function SegmentalChart({ title, icon, tint, background, readings }: Segm
               accessibilityLabel="Body outline"
             />
 
-            {callouts.map(({ segment, side, top, dot, body }) => {
+            {callouts.map(({ segment: placed, side, top, dot, body }, index) => {
+              const segment = mirrored ? mirror[placed] : placed;
               const reading = readings[segment];
               const color = reading.rating ? ratingColors[reading.rating] : colors.sand;
               return (
-                <View key={segment}>
+                <Animated.View key={segment} style={fadeIn(appear[index])} pointerEvents="none">
                   <Line from={at(dot)} to={at(body)} color={color} />
                   <Dot at={at(dot)} color={color} />
                   <Dot at={at(body)} color={color} />
                   <View style={{ position: "absolute", top: top * height, width: labelWidth, [side]: Math.round(width * 0.04), alignItems: side === "left" ? "flex-start" : "flex-end" }}>
                     <Reading reading={reading} segment={segment} align={side} />
                   </View>
-                </View>
+                </Animated.View>
               );
             })}
 
             {/* Trunk: a small box on the body, joined to its measuring point */}
-            <Line from={at(trunkBody)} to={{ x: trunkBox.x * width, y: trunkBox.y * height - 30 }} color={trunkColor} />
-            <Dot at={at(trunkBody)} color={trunkColor} />
-            <View className="seg__trunk" style={{ position: "absolute", left: trunkBox.x * width - trunkWidth / 2, top: trunkBox.y * height - 30, width: trunkWidth }}>
-              <Reading reading={readings.trunk} segment="trunk" align="center" />
-            </View>
+            <Animated.View style={fadeIn(appear[4])} pointerEvents="none">
+              <Line from={at(trunkBody)} to={{ x: trunkBox.x * width, y: trunkBox.y * height - 30 }} color={trunkColor} />
+              <Dot at={at(trunkBody)} color={trunkColor} />
+              <View className="seg__trunk" style={{ position: "absolute", left: trunkBox.x * width - trunkWidth / 2, top: trunkBox.y * height - 30, width: trunkWidth }}>
+                <Reading reading={readings.trunk} segment="trunk" align="center" />
+              </View>
+            </Animated.View>
           </>
         )}
       </View>

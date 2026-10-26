@@ -92,7 +92,7 @@ export function TrainersPanel({ header }: { header: ReactElement }) {
             <View className="flex-row flex-wrap gap-2">
               {[
                 { label: "Diet Plan", href: "/community/trainers/plan" as const, isNew: false, show: mine.trainer.offersNutrition },
-                { label: "Workout", href: "/fitness" as const, isNew: false, show: true },
+                { label: "Workout", href: "/workout" as const, isNew: false, show: true },
                 { label: "Targets", href: "/community/trainers/targets" as const, isNew: mine.recommendation?.isNew ?? false, show: mine.trainer.offersNutrition },
               ].filter((s) => s.show).map((s) => (
                 <Pressable key={s.label} onPress={() => router.push(s.href)} className="admin__action flex-row items-center gap-1.5" accessibilityRole="button" accessibilityLabel={s.isNew ? `${s.label}, new recommendation` : s.label}>

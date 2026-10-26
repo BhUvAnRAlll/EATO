@@ -47,7 +47,7 @@ const toNumber = (value) => (value === null || value === undefined ? null : Numb
 // ---- profiles and discovery -------------------------------------------------------------
 
 const PROFILE_SELECT = `SELECT tp.user_id, u.full_name, tp.title, tp.specialties, tp.years_experience, tp.bio, tp.coaching_mode, tp.offers_nutrition,
-  tp.accepting_clients, tp.availability, tp.approach, tp.qualifications, tp.languages, tp.photo_media_id, tp.updated_at
+  tp.accepting_clients, tp.availability, tp.approach, tp.qualifications, tp.languages, tp.photo_media_id, tp.updated_at, tp.verified_at
   FROM trainer_profiles tp JOIN users u ON u.id = tp.user_id`;
 
 function profileToApi(row) {
@@ -60,6 +60,8 @@ function profileToApi(row) {
     coachingMode: row.coaching_mode,
     offersNutrition: Boolean(row.offers_nutrition),
     acceptingClients: Boolean(row.accepting_clients),
+    // An JustFit admin checked the qualifications (Super Admin › Users)
+    verified: row.verified_at !== null && row.verified_at !== undefined,
     availability: row.availability,
     approach: row.approach,
     qualifications: parseJson(row.qualifications) ?? [],
@@ -78,7 +80,8 @@ async function openConnection(db, clientId, { lock = false } = {}) {
 // Trainers who take clients, with where the viewer stands with each
 async function listTrainers(pool, viewerId, { search, specialty }) {
   const params = [];
-  let where = "WHERE u.role = 'trainer' AND tp.accepting_clients = TRUE";
+  // A suspended trainer drops out of search (their existing clients still reach them)
+  let where = "WHERE u.role = 'trainer' AND tp.accepting_clients = TRUE AND NOT EXISTS (SELECT 1 FROM community_profiles cp WHERE cp.user_id = tp.user_id AND cp.status = 'suspended')";
   if (search) {
     where += " AND (u.full_name LIKE ? OR tp.title LIKE ?)";
     params.push(`%${search}%`, `%${search}%`);

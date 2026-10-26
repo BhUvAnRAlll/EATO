@@ -42,6 +42,8 @@ async function startTestServer(env) {
       ...(env.UPLOAD_DIR ? { UPLOAD_DIR: env.UPLOAD_DIR } : {}), // community images go to a throwaway folder in tests
       // WhatsApp tests pass fake Meta settings (never real ones) and point Graph calls at a local fake
       ...Object.fromEntries(Object.entries(env).filter(([key]) => /^(META_|WHATSAPP_|AI_)/.test(key))),
+      // The body scan test points the scan route at a local fake Forma server
+      ...(env.FORMA_SCAN_URL ? { FORMA_SCAN_URL: env.FORMA_SCAN_URL } : {}),
     },
     stdio: ["ignore", "pipe", "pipe"],
   });

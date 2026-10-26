@@ -18,7 +18,7 @@ import { friendButton, friendConfirm, messageLockText } from "@/lib/friends";
 import { useSessionToken } from "@/lib/session";
 import { storyRingFor } from "@/lib/storyRing";
 import { useCommunityStore } from "@/store/community";
-import { colors } from "@/theme";
+import { colors, switchColors } from "@/theme";
 
 // A member's profile: counts, follow or request, add friend, message (friends only), block; and the posts the viewer
 // may see. The server decides visibility; the empty states only explain its answer.
@@ -266,7 +266,7 @@ export default function ProfileScreen() {
                             <Text className="auth__label">Private account</Text>
                             <Text className="home__note">Only accepted followers see your posts and stories.</Text>
                           </View>
-                          <Switch value={profile.isPrivate} onValueChange={togglePrivate} trackColor={{ true: colors.forest }} accessibilityLabel="Private account" />
+                          <Switch {...switchColors} value={profile.isPrivate} onValueChange={togglePrivate} accessibilityLabel="Private account" />
                         </View>
                         <Pressable onPress={() => router.push("/community/close-friends")} className="flex-row items-center justify-between" accessibilityRole="button" accessibilityLabel="Close Friends">
                           <View className="flex-1 pr-3">
@@ -320,7 +320,7 @@ export default function ProfileScreen() {
                     </View>
                   )}
                 </View>
-              ) : null
+              ) : undefined
             }
             ListEmptyComponent={
               status === "loading" ? (

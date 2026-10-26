@@ -54,7 +54,7 @@ export default function JoinGym() {
   // Any code or link opens the invitation screen
   const openCode = (value: string) => {
     const code = codeFromScan(value);
-    if (!code) return setError("That isn't an EATO invitation link or code. Codes have 8 or 10 letters and numbers.");
+    if (!code) return setError("That isn't an JustFit invitation link or code. Codes have 8 or 10 letters and numbers.");
     setError(null);
     router.push({ pathname: "/community/gyms/invite/[code]", params: { code } });
   };
@@ -129,7 +129,7 @@ export default function JoinGym() {
     if (scanned.current) return;
     scanned.current = true;
     setScanning(false);
-    if (!codeFromScan(data)) return setError("That QR code isn't an EATO gym code.");
+    if (!codeFromScan(data)) return setError("That QR code isn't an JustFit gym code.");
     openCode(data);
   };
 
@@ -205,7 +205,7 @@ export default function JoinGym() {
                         <Text className="join-card__link-text" numberOfLines={1}>{inviteLink(invite.code)}</Text>
                       </View>
                       <View className="flex-row items-center gap-2">
-                        <Pressable onPress={() => share(`Join ${invite.gym.name} on EATO: ${inviteLink(invite.code)} (code ${formatCode(invite.code)})`)} className="gym-join flex-row gap-1.5" accessibilityRole="button" accessibilityLabel={`Share the invitation to ${invite.gym.name}`}>
+                        <Pressable onPress={() => share(`Join ${invite.gym.name} on JustFit: ${inviteLink(invite.code)} (code ${formatCode(invite.code)})`)} className="gym-join flex-row gap-1.5" accessibilityRole="button" accessibilityLabel={`Share the invitation to ${invite.gym.name}`}>
                           <SymbolView name={{ ios: "square.and.arrow.up", android: "share", web: "share" }} size={15} tintColor={colors.ink} />
                           <Text className="gym-join__label">Share</Text>
                         </Pressable>
@@ -262,7 +262,7 @@ export default function JoinGym() {
                       </View>
                       <Text className="join-card__title">{shareGym.name}</Text>
                       <Text className="join-card__hint">Scan to join · Code {formatCode(shareGym.inviteCode)}</Text>
-                      <Pressable onPress={() => share(`Join ${shareGym.name} on EATO: ${inviteLink(shareGym.inviteCode ?? "")} (code ${formatCode(shareGym.inviteCode ?? "")})`)} className="btn-forest w-full flex-row items-center justify-center gap-2" accessibilityRole="button" accessibilityLabel="Share QR">
+                      <Pressable onPress={() => share(`Join ${shareGym.name} on JustFit: ${inviteLink(shareGym.inviteCode ?? "")} (code ${formatCode(shareGym.inviteCode ?? "")})`)} className="btn-forest w-full flex-row items-center justify-center gap-2" accessibilityRole="button" accessibilityLabel="Share QR">
                         <SymbolView name={{ ios: "square.and.arrow.up", android: "share", web: "share" }} size={16} tintColor={colors.white} />
                         <Text className="btn-forest__label">Share QR</Text>
                       </Pressable>

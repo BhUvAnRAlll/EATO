@@ -1,4 +1,4 @@
-// Demo Community data around one real EATO account, so the Community screens have something
+// Demo Community data around one real JustFit account, so the Community screens have something
 // to show in development: demo members, feed posts of every type, likes, comments, a poll,
 // friendships and friend requests, messages, two gyms (events, announcements, FAQs for the
 // assistant) and two trainers. Every demo member's id starts with "user_seed_", and every demo
@@ -315,7 +315,7 @@ async function recount(conn) {
 async function assignTrainer(email, key, replace) {
   const trainers = require("../trainers/trainers");
   const [[account]] = await pool.query("SELECT id FROM users WHERE email = ?", [email]);
-  if (!account) throw new Error(`No EATO account uses ${email} yet.`);
+  if (!account) throw new Error(`No JustFit account uses ${email} yet.`);
   const trainerId = uid(key);
   const [[profile]] = await pool.query("SELECT user_id FROM trainer_profiles WHERE user_id = ?", [trainerId]);
   if (!profile) throw new Error(`There is no demo trainer "${key}". Run "seed" first (trainers: vikram, ananya).`);
@@ -362,7 +362,7 @@ async function main() {
   if (command === "assign-trainer") {
     try {
       const email = option("email");
-      if (!email) throw new Error("Pass --email with the EATO account to connect.");
+      if (!email) throw new Error("Pass --email with the JustFit account to connect.");
       const key = option("trainer") ?? "vikram";
       await assignTrainer(email, key, args.includes("--switch"));
       console.log(`${email} is now coached by the demo trainer ${MEMBERS.find((m) => m.key === key)?.name ?? key} in ${db}.`);
@@ -381,9 +381,9 @@ async function main() {
     await conn.beginTransaction();
     if (command === "seed") {
       const email = option("email");
-      if (!email) throw new Error("Pass --email with the EATO account to build the demo around.");
+      if (!email) throw new Error("Pass --email with the JustFit account to build the demo around.");
       const [[account]] = await conn.query("SELECT id FROM users WHERE email = ?", [email]);
-      if (!account) throw new Error(`No EATO account uses ${email} in ${db} yet. Sign in to the app with it once (and open Community), then run this again.`);
+      if (!account) throw new Error(`No JustFit account uses ${email} in ${db} yet. Sign in to the app with it once (and open Community), then run this again.`);
       const [[{ n }]] = await conn.query("SELECT COUNT(*) AS n FROM users WHERE id LIKE ?", [`${SEED}%`]);
       if (n > 0) throw new Error(`${db} already has demo data. Run "remove" first.`);
       await seed(conn, account.id);

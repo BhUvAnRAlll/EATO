@@ -9,6 +9,7 @@ import { SetupField } from "@/components/setup/SetupField";
 import { SetupScreen } from "@/components/setup/SetupScreen";
 import { genderOptions } from "@/data/setup";
 import { ageFromDob, dobLimits, formatDob, parseDob, toDobString } from "@/lib/date";
+import { inRange, toNumberText } from "@/lib/numberInput";
 import { useSetupStore } from "@/store/setup";
 
 export default function PersonalDetails() {
@@ -31,12 +32,17 @@ export default function PersonalDetails() {
 
   const age = ageFromDob(profile.dob);
   const canContinue =
-    profile.fullName.trim().length > 1 && age !== null && profile.phone.length === 10 && profile.email.includes("@");
+    profile.fullName.trim().length > 1 &&
+    age !== null &&
+    inRange(profile.heightCm, 100, 250) &&
+    inRange(profile.weightKg, 30, 300) &&
+    profile.phone.length === 10 &&
+    profile.email.includes("@");
 
   const handleNext = () => {
-    // Pre-fill the age on the body step from the date of birth
+    // The age the targets use comes from the date of birth
     if (age !== null) update({ age: String(age) });
-    router.push("/setup/goal");
+    router.push("/setup/body-composition");
   };
 
   return (
@@ -65,12 +71,31 @@ export default function PersonalDetails() {
           onPress={() => setIsDobOpen(true)}
           trailingIcon={{ ios: "calendar", android: "calendar_month", web: "calendar_month" }}
         />
+        {age !== null && <Text className="setup__card-text -mt-1.5 px-1">{`Age ${age}`}</Text>}
+        <SetupField
+          label="Height"
+          icon={{ ios: "ruler", android: "height", web: "height" }}
+          unit="cm"
+          placeholder="170"
+          value={profile.heightCm}
+          onChangeText={(text) => update({ heightCm: toNumberText(text) })}
+          keyboardType="number-pad"
+        />
         <SetupField
           label="Gender (optional)"
           icon={{ ios: "figure.stand", android: "wc", web: "wc" }}
           placeholder="Select"
           value={genderOptions.find((g) => g.id === profile.gender)?.label ?? ""}
           onPress={() => setIsGenderOpen(true)}
+        />
+        <SetupField
+          label="Current weight"
+          icon={{ ios: "scalemass", android: "scale", web: "scale" }}
+          unit="kg"
+          placeholder="70"
+          value={profile.weightKg}
+          onChangeText={(text) => update({ weightKg: toNumberText(text, true) })}
+          keyboardType="decimal-pad"
         />
         <SetupField
           label="Mobile number"

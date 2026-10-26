@@ -1,6 +1,6 @@
 // HTTP routes for the gym owner portal, mounted at /api/owner in index.js behind requireUser
 // and the per-user rate limit. The caller is always req.userId; owner.js checks, for the gym in
-// the path, that they are its active owner or admin (or an EATO platform admin).
+// the path, that they are its active owner or admin (or an JustFit platform admin).
 const express = require("express");
 
 const cv = require("../community/validate");

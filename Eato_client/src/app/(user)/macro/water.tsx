@@ -11,7 +11,7 @@ import { MonthCalendarSheet } from "@/components/macro/MonthCalendarSheet";
 import { clockTime, hourLabel, litres, longDate, macro, todayIso, type WaterDay, type WaterEntry } from "@/lib/macro";
 import { useSessionToken } from "@/lib/session";
 import { useMacroStore } from "@/store/macro";
-import { colors } from "@/theme";
+import { colors, switchColors } from "@/theme";
 
 const GLASS_ML = 250;
 const GLASS = { width: 88, height: 152 };
@@ -122,11 +122,9 @@ export default function Water() {
                   </Text>
                   <Text className="home__note mt-0.5">Saved now; reminders are sent once notifications arrive in a later update.</Text>
                 </View>
-                <Switch
+                <Switch {...switchColors}
                   value={day.preferences.remindersEnabled}
                   onValueChange={toggleReminders}
-                  trackColor={{ false: colors.creamLine, true: colors.leaf }}
-                  thumbColor={colors.white}
                   accessibilityLabel="Hydration reminders"
                 />
               </View>

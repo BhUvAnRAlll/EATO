@@ -1,4 +1,4 @@
-// Types for Eato's calorie calculator. Pure TypeScript (no React Native) so the
+// Types for JustFit's calorie calculator. Pure TypeScript (no React Native) so the
 // logic can be unit-tested with Node's built-in test runner.
 
 export type Gender = "male" | "female" | "other" | "unspecified";

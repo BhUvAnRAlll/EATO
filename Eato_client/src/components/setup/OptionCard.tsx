@@ -10,8 +10,9 @@ type OptionCardProps = {
   icon?: Icon;
   selected: boolean;
   onPress: () => void;
-  // "row": icon, text, radio in a line (goals). "tile": stacked, for grids (diet, workout).
-  layout?: "row" | "tile";
+  // "row": icon, text, radio in a line. "tile": small stacked tile (diet, workout).
+  // "grid": a tall tile for a 2 × 2 choice (fitness goal), icon in a circle above the label
+  layout?: "row" | "tile" | "grid";
 };
 
 export function OptionCard({ label, description, icon, selected, onPress, layout = "row" }: OptionCardProps) {
@@ -22,6 +23,28 @@ export function OptionCard({ label, description, icon, selected, onPress, layout
       {selected && <View className="setup__radio-dot" />}
     </View>
   );
+
+  if (layout === "grid") {
+    return (
+      <Pressable
+        onPress={onPress}
+        className={`${cardClass} items-center justify-center gap-3`}
+        style={{ width: "48.4%", minHeight: 152 }}
+        accessibilityRole="radio"
+        accessibilityState={{ selected }}
+      >
+        {icon && (
+          <View className={selected ? "setup__grid-icon setup__grid-icon--selected" : "setup__grid-icon"}>
+            <SymbolView name={icon} size={26} tintColor={selected ? colors.leaf : colors.forestInk} />
+          </View>
+        )}
+        <View className="items-center gap-0.5">
+          <Text className="setup__card-title text-center">{label}</Text>
+          {description && <Text className="setup__card-text text-center">{description}</Text>}
+        </View>
+      </Pressable>
+    );
+  }
 
   if (layout === "tile") {
     return (

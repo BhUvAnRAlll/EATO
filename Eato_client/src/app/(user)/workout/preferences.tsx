@@ -82,7 +82,7 @@ export default function WorkoutPreferences() {
     };
   }, [getToken, attempt]);
 
-  const close = () => (router.canGoBack() ? router.back() : router.replace("/fitness"));
+  const close = () => (router.canGoBack() ? router.back() : router.replace("/workout"));
   const saved = load.state === "ready" ? load.saved : null;
   const editable = saved?.editable ?? false;
   const dirty =

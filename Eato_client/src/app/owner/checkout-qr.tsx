@@ -11,7 +11,7 @@ import { FormAlert } from "@/components/FormAlert";
 import { owner, type CheckoutQr } from "@/lib/owner";
 import { useSessionToken } from "@/lib/session";
 import { useOwnerStore } from "@/store/owner";
-import { colors } from "@/theme";
+import { colors, switchColors } from "@/theme";
 
 // The gym's check-out QR: members scan it at the exit to end their visit. Switch it on or off,
 // regenerate it (the old one stops working), or open the full-screen front-desk display.
@@ -100,7 +100,7 @@ export default function OwnerCheckoutQr() {
                 <Text className="friend-row__name">Check-out QR {qr.enabled ? "active" : "off"}</Text>
                 <Text className="friend-row__note">{qr.enabled ? "Members can check out by scanning it." : "Members ask the front desk to check them out."}</Text>
               </View>
-              <Switch value={qr.enabled} onValueChange={toggle} disabled={busy} trackColor={{ true: colors.leaf }} accessibilityLabel="Check-out QR active" />
+              <Switch {...switchColors} value={qr.enabled} onValueChange={toggle} disabled={busy} accessibilityLabel="Check-out QR active" />
             </View>
 
             <Pressable onPress={() => setConfirmRotate(true)} className="flex-row items-center justify-center gap-2 py-2" accessibilityRole="button" accessibilityLabel="Regenerate code">

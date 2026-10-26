@@ -7,7 +7,8 @@ import { homeTabs } from "@/data/home";
 import type { Icon } from "@/types/profile";
 import { colors } from "@/theme";
 
-export type TabItem = { name: string; label: string; icon: Icon };
+// raised: drawn as a round button lifted above the bar (the member's AI Coach)
+export type TabItem = { name: string; label: string; icon: Icon; raised?: boolean };
 
 type Props = BottomTabBarProps & {
   // The tabs to show, in order (default: the member's five, from data/home.ts)
@@ -16,18 +17,17 @@ type Props = BottomTabBarProps & {
   badges?: Record<string, number>;
 };
 
-// The floating pill tab bar under the member's screens (app/(user)/(tabs)/_layout.tsx) and the
+// The flat iOS-style tab bar (white, hairline on top, lavender active tab) under the member's screens (app/(user)/(tabs)/_layout.tsx) and the
 // gym owner portal's (app/owner/(tabs)/_layout.tsx). It replaces the navigator's own bar, so
 // there is never a second one behind it. A route without an entry in `tabs` isn't shown.
-export function BottomTabBar({ state, navigation, tabs = homeTabs, badges = {} }: Props) {
+export function BottomTabBar({ state, emitter, navigateToTab, tabs = homeTabs, badges = {} }: Props) {
   const insets = useSafeAreaInsets();
   // Narrow phones (or six tabs): the labels only fit at a smaller size
   const { width } = useWindowDimensions();
   const narrow = width < 360 || (tabs.length > 5 && width < 400);
 
   return (
-    <View className="bg-cream pt-2" style={{ paddingBottom: Math.max(insets.bottom, 10) }}>
-      <View className="tabbar" style={narrow ? { marginHorizontal: 8, padding: 4 } : undefined} accessibilityRole="tablist">
+    <View className="tabbar" style={{ paddingBottom: Math.max(insets.bottom, 10), paddingHorizontal: narrow ? 2 : 8 }} accessibilityRole="tablist">
         {state.routes.map((route, routeIndex) => {
           const tab = tabs.find((candidate) => candidate.name === route.name);
           if (!tab) return null;
@@ -35,8 +35,8 @@ export function BottomTabBar({ state, navigation, tabs = homeTabs, badges = {} }
           const badge = badges[tab.name] ?? 0;
 
           const onPress = () => {
-            const event = navigation.emit({ type: "tabPress", target: route.key, canPreventDefault: true });
-            if (!active && !event.defaultPrevented) navigation.navigate(route.name);
+            const event = emitter.emit({ type: "tabPress", target: route.key, canPreventDefault: true });
+            if (!active && !event.defaultPrevented) navigateToTab(route.key);
           };
 
           return (
@@ -49,7 +49,13 @@ export function BottomTabBar({ state, navigation, tabs = homeTabs, badges = {} }
               accessibilityLabel={badge > 0 ? `${tab.label}, ${badge} waiting` : tab.label}
             >
               <View>
-                <SymbolView name={tab.icon} size={22} tintColor={active ? colors.leafDark : colors.muted} />
+                {tab.raised ? (
+                  <View className={active ? "tabbar__raised tabbar__raised--active" : "tabbar__raised"}>
+                    <SymbolView name={tab.icon} size={24} tintColor={colors.white} />
+                  </View>
+                ) : (
+                  <SymbolView name={tab.icon} size={22} tintColor={active ? colors.leaf : colors.faint} />
+                )}
                 {badge > 0 && (
                   <View className="owner-tab-badge">
                     <Text className="owner-tab-badge__label">{badge > 99 ? "99+" : badge}</Text>
@@ -62,7 +68,6 @@ export function BottomTabBar({ state, navigation, tabs = homeTabs, badges = {} }
             </Pressable>
           );
         })}
-      </View>
     </View>
   );
 }

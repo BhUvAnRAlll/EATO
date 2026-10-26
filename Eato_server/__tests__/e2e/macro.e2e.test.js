@@ -53,7 +53,7 @@ describe("macro e2e: meals, the day view, favourites and who may see them", () =
     try { connection = await db.connect(env); } catch (error) { skipReason = `test database unreachable (${error?.code ?? "refused"})`; return; }
     assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in eato_test`);
     clerk = clerkFor(env.CLERK_SECRET_KEY);
-    server = await startTestServer(env);
+    server = await startTestServer({ ...env, AI_PROVIDER: "fake" }); // the food scan never calls a paid model in tests
     try {
       await newIdentity("a");
       await newIdentity("b");
@@ -66,7 +66,7 @@ describe("macro e2e: meals, the day view, favourites and who may see them", () =
     // Member A finished setup: an active target of 2000 kcal
     await connection.query(
       `INSERT INTO nutrition_targets (user_id, formula, config_version, inputs, calculated_at, calories, protein_g, carbs_g, fat_g)
-       VALUES (?, 'eato-calculator', 'test', '{}', NOW(), 2000, 150, 200, 60)`,
+       VALUES (?, 'justfit-calculator', 'test', '{}', NOW(), 2000, 150, 200, 60)`,
       [ids.a],
     );
   });
@@ -368,7 +368,7 @@ describe("macro e2e: meals, the day view, favourites and who may see them", () =
 
     // A trainer's target is locked for the member
     await connection.query(
-      "INSERT INTO nutrition_targets (user_id, formula, config_version, inputs, calculated, calculated_at, calories, protein_g, carbs_g, fat_g, source, reason, set_by) VALUES (?, 'eato-calculator', 'test', ?, ?, NOW(), 1800, 130, 180, 60, 'trainer_adjusted', 'Cutting phase', ?)",
+      "INSERT INTO nutrition_targets (user_id, formula, config_version, inputs, calculated, calculated_at, calories, protein_g, carbs_g, fat_g, source, reason, set_by) VALUES (?, 'justfit-calculator', 'test', ?, ?, NOW(), 1800, 130, 180, 60, 'trainer_adjusted', 'Cutting phase', ?)",
       [ids.b, inputs, calculated, ids.a],
     );
     const locked = await api("GET", "/api/macro/targets", tokens.b);
@@ -463,5 +463,29 @@ describe("macro e2e: meals, the day view, favourites and who may see them", () =
     for (const body of [{ remindersEnabled: true, startHour: 20, endHour: 8 }, { remindersEnabled: "yes" }, { remindersEnabled: true, userId: ids.b }, { remindersEnabled: true, intervalHours: "2" }]) {
       assert.equal((await api("PUT", "/api/macro/water/reminders", tokens.a, body)).status, 400, JSON.stringify(body));
     }
+  }));
+  it("14. food scan: session required, photos only, size capped, a fixed estimate in tests, nothing stored", run(async () => {
+    const jpeg = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(60)]).toString("base64");
+    const pdf = Buffer.concat([Buffer.from("%PDF-1.7"), Buffer.alloc(60)]).toString("base64");
+    for (const token of [null, "not-a-jwt", "eyJhbGciOiJSUzI1NiJ9.e30.invalid"]) {
+      assert.equal((await api("POST", "/api/macro/scan", token, { data: jpeg, mediaType: "image/jpeg" })).status, 401);
+    }
+    const meals = await count("macro_meal_logs", "1 = ?", [1]);
+
+    const ok = await api("POST", "/api/macro/scan", tokens.a, { data: jpeg, mediaType: "image/jpeg", hint: "'; DROP TABLE macro_meal_logs; --" });
+    assert.equal(ok.status, 200, JSON.stringify(ok.json));
+    assert.equal(ok.json.scan.items.length, 3);
+    assert.equal(await count("macro_meal_logs", "1 = ?", [1]), meals, "scanning writes nothing");
+
+    // The estimate logs as it is, through the normal meal route (member B: test 10 filled A's day)
+    const logged = await logMeal(tokens.b, { title: ok.json.scan.title, items: ok.json.scan.items });
+    assert.equal(logged.status, 201, JSON.stringify(logged.json));
+
+    assert.equal((await api("POST", "/api/macro/scan", tokens.a, { data: pdf, mediaType: "application/pdf" })).status, 415);
+    assert.equal((await api("POST", "/api/macro/scan", tokens.a, { data: pdf, mediaType: "image/jpeg" })).status, 415);
+    assert.equal((await api("POST", "/api/macro/scan", tokens.a, { data: jpeg, mediaType: "image/jpeg", userId: ids.b })).status, 400);
+    assert.equal((await api("POST", "/api/macro/scan", tokens.a, "{not json")).status, 400);
+    const huge = await api("POST", "/api/macro/scan", tokens.a, { data: Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(7 * 1024 * 1024)]).toString("base64"), mediaType: "image/jpeg" });
+    assert.equal(huge.status, 413);
   }));
 });

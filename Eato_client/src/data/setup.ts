@@ -11,16 +11,9 @@ import type {
   WorkoutType,
 } from "@/types/profile";
 
-// Every profile setup screen, in order. "report" (review the uploaded sheet) and "segmental"
-// (its segmental analysis) only exist once a sheet is uploaded, so the steps a member sees
-// come from visibleSetupSteps: 7 without a sheet, 8 with one, 9 when it has a segmental analysis.
-export const setupSteps = ["body-composition", "report", "segmental", "personal", "goal", "body", "food", "lifestyle", "targets"] as const;
+// Every profile setup screen, in order (the progress counter, "2/7", follows this list)
+export const setupSteps = ["personal", "body-composition", "goal", "activity", "food", "lifestyle", "targets"] as const;
 export type SetupStep = (typeof setupSteps)[number];
-
-// The steps for this member, so the progress counter ("2/9") matches what they'll go through
-export function visibleSetupSteps({ hasReport, hasSegmental }: { hasReport: boolean; hasSegmental: boolean }): SetupStep[] {
-  return setupSteps.filter((step) => (step === "report" ? hasReport : step === "segmental" ? hasSegmental : true));
-}
 
 export const genderOptions: Option<Gender>[] = [
   { id: "male", label: "Male" },

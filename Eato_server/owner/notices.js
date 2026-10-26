@@ -125,7 +125,7 @@ async function send(pool, staffId, gymId, notice) {
   if (!budget.ok) throw tooMany(budget.retryAfterSeconds);
   const recipients = notice.audience === "test" ? [staffId] : await audienceIds(pool, gymId, notice.audience, notice.userIds);
   if (recipients.length === 0) throw new ValidationError("Nobody is in that group right now.");
-  // A test reaches the sender even when they aren't a member (an EATO admin helping out)
+  // A test reaches the sender even when they aren't a member (an JustFit admin helping out)
   const [[known]] = await pool.query("SELECT COUNT(*) AS n FROM users WHERE id = ?", [staffId]);
   if (notice.audience === "test" && Number(known.n) === 0) throw new ValidationError("Your account isn't set up to receive notices yet.");
   const id = await inTransaction(pool, (connection) => insertNotice(connection, gymId, staffId, { kind: "message", ...notice }, recipients));

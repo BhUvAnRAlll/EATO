@@ -23,7 +23,7 @@ const commentRule: Record<string, string> = { members: "members comment", traine
 function cards(s: CommunitySummary, memberApp: boolean): Card[] {
   const id = s.gym.id;
   const c = s.counts;
-  // Screens under the member app open for the gym's own staff; an EATO admin helping out gets the portal's own
+  // Screens under the member app open for the gym's own staff; an JustFit admin helping out gets the portal's own
   const app = (to: Href): Href | null => (memberApp ? to : null);
   const code = s.inviteCode.replace(/(.{4})(?=.)/, "$1-");
   return [

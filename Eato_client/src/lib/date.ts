@@ -42,6 +42,18 @@ export function ageFromDob(dob: string): number | null {
   return age;
 }
 
+// Home's greeting for the time of day: morning until noon, afternoon until 5 pm, then evening
+export function greetingFor(date = new Date()) {
+  const hour = date.getHours();
+  if (hour < 12) return "Good morning";
+  return hour < 17 ? "Good afternoon" : "Good evening";
+}
+
+// "Mon, 26 Oct 2026" under Home's greeting
+export function formatLongDate(date = new Date()) {
+  return `${formatShortDate(date)} ${date.getFullYear()}`;
+}
+
 // "Mon, 13 Oct" for the home screen's Today card
 export function formatShortDate(date = new Date()) {
   const weekday = date.toLocaleDateString("en-GB", { weekday: "short" });

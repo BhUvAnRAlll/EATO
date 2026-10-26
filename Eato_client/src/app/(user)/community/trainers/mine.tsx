@@ -115,7 +115,7 @@ export default function MyTrainerScreen() {
                 </View>
               )}
               {mine.trainer.offersNutrition && shortcut("Diet Plan", mine.dietPlan ? `${mine.dietPlan.name} · updated ${timeAgo(mine.dietPlan.updatedAt)}` : "Not shared yet", { ios: "fork.knife", android: "restaurant", web: "restaurant" }, () => router.push("/community/trainers/plan"))}
-              {shortcut("Workout", mine.workout ? `${mine.workout.name} · updated ${timeAgo(mine.workout.updatedAt)}` : "Not shared yet: your own plan is in use", { ios: "dumbbell", android: "fitness_center", web: "fitness_center" }, () => router.push("/fitness"))}
+              {shortcut("Workout", mine.workout ? `${mine.workout.name} · updated ${timeAgo(mine.workout.updatedAt)}` : "Not shared yet: your own plan is in use", { ios: "dumbbell", android: "fitness_center", web: "fitness_center" }, () => router.push("/workout"))}
               {mine.trainer.offersNutrition && shortcut("Nutrition Targets", mine.recommendation ? (mine.recommendation.isNew ? "A new recommendation is waiting" : "Recommendation reviewed") : "No recommendation yet", { ios: "target", android: "track_changes", web: "track_changes" }, () => router.push("/community/trainers/targets"), mine.recommendation?.isNew ?? false)}
               {shortcut("Message Trainer", "Chat about your plan", { ios: "bubble.left", android: "chat_bubble_outline", web: "chat_bubble_outline" }, message)}
               <Pressable onPress={() => setConfirming(true)} className="btn-outline mt-4" accessibilityRole="button" accessibilityLabel="Disconnect trainer">

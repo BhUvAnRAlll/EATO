@@ -3,6 +3,7 @@ import { AppState, ScrollView, Text, useWindowDimensions, View } from "react-nat
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { router, useFocusEffect } from "expo-router";
+import { useUser } from "@clerk/expo";
 
 import { HomeHeader } from "@/components/home/HomeHeader";
 import { NutritionProgressCard } from "@/components/home/NutritionProgressCard";
@@ -33,8 +34,7 @@ export default function Home() {
   const [favorites, setFavorites] = useState<string[]>([]);
 
   const contentWidth = width - PAGE_PADDING * 2;
-  // The header pill shrinks before the wordmark does
-  const pill = width < 360 ? "icon" : width < 430 ? "pincode" : "full";
+  const { user } = useUser();
 
   // First load: the home content and the member's targets (the store's freshness window
   // keeps repeat mounts to one request per minute)
@@ -92,9 +92,9 @@ export default function Home() {
       <SafeAreaView style={{ flex: 1 }} edges={["top", "left", "right"]}>
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 16 }}>
           <HomeHeader
+            name={user?.firstName ?? ""}
             pincode={sampleDeliveryPincode}
             hasUnread
-            pill={pill}
             onLocationPress={() => router.push("/addresses")}
             onNotificationsPress={() => router.push("/notifications")}
             onProfilePress={() => router.push("/profile")}

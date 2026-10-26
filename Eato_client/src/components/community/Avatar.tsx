@@ -1,15 +1,16 @@
 import { Text, View } from "react-native";
 
 import type { Member } from "@/lib/community";
+import { colors } from "@/theme";
 
-// Soft periwinkle and warm-grey tints with near-black initials, picked from the member id
-// so a member always gets the same one
+// Soft lavender and grey tints (from the tokens) with near-black initials, picked from the
+// member id so a member always gets the same one
 const tints = [
-  { background: "#E2EBF6", text: "#141515" },
-  { background: "#EDE7E3", text: "#141515" },
-  { background: "#C5D3EA", text: "#141515" },
-  { background: "#E9E6E2", text: "#141515" },
-  { background: "#F6F2EF", text: "#141515" },
+  { background: colors.accentSoft, text: colors.ink },
+  { background: colors.surfaceAlt, text: colors.ink },
+  { background: colors.primary, text: colors.ink },
+  { background: colors.creamTab, text: colors.ink },
+  { background: colors.infoSoft, text: colors.ink },
 ];
 
 export function avatarTint(id: string) {

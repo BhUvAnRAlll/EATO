@@ -4,7 +4,7 @@ import type { Gym } from "@/lib/gyms";
 import type { GymRole } from "@/lib/gymRules";
 
 // The gym owner portal's calls (Eato_server/owner). The server decides who may open a gym's
-// portal: its active owner or admins, or an EATO platform admin ("platform").
+// portal: its active owner or admins, or an JustFit platform admin ("platform").
 
 export type OwnerAccess = "owner" | "admin" | "platform";
 export type ManagedGym = { id: string; name: string; logoUrl: string | null; plan: Gym["plan"]; as: OwnerAccess };

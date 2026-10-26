@@ -130,5 +130,6 @@ export const gyms = {
     call<{ invitation: Invitation }>(token, `/${gymId}/invitations/${id}/${action}`, { method: "POST" }),
 };
 
-// The link that opens an invitation in EATO (eato://community/gyms/invite/CODE in a build)
+// The link that opens an invitation in JustFit (justfit://community/gyms/invite/CODE in a build;
+// links made before the rename use eato://, which the app still registers)
 export const inviteLink = (code: string) => Linking.createURL(`/community/gyms/invite/${code}`);

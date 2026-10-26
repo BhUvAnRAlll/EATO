@@ -22,7 +22,7 @@ const { launchChrome, connect, openPage, CHROME } = require("./cdp.js");
 const { helpers, signInAs, NAV_TIMEOUT } = require("./onboarding-steps.js");
 
 const EXPO_PORT = 8090;
-const EVIDENCE_DIR = path.join(os.tmpdir(), "eato-ui-evidence");
+const EVIDENCE_DIR = path.join(os.tmpdir(), "justfit-ui-evidence");
 const SCREENSHOT_DIR = process.env.EATO_SCREENSHOT_DIR || null;
 const WIDTHS = [[320, 568], [390, 844], [430, 932]];
 const CLEANUP_TABLES = ["gym_visits", "gym_scan_failures", "gym_member_plans", "gym_members", "gym_faqs", "whatsapp_usage", "whatsapp_agent_settings", "whatsapp_connections", "gym_notices", "gym_assistant_questions", "gyms"];
@@ -248,7 +248,7 @@ describe("ui owner check-in: QR attendance at the front desk and the member's si
     await h.expectText("Members scan this at the exit");
     const [[gym]] = await connection.query("SELECT checkout_code, checkout_qr_enabled FROM gyms WHERE id = ?", [state.gym]);
     assert.match(gym.checkout_code, /^[A-HJ-NP-Z2-9]{12}$/);
-    state.checkoutText = `EATO-OUT-${gym.checkout_code}`;
+    state.checkoutText = `JUSTFIT-OUT-${gym.checkout_code}`;
     await snapshotAllWidths("owner-checkout-qr");
     await clickLabel("Check-out QR active");
     await waitForRow("SELECT checkout_qr_enabled FROM gyms WHERE id = ?", [state.gym], (row) => row.checkout_qr_enabled === 0, "switched off");

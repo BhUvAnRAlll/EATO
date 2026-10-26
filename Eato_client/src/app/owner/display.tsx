@@ -63,7 +63,7 @@ export default function OwnerDisplay() {
                 <View className="owner-qr owner-qr--large" accessibilityLabel="Check-out QR code">
                   <QRCode value={qr.qrText} size={240} color={colors.ink} backgroundColor={colors.white} />
                 </View>
-                <Text className="owner__subtitle text-center">Open EATO → Home → Check out, then point your camera here.</Text>
+                <Text className="owner__subtitle text-center">Open JustFit → Home → Check out, then point your camera here.</Text>
                 <Text className="owner-stat__label">{qr.checkoutsToday} checked out today</Text>
               </>
             ) : (

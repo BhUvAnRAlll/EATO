@@ -115,7 +115,7 @@ export function GymAboutTab({ gym, staff, onLeave }: GymAboutTabProps) {
                 {tier.perks ? <Text className="join-card__hint mt-0.5">{tier.perks}</Text> : null}
               </View>
             ))}
-            <Text className="home__note">Plans are set by the gym. Ask the gym to join a plan; payments aren&apos;t made in EATO.</Text>
+            <Text className="home__note">Plans are set by the gym. Ask the gym to join a plan; payments aren&apos;t made in JustFit.</Text>
           </View>
         </Section>
       )}

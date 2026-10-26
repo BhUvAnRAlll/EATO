@@ -21,7 +21,7 @@ const { launchChrome, connect, openPage, CHROME } = require("./cdp.js");
 const { helpers, signInAs, NAV_TIMEOUT } = require("./onboarding-steps.js");
 
 const EXPO_PORT = 8090;
-const EVIDENCE_DIR = path.join(os.tmpdir(), "eato-ui-evidence");
+const EVIDENCE_DIR = path.join(os.tmpdir(), "justfit-ui-evidence");
 const SCREENSHOT_DIR = process.env.EATO_SCREENSHOT_DIR || null;
 const WIDTHS = [[320, 568], [390, 844], [430, 932]];
 const WORKOUT_TABLES = ["workout_set_logs", "workout_logs", "workout_day_overrides", "workout_day_exercises", "workout_days", "workout_plans", "workout_profiles", "profiles"];
@@ -73,10 +73,16 @@ describe("ui workout: the Fitness hub and a training day", () => {
     const pos = await page.waitFor(`(() => { const el = [...document.querySelectorAll('[aria-label]')].filter((e) => e.getClientRects().length > 0 && e.getAttribute("aria-label").startsWith(${JSON.stringify(prefix)}))[0]; if (!el) return null; el.scrollIntoView({ block: "center" }); const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`, NAV_TIMEOUT, `element labelled ${prefix}…`);
     await page.clickAt(pos.x, pos.y);
   };
+  // Workout opens from Profile (AI Coach took its tab): Home's avatar → Profile → Workout
+  const openWorkout = async () => {
+    await clickLabelStarting("Profile");
+    await h.expectPath("/profile");
+    await page.clickText("Workout");
+  };
   // Back to the hub and load it fresh (the hub reloads on focus)
   const backToHub = async () => {
     await clickLabelStarting("Back");
-    await h.expectPath("/fitness");
+    await h.expectPath("/workout");
   };
 
   before(async () => {
@@ -126,8 +132,15 @@ describe("ui workout: the Fitness hub and a training day", () => {
     await viewport(390, 844);
     await signInAs(page, h, identities.a);
     await h.expectPath("/home");
-    await clickTab("Fitness");
-    await h.expectPath("/fitness");
+    // The tab bar has AI Coach where Fitness was; Workout lives on Profile
+    assert.equal(await page.evaluate(`!!document.querySelector('[role="tab"][aria-label="Fitness"]')`), false, "no Fitness tab");
+    await clickTab("AI Coach");
+    await h.expectPath("/coach");
+    await h.expectText("Coming soon");
+    await clickTab("Home");
+    await h.expectPath("/home");
+    await openWorkout();
+    await h.expectPath("/workout");
     await h.expectText("This week");
     await h.expectText("Stay consistent, get stronger");
     const [plans] = await connection.query("SELECT id FROM workout_plans WHERE user_id = ? AND status = 'active'", [identities.a.id]);
@@ -165,11 +178,10 @@ describe("ui workout: the Fitness hub and a training day", () => {
     const dayOf = (iso) => state.days.find((d) => d.weekday === weekdayOf(iso));
     await connection.query("INSERT INTO workout_logs (user_id, plan_id, day_id, on_date, status, completed_at) VALUES (?, ?, ?, ?, 'completed', NOW(3))", [identities.a.id, state.planId, dayOf(done).id, done]);
     state.done = done;
-    // Reload the hub (it reads on focus)
-    await clickTab("Home");
-    await h.expectPath("/home");
-    await clickTab("Fitness");
-    await h.expectPath("/fitness");
+    // Reload the hub (it reads on focus): Workout has no tab bar now, so go Home directly
+    await h.goto("/home", "Today's Macros");
+    await openWorkout();
+    await h.expectPath("/workout");
     await h.expectText("History");
     await page.waitFor(`!!document.querySelector('[aria-label$=": Completed"][aria-label^=${JSON.stringify(dayOf(done).title + ",")}]')`, NAV_TIMEOUT, "the completed history row");
     assert.equal(await page.evaluate(`!!document.querySelector('[aria-label^=${JSON.stringify(dayOf(missed).title + ",")}][aria-label$=": Missed"]')`), true, "the missed history row");
@@ -221,7 +233,7 @@ describe("ui workout: the Fitness hub and a training day", () => {
 
     await page.clickText("About");
     await h.expectText("Planned by");
-    await h.expectText("EATO workout engine");
+    await h.expectText("JustFit workout engine");
     await h.expectText("Estimated burn");
     await h.expectText("Gain muscle");
     await snapshotAllWidths("workout-day-about");
@@ -242,7 +254,7 @@ describe("ui workout: the Fitness hub and a training day", () => {
     await h.expectText("Nothing is scheduled on this day.");
     await snapshotAllWidths("workout-day-rest");
     await clickLabelStarting("Back");
-    await h.expectPath("/fitness");
+    await h.expectPath("/workout");
   }));
 
   it("5. a missed session moves to today, and a later day swaps with today", run("reschedule", async () => {
@@ -423,7 +435,7 @@ describe("ui workout: the Fitness hub and a training day", () => {
     await page.waitFor(`!!document.querySelector('[aria-label=${JSON.stringify(`Workout days: ${expected.map((d) => NAMES[d]).join(", ")}`)}]')`, NAV_TIMEOUT, "the new days");
 
     await clickExact("Submit");
-    await h.expectPath("/fitness");
+    await h.expectPath("/workout");
     const [[after]] = await connection.query("SELECT id, goal, source FROM workout_plans WHERE user_id = ? AND status = 'active'", [user]);
     assert.notEqual(after.id, before.id, "a new plan is active");
     assert.deepEqual({ goal: after.goal, source: after.source }, { goal: "lose_weight", source: "member" });
@@ -500,6 +512,6 @@ describe("ui workout: the Fitness hub and a training day", () => {
     assert.deepEqual({ ...saved }, { body_type: "average", pace: "standard", fitness_base: 3, squat_score: 3, push_score: 2, pull_score: 1, serious_injury: 0 });
     await snapshotAllWidths("workout-recreate-reveal");
     await clickExact("View plan details");
-    await h.expectPath("/fitness");
+    await h.expectPath("/workout");
   }));
 });

@@ -10,7 +10,7 @@ import { AdminField, ChoiceChips } from "@/components/admin/AdminField";
 import { destinations, quickActionIconKeys, type Meal, type QuickAction } from "@/data/home";
 import { adminHome, resolveImage, type HomeContentInput } from "@/lib/home";
 import { useSessionToken } from "@/lib/session";
-import { colors } from "@/theme";
+import { colors, switchColors } from "@/theme";
 
 const MAX_QUICK_ACTIONS = 6;
 const MAX_POPULAR = 10;
@@ -116,7 +116,7 @@ export default function AdminHomeContent() {
           <AdminField label="Today action" value={content.todayActionLabel} onChangeText={(todayActionLabel) => update({ todayActionLabel })} maxLength={30} />
           <View className="flex-row items-center justify-between">
             <Text className="auth__label">Show the Today section</Text>
-            <Switch value={content.showTodaySection} onValueChange={(showTodaySection) => update({ showTodaySection })} trackColor={{ true: colors.forest }} />
+            <Switch {...switchColors} value={content.showTodaySection} onValueChange={(showTodaySection) => update({ showTodaySection })} />
           </View>
 
           <View className="flex-row items-center justify-between">

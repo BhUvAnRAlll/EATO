@@ -1,12 +1,11 @@
-import type { ImageSourcePropType } from "react-native";
-
 import { images } from "@/constants/images";
 
 export type OnboardingSlide = {
   id: string;
   title: string;
   subtitle: string;
-  art: ImageSourcePropType;
+  // A bundled image (Metro asset id)
+  art: number;
   // Width ÷ height of the art image
   artRatio: number;
   // How far (pt) the art tucks up under the subtitle (its top edge fades out)

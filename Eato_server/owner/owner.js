@@ -1,6 +1,6 @@
 // The gym owner portal's data: which gyms the caller runs, the Home dashboard, and members'
 // package renewals. Every function takes the verified caller's id and checks, for that gym,
-// that they are its active owner or admin (gym_members), or an EATO platform admin (the Clerk
+// that they are its active owner or admin (gym_members), or an JustFit platform admin (the Clerk
 // role, read live) opening it to help. Gym trainers and members are refused.
 //
 // Renewals are recorded only: no payment is taken (gym_member_plans holds each member's package).
@@ -33,7 +33,7 @@ async function inTransaction(pool, fn) {
 const todayOf = async (db) => (await db.query("SELECT DATE_FORMAT(CURDATE(), '%Y-%m-%d') AS today"))[0][0].today;
 
 // The gym and how the caller may act on it: "owner" / "admin" from gym_members, or "platform"
-// for an EATO admin. A gym the caller can't see answers like a missing one (404).
+// for an JustFit admin. A gym the caller can't see answers like a missing one (404).
 async function ownerAccess(db, gymId, userId) {
   const [[gym]] = await db.query("SELECT id, name, logo_media_id, plan, visibility FROM gyms WHERE id = ?", [gymId]);
   if (!gym) throw new NotFoundError(GONE);

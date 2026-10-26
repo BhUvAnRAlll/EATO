@@ -1,6 +1,6 @@
 // Regression tests for expired-session recovery. A genuine Clerk development identity
 // signs in through the real screens; the server's answers to the app's own requests are
-// then simulated inside the page (fetch replaced for /api/profile and /api/body-composition
+// then simulated inside the page (fetch replaced for /api/profile
 // only) to produce 401, 500 and network failures. This proves the app's handling of each
 // status; it does not revoke a real Clerk session, which needs a device test.
 //
@@ -20,13 +20,9 @@ const { launchChrome, connect, openPage, CHROME } = require("./cdp.js");
 const { fillSetup, fillSignInForm, helpers } = require("./onboarding-steps.js");
 
 const EXPO_PORT = 8090;
-const EVIDENCE_DIR = path.join(os.tmpdir(), "eato-ui-evidence");
+const EVIDENCE_DIR = path.join(os.tmpdir(), "justfit-ui-evidence");
 const CLERK_TEST_CODE = "424242";
 const EXPIRED_MESSAGE = "Your session has expired. Please sign in again.";
-// A 1×1 PNG for the photo upload path (never stored: the request is answered by the stub).
-// The PDF path is not used: expo-file-system's File is unavailable on web, a separate finding.
-const TINY_PNG = path.join(os.tmpdir(), "eato-session-test.png");
-const TINY_PNG_BYTES = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
 
 describe("ui session recovery: 401 offers sign-in, other failures keep the session", () => {
   const runId = crypto.randomBytes(4).toString("hex");
@@ -56,7 +52,7 @@ describe("ui session recovery: 401 offers sign-in, other failures keep the sessi
     if (mode === "off") { window.fetch = window.__realFetch; return "restored"; }
     window.fetch = (input, init) => {
       const url = typeof input === "string" ? input : input.url;
-      if (!/\\/api\\/(profile|body-composition)\\b/.test(url)) return window.__realFetch(input, init);
+      if (!/\\/api\\/profile\\b/.test(url)) return window.__realFetch(input, init);
       if (mode === "network") return Promise.reject(new TypeError("Failed to fetch"));
       const body = mode === "401" ? { error: "Please sign in again." } : { error: "Something went wrong. Please try again." };
       return Promise.resolve(new Response(JSON.stringify(body), { status: Number(mode), headers: { "content-type": "application/json" } }));
@@ -95,7 +91,6 @@ describe("ui session recovery: 401 offers sign-in, other failures keep the sessi
     countsBefore = await db.rowCounts(connection);
     clerk = clerkFor(env.CLERK_SECRET_KEY);
     await clerk.sweepOrphans();
-    fs.writeFileSync(TINY_PNG, TINY_PNG_BYTES);
     server = await startTestServer(env);
     expo = await startExpoWeb({ port: EXPO_PORT, apiUrl: apiUrl() });
     chrome = await launchChrome();
@@ -119,7 +114,6 @@ describe("ui session recovery: 401 offers sign-in, other failures keep the sessi
       await step("row counts back to baseline", async () => { assert.deepEqual(await db.rowCounts(connection), countsBefore); });
     }
     await step("close database", async () => { if (connection) await connection.end(); });
-    await step("remove temp image", async () => { fs.rmSync(TINY_PNG, { force: true }); });
     await step("ports released", async () => {
       for (const port of [env ? Number(env.PORT) : 4100, EXPO_PORT]) {
         const deadline = Date.now() + 15000;
@@ -174,28 +168,4 @@ describe("ui session recovery: 401 offers sign-in, other failures keep the sessi
     assert.deepEqual(await db.rowsForUser(connection, identities.a.id), { nutrition_targets: 1, body_composition_reports: 0, profiles: 1, users: 1 });
   }));
 
-  it("5. a 401 while reading an uploaded photo report shows the message and the sign-in button on the upload card", run("upload-401", async () => {
-    await h.goto("/setup/body-composition", "Body composition");
-    await page.evaluate(`window.addEventListener("unhandledrejection", (e) => console.error("unhandled rejection: " + String(e.reason && e.reason.stack || e.reason).slice(0, 300)))`);
-    await stubApi("401");
-    // "Choose from gallery" opens the browser's file chooser on a hidden input. Headless Chrome
-    // may cancel that dialog at once (and the picker then removes its input), so intercept the
-    // chooser through DevTools: Chrome reports the input it belongs to, and the file goes in there.
-    await client.send("Page.enable", {}, page.sessionId); // Page events (idempotent)
-    await client.send("Page.setInterceptFileChooserDialog", { enabled: true }, page.sessionId);
-    const chooser = new Promise((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error("the image picker did not open a file chooser")), 10000);
-      client.on((m) => { if (m.sessionId === page.sessionId && m.method === "Page.fileChooserOpened") { clearTimeout(timer); resolve(m.params); } });
-    });
-    await page.clickText("Choose from gallery");
-    const { backendNodeId } = await chooser;
-    await client.send("DOM.setFileInputFiles", { backendNodeId, files: [TINY_PNG] }, page.sessionId);
-    await client.send("Page.setInterceptFileChooserDialog", { enabled: false }, page.sessionId);
-    await h.expectText(EXPIRED_MESSAGE);
-    assert.ok(await page.hasText("Sign in again"));
-    assert.equal(await page.path(), "/setup/body-composition");
-    await page.clickText("Sign in again");
-    await h.expectPath("/sign-in");
-    await page.waitFor(`!(window.Clerk && window.Clerk.session)`, 15000, "session ended");
-  }));
 });

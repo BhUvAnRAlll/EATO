@@ -36,7 +36,7 @@ export default function RecreatePerformance() {
     <RecreateFrame
       step={3}
       title="Your current performance"
-      subtitle="These answers help EATO choose the right training intensity for you."
+      subtitle="These answers help JustFit choose the right training intensity for you."
       aside={{ title: "Be real.", text: "This helps us create a safer, better plan for you." }}
       footnote="You can always update this later in settings."
       primaryLabel="Continue"

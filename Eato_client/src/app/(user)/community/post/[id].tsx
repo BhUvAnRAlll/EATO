@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, Pressable, Text, TextInput, useWindowDimensions, View } from "react-native";
+import { ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, Pressable, Text, TextInput, useWindowDimensions, View, type TextInputInstance } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { SymbolView } from "expo-symbols";
@@ -27,7 +27,7 @@ export default function PostComments() {
   const getToken = useSessionToken();
   const me = useMe();
   const store = useCommunityStore();
-  const input = useRef<TextInput>(null);
+  const input = useRef<TextInputInstance>(null);
   const [post, setPost] = useState<Post | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
@@ -166,7 +166,7 @@ export default function PostComments() {
                     )}
                     <Text className="comments__heading mt-6">Comments ({post.commentCount})</Text>
                   </View>
-                ) : null
+                ) : undefined
               }
               ListEmptyComponent={<Text className="home__note px-5">No comments yet. Say something kind.</Text>}
               ListFooterComponent={cursor ? (

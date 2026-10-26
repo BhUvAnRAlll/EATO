@@ -136,7 +136,7 @@ export default function ComposePost() {
   const editing = Boolean(postId);
   // A gym post (or an older group post) is shared with that gym or group, so it has no audience choice
   const inPlace = editing ? Boolean(original?.gymId) : place.kind === "gym";
-  const placeName = editing ? gymName ?? "the gym" : place.kind === "gym" ? place.name : "My EATO feed";
+  const placeName = editing ? gymName ?? "the gym" : place.kind === "gym" ? place.name : "My JustFit feed";
   const audiences = audiencesFor(isPrivate === true);
   const busy = publishing || loading;
   const failedPhotos = photos.filter((photo) => photo.status === "failed").length;
@@ -502,7 +502,7 @@ export default function ComposePost() {
       <ActionSheet
         visible={sheet === "place"}
         title="Posting to"
-        actions={[{ label: "My EATO feed", onPress: () => setPlace({ kind: "feed" }) }, ...postableGyms.map((gym) => ({ label: gym.name, onPress: () => setPlace({ kind: "gym" as const, id: gym.id, name: gym.name }) }))]}
+        actions={[{ label: "My JustFit feed", onPress: () => setPlace({ kind: "feed" }) }, ...postableGyms.map((gym) => ({ label: gym.name, onPress: () => setPlace({ kind: "gym" as const, id: gym.id, name: gym.name }) }))]}
         onClose={() => setSheet(null)}
       />
       <ActionSheet
