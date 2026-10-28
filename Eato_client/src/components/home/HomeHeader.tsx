@@ -20,7 +20,7 @@ type HomeHeaderProps = {
 export function HomeHeader({ name, pincode, hasUnread, onLocationPress, onNotificationsPress, onProfilePress }: HomeHeaderProps) {
   const initial = name.trim().charAt(0).toUpperCase() || "?";
   return (
-    <View className="px-5 pt-2">
+    <View className="px-4 pt-2">
       <View className="flex-row items-start justify-between gap-3">
         <View className="flex-1">
           <Text className="type-callout text-muted">{greetingFor()}</Text>

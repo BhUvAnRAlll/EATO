@@ -77,10 +77,10 @@ export default function AdminCreateGym() {
             <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={20} tintColor={colors.ink} />
           </Pressable>
           <Text className="screen-bar__title flex-1 text-center">Create gym</Text>
-          <View className="screen-bar__back" />
+          <View className="screen-bar__spacer" />
         </View>
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-          <ScrollView contentContainerStyle={{ padding: 20, gap: 14, paddingBottom: 24 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+          <ScrollView contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: 24 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
             {field("Gym name", name, setName, { required: true, max: 80 })}
             {field("Tagline", tagline, setTagline, { placeholder: "e.g. Strength, conditioning & community", max: 120 })}
             {field("Area", location, setLocation, { required: true, placeholder: "e.g. Indiranagar, Bengaluru", max: 80 })}

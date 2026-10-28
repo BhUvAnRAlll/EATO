@@ -32,6 +32,7 @@ import {
   type WorkoutHome,
 } from "@/lib/workoutApi";
 import { colors } from "@/theme";
+import { fonts } from "@/constants/fonts";
 
 // One day's session in full: what it trains, the exercise list by section, and the facts
 // about it, with the way into the session player. Opened from the hub with a `date`, falling
@@ -151,7 +152,7 @@ export default function TrainingDayScreen() {
               </View>
             )}
           </View>
-          <Text className="text-white" style={{ fontSize: 28, lineHeight: 34, fontWeight: "700" }} numberOfLines={2}>
+          <Text className="text-white" style={{ fontSize: 28, lineHeight: 34, fontFamily: fonts.semibold }} numberOfLines={2}>
             {`${day.title} · ${GOAL_FOCUS[plan.goal]}`}
           </Text>
           <Text style={{ color: colors.white, opacity: 0.8 }}>{`${when} · Main Workout`}</Text>
@@ -239,9 +240,9 @@ function RoundButton({ icon, label, onPress, light = false }: { icon: React.Comp
 function Stat({ value, unit, label }: { value: string; unit?: string; label: string }) {
   return (
     <View className="flex-1 items-center">
-      <Text className="text-white" style={{ fontSize: 20, lineHeight: 24, fontWeight: "700" }}>
+      <Text className="text-white" style={{ fontSize: 20, lineHeight: 24, fontFamily: fonts.semibold }}>
         {value}
-        {unit && <Text style={{ fontSize: 13, fontWeight: "600" }}>{` ${unit}`}</Text>}
+        {unit && <Text style={{ fontSize: 13, fontFamily: fonts.semibold }}>{` ${unit}`}</Text>}
       </Text>
       <Text style={{ color: colors.white, opacity: 0.75, fontSize: 12 }}>{label}</Text>
     </View>

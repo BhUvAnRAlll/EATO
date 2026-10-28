@@ -3,6 +3,7 @@ import { SymbolView } from "@/components/SymbolView";
 
 import type { Icon } from "@/types/profile";
 import { colors } from "@/theme";
+import { fonts } from "@/constants/fonts";
 
 type OptionCardProps = {
   label: string;
@@ -50,7 +51,7 @@ export function OptionCard({ label, description, icon, selected, onPress, layout
     return (
       <Pressable onPress={onPress} className={`${cardClass} flex-1 items-center gap-2 py-3.5`}>
         {icon && <SymbolView name={icon} size={22} tintColor={tint} />}
-        <Text className="setup__card-text text-center" style={{ color: tint, fontWeight: selected ? "700" : "500" }}>
+        <Text className="setup__card-text text-center" style={{ color: tint, fontFamily: selected ? fonts.semibold : fonts.medium }}>
           {label}
         </Text>
       </Pressable>

@@ -218,7 +218,7 @@ export default function ProfileScreen() {
               <SymbolView name={{ ios: "ellipsis", android: "more_horiz", web: "more_horiz" }} size={20} tintColor={colors.ink} />
             </Pressable>
           ) : (
-            <View className="screen-bar__back" />
+            <View className="screen-bar__spacer" />
           )}
         </View>
 
@@ -346,7 +346,7 @@ export default function ProfileScreen() {
             onEndReachedThreshold={0.4}
             renderItem={({ item }) => (
               <View className="px-5 pb-3">
-                <PostCard post={item} width={width - 40} onLike={() => like(item)} onOpenComments={() => router.push({ pathname: "/community/post/[id]", params: { id: item.id } })} onMenu={() => setMenuPost(item)} />
+                <PostCard post={item} width={width - 32} onLike={() => like(item)} onOpenComments={() => router.push({ pathname: "/community/post/[id]", params: { id: item.id } })} onMenu={() => setMenuPost(item)} />
               </View>
             )}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.forest} />}

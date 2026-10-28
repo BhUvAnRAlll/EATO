@@ -68,7 +68,7 @@ export default function AdminPromotions() {
     run((token) => adminHome.reorderPromotions(token, ids));
   };
 
-  const previewWidth = width - 40;
+  const previewWidth = width - 32;
 
   return (
     <AdminScreen

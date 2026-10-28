@@ -104,7 +104,7 @@ export default function ScanFood() {
       <SafeAreaView style={{ flex: 1 }}>
         <MacroHeader title="Scan food" />
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-          <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 24, gap: 16 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+          <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24, gap: 16 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
             {photo ? (
               <Image source={{ uri: photo.previewUri }} contentFit="cover" style={{ width: "100%", height: 220, borderRadius: 20 }} accessibilityLabel="Your food photo" />
             ) : (

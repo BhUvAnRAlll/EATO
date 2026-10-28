@@ -144,10 +144,10 @@ export default function JoinGym() {
             <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={20} tintColor={colors.ink} />
           </Pressable>
           <Text className="screen-bar__title">Join a Gym</Text>
-          <View className="screen-bar__back" />
+          <View className="screen-bar__spacer" />
         </View>
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-          <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 32, gap: 16 }} keyboardShouldPersistTaps="handled">
+          <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 32, gap: 16 }} keyboardShouldPersistTaps="handled">
             <View className="segment" accessibilityRole="tablist">
               {tabs.map((item) => (
                 <Pressable key={item.key} onPress={() => { setTab(item.key); setError(null); }} className={tab === item.key ? "segment__item segment__item--active" : "segment__item"} accessibilityRole="tab" accessibilityState={{ selected: tab === item.key }}>

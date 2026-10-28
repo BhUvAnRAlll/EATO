@@ -13,6 +13,7 @@ import { owner, type CustomAnswer, type TeamQuestion } from "@/lib/owner";
 import { useSessionToken } from "@/lib/session";
 import { useOwnerStore } from "@/store/owner";
 import { colors, switchColors } from "@/theme";
+import { fonts } from "@/constants/fonts";
 
 const input = { borderRadius: 14, borderWidth: 1, borderColor: colors.creamLine, backgroundColor: colors.white, paddingHorizontal: 14, fontSize: 15, color: colors.forestInk } as const;
 
@@ -148,11 +149,11 @@ export default function OwnerAssistant() {
             <Text className="gym-section__link">Try it</Text>
           </Pressable>
         ) : (
-          <View className="screen-bar__back" />
+          <View className="screen-bar__spacer" />
         )}
       </View>
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={{ padding: 20, gap: 14 }} keyboardShouldPersistTaps="handled">
+        <ScrollView contentContainerStyle={{ padding: 16, gap: 14 }} keyboardShouldPersistTaps="handled">
           <Text className="owner__subtitle">The assistant answers from your gym profile (hours, prices, facilities, trainers, events). Add custom answers for anything else; it uses them first.</Text>
           <View className="segment" accessibilityRole="tablist">
             {(["questions", "answers"] as const).map((key) => {
@@ -189,7 +190,7 @@ export default function OwnerAssistant() {
                     </View>
                   </View>
                   <View className="owner-quote"><Text className="friend-row__note" style={{ color: colors.ink, fontSize: 15 }}>“{q.question}”</Text></View>
-                  {q.answer && <Text className="friend-row__note" style={{ color: colors.ink }}><Text style={{ fontWeight: "700" }}>{q.answeredBy ? `${q.answeredBy} replied: ` : "You replied: "}</Text>{q.answer}</Text>}
+                  {q.answer && <Text className="friend-row__note" style={{ color: colors.ink }}><Text style={{ fontFamily: fonts.semibold }}>{q.answeredBy ? `${q.answeredBy} replied: ` : "You replied: "}</Text>{q.answer}</Text>}
                 </View>
               ))}
             </>

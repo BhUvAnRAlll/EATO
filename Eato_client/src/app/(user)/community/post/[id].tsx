@@ -141,7 +141,7 @@ export default function PostComments() {
             <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={20} tintColor={colors.ink} />
           </Pressable>
           <Text className="screen-bar__title">Post</Text>
-          <View className="screen-bar__back" />
+          <View className="screen-bar__spacer" />
         </View>
 
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
@@ -158,7 +158,7 @@ export default function PostComments() {
               ListHeaderComponent={
                 post ? (
                   <View className="px-5 pb-3 pt-4">
-                    <PostCard post={post} width={width - 40} onLike={like} onOpenComments={() => input.current?.focus()} onMenu={() => setMenuPost(post)} onVote={vote} onAuthor={() => router.push({ pathname: "/community/profile/[userId]", params: { userId: post.author.id } })} />
+                    <PostCard post={post} width={width - 32} onLike={like} onOpenComments={() => input.current?.focus()} onMenu={() => setMenuPost(post)} onVote={vote} onAuthor={() => router.push({ pathname: "/community/profile/[userId]", params: { userId: post.author.id } })} />
                     {error && (
                       <Pressable onPress={() => setError(null)} className="mt-3">
                         <FormAlert message={error} />

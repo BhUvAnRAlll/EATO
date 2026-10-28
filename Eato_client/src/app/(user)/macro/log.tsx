@@ -101,7 +101,7 @@ export default function LogFood() {
           {recent.length > 0 && (
             <View className="gap-3">
               <Text className="setup__section px-5">Recent meals</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, gap: 12 }}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }}>
                 {recent.map((meal) => {
                   const info = slotInfo[meal.slot];
                   const isHearted = hearted.has(`meal:${meal.id}`);

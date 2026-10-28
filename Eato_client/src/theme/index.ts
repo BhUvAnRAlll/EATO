@@ -3,43 +3,62 @@
 // (SafeAreaView, navigator options, icon colors, StatusBar). Keep both files in sync.
 
 export const colors = {
-  primary: "#C8C4F5",
-  accentSoft: "#F0EFF8",
-  ink: "#15151D",
-  violet: "#A9A3F0",
+  primary: "#D40005",
+  primaryPressed: "#B00004",
+  primaryText: "#C00005",
+  onPrimary: "#FFFFFF",
+  accentSoft: "#FDEAEA",
+  ink: "#111111",
+  violet: "#7C5CD6",
 
-  success: "#5E56C9",
+  success: "#2F8F57",
   warning: "#C4923F",
-  danger: "#E5484D",
-  info: "#8FB4EE",
+  danger: "#D92D20",
+  info: "#4A6CF7",
 
-  successSoft: "#F0EFF8",
+  successSoft: "#E3F6EA",
   warningSoft: "#FBF3E6",
   dangerSoft: "#FDECEC",
 
-  muted: "#6E7079",
-  faint: "#A0A2AA",
-  line: "#E8E9ED",
-  surfaceAlt: "#F5F6F7",
+  muted: "#5C5C63",
+  faint: "#767680",
+  line: "#E8E8EA",
+  lineStrong: "#C9C9CF",
+  surfaceAlt: "#F4F4F5",
   background: "#FFFFFF",
   surface: "#FFFFFF",
-  infoSoft: "#EEF3FC",
+  infoSoft: "#E6EEFD",
 
-  leaf: "#5E56C9",
-  leafSoft: "#F0EFF8",
-  leafDark: "#15151D",
+  inverse: "#1C1C1E",
+  onInverse: "#FFFFFF",
+  onInverseMuted: "#A1A1AA",
+
+  accentBlue: "#4A6CF7",
+
+  tintBlue: "#E6EEFD",
+  tintGreen: "#E3F6EA",
+  tintPeach: "#FFEEDF",
+  tintLavender: "#EEE9FB",
+  iconBlue: "#3B5BDB",
+  iconGreen: "#2F8F57",
+  iconPeach: "#C25400",
+  iconLavender: "#7C5CD6",
+
+  leaf: "#D40005",
+  leafSoft: "#FDEAEA",
+  leafDark: "#111111",
 
   cream: "#FFFFFF",
-  creamDeep: "#F5F6F7",
-  forest: "#101018",
-  forestInk: "#15151D",
-  sand: "#E8E9ED",
+  creamDeep: "#F4F4F5",
+  forest: "#D40005",
+  forestInk: "#111111",
+  sand: "#E8E8EA",
   bronze: "#B8955F",
-  creamLine: "#E8E9ED",
-  creamTab: "#ECEEF2",
+  creamLine: "#E8E8EA",
+  creamTab: "#E9E9EC",
   creamLight: "#FFFFFF",
-  inkSoft: "#45464F",
-  forestSoft: "#F0EFF8",
+  inkSoft: "#3F3F46",
+  forestSoft: "#FDEAEA",
 
   protein: "#6CC28A",
   carbs: "#A9A3F0",
@@ -60,9 +79,9 @@ export const spacing = {
 } as const;
 
 export const radius = {
-  sm: 12,
-  md: 16,
-  lg: 20,
+  sm: 8,
+  md: 12,
+  lg: 16,
   xl: 24,
   pill: 9999,
 } as const;
@@ -73,7 +92,7 @@ export const controlHeight = {
   lg: 54,
 } as const;
 
-// Every Switch uses these, so toggles look the same everywhere: lavender when on, soft grey
+// Every Switch uses these, so toggles look the same everywhere: red when on, soft grey
 // when off, white thumb (activeThumbColor is the web's on-thumb, teal by default otherwise)
 export const switchColors = {
   trackColor: { false: colors.creamTab, true: colors.leaf },

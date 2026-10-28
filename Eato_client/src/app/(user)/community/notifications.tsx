@@ -218,12 +218,12 @@ export default function CommunityNotifications() {
             <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={20} tintColor={colors.ink} />
           </Pressable>
           <Text className="screen-bar__title">Notifications</Text>
-          <View className="screen-bar__back" />
+          <View className="screen-bar__spacer" />
         </View>
         {rows === null && !error ? (
           <ActivityIndicator color={colors.forest} className="mt-6" />
         ) : (
-          <ScrollView contentContainerStyle={{ padding: 20, gap: 12, paddingBottom: 32 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.forest} />} showsVerticalScrollIndicator={false}>
+          <ScrollView contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 32 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.forest} />} showsVerticalScrollIndicator={false}>
             {error && (
               <Pressable onPress={() => setError(null)}>
                 <FormAlert message={error} />

@@ -22,7 +22,7 @@ export function StoriesRow({ me, groups, onAddStory, onOpen }: StoriesRowProps) 
   const others = groups.filter((group) => !group.isOwn);
 
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, gap: 18 }}>
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, gap: 18 }}>
       <View className="items-center gap-2">
         <View>
           <StoryAvatar member={me} size={56} ring={storyRingFor(mine)} onPress={mine ? () => onOpen(me.id) : onAddStory} accessibilityLabel={mine ? "Your story" : "Add a story"} />

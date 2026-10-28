@@ -117,10 +117,10 @@ export default function NewGymEvent() {
             <Text className="screen-bar__title">Create Event</Text>
             {gym && <Text className="gym-card__meta" numberOfLines={1}>{gym.name}</Text>}
           </View>
-          <View className="screen-bar__back" />
+          <View className="screen-bar__spacer" />
         </View>
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-          <ScrollView contentContainerStyle={{ padding: 20, gap: 18 }} keyboardShouldPersistTaps="handled">
+          <ScrollView contentContainerStyle={{ padding: 16, gap: 18 }} keyboardShouldPersistTaps="handled">
             <View className="gap-2">
               <Text className="compose__label">Event title<Text className="compose__required"> *</Text></Text>
               <TextInput className="compose__input" value={title} onChangeText={(value) => { setTitle(value); setError(null); }} maxLength={120} placeholder="e.g. Saturday Strength Clinic" placeholderTextColor={colors.faint} accessibilityLabel="Title" />
@@ -132,7 +132,7 @@ export default function NewGymEvent() {
 
             <View className="gap-2">
               <Text className="compose__label">Event date<Text className="compose__required"> *</Text></Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -20 }} contentContainerStyle={{ paddingHorizontal: 20, gap: 8 }}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -20 }} contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}>
                 {days.map((day) => {
                   const value = isoDay(day);
                   const selected = date === value;
@@ -168,7 +168,7 @@ export default function NewGymEvent() {
               <Text className="compose__label">Location<Text className="compose__required"> *</Text></Text>
               <TextInput className="compose__input" value={location} onChangeText={(value) => { setLocation(value); setError(null); }} maxLength={120} placeholder="Where will it happen?" placeholderTextColor={colors.faint} accessibilityLabel="Location" />
               {places.length > 0 && (
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -20 }} contentContainerStyle={{ paddingHorizontal: 20, gap: 8 }}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -20 }} contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}>
                   {places.map((place) => (
                     <Pressable key={place} onPress={() => { setLocation(place); setError(null); }} className={location.trim() === place ? "friend-chip friend-chip--selected" : "friend-chip"} accessibilityRole="button" accessibilityLabel={`Location: ${place}`}>
                       <Text className={location.trim() === place ? "friend-chip__label friend-chip__label--selected" : "friend-chip__label"} numberOfLines={1}>{place}</Text>

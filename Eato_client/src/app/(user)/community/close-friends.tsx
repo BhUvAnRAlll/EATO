@@ -52,11 +52,12 @@ export default function CloseFriends() {
     <View className="flex-1 bg-cream">
       <StatusBar style="dark" />
       <SafeAreaView style={{ flex: 1 }}>
-        <View className="h-12 flex-row items-center px-5">
-          <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Back">
-            <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={20} tintColor={colors.forestInk} />
+        <View className="screen-bar">
+          <Pressable onPress={() => router.back()} className="screen-bar__back" accessibilityRole="button" accessibilityLabel="Back">
+            <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={20} tintColor={colors.ink} />
           </Pressable>
-          <Text className="type-subhead ml-3 flex-1 text-forest-ink">Close Friends</Text>
+          <Text className="screen-bar__title" numberOfLines={1}>Close Friends</Text>
+          <View className="screen-bar__spacer" />
         </View>
 
         {entries === null ? (
@@ -65,7 +66,7 @@ export default function CloseFriends() {
           <FlatList
             data={entries}
             keyExtractor={(entry) => entry.member.id}
-            contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 24 }}
+            contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24 }}
             ListHeaderComponent={
               <View className="gap-3 pb-4">
                 <View className="setup__info">

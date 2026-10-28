@@ -74,7 +74,7 @@ export function RecreateFrame({ step, title, subtitle, aside, notice, children, 
       </View>
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 24, gap: 18 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 24, gap: 18 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <View className="gap-1.5">
             <Text className="type-overline text-muted">{step === "review" ? "Review & create" : `Step ${step} of 3`}</Text>
             <Text className="type-title text-forest-ink">{title}</Text>

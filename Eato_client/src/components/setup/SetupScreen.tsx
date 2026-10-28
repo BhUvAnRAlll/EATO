@@ -78,9 +78,9 @@ export function SetupScreen({
       <StatusBar style="dark" />
       <SafeAreaView style={{ flex: 1 }}>
         {/* Header: back chevron, one dash per step (done ones dark), and the step count */}
-        <View className="h-12 flex-row items-center px-5">
-          <Pressable onPress={handleBack} hitSlop={12} className="h-10 w-10 justify-center" accessibilityRole="button" accessibilityLabel="Back">
-            <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={20} tintColor={colors.forestInk} />
+        <View className="screen-bar">
+          <Pressable onPress={handleBack} className="screen-bar__back" accessibilityRole="button" accessibilityLabel="Back">
+            <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={20} tintColor={colors.ink} />
           </Pressable>
           <View className="flex-1 flex-row items-center justify-center gap-1.5">
             {showProgress &&
@@ -88,12 +88,12 @@ export function SetupScreen({
                 <View key={name} className={stepIndex <= index ? "setup__dash setup__dash--done" : "setup__dash"} />
               ))}
           </View>
-          <View className="h-10 w-10 items-end justify-center">{showProgress && <Text className="setup__step">{`${index + 1}/${steps.length}`}</Text>}</View>
+          <View className="h-11 w-11 items-end justify-center">{showProgress && <Text className="setup__step">{`${index + 1}/${steps.length}`}</Text>}</View>
         </View>
 
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
           <ScrollView
-            contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 24, paddingBottom: 24 }}
+            contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 24, paddingBottom: 24 }}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >

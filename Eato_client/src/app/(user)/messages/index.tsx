@@ -89,7 +89,7 @@ export default function Conversations() {
           </Pressable>
         </View>
 
-        <ScrollView contentContainerStyle={{ padding: 20, gap: 14, paddingBottom: 32 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.forest} />} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: 32 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.forest} />} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           {error && <Pressable onPress={() => setError(null)}><FormAlert message={error} /></Pressable>}
 
           <Text className="gym-group__title">Your trainer</Text>

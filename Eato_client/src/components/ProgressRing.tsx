@@ -10,6 +10,8 @@ type ProgressRingProps = {
   size?: number;
   stroke?: number;
   color?: string;
+  // Unfilled part of the ring; soft grey unless the ring sits on a dark card
+  trackColor?: string;
   // Starts filling after this many ms
   delay?: number;
   // What sits in the middle; receives how far the fill animation has got (0–1), so a number
@@ -17,9 +19,9 @@ type ProgressRingProps = {
   children?: (animated: number) => ReactNode;
 };
 
-// A lavender ring that fills once when it appears (at once with Reduce Motion on). Used for
+// A red ring that fills once when it appears (at once with Reduce Motion on). Used for
 // Home's progress card and the scan report's body score.
-export function ProgressRing({ progress, size = 64, stroke = 7, color = colors.leaf, delay = 0, children }: ProgressRingProps) {
+export function ProgressRing({ progress, size = 64, stroke = 7, color = colors.leaf, trackColor = colors.creamTab, delay = 0, children }: ProgressRingProps) {
   const [grow] = useState(() => new Animated.Value(0));
   const [shown, setShown] = useState(0);
   useEffect(() => {
@@ -44,7 +46,7 @@ export function ProgressRing({ progress, size = 64, stroke = 7, color = colors.l
   return (
     <View style={{ width: size, height: size }}>
       <Svg width={size} height={size}>
-        <Circle cx={size / 2} cy={size / 2} r={radius} stroke={colors.creamTab} strokeWidth={stroke} fill="none" />
+        <Circle cx={size / 2} cy={size / 2} r={radius} stroke={trackColor} strokeWidth={stroke} fill="none" />
         <Circle
           cx={size / 2}
           cy={size / 2}

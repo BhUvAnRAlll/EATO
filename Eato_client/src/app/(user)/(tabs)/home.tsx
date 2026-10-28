@@ -20,7 +20,7 @@ import { useCartStore } from "@/store/cart";
 import { useHomeStore } from "@/store/home";
 
 // Space on each side of the page content
-const PAGE_PADDING = 20;
+const PAGE_PADDING = 16;
 const GAP = 8;
 
 // Home for members: hero promotions, quick actions, today's nutrition, popular meals and
@@ -109,7 +109,7 @@ export default function Home() {
 
           {/* Quick actions */}
           {quickActions.length > 0 && (
-            <View className="mt-5 flex-row flex-wrap px-5" style={{ gap: GAP }}>
+            <View className="mt-5 flex-row flex-wrap px-4" style={{ gap: GAP }}>
               {quickActions.map((action) => (
                 <QuickActionCard key={action.id} action={action} width={quickWidth} onPress={() => open(action.destination)} />
               ))}
@@ -117,7 +117,7 @@ export default function Home() {
           )}
 
           {/* Today's nutrition */}
-          <View className="mt-5 px-5">
+          <View className="mt-5 px-4">
             <NutritionProgressCard
               heading={content.nutritionHeading}
               actionLabel={content.nutritionActionLabel}
@@ -129,7 +129,7 @@ export default function Home() {
           </View>
 
           {/* Popular meals */}
-          <View className="mt-6 px-5">
+          <View className="mt-5 px-4">
             <SectionHeader title={content.popularHeading} actionLabel={content.popularActionLabel} onAction={() => router.navigate("/meals")} />
           </View>
           <ScrollView
@@ -152,7 +152,7 @@ export default function Home() {
 
           {/* Today's delivery (sample until orders exist) */}
           {content.showTodaySection && (
-            <View className="mt-3 px-5">
+            <View className="mt-3 px-4">
               <SectionHeader
                 title={content.todayHeading}
                 badge={

@@ -94,7 +94,7 @@ export default function CaloriesMacros() {
           </View>
         ) : (
           <>
-            <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 24, gap: 16 }} showsVerticalScrollIndicator={false}>
+            <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24, gap: 16 }} showsVerticalScrollIndicator={false}>
               <Segmented options={periods} value={period} onChange={setPeriod} label="Period" />
               {notice && <Text className="macro__error" accessibilityRole="alert">{notice}</Text>}
               <SplitCard summary={summary} size={ringSize} stroke={stroke} />

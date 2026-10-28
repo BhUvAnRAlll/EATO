@@ -6,6 +6,8 @@ import { SymbolView } from "@/components/SymbolView";
 import { router, useFocusEffect, type Href } from "expo-router";
 import { useClerk, useUser } from "@clerk/expo";
 
+import { IconButton } from "@/components/IconButton";
+import { MetricCard } from "@/components/MetricCard";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { fetchProfile, type SavedProfile } from "@/lib/profile";
 import { scanFieldsFromSaved } from "@/lib/profileScan";
@@ -27,13 +29,12 @@ const menu: { label: string; icon: Icon; href: Href }[] = [
   { label: "My trainer", icon: { ios: "person.badge.shield.checkmark", android: "verified_user", web: "verified_user" }, href: "/community/trainers/mine" },
 ];
 
-function Stat({ value, label }: { value: string; label: string }) {
-  return (
-    <View className="flex-1 items-center">
-      <Text className="type-subhead text-ink">{value}</Text>
-      <Text className="type-caption mt-0.5 text-muted">{label}</Text>
-    </View>
-  );
+// BMI and its one-word band (WHO adult cut-offs), for the metric tile
+function bmiOf(weightKg: number | null | undefined, heightCm: number | null | undefined) {
+  if (!weightKg || !heightCm) return null;
+  const value = weightKg / (heightCm / 100) ** 2;
+  const status = value < 18.5 ? "Underweight" : value < 25 ? "Healthy" : value < 30 ? "Overweight" : "Obese";
+  return { value: value.toFixed(1), status };
 }
 
 // Profile: the member's card with body fat, weight and height, the body scan, the account's
@@ -76,54 +77,82 @@ export default function Profile() {
   };
 
   const name = user?.fullName || saved?.fullName || "Member";
+  const bmi = bmiOf(saved?.weightKg, saved?.heightCm);
   const initial = name.trim().charAt(0).toUpperCase() || "?";
 
   return (
     <View className="flex-1 bg-cream">
       <StatusBar style="dark" />
       <SafeAreaView style={{ flex: 1 }} edges={["top", "left", "right"]}>
-        <View className="h-12 flex-row items-center px-5">
-          {router.canGoBack() && (
-            <Pressable onPress={() => router.back()} hitSlop={12} className="mr-2 h-10 w-10 justify-center" accessibilityRole="button" accessibilityLabel="Back">
-              <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={20} tintColor={colors.forestInk} />
-            </Pressable>
+        <View className="app-bar px-4">
+          {router.canGoBack() ? (
+            <IconButton icon={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} label="Back" onPress={() => router.back()} />
+          ) : (
+            <View style={{ width: 44 }} />
           )}
-          <Text className="type-title text-ink">Profile</Text>
+          <Text className="app-bar__title">Profile</Text>
+          <IconButton icon={{ ios: "pencil", android: "edit", web: "edit" }} label="Edit height and weight" onPress={() => router.push("/measurements")} disabled={!saved} />
         </View>
 
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 12, paddingBottom: 32 }} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 32 }} showsVerticalScrollIndicator={false}>
           {/* The member */}
-          <View className="card">
-            <View className="flex-row items-center gap-3.5">
-              <View className="home__avatar" style={{ width: 56, height: 56 }}>
-                <Text className="home__avatar-label" style={{ fontSize: 22, lineHeight: 28 }}>
-                  {initial}
-                </Text>
-              </View>
-              <View className="flex-1">
-                <Text className="type-headline text-ink" numberOfLines={1}>
-                  {name}
-                </Text>
-                <Text className="type-caption text-muted" numberOfLines={1}>
-                  {user?.primaryEmailAddress?.emailAddress ?? "Member"}
-                </Text>
-              </View>
-              <Pressable
-                onPress={() => router.push("/measurements")}
-                disabled={!saved}
-                hitSlop={8}
-                className="home__icon-button"
-                style={{ opacity: saved ? 1 : 0.4 }}
-                accessibilityRole="button"
-                accessibilityLabel="Edit height and weight"
-              >
-                <SymbolView name={{ ios: "pencil", android: "edit", web: "edit" }} size={17} tintColor={colors.forestInk} />
-              </Pressable>
+          <View className="card flex-row items-center gap-3.5">
+            <View className="home__avatar" style={{ width: 56, height: 56 }}>
+              <Text className="home__avatar-label" style={{ fontSize: 22, lineHeight: 28 }}>
+                {initial}
+              </Text>
             </View>
-            <View className="mt-4 flex-row border-t border-line pt-4">
-              <Stat value={saved?.bodyFatPercent != null ? `${saved.bodyFatPercent}%` : "—"} label="Body fat" />
-              <Stat value={saved?.weightKg != null ? `${saved.weightKg} kg` : "—"} label="Weight" />
-              <Stat value={saved?.heightCm != null ? `${saved.heightCm} cm` : "—"} label="Height" />
+            <View className="flex-1">
+              <Text className="type-headline text-ink" numberOfLines={1}>
+                {name}
+              </Text>
+              <Text className="type-caption text-muted" numberOfLines={1}>
+                {user?.primaryEmailAddress?.emailAddress ?? "Member"}
+              </Text>
+            </View>
+          </View>
+
+          {/* Body metrics: two per row, each in its own tone */}
+          <View className="mt-3 gap-3">
+            <View className="flex-row gap-3">
+              <MetricCard
+                tone="green"
+                label="Weight"
+                icon={{ ios: "scalemass", android: "monitor_weight", web: "monitor_weight" }}
+                value={saved?.weightKg != null ? String(saved.weightKg) : "—"}
+                unit="kg"
+                status={bmi ? bmi.status : "Add"}
+                onPress={saved ? () => router.push("/measurements") : undefined}
+              />
+              <MetricCard
+                tone="blue"
+                label="Height"
+                icon={{ ios: "ruler", android: "straighten", web: "straighten" }}
+                value={saved?.heightCm != null ? String(saved.heightCm) : "—"}
+                unit="cm"
+                status={saved?.heightCm != null ? "Set" : "Add"}
+                onPress={saved ? () => router.push("/measurements") : undefined}
+              />
+            </View>
+            <View className="flex-row gap-3">
+              <MetricCard
+                tone="peach"
+                label="BMI"
+                icon={{ ios: "heart", android: "favorite", web: "favorite" }}
+                value={bmi ? bmi.value : "—"}
+                unit="BMI"
+                status={bmi ? bmi.status : "Needs data"}
+                onPress={saved ? () => router.push("/measurements") : undefined}
+              />
+              <MetricCard
+                tone="lavender"
+                label="Body fat"
+                icon={{ ios: "figure.stand", android: "accessibility_new", web: "accessibility_new" }}
+                value={saved?.bodyFatPercent != null ? String(saved.bodyFatPercent) : "—"}
+                unit="%"
+                status={saved?.bodyFatPercent != null ? "Scanned" : "Not yet"}
+                onPress={saved ? startScan : undefined}
+              />
             </View>
           </View>
 

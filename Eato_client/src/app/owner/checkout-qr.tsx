@@ -63,9 +63,9 @@ export default function OwnerCheckoutQr() {
           <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={20} tintColor={colors.ink} />
         </Pressable>
         <Text className="screen-bar__title">Check-out QR</Text>
-        <View className="screen-bar__back" />
+        <View className="screen-bar__spacer" />
       </View>
-      <ScrollView contentContainerStyle={{ padding: 20, gap: 14 }}>
+      <ScrollView contentContainerStyle={{ padding: 16, gap: 14 }}>
         {error && qr && <FormAlert message={error} />}
         {!qr ? (
           error ? (

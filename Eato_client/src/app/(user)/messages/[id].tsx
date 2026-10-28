@@ -14,6 +14,7 @@ import { community, OFFLINE_MESSAGE, type Member, type Message } from "@/lib/com
 import { useSessionToken } from "@/lib/session";
 import { useCommunityStore } from "@/store/community";
 import { colors } from "@/theme";
+import { fonts } from "@/constants/fonts";
 
 const MAX_LENGTH = 1000;
 // While the screen is open, the newest page is fetched this often so replies show up
@@ -209,10 +210,10 @@ export default function ConversationScreen() {
             {p.error && <Text className="bubble__time text-right" style={{ color: colors.danger }}>{p.error}</Text>}
             <View className="mt-1 flex-row gap-4">
               <Pressable onPress={() => deliver(p)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Retry sending">
-                <Text className="bubble__time" style={{ color: colors.forest, fontWeight: "600" }}>Retry</Text>
+                <Text className="bubble__time" style={{ color: colors.forest, fontFamily: fonts.semibold }}>Retry</Text>
               </Pressable>
               <Pressable onPress={() => discard(p)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Discard message">
-                <Text className="bubble__time" style={{ color: colors.danger, fontWeight: "600" }}>Delete</Text>
+                <Text className="bubble__time" style={{ color: colors.danger, fontFamily: fonts.semibold }}>Delete</Text>
               </Pressable>
             </View>
           </View>
@@ -236,7 +237,7 @@ export default function ConversationScreen() {
               <Avatar member={other} size={36} />
             </Pressable>
           ) : (
-            <View className="screen-bar__back" />
+            <View className="screen-bar__spacer" />
           )}
         </View>
 
@@ -252,7 +253,7 @@ export default function ConversationScreen() {
               data={items}
               inverted
               keyExtractor={(item) => (item.kind === "message" ? item.message.id : `pending-${item.pending.id}`)}
-              contentContainerStyle={{ paddingHorizontal: 20, paddingVertical: 12, gap: 8 }}
+              contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 12, gap: 8 }}
               ListEmptyComponent={<Text className="home__note text-center" style={{ transform: [{ scaleY: -1 }] }}>Say hello to {other?.name ?? "them"}.</Text>}
               onEndReached={loadOlder}
               onEndReachedThreshold={0.3}

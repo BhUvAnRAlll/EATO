@@ -11,6 +11,7 @@ import { addDays, dateOf, todayIso } from "@/lib/macro";
 import { useSessionToken } from "@/lib/session";
 import { GOAL_LABEL, LEVEL_LABEL, SPLIT_LABEL, formatSeconds, shortDay, workoutApi, type PlanOverview } from "@/lib/workoutApi";
 import { colors } from "@/theme";
+import { fonts } from "@/constants/fonts";
 
 // Rebuild my plan: "Your plan is ready". Everything here is read back from what was saved,
 // not from the draft. There is no back or close: the way out is the footer, which leaves the
@@ -87,7 +88,7 @@ export default function RecreateReveal() {
         {/* Hero: the plan's facts on the dark surface (sessions have no photos yet) */}
         <View className="bg-ink" style={{ paddingTop: insets.top + 32, paddingHorizontal: 20, paddingBottom: 28, gap: 10 }}>
           <Text className="type-overline" style={{ color: colors.primary }}>Your new plan</Text>
-          <Text className="text-white" style={{ fontSize: 30, lineHeight: 36, fontWeight: "700" }}>Your plan is ready</Text>
+          <Text className="text-white" style={{ fontSize: 30, lineHeight: 36, fontFamily: fonts.semibold }}>Your plan is ready</Text>
           <Text style={{ color: colors.white, opacity: 0.8 }}>Your workout plan has been built around your goal, fitness level and schedule.</Text>
           <View className="mt-1 flex-row flex-wrap gap-2">
             {[GOAL_LABEL[plan.goal], LEVEL_LABEL[plan.level], `${plan.daysPerWeek} days / week`].map((pill) => (
@@ -143,7 +144,7 @@ export default function RecreateReveal() {
               return (
                 <View key={s.dayId} className="home__card flex-row items-center gap-3" accessibilityLabel={`${shortDay(s.weekday)}${isToday ? " (today)" : ""}: ${s.title}, ${s.minutes} min, ${s.exerciseCount} exercises`}>
                   <View className={isToday ? "recreate__day recreate__day--today" : "recreate__day"}>
-                    <Text className="type-caption" style={{ color: isToday ? colors.white : colors.forestInk, fontWeight: "700" }}>{shortDay(s.weekday)}</Text>
+                    <Text className="type-caption" style={{ color: isToday ? colors.white : colors.forestInk, fontFamily: fonts.semibold }}>{shortDay(s.weekday)}</Text>
                   </View>
                   <View className="min-w-0 flex-1">
                     <Text className="card__title" numberOfLines={1}>{s.title}</Text>

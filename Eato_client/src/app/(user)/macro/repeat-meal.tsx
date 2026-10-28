@@ -29,7 +29,7 @@ export default function RepeatMeal() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const today = todayIso();
-  const cardWidth = Math.min(200, Math.floor((width - 40 - 12) / 2));
+  const cardWidth = Math.min(200, Math.floor((width - 32 - 12) / 2));
 
   useFocusEffect(
     useCallback(() => {
@@ -75,7 +75,7 @@ export default function RepeatMeal() {
           </View>
         ) : (
           <>
-            <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 24, gap: 16 }} showsVerticalScrollIndicator={false}>
+            <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24, gap: 16 }} showsVerticalScrollIndicator={false}>
               <Text className="home__lead">Anything from the last 3 days — pick one to log it again today.</Text>
               {recent.length === 0 ? (
                 <DashedBlock icon={{ ios: "arrow.clockwise", android: "refresh", web: "refresh" }} title="Nothing to repeat yet" text="Meals you log in the last 3 days will show up here." />

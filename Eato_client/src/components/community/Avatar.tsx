@@ -2,6 +2,7 @@ import { Text, View } from "react-native";
 
 import type { Member } from "@/lib/community";
 import { colors } from "@/theme";
+import { fonts } from "@/constants/fonts";
 
 // Soft lavender and grey tints (from the tokens) with near-black initials, picked from the
 // member id so a member always gets the same one
@@ -24,7 +25,7 @@ export function Avatar({ member, size = 44 }: { member: Member; size?: number })
   const tint = avatarTint(member.id);
   return (
     <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: tint.background }} className="items-center justify-center" accessibilityLabel={member.name}>
-      <Text style={{ color: tint.text, fontSize: Math.round(size * 0.42), lineHeight: Math.round(size * 0.5), fontWeight: "700" }}>{member.initial}</Text>
+      <Text style={{ color: tint.text, fontSize: Math.round(size * 0.42), lineHeight: Math.round(size * 0.5), fontFamily: fonts.semibold }}>{member.initial}</Text>
     </View>
   );
 }

@@ -49,7 +49,7 @@ export default function AdminOverviewScreen() {
     <View className="flex-1 bg-cream">
       <StatusBar style="dark" />
       <SafeAreaView style={{ flex: 1 }} edges={["top", "left", "right"]}>
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 110, gap: 16 }} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 110, gap: 16 }} showsVerticalScrollIndicator={false}>
           <View className="flex-row items-start justify-between pt-2">
             <View>
               <Text className="type-overline text-muted">JustFit admin</Text>

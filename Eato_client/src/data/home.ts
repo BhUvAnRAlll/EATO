@@ -1,6 +1,7 @@
 import type { Href } from "expo-router";
 
 import type { Icon } from "@/types/profile";
+import { colors } from "@/theme";
 
 // The home screen's content comes from the JustFit server (admins edit it there). The types
 // below mirror the API shape (see Eato_server/home.js); the defaults are what the screen
@@ -35,15 +36,15 @@ export function routeFor(destination: string): Href | null {
 
 // Icons a quick-action card may show, with the tint and soft container colour of each
 export const quickActionIcons = {
-  meals: { icon: { ios: "fork.knife.circle", android: "room_service", web: "room_service" }, tint: "#1F5A3C", background: "#E6F0E6" },
-  plans: { icon: { ios: "dumbbell", android: "fitness_center", web: "fitness_center" }, tint: "#B9772F", background: "#F6EADB" },
-  nutrition: { icon: { ios: "chart.bar.fill", android: "bar_chart", web: "bar_chart" }, tint: "#B6424E", background: "#F6E3E4" },
-  delivery: { icon: { ios: "truck.box", android: "local_shipping", web: "local_shipping" }, tint: "#2E4A66", background: "#E3EAF0" },
-  flame: { icon: { ios: "flame.fill", android: "local_fire_department", web: "local_fire_department" }, tint: "#E0533C", background: "#FDE8E4" },
-  heart: { icon: { ios: "heart.fill", android: "favorite", web: "favorite" }, tint: "#D6456B", background: "#FCE9EC" },
-  calendar: { icon: { ios: "calendar", android: "calendar_today", web: "calendar_today" }, tint: "#3D7BD9", background: "#E4EEFB" },
-  bag: { icon: { ios: "bag.fill", android: "shopping_bag", web: "shopping_bag" }, tint: "#2F7A4D", background: "#E4F3E8" },
-} as const satisfies Record<string, { icon: Icon; tint: string; background: string }>;
+  meals: { icon: { ios: "fork.knife.circle", android: "room_service", web: "room_service" }, tint: colors.iconGreen, background: colors.tintGreen },
+  plans: { icon: { ios: "dumbbell", android: "fitness_center", web: "fitness_center" }, tint: colors.iconPeach, background: colors.tintPeach },
+  nutrition: { icon: { ios: "chart.bar.fill", android: "bar_chart", web: "bar_chart" }, tint: colors.primary, background: colors.accentSoft },
+  delivery: { icon: { ios: "truck.box", android: "local_shipping", web: "local_shipping" }, tint: colors.iconBlue, background: colors.tintBlue },
+  flame: { icon: { ios: "flame.fill", android: "local_fire_department", web: "local_fire_department" }, tint: colors.iconPeach, background: colors.tintPeach },
+  heart: { icon: { ios: "heart.fill", android: "favorite", web: "favorite" }, tint: colors.iconLavender, background: colors.tintLavender },
+  calendar: { icon: { ios: "calendar", android: "calendar_today", web: "calendar_today" }, tint: colors.iconBlue, background: colors.tintBlue },
+  bag: { icon: { ios: "bag.fill", android: "shopping_bag", web: "shopping_bag" }, tint: colors.iconGreen, background: colors.tintGreen },
+} satisfies Record<string, { icon: Icon; tint: string; background: string }>;
 
 export type QuickActionIconKey = keyof typeof quickActionIcons;
 

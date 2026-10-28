@@ -135,8 +135,11 @@ describe("ui macro: the Macro tab hub and logging a meal by hand", () => {
     await h.expectPath("/home");
     await clickTab("Macro");
     await h.expectPath("/macro");
-    await h.expectText("kcal left");
-    await h.expectText("2,000");
+    // The calories card (eaten of the target) and the "Left" tile: nothing eaten, 2,000 left
+    await h.expectText("Today's calories");
+    await h.expectText("/ 2,000 Kcal");
+    assert.ok(await page.evaluate(`!!document.querySelector('[aria-label="2000 kcal left. Eaten 0 of 2000. Open daily calories"]')`), "the calories card opens daily calories");
+    assert.ok(await page.evaluate(`!!document.querySelector('[aria-label="Left: 2,000 Kcal, On track"]')`), "the Left tile");
     await h.expectText("Add your first meal to start today."); // only the Macro hub says this (Home has its own "Nothing logged yet today.")
     await h.expectText("Today's meals");
     await h.expectText("Calories & macros");
@@ -191,7 +194,7 @@ describe("ui macro: the Macro tab hub and logging a meal by hand", () => {
     assert.deepEqual({ ...item, quantity: Number(item.quantity), kcal: Number(item.kcal), protein_g: Number(item.protein_g), carbs_g: Number(item.carbs_g), fat_g: Number(item.fat_g) }, { quantity: 350, unit: "g", kcal: 480, protein_g: 32, carbs_g: 40, fat_g: 18 });
     // Back on the hub, the meal and the new remaining calories are there
     await h.expectText("Paneer tikka bowl");
-    await h.expectText("1,520");
+    await page.waitFor(`!!document.querySelector('[aria-label="Left: 1,520 Kcal, On track"]')`, NAV_TIMEOUT, "the Left tile at 1,520 Kcal");
     await snapshotAllWidths("macro-hub-with-meal");
 
     // Home's "Today's Macros" card reads the same diary, has no quick-action cards above it,
@@ -200,9 +203,10 @@ describe("ui macro: the Macro tab hub and logging a meal by hand", () => {
     await h.expectPath("/home");
     await h.expectText("Today's Macros");
     await h.expectText("480 kcal logged today. Tap to see your meals.");
-    // Every ring matches the Macro hub: the meal eaten against the same targets (2000 kcal, 150/200/60 g)
-    for (const label of ["Calories: 480 of 2,000 kcal", "Protein: 32g of 150g", "Carbs: 40g of 200g", "Fats: 18g of 60g"]) {
-      assert.ok(await page.evaluate(`!!document.querySelector('[aria-label=${JSON.stringify(label)}]')`), `the "${label}" ring`);
+    // Every row matches the Macro hub: the meal eaten against the same targets (2000 kcal, 150/200/60 g)
+    await h.expectText("/ 2,000 Kcal");
+    for (const label of ["Calories: 480 Kcal", "Protein: 32/150 g", "Carbs: 40/200 g", "Fats: 18/60 g"]) {
+      assert.ok(await page.evaluate(`!!document.querySelector('[aria-label=${JSON.stringify(label)}]')`), `the "${label}" row`);
     }
     assert.equal(await page.hasText("Sample numbers"), false, "real targets, not the sample");
     for (const tile of ["Browse menu", "For your goals", "Track intake", "At your doorstep"]) assert.equal(await page.hasText(tile), false, `the "${tile}" card is gone`);

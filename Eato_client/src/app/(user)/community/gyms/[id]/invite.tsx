@@ -16,6 +16,7 @@ import { formatCode, inviteMessage, roleLabels } from "@/lib/gymRules";
 import { gyms, type Gym, type Invitation } from "@/lib/gyms";
 import { useSessionToken } from "@/lib/session";
 import { colors } from "@/theme";
+import { fonts } from "@/constants/fonts";
 
 type Channel = "email" | "phone";
 type Tab = "link" | "qr" | "contact";
@@ -132,10 +133,10 @@ export default function InviteToGym() {
             <Text className="screen-bar__title">Invite Members</Text>
             {gym && <Text className="gym-card__meta" numberOfLines={1}>{gym.name}</Text>}
           </View>
-          <View className="screen-bar__back" />
+          <View className="screen-bar__spacer" />
         </View>
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-          <ScrollView contentContainerStyle={{ padding: 20, gap: 16, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
+          <ScrollView contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
             <View className="segment" accessibilityRole="tablist">
               {tabs.map((item) => (
                 <Pressable key={item.key} onPress={() => setTab(item.key)} className={tab === item.key ? "segment__item segment__item--active" : "segment__item"} accessibilityRole="tab" accessibilityState={{ selected: tab === item.key }}>
@@ -163,7 +164,7 @@ export default function InviteToGym() {
                 <View className="join-card__link">
                   <Text className="join-card__link-text" numberOfLines={1} selectable>{linkFor(gym.inviteCode)}</Text>
                 </View>
-                <Text className="join-card__hint" accessibilityLabel={`Gym code ${gym.inviteCode.split("").join(" ")}`}>Invite code <Text className="join-card__link-text" style={{ fontWeight: "700" }}>{formatCode(gym.inviteCode)}</Text></Text>
+                <Text className="join-card__hint" accessibilityLabel={`Gym code ${gym.inviteCode.split("").join(" ")}`}>Invite code <Text className="join-card__link-text" style={{ fontFamily: fonts.semibold }}>{formatCode(gym.inviteCode)}</Text></Text>
                 <Pressable onPress={() => share(gym.inviteCode ?? "")} className="btn-forest flex-row items-center justify-center gap-2" accessibilityRole="button" accessibilityLabel="Share gym code">
                   <SymbolView name={{ ios: "square.and.arrow.up", android: "share", web: "share" }} size={16} tintColor={colors.white} />
                   <Text className="btn-forest__label">Share Link</Text>

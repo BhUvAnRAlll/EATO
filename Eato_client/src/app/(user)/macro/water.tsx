@@ -97,7 +97,7 @@ export default function Water() {
             <ActivityIndicator color={colors.forest} />
           </View>
         ) : (
-          <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 110, gap: 16, opacity: switching ? 0.55 : 1 }} showsVerticalScrollIndicator={false}>
+          <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 110, gap: 16, opacity: switching ? 0.55 : 1 }} showsVerticalScrollIndicator={false}>
             <ProgressCard day={day} isToday={isToday} />
 
             {isToday && (

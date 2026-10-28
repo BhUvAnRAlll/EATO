@@ -11,58 +11,81 @@
   /* Only JustFit colors are available — no default Tailwind palette. */
   --color-*: initial;
 
-  /* Premium minimal palette (2026-10-25 redesign): white pages, soft off-white panels,
-     near-black ink and buttons, subtle grey lines, a soft lavender accent for selection,
-     sliders and progress, and a deeper lavender (#5e56c9, AA on every surface) for links,
-     rings and icons. Some names (leaf, forest, cream) come from earlier themes; they keep
-     their roles, only the values changed. */
+  /* Peak Fitness palette (from Peak-Fitness-Design-System.pdf): white screens, outlined cards,
+     one strong colour for the main button, progress, selection and the active tab, and pastel
+     tiles for body metrics. The PDF's orange is replaced by the JustFit logo red (2026-10-27;
+     black was tried on 2026-10-28 and reverted the same day). White text sits on red (5.5:1);
+     for small red text on white use primary-text.
+     Some names (leaf, forest, cream) come from earlier themes; they keep their roles. */
 
-  /* Primary */
-  --color-primary: #c8c4f5;
-  --color-accent-soft: #f0eff8;
-  --color-ink: #15151d;
-  --color-violet: #a9a3f0;
+  /* Brand red */
+  --color-primary: #d40005;
+  --color-primary-pressed: #b00004;
+  --color-primary-text: #c00005;
+  --color-on-primary: #ffffff;
+  --color-accent-soft: #fdeaea;
+  --color-ink: #111111;
+  --color-violet: #7c5cd6;
 
   /* Semantic */
-  --color-success: #5e56c9;
+  --color-success: #2f8f57;
   --color-warning: #c4923f;
-  --color-danger: #e5484d;
-  --color-info: #8fb4ee;
+  --color-danger: #d92d20;
+  --color-info: #4a6cf7;
 
   /* Semantic soft fills (badge backgrounds) */
-  --color-success-soft: #f0eff8;
+  --color-success-soft: #e3f6ea;
   --color-warning-soft: #fbf3e6;
   --color-danger-soft: #fdecec;
 
   /* Neutrals */
-  --color-muted: #6e7079;
-  --color-faint: #a0a2aa;
-  --color-line: #e8e9ed;
-  --color-surface-alt: #f5f6f7;
+  --color-muted: #5c5c63;
+  --color-faint: #767680;
+  --color-line: #e8e8ea;
+  --color-line-strong: #c9c9cf;
+  --color-surface-alt: #f4f4f5;
   --color-background: #ffffff;
   --color-surface: #ffffff;
-  --color-info-soft: #eef3fc;
+  --color-info-soft: #e6eefd;
+
+  /* Dark hero cards (surface-inverse) and their text */
+  --color-inverse: #1c1c1e;
+  --color-on-inverse: #ffffff;
+  --color-on-inverse-muted: #a1a1aa;
+
+  /* Second data series and chart highlight */
+  --color-accent-blue: #4a6cf7;
+
+  /* Metric tiles: a pastel ground and its icon colour per metric */
+  --color-tint-blue: #e6eefd;
+  --color-tint-green: #e3f6ea;
+  --color-tint-peach: #ffeedf;
+  --color-tint-lavender: #eee9fb;
+  --color-icon-blue: #3b5bdb;
+  --color-icon-green: #2f8f57;
+  --color-icon-peach: #c25400;
+  --color-icon-lavender: #7c5cd6;
 
   /* Accent: links, progress rings, "today", icons (leaf), its soft fill and the
      active tab icon (leaf-dark) */
-  --color-leaf: #5e56c9;
-  --color-leaf-soft: #f0eff8;
-  --color-leaf-dark: #15151d;
+  --color-leaf: #d40005;
+  --color-leaf-soft: #fdeaea;
+  --color-leaf-dark: #111111;
 
-  /* Surfaces and ink: page (cream), dark buttons and titles (forest), borders and tracks */
+  /* Surfaces and ink: page (cream), primary buttons (forest), titles, borders and tracks */
   --color-cream: #ffffff;
-  --color-cream-deep: #f5f6f7;
-  --color-forest: #101018;
-  --color-forest-ink: #15151d;
-  --color-sand: #e8e9ed;
+  --color-cream-deep: #f4f4f5;
+  --color-forest: #d40005;
+  --color-forest-ink: #111111;
+  --color-sand: #e8e8ea;
   --color-bronze: #b8955f;
-  --color-cream-line: #e8e9ed;
-  --color-cream-tab: #eceef2;
+  --color-cream-line: #e8e8ea;
+  --color-cream-tab: #e9e9ec;
   --color-cream-light: #ffffff;
-  --color-ink-soft: #45464f;
-  --color-forest-soft: #f0eff8;
+  --color-ink-soft: #3f3f46;
+  --color-forest-soft: #fdeaea;
 
-  /* Macros (from the same palette) */
+  /* Macros */
   --color-protein: #6cc28a;
   --color-carbs: #a9a3f0;
   --color-fat: #f2c14e;
@@ -87,17 +110,21 @@
 
   /* Radius: rounded-sm / md / lg / xl / pill */
   --radius-*: initial;
-  --radius-sm: 12px;
-  --radius-md: 16px;
-  --radius-lg: 20px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
   --radius-xl: 24px;
   --radius-pill: 9999px;
 
-  /* Font weights used by the type scale */
-  --font-weight-medium: 500;
-  --font-weight-bold: 700;
-  --font-weight-heavy: 800;
+  /* Poppins (Peak Fitness type): one family per weight, loaded in app/_layout.tsx from
+     constants/fonts.ts. Set the family for a weight, never font-weight with it. */
+  --font-sans: Poppins-Regular;
+  --font-sans-medium: Poppins-Medium;
+  --font-sans-semibold: Poppins-SemiBold;
 
-  /* Soft card shadow */
-  --shadow-card: 0 4px 16px rgba(21, 21, 29, 0.05);
+  /* Cards use a 1px border, not a shadow. The sheet shadow is only for floating things
+     (bottom nav, mini player), the glow only for the main play button. */
+  --shadow-card: 0 0 0 rgba(0, 0, 0, 0);
+  --shadow-sheet: 0 -4px 24px rgba(17, 17, 17, 0.08);
+  --shadow-glow: 0 6px 16px rgba(212, 0, 5, 0.35);
 }

@@ -126,7 +126,7 @@ export default function EditPromotion() {
     router.back();
   };
 
-  const previewWidth = width - 40;
+  const previewWidth = width - 32;
   // What the preview shows: the typed URL wins over the picked bundled image
   const preview = fields ? { ...fields, imageUrl: imageUrlText.trim() || fields.imageUrl } : null;
 

@@ -12,14 +12,12 @@ type MacroHeaderProps = { title: string; subtitle?: string; right?: ReactNode };
 export function MacroHeader({ title, subtitle, right }: MacroHeaderProps) {
   const back = () => (router.canGoBack() ? router.back() : router.replace("/macro"));
   return (
-    <View className="min-h-12 flex-row items-center px-5">
-      <View className="w-11">
-        <Pressable onPress={back} hitSlop={12} className="h-11 w-11 justify-center" accessibilityRole="button" accessibilityLabel="Back">
-          <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={20} tintColor={colors.forestInk} />
-        </Pressable>
-      </View>
+    <View className="screen-bar" style={{ height: undefined, minHeight: 56 }}>
+      <Pressable onPress={back} className="screen-bar__back" accessibilityRole="button" accessibilityLabel="Back">
+        <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={20} tintColor={colors.ink} />
+      </Pressable>
       <View className="flex-1 items-center">
-        <Text className="type-subhead text-forest-ink" numberOfLines={1}>{title}</Text>
+        <Text className="screen-bar__title" numberOfLines={1}>{title}</Text>
         {subtitle && <Text className="home__note" numberOfLines={1}>{subtitle}</Text>}
       </View>
       <View className="w-11 items-end">{right}</View>

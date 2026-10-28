@@ -89,7 +89,7 @@ export default function EventScreen() {
               <SymbolView name={{ ios: "trash", android: "delete", web: "delete" }} size={19} tintColor={colors.ink} />
             </Pressable>
           ) : (
-            <View className="screen-bar__back" />
+            <View className="screen-bar__spacer" />
           )}
         </View>
 

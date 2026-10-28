@@ -82,7 +82,7 @@ export default function AdminGymDetail() {
             <Text className="screen-bar__title" numberOfLines={1}>{gym?.name ?? "Gym"}</Text>
             {gym?.location && <Text className="gym-card__meta" numberOfLines={1}>{gym.location}</Text>}
           </View>
-          <View className="screen-bar__back" />
+          <View className="screen-bar__spacer" />
         </View>
 
         {!gym ? (
@@ -94,7 +94,7 @@ export default function AdminGymDetail() {
             )}
           </View>
         ) : (
-          <ScrollView contentContainerStyle={{ padding: 20, gap: 14, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+          <ScrollView contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
             <View className="admin-list flex-row items-center gap-3" style={{ padding: 16 }}>
               <View className="admin-gym-badge" style={{ width: 56, height: 56, borderRadius: 14 }}><Text className="admin-gym-badge__label" style={{ fontSize: 18 }}>{gymInitials(gym.name)}</Text></View>
               <View className="min-w-0 flex-1 gap-1">

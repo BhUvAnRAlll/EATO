@@ -124,20 +124,21 @@ export default function NewStory() {
     }
   };
 
-  const previewWidth = width - 40;
+  const previewWidth = width - 32;
 
   return (
     <View className="flex-1 bg-cream">
       <StatusBar style="dark" />
       <SafeAreaView style={{ flex: 1 }}>
-        <View className="h-12 flex-row items-center px-5">
-          <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Back">
-            <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={20} tintColor={colors.forestInk} />
+        <View className="screen-bar">
+          <Pressable onPress={() => router.back()} className="screen-bar__back" accessibilityRole="button" accessibilityLabel="Back">
+            <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={20} tintColor={colors.ink} />
           </Pressable>
-          <Text className="type-subhead ml-3 flex-1 text-forest-ink">New story</Text>
+          <Text className="screen-bar__title" numberOfLines={1}>New story</Text>
+          <View className="screen-bar__spacer" />
         </View>
 
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: 24, gap: 18 }} keyboardShouldPersistTaps="handled">
+        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 24, gap: 18 }} keyboardShouldPersistTaps="handled">
           {photo ? (
             <View className="gap-2">
               <Image source={{ uri: photo.uri }} contentFit="cover" style={{ width: previewWidth, height: Math.round(previewWidth * 1.25), borderRadius: 20 }} accessibilityLabel="Story preview" />

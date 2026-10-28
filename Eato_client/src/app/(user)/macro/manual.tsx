@@ -11,6 +11,7 @@ import { kcalOf, loggedAtFor, macro, macrosAgree, slotForNow, slotInfo, slots, t
 import { useSessionToken } from "@/lib/session";
 import { useMacroStore } from "@/store/macro";
 import { colors } from "@/theme";
+import { fonts } from "@/constants/fonts";
 
 type Unit = "g" | "oz" | "cup";
 const units: { value: Unit; label: string }[] = [
@@ -84,7 +85,7 @@ export default function ManualEntry() {
       <SafeAreaView style={{ flex: 1 }}>
         <MacroHeader title="Manual entry" />
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-          <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 24, gap: 16 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+          <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24, gap: 16 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
             <Text className="home__lead">{"Know the numbers? Type them in and we'll add it to your day."}</Text>
 
             <View className="gap-2">
@@ -155,7 +156,7 @@ export default function ManualEntry() {
                   tintColor={macrosAgree(typedKcal, macroKcal) ? colors.success : colors.warning}
                 />
                 <Text className="home__note flex-1" style={{ color: colors.muted }}>
-                  Macros add up to <Text style={{ fontWeight: "700", color: colors.forestInk }}>{macroKcal} kcal</Text>
+                  Macros add up to <Text style={{ fontFamily: fonts.semibold, color: colors.forestInk }}>{macroKcal} kcal</Text>
                   {macrosAgree(typedKcal, macroKcal) ? ` — close to your ${whole(typedKcal)} entry. Looks good.` : ` — far from your ${whole(typedKcal)} entry. Worth a second look.`}
                 </Text>
               </View>

@@ -95,7 +95,7 @@ export function GymHeader({ gym, tab, busy, onTab, onMembership }: GymHeaderProp
         </View>
 
         {active ? (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mt-4" style={{ marginHorizontal: -20 }} contentContainerStyle={{ paddingHorizontal: 20, gap: 8 }}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mt-4" style={{ marginHorizontal: -20 }} contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}>
             {gym.can.post && (
               <Pressable onPress={() => router.push({ pathname: "/community/compose", params: { gymId: gym.id, gymName: gym.name } })} className="gym-action gym-action--filled" accessibilityRole="button" accessibilityLabel="Create post">
                 <SymbolView name={{ ios: "plus", android: "add", web: "add" }} size={15} tintColor={colors.white} />

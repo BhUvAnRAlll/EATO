@@ -72,11 +72,11 @@ export default function AskGym() {
             <Text className="screen-bar__title" numberOfLines={1}>Ask {name}</Text>
             <Text className="gym-card__meta">Automated assistant · answers from gym info</Text>
           </View>
-          <View className="screen-bar__back" />
+          <View className="screen-bar__spacer" />
         </View>
 
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-          <ScrollView ref={scroll} contentContainerStyle={{ padding: 20, gap: 12 }} onContentSizeChange={() => scroll.current?.scrollToEnd({ animated: true })} keyboardShouldPersistTaps="handled">
+          <ScrollView ref={scroll} contentContainerStyle={{ padding: 16, gap: 12 }} onContentSizeChange={() => scroll.current?.scrollToEnd({ animated: true })} keyboardShouldPersistTaps="handled">
             <MyTeamReplies gymId={id} gymName={name} />
             <View className="flex-row items-center gap-1.5">
               <SymbolView name={{ ios: "sparkles", android: "smart_toy", web: "smart_toy" }} size={13} tintColor={colors.muted} />

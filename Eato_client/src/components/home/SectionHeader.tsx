@@ -11,12 +11,12 @@ type SectionHeaderProps = {
   // Text on the right ("View all" link when onAction is given, plain text otherwise)
   actionLabel?: string;
   onAction?: () => void;
-  // Link colour; the leaf green unless a section uses another accent
+  // Link colour; the brand red text colour unless a section uses another accent
   actionColor?: string;
 };
 
 // Section title with an optional badge and a right-aligned "Label →" link
-export function SectionHeader({ title, badge, actionLabel, onAction, actionColor = colors.leaf }: SectionHeaderProps) {
+export function SectionHeader({ title, badge, actionLabel, onAction, actionColor = colors.primaryText }: SectionHeaderProps) {
   return (
     <View className="flex-row items-center justify-between gap-3">
       <View className="flex-1 flex-row items-center gap-2">

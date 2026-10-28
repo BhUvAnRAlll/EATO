@@ -5,13 +5,15 @@ import { StatusBar } from "expo-status-bar";
 import { SymbolView } from "@/components/SymbolView";
 import { router, useFocusEffect } from "expo-router";
 
+import { ActivityCard } from "@/components/ActivityCard";
+import { IconButton } from "@/components/IconButton";
 import { DashedBlock } from "@/components/macro/DashedBlock";
-import { MacroBar } from "@/components/macro/MacroBar";
 import { MealCard } from "@/components/macro/MealCard";
 import { MealDetailSheet } from "@/components/macro/MealDetailSheet";
 import { MonthCalendarSheet } from "@/components/macro/MonthCalendarSheet";
-import { Ring } from "@/components/macro/Ring";
 import { WeekStrip } from "@/components/macro/WeekStrip";
+import { MetricCard } from "@/components/MetricCard";
+import { ProgressStat } from "@/components/ProgressStat";
 import { longDate, macro, todayIso, whole, type DayProgress, type DayView, type Meal } from "@/lib/macro";
 import { useSessionToken } from "@/lib/session";
 import { useMacroStore, useMacroWeek } from "@/store/macro";
@@ -65,13 +67,12 @@ export default function MacroHub() {
   const targets = showing?.targets ?? null;
   const eaten = showing?.totals.kcal ?? 0;
   const left = targets ? Math.max(0, targets.kcal - eaten) : 0;
-  const ringSize = width < 375 ? 120 : 148;
 
   return (
     <View className="flex-1 bg-cream">
       <StatusBar style="dark" />
       <SafeAreaView style={{ flex: 1 }} edges={["top", "left", "right"]}>
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 110, gap: 16 }} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 140, gap: 16 }} showsVerticalScrollIndicator={false}>
           {/* Header */}
           <View className="flex-row items-center pt-2">
             <View className="flex-1">
@@ -79,45 +80,52 @@ export default function MacroHub() {
               <Text className="type-title text-forest-ink">Macro</Text>
             </View>
             <View className="flex-row gap-2">
-              <Pressable onPress={() => router.push("/macro/water")} className="home__icon-button" accessibilityRole="button" accessibilityLabel="Water">
-                <SymbolView name={{ ios: "drop.fill", android: "water_drop", web: "water_drop" }} size={20} tintColor={colors.fat} />
-              </Pressable>
-              <Pressable onPress={() => setCalendarOpen(true)} className="home__icon-button" accessibilityRole="button" accessibilityLabel="Jump to a day">
-                <SymbolView name={{ ios: "calendar", android: "calendar_month", web: "calendar_month" }} size={20} tintColor={colors.forestInk} />
-              </Pressable>
+              <IconButton icon={{ ios: "drop", android: "water_drop", web: "water_drop" }} label="Water" onPress={() => router.push("/macro/water")} />
+              <IconButton icon={{ ios: "calendar", android: "calendar_month", web: "calendar_month" }} label="Jump to a day" onPress={() => setCalendarOpen(true)} />
             </View>
           </View>
 
-          <WeekStrip week={week} selectedDate={selectedDate} today={today} progress={progress} onSelect={selectDate} width={width - 40} />
+          <WeekStrip week={week} selectedDate={selectedDate} today={today} progress={progress} onSelect={selectDate} width={width - 32} />
 
           {!showing ? (
             <ActivityIndicator color={colors.forest} className="mt-10" />
           ) : (
             <Animated.View style={{ opacity: switching ? 0.55 : fade, gap: 16 }}>
               {targets ? (
-                <Pressable onPress={() => router.push("/macro/daily")} className="home__card gap-4" accessibilityRole="button" accessibilityLabel={`${whole(left)} kcal left. Eaten ${whole(eaten)} of ${targets.kcal}. Open daily calories`}>
-                  <View className="flex-row items-center gap-4">
-                    <Ring size={ringSize} stroke={width < 375 ? 11 : 13} progress={eaten / targets.kcal} color={colors.leaf}>
-                      <Text className="macro__hero-number" style={{ fontSize: ringSize < 140 ? 26 : 32, lineHeight: ringSize < 140 ? 30 : 36 }}>{whole(left).toLocaleString("en-IN")}</Text>
-                      <Text className="macro__stat-label">kcal left</Text>
-                    </Ring>
-                    <View className="flex-1 gap-4">
-                      <View>
-                        <Text className="macro__stat-label">Eaten</Text>
-                        <Text className="macro__stat-value">{whole(eaten).toLocaleString("en-IN")} <Text className="macro__stat-label">kcal</Text></Text>
-                      </View>
-                      <View>
-                        <Text className="macro__stat-label">Target</Text>
-                        <Text className="macro__stat-value">{targets.kcal.toLocaleString("en-IN")} <Text className="macro__stat-label">kcal</Text></Text>
-                      </View>
-                    </View>
-                  </View>
+                <>
+                  <ActivityCard
+                    title={isToday ? "Today's calories" : "Calories"}
+                    metric={whole(eaten).toLocaleString("en-IN")}
+                    meta={`/ ${targets.kcal.toLocaleString("en-IN")} Kcal`}
+                    progress={targets.kcal > 0 ? eaten / targets.kcal : 0}
+                    compact={width < 375}
+                    onPress={() => router.push("/macro/daily")}
+                    accessibilityLabel={`${whole(left)} kcal left. Eaten ${whole(eaten)} of ${targets.kcal}. Open daily calories`}
+                  >
+                    <ProgressStat label="Protein" value={`${whole(showing.totals.proteinG)}/${targets.proteinG}`} unit="g" progress={targets.proteinG > 0 ? showing.totals.proteinG / targets.proteinG : 0} color={colors.protein} />
+                    <ProgressStat label="Carbs" value={`${whole(showing.totals.carbsG)}/${targets.carbsG}`} unit="g" progress={targets.carbsG > 0 ? showing.totals.carbsG / targets.carbsG : 0} color={colors.carbs} />
+                    <ProgressStat label="Fat" value={`${whole(showing.totals.fatG)}/${targets.fatG}`} unit="g" progress={targets.fatG > 0 ? showing.totals.fatG / targets.fatG : 0} color={colors.fat} />
+                  </ActivityCard>
                   <View className="flex-row gap-3">
-                    <MacroBar label="Protein" value={showing.totals.proteinG} target={targets.proteinG} color={colors.protein} />
-                    <MacroBar label="Carbs" value={showing.totals.carbsG} target={targets.carbsG} color={colors.carbs} />
-                    <MacroBar label="Fat" value={showing.totals.fatG} target={targets.fatG} color={colors.fat} />
+                    <MetricCard
+                      tone="peach"
+                      label="Left"
+                      icon={{ ios: "flame", android: "local_fire_department", web: "local_fire_department" }}
+                      value={whole(left).toLocaleString("en-IN")}
+                      unit="Kcal"
+                      status={left > 0 ? "On track" : "Reached"}
+                      onPress={() => router.push("/macro/daily")}
+                    />
+                    <MetricCard
+                      tone="blue"
+                      label="Burned"
+                      icon={{ ios: "bolt", android: "bolt", web: "bolt" }}
+                      value={whole(showing.burned).toLocaleString("en-IN")}
+                      unit="Kcal"
+                      status={showing.burned > 0 ? "Active" : "Rest"}
+                    />
                   </View>
-                </Pressable>
+                </>
               ) : (
                 <DashedBlock
                   icon={{ ios: "flame", android: "local_fire_department", web: "local_fire_department" }}
@@ -135,7 +143,7 @@ export default function MacroHub() {
                   <Text className="card__title">Calories & macros</Text>
                   <Text className="post__time">Split, weekly trend & targets</Text>
                 </View>
-                <SymbolView name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }} size={16} tintColor={colors.faint} />
+                <IconButton icon={{ ios: "arrow.right", android: "arrow_forward", web: "arrow_forward" }} label="Open" variant="primary" size={36} />
               </Pressable>
 
               <Text className="setup__section">{isToday ? "Today's meals" : "Meals"}</Text>

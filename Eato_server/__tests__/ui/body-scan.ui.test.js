@@ -20,7 +20,7 @@ const { startTestServer, portFree } = require("../e2e/server.js");
 const { clerkFor, describeClerkError } = require("../e2e/clerk-identities.js");
 const { startExpoWeb } = require("./expo-web.js");
 const { launchChrome, connect, openPage, CHROME } = require("./cdp.js");
-const { dateOfBirth, fillSetup, helpers, signInAs } = require("./onboarding-steps.js");
+const { dateOfBirth, fillSetup, helpers, signInAs, NAV_TIMEOUT } = require("./onboarding-steps.js");
 
 const EXPO_PORT = 8090;
 const EVIDENCE_DIR = path.join(os.tmpdir(), "justfit-ui-evidence");
@@ -379,7 +379,8 @@ describe("ui body scan: Scan Body, the photo instructions, the scan screen and t
     await h.expectText("Save these changes?");
     await page.clickText("Confirm and save");
     await h.expectPath("/profile");
-    await h.expectText("65 kg");
+    // The Weight tile shows the new weight and its BMI status (65 kg at 170 cm is 22.5: Healthy)
+    await page.waitFor(`!!document.querySelector('[aria-label="Weight: 65 kg, Healthy"]')`, NAV_TIMEOUT, "the Weight tile at 65 kg");
 
     const [[row]] = await connection.query("SELECT p.weight_kg AS w, p.height_cm AS h, p.body_fat_percent AS bf, t.rmr_formula AS formula, JSON_EXTRACT(t.inputs, '$.weightKg') AS inputWeight FROM profiles p JOIN nutrition_targets t ON t.user_id = p.user_id WHERE p.user_id = ?", [identities.a.id]);
     assert.deepEqual({ w: Number(row.w), h: Number(row.h), bf: Number(row.bf), formula: row.formula, inputWeight: Number(row.inputWeight) }, { w: 65, h: 170, bf: 23, formula: "katch_mcardle", inputWeight: 65 });

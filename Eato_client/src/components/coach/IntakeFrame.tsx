@@ -28,7 +28,7 @@ export function IntakeFrame({ step, title, subtitle, children, onNext, nextLabel
   const back = () => (router.canGoBack() ? router.back() : router.replace("/coach"));
 
   return (
-    <View className="flex-1 bg-surface-alt">
+    <View className="flex-1 bg-cream">
       <StatusBar style="dark" />
       <SafeAreaView style={{ flex: 1 }}>
         <View className="h-14 flex-row items-center justify-between px-5">
@@ -45,7 +45,7 @@ export function IntakeFrame({ step, title, subtitle, children, onNext, nextLabel
         </View>
 
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-          <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 24, paddingBottom: 24, gap: 16 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+          <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 24, paddingBottom: 24, gap: 16 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
             <View className="gap-1.5">
               <Text className="setup__title">{title}</Text>
               {subtitle && <Text className="home__lead">{subtitle}</Text>}

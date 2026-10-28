@@ -88,7 +88,7 @@ export default function DailyCalories() {
           </View>
         ) : (
           <>
-            <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 24, gap: 16, opacity: switching ? 0.55 : 1 }} showsVerticalScrollIndicator={false}>
+            <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24, gap: 16, opacity: switching ? 0.55 : 1 }} showsVerticalScrollIndicator={false}>
               <Hero day={showing} />
               {water && water.date === showing.date && <WaterCard water={water} />}
               <MacrosCard day={showing} />

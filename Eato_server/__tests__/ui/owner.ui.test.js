@@ -253,6 +253,8 @@ describe("ui owner: the gym owner portal for owners, members and platform admins
   it("5. the Gym tab links every gym screen, and an unbuilt tab says it's coming", run("gym", async () => {
     await clickTab("Gym");
     await page.waitFor(`location.pathname === "/owner/gym"`, NAV_TIMEOUT, "gym tab");
+    // The URL changes before the tab has drawn: wait for its first row, then check them all
+    await page.waitFor(`[...document.querySelectorAll('[aria-label="Gym profile"]')].some((e) => e.getClientRects().length > 0)`, NAV_TIMEOUT, "the Gym tab's rows");
     for (const label of ["Gym profile", "Subscription", "Trainers", "Members", "Renewals", "Invite & invitations", "Announcements", "Community settings", "Gym page"]) assert.equal(await hasLabel(label), true, label);
     await snapshotAllWidths("owner-gym");
     await clickTab("Gym");
@@ -288,7 +290,7 @@ describe("ui owner: the gym owner portal for owners, members and platform admins
     await page.waitFor(`location.pathname.startsWith("/admin/gyms/")`, NAV_TIMEOUT, "the admin gym detail");
     await clickLabel("Open Gym Manager for Iron Temple");
     await page.waitFor(`location.pathname === "/owner"`, NAV_TIMEOUT, "owner home");
-    await h.expectText("IRON TEMPLE · JustFit ADMIN");
+    await h.expectText("IRON TEMPLE · JUSTFIT ADMIN");
     await h.expectText("Needs your attention");
     assert.equal(await hasLabel("Invite"), false, "the member app's tools stay with the gym's staff");
     await snapshotAllWidths("owner-platform-home");

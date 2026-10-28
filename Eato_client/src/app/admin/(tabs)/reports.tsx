@@ -74,7 +74,7 @@ export default function AdminReports() {
     <View className="flex-1 bg-cream">
       <StatusBar style="dark" />
       <SafeAreaView style={{ flex: 1 }} edges={["top", "left", "right"]}>
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 110, gap: 14 }} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 110, gap: 14 }} showsVerticalScrollIndicator={false}>
           <View className="pt-2">
             <Text className="type-overline text-muted">JustFit admin</Text>
             <Text className="type-title text-forest-ink">Reports</Text>

@@ -56,7 +56,7 @@ export function ManageShell({ title, need = "manage", children, footer }: Manage
             <Text className="screen-bar__title" numberOfLines={1}>{title}</Text>
             {gym && <Text className="gym-card__meta" numberOfLines={1}>{gym.name}</Text>}
           </View>
-          <View className="screen-bar__back" />
+          <View className="screen-bar__spacer" />
         </View>
         {!gym ? (
           <View className="px-5 pt-4">{error ? <EmptyState icon={{ ios: "lock", android: "lock", web: "lock" }} title="Can't open this page" text={error} actionLabel="Retry" onAction={load} /> : <PostSkeleton />}</View>
@@ -66,7 +66,7 @@ export function ManageShell({ title, need = "manage", children, footer }: Manage
           </View>
         ) : (
           <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-            <ScrollView contentContainerStyle={{ padding: 20, gap: 16, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
+            <ScrollView contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
               {children(gym, load, setGym)}
             </ScrollView>
             {footer && <View className="compose__footer">{footer(gym)}</View>}

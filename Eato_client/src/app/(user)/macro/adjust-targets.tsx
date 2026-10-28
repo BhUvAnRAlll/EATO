@@ -10,6 +10,7 @@ import { kcalOf, macro, macrosAgree, whole, type TargetStatus } from "@/lib/macr
 import { useSessionToken } from "@/lib/session";
 import { useHomeStore } from "@/store/home";
 import { colors } from "@/theme";
+import { fonts } from "@/constants/fonts";
 
 const macroFields = [
   { key: "proteinG", label: "Protein", color: colors.protein },
@@ -103,7 +104,7 @@ export default function AdjustTargets() {
           </View>
         ) : (
           <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-            <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 24, gap: 16 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+            <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24, gap: 16 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
               <Text className="home__lead">
                 {status.lockedByTrainer
                   ? "Your trainer set these targets. Ask them if you'd like them changed."
@@ -157,7 +158,7 @@ export default function AdjustTargets() {
                     tintColor={macrosAgree(typedKcal, macroKcal) ? colors.success : colors.warning}
                   />
                   <Text className="home__note flex-1" style={{ color: colors.muted }}>
-                    Macros add up to <Text style={{ fontWeight: "700", color: colors.forestInk }}>{macroKcal} kcal</Text>
+                    Macros add up to <Text style={{ fontFamily: fonts.semibold, color: colors.forestInk }}>{macroKcal} kcal</Text>
                     {macrosAgree(typedKcal, macroKcal) ? ` — close to your ${whole(typedKcal)} entry.` : ` — far from your ${whole(typedKcal)} entry.`}
                   </Text>
                 </View>

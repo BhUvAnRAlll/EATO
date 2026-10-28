@@ -6,7 +6,9 @@ import { SymbolView } from "@/components/SymbolView";
 import { router, useFocusEffect } from "expo-router";
 import * as Haptics from "expo-haptics";
 
+import { IconButton } from "@/components/IconButton";
 import { DashedBlock } from "@/components/macro/DashedBlock";
+import { ProgramCard } from "@/components/ProgramCard";
 import { WorkoutSheet } from "@/components/workout/WorkoutSheet";
 import { addDays, dateOf, todayIso } from "@/lib/macro";
 import { useSessionToken } from "@/lib/session";
@@ -49,7 +51,6 @@ const pillColors: Record<Exclude<DayStatus, "rest">, { background: string; text:
 type Prompt = { kind: "move" | "swap"; date: string };
 
 const moon = { ios: "moon.stars.fill", android: "bedtime", web: "bedtime" } as const;
-const chevron = { ios: "chevron.right", android: "chevron_right", web: "chevron_right" } as const;
 
 export default function WorkoutHub() {
   const getToken = useSessionToken();
@@ -122,35 +123,13 @@ export default function WorkoutHub() {
     <View className="flex-1 bg-cream">
       <StatusBar style="dark" />
       <SafeAreaView style={{ flex: 1 }} edges={["top", "left", "right"]}>
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40, gap: 20 }} showsVerticalScrollIndicator={false}>
-          <View className="flex-row items-start justify-between pt-2">
-            {/* Opened from Profile (no longer a tab), so it has a way back */}
-            <Pressable
-              onPress={() => (router.canGoBack() ? router.back() : router.replace("/profile"))}
-              hitSlop={12}
-              className="mr-2 h-10 w-8 justify-center"
-              accessibilityRole="button"
-              accessibilityLabel="Back"
-            >
-              <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={20} tintColor={colors.forestInk} />
-            </Pressable>
-            <View className="flex-1">
-              <Text className="type-title text-forest-ink">Workout</Text>
-              <Text className="home__note">Stay consistent, get stronger</Text>
-            </View>
-            {/* Preferences: only once there is a plan to change */}
-            <Pressable
-              onPress={() => router.push("/workout/preferences")}
-              disabled={load.state !== "ready"}
-              hitSlop={8}
-              className="h-11 w-11 items-center justify-center rounded-full bg-surface"
-              style={{ opacity: load.state === "ready" ? 1 : 0.4 }}
-              accessibilityRole="button"
-              accessibilityState={{ disabled: load.state !== "ready" }}
-              accessibilityLabel="Workout preferences"
-            >
-              <SymbolView name={{ ios: "gearshape.fill", android: "settings", web: "settings" }} size={20} tintColor={colors.forestInk} />
-            </Pressable>
+        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40, gap: 20 }} showsVerticalScrollIndicator={false}>
+          {/* Opened from Profile (no longer a tab), so it has a way back; preferences only once
+              there is a plan to change */}
+          <View className="app-bar">
+            <IconButton icon={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} label="Back" onPress={() => (router.canGoBack() ? router.back() : router.replace("/profile"))} />
+            <Text className="app-bar__title" numberOfLines={1}>Workout</Text>
+            <IconButton icon={{ ios: "gearshape", android: "settings", web: "settings" }} label="Workout preferences" onPress={() => router.push("/workout/preferences")} disabled={load.state !== "ready"} />
           </View>
 
           {load.state === "loading" || load.state === "building" ? (
@@ -219,43 +198,40 @@ function Ready({ home, history, showAll, onToggleAll, openDay, ask }: ReadyProps
     <>
       {/* Today */}
       {day ? (
-        <View className="gap-2">
-          <Pressable
-            onPress={() => openDay(today)}
-            className="workout__hero"
-            style={{ height: 220 }}
-            accessibilityRole="button"
-            accessibilityLabel={`Today: ${day.title}, ${day.minutes} min. ${action}`}
-          >
-            <View className="flex-1 items-center justify-center">
-              <SymbolView name={sessionIcon(day.sessionType)} size={84} tintColor={colors.primary} />
-            </View>
-            <View className="absolute left-4 right-4 top-4 flex-row items-start justify-between">
-              <View className="flex-row flex-wrap gap-2">
-                <View className="workout__chip workout__chip--accent">
-                  <SymbolView name={{ ios: "dumbbell.fill", android: "fitness_center", web: "fitness_center" }} size={13} tintColor={colors.ink} />
-                  <Text className="workout__chip-label workout__chip-label--accent">Today</Text>
-                </View>
-                {plan.source === "trainer" && (
-                  <View className="workout__chip">
-                    <Text className="workout__chip-label">Trainer plan</Text>
-                  </View>
-                )}
-              </View>
-              <View className="workout__chip">
-                <Text className="workout__chip-label">{day.minutes} min</Text>
-              </View>
-            </View>
-            <View className="absolute bottom-4 right-4 workout__chip workout__chip--accent" style={{ height: 36, paddingHorizontal: 16 }}>
-              <SymbolView name={{ ios: "play.fill", android: "play_arrow", web: "play_arrow" }} size={13} tintColor={colors.ink} />
-              <Text className="workout__chip-label workout__chip-label--accent">{action}</Text>
-            </View>
-          </Pressable>
-          <View>
-            <Text className="card__title">{day.title}</Text>
-            <Text className="post__time">{`${day.exerciseCount} exercises · ${LEVEL_LABEL[plan.level]}`}</Text>
+        <Pressable
+          onPress={() => openDay(today)}
+          className="workout__hero"
+          style={{ height: 232 }}
+          accessibilityRole="button"
+          accessibilityLabel={`Today: ${day.title}, ${day.minutes} min, ${day.exerciseCount} exercises. ${action}`}
+        >
+          <View className="flex-1 items-center justify-center pb-12">
+            <SymbolView name={sessionIcon(day.sessionType)} size={72} tintColor={colors.onInverseMuted} />
           </View>
-        </View>
+          <View className="absolute left-4 right-4 top-4 flex-row items-start justify-between">
+            <View className="flex-row flex-wrap gap-2">
+              <View className="workout__chip workout__chip--accent">
+                <SymbolView name={{ ios: "dumbbell.fill", android: "fitness_center", web: "fitness_center" }} size={13} tintColor={colors.onPrimary} />
+                <Text className="workout__chip-label workout__chip-label--accent">Today</Text>
+              </View>
+              {plan.source === "trainer" && (
+                <View className="workout__chip">
+                  <Text className="workout__chip-label">Trainer plan</Text>
+                </View>
+              )}
+            </View>
+            <View className="workout__chip">
+              <Text className="workout__chip-label">{day.minutes} min</Text>
+            </View>
+          </View>
+          <View className="absolute bottom-4 left-4 right-4 flex-row items-end gap-3">
+            <View className="min-w-0 flex-1">
+              <Text className="activity-card__title" numberOfLines={2}>{day.title}</Text>
+              <Text className="activity-card__meta">{`${day.exerciseCount} exercises · ${LEVEL_LABEL[plan.level]} · ${action}`}</Text>
+            </View>
+            <IconButton icon={{ ios: "play.fill", android: "play_arrow", web: "play_arrow" }} label={action} variant="primary" size={56} glow />
+          </View>
+        </Pressable>
       ) : (
         <View className="home__card flex-row items-center gap-4">
           <View className="flex-1 gap-1.5">
@@ -316,29 +292,23 @@ function Ready({ home, history, showAll, onToggleAll, openDay, ask }: ReadyProps
         {history.length === 0 ? (
           <DashedBlock icon={{ ios: "calendar", android: "calendar_month", web: "calendar_month" }} title="No sessions yet" text="Finish a workout and it will show up here." />
         ) : (
-          <View className="gap-2.5">
+          <View className="gap-3">
             {visible.map((row) => {
               const pill = pillColors[row.status];
               return (
-                <Pressable
+                <ProgramCard
                   key={row.date}
+                  title={row.title ?? "Session"}
+                  icon={sessionIcon(row.sessionType)}
+                  meta={[
+                    { icon: { ios: "calendar", android: "calendar_today", web: "calendar_today" }, text: historyDate(row.date) },
+                    { icon: { ios: "clock", android: "schedule", web: "schedule" }, text: `${row.totalMinutes} min` },
+                    { icon: { ios: "bolt", android: "bolt", web: "bolt" }, text: `${row.exerciseCount} exercises` },
+                  ]}
+                  badge={{ label: STATUS_LABEL[row.status], background: pill.background, color: pill.text }}
                   onPress={() => tapDay(row.date, row.status)}
-                  className="home__card flex-row items-center gap-3"
-                  accessibilityRole="button"
                   accessibilityLabel={`${row.title ?? "Session"}, ${historyDate(row.date)}: ${STATUS_LABEL[row.status]}`}
-                >
-                  <View className="items-center justify-center rounded-md" style={{ width: 50, height: 50, backgroundColor: colors.forestSoft }}>
-                    <SymbolView name={sessionIcon(row.sessionType)} size={24} tintColor={colors.forest} />
-                  </View>
-                  <View className="min-w-0 flex-1">
-                    <Text className="card__title" numberOfLines={1}>{row.title ?? "Session"}</Text>
-                    <Text className="post__time" numberOfLines={1}>{`${historyDate(row.date)} · ${row.totalMinutes} min · ${row.exerciseCount} exercises`}</Text>
-                  </View>
-                  <View className="workout__pill" style={{ backgroundColor: pill.background }}>
-                    <Text className="workout__pill-label" style={{ color: pill.text }}>{STATUS_LABEL[row.status]}</Text>
-                  </View>
-                  <SymbolView name={chevron} size={14} tintColor={colors.faint} />
-                </Pressable>
+                />
               );
             })}
           </View>

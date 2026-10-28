@@ -100,10 +100,10 @@ export default function OwnerNotify() {
           <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={20} tintColor={colors.ink} />
         </Pressable>
         <Text className="screen-bar__title">Notify members</Text>
-        <View className="screen-bar__back" />
+        <View className="screen-bar__spacer" />
       </View>
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={{ padding: 20, gap: 14 }} keyboardShouldPersistTaps="handled">
+        <ScrollView contentContainerStyle={{ padding: 16, gap: 14 }} keyboardShouldPersistTaps="handled">
           {error && <FormAlert message={error} />}
           {notice && <Text className="friend-row__note" style={{ color: colors.ink }} accessibilityLiveRegion="polite">{notice}</Text>}
 

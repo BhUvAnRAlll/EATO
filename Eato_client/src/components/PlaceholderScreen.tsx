@@ -27,23 +27,26 @@ export function PlaceholderScreen({ title, subtitle, icon, children, showBack = 
     <View className="flex-1 bg-cream">
       <StatusBar style="dark" />
       <SafeAreaView style={{ flex: 1 }} edges={["top", "left", "right"]}>
-        <View className="h-11 flex-row items-center justify-center px-5">
-          {canGoBack && (
-            <Pressable onPress={() => router.back()} hitSlop={12} className="absolute left-5" accessibilityRole="button" accessibilityLabel="Back">
-              <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={20} tintColor={colors.forestInk} />
+        <View className="screen-bar">
+          {canGoBack ? (
+            <Pressable onPress={() => router.back()} className="screen-bar__back" accessibilityRole="button" accessibilityLabel="Back">
+              <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={20} tintColor={colors.ink} />
             </Pressable>
+          ) : (
+            <View className="screen-bar__spacer" />
           )}
-          <Text className="type-subhead text-forest-ink">{title}</Text>
+          <Text className="screen-bar__title">{title}</Text>
+          <View className="screen-bar__spacer" />
         </View>
 
-        <ScrollView contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 24, paddingBottom: 24 }} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 16, paddingBottom: 24 }} showsVerticalScrollIndicator={false}>
           <View className="flex-1 items-center justify-center gap-3 py-10">
             <View className="placeholder__icon">
               <SymbolView name={icon} size={30} tintColor={colors.forest} />
             </View>
             <Text className="setup__title text-center">{title}</Text>
             <Text className="placeholder__text">{subtitle}</Text>
-            <View className="badge badge--pending mt-1">
+            <View className="badge badge--pending mt-1 self-center">
               <Text className="badge__label badge__label--pending">Coming soon</Text>
             </View>
           </View>

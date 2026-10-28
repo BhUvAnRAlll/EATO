@@ -12,6 +12,7 @@ import { useSessionToken } from "@/lib/session";
 import { weekOf, workoutApi, type TrainingDay } from "@/lib/workoutApi";
 import { buildSteps, exerciseProgress, setKey, setTotals, startIndex } from "@/lib/workoutSteps";
 import { colors } from "@/theme";
+import { fonts } from "@/constants/fonts";
 
 // The session player: today's session set by set, on the dark ink surface so it reads at arm's
 // length with the phone propped against a rack. Every set of every exercise in plan order, with
@@ -284,7 +285,7 @@ function Player({ day, logId, completed, initialLogged, startExercise, getToken,
             </Pressable>
           ) : (
             <Pressable onPress={setDone} hitSlop={8} className="player__done" accessibilityRole="button" accessibilityLabel="Set done">
-              <SymbolView name={icon.check} size={26} tintColor={colors.ink} />
+              <SymbolView name={icon.check} size={26} tintColor={colors.onPrimary} />
             </Pressable>
           )}
         </View>
@@ -314,7 +315,7 @@ function Player({ day, logId, completed, initialLogged, startExercise, getToken,
                   placeholder="Optional"
                   placeholderTextColor="rgba(255,255,255,0.45)"
                   accessibilityLabel="Weight in kg (optional)"
-                  style={{ width: 96, height: 40, paddingHorizontal: 12, borderRadius: 12, backgroundColor: "rgba(255,255,255,0.14)", color: colors.white, fontSize: 16, fontWeight: "700", textAlign: "right" }}
+                  style={{ width: 96, height: 40, paddingHorizontal: 12, borderRadius: 12, backgroundColor: "rgba(255,255,255,0.14)", color: colors.white, fontSize: 16, fontFamily: fonts.semibold, textAlign: "right" }}
                 />
                 <Text className="player__caption">kg</Text>
               </View>

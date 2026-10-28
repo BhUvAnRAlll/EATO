@@ -64,18 +64,19 @@ export default function LogPlanMealScreen() {
     <View className="flex-1 bg-cream">
       <StatusBar style="dark" />
       <SafeAreaView style={{ flex: 1 }} edges={["top", "left", "right", "bottom"]}>
-        <View className="h-12 flex-row items-center px-5">
-          <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Back">
-            <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={20} tintColor={colors.forestInk} />
+        <View className="screen-bar">
+          <Pressable onPress={() => router.back()} className="screen-bar__back" accessibilityRole="button" accessibilityLabel="Back">
+            <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={20} tintColor={colors.ink} />
           </Pressable>
-          <Text className="type-subhead ml-3 flex-1 text-forest-ink">Log Meal</Text>
+          <Text className="screen-bar__title" numberOfLines={1}>Log Meal</Text>
+          <View className="screen-bar__spacer" />
         </View>
         {missing ? (
           <View className="px-5 pt-4"><EmptyState icon={{ ios: "fork.knife", android: "restaurant", web: "restaurant" }} title="Meal not found" text="This meal is no longer in your plan." actionLabel="Back" onAction={() => router.back()} /></View>
         ) : !meal || !totals || !planned ? (
           <View className="px-5 pt-4"><PostSkeleton /></View>
         ) : (
-          <ScrollView contentContainerStyle={{ padding: 20, gap: 12, paddingBottom: 40 }}>
+          <ScrollView contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 40 }}>
             <View>
               <Text className="post__time">{`${mealSlotLabels[meal.slot]} · ${meal.time}`}</Text>
               <Text className="type-headline text-forest-ink">{meal.name}</Text>

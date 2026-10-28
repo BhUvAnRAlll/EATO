@@ -41,9 +41,9 @@ Main areas of the app:
 - **Food**: menu, meal detail, cart, checkout, order success, live order tracking
 - **Subscribe**: plan picker, subscription builder, review, my subscription (skip days, wallet credit)
 - **Nutrition**: food diary, water and supplement tracking, add food, barcode scan, photo scan, weight log
-- **Training**: workout plans, active workout, summary, exercise library, cardio, progress charts. Since 2026-10-25 the Workout hub is `/workout` (`app/(user)/workout/index.tsx`), opened from Profile; its tab slot is the AI Coach tab (`app/(user)/(tabs)/coach.tsx`, a coming-soon screen until the coach is built)
+- **Training**: workout plans, active workout, summary, exercise library, cardio, progress charts. Since 2026-10-25 the Workout hub is `/workout` (`app/(user)/workout/index.tsx`), opened from Profile; its tab slot is the AI Coach tab (`app/(user)/(tabs)/coach.tsx`)
 - **Community**: feed, stories, posts, friends, trainers, gym communities, messages, chat (challenges were dropped)
-- **AI Coach**: chat-based and video-based AI fitness and nutrition coach
+- **AI Coach**: intake (9 steps) → the coach's plan (a day of meals to log, the workout week) are built; daily follow-ups, weekly check-ins, chat and the video coach are planned
 - **Profile**: orders, wallet, coupons, addresses, goals, achievements, notifications, settings, Pro
 
 This is primarily a learning project. The goal is to teach developers how to build a modern AI-powered Expo app feature by feature.
@@ -54,12 +54,15 @@ This is primarily a learning project. The goal is to teach developers how to bui
 
 What is in use today:
 
-- Expo (SDK 57) + React Native + TypeScript
+- Expo (SDK 58) + React Native + TypeScript
 - Expo Router (screens in `src/app/`; the app has no server-side API routes)
 - NativeWind / Tailwind CSS
 - Zustand for client state (the profile setup store)
 - Clerk for authentication, sessions and roles (`@clerk/expo` in the app, `@clerk/backend` on the server)
-- OpenAI (server-side only, in `Eato_server/bodyComposition/`) to read body composition reports
+- OpenAI, server-side only: reading body composition reports (`Eato_server/bodyComposition/extract.js`),
+  Scan Food (`Eato_server/macro/foodScan.js`), the AI Coach's meals and note (`Eato_server/coach/plan.js`)
+  and the gym assistant (`Eato_server/whatsapp/aiProvider.js`). `OPENAI_API_KEY` is a server secret in
+  `Eato_server/.env` only, never in the app's `.env` or an `EXPO_PUBLIC_*` variable
 - Node.js + Express server (`Eato_server/`) with a MySQL database (`mysql2`): every backend concern lives here
 
 Planned, not yet wired in:
@@ -78,6 +81,7 @@ Do not introduce new major libraries unless there is a strong reason.
 | Reading an uploaded body composition report (removed from the app's setup on 2026-10-25; the server route is still there, unused) | `POST /api/body-composition` on the Express server → OpenAI (`Eato_server/bodyComposition/`) | Keeps `OPENAI_API_KEY` off the device; the file is never stored |
 | Estimating body fat % from a front and a side photo (optional Body composition step `setup/body-composition.tsx`: Scan Body → `setup/scan-guide.tsx`: the instruction video only (`assets/videos/scan-instructions.mp4` via `constants/videos.ts`, played with `expo-video`, added 2026-10-25; autoplays on a loop with no controls, with sound on phones and muted on the web) and the privacy note. The written tips and pose drawings were removed at the user's request → `setup/body-scan.tsx` → the body composition report `setup/scan-report.tsx` (animated graphs in `components/setup/ReportGraphs.tsx` and `SegmentalChart.tsx`; graph ranges in `lib/bodyScanRules.ts`). The report lives in the setup store only (not saved yet), shows no model or technical wording, offers no download, and allows screenshots and screen recordings (the block added earlier on 2026-10-25 was removed at the user's request the same day; `lib/screenProtection.ts` and `expo-screen-capture` stay for reuse, unused. On iOS that block moves the whole app window into a secure layer, so never switch it on over the photo picker or mid-transition). There is no typed body fat field. After setup, Profile › Body composition › Scan Body runs the same screens with `?from=profile` (`lib/profileScan.ts`, pure and unit-tested): the report's Save to my profile shows the change, then on confirm saves through `POST /api/profile` with the targets recalculated; refused while a trainer's target is active, and a user-entered target is kept) | `POST /api/body-composition/scan` on the Express server → the Forma scan server at `FORMA_SCAN_URL` (`Eato_server/bodyComposition/scan.js`; a separate process, `Forma_BodyFat/forma_server.py`) | Photos pass through in memory and are never stored or logged; the answer is an estimate the user accepts as their body fat % (saved like a typed value, no `'scan'` report source yet). Forma's model is not validated against DEXA or InBody and the screen says so |
 | Scan food in the Macro tab (Log food › Scan Food, `app/(user)/macro/scan.tsx`, added 2026-10-25): one photo plus an optional note → an editable estimate per food (kcal, protein, carbs, fat) → logged through `POST /api/macro/meals` as a `manual` meal (the `source` ENUM has no `scan` value) | `POST /api/macro/scan` on the Express server → OpenAI (`Eato_server/macro/foodScan.js`, `OPENAI_MODEL`, default `gpt-4o`; photos only, upload rate budget; tests use `AI_PROVIDER=fake`) | Keeps `OPENAI_API_KEY` off the device; the photo is never stored or logged and scanning writes nothing |
+| AI Coach (Coach tab, added 2026-10-26/27): the intake (`app/(user)/coach/intake/*`, 9 steps, saved once at the end with the "not medical advice" tick) and the plan. Make my plan → the workout from the existing engine (`workout/plans.js` `planFromCoach`: the intake's goal, level and days saved as the member's workout answers; the library narrowed by the main spot's equipment, high-risk lifts left out for joints or conditions; days trimmed to the session length, see `coach/planRules.js`), and one day of five Indian meals from OpenAI scaled to the member's `nutrition_targets`. Each meal logs once a day to Macro (`source = 'plan'`, `plan_log_key`). While a human trainer coaches the member (`trainer_clients`), the trainer's plan wins: no coach plan is shown, made or logged | `/api/coach/intake` and `/api/coach/plan` on the Express server (`Eato_server/coach/`; tables `coach_profiles`, `coach_plans`, `coach_plan_meals`, `coach_plan_meal_items`, migrations `2026-10-30-coach-intake.sql` and `2026-10-31-coach-plans.sql`; making a plan is limited to 5 an hour per member; tests use `AI_PROVIDER=fake`) | Keeps `OPENAI_API_KEY` off the device; the exercises stay deterministic and from the library, and the model only writes the meals and the coach's note, which the server cleans and scales |
 | Profile and nutrition targets from setup | MySQL (`users`, `profiles`, `nutrition_targets`, `body_composition_reports`) via `POST /api/profile` and `GET /api/profile` on the Express server; Clerk `unsafeMetadata.profileComplete` is only a routing shortcut | Server-verified identity, one transaction per save, the app's own calculator re-checks every record before it is stored |
 | App data (meals, orders, diary, weigh-ins, trainer ↔ client links) | MySQL via the Express server (`Eato_server/`) | Shared, queryable data that outlives one device |
 | Friendships and the messaging rule | MySQL `community_friendships` via `/api/community/friends/*` (`Eato_server/community/friends.js`, pure rules in `friendRules.js`). New conversations and new messages need an accepted friendship; older chats stay readable | Messaging is for friends only, checked on the server for every send |
@@ -122,7 +126,7 @@ and it decides which gym an event belongs to only from the receiving phone-numbe
   gym's invite link as a QR code (`react-native-qrcode-svg`); Join a gym can scan one with the camera
   (`expo-camera`'s `CameraView`, permission text in `app.json`), or the code is typed by hand.
   `codeFromScan` in `src/lib/gymRules.ts` reads the code from a scanned link or bare code. The camera
-  module needs a new development build on iOS and Android (Expo Go and web work as they are).
+  module needs a new local build on iOS and Android (`npx expo run:ios|android`); the web works as it is.
 - **Plans** on a gym are a label only. No payment exists, and the screens say so.
 - **Trainers:** a trainer is an account with the Clerk role `trainer` who saved a profile
   (`PUT /api/trainers/me/profile`). Connecting is a request the trainer accepts or declines from
@@ -356,43 +360,55 @@ Prefer reusable class patterns through utilities in `global.css`. If there isn't
 
 ### Colour theme
 
-Since the 2026-10-25 redesign JustFit follows a premium, minimal, Apple-inspired look (the "global
-UI/UX redesign" brief and its reference image): white pages, soft off-white panels, near-black ink
-and buttons, hairline grey borders, a soft lavender accent for selection, sliders and progress.
-The palette lives in `src/theme/tokens.css` with a JS copy in `src/theme/index.ts`; keep the two
-in sync and never hard-code a hex value in a screen or component when a token exists.
+Since 2026-10-27 JustFit follows the **Peak Fitness** design system (`Peak-Fitness-Design-System.pdf`,
+shared by the user) with one change: its orange is replaced by the **JustFit logo red `#D40005`**
+(black was tried on 2026-10-28 and reverted the same day at the user's request).
+White screens, cards outlined with a 1px border (no shadows), one hot red for the main button,
+progress fills, selection, links and the active tab, near-black ink, and pastel tiles for body
+metrics. The palette lives in `src/theme/tokens.css` with a JS copy in `src/theme/index.ts`; keep
+the two in sync and never hard-code a hex value in a screen or component when a token exists.
+The redesign goes screen by screen: the tokens changed first, each screen's layout follows with
+the user's approval.
 
 | Role | Token(s) | Value |
 | --- | --- | --- |
 | Page background, cards and sheets | `cream`, `background`, `surface`, `cream-light` | `#FFFFFF` |
-| Soft panels, fields, option tiles / tracks | `cream-deep`, `surface-alt` / `cream-tab` | `#F5F6F7` / `#ECEEF2` |
-| Borders and dividers | `cream-line`, `line`, `sand` | `#E8E9ED` |
-| Ink: titles and body | `forest-ink`, `ink`, `leaf-dark` | `#15151D` |
-| Primary buttons | `forest` | `#101018` |
-| Lavender accent: sliders, selected outline, avatars | `primary` | `#C8C4F5` |
-| Selected surface, soft fills | `accent-soft`, `forest-soft`, `leaf-soft`, `success-soft` | `#F0EFF8` |
-| Strong accent: links, rings, active tab, "today" | `leaf`, `success` | `#5E56C9` (AA on every surface) |
-| Secondary / faint text | `muted` / `faint` | `#6E7079` / `#A0A2AA` |
-| Danger / warning / info | `danger` / `warning` / `info` | `#E5484D` / `#C4923F` / `#8FB4EE` |
+| Filled containers: fields, tiles / tracks, empty bars | `cream-deep`, `surface-alt` / `cream-tab` | `#F4F4F5` / `#E9E9EC` |
+| Borders and dividers / control outlines | `cream-line`, `line`, `sand` / `line-strong` | `#E8E8EA` / `#C9C9CF` |
+| Ink: titles and body | `forest-ink`, `ink`, `leaf-dark` | `#111111` |
+| Brand red: primary buttons, progress, selected, links, active tab, "today" | `forest`, `primary`, `leaf` | `#D40005` (pressed `primary-pressed` `#B00004`) |
+| Text and icons on red | `on-primary` | `#FFFFFF` (5.5:1) |
+| Small red text on white | `primary-text` | `#C00005` |
+| Selected surface, soft red fills | `accent-soft`, `forest-soft`, `leaf-soft` | `#FDEAEA` |
+| Secondary / faint text | `muted` / `faint` | `#5C5C63` / `#767680` |
+| Dark hero cards and their text | `inverse` / `on-inverse`, `on-inverse-muted` | `#1C1C1E` / `#FFFFFF`, `#A1A1AA` |
+| Success / danger / warning / info | `success` (`success-soft`) / `danger` / `warning` / `info`, `accent-blue` | `#2F8F57` (`#E3F6EA`) / `#D92D20` / `#C4923F` / `#4A6CF7` |
+| Metric tiles: ground / icon | `tint-blue`, `tint-green`, `tint-peach`, `tint-lavender` / `icon-*` | `#E6EEFD`, `#E3F6EA`, `#FFEEDF`, `#EEE9FB` / `#3B5BDB`, `#2F8F57`, `#C25400`, `#7C5CD6` |
 | Macros | `protein` / `carbs` / `fat` | `#6CC28A` / `#A9A3F0` / `#F2C14E` |
 
-- The brief's secondary grey `#777982` is 4.34:1 on white, under AA for small text, so `muted` is
-  the nearest passing shade (`#6E7079`). `faint` (`#A0A2AA`) is for placeholders and hints only.
+- Unlike the PDF's orange (where labels on it are dark), white text on the logo red passes AA, so
+  labels and icons on red are white (`on-primary`); dark ink on red is only 3.4:1, never use it.
+- `danger` (`#D92D20`) is close to the brand red: keep it for errors and destructive actions, small,
+  and always with words.
+- Selected chips and options: `accent-soft` fill with a red (`primary`) outline and ink text.
 - Token names (`forest`, `cream`, `leaf`) come from earlier themes. They keep their roles; only the
   values changed. Use them by role, not by the colour their name suggests.
-- `danger` and `warning` are fills and icons; pair them with ink text where a message must be read.
-- Type: system font (San Francisco) through `--font-sans`; titles 26–30 pt bold (`type-title`,
-  `setup__title`, `auth__title`), section headings 20 pt semibold (`type-headline`), body 15/14 pt
-  regular. Weight 800 is no longer used.
-- Shapes: cards 20 pt radius with a hairline border and a soft shadow (`card`); fields, option
-  tiles and chips sit on `#F5F6F7`; primary buttons are 54 pt dark pills (`PrimaryButton`,
-  `btn-forest`) with a pressed state; secondary buttons are 54 pt outlined pills (`btn-outline`).
-- Shared pieces: `components/ProgressRing.tsx` (animated lavender ring), `list-row` (settings-style
-  rows), `switchColors` in `theme/index.ts` for every `Switch`, the flat white tab bar
-  (`BottomTabBar`), and the setup frame (`SetupScreen`: back chevron, dashed progress, centred
-  title, one full-width action).
-- A backup of the app before the redesign is not in git; it was a scratchpad tarball from the
-  session that made it.
+- Radius: `sm` 8, `md` 12 (fields, stat cells, thumbnails), `lg` 16 (cards, metric tiles), `xl` 24
+  (dark hero card, sheets), `pill` (buttons, chips, progress bars, icon buttons).
+- Elevation: cards use a 1px border; `shadow-card` is now empty. `shadow-sheet` is only for floating
+  things (bottom nav, mini player), `shadow-glow` only for the main play button.
+- Type: Poppins 400/500/600 (`assets/fonts/`, SIL OFL), loaded in `app/_layout.tsx` from
+  `constants/fonts.ts`. Each weight is its own family (`--font-sans`, `--font-sans-medium`,
+  `--font-sans-semibold`; `fonts.regular|medium|semibold` in code): set the family, never
+  `fontWeight` (Android would fake-bold one face); bold maps to SemiBold. Scale: display 28/36,
+  title 20/28 (`type-title`), headline 16/24, subhead 15/22, body 14/22, caption 12/18, tab labels 10/14.
+- Screen gutter 16 (`px-4`), 20 between sections. Home's macro card is the PDF's ActivityCard
+  (`activity-card*`) with `ProgressStat` rows (`components/ProgressStat.tsx`).
+- Shared pieces: `components/ProgressRing.tsx`, `list-row` (settings-style rows), `switchColors` in
+  `theme/index.ts` for every `Switch` (red when on), the flat white tab bar (`BottomTabBar`), and
+  the setup frame (`SetupScreen`: back chevron, dashed progress, centred title, one full-width
+  action). The PDF's components (MetricCard, ProgramCard, Chip, Tabs, ProgressStat, ActivityCard,
+  WorkoutStep, MiniPlayer, IconButton) are built as their screens are redesigned.
 
 Avoid large inline styles unless required.
 
@@ -610,7 +626,7 @@ Never expose secret keys in the mobile app. Only `EXPO_PUBLIC_*` variables reach
   with the limit the route needs: `express.json({ limit })` for small JSON, `jsonBodyWithLimit` from
   `requestBody.js` for the upload route (it refuses an oversized body while it is still arriving).
 - `Eato_server/.env` needs `CLERK_SECRET_KEY` (to verify tokens, look up accounts and grant roles) and
-  `OPENAI_API_KEY` (to read reports). Never commit any `.env`.
+  `OPENAI_API_KEY` (report reading, Scan Food, the AI Coach's meals and the gym assistant). Never commit any `.env`.
 
 ---
 
@@ -910,13 +926,26 @@ Run lint and typecheck before declaring any task done.
 - Import `Link`, `router`, and `useLocalSearchParams` from `expo-router`.
 - Docs: https://docs.expo.dev/router/introduction.md
 
-## Building with EAS
+## Building locally (no Expo services, decided 2026-10-27)
 
-Use EAS to build, sign, and submit the app in the cloud (`eas build`, `eas submit`) and to ship over-the-air updates (`eas update`) — no local Xcode or Android Studio required. Run EAS CLI as `bunx eas-cli <command>` in Bun projects, or `npx eas-cli@latest <command>` otherwise; substitute that for bare `eas` in docs examples.
-Docs: https://docs.expo.dev/eas/index.md
+JustFit does not use Expo's cloud: no EAS Build, Submit or Update, no Expo account link (`owner` and
+`extra.eas.projectId` were removed from `app.json`, and `eas.json` was deleted), and no Expo Go.
+Expo stays only as the open-source libraries and CLI inside the app. Do not suggest or add EAS.
+
+- Develop: `npm run android` / `npm run ios` (`expo run:*`) builds the app on this Mac and loads the
+  screens from the local dev server (`npm start`). Only native changes (a new native library, a
+  permission, the icon, the app id) need a rebuild.
+- Release APK: `npm run build:android` (prebuild, then `./gradlew assembleRelease`); the file is
+  `android/app/build/outputs/apk/release/app-release.apk`. Set `EXPO_PUBLIC_API_URL` (the hosted
+  server) before building, or a release build looks for the server on `localhost`. Needs
+  `ANDROID_HOME=$HOME/Library/Android/sdk`.
+- Play Store: the generated release build is signed with the debug key. Publishing needs your own
+  upload keystore (kept out of git) and `./gradlew bundleRelease` for the `.aab`.
+- iPhone: Xcode on this Mac (`npm run ios`, then Archive in Xcode); the App Store still needs the
+  Apple Developer account.
 
 ## Rules
 
 - If `ios/` and `android/` directories do not exist, they are generated (Continuous Native Generation). Never create or edit them by hand — configure native behavior in `app.json` and config plugins.
-- Expo Go only includes its bundled native modules. After adding a library with native code, the app needs a development build: `npx expo run:ios|android` locally, or `eas build --profile development`.
+- After adding a library with native code, rebuild the app locally with `npx expo run:ios|android` (Expo Go and EAS are not used).
 - Prefer recommended Expo modules over third-party libraries, and check your available skills before adding dependencies. Docs: https://docs.expo.dev/versions/latest/index.md

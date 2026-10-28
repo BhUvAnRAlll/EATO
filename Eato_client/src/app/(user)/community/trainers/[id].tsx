@@ -15,6 +15,7 @@ import { coachingModeLabels, connectButton, specialtyLabels } from "@/lib/traine
 import { trainers, type TrainerDetail } from "@/lib/trainers";
 import { useSessionToken } from "@/lib/session";
 import { colors } from "@/theme";
+import { fonts } from "@/constants/fonts";
 
 // A trainer's profile. The basics always show; the coaching approach, qualifications and
 // languages unlock when the trainer accepts the member, and so does messaging. Connecting
@@ -69,23 +70,24 @@ export default function TrainerProfileScreen() {
     <View className="flex-1 bg-cream">
       <StatusBar style="dark" />
       <SafeAreaView style={{ flex: 1 }} edges={["top", "left", "right"]}>
-        <View className="h-12 flex-row items-center px-5">
-          <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Back">
-            <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={20} tintColor={colors.forestInk} />
+        <View className="screen-bar">
+          <Pressable onPress={() => router.back()} className="screen-bar__back" accessibilityRole="button" accessibilityLabel="Back">
+            <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={20} tintColor={colors.ink} />
           </Pressable>
-          <Text className="type-subhead ml-3 flex-1 text-forest-ink" numberOfLines={1}>{trainer?.member.name ?? "Trainer"}</Text>
+          <Text className="screen-bar__title" numberOfLines={1}>{trainer?.member.name ?? "Trainer"}</Text>
+          <View className="screen-bar__spacer" />
         </View>
         {!trainer ? (
           <View className="px-5 pt-4">{error ? <EmptyState icon={{ ios: "person.slash", android: "person_off", web: "person_off" }} title="Can't open this trainer" text={error} actionLabel="Retry" onAction={load} /> : <PostSkeleton />}</View>
         ) : (
-          <ScrollView contentContainerStyle={{ padding: 20, gap: 12, paddingBottom: 40 }}>
+          <ScrollView contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 40 }}>
             <View className="post__card items-center gap-2">
               {trainer.photoUrl ? <AuthImage path={trainer.photoUrl} style={{ width: 88, height: 88, borderRadius: 44 }} /> : <Avatar member={trainer.member} size={88} />}
               <Text className="type-headline text-forest-ink">{trainer.member.name}</Text>
               {trainer.verified && (
                 <View className="flex-row items-center gap-1 rounded-pill bg-success-soft px-2.5 py-0.5" accessibilityLabel="Verified trainer">
                   <SymbolView name={{ ios: "checkmark.seal.fill", android: "verified", web: "verified" }} size={13} tintColor={colors.success} />
-                  <Text className="post__time" style={{ color: colors.success, fontWeight: "700" }}>Verified</Text>
+                  <Text className="post__time" style={{ color: colors.success, fontFamily: fonts.semibold }}>Verified</Text>
                 </View>
               )}
               <Text className="post__time">{`${trainer.title} · ${trainer.yearsExperience} years`}</Text>

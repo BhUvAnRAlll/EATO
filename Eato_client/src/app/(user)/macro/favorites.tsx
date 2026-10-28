@@ -28,7 +28,7 @@ export default function Favorites() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   // Two per row, never wider than 200
-  const cardWidth = Math.min(200, Math.floor((width - 40 - 12) / 2));
+  const cardWidth = Math.min(200, Math.floor((width - 32 - 12) / 2));
 
   useFocusEffect(
     useCallback(() => {
@@ -83,7 +83,7 @@ export default function Favorites() {
           </View>
         ) : (
           <>
-            <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 24, gap: 16 }} showsVerticalScrollIndicator={false}>
+            <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24, gap: 16 }} showsVerticalScrollIndicator={false}>
               {favorites.length === 0 ? (
                 <DashedBlock icon={{ ios: "heart", android: "favorite_border", web: "favorite_border" }} title="No favourites yet" text="Tap the heart on a recent meal to save it here." />
               ) : (

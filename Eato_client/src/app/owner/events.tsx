@@ -59,10 +59,10 @@ export default function OwnerEvents() {
           <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={20} tintColor={colors.ink} />
         </Pressable>
         <Text className="screen-bar__title">Events</Text>
-        <View className="screen-bar__back" />
+        <View className="screen-bar__spacer" />
       </View>
       <ScrollView
-        contentContainerStyle={{ padding: 20, gap: 14, paddingBottom: 32 }}
+        contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: 32 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} tintColor={colors.forest} />}
       >
         <Text className="owner__subtitle">Classes, workshops and meetups members can RSVP to.</Text>

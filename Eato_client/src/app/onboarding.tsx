@@ -95,7 +95,8 @@ export default function Onboarding() {
           className="flex-1"
           renderItem={({ item }) => (
             <View style={{ width, height: listHeight > 0 ? listHeight : undefined }} className="flex-1">
-              <View className={short ? "px-9 pt-4" : "px-9 pt-7"}>
+              {/* Above the art, which tucks under the text (negative margin) and has a white edge */}
+              <View className={short ? "px-9 pt-4" : "px-9 pt-7"} style={{ zIndex: 1 }}>
                 <Text className="onboarding__title" style={short ? { fontSize: 30, lineHeight: 34 } : undefined}>
                   {item.title}
                 </Text>

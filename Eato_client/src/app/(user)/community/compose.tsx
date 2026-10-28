@@ -279,14 +279,14 @@ export default function ComposePost() {
             <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={20} tintColor={colors.ink} />
           </Pressable>
           <Text className="screen-bar__title">{editing ? "Edit Post" : "Create Post"}</Text>
-          <View className="screen-bar__back" />
+          <View className="screen-bar__spacer" />
         </View>
 
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
           {loading ? (
             <ActivityIndicator color={colors.forest} className="mt-6" />
           ) : (
-            <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 24, gap: 18 }} keyboardShouldPersistTaps="handled">
+            <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 24, gap: 18 }} keyboardShouldPersistTaps="handled">
               {/* Posting to: your feed or a gym (fixed when editing) */}
               <Pressable
                 onPress={() => setSheet("place")}

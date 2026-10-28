@@ -72,7 +72,7 @@ export default function ExploreGyms() {
             <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={20} tintColor={colors.ink} />
           </Pressable>
           <Text className="screen-bar__title">Explore Gyms</Text>
-          <View className="screen-bar__back" />
+          <View className="screen-bar__spacer" />
         </View>
         <FlatList
           data={shown}
@@ -83,7 +83,7 @@ export default function ExploreGyms() {
                 <SymbolView name={{ ios: "magnifyingglass", android: "search", web: "search" }} size={18} tintColor={colors.muted} />
                 <TextInput className="search__input" value={search} onChangeText={setSearch} placeholder="Search by name or area" placeholderTextColor={colors.faint} autoCorrect={false} accessibilityLabel="Search gyms" />
               </View>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mt-3" contentContainerStyle={{ paddingHorizontal: 20, gap: 8 }} accessibilityRole="tablist">
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mt-3" contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }} accessibilityRole="tablist">
                 {filters.map((item) => {
                   const selected = filter === item.key;
                   return (

@@ -6,86 +6,72 @@
 @import "./theme/tokens.css";
 
 /*
- * Text roles — San Francisco (system font) via --font-sans.
+ * Text roles — Poppins: --font-sans (400), --font-sans-medium (500), --font-sans-semibold (600).
+ * Each weight is its own font file, so a role sets the family, never font-weight.
  * Screens pick a role, never a raw size: <Text className="type-title text-ink">
  */
 
 @utility type-display {
-  font-family: var(--font-sans);
-  font-size: 30px;
+  font-family: var(--font-sans-semibold);
+  font-size: 28px;
   line-height: 36px;
-  font-weight: 700;
-  letter-spacing: -0.5px;
 }
 
 @utility type-title {
-  font-family: var(--font-sans);
-  font-size: 26px;
-  line-height: 32px;
-  font-weight: 700;
-  letter-spacing: -0.4px;
+  font-family: var(--font-sans-semibold);
+  font-size: 20px;
+  line-height: 28px;
 }
 
 @utility type-headline {
-  font-family: var(--font-sans);
-  font-size: 20px;
-  line-height: 26px;
-  font-weight: 600;
-  letter-spacing: -0.2px;
+  font-family: var(--font-sans-semibold);
+  font-size: 16px;
+  line-height: 24px;
 }
 
 @utility type-subhead {
-  font-family: var(--font-sans);
-  font-size: 16px;
-  line-height: 21px;
-  font-weight: 600;
+  font-family: var(--font-sans-semibold);
+  font-size: 15px;
+  line-height: 22px;
 }
 
 @utility type-body {
   font-family: var(--font-sans);
-  font-size: 15px;
-  line-height: 21px;
-  font-weight: 400;
+  font-size: 14px;
+  line-height: 22px;
 }
 
 @utility type-callout {
   font-family: var(--font-sans);
   font-size: 14px;
-  line-height: 19px;
-  font-weight: 400;
+  line-height: 20px;
 }
 
 @utility type-caption {
   font-family: var(--font-sans);
-  font-size: 13px;
-  line-height: 17px;
-  font-weight: 400;
+  font-size: 12px;
+  line-height: 18px;
 }
 
 @utility type-overline {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 11px;
   line-height: 14px;
-  font-weight: 700;
   letter-spacing: 1px;
   text-transform: uppercase;
 }
 
 /* Numerals use tighter tracking */
 @utility type-number-big {
-  font-family: var(--font-sans);
-  font-size: 34px;
-  line-height: 40px;
-  font-weight: 700;
-  letter-spacing: -0.8px;
+  font-family: var(--font-sans-semibold);
+  font-size: 28px;
+  line-height: 36px;
 }
 
 @utility type-number-stat {
-  font-family: var(--font-sans);
-  font-size: 22px;
-  line-height: 27px;
-  font-weight: 700;
-  letter-spacing: -0.4px;
+  font-family: var(--font-sans-semibold);
+  font-size: 24px;
+  line-height: 30px;
 }
 
 /*
@@ -118,14 +104,13 @@
 @utility btn--secondary {
   background-color: var(--color-surface);
   border-width: 1px;
-  border-color: var(--color-line);
+  border-color: var(--color-line-strong);
 }
 
 @utility btn__label {
-  font-family: var(--font-sans);
-  font-size: 15px;
+  font-family: var(--font-sans-semibold);
+  font-size: 14px;
   line-height: 20px;
-  font-weight: 600;
 }
 
 @utility btn__label--primary {
@@ -147,10 +132,9 @@
 }
 
 @utility badge__label {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 12px;
   line-height: 16px;
-  font-weight: 700;
 }
 
 @utility badge--booked {
@@ -158,7 +142,7 @@
 }
 
 @utility badge__label--booked {
-  color: var(--color-ink);
+  color: var(--color-on-primary);
 }
 
 @utility badge--active {
@@ -213,28 +197,24 @@
 }
 
 @utility card__title {
-  font-family: var(--font-sans);
-  font-size: 16px;
-  line-height: 21px;
-  font-weight: 600;
+  font-family: var(--font-sans-semibold);
+  font-size: 15px;
+  line-height: 22px;
   color: var(--color-ink);
 }
 
 @utility card__subtitle {
   font-family: var(--font-sans);
-  font-size: 14px;
-  line-height: 19px;
-  font-weight: 400;
+  font-size: 12px;
+  line-height: 18px;
   color: var(--color-muted);
 }
 
 /* Onboarding: cream page, wordmark, two-line title, food art, dots, forest button */
 @utility onboarding__title {
-  font-family: var(--font-sans);
-  font-size: 40px;
-  line-height: 44px;
-  font-weight: 700;
-  letter-spacing: -0.8px;
+  font-family: var(--font-sans-semibold);
+  font-size: 28px;
+  line-height: 36px;
   color: var(--color-forest-ink);
 }
 
@@ -242,7 +222,6 @@
   font-family: var(--font-sans);
   font-size: 18px;
   line-height: 26px;
-  font-weight: 400;
   color: var(--color-forest-ink);
 }
 
@@ -269,10 +248,9 @@
 }
 
 @utility onboarding__button-label {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 18px;
   line-height: 22px;
-  font-weight: 600;
   color: var(--color-white);
 }
 
@@ -280,13 +258,12 @@
   font-family: var(--font-sans);
   font-size: 15px;
   line-height: 20px;
-  font-weight: 400;
   color: var(--color-forest-ink);
 }
 
 @utility onboarding__footer-link {
   font-size: 16px;
-  font-weight: 700;
+  font-family: var(--font-sans-semibold);
 }
 
 /* Soft circle peeking in from the top-right edge */
@@ -307,10 +284,9 @@
 
 /* Brand wordmark tagline: "BALANCED MEALS • STRONGER YOU" */
 @utility brand__tagline {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 8.5px;
   line-height: 11px;
-  font-weight: 600;
   letter-spacing: 1.9px;
   text-transform: uppercase;
   color: var(--color-forest-ink);
@@ -339,20 +315,17 @@
 }
 
 @utility btn-forest__label {
-  font-family: var(--font-sans);
-  font-size: 16px;
+  font-family: var(--font-sans-semibold);
+  font-size: 14px;
   line-height: 20px;
-  font-weight: 600;
   color: var(--color-white);
 }
 
 /* Auth screens (sign up / log in / forgot password) on the cream page */
 @utility auth__title {
-  font-family: var(--font-sans);
-  font-size: 30px;
-  line-height: 36px;
-  font-weight: 700;
-  letter-spacing: -0.5px;
+  font-family: var(--font-sans-semibold);
+  font-size: 24px;
+  line-height: 32px;
   color: var(--color-forest-ink);
 }
 
@@ -360,50 +333,49 @@
   font-family: var(--font-sans);
   font-size: 15px;
   line-height: 21px;
-  font-weight: 400;
   color: var(--color-muted);
 }
 
 /* Segmented Log in / Sign up switch */
 @utility auth__tabs {
   height: 44px;
-  padding: 4px;
-  border-radius: var(--radius-pill);
-  background-color: var(--color-surface-alt);
   flex-direction: row;
+  gap: var(--spacing-sm);
 }
 
 @utility auth__tab {
   flex: 1;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-md);
+  border-width: 1px;
+  border-color: var(--color-line);
+  background-color: var(--color-surface);
   align-items: center;
   justify-content: center;
+  padding-inline: 6px;
 }
 
 @utility auth__tab--active {
-  background-color: var(--color-surface);
-  box-shadow: var(--shadow-card);
+  border-width: 1.5px;
+  border-color: var(--color-accent-blue);
 }
 
 @utility auth__tab-label {
   font-family: var(--font-sans);
-  font-size: 15px;
+  font-size: 14px;
   line-height: 20px;
-  font-weight: 500;
   color: var(--color-muted);
 }
 
 @utility auth__tab-label--active {
-  font-weight: 700;
-  color: var(--color-forest-ink);
+  font-family: var(--font-sans-semibold);
+  color: var(--color-ink);
 }
 
 /* Labelled input: <Text className="auth__label" /> + <View className="auth__field"><TextInput className="auth__input" /> */
 @utility auth__label {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-medium);
   font-size: 13px;
   line-height: 17px;
-  font-weight: 500;
   color: var(--color-ink-soft);
 }
 
@@ -424,7 +396,6 @@
   height: 100%;
   font-family: var(--font-sans);
   font-size: 15px;
-  font-weight: 400;
   color: var(--color-forest-ink);
 }
 
@@ -432,21 +403,19 @@
   font-family: var(--font-sans);
   font-size: 13px;
   line-height: 17px;
-  font-weight: 400;
   color: var(--color-muted);
 }
 
 @utility auth__note-link {
-  font-weight: 700;
+  font-family: var(--font-sans-semibold);
   color: var(--color-forest);
 }
 
 /* "Forgot password?" */
 @utility auth__link {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 14px;
   line-height: 18px;
-  font-weight: 700;
   color: var(--color-forest-ink);
 }
 
@@ -457,10 +426,9 @@
 }
 
 @utility auth__divider-label {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-medium);
   font-size: 13px;
   line-height: 17px;
-  font-weight: 500;
   color: var(--color-muted);
 }
 
@@ -478,10 +446,9 @@
 }
 
 @utility auth__social-label {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-medium);
   font-size: 15px;
   line-height: 20px;
-  font-weight: 500;
   color: var(--color-forest-ink);
 }
 
@@ -489,22 +456,19 @@
   font-family: var(--font-sans);
   font-size: 15px;
   line-height: 20px;
-  font-weight: 400;
   color: var(--color-muted);
 }
 
 @utility auth__footer-link {
-  font-weight: 700;
+  font-family: var(--font-sans-semibold);
   color: var(--color-forest);
 }
 
 /* Slogan at the top of the log in card */
 @utility auth__slogan {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 23px;
   line-height: 28px;
-  letter-spacing: -0.3px;
-  font-weight: 700;
   color: var(--color-forest);
 }
 
@@ -553,14 +517,13 @@
 
 @utility verify__cell--active {
   border-width: 1.5px;
-  border-color: var(--color-ink);
+  border-color: var(--color-primary);
 }
 
 @utility verify__digit {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 22px;
   line-height: 28px;
-  font-weight: 700;
   color: var(--color-ink);
 }
 
@@ -573,10 +536,9 @@
 
 @utility alert__text {
   flex: 1;
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 13px;
   line-height: 18px;
-  font-weight: 600;
   color: var(--color-danger);
 }
 
@@ -594,32 +556,28 @@
 }
 
 @utility setup__step {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-medium);
   font-size: 12px;
   line-height: 16px;
-  font-weight: 500;
   color: var(--color-muted);
 }
 
 @utility setup__title {
-  font-family: var(--font-sans);
-  font-size: 26px;
-  line-height: 32px;
-  font-weight: 700;
-  letter-spacing: -0.4px;
+  font-family: var(--font-sans-semibold);
+  font-size: 22px;
+  line-height: 30px;
   color: var(--color-forest-ink);
 }
 
 @utility setup__section {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 14px;
   line-height: 18px;
-  font-weight: 700;
   color: var(--color-forest-ink);
 }
 
 @utility setup__optional {
-  font-weight: 400;
+  font-family: var(--font-sans);
   color: var(--color-muted);
 }
 
@@ -638,19 +596,17 @@
 }
 
 @utility setup__field-label {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-medium);
   font-size: 11px;
   line-height: 14px;
-  font-weight: 500;
   color: var(--color-muted);
 }
 
 @utility setup__field-input {
   padding: 0;
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-medium);
   font-size: 15px;
   line-height: 20px;
-  font-weight: 500;
   color: var(--color-forest-ink);
 }
 
@@ -659,10 +615,9 @@
 }
 
 @utility setup__unit {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-medium);
   font-size: 13px;
   line-height: 17px;
-  font-weight: 500;
   color: var(--color-muted);
 }
 
@@ -698,10 +653,9 @@
 }
 
 @utility setup__card-title {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 15px;
   line-height: 20px;
-  font-weight: 700;
   color: var(--color-forest-ink);
 }
 
@@ -709,7 +663,6 @@
   font-family: var(--font-sans);
   font-size: 12px;
   line-height: 16px;
-  font-weight: 400;
   color: var(--color-muted);
 }
 
@@ -733,7 +686,7 @@
 }
 
 @utility setup__radio--selected {
-  border-color: var(--color-forest);
+  border-color: var(--color-primary);
 }
 
 @utility setup__radio-dot {
@@ -749,28 +702,27 @@
   padding-inline: 16px;
   border-radius: var(--radius-pill);
   border-width: 1px;
-  border-color: var(--color-surface-alt);
-  background-color: var(--color-surface-alt);
+  border-color: var(--color-line);
+  background-color: var(--color-surface);
   align-items: center;
   justify-content: center;
 }
 
 @utility setup__chip--selected {
-  border-color: var(--color-forest);
-  background-color: var(--color-forest);
+  border-color: var(--color-primary);
+  background-color: var(--color-accent-soft);
 }
 
 @utility setup__chip-label {
   font-family: var(--font-sans);
   font-size: 13px;
-  line-height: 17px;
-  font-weight: 500;
-  color: var(--color-forest-ink);
+  line-height: 18px;
+  color: var(--color-ink);
 }
 
 @utility setup__chip-label--selected {
-  font-weight: 600;
-  color: var(--color-white);
+  font-family: var(--font-sans-semibold);
+  color: var(--color-ink);
 }
 
 @utility setup__info {
@@ -787,35 +739,31 @@
   padding-inline: var(--spacing-xl);
   border-radius: var(--radius-pill);
   border-width: 1px;
-  border-color: var(--color-line);
+  border-color: var(--color-line-strong);
   background-color: var(--color-surface);
   align-items: center;
   justify-content: center;
 }
 
 @utility btn-outline__label {
-  font-family: var(--font-sans);
-  font-size: 16px;
+  font-family: var(--font-sans-semibold);
+  font-size: 14px;
   line-height: 20px;
-  font-weight: 600;
   color: var(--color-forest-ink);
 }
 
 /* Nutrition targets */
 @utility setup__kcal {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 28px;
   line-height: 34px;
-  font-weight: 700;
-  letter-spacing: -0.5px;
   color: var(--color-forest-ink);
 }
 
 @utility setup__macro-value {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 18px;
   line-height: 22px;
-  font-weight: 700;
   color: var(--color-forest-ink);
 }
 
@@ -867,10 +815,9 @@
 }
 
 @utility upload__title {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 16px;
   line-height: 21px;
-  font-weight: 700;
   color: var(--color-forest-ink);
   text-align: center;
 }
@@ -879,7 +826,6 @@
   font-family: var(--font-sans);
   font-size: 14px;
   line-height: 18px;
-  font-weight: 400;
   color: var(--color-muted);
   text-align: center;
 }
@@ -888,7 +834,6 @@
   font-family: var(--font-sans);
   font-size: 13px;
   line-height: 17px;
-  font-weight: 400;
   color: var(--color-faint);
   text-align: center;
 }
@@ -916,10 +861,9 @@
 }
 
 @utility upload__option-label {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 14px;
   line-height: 18px;
-  font-weight: 600;
   color: var(--color-forest-ink);
   text-align: center;
 }
@@ -935,10 +879,9 @@
 }
 
 @utility setup__note-title {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 14px;
   line-height: 18px;
-  font-weight: 700;
   color: var(--color-forest-ink);
 }
 
@@ -946,7 +889,6 @@
   font-family: var(--font-sans);
   font-size: 13px;
   line-height: 16px;
-  font-weight: 400;
   color: var(--color-muted);
 }
 
@@ -962,10 +904,9 @@
 }
 
 @utility home__pill-label {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-medium);
   font-size: 13px;
   line-height: 17px;
-  font-weight: 500;
   color: var(--color-forest-ink);
 }
 
@@ -974,7 +915,7 @@
   height: 44px;
   border-radius: var(--radius-pill);
   border-width: 1px;
-  border-color: var(--color-cream-line);
+  border-color: var(--color-line-strong);
   background-color: var(--color-white);
   align-items: center;
   justify-content: center;
@@ -990,11 +931,10 @@
 }
 
 @utility home__avatar-label {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 17px;
   line-height: 22px;
-  font-weight: 600;
-  color: var(--color-forest-ink);
+  color: var(--color-on-primary);
 }
 
 @utility home__unread {
@@ -1009,21 +949,18 @@
 
 /* Hero promotion slide */
 @utility home__eyebrow {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 11px;
   line-height: 14px;
-  font-weight: 700;
   letter-spacing: 1.6px;
   text-transform: uppercase;
   color: var(--color-muted);
 }
 
 @utility home__headline {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 27px;
   line-height: 31px;
-  font-weight: 700;
-  letter-spacing: -0.6px;
   color: var(--color-ink);
 }
 
@@ -1035,7 +972,6 @@
   font-family: var(--font-sans);
   font-size: 14px;
   line-height: 19px;
-  font-weight: 400;
   color: var(--color-ink-soft);
 }
 
@@ -1051,10 +987,9 @@
 }
 
 @utility home__cta-label {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 16px;
   line-height: 20px;
-  font-weight: 600;
   color: var(--color-white);
 }
 
@@ -1083,10 +1018,9 @@
 
 /* Section header link: "View all →" */
 @utility home__link {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 14px;
   line-height: 18px;
-  font-weight: 600;
   color: var(--color-leaf);
 }
 
@@ -1103,7 +1037,6 @@
   font-family: var(--font-sans);
   font-size: 12px;
   line-height: 16px;
-  font-weight: 400;
   color: var(--color-faint);
 }
 
@@ -1132,10 +1065,9 @@
 }
 
 @utility quick__title {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 14px;
   line-height: 18px;
-  font-weight: 700;
   color: var(--color-ink);
   text-align: center;
 }
@@ -1144,29 +1076,24 @@
   font-family: var(--font-sans);
   font-size: 11px;
   line-height: 14px;
-  font-weight: 400;
   color: var(--color-muted);
   text-align: center;
 }
 
 @utility ring__value {
-  font-family: var(--font-sans);
-  font-weight: 700;
-  letter-spacing: -0.4px;
+  font-family: var(--font-sans-semibold);
   color: var(--color-ink);
 }
 
 @utility ring__target {
   font-family: var(--font-sans);
-  font-weight: 400;
   color: var(--color-muted);
 }
 
 @utility ring__label {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 13px;
   line-height: 17px;
-  font-weight: 600;
   color: var(--color-ink);
   text-align: center;
 }
@@ -1194,10 +1121,9 @@
 }
 
 @utility meal__name {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 15px;
   line-height: 19px;
-  font-weight: 700;
   color: var(--color-ink);
 }
 
@@ -1205,7 +1131,6 @@
   font-family: var(--font-sans);
   font-size: 12px;
   line-height: 17px;
-  font-weight: 400;
   color: var(--color-muted);
 }
 
@@ -1219,10 +1144,9 @@
 }
 
 @utility meal__add-label {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 15px;
   line-height: 18px;
-  font-weight: 700;
   color: var(--color-white);
 }
 
@@ -1237,20 +1161,18 @@
 }
 
 @utility today__slot {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 11px;
   line-height: 14px;
-  font-weight: 600;
   letter-spacing: 1px;
   text-transform: uppercase;
   color: var(--color-muted);
 }
 
 @utility today__name {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 15px;
   line-height: 19px;
-  font-weight: 700;
   color: var(--color-ink);
 }
 
@@ -1264,10 +1186,9 @@
 }
 
 @utility today__chip-label {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 11px;
   line-height: 14px;
-  font-weight: 600;
   color: var(--color-ink-soft);
 }
 
@@ -1281,10 +1202,9 @@
 }
 
 @utility today__status-label {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 14px;
   line-height: 18px;
-  font-weight: 600;
   color: var(--color-white);
 }
 
@@ -1307,10 +1227,9 @@
 }
 
 @utility live__label {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 11px;
   line-height: 14px;
-  font-weight: 700;
   letter-spacing: 1px;
   text-transform: uppercase;
   color: var(--color-leaf);
@@ -1335,6 +1254,7 @@
   border-top-width: 1px;
   border-color: var(--color-line);
   background-color: var(--color-surface);
+  box-shadow: var(--shadow-sheet);
   flex-direction: row;
 }
 
@@ -1351,16 +1271,15 @@
 }
 
 @utility tabbar__label {
-  font-family: var(--font-sans);
-  font-size: 11px;
-  line-height: 13px;
-  font-weight: 500;
+  font-family: var(--font-sans-medium);
+  font-size: 10px;
+  line-height: 14px;
   color: var(--color-faint);
 }
 
 @utility tabbar__label--active {
-  font-weight: 600;
-  color: var(--color-leaf);
+  font-family: var(--font-sans-semibold);
+  color: var(--color-primary-text);
 }
 
 /* Placeholder screen for areas that aren't built yet */
@@ -1377,7 +1296,6 @@
   font-family: var(--font-sans);
   font-size: 15px;
   line-height: 21px;
-  font-weight: 400;
   color: var(--color-muted);
   text-align: center;
 }
@@ -1406,10 +1324,9 @@
 }
 
 @utility admin__action-label {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 13px;
   line-height: 17px;
-  font-weight: 600;
   color: var(--color-forest-ink);
 }
 
@@ -1442,7 +1359,6 @@
   font-family: var(--font-sans);
   font-size: 15px;
   line-height: 20px;
-  font-weight: 400;
   color: var(--color-forest-ink);
 }
 
@@ -1450,15 +1366,13 @@
   font-family: var(--font-sans);
   font-size: 12px;
   line-height: 16px;
-  font-weight: 400;
   color: var(--color-muted);
 }
 
 @utility admin__success {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 13px;
   line-height: 18px;
-  font-weight: 600;
   color: var(--color-leaf);
 }
 
@@ -1501,10 +1415,9 @@
 @utility review__label {
   flex: 1;
   min-width: 0px;
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-medium);
   font-size: 15px;
   line-height: 20px;
-  font-weight: 500;
   color: var(--color-ink);
 }
 
@@ -1534,10 +1447,9 @@
 @utility review__input {
   padding: 0;
   width: 100%;
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 16px;
   line-height: 20px;
-  font-weight: 700;
   color: var(--color-ink);
   text-align: center;
 }
@@ -1548,16 +1460,15 @@
 }
 
 @utility review__input--empty {
-  font-weight: 500;
+  font-family: var(--font-sans-medium);
   color: var(--color-faint);
 }
 
 @utility review__unit {
   padding-inline: 8px;
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-medium);
   font-size: 14px;
   line-height: 18px;
-  font-weight: 500;
   color: var(--color-muted);
 }
 
@@ -1573,18 +1484,16 @@
 
 @utility seg__title {
   flex: 1;
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 17px;
   line-height: 22px;
-  font-weight: 700;
   color: var(--color-ink);
 }
 
 @utility seg__unit {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-medium);
   font-size: 13px;
   line-height: 17px;
-  font-weight: 500;
   color: var(--color-muted);
 }
 
@@ -1597,31 +1506,28 @@
 }
 
 @utility seg__value {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 17px;
   line-height: 22px;
-  font-weight: 700;
   color: var(--color-ink);
 }
 
 @utility seg__value-unit {
   font-size: 13px;
-  font-weight: 500;
+  font-family: var(--font-sans-medium);
   color: var(--color-ink-soft);
 }
 
 @utility seg__rating {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 14px;
   line-height: 18px;
-  font-weight: 600;
 }
 
 @utility seg__label {
   font-family: var(--font-sans);
   font-size: 13px;
   line-height: 17px;
-  font-weight: 400;
   color: var(--color-muted);
 }
 
@@ -1637,21 +1543,18 @@
 
 /* Community: header, segmented tabs, stories, posts, groups, messages */
 @utility community__kicker {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 11px;
   line-height: 14px;
-  font-weight: 700;
   letter-spacing: 1.6px;
   text-transform: uppercase;
   color: var(--color-muted);
 }
 
 @utility community__title {
-  font-family: var(--font-sans);
-  font-size: 32px;
-  line-height: 38px;
-  font-weight: 700;
-  letter-spacing: -0.6px;
+  font-family: var(--font-sans-semibold);
+  font-size: 24px;
+  line-height: 32px;
   color: var(--color-ink);
 }
 
@@ -1669,43 +1572,44 @@
 }
 
 @utility community__badge-label {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 11px;
   line-height: 14px;
-  font-weight: 700;
   color: var(--color-white);
 }
 
 /* Segmented switch (the gym screen's Feed / Members / Events / About; the auth tabs, a little taller) */
 @utility segment {
-  height: 48px;
-  padding: 4px;
-  border-radius: 16px;
-  background-color: var(--color-cream-tab);
+  height: 44px;
   flex-direction: row;
+  gap: var(--spacing-sm);
 }
 
 @utility segment__item {
   flex: 1;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
+  border-width: 1px;
+  border-color: var(--color-line);
+  background-color: var(--color-surface);
   align-items: center;
   justify-content: center;
+  padding-inline: 6px;
 }
 
 @utility segment__item--active {
-  background-color: var(--color-white);
-  box-shadow: var(--shadow-card);
+  border-width: 1.5px;
+  border-color: var(--color-accent-blue);
 }
 
 @utility segment__label {
   font-family: var(--font-sans);
-  font-size: 16px;
+  font-size: 14px;
   line-height: 20px;
-  font-weight: 600;
   color: var(--color-muted);
 }
 
 @utility segment__label--active {
+  font-family: var(--font-sans-semibold);
   color: var(--color-ink);
 }
 
@@ -1739,10 +1643,9 @@
 }
 
 @utility story__name {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-medium);
   font-size: 13px;
   line-height: 16px;
-  font-weight: 500;
   color: var(--color-ink-soft);
   max-width: 72px;
   text-align: center;
@@ -1752,6 +1655,10 @@
 @utility community__icon-button {
   width: 44px;
   height: 44px;
+  border-radius: var(--radius-pill);
+  border-width: 1px;
+  border-color: var(--color-line-strong);
+  background-color: var(--color-surface);
   align-items: center;
   justify-content: center;
 }
@@ -1772,19 +1679,18 @@
 }
 
 @utility section-tabs__item--active {
-  border-color: var(--color-ink);
+  border-color: var(--color-primary);
 }
 
 @utility section-tabs__label {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-medium);
   font-size: 15px;
   line-height: 20px;
-  font-weight: 500;
   color: var(--color-muted);
 }
 
 @utility section-tabs__label--active {
-  font-weight: 600;
+  font-family: var(--font-sans-semibold);
   color: var(--color-ink);
 }
 
@@ -1829,10 +1735,9 @@
 
 @utility quick-post__audience-label {
   flex-shrink: 1;
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 13px;
   line-height: 16px;
-  font-weight: 600;
   color: var(--color-ink);
 }
 
@@ -1853,10 +1758,9 @@
 }
 
 @utility quick-post__submit-label {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 15px;
   line-height: 18px;
-  font-weight: 600;
   color: var(--color-white);
 }
 
@@ -1879,7 +1783,6 @@
   font-family: var(--font-sans);
   font-size: 16px;
   line-height: 20px;
-  font-weight: 400;
   color: var(--color-muted);
 }
 
@@ -1913,10 +1816,9 @@
 }
 
 @utility post__author {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 16px;
   line-height: 20px;
-  font-weight: 700;
   color: var(--color-ink);
 }
 
@@ -1924,7 +1826,6 @@
   font-family: var(--font-sans);
   font-size: 13px;
   line-height: 17px;
-  font-weight: 400;
   color: var(--color-muted);
 }
 
@@ -1932,15 +1833,13 @@
   font-family: var(--font-sans);
   font-size: 15px;
   line-height: 22px;
-  font-weight: 400;
   color: var(--color-ink);
 }
 
 @utility post__count {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 14px;
   line-height: 18px;
-  font-weight: 600;
   color: var(--color-ink-soft);
 }
 
@@ -1954,10 +1853,9 @@
 }
 
 @utility post__tag-label {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 11px;
   line-height: 14px;
-  font-weight: 700;
   letter-spacing: 1px;
   color: var(--color-ink-soft);
 }
@@ -1981,23 +1879,25 @@
   font-family: var(--font-sans);
   font-size: 15px;
   line-height: 21px;
-  font-weight: 400;
   color: var(--color-ink);
 }
 
 /* Screen bar: back chevron, centred title, hairline below (Post detail) */
 @utility screen-bar {
-  height: 52px;
-  padding-inline: 12px;
+  height: 56px;
+  padding-inline: var(--spacing-lg);
   flex-direction: row;
   align-items: center;
-  border-bottom-width: 1px;
-  border-color: var(--color-cream-line);
+  gap: var(--spacing-md);
 }
 
 @utility screen-bar__back {
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-pill);
+  border-width: 1px;
+  border-color: var(--color-line-strong);
+  background-color: var(--color-surface);
   align-items: center;
   justify-content: center;
 }
@@ -2005,19 +1905,17 @@
 @utility screen-bar__title {
   flex: 1;
   text-align: center;
-  font-family: var(--font-sans);
-  font-size: 17px;
-  line-height: 22px;
-  font-weight: 700;
+  font-family: var(--font-sans-semibold);
+  font-size: 16px;
+  line-height: 24px;
   color: var(--color-ink);
 }
 
 /* Post detail comments: "Comments (n)", then a white bubble per comment beside the avatar */
 @utility comments__heading {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 16px;
   line-height: 20px;
-  font-weight: 700;
   color: var(--color-ink);
 }
 
@@ -2036,13 +1934,12 @@
   font-family: var(--font-sans);
   font-size: 12px;
   line-height: 18px;
-  font-weight: 400;
   color: var(--color-faint);
 }
 
 @utility comment__author {
   font-size: 14px;
-  font-weight: 700;
+  font-family: var(--font-sans-semibold);
   color: var(--color-ink);
 }
 
@@ -2139,10 +2036,9 @@
 }
 
 @utility group__join-label {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 14px;
   line-height: 18px;
-  font-weight: 600;
   color: var(--color-white);
 }
 
@@ -2152,11 +2048,9 @@
 
 @utility search {
   height: 48px;
-  padding-inline: 16px;
-  border-radius: 16px;
-  border-width: 1px;
-  border-color: var(--color-cream-line);
-  background-color: var(--color-white);
+  padding-inline: var(--spacing-lg);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface-alt);
   flex-direction: row;
   align-items: center;
   gap: 10px;
@@ -2200,16 +2094,14 @@
 }
 
 @utility gym-logo__initials {
-  font-family: var(--font-sans);
-  font-weight: 700;
+  font-family: var(--font-sans-semibold);
   color: var(--color-white);
 }
 
 @utility gym-card__name {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 17px;
   line-height: 22px;
-  font-weight: 700;
   color: var(--color-ink);
 }
 
@@ -2244,10 +2136,9 @@
 }
 
 @utility gym-badge__label {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 13px;
   line-height: 16px;
-  font-weight: 600;
   color: var(--color-ink-soft);
 }
 
@@ -2272,10 +2163,9 @@
 }
 
 @utility gym-join__label {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 15px;
   line-height: 19px;
-  font-weight: 600;
   color: var(--color-ink);
 }
 
@@ -2295,10 +2185,9 @@
 }
 
 @utility gym-invite__title {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 16px;
   line-height: 21px;
-  font-weight: 700;
   color: var(--color-ink);
 }
 
@@ -2318,18 +2207,16 @@
 }
 
 @utility gym-invite__review-label {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 15px;
   line-height: 18px;
-  font-weight: 600;
   color: var(--color-white);
 }
 
 @utility gym-section__title {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 19px;
   line-height: 24px;
-  font-weight: 700;
   color: var(--color-ink);
 }
 
@@ -2344,18 +2231,16 @@
 }
 
 @utility gym-section__join-label {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 15px;
   line-height: 18px;
-  font-weight: 600;
   color: var(--color-ink);
 }
 
 @utility gym-section__link {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 15px;
   line-height: 19px;
-  font-weight: 600;
   color: var(--color-leaf);
 }
 
@@ -2369,10 +2254,9 @@
 }
 
 @utility join-card__title {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 16px;
   line-height: 21px;
-  font-weight: 700;
   color: var(--color-ink);
 }
 
@@ -2444,10 +2328,9 @@
 
 @utility invite-card__name {
   margin-top: 6px;
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 24px;
   line-height: 30px;
-  font-weight: 700;
   text-align: center;
   color: var(--color-ink);
 }
@@ -2490,10 +2373,9 @@
 
 @utility gym-hero__name {
   margin-top: 10px;
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 24px;
   line-height: 30px;
-  font-weight: 700;
   color: var(--color-ink);
 }
 
@@ -2515,10 +2397,9 @@
 }
 
 @utility gym-action__label {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 14px;
   line-height: 19px;
-  font-weight: 600;
   color: var(--color-ink);
 }
 
@@ -2527,20 +2408,18 @@
 }
 
 @utility gym-group__title {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 12px;
   line-height: 16px;
-  font-weight: 700;
   letter-spacing: 1.4px;
   text-transform: uppercase;
   color: var(--color-muted);
 }
 
 @utility gym-about__title {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 16px;
   line-height: 21px;
-  font-weight: 700;
   color: var(--color-ink);
 }
 
@@ -2569,10 +2448,9 @@
 }
 
 @utility gym-share__shortcut {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 14px;
   line-height: 18px;
-  font-weight: 600;
   color: var(--color-ink-soft);
 }
 
@@ -2587,10 +2465,9 @@
 }
 
 @utility gym-note__kicker {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 12px;
   line-height: 16px;
-  font-weight: 700;
   letter-spacing: 1.4px;
   text-transform: uppercase;
   color: var(--color-ink-soft);
@@ -2605,10 +2482,9 @@
 }
 
 @utility gym-pending__label {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 13px;
   line-height: 16px;
-  font-weight: 600;
   color: var(--color-ink);
 }
 
@@ -2631,27 +2507,24 @@
 }
 
 @utility event-card__month {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 11px;
   line-height: 14px;
-  font-weight: 700;
   letter-spacing: 1px;
   color: var(--color-white);
 }
 
 @utility event-card__day {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 22px;
   line-height: 26px;
-  font-weight: 700;
   color: var(--color-white);
 }
 
 @utility event-card__title {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 16px;
   line-height: 21px;
-  font-weight: 700;
   color: var(--color-ink);
 }
 
@@ -2681,10 +2554,9 @@
 }
 
 @utility event-going__label {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 15px;
   line-height: 19px;
-  font-weight: 600;
   color: var(--color-leaf);
 }
 
@@ -2704,10 +2576,9 @@
 }
 
 @utility about-row__value {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 15px;
   line-height: 20px;
-  font-weight: 700;
   color: var(--color-ink);
 }
 
@@ -2723,10 +2594,9 @@
 
 /* Ask the gym: chat bubbles */
 @utility ask__who {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 13px;
   line-height: 16px;
-  font-weight: 600;
   color: var(--color-muted);
 }
 
@@ -2775,8 +2645,8 @@
 }
 
 @utility date-chip--selected {
-  border-color: var(--color-ink);
-  background-color: var(--color-ink);
+  border-color: var(--color-primary);
+  background-color: var(--color-accent-soft);
 }
 
 @utility date-chip__small {
@@ -2787,15 +2657,14 @@
 }
 
 @utility date-chip__day {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 20px;
   line-height: 25px;
-  font-weight: 700;
   color: var(--color-ink);
 }
 
 @utility date-chip__text--selected {
-  color: var(--color-white);
+  color: var(--color-ink);
 }
 
 @utility time-option {
@@ -2806,28 +2675,26 @@
 }
 
 @utility time-option--selected {
-  background-color: var(--color-ink);
+  background-color: var(--color-accent-soft);
 }
 
 @utility time-option__label {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 16px;
   line-height: 20px;
-  font-weight: 600;
   color: var(--color-ink);
 }
 
 @utility time-option__label--selected {
-  color: var(--color-white);
+  color: var(--color-ink);
 }
 
 /* Member profile: name, bio, the stats card, friend / follow / message buttons */
 @utility profile__name {
   margin-top: 12px;
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 24px;
   line-height: 30px;
-  font-weight: 700;
   text-align: center;
   color: var(--color-ink);
 }
@@ -2863,10 +2730,9 @@
 }
 
 @utility profile__stat-count {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 20px;
   line-height: 25px;
-  font-weight: 700;
   color: var(--color-ink);
 }
 
@@ -2889,10 +2755,9 @@
 }
 
 @utility profile__button-label {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 15px;
   line-height: 19px;
-  font-weight: 600;
   color: var(--color-ink);
 }
 
@@ -2923,7 +2788,7 @@
 }
 
 @utility radio--selected {
-  border-color: var(--color-ink);
+  border-color: var(--color-primary);
 }
 
 @utility radio__dot {
@@ -2960,7 +2825,7 @@
 }
 
 @utility messages__preview--unread {
-  font-weight: 600;
+  font-family: var(--font-sans-semibold);
   color: var(--color-ink);
 }
 
@@ -2989,7 +2854,7 @@
 }
 
 @utility notification--new {
-  background-color: #fbfcfe;
+  background-color: var(--color-accent-soft);
 }
 
 @utility notification__icon {
@@ -3016,10 +2881,9 @@
 }
 
 @utility notification__title {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 15px;
   line-height: 20px;
-  font-weight: 700;
   color: var(--color-ink);
 }
 
@@ -3049,8 +2913,8 @@
 
 /* The Friends search box: a pill */
 @utility search--pill {
-  height: 50px;
-  border-radius: var(--radius-pill);
+  height: 48px;
+  border-radius: var(--radius-md);
 }
 
 /* Friends filter chips: Suggested / Friends (n) / Requests sent (n) */
@@ -3066,20 +2930,20 @@
 }
 
 @utility friend-chip--selected {
-  border-color: var(--color-ink);
-  background-color: var(--color-ink);
+  border-color: var(--color-primary);
+  background-color: var(--color-accent-soft);
 }
 
 @utility friend-chip__label {
   font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: 13px;
   line-height: 18px;
-  font-weight: 600;
-  color: var(--color-ink-soft);
+  color: var(--color-ink);
 }
 
 @utility friend-chip__label--selected {
-  color: var(--color-white);
+  font-family: var(--font-sans-semibold);
+  color: var(--color-ink);
 }
 
 /* A member row; consecutive rows form one card (first and last round its corners) */
@@ -3109,10 +2973,9 @@
 }
 
 @utility friend-row__name {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 16px;
   line-height: 21px;
-  font-weight: 700;
   color: var(--color-ink);
 }
 
@@ -3146,10 +3009,9 @@
 }
 
 @utility friend-button__label {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 14px;
   line-height: 18px;
-  font-weight: 600;
   color: var(--color-white);
 }
 
@@ -3161,8 +3023,8 @@
   flex: 1;
   padding: 0;
   font-family: var(--font-sans);
-  font-size: 15px;
-  line-height: 20px;
+  font-size: 14px;
+  line-height: 22px;
   color: var(--color-ink);
 }
 
@@ -3216,10 +3078,9 @@
 }
 
 @utility story__caption {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-medium);
   font-size: 16px;
   line-height: 22px;
-  font-weight: 500;
   color: var(--color-white);
   text-align: center;
 }
@@ -3280,10 +3141,9 @@
 }
 
 @utility compose__thumb-badge-label {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 10px;
   line-height: 12px;
-  font-weight: 700;
   color: var(--color-white);
 }
 
@@ -3299,10 +3159,9 @@
 }
 
 @utility compose__thumb-index {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 12px;
   line-height: 16px;
-  font-weight: 600;
   color: var(--color-muted);
 }
 
@@ -3330,10 +3189,9 @@
 }
 
 @utility compose__author {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 15px;
   line-height: 20px;
-  font-weight: 700;
   color: var(--color-ink);
 }
 
@@ -3359,18 +3217,16 @@
 }
 
 @utility compose__place-name {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 16px;
   line-height: 21px;
-  font-weight: 700;
   color: var(--color-ink);
 }
 
 @utility compose__label {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 14px;
   line-height: 18px;
-  font-weight: 600;
   color: var(--color-ink-soft);
 }
 
@@ -3390,20 +3246,19 @@
 }
 
 @utility compose__type--selected {
-  border-color: var(--color-ink);
-  background-color: var(--color-ink);
+  border-color: var(--color-primary);
+  background-color: var(--color-accent-soft);
 }
 
 @utility compose__type-label {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 14px;
   line-height: 18px;
-  font-weight: 600;
   color: var(--color-ink-soft);
 }
 
 @utility compose__type-label--selected {
-  color: var(--color-white);
+  color: var(--color-ink);
 }
 
 @utility compose__input {
@@ -3495,10 +3350,9 @@
 }
 
 @utility compose__option-title {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 16px;
   line-height: 21px;
-  font-weight: 700;
   color: var(--color-ink);
 }
 
@@ -3539,10 +3393,9 @@
 }
 
 @utility post__details-kicker {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 11px;
   line-height: 14px;
-  font-weight: 700;
   letter-spacing: 1.4px;
   text-transform: uppercase;
   color: var(--color-muted);
@@ -3550,10 +3403,9 @@
 
 @utility post__details-title {
   margin-top: 4px;
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 16px;
   line-height: 21px;
-  font-weight: 700;
   color: var(--color-ink);
 }
 
@@ -3573,7 +3425,7 @@
 }
 
 @utility post__with-name {
-  font-weight: 700;
+  font-family: var(--font-sans-semibold);
   color: var(--color-ink);
 }
 
@@ -3606,18 +3458,16 @@
 
 @utility poll__label {
   flex: 1;
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 15px;
   line-height: 20px;
-  font-weight: 600;
   color: var(--color-ink);
 }
 
 @utility poll__share {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 14px;
   line-height: 18px;
-  font-weight: 600;
   color: var(--color-ink-soft);
 }
 
@@ -3635,10 +3485,9 @@
 }
 
 @utility post__media-count-label {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 11px;
   line-height: 14px;
-  font-weight: 700;
   color: var(--color-white);
 }
 
@@ -3684,10 +3533,9 @@
 }
 
 @utility story__badge-label {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 11px;
   line-height: 14px;
-  font-weight: 700;
   color: var(--color-white);
 }
 
@@ -3699,70 +3547,62 @@
 }
 
 @utility story__notice-label {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 14px;
   line-height: 19px;
-  font-weight: 600;
   color: var(--color-forest-ink);
 }
 
 /* Macro tab: the day hub, logging flow and meal sheets (BEM: macro__element--modifier).
    Macro colours (protein, carbs, fat) come from the theme and never change meaning. */
 @utility macro__hero-number {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 32px;
   line-height: 36px;
-  font-weight: 700;
   color: var(--color-forest-ink);
 }
 
 @utility macro__stat-value {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 18px;
   line-height: 23px;
-  font-weight: 700;
   color: var(--color-forest-ink);
 }
 
 @utility macro__stat-label {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-medium);
   font-size: 12px;
   line-height: 16px;
-  font-weight: 500;
   color: var(--color-muted);
 }
 
 @utility macro__overline {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 11px;
   line-height: 14px;
-  font-weight: 700;
   letter-spacing: 0.6px;
   text-transform: uppercase;
   color: var(--color-muted);
 }
 
 @utility macro__kcal {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 15px;
   line-height: 19px;
-  font-weight: 700;
   color: var(--color-forest-ink);
 }
 
 @utility macro__bar-label {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 12px;
   line-height: 16px;
-  font-weight: 600;
   color: var(--color-forest-ink);
 }
 
 @utility macro__bar-value {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-medium);
   font-size: 12px;
   line-height: 16px;
-  font-weight: 500;
   color: var(--color-muted);
 }
 
@@ -3774,17 +3614,15 @@
 }
 
 @utility macro__ring-day {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 13px;
   line-height: 16px;
-  font-weight: 700;
 }
 
 @utility macro__weekday {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 11px;
   line-height: 14px;
-  font-weight: 600;
   color: var(--color-faint);
 }
 
@@ -3805,20 +3643,18 @@
 }
 
 @utility macro__table-head {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 11px;
   line-height: 14px;
-  font-weight: 700;
   letter-spacing: 0.4px;
   text-transform: uppercase;
   color: var(--color-faint);
 }
 
 @utility macro__table-cell {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-medium);
   font-size: 14px;
   line-height: 18px;
-  font-weight: 500;
   color: var(--color-forest-ink);
 }
 
@@ -3834,7 +3670,7 @@
   flex-direction: row;
   align-items: center;
   gap: 8px;
-  box-shadow: var(--shadow-card);
+  box-shadow: var(--shadow-glow);
 }
 
 /* Add meal: two slot cards per row */
@@ -3849,10 +3685,9 @@
 }
 
 @utility macro__logged {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 12px;
   line-height: 16px;
-  font-weight: 600;
   color: var(--color-success);
 }
 
@@ -3869,10 +3704,9 @@
 }
 
 @utility macro__error {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 13px;
   line-height: 18px;
-  font-weight: 600;
   color: var(--color-danger);
 }
 
@@ -3906,37 +3740,37 @@
 }
 
 @utility macro__segmented {
-  height: 40px;
-  padding: 3px;
-  border-radius: var(--radius-pill);
-  background-color: var(--color-cream-tab);
+  height: 44px;
   flex-direction: row;
+  gap: var(--spacing-sm);
 }
 
 @utility macro__segment {
   flex: 1;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-md);
+  border-width: 1px;
+  border-color: var(--color-line);
+  background-color: var(--color-surface);
   align-items: center;
   justify-content: center;
   padding-inline: 6px;
 }
 
 @utility macro__segment--selected {
-  background-color: var(--color-white);
-  box-shadow: var(--shadow-card);
+  border-width: 1.5px;
+  border-color: var(--color-accent-blue);
 }
 
 @utility macro__segment-label {
   font-family: var(--font-sans);
-  font-size: 13px;
-  line-height: 17px;
-  font-weight: 500;
+  font-size: 14px;
+  line-height: 20px;
   color: var(--color-muted);
 }
 
 @utility macro__segment-label--selected {
-  font-weight: 700;
-  color: var(--color-forest-ink);
+  font-family: var(--font-sans-semibold);
+  color: var(--color-ink);
 }
 
 /* Manual entry: one of the three macro inputs */
@@ -3954,56 +3788,50 @@
 @utility macro__hero {
   padding: var(--spacing-xl);
   border-radius: var(--radius-xl);
-  background-color: var(--color-forest);
+  background-color: var(--color-inverse);
 }
 
 @utility macro__hero-overline {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 11px;
   line-height: 14px;
-  font-weight: 700;
   letter-spacing: 0.8px;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.7);
 }
 
 @utility macro__hero-remaining {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 40px;
   line-height: 46px;
-  font-weight: 700;
-  color: var(--color-primary);
+  color: var(--color-on-inverse);
 }
 
 @utility macro__hero-caption {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-medium);
   font-size: 13px;
   line-height: 17px;
-  font-weight: 500;
   color: rgba(255, 255, 255, 0.72);
 }
 
 @utility macro__hero-percent {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 20px;
   line-height: 24px;
-  font-weight: 700;
   color: var(--color-white);
 }
 
 @utility macro__hero-stat {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 17px;
   line-height: 22px;
-  font-weight: 700;
   color: var(--color-white);
 }
 
 @utility macro__badge {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 12px;
   line-height: 16px;
-  font-weight: 700;
 }
 
 @utility macro__timeline-card {
@@ -4051,7 +3879,7 @@
 /* The dark card behind today's session and the day's art: the plan has no photos yet */
 @utility workout__hero {
   border-radius: var(--radius-xl);
-  background-color: var(--color-ink);
+  background-color: var(--color-inverse);
   overflow: hidden;
 }
 
@@ -4071,15 +3899,14 @@
 }
 
 @utility workout__chip-label {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 12px;
   line-height: 16px;
-  font-weight: 700;
   color: var(--color-white);
 }
 
 @utility workout__chip-label--accent {
-  color: var(--color-ink);
+  color: var(--color-on-primary);
 }
 
 /* One day of the week strip, slightly taller than wide */
@@ -4096,8 +3923,8 @@
 }
 
 @utility workout__tile--today {
-  border-color: var(--color-success);
-  background-color: var(--color-success);
+  border-color: var(--color-primary);
+  background-color: var(--color-primary);
 }
 
 @utility workout__dot {
@@ -4116,10 +3943,9 @@
 }
 
 @utility workout__pill-label {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 11px;
   line-height: 14px;
-  font-weight: 700;
 }
 
 /* The light sheet that overlaps the day's art */
@@ -4163,9 +3989,12 @@
 }
 
 @utility owner__header-button {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border-radius: var(--radius-pill);
+  border-width: 1px;
+  border-color: var(--color-line-strong);
+  background-color: var(--color-surface);
   align-items: center;
   justify-content: center;
 }
@@ -4194,10 +4023,9 @@
 }
 
 @utility owner-stat__value {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 22px;
   line-height: 28px;
-  font-weight: 700;
   color: var(--color-ink);
 }
 
@@ -4220,10 +4048,9 @@
 }
 
 @utility owner-quick__label {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 14px;
   line-height: 18px;
-  font-weight: 600;
   color: var(--color-ink);
 }
 
@@ -4283,10 +4110,9 @@
 @utility owner-chart__count {
   width: 24px;
   text-align: right;
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 13px;
   line-height: 17px;
-  font-weight: 600;
   color: var(--color-ink);
 }
 
@@ -4311,10 +4137,9 @@
 }
 
 @utility owner-badge__label {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 12px;
   line-height: 16px;
-  font-weight: 700;
   color: var(--color-ink);
 }
 
@@ -4333,10 +4158,9 @@
 }
 
 @utility owner-tab-badge__label {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 11px;
   line-height: 13px;
-  font-weight: 700;
   color: var(--color-white);
 }
 
@@ -4363,10 +4187,9 @@
 }
 
 @utility owner-entry__title {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 15px;
   line-height: 20px;
-  font-weight: 700;
   color: var(--color-white);
 }
 
@@ -4392,10 +4215,9 @@
 @utility owner-scan__title {
   flex: 1;
   text-align: center;
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 17px;
   line-height: 22px;
-  font-weight: 700;
   color: var(--color-white);
 }
 
@@ -4410,10 +4232,9 @@
 
 @utility owner-scan__hint {
   text-align: center;
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 15px;
   line-height: 21px;
-  font-weight: 600;
   color: var(--color-white);
 }
 
@@ -4445,10 +4266,9 @@
 
 @utility owner-result__title {
   text-align: center;
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 24px;
   line-height: 30px;
-  font-weight: 700;
   color: var(--color-ink);
 }
 
@@ -4476,10 +4296,9 @@
 
 @utility owner-display__title {
   text-align: center;
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 26px;
   line-height: 32px;
-  font-weight: 700;
   color: var(--color-ink);
 }
 
@@ -4492,10 +4311,9 @@
 }
 
 @utility visit-card__title {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 16px;
   line-height: 21px;
-  font-weight: 700;
   color: var(--color-white);
 }
 
@@ -4557,38 +4375,34 @@
 }
 
 @utility player__overline {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 13px;
   line-height: 18px;
-  font-weight: 700;
   letter-spacing: 1.5px;
   text-transform: uppercase;
   color: var(--color-primary);
 }
 
 @utility player__name {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 28px;
   line-height: 34px;
-  font-weight: 700;
   color: var(--color-white);
 }
 
 @utility player__figure {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 72px;
   line-height: 80px;
-  font-weight: 700;
   color: var(--color-white);
   text-align: center;
   font-variant-numeric: tabular-nums;
 }
 
 @utility player__unit {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 15px;
   line-height: 20px;
-  font-weight: 600;
   color: rgba(255, 255, 255, 0.7);
   text-align: center;
 }
@@ -4621,10 +4435,9 @@
 }
 
 @utility player__badge-value {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 18px;
   line-height: 22px;
-  font-weight: 700;
   color: var(--color-white);
 }
 
@@ -4636,10 +4449,9 @@
 }
 
 @utility player__title {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 16px;
   line-height: 21px;
-  font-weight: 700;
   color: var(--color-white);
 }
 
@@ -4685,10 +4497,9 @@
 }
 
 @utility player__error-label {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 14px;
   line-height: 19px;
-  font-weight: 700;
   color: var(--color-ink); /* ink on danger: white is below AA here */
 }
 
@@ -4701,9 +4512,8 @@
 }
 
 @utility player__button-label {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 16px;
-  font-weight: 700;
   color: var(--color-ink);
 }
 
@@ -4741,8 +4551,8 @@
 }
 
 @utility workout-pref__day--on {
-  border-color: var(--color-ink);
-  background-color: var(--color-ink);
+  border-color: var(--color-primary);
+  background-color: var(--color-accent-soft);
 }
 
 /* ---- Rebuild my plan ---- */
@@ -4758,13 +4568,13 @@
 
 /* Each state sets its own border and fill (no override of a base colour) */
 @utility recreate__node--active {
-  border-color: var(--color-ink);
+  border-color: var(--color-primary);
   background-color: var(--color-surface);
 }
 
 @utility recreate__node--done {
-  border-color: var(--color-ink);
-  background-color: var(--color-ink);
+  border-color: var(--color-primary);
+  background-color: var(--color-primary);
 }
 
 @utility recreate__node--todo {
@@ -4773,10 +4583,9 @@
 }
 
 @utility recreate__node-label {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 11px;
   line-height: 14px;
-  font-weight: 700;
   color: var(--color-faint);
 }
 
@@ -4785,10 +4594,9 @@
 }
 
 @utility recreate__node-name {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 11px;
   line-height: 14px;
-  font-weight: 600;
   color: var(--color-muted);
 }
 
@@ -4877,10 +4685,9 @@
 }
 
 @utility admin-stat__value {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 22px;
   line-height: 28px;
-  font-weight: 700;
   color: var(--color-ink);
 }
 
@@ -4926,9 +4733,8 @@
 }
 
 @utility admin-gym-badge__label {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 13px;
-  font-weight: 700;
   color: var(--color-white);
 }
 
@@ -4944,9 +4750,8 @@
 }
 
 @utility admin-danger-button__label {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 15px;
-  font-weight: 700;
   color: var(--color-ink);
 }
 
@@ -4954,23 +4759,27 @@
 @utility admin-segment {
   flex: 1;
   height: 40px;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-md);
+  border-width: 1px;
+  border-color: var(--color-line);
+  background-color: var(--color-surface);
   align-items: center;
   justify-content: center;
 }
 
 @utility admin-segment--on {
-  background-color: var(--color-surface);
+  border-width: 1.5px;
+  border-color: var(--color-accent-blue);
 }
 
 @utility admin-segment__label {
   font-family: var(--font-sans);
   font-size: 14px;
-  font-weight: 600;
   color: var(--color-muted);
 }
 
 @utility admin-segment__label--on {
+  font-family: var(--font-sans-semibold);
   color: var(--color-ink);
 }
 
@@ -5017,26 +4826,23 @@
 }
 
 @utility report__eyebrow {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 11px;
   line-height: 14px;
-  font-weight: 700;
   letter-spacing: 1.2px;
   color: var(--color-muted);
 }
 
 @utility report__hero {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 52px;
   line-height: 58px;
-  font-weight: 700;
-  letter-spacing: -1.5px;
   color: var(--color-forest-ink);
 }
 
 @utility report__hero-unit {
   font-size: 22px;
-  font-weight: 700;
+  font-family: var(--font-sans-semibold);
   letter-spacing: 0;
   color: var(--color-muted);
 }
@@ -5053,7 +4859,7 @@
 }
 
 @utility report__band--healthy {
-  background-color: var(--color-primary);
+  background-color: var(--color-tint-green);
 }
 
 @utility report__band--elevated {
@@ -5072,10 +4878,9 @@
 }
 
 @utility report__kpi-value {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 22px;
   line-height: 28px;
-  font-weight: 700;
   color: var(--color-forest-ink);
 }
 
@@ -5103,10 +4908,9 @@
 }
 
 @utility report__pill-label {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 12px;
   line-height: 16px;
-  font-weight: 700;
   color: var(--color-forest-ink);
 }
 
@@ -5137,16 +4941,15 @@
 }
 
 @utility report__value {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 15px;
   line-height: 20px;
-  font-weight: 700;
   color: var(--color-forest-ink);
 }
 
 @utility report__unit {
   font-size: 12px;
-  font-weight: 500;
+  font-family: var(--font-sans-medium);
   color: var(--color-muted);
 }
 
@@ -5226,7 +5029,7 @@
 
 /* Settings-style list row (Profile and other menus): icon, label, chevron, hairline between rows */
 @utility list-row {
-  min-height: 52px;
+  min-height: 56px;
   padding-inline: 2px;
   flex-direction: row;
   align-items: center;
@@ -5237,10 +5040,9 @@
 
 @utility list-row__label {
   flex: 1;
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-medium);
   font-size: 15px;
   line-height: 20px;
-  font-weight: 500;
   color: var(--color-forest-ink);
 }
 
@@ -5258,19 +5060,21 @@
   background-color: var(--color-forest);
   align-items: center;
   justify-content: center;
-  box-shadow: 0 6px 16px rgba(21, 21, 29, 0.18);
+  box-shadow: var(--shadow-glow);
 }
 
 @utility tabbar__raised--active {
-  background-color: var(--color-leaf);
+  background-color: var(--color-primary-pressed);
 }
 
 /* AI Coach: the intake (BEM: coach__element--modifier). White cards on the soft grey page,
    round white header buttons, black for whatever is selected. */
 @utility coach__circle-btn {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border-radius: var(--radius-pill);
+  border-width: 1px;
+  border-color: var(--color-line-strong);
   background-color: var(--color-surface);
   align-items: center;
   justify-content: center;
@@ -5287,10 +5091,9 @@
 }
 
 @utility coach__step-label {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 12px;
   line-height: 16px;
-  font-weight: 600;
   color: var(--color-forest-ink);
 }
 
@@ -5304,6 +5107,8 @@
 @utility coach__card {
   padding: var(--spacing-lg);
   border-radius: var(--radius-lg);
+  border-width: 1px;
+  border-color: var(--color-line);
   background-color: var(--color-surface);
   box-shadow: var(--shadow-card);
   gap: var(--spacing-md);
@@ -5368,10 +5173,9 @@
 }
 
 @utility coach__tag-label {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 11px;
   line-height: 14px;
-  font-weight: 600;
   color: var(--color-forest-ink);
 }
 
@@ -5385,9 +5189,298 @@
 }
 
 @utility coach__avatar-label {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-semibold);
   font-size: 16px;
   line-height: 20px;
-  font-weight: 700;
   color: var(--color-leaf);
+}
+
+/* The coach plan: one meal (time, name, foods) with its log button */
+@utility coach__meal {
+  gap: 6px;
+  padding-top: var(--spacing-md);
+  border-top-width: 1px;
+  border-color: var(--color-line);
+}
+
+@utility coach__meal-food {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+@utility coach__log {
+  height: 34px;
+  padding-inline: 14px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-forest);
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+}
+
+@utility coach__log--done {
+  background-color: var(--color-accent-soft);
+}
+
+@utility coach__log-label {
+  font-family: var(--font-sans-semibold);
+  font-size: 13px;
+  line-height: 16px;
+  color: var(--color-white);
+}
+
+@utility coach__log-label--done {
+  color: var(--color-leaf);
+}
+
+/* Peak Fitness ActivityCard: an outlined card holding a dark hero and ProgressStat rows */
+@utility activity-card {
+  background-color: var(--color-surface);
+  border-radius: var(--radius-lg);
+  border-width: 1px;
+  border-color: var(--color-line);
+  padding: var(--spacing-sm);
+  padding-bottom: var(--spacing-md);
+}
+
+@utility activity-card__hero {
+  background-color: var(--color-inverse);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  flex-direction: row;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+@utility activity-card__title {
+  font-family: var(--font-sans-semibold);
+  font-size: 16px;
+  line-height: 24px;
+  color: var(--color-on-inverse);
+}
+
+@utility activity-card__metric {
+  font-family: var(--font-sans-semibold);
+  font-size: 24px;
+  line-height: 30px;
+  color: var(--color-on-inverse);
+}
+
+@utility activity-card__meta {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-on-inverse-muted);
+}
+
+@utility activity-card__percent {
+  font-family: var(--font-sans-semibold);
+  font-size: 15px;
+  line-height: 22px;
+  color: var(--color-on-inverse);
+}
+
+/* Peak Fitness ProgressStat: label, pill bar, value and unit on one row */
+@utility progress-stat {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+@utility progress-stat__label {
+  width: 68px;
+  font-family: var(--font-sans-semibold);
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--color-ink);
+}
+
+@utility progress-stat__track {
+  flex: 1;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-cream-tab);
+  overflow: hidden;
+}
+
+@utility progress-stat__fill {
+  height: 8px;
+  border-radius: var(--radius-pill);
+}
+
+@utility progress-stat__value {
+  min-width: 84px;
+  text-align: right;
+  font-family: var(--font-sans-semibold);
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--color-ink);
+}
+
+@utility progress-stat__unit {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  color: var(--color-muted);
+}
+
+/* Peak Fitness IconButton: a circle with one icon */
+@utility icon-btn {
+  border-radius: var(--radius-pill);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility icon-btn--outline {
+  border-width: 1px;
+  border-color: var(--color-line-strong);
+  background-color: var(--color-surface);
+}
+
+@utility icon-btn--primary {
+  background-color: var(--color-primary);
+}
+
+@utility icon-btn--soft {
+  background-color: var(--color-accent-soft);
+}
+
+@utility icon-btn--glow {
+  box-shadow: var(--shadow-glow);
+}
+
+@utility icon-btn--dark {
+  background-color: rgba(255, 255, 255, 0.14);
+}
+
+/* App bar: back on the left, centred title, an action on the right */
+@utility app-bar {
+  height: 56px;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-md);
+}
+
+@utility app-bar__title {
+  flex: 1;
+  text-align: center;
+  font-family: var(--font-sans-semibold);
+  font-size: 16px;
+  line-height: 24px;
+  color: var(--color-ink);
+}
+
+/* Peak Fitness ProgramCard: thumbnail, title, meta lines and a red arrow */
+@utility program-card {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-sm);
+  padding-right: var(--spacing-lg);
+  border-radius: var(--radius-lg);
+  border-width: 1px;
+  border-color: var(--color-line);
+  background-color: var(--color-surface);
+}
+
+@utility program-card__thumb {
+  width: 96px;
+  height: 76px;
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface-alt);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility program-card__title {
+  font-family: var(--font-sans-semibold);
+  font-size: 15px;
+  line-height: 22px;
+  color: var(--color-ink);
+}
+
+@utility program-card__meta {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+@utility program-card__badge {
+  align-self: flex-start;
+  margin-top: 4px;
+  height: 22px;
+  padding-inline: var(--spacing-sm);
+  border-radius: var(--radius-pill);
+  justify-content: center;
+}
+
+@utility program-card__badge-label {
+  font-family: var(--font-sans-semibold);
+  font-size: 11px;
+  line-height: 14px;
+}
+
+/* Peak Fitness MetricCard: pastel tile, big number, status pill and arrow */
+@utility metric-card {
+  flex: 1;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md);
+  padding-inline: var(--spacing-lg);
+  border-radius: var(--radius-lg);
+}
+
+@utility metric-card__label {
+  flex: 1;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--color-muted);
+}
+
+@utility metric-card__value {
+  font-family: var(--font-sans-semibold);
+  font-size: 24px;
+  line-height: 30px;
+  color: var(--color-ink);
+}
+
+@utility metric-card__unit {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+@utility metric-card__status {
+  flex-shrink: 1;
+  height: 26px;
+  padding-inline: var(--spacing-md);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-white);
+  justify-content: center;
+}
+
+@utility metric-card__status-label {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-ink);
+}
+
+@utility metric-card__arrow {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-white);
+  align-items: center;
+  justify-content: center;
+}
+
+/* Keeps the app bar title centred when there is nothing on the right */
+@utility screen-bar__spacer {
+  width: 44px;
+  height: 44px;
 }

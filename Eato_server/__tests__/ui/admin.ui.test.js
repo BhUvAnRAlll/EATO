@@ -72,7 +72,9 @@ describe("ui admin: the Super Admin Overview and its tabs", () => {
     return { status: response.status, json: await response.json().catch(() => null) };
   };
   const signIn = async (identity, landing) => {
-    await h.goto("/sign-in", "Log in");
+    // A signed-in admin opening /sign-in is sent back to the portal, so wait for the form or a session
+    await page.navigate(`${expo.baseUrl}/sign-in`);
+    await page.waitFor(`(window.Clerk && window.Clerk.session) || (document.body.innerText || "").includes("Log in")`, NAV_TIMEOUT, "the sign-in form or a session");
     if (await page.evaluate(`!!(window.Clerk && window.Clerk.session)`)) {
       await page.evaluate(`window.Clerk.signOut({ redirectUrl: "/sign-in" })`);
       await page.waitFor(`!(window.Clerk && window.Clerk.session)`, 15000, "previous session ended");
@@ -283,6 +285,6 @@ describe("ui admin: the Super Admin Overview and its tabs", () => {
     await signIn(identities.member, "/home");
     await page.navigate(`${expo.baseUrl}/admin`);
     await page.waitFor(`!location.pathname.startsWith("/admin")`, NAV_TIMEOUT, "sent away from /admin");
-    assert.equal(await page.evaluate(`(document.body.innerText || "").includes("JustFit ADMIN")`), false);
+    assert.equal(await page.evaluate(`(document.body.innerText || "").includes("JUSTFIT ADMIN")`), false);
   }));
 });

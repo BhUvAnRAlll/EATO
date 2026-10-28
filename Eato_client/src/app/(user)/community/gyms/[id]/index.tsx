@@ -189,7 +189,7 @@ export default function GymScreen() {
               <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={20} tintColor={colors.ink} />
             </Pressable>
             <Text className="screen-bar__title">Gym</Text>
-            <View className="screen-bar__back" />
+            <View className="screen-bar__spacer" />
           </View>
           <View className="px-5 pt-4">
             {status === "loading" ? (
@@ -311,7 +311,7 @@ export default function GymScreen() {
                     )}
                     <PostCard
                       post={post}
-                      width={width - 40}
+                      width={width - 32}
                       badge={post.authorRole && post.authorRole !== "member" ? roleLabels[post.authorRole] : null}
                       onLike={() => like(post)}
                       onOpenComments={() => router.push({ pathname: "/community/post/[id]", params: { id: post.id } })}

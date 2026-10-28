@@ -91,7 +91,7 @@ export default function OwnerRenewals() {
           <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={20} tintColor={colors.ink} />
         </Pressable>
         <Text className="screen-bar__title">Renewals</Text>
-        <View className="screen-bar__back" />
+        <View className="screen-bar__spacer" />
       </View>
       <FlatList
         data={shown}

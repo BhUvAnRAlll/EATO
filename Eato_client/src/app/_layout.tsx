@@ -2,9 +2,11 @@ import "../global.css";
 
 import { ClerkProvider, useAuth, useUser } from "@clerk/expo";
 import { tokenCache } from "@clerk/expo/token-cache";
+import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import { ActivityIndicator, View } from "react-native";
 
+import { fontFiles } from "@/constants/fonts";
 import { getRole } from "@/lib/roles";
 import { colors } from "@/theme";
 
@@ -62,6 +64,12 @@ function RootStack() {
 }
 
 export default function RootLayout() {
+  // Poppins loads from the app bundle in a moment; if it ever fails, the system font is used
+  const [fontsLoaded, fontError] = useFonts(fontFiles);
+  if (!fontsLoaded && !fontError) {
+    return <View className="flex-1 bg-cream" />;
+  }
+
   return (
     // tokenCache keeps the signed-in session in the device's secure storage
     <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>

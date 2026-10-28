@@ -79,7 +79,7 @@ export default function AdminUserDetail() {
             <Text className="screen-bar__title" numberOfLines={1}>{user?.name ?? "Account"}</Text>
             {user && <Text className="gym-card__meta">{KIND_LABEL[user.kind]}</Text>}
           </View>
-          <View className="screen-bar__back" />
+          <View className="screen-bar__spacer" />
         </View>
 
         {!user ? (
@@ -91,7 +91,7 @@ export default function AdminUserDetail() {
             )}
           </View>
         ) : (
-          <ScrollView contentContainerStyle={{ padding: 20, gap: 14, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+          <ScrollView contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
             <View className="admin-list flex-row items-center gap-3" style={{ padding: 16 }}>
               <Avatar member={{ id: user.id, name: user.name, initial: user.name.charAt(0).toUpperCase() }} size={64} />
               <View className="min-w-0 flex-1 gap-1.5">

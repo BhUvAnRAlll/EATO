@@ -26,6 +26,7 @@ import {
 } from "@/lib/workoutApi";
 import type { Icon } from "@/types/profile";
 import { colors } from "@/theme";
+import { fonts } from "@/constants/fonts";
 
 // Workout preferences: goal, level, training days and split. A full-screen modal, because
 // changing the plan interrupts rather than drills down. Submitting builds a new plan from the
@@ -125,7 +126,7 @@ export default function WorkoutPreferences() {
         </Pressable>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 8, paddingBottom: 24, gap: 16 }} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 24, gap: 16 }} showsVerticalScrollIndicator={false}>
         <View className="gap-1">
           <Text className="type-title text-forest-ink">Workout preferences</Text>
           <Text className="home__note">Review your workout preferences. You can edit anytime before submitting.</Text>
@@ -282,7 +283,7 @@ function WeekdaySheet({ days, onToggle, onDone, onClose }: { days: number[] | nu
                   accessibilityState={{ checked: on }}
                   accessibilityLabel={shortDay(d)}
                 >
-                  <Text className="type-caption" style={{ color: on ? colors.white : colors.forestInk, fontWeight: "700" }}>{shortDay(d).slice(0, 2)}</Text>
+                  <Text className="type-caption" style={{ color: colors.forestInk, fontFamily: fonts.semibold }}>{shortDay(d).slice(0, 2)}</Text>
                 </Pressable>
               );
             })}

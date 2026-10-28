@@ -136,13 +136,14 @@ describe("ui workout: the Fitness hub and a training day", () => {
     assert.equal(await page.evaluate(`!!document.querySelector('[role="tab"][aria-label="Fitness"]')`), false, "no Fitness tab");
     await clickTab("AI Coach");
     await h.expectPath("/coach");
-    await h.expectText("Coming soon");
+    await h.expectText("Get started");
     await clickTab("Home");
     await h.expectPath("/home");
     await openWorkout();
     await h.expectPath("/workout");
     await h.expectText("This week");
-    await h.expectText("Stay consistent, get stronger");
+    // The app bar's preferences button is enabled only once the plan is ready
+    await page.waitFor(`(() => { const b = document.querySelector('[aria-label="Workout preferences"]'); return !!b && b.getAttribute("aria-disabled") !== "true"; })()`, NAV_TIMEOUT, "an enabled Workout preferences button");
     const [plans] = await connection.query("SELECT id FROM workout_plans WHERE user_id = ? AND status = 'active'", [identities.a.id]);
     assert.equal(plans.length, 1, "the visit made exactly one plan");
     state.planId = plans[0].id;

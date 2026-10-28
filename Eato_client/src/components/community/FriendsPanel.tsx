@@ -138,7 +138,7 @@ export function FriendsPanel({ header }: { header: ReactElement }) {
               <TextInput className="search__input" value={search} onChangeText={setSearch} placeholder="Search friends by name" placeholderTextColor={colors.faint} autoCorrect={false} accessibilityLabel="Search members" />
             </View>
             {!searching && (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mt-3" contentContainerStyle={{ paddingHorizontal: 20, gap: 8 }} accessibilityRole="tablist">
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mt-3" contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }} accessibilityRole="tablist">
                 {filters(counts).map((item) => {
                   const selected = filter === item.key;
                   return (

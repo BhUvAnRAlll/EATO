@@ -55,7 +55,7 @@ export default function AddMeal() {
       <StatusBar style="dark" />
       <SafeAreaView style={{ flex: 1 }}>
         <MacroHeader title="Add meal" />
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 24, gap: 18 }} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24, gap: 18 }} showsVerticalScrollIndicator={false}>
           <View className="gap-1">
             <Text className="type-headline text-forest-ink">Which meal?</Text>
             <Text className="home__lead">Choose a slot so your daily totals stay organised.</Text>
@@ -95,7 +95,7 @@ export default function AddMeal() {
             <Text className="setup__section">Time</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
               <Pressable onPress={() => setTime(null)} className={time === null ? "setup__chip setup__chip--selected flex-row gap-1.5" : "setup__chip flex-row gap-1.5"} accessibilityRole="button" accessibilityState={{ selected: time === null }}>
-                <SymbolView name={{ ios: "clock", android: "schedule", web: "schedule" }} size={14} tintColor={time === null ? colors.white : colors.forestInk} />
+                <SymbolView name={{ ios: "clock", android: "schedule", web: "schedule" }} size={14} tintColor={colors.forestInk} />
                 <Text className={time === null ? "setup__chip-label setup__chip-label--selected" : "setup__chip-label"}>Now</Text>
               </Pressable>
               {slotTimes(slot).map(([h, m]) => {
