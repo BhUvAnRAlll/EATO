@@ -1,6 +1,6 @@
 import { Pressable, Text, View } from "react-native";
 import { Image } from "expo-image";
-import { SymbolView } from "expo-symbols";
+import { SymbolView } from "@/components/SymbolView";
 
 import type { Meal } from "@/data/home";
 import { resolveImage } from "@/lib/home";

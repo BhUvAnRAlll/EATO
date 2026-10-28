@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Text, View } from "react-native";
 import { router } from "expo-router";
-import { SymbolView } from "expo-symbols";
+import { SymbolView } from "@/components/SymbolView";
 
 import { Chip } from "@/components/setup/Chip";
 import { RecreateField, RecreateFrame, tap } from "@/components/workout/RecreateFrame";

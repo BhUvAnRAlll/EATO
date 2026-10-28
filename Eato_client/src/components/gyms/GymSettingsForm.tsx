@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Pressable, Switch, Text, View } from "react-native";
-import { SymbolView } from "expo-symbols";
+import { SymbolView } from "@/components/SymbolView";
 
 import { ConfirmSheet } from "@/components/community/ConfirmSheet";
 import { FormAlert } from "@/components/FormAlert";

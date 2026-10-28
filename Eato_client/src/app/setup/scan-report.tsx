@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { Text, View } from "react-native";
-import { SymbolView } from "expo-symbols";
+import { SymbolView } from "@/components/SymbolView";
 import { Redirect, router, useLocalSearchParams } from "expo-router";
 
 import { FormAlert } from "@/components/FormAlert";

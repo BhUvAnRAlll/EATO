@@ -1,4 +1,4 @@
-import type { SymbolViewProps } from "expo-symbols";
+import type { SymbolViewProps } from "@/components/SymbolView";
 
 import type { ActivityLevel, EquationGender, FitnessGoal, Gender, HealthFlag } from "@/lib/nutrition";
 

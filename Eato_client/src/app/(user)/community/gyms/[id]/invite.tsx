@@ -2,7 +2,7 @@ import { useCallback, useState } from "react";
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, Share, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
-import { SymbolView } from "expo-symbols";
+import { SymbolView } from "@/components/SymbolView";
 import * as Linking from "expo-linking";
 import QRCode from "react-native-qrcode-svg";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";

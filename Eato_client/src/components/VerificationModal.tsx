@@ -9,7 +9,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { SymbolView } from "expo-symbols";
+import { SymbolView } from "@/components/SymbolView";
 
 import { FormAlert } from "@/components/FormAlert";
 import { getClerkErrorMessage } from "@/lib/clerk";

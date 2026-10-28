@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Platform, Text, View } from "react-native";
-import { SymbolView } from "expo-symbols";
+import { SymbolView } from "@/components/SymbolView";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { useEventListener } from "expo";
 import { router, useLocalSearchParams } from "expo-router";

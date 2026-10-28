@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Pressable, Text, TextInput, View, type TextInputProps } from "react-native";
-import { SymbolView, type SymbolViewProps } from "expo-symbols";
+import { SymbolView, type SymbolViewProps } from "@/components/SymbolView";
 
 import { colors } from "@/theme";
 

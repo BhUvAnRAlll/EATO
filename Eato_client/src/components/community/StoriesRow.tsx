@@ -1,5 +1,5 @@
 import { Pressable, ScrollView, Text, View } from "react-native";
-import { SymbolView } from "expo-symbols";
+import { SymbolView } from "@/components/SymbolView";
 
 import { StoryAvatar } from "@/components/community/StoryAvatar";
 import type { Member, StoryGroup } from "@/lib/community";

@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { router, useFocusEffect } from "expo-router";
-import { SymbolView } from "expo-symbols";
+import { SymbolView } from "@/components/SymbolView";
 
 import { QrScanner } from "@/components/owner/QrScanner";
 import { durationLabel, owner, timeLabel, type MyVisit } from "@/lib/owner";

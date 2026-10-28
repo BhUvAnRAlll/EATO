@@ -1,6 +1,6 @@
 import { Pressable, Text, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { SymbolView } from "expo-symbols";
+import { SymbolView } from "@/components/SymbolView";
 import type { BottomTabBarProps } from "expo-router/js-tabs";
 
 import { homeTabs } from "@/data/home";

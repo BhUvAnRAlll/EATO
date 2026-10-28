@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Modal, Pressable, Text, useWindowDimensions, View } from "react-native";
-import { SymbolView } from "expo-symbols";
+import { SymbolView } from "@/components/SymbolView";
 
 import { Ring } from "@/components/macro/Ring";
 import { statusColor } from "@/components/macro/WeekStrip";

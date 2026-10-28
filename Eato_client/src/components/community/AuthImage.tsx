@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { View, type ImageStyle, type StyleProp } from "react-native";
 import { Image, type ImageContentFit } from "expo-image";
-import { SymbolView } from "expo-symbols";
+import { SymbolView } from "@/components/SymbolView";
 
 import { getApiUrl } from "@/lib/api";
 import { useCommunityStore } from "@/store/community";

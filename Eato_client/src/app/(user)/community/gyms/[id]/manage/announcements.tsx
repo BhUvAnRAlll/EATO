@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Pressable, Text } from "react-native";
-import { SymbolView } from "expo-symbols";
+import { SymbolView } from "@/components/SymbolView";
 import { useLocalSearchParams } from "expo-router";
 
 import { GymAnnouncementsManager } from "@/components/gyms/GymAnnouncementsManager";

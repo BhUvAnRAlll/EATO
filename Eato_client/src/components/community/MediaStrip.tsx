@@ -1,5 +1,5 @@
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
-import { SymbolView } from "expo-symbols";
+import { SymbolView } from "@/components/SymbolView";
 
 import { AuthImage } from "@/components/community/AuthImage";
 import { colors } from "@/theme";

@@ -1,5 +1,5 @@
 import { Pressable, Text, View } from "react-native";
-import { SymbolView } from "expo-symbols";
+import { SymbolView } from "@/components/SymbolView";
 
 import { formatLongDate, greetingFor } from "@/lib/date";
 import { colors } from "@/theme";

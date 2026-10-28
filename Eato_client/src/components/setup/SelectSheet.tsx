@@ -1,5 +1,5 @@
 import { Modal, Pressable, Text, View } from "react-native";
-import { SymbolView } from "expo-symbols";
+import { SymbolView } from "@/components/SymbolView";
 
 import type { Option } from "@/types/profile";
 import { colors } from "@/theme";

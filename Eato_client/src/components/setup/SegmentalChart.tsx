@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Animated, Text, View, type LayoutChangeEvent } from "react-native";
 import { Image } from "expo-image";
-import { SymbolView } from "expo-symbols";
+import { SymbolView } from "@/components/SymbolView";
 
 import { useGrow } from "@/components/setup/ReportGraphs";
 import { images } from "@/constants/images";

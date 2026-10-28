@@ -1,5 +1,5 @@
 import { Text, TextInput, View } from "react-native";
-import { SymbolView } from "expo-symbols";
+import { SymbolView } from "@/components/SymbolView";
 import { router } from "expo-router";
 
 import { Chip } from "@/components/setup/Chip";

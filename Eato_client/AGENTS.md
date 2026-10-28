@@ -409,6 +409,17 @@ Before implementing styling or NativeWind-related code:
 
 Refer this for more info: https://www.nativewind.dev/v5/llms-full.txt
 
+- NativeWind swaps every `"react-native"` import for its own copy, which has no `AssetRegistry`.
+  `metro.config.js` lets expo-asset skip the swap; without it bundled fonts (the icon font,
+  Poppins) fail to load on the phone. Restart Metro after changing `metro.config.js`.
+
+## Icons
+
+Import `SymbolView` from `@/components/SymbolView`, never from `expo-symbols`. Screens use SF
+Symbol names (`name="envelope"`); iOS draws them natively, and the wrapper adds the Material
+Symbols twin from `constants/symbols.ts` for Android and the web. A new icon name needs a line
+in that map (a missing one warns in development and shows nothing on Android).
+
 ---
 
 ## Style Exception Rules

@@ -39,18 +39,34 @@
         {
           "backgroundColor": "#FFFFFF",
           "image": "./assets/images/splash-icon.png",
-          "imageWidth": 220
+          "imageWidth": 220,
+          "android": {
+            "image": "./assets/images/splash-icon-android.png"
+          }
         }
       ],
-      "expo-secure-store",
+      [
+        "expo-secure-store",
+        {
+          "faceIDPermission": false
+        }
+      ],
       "@react-native-community/datetimepicker",
       "@clerk/expo",
       [
         "expo-camera",
         {
-          "cameraPermission": "JustFit uses the camera to scan a gym's QR code so you can join it.",
+          "cameraPermission": "JustFit uses the camera to scan gym QR codes and to take photos for body scans, food logging and community posts.",
           "microphonePermission": false,
           "recordAudioAndroid": false
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "JustFit uses your photo library so you can choose photos for body scans, food logging and community posts.",
+          "cameraPermission": "JustFit uses the camera to scan gym QR codes and to take photos for body scans, food logging and community posts.",
+          "microphonePermission": false
         }
       ]
     ],

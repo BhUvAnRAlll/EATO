@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ActivityIndicator, Modal, Pressable, ScrollView, Text, View } from "react-native";
-import { SymbolView } from "expo-symbols";
+import { SymbolView } from "@/components/SymbolView";
 
 import { FormAlert } from "@/components/FormAlert";
 import { clockTime, macro, slotInfo, sourceLabel, whole, type Meal } from "@/lib/macro";

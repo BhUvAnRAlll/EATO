@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Pressable, ScrollView, Share, Text, View, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
-import { SymbolView } from "expo-symbols";
+import { SymbolView } from "@/components/SymbolView";
 
 import { AuthImage } from "@/components/community/AuthImage";
 import { Avatar } from "@/components/community/Avatar";

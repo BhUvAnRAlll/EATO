@@ -1,6 +1,6 @@
 import { Pressable, Text, View } from "react-native";
 import { router, type Href } from "expo-router";
-import { SymbolView } from "expo-symbols";
+import { SymbolView } from "@/components/SymbolView";
 
 import { RecreateFrame } from "@/components/workout/RecreateFrame";
 import { useRecreateDraft } from "@/components/workout/RecreateDraft";

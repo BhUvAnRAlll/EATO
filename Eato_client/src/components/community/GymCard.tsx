@@ -1,5 +1,5 @@
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
-import { SymbolView } from "expo-symbols";
+import { SymbolView } from "@/components/SymbolView";
 
 import { AuthImage } from "@/components/community/AuthImage";
 import { membershipButton, roleLabels } from "@/lib/gymRules";

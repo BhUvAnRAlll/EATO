@@ -1,5 +1,5 @@
 import { Pressable, Text, View } from "react-native";
-import { SymbolView } from "expo-symbols";
+import { SymbolView } from "@/components/SymbolView";
 
 import { clockTime, slotInfo, whole, type Meal } from "@/lib/macro";
 

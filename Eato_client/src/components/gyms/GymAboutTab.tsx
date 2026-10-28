@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Linking, Pressable, ScrollView, Text, View } from "react-native";
-import { SymbolView } from "expo-symbols";
+import { SymbolView } from "@/components/SymbolView";
 import { router } from "expo-router";
 
 import { Avatar } from "@/components/community/Avatar";
