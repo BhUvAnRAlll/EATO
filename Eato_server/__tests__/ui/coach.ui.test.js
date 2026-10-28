@@ -1,8 +1,9 @@
-// The AI Coach intake in the real Expo web build against the isolated test server and the
-// eato_test database, as a signed-in member who finished setup (muscle gain, gym) and has a
-// workout profile. Covers the intro on the Coach tab, every intake step (prefilled answers,
+// The AI Coach in the real Expo web build against the isolated test server (with the fake AI)
+// and the eato_test database, as a signed-in member who finished setup (muscle gain, gym) and
+// has a workout profile. Covers the intro on the Coach tab, every intake step (prefilled answers,
 // Continue staying off until a step is answered, the doctor note), the disclaimer tick, the
-// save, the summary on the Coach tab, Edit, and screenshots at 3 widths.
+// save, the summary on the Coach tab, Edit, making the plan, logging a plan meal to Macro, and
+// screenshots at 3 widths.
 //
 //   yarn test:ui      (needs Eato_server/.env.test and Google Chrome; otherwise skipped)
 //   EATO_SCREENSHOT_DIR=<dir> saves screenshots of each screen at three widths
@@ -76,12 +77,15 @@ describe("ui coach: the AI Coach intake", () => {
     try { connection = await db.connect(env); } catch (error) { skipReason = `test database unreachable (${error?.code ?? "refused"})`; return; }
     assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in eato_test`);
     clerk = clerkFor(env.CLERK_SECRET_KEY);
-    server = await startTestServer(env);
+    server = await startTestServer({ ...env, AI_PROVIDER: "fake" }); // the plan's meals never call a paid model in tests
     expo = await startExpoWeb({ port: EXPO_PORT, apiUrl: `http://localhost:${env.PORT}` });
     chrome = await launchChrome();
     client = await connect(chrome.browserWsUrl);
     page = await openPage(client);
     h = helpers(page, expo.baseUrl);
+    // A cold Metro cache can take well over NAV_TIMEOUT to bundle the first screen: warm it here
+    await page.navigate(`${expo.baseUrl}/sign-in`);
+    await page.waitFor(`(document.body.innerText || "").includes("Log in")`, 180000, "the first bundle (sign-in)");
     try {
       identities.a = await clerk.createIdentity(runId, "a", { withPassword: true });
     } catch (error) {
@@ -89,7 +93,14 @@ describe("ui coach: the AI Coach intake", () => {
     }
     await clerk.setUnsafeMetadata(identities.a.id, { profileComplete: true });
     await connection.query("INSERT INTO users (id, email, full_name, role) VALUES (?, ?, 'Priya Sharma', 'user')", [identities.a.id, identities.a.emailAddress]);
-    await connection.query("INSERT INTO profiles (user_id, goal, workout_type, profile_complete) VALUES (?, 'muscle_gain', 'gym', TRUE)", [identities.a.id]);
+    await connection.query(
+      "INSERT INTO profiles (user_id, goal, workout_type, dob, gender, height_cm, weight_kg, diet, profile_complete) VALUES (?, 'muscle_gain', 'gym', '1996-03-12', 'female', 162, 58, 'vegetarian', TRUE)",
+      [identities.a.id],
+    );
+    await connection.query(
+      "INSERT INTO nutrition_targets (user_id, formula, config_version, inputs, calculated_at, calories, protein_g, carbs_g, fat_g) VALUES (?, 'eato-calculator', 'test', '{}', NOW(), 1800, 110, 200, 55)",
+      [identities.a.id],
+    );
     await connection.query("INSERT INTO workout_profiles (user_id, experience, weekdays) VALUES (?, 'intermediate', '[2,4,6]')", [identities.a.id]);
   });
 
@@ -103,7 +114,11 @@ describe("ui coach: the AI Coach intake", () => {
     await step("rows", async () => {
       if (!connection) return;
       const ids = Object.values(identities).map((i) => i.id);
-      if (ids.length) for (const table of ["coach_profiles", "workout_profiles", "profiles"]) await connection.query("DELETE FROM `" + table + "` WHERE user_id IN (?)", [ids]);
+      const tables = [
+        "coach_plan_meal_items", "coach_plan_meals", "coach_plans", "macro_meal_items", "macro_meal_logs", "workout_day_overrides",
+        "workout_day_exercises", "workout_days", "workout_plans", "nutrition_targets", "coach_profiles", "workout_profiles", "profiles",
+      ];
+      if (ids.length) for (const table of tables) await connection.query("DELETE FROM `" + table + "` WHERE user_id IN (?)", [ids]);
       await db.deleteUsers(connection, ids);
       await connection.end();
     });
@@ -192,6 +207,7 @@ describe("ui coach: the AI Coach intake", () => {
     await h.expectText("Mon, Tue, Thu · 45 min");
     await h.expectText("Gym · backup Home");
     await h.expectText("Knees, Diabetes");
+    await h.expectText("Make my plan");
     const [[row]] = await connection.query("SELECT * FROM coach_profiles WHERE user_id = ?", [identities.a.id]);
     assert.deepEqual(
       { goal: row.goal, experience: row.experience, training: !!row.currently_training, days: row.weekdays, minutes: row.session_minutes, main: row.main_spot, backup: row.backup_spot, mainEq: row.main_equipment, backupEq: row.backup_equipment, joints: row.joints, conditions: row.conditions, notes: row.limitation_notes, cooking: row.cooking_time, budget: row.food_budget, stress: row.stress, sleep: row.sleep, coach: row.coach, style: row.coach_style, plan: row.plan_notes },
@@ -208,4 +224,28 @@ describe("ui coach: the AI Coach intake", () => {
     const [[row]] = await connection.query("SELECT coach FROM coach_profiles WHERE user_id = ?", [identities.a.id]);
     assert.equal(row.coach, "priya");
   }));
+
+  it("5. Make my plan shows today's meals on the targets and the workout week", run("plan", async () => {
+    await page.clickText("Make my plan");
+    await h.expectText("Today's meals");
+    await h.expectText("Moong dal chilla");
+    await h.expectText("Your workout week");
+    await h.expectText("Mon");
+    const [[plan]] = await connection.query("SELECT COUNT(*) AS n, MAX(calories) AS kcal FROM coach_plans WHERE user_id = ? AND status = 'active'", [identities.a.id]);
+    assert.deepEqual({ n: plan.n, kcal: plan.kcal }, { n: 1, kcal: 1800 });
+    await h.expectText("/ 1800 kcal");
+    await snapshotAllWidths("coach-plan");
+  }));
+
+  it("6. Log puts a plan meal in today's Macro diary, once", run("log", async () => {
+    await clickLabel("Log Dal, rice and sabzi");
+    await page.waitFor(`(() => !![...document.querySelectorAll('[aria-label="Dal, rice and sabzi logged"]')].find((e) => e.getClientRects().length > 0))()`, NAV_TIMEOUT, "the meal to show Logged");
+    const [[log]] = await connection.query("SELECT COUNT(*) AS n, MAX(source) AS source, MAX(slot) AS slot FROM macro_meal_logs WHERE user_id = ?", [identities.a.id]);
+    assert.deepEqual({ n: log.n, source: log.source, slot: log.slot }, { n: 1, source: "plan", slot: "lunch" });
+    // Coming back keeps it logged
+    await h.goto("/home", "");
+    await h.goto("/coach", "Today's meals");
+    await page.waitFor(`(() => !![...document.querySelectorAll('[aria-label="Dal, rice and sabzi logged"]')].find((e) => e.getClientRects().length > 0))()`, NAV_TIMEOUT, "still Logged after reload");
+  }));
 });
+

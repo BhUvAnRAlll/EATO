@@ -152,13 +152,15 @@ async function ensurePlan(pool, userId, today) {
  * Runs the engine on the member's current answers and stores the plan it produced as the
  * active one, stamped with the engine version, the input hash, the inputs and the calibration.
  * The caller holds the transaction and has already retired any previous active plan.
+ * `shape` (the AI Coach's) may narrow the library the engine picks from and trim the days.
  */
-async function generateAndStore(conn, userId, today, source) {
+async function generateAndStore(conn, userId, today, source, shape = {}) {
   await syncLibrary(conn);
   const { library, idByName } = await programmableLibrary(conn);
   const { eato, saved } = await memberSources(conn, userId);
   const inputs = workout.inputsForMember(eato, saved, today);
-  const plan = workout.generatePlan(inputs, library);
+  const generated = workout.generatePlan(inputs, shape.library ? shape.library(library) : library);
+  const plan = shape.days ? { ...generated, days: shape.days(generated.days) } : generated;
 
   const [[{ id: planId }]] = await conn.query("SELECT UUID() AS id");
   await conn.query(
@@ -618,6 +620,31 @@ async function recreatePlan(pool, userId, { today, answers }) {
 }
 
 /**
+ * The AI Coach's workout: saves the intake's goal, level and training days as the member's
+ * answers, then makes a new active plan from them with the coach's `shape` (equipment, joints,
+ * session length). Runs inside the caller's transaction, which holds the member's lock. A
+ * trainer's plan is never replaced; the old plan stays as superseded, with its history.
+ */
+async function planFromCoach(conn, userId, { today, goal, level, weekdays, shape }) {
+  const current = await activePlanRow(conn, userId);
+  if (current?.source === "trainer") throw new ValidationError("Your trainer manages your workout plan.");
+  const levelChanged = !current || current.level !== level;
+  const base = workout.fitnessBaseFromExperience(level);
+  await conn.query(
+    `INSERT INTO workout_profiles (user_id, goal, experience, weekdays${levelChanged ? ", fitness_base, squat_score, push_score, pull_score" : ""})
+     VALUES (?, ?, ?, ?${levelChanged ? ", ?, NULL, NULL, NULL" : ""})
+     ON DUPLICATE KEY UPDATE goal = VALUES(goal), experience = VALUES(experience), weekdays = VALUES(weekdays)${
+       levelChanged ? ", fitness_base = VALUES(fitness_base), squat_score = NULL, push_score = NULL, pull_score = NULL" : ""
+     }`,
+    [userId, goal, level, JSON.stringify(weekdays), ...(levelChanged ? [base] : [])],
+  );
+  if (current) await conn.query("UPDATE workout_plans SET status = 'superseded' WHERE id = ? AND user_id = ?", [current.id, userId]);
+  await conn.query("DELETE FROM workout_day_overrides WHERE user_id = ? AND on_date >= ?", [userId, today]);
+  const { planId, plan } = await generateAndStore(conn, userId, today, "member", shape);
+  return { planId, plan };
+}
+
+/**
  * What the reveal shows, read from what was saved: the plan's facts, every session with its
  * minutes and exercise count (workout section only), and the first session's exercises.
  */
@@ -645,7 +672,7 @@ async function planOverview(pool, userId) {
 }
 
 module.exports = {
-  recreateInputs, recreatePlan, planOverview,
+  recreateInputs, recreatePlan, planOverview, planFromCoach, activePlanRow,
   preferences, updatePreferences,
   syncLibrary, ensurePlan, home, history, resolveDates, moveSessionToToday, swapDays, withMemberLock,
   sessionProgress, startSession, logSet, completeSession: (pool, userId, body) => closeSession(pool, userId, body, "completed"),

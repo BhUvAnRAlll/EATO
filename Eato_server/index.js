@@ -71,7 +71,7 @@ const communityLimiter = createRateLimiter(rateLimits.community); // feed, likes
 const mediaLimiter = createRateLimiter(rateLimits.community); // image downloads
 const macroLimiter = createRateLimiter(rateLimits.community); // the Macro diary: day, week strip, meals, favourites
 const foodScanLimiter = createRateLimiter(rateLimits.upload); // each food photo is an OpenAI vision call
-const coachLimiter = createRateLimiter(rateLimits.standard); // the AI Coach: the intake answers
+const coachLimiter = createRateLimiter(rateLimits.standard); // the AI Coach: the intake answers and the plan
 const workoutLimiter = createRateLimiter(rateLimits.community); // the Fitness tab: plan, training day, history
 const gymsLimiter = createRateLimiter(rateLimits.community); // gym communities: gyms, members, posts, events, invitations
 const trainersLimiter = createRateLimiter(rateLimits.community); // trainers: discovery, connections, diet and workout plans, recommendations
@@ -344,7 +344,7 @@ app.post("/api/macro/scan", requireUser, limitPerUser(foodScanLimiter), jsonBody
 app.use("/api/macro", requireUser, limitPerUser(macroLimiter), macroRouter);
 
 // ---------------------------------------------------------------------------
-// AI Coach (see coach/routes.js): the intake answers
+// AI Coach (see coach/routes.js): the intake answers and the plan (making one has its own hourly budget)
 // ---------------------------------------------------------------------------
 
 app.use("/api/coach", requireUser, limitPerUser(coachLimiter), coachRouter);

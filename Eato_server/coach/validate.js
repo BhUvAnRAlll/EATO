@@ -2,6 +2,7 @@
 // database), so they are unit-tested directly. Identity never comes from here: the routes read
 // the member from the verified session.
 const { ValidationError } = require("../profile");
+const { isoDate, isNearToday, id } = require("../macro/validate");
 
 const options = {
   goal: ["build_muscle", "lose_weight", "get_stronger", "endurance", "stay_active", "flexibility", "sport", "comeback"],
@@ -116,4 +117,38 @@ function prefillFrom(profile, workout) {
   return prefill;
 }
 
-module.exports = { options, equipmentBySpot, limits, validateIntake, prefillFrom };
+// ---- the plan routes ----------------------------------------------------------------
+
+// A body with exactly these fields (and nothing else)
+function onlyFields(body, fields) {
+  if (body === null || typeof body !== "object" || Array.isArray(body)) throw new ValidationError("Send the request as a JSON object.");
+  for (const key of Object.keys(body)) if (!fields.includes(key)) throw new ValidationError(`The request has an unexpected field: ${key}.`);
+}
+
+// The member's local day: any day within one day of the server's covers every time zone
+function memberToday(value, now, what) {
+  const iso = isoDate(value, what);
+  if (!isNearToday(iso, now)) throw new ValidationError(`${what} doesn't match the server's date. Check your phone's date.`);
+  return iso;
+}
+
+// POST /plan { today }
+function planBody(body, now) {
+  onlyFields(body, ["today"]);
+  return { today: memberToday(body.today, now, "Today") };
+}
+
+// GET /plan?date=: which day's logged meals to show (any real day)
+function planQuery(query) {
+  return { date: isoDate(query.date) };
+}
+
+// POST /plan/meals/:mealId/log { date }: only today's meals can be logged
+function logBody(body, now) {
+  onlyFields(body, ["date"]);
+  return { date: memberToday(body.date, now, "The date") };
+}
+
+const mealId = (value) => id(value, "The meal");
+
+module.exports = { options, equipmentBySpot, limits, validateIntake, prefillFrom, planBody, planQuery, logBody, mealId };
