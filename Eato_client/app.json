@@ -52,7 +52,12 @@
         }
       ],
       "@react-native-community/datetimepicker",
-      "@clerk/expo",
+      [
+        "@clerk/expo",
+        {
+          "appleSignIn": false
+        }
+      ],
       [
         "expo-camera",
         {
@@ -82,11 +87,7 @@
         "asyncRoutes": {
           "web": true
         }
-      },
-      "eas": {
-        "projectId": "641e9360-4740-4bab-8070-4d877de52946"
       }
-    },
-    "owner": "bhuvii3"
+    }
   }
 }
