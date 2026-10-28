@@ -128,7 +128,8 @@ describe("body scan e2e: POST /api/body-composition/scan", () => {
     assert.deepEqual(Object.keys(r.json.estimate).sort(), ["percentBodyFat", "report"], "no model version, uncertainty or explanation is sent to the app");
     const sent = fake.received.at(-1);
     assert.equal(sent.path, "/scan");
-    assert.deepEqual(Object.keys(sent.body).sort(), ["age", "flip_side", "front", "height_cm", "include_report", "sex", "side", "weight_kg"]);
+    assert.deepEqual(Object.keys(sent.body).sort(), ["age", "ethnicity", "flip_side", "front", "height_cm", "include_report", "sex", "side", "weight_kg"]);
+    assert.equal(sent.body.ethnicity, "asian");
     assert.equal(sent.body.include_report, false);
     assert.equal(sent.body.flip_side, true);
     assert.equal(sent.body.front, JPEG);
