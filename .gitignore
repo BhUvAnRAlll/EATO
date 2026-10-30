@@ -1,4 +1,4 @@
-# EATO monorepo root ignore rules. Eato_client/ and Eato_server/ keep their own
+# justFit monorepo root ignore rules. JustFit_client/ and JustFit_server/ keep their own
 # .gitignore files too; the rules here apply to every folder.
 
 # Secrets: every .env in any folder, except the committed templates
@@ -34,8 +34,8 @@ coverage/
 .cache/
 
 # Generated native folders (Continuous Native Generation)
-Eato_client/ios/
-Eato_client/android/
+JustFit_client/ios/
+JustFit_client/android/
 
 # Logs and temporary files
 *.log

@@ -1,1 +1,1 @@
-@Eato_client/AGENTS.md
+@JustFit_client/AGENTS.md

@@ -1,0 +1,139 @@
+/*
+ * justFit design tokens.
+ * Every value here becomes a Tailwind utility (e.g. --color-ink → bg-ink, text-ink).
+ * Keep src/theme/index.ts in sync when you change a value.
+ *
+ * Sizes are in px on purpose: NativeWind treats 1rem as 14px on native and
+ * 16px on web, so rem-based sizes would not match the design on phones.
+ */
+
+@theme {
+  /* Only justFit colors are available — no default Tailwind palette. */
+  --color-*: initial;
+
+  /* Peak Fitness palette (from Peak-Fitness-Design-System.pdf): white screens, outlined cards,
+     one strong colour for the main button, progress, selection and the active tab, and pastel
+     tiles for body metrics. The PDF's orange is replaced by the justFit logo red (2026-10-27;
+     black was tried on 2026-10-28 and reverted the same day). White text sits on red (5.5:1);
+     for small red text on white use primary-text.
+     Some names (leaf, forest, cream) come from earlier themes; they keep their roles. */
+
+  /* Brand red */
+  --color-primary: #d40005;
+  --color-primary-pressed: #b00004;
+  --color-primary-text: #c00005;
+  --color-on-primary: #ffffff;
+  --color-accent-soft: #fdeaea;
+  /* AI Coach only (the coach's own look, approved 2026-10-29): the bright start of the red
+     button gradient and the pink wash behind the coach screens */
+  --color-primary-bright: #f0262b;
+  --color-coach-wash: #fff3f3;
+  --color-coach-arrow: rgba(255, 255, 255, 0.18); /* the arrow circle on the red button */
+  --color-ink: #111111;
+  --color-violet: #7c5cd6;
+
+  /* Semantic */
+  --color-success: #2f8f57;
+  --color-warning: #c4923f;
+  --color-danger: #d92d20;
+  --color-info: #4a6cf7;
+
+  /* Semantic soft fills (badge backgrounds) */
+  --color-success-soft: #e3f6ea;
+  --color-warning-soft: #fbf3e6;
+  --color-danger-soft: #fdecec;
+
+  /* Neutrals */
+  --color-muted: #5c5c63;
+  --color-faint: #767680;
+  --color-line: #e8e8ea;
+  --color-line-strong: #c9c9cf;
+  --color-surface-alt: #f4f4f5;
+  --color-background: #ffffff;
+  --color-surface: #ffffff;
+  --color-info-soft: #e6eefd;
+
+  /* Dark hero cards (surface-inverse) and their text */
+  --color-inverse: #1c1c1e;
+  --color-on-inverse: #ffffff;
+  --color-on-inverse-muted: #a1a1aa;
+
+  /* Second data series and chart highlight */
+  --color-accent-blue: #4a6cf7;
+
+  /* Metric tiles: a pastel ground and its icon colour per metric */
+  --color-tint-blue: #e6eefd;
+  --color-tint-green: #e3f6ea;
+  --color-tint-peach: #ffeedf;
+  --color-tint-lavender: #eee9fb;
+  --color-icon-blue: #3b5bdb;
+  --color-icon-green: #2f8f57;
+  --color-icon-peach: #c25400;
+  --color-icon-lavender: #7c5cd6;
+
+  /* Accent: links, progress rings, "today", icons (leaf), its soft fill and the
+     active tab icon (leaf-dark) */
+  --color-leaf: #d40005;
+  --color-leaf-soft: #fdeaea;
+  --color-leaf-dark: #111111;
+
+  /* Surfaces and ink: page (cream), primary buttons (forest), titles, borders and tracks */
+  --color-cream: #ffffff;
+  --color-cream-deep: #f4f4f5;
+  --color-forest: #d40005;
+  --color-forest-ink: #111111;
+  --color-sand: #e8e8ea;
+  --color-bronze: #b8955f;
+  --color-cream-line: #e8e8ea;
+  --color-cream-tab: #e9e9ec;
+  --color-cream-light: #ffffff;
+  --color-ink-soft: #3f3f46;
+  --color-forest-soft: #fdeaea;
+
+  /* Macros */
+  --color-protein: #6cc28a;
+  --color-carbs: #a9a3f0;
+  --color-fat: #f2c14e;
+
+  --color-white: #ffffff;
+  --color-black: #000000;
+
+  /* Spacing: 1 step = 4px, so p-1 = 4, p-4 = 16, p-8 = 32 */
+  --spacing: 4px;
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 12px;
+  --spacing-lg: 16px;
+  --spacing-xl: 20px;
+  --spacing-2xl: 24px;
+  --spacing-3xl: 32px;
+
+  /* Control heights: h-control-sm / h-control-md / h-control-lg */
+  --spacing-control-sm: 44px;
+  --spacing-control-md: 48px;
+  --spacing-control-lg: 54px;
+
+  /* Radius: rounded-sm / md / lg / xl / pill */
+  --radius-*: initial;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-pill: 9999px;
+
+  /* Poppins (Peak Fitness type): one family per weight, loaded in app/_layout.tsx from
+     constants/fonts.ts. Set the family for a weight, never font-weight with it. */
+  --font-sans: Poppins-Regular;
+  --font-sans-medium: Poppins-Medium;
+  --font-sans-semibold: Poppins-SemiBold;
+
+  /* Cards use a 1px border, not a shadow. The sheet shadow is only for floating things
+     (bottom nav, mini player), the glow only for the main play button. */
+  --shadow-card: 0 0 0 rgba(0, 0, 0, 0);
+  --shadow-sheet: 0 -4px 24px rgba(17, 17, 17, 0.08);
+  --shadow-glow: 0 6px 16px rgba(212, 0, 5, 0.35);
+  /* AI Coach only: soft card shadow, the button's red glow, the header button's lift */
+  --shadow-coach-card: 0 4px 18px rgba(17, 17, 17, 0.06);
+  --shadow-coach-cta: 0 8px 20px rgba(212, 0, 5, 0.28);
+  --shadow-coach-btn: 0 2px 10px rgba(17, 17, 17, 0.08);
+}
