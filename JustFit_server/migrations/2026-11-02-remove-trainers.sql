@@ -17,8 +17,8 @@
 -- unattached uploads, which the orphan sweep removes.
 --
 -- Safe to run more than once: each step checks first. Run after 2026-11-01-phone-auth.sql, by
--- hand, with an account allowed to alter and drop tables (eato_app can't), for example:
---   /usr/local/mysql/bin/mysql -u root -p eato < migrations/2026-11-02-remove-trainers.sql
+-- hand, with an account allowed to alter and drop tables (justfit_app can't), for example:
+--   /usr/local/mysql/bin/mysql -u root -p justfit < migrations/2026-11-02-remove-trainers.sql
 -- This deletes data and can't be undone: back up the database first.
 
 -- 1. Targets: back to the member's own (only while the recommendations table still exists)

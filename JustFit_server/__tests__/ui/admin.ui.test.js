@@ -1,5 +1,5 @@
 // The Super Admin portal in the real Expo web build against the isolated test server and the
-// eato_test database: an justFit admin signs in onto the Overview (counts, to-do list, recent admin
+// justfit_test database: an justFit admin signs in onto the Overview (counts, to-do list, recent admin
 // activity), the Reports tab carries its badge, a to-do row opens the screen that resolves it,
 // and a member can't reach /admin. Screenshots at three widths.
 //
@@ -85,7 +85,7 @@ describe("ui admin: the Super Admin Overview and its tabs", () => {
     if (!fs.existsSync(CHROME)) { skipReason = "Google Chrome is not installed"; return; }
     for (const port of [Number(env.PORT), EXPO_PORT]) if (!(await portFree(port))) throw new Error(`port ${port} is in use; refusing to start`);
     try { connection = await db.connect(env); } catch (error) { skipReason = `test database unreachable (${error?.code ?? "refused"})`; return; }
-    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in eato_test`);
+    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in justfit_test`);
     testAccounts = identitiesFor(env);
     server = await startTestServer(env);
     expo = await startExpoWeb({ port: EXPO_PORT, apiUrl: `http://localhost:${env.PORT}` });

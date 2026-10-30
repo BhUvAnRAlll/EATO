@@ -1,5 +1,5 @@
-// The owner portal's Review tab end to end: test accounts in eato_test against the real
-// Express server and the isolated `eato_test` database. Covers who may review (the gym's owner and
+// The owner portal's Review tab end to end: test accounts in justfit_test against the real
+// Express server and the isolated `justfit_test` database. Covers who may review (the gym's owner and
 // admins, and platform admins; never members or another gym), held posts (approve,
 // reject), reported posts (keep dismisses the reports, remove takes the post down and marks them
 // reviewed, so both leave the open queue), reporters staying anonymous, another gym's posts looking
@@ -54,7 +54,7 @@ describe("owner review e2e: held posts and reported posts", () => {
     if (!loaded.ok) { skipReason = loaded.reason; return; }
     env = loaded.env;
     try { connection = await db.connect(env); } catch (error) { skipReason = `test database unreachable (${error?.code ?? "refused"})`; return; }
-    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in eato_test`);
+    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in justfit_test`);
     testAccounts = identitiesFor(env);
     server = await startTestServer(env);
     try {

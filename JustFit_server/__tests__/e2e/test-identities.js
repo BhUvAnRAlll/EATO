@@ -1,4 +1,4 @@
-// Test accounts and sessions for the e2e and UI suites, written straight into eato_test: no
+// Test accounts and sessions for the e2e and UI suites, written straight into justfit_test: no
 // external service, nothing sent. An identity is a users row exactly like one phone sign-in
 // creates (user_ id, verified phone, role 'user' unless a test asks for another), plus a
 // test email so the email-based gym features can be exercised. Sessions are auth_sessions
@@ -22,7 +22,7 @@ function describeIdentityError(error) {
 const randomPhone = () => "9" + String(crypto.randomInt(0, 1_000_000_000)).padStart(9, "0");
 
 function identitiesFor(env) {
-  if (env.DB_NAME !== "eato_test" || env.DB_USER !== "eato_test") throw new Error("test identities are only written to eato_test");
+  if (env.DB_NAME !== "justfit_test" || env.DB_USER !== "justfit_test") throw new Error("test identities are only written to justfit_test");
   const tokens = new Map(); // sessionId → token, for tokenFor
   const phones = new Map(); // userId → phone, so the codes sent to it can be cleaned up
 
@@ -92,7 +92,7 @@ function identitiesFor(env) {
     return row ? Boolean(row.profile_complete) : false;
   };
 
-  // eato_test is rebuilt from schema.sql at the start of every file, so nothing is left over
+  // justfit_test is rebuilt from schema.sql at the start of every file, so nothing is left over
   const sweepOrphans = async () => [];
 
   return { createIdentity, mintToken, tokenFor, revokeSession, deleteUser, userExists, setRole, setProfileComplete, getProfileComplete, sweepOrphans };

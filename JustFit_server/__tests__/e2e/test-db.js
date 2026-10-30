@@ -1,5 +1,5 @@
 // The isolated test database for the e2e suite. Everything here refuses to touch
-// anything but the `eato_test` schema through the `eato_test` account, and rebuilds
+// anything but the `justfit_test` schema through the `justfit_test` account, and rebuilds
 // that schema from schema.sql so every run starts from a known, empty state.
 const fs = require("node:fs");
 const path = require("node:path");
@@ -23,8 +23,8 @@ function loadTestEnv() {
   for (const key of ["PORT", "DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "DB_NAME"]) {
     if (!env[key]) return { ok: false, reason: `${key} is missing from .env.test` };
   }
-  if (env.DB_NAME !== "eato_test") return { ok: false, reason: "DB_NAME must be exactly eato_test" };
-  if (env.DB_USER !== "eato_test") return { ok: false, reason: "DB_USER must be exactly eato_test" };
+  if (env.DB_NAME !== "justfit_test") return { ok: false, reason: "DB_NAME must be exactly justfit_test" };
+  if (env.DB_USER !== "justfit_test") return { ok: false, reason: "DB_USER must be exactly justfit_test" };
   if (env.PORT === "4000") return { ok: false, reason: "PORT must not be the development server's port" };
   return { ok: true, env };
 }
@@ -36,7 +36,7 @@ async function connect(env) {
   });
   // Fail closed: the server must have put us exactly where .env.test says
   const [[who]] = await connection.query("SELECT CURRENT_USER() AS cu, DATABASE() AS db");
-  if (!who.cu.startsWith("eato_test@") || who.db !== "eato_test") {
+  if (!who.cu.startsWith("justfit_test@") || who.db !== "justfit_test") {
     await connection.end();
     throw new Error(`refusing to run: connected as ${who.cu} to ${who.db}`);
   }
@@ -49,7 +49,7 @@ function schemaStatements() {
   return text.split(";").map((s) => s.trim()).filter((s) => s && !/^(CREATE DATABASE|USE)\b/i.test(s));
 }
 
-// Drops every table in eato_test and recreates them from schema.sql
+// Drops every table in justfit_test and recreates them from schema.sql
 async function resetSchema(connection) {
   const [rows] = await connection.query("SELECT TABLE_NAME AS t FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE()");
   await connection.query("SET FOREIGN_KEY_CHECKS = 0");
@@ -103,7 +103,7 @@ async function befriend(connection, a, b) {
   );
 }
 
-// How many tables schema.sql creates. Every suite that rebuilds eato_test checks it, so a
+// How many tables schema.sql creates. Every suite that rebuilds justfit_test checks it, so a
 // table added to schema.sql (or a migration missing from it) is caught at once. Update it
 // here, in one place, when schema.sql gains or loses a table.
 const SCHEMA_TABLE_COUNT = 80;

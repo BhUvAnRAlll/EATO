@@ -9,8 +9,8 @@
 --   3. otp_challenges: one row per code sent (only an HMAC of the code is stored).
 --   4. auth_sessions: one row per signed-in device (only a SHA-256 of the token is stored).
 -- Safe to run more than once: each step checks first. Run after 2026-10-31-coach-plans.sql,
--- by hand, with an account allowed to alter and create tables (eato_app can't), for example:
---   /usr/local/mysql/bin/mysql -u root -p eato < migrations/2026-11-01-phone-auth.sql
+-- by hand, with an account allowed to alter and create tables (justfit_app can't), for example:
+--   /usr/local/mysql/bin/mysql -u root -p justfit < migrations/2026-11-01-phone-auth.sql
 -- Back up the database first. To undo (development only), in this order:
 --   DROP TABLE IF EXISTS auth_sessions, otp_challenges;
 --   ALTER TABLE users DROP CHECK chk_users_phone_verified, DROP INDEX uq_users_verified_phone,

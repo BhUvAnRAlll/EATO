@@ -64,7 +64,7 @@ async function memberSources(conn, userId) {
     [userId],
   );
   const [[answers]] = await conn.query("SELECT * FROM workout_profiles WHERE user_id = ?", [userId]);
-  const eato = profile
+  const justfit = profile
     ? {
         dob: profile.dob,
         gender: profile.gender,
@@ -94,13 +94,13 @@ async function memberSources(conn, userId) {
         split: answers.split,
       }
     : {};
-  return { eato, saved };
+  return { justfit, saved };
 }
 
 // The member's body weight for calorie estimates, or null: never a guessed number
 async function memberWeight(conn, userId) {
-  const { eato, saved } = await memberSources(conn, userId);
-  return saved.weightKg ?? eato.weightKg ?? null;
+  const { justfit, saved } = await memberSources(conn, userId);
+  return saved.weightKg ?? justfit.weightKg ?? null;
 }
 
 // ---- plans -------------------------------------------------------------------------
@@ -157,8 +157,8 @@ async function ensurePlan(pool, userId, today) {
 async function generateAndStore(conn, userId, today, source, shape = {}) {
   await syncLibrary(conn);
   const { library, idByName } = await programmableLibrary(conn);
-  const { eato, saved } = await memberSources(conn, userId);
-  const inputs = workout.inputsForMember(eato, saved, today);
+  const { justfit, saved } = await memberSources(conn, userId);
+  const inputs = workout.inputsForMember(justfit, saved, today);
   const generated = workout.generatePlan(inputs, shape.library ? shape.library(library) : library);
   const plan = shape.days ? { ...generated, days: shape.days(generated.days) } : generated;
 
@@ -562,9 +562,9 @@ async function updatePreferences(pool, userId, { today, goal, level, weekdays, s
  */
 async function recreateInputs(pool, userId, { today }) {
   const plan = await activePlanRow(pool, userId);
-  const { eato, saved } = await memberSources(pool, userId);
-  const fromSetup = workout.engineProfileFor(eato, {});
-  const age = saved.ageYears ?? (eato.dob ? workout.ageOn(eato.dob, today) : null);
+  const { justfit, saved } = await memberSources(pool, userId);
+  const fromSetup = workout.engineProfileFor(justfit, {});
+  const age = saved.ageYears ?? (justfit.dob ? workout.ageOn(justfit.dob, today) : null);
   return {
     answers: {
       gender: saved.gender ?? fromSetup.gender ?? null,

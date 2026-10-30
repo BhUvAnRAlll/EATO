@@ -1,5 +1,5 @@
-// The AI Coach end to end: test accounts in eato_test against the real Express server
-// and the isolated eato_test database, with the fake AI (never a paid model). Covers the intake
+// The AI Coach end to end: test accounts in justfit_test against the real Express server
+// and the isolated justfit_test database, with the fake AI (never a paid model). Covers the intake
 // (prefill from setup and the workout profile, saving and replacing the answers) and the plan
 // (made from the intake, remade, its meals logged to Macro once, no trainer state left),
 // and the attack paths: no or forged session, another member's answers or meals, unexpected
@@ -46,7 +46,7 @@ describe("coach e2e: the intake, its prefill, and who may see it", () => {
     if (!loaded.ok) { skipReason = loaded.reason; return; }
     env = loaded.env;
     try { connection = await db.connect(env); } catch (error) { skipReason = `test database unreachable (${error?.code ?? "refused"})`; return; }
-    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in eato_test`);
+    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in justfit_test`);
     testAccounts = identitiesFor(env);
     server = await startTestServer({ ...env, AI_PROVIDER: "fake" }); // the plan's meals never call a paid model in tests
     try {

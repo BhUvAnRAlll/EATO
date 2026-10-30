@@ -2,8 +2,8 @@
 -- the front desk (gym_scan_failures), and the gym's check-out QR (two columns on gyms). Approved by
 -- the user on 2026-10-18. Safe to run more than once: each step checks first. Run after
 -- 2026-10-25-assistant-default.sql, by hand, with an account allowed to create and alter tables
--- (eato_app can't), for example:
---   mysql -u root -p eato < migrations/2026-10-26-gym-attendance.sql
+-- (justfit_app can't), for example:
+--   mysql -u root -p justfit < migrations/2026-10-26-gym-attendance.sql
 
 -- One row per visit. A member has at most one open visit per gym (open_member), so a repeated tap
 -- or a second scan can never check them in twice. Visits are kept when a gym is closed

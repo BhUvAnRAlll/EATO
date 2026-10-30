@@ -1,5 +1,5 @@
-// "Rebuild my plan" end to end: test accounts in eato_test against the real Express
-// server and the isolated eato_test database. Covers the saved answers the flow starts from
+// "Rebuild my plan" end to end: test accounts in justfit_test against the real Express
+// server and the isolated justfit_test database. Covers the saved answers the flow starts from
 // (setup profile values where nothing was saved), rebuilding the plan from all thirteen answers
 // (calibrated level written back, the old plan kept as superseded), safety mode for an injury,
 // the plan overview the reveal reads, every refusal word for word, no trainer flag left,
@@ -71,7 +71,7 @@ describe("workout e2e: rebuild my plan from thirteen answers", () => {
     if (!loaded.ok) { skipReason = loaded.reason; return; }
     env = loaded.env;
     try { connection = await db.connect(env); } catch (error) { skipReason = `test database unreachable (${error?.code ?? "refused"})`; return; }
-    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in eato_test`);
+    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in justfit_test`);
     testAccounts = identitiesFor(env);
     server = await startTestServer(env);
     try {

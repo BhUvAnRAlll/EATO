@@ -1,8 +1,8 @@
 -- The AI Coach plan: the coach's day of meals and the note that goes with it. Approved by the
 -- user on 2026-10-27 (Phase 2: workout from the existing engine, a new table set for the diet,
 -- a human trainer's plan wins). Safe to run more than once. Run after 2026-10-30-coach-intake.sql,
--- by hand, with an account allowed to create tables (eato_app can't), for example:
---   /usr/local/mysql/bin/mysql -u root -p eato < migrations/2026-10-31-coach-plans.sql
+-- by hand, with an account allowed to create tables (justfit_app can't), for example:
+--   /usr/local/mysql/bin/mysql -u root -p justfit < migrations/2026-10-31-coach-plans.sql
 --
 -- Structural links (plan_id, meal_id, workout_plan_id) are not foreign keys, as in the Workout
 -- tables: only user_id cascades (see the cascade note in schema.sql), and every query filters on

@@ -1,8 +1,8 @@
 -- Questions the in-app gym assistant couldn't answer, kept for the gym's team, and the team's
 -- replies (shown in the asker's chat and bell). Approved by the user on 2026-10-18. Safe to run more
 -- than once. Run after 2026-10-27-gym-notices.sql, by hand, with an account allowed to create tables
--- (eato_app can't), for example:
---   mysql -u root -p eato < migrations/2026-10-29-gym-assistant-questions.sql
+-- (justfit_app can't), for example:
+--   mysql -u root -p justfit < migrations/2026-10-29-gym-assistant-questions.sql
 
 -- One row per question passed to the team. Gyms are never deleted (RESTRICT); the asker's account
 -- going takes their questions with it; a staff account going leaves its replies.

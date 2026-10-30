@@ -1,5 +1,5 @@
-// The Super Admin portal end to end: test accounts in eato_test against the real Express
-// server and the isolated eato_test database. Covers the Overview's counts, its to-do list and
+// The Super Admin portal end to end: test accounts in justfit_test against the real Express
+// server and the isolated justfit_test database. Covers the Overview's counts, its to-do list and
 // the audit log that admin actions write (suspend, reinstate, dismiss a report, publish a
 // promotion), Users (list, filters, search, detail, suspension guards, the removed trainer
 // routes and filter staying gone), and the attack paths: no or forged session, members calling
@@ -49,7 +49,7 @@ describe("admin portal e2e: the Overview, users and the admin audit log", () => 
     if (!loaded.ok) { skipReason = loaded.reason; return; }
     env = loaded.env;
     try { connection = await db.connect(env); } catch (error) { skipReason = `test database unreachable (${error?.code ?? "refused"})`; return; }
-    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in eato_test`);
+    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in justfit_test`);
     testAccounts = identitiesFor(env);
     server = await startTestServer(env);
     try {

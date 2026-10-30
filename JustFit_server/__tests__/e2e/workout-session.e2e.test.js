@@ -1,5 +1,5 @@
-// Running a workout session end to end: test accounts in eato_test against the real
-// Express server and the isolated eato_test database. Covers starting today's session (once,
+// Running a workout session end to end: test accounts in justfit_test against the real
+// Express server and the isolated justfit_test database. Covers starting today's session (once,
 // even when asked twice at once), logging sets (one row per set, replaced when redone),
 // finishing, ending early (sets kept, the date back to planned), reading progress, every refusal
 // the workout spec lists word for word, and the attack paths: no or forged session, another
@@ -66,7 +66,7 @@ describe("workout e2e: starting, logging and finishing a session", () => {
     if (!loaded.ok) { skipReason = loaded.reason; return; }
     env = loaded.env;
     try { connection = await db.connect(env); } catch (error) { skipReason = `test database unreachable (${error?.code ?? "refused"})`; return; }
-    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in eato_test`);
+    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in justfit_test`);
     testAccounts = identitiesFor(env);
     server = await startTestServer(env);
     try {

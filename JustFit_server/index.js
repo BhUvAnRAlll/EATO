@@ -56,7 +56,7 @@ const otpKey = deriveOtpKey(process.env.AUTH_SECRET);
 const sms = createSmsProvider(process.env);
 const otpLimits = otpConfig(process.env);
 // Development only: a fixed code for one number (auth/devLogin.js). Refused outside
-// NODE_ENV=development on eato (or tests), so this line stops a production start that has it.
+// NODE_ENV=development on justfit (or tests), so this line stops a production start that has it.
 const devLogin = devLoginConfig(process.env);
 if (devLogin) console.warn("Development sign-in code is ON for one number. Never set DEV_LOGIN_* outside development.");
 

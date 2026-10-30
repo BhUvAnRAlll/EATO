@@ -1,5 +1,5 @@
 // Per-user rate limiting on the Express profile routes, against the isolated test server
-// (port from .env.test, database eato_test) with genuine sessions. The test server
+// (port from .env.test, database justfit_test) with genuine sessions. The test server
 // is started fresh here, so its in-memory counters start empty.
 //
 //   yarn test:e2e      (needs JustFit_server/.env.test; otherwise skipped)

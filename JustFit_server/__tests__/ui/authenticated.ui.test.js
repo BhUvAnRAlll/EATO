@@ -1,5 +1,5 @@
 // Phase 9, step 3: the complete onboarding workflow through the real Expo web UI with a test
-// account in eato_test, against the isolated Express test server. The browser signs in
+// account in justfit_test, against the isolated Express test server. The browser signs in
 // through the real phone sign-in screen with the code from the test server's fake SMS
 // outbox (nothing is sent). Nothing here touches the application database.
 //

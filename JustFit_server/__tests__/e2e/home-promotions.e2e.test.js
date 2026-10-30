@@ -1,6 +1,6 @@
-// Authenticated tests for the admin-managed home screen content: test accounts in eato_test
+// Authenticated tests for the admin-managed home screen content: test accounts in justfit_test
 // identities with the admin and member roles, calling the real Express server
-// (index.js) over HTTP against the isolated `eato_test` database, which schema.sql seeds
+// (index.js) over HTTP against the isolated `justfit_test` database, which schema.sql seeds
 // with three published promotions and the default home content.
 //
 //   yarn test:e2e      (needs JustFit_server/.env.test; otherwise every test is skipped)
@@ -70,7 +70,7 @@ describe("home promotions e2e: admin edits → members see published content", (
       skipReason = `test database unreachable (${error?.code ?? "refused"})`;
       return;
     }
-    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in eato_test`);
+    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in justfit_test`);
     testAccounts = identitiesFor(env);
     server = await startTestServer(env);
     try {

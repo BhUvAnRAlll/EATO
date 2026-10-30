@@ -9,11 +9,11 @@
 -- - Nutrition values are per serving; grams use DECIMAL(6,1) (e.g. 44.5 g).
 -- - Uploaded body composition photos/PDFs are never stored, only the confirmed values.
 
-CREATE DATABASE IF NOT EXISTS eato
+CREATE DATABASE IF NOT EXISTS justfit
   CHARACTER SET utf8mb4
   COLLATE utf8mb4_0900_ai_ci;
 
-USE eato;
+USE justfit;
 
 -- ---------------------------------------------------------------------------
 -- People

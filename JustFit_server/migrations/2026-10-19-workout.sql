@@ -5,7 +5,7 @@
 -- already has these for a fresh install. Needs the community tables first
 -- (2026-10-14-community.sql: thumbnails reference community_media). Run by hand with an
 -- account allowed to create tables, for example:
---   mysql -u root -p eato < migrations/2026-10-19-workout.sql
+--   mysql -u root -p justfit < migrations/2026-10-19-workout.sql
 
 -- ---------------------------------------------------------------------------
 -- Workout: generated training plans, what members actually did, and the exercise

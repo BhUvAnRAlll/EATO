@@ -1,6 +1,6 @@
-// Phone sign-in end to end: the real Express server (index.js) on the test port, the eato_test
+// Phone sign-in end to end: the real Express server (index.js) on the test port, the justfit_test
 // database, and the fake SMS provider (codes land in a throwaway outbox folder; nothing is
-// sent). Time is moved by editing eato_test rows (created_at, expires_at), never by waiting.
+// sent). Time is moved by editing justfit_test rows (created_at, expires_at), never by waiting.
 //
 //   yarn test:e2e      (needs JustFit_server/.env.test; otherwise every test is skipped)
 const assert = require("node:assert/strict");
@@ -62,7 +62,7 @@ describe("phone sign-in e2e: request and verify codes, sessions, roles", () => {
     if (!loaded.ok) { skipReason = loaded.reason; return; }
     env = loaded.env;
     try { connection = await db.connect(env); } catch (error) { skipReason = `test database unreachable (${error?.code ?? "refused"})`; return; }
-    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, "schema.sql should create every table in eato_test");
+    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, "schema.sql should create every table in justfit_test");
     testAccounts = identitiesFor(env);
     // The production limits per number (the harness relaxes them for other tests), with
     // generous per-IP budgets (every request comes from 127.0.0.1); test 17 checks those
@@ -446,8 +446,8 @@ describe("phone sign-in e2e: request and verify codes, sessions, roles", () => {
     });
     const cases = [
       [{ NODE_ENV: "production" }, /only allowed with NODE_ENV=development/],
-      [{ NODE_ENV: "development" }, /only allowed with NODE_ENV=development/], // development, but on eato_test
-      [{ NODE_ENV: "test", DB_NAME: "eato" }, /only allowed with NODE_ENV=development/],
+      [{ NODE_ENV: "development" }, /only allowed with NODE_ENV=development/], // development, but on justfit_test
+      [{ NODE_ENV: "test", DB_NAME: "justfit" }, /only allowed with NODE_ENV=development/],
       [{ NODE_ENV: "test", DEV_LOGIN_CODE: "123456" }, /too easy to guess/],
       [{ NODE_ENV: "test", DEV_LOGIN_PHONE: "12345" }, /10-digit/],
     ];

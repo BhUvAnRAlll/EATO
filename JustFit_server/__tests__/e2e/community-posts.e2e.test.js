@@ -1,5 +1,5 @@
 // Authenticated tests for creating, editing and deleting posts with photos: test accounts
-// in eato_test against the real Express server and the isolated `eato_test`
+// in justfit_test against the real Express server and the isolated `justfit_test`
 // database. Covers ordered photos, the audience rule for private accounts (rechecked at
 // publish time), idempotent publishing, invalid or incomplete uploads, who may edit or
 // delete, and that nothing deleted stays reachable through an old link.
@@ -66,7 +66,7 @@ describe("community posts e2e: publish, edit and delete with photos", () => {
     if (!loaded.ok) { skipReason = loaded.reason; return; }
     env = loaded.env;
     try { connection = await db.connect(env); } catch (error) { skipReason = `test database unreachable (${error?.code ?? "refused"})`; return; }
-    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in eato_test`);
+    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in justfit_test`);
     testAccounts = identitiesFor(env);
     uploadDir = fs.mkdtempSync(path.join(os.tmpdir(), "justfit-posts-uploads-"));
     server = await startTestServer({ ...env, UPLOAD_DIR: uploadDir });

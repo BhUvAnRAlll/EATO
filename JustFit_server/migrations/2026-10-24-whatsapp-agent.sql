@@ -3,8 +3,8 @@
 -- message templates, campaigns, usage, a pricing table and an audit log. Adds to an existing
 -- database; safe to run more than once. schema.sql has all of this for a fresh install. Needs
 -- 2026-10-23-drop-groups.sql first. Run by hand with an account allowed to create tables
--- (eato_app can't), e.g.:
---   mysql -u root -p eato < migrations/2026-10-24-whatsapp-agent.sql
+-- (justfit_app can't), e.g.:
+--   mysql -u root -p justfit < migrations/2026-10-24-whatsapp-agent.sql
 --
 -- Gyms are never hard-deleted, so gym-owned rows use ON DELETE RESTRICT. Only a member's own
 -- rows cascade, one level below users (a three-level chain orphans rows on MySQL 9.7). Ids that

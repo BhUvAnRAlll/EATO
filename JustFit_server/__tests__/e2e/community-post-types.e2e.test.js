@@ -1,5 +1,5 @@
-// Authenticated tests for the Create Post types: test accounts in eato_test against the
-// real Express server and the isolated `eato_test` database. Covers each type's details,
+// Authenticated tests for the Create Post types: test accounts in justfit_test against the
+// real Express server and the isolated `justfit_test` database. Covers each type's details,
 // location, tagging (accepted friends only, all or nothing), polls and votes (one per member,
 // options checked, hidden polls stay hidden), edits that keep a type's rules, and that deleting
 // a member leaves no orphaned tags, options or votes.
@@ -58,7 +58,7 @@ describe("community post types e2e: details, tags, polls and votes", () => {
     if (!loaded.ok) { skipReason = loaded.reason; return; }
     env = loaded.env;
     try { connection = await db.connect(env); } catch (error) { skipReason = `test database unreachable (${error?.code ?? "refused"})`; return; }
-    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in eato_test`);
+    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in justfit_test`);
     testAccounts = identitiesFor(env);
     uploadDir = fs.mkdtempSync(path.join(os.tmpdir(), "justfit-post-types-uploads-"));
     server = await startTestServer({ ...env, UPLOAD_DIR: uploadDir });

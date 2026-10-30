@@ -1,5 +1,5 @@
 // The Community Friends tab in the real Expo web build against the isolated test server and
-// the eato_test database. Priya is signed in; Rohan and Chitra act through the API with their
+// the justfit_test database. Priya is signed in; Rohan and Chitra act through the API with their
 // own session tokens (the real other side of a request, not a demo button). Covers: the empty
 // state, sending a request (Requested + locked messaging), the other member accepting,
 // messaging a friend, accepting a received request, removing a friend behind a confirmation

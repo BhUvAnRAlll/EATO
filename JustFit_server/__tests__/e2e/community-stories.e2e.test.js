@@ -1,5 +1,5 @@
-// Authenticated tests for Community Stories: test accounts in eato_test against the
-// real Express server and the isolated `eato_test` database. Covers upload failures,
+// Authenticated tests for Community Stories: test accounts in justfit_test against the
+// real Express server and the isolated `justfit_test` database. Covers upload failures,
 // audiences (Everyone, Followers, Close Friends) on public and private accounts, Close
 // Friends management and its privacy, access revocation, concurrent views, reporting,
 // deletion, expiry and the clean-up job, and direct media links after each of them.
@@ -70,7 +70,7 @@ describe("community stories e2e: audiences, close friends, views, reports, delet
     if (!loaded.ok) { skipReason = loaded.reason; return; }
     env = loaded.env;
     try { connection = await db.connect(env); } catch (error) { skipReason = `test database unreachable (${error?.code ?? "refused"})`; return; }
-    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in eato_test`);
+    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in justfit_test`);
     testAccounts = identitiesFor(env);
     uploadDir = fs.mkdtempSync(path.join(os.tmpdir(), "justfit-stories-uploads-"));
     server = await startTestServer({ ...env, UPLOAD_DIR: uploadDir });

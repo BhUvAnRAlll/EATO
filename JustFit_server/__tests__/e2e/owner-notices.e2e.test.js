@@ -1,5 +1,5 @@
-// Notify members and the Community tab end to end: test accounts in eato_test against the
-// real Express server and the isolated `eato_test` database. Covers who may send (owner and admins
+// Notify members and the Community tab end to end: test accounts in justfit_test against the
+// real Express server and the isolated `justfit_test` database. Covers who may send (owner and admins
 // only), input checks, every audience and its live count (pending, suspended and community-suspended
 // people are never included), delivery to exactly the right bells, a test to yourself, renewal
 // reminders, the automatic check-in and renewal notes, the per-sender rate limit, and the Community
@@ -51,7 +51,7 @@ describe("owner notices e2e: Notify members, reminders, automatic notes and the 
     if (!loaded.ok) { skipReason = loaded.reason; return; }
     env = loaded.env;
     try { connection = await db.connect(env); } catch (error) { skipReason = `test database unreachable (${error?.code ?? "refused"})`; return; }
-    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in eato_test`);
+    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in justfit_test`);
     testAccounts = identitiesFor(env);
     server = await startTestServer(env);
     try {

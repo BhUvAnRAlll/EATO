@@ -6,6 +6,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { clearAccountData, onAccountCleared, sameAccount } from "../accountScope.ts";
+import { devServerHost } from "../apiHost.ts";
 import { codeInput, formatIndianMobile, normalizeIndianMobile, phoneInput } from "../phone.ts";
 import { afterAccountCheck, afterSignOut, checkSavedSession, homeRouteFor, secondsLeft, UNCONFIRMED_SIGN_OUT } from "../sessionRules.ts";
 
@@ -173,5 +174,23 @@ describe("signing out", () => {
     assert.match(UNCONFIRMED_SIGN_OUT, /signed out on this device/);
     assert.match(UNCONFIRMED_SIGN_OUT, /couldn't reach justFit/);
     assert.match(UNCONFIRMED_SIGN_OUT, /Sign out of all devices/);
+  });
+});
+
+describe("finding the development server", () => {
+  it("uses hostUri when Expo provides it", () => {
+    assert.equal(devServerHost("10.20.0.121:8081", "http://192.168.1.5:8081/index.bundle"), "10.20.0.121");
+  });
+
+  it("a local debug build (no hostUri): the computer its JavaScript came from", () => {
+    assert.equal(devServerHost(undefined, "http://10.20.0.121:8081/node_modules/expo-router/entry.bundle?platform=ios&dev=true"), "10.20.0.121");
+    assert.equal(devServerHost(null, "http://192.168.29.105:8081/index.bundle"), "192.168.29.105");
+    assert.equal(devServerHost("", "https://mac.local/index.bundle"), "mac.local");
+  });
+
+  it("a release build (bundle inside the app) or nothing at all: no host, so the caller uses its fallback", () => {
+    assert.equal(devServerHost(undefined, "file:///var/containers/Bundle/Application/main.jsbundle"), null);
+    assert.equal(devServerHost(undefined, undefined), null);
+    assert.equal(devServerHost(null, null), null);
   });
 });

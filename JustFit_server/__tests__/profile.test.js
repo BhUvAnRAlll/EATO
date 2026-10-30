@@ -1,11 +1,11 @@
 // Regression tests for profile persistence (profile.js): validation with a real app
 // payload, tamper and ownership rejection, and transaction rollback, first with a fake
-// pool (control flow) and then against the eato_test database with a throwaway account
+// pool (control flow) and then against the justfit_test database with a throwaway account
 // whose failed saves are rolled back; the account itself is deleted afterwards.
 //
 //   yarn test      (or: node --test "__tests__/*.test.js")
 //
-// The real-MySQL tests need JustFit_server/.env.test (eato_test only, never the app database)
+// The real-MySQL tests need JustFit_server/.env.test (justfit_test only, never the app database)
 // with the current schema (npm run test:e2e rebuilds it); otherwise they are skipped and
 // reported as such.
 const assert = require("node:assert/strict");
@@ -19,7 +19,7 @@ const testDb = require("./e2e/test-db.js");
 const nutrition = require("../../JustFit_client/src/lib/nutrition/index.ts");
 const { validateProfileSubmission, persistProfile, loadProfile, ValidationError } = require("../profile.js");
 
-// Throwaway account in eato_test: created before the real-MySQL tests, deleted after them
+// Throwaway account in justfit_test: created before the real-MySQL tests, deleted after them
 const userId = "user_rollbacktest" + Math.random().toString(36).slice(2, 10);
 
 // A payload exactly like the targets screen builds it. The date of birth is derived
@@ -99,7 +99,7 @@ describe("profile validation (no database)", () => {
   });
 });
 
-describe("profile persistence (eato_test, failed saves rolled back)", () => {
+describe("profile persistence (justfit_test, failed saves rolled back)", () => {
   const TABLES = ["users", "profiles", "nutrition_targets", "body_composition_reports"];
   const PHONE = "9" + String(Math.floor(Math.random() * 1e9)).padStart(9, "0");
   let pool = null;
@@ -127,19 +127,19 @@ describe("profile persistence (eato_test, failed saves rolled back)", () => {
   };
 
   before(async () => {
-    const loaded = testDb.loadTestEnv(); // refuses anything but eato_test
+    const loaded = testDb.loadTestEnv(); // refuses anything but justfit_test
     if (!loaded.ok) { skipReason = loaded.reason; return; }
     const env = loaded.env;
     try {
       pool = mysql.createPool({ host: env.DB_HOST, port: Number(env.DB_PORT), user: env.DB_USER, password: env.DB_PASSWORD, database: env.DB_NAME, connectionLimit: 2, decimalNumbers: true });
       const [[{ n }]] = await pool.query("SELECT COUNT(*) AS n FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'phone_verified_at'");
-      if (n === 0) { skipReason = "eato_test has an older schema (npm run test:e2e rebuilds it from schema.sql)"; return; }
+      if (n === 0) { skipReason = "justfit_test has an older schema (npm run test:e2e rebuilds it from schema.sql)"; return; }
       countsBefore = await rowCounts();
       // The account phone sign-in would have made: verified phone, no email, no name yet
       await pool.query("INSERT INTO users (id, email, full_name, phone, phone_verified_at, role) VALUES (?, NULL, NULL, ?, NOW(), 'user')", [userId, PHONE]);
     } catch (error) {
       // Only the driver's error code: never a message that could carry connection details
-      skipReason = `eato_test unreachable (${error?.code ?? "unknown"})`;
+      skipReason = `justfit_test unreachable (${error?.code ?? "unknown"})`;
     }
   });
 

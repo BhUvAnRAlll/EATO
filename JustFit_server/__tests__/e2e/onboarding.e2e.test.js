@@ -1,6 +1,6 @@
 // Genuine authenticated onboarding tests: test accounts with real
-// sessions in eato_test, calling the real Express server (index.js) over HTTP, writing to
-// the isolated `eato_test` database as the `eato_test` account. Nothing here can reach
+// sessions in justfit_test, calling the real Express server (index.js) over HTTP, writing to
+// the isolated `justfit_test` database as the `justfit_test` account. Nothing here can reach
 // the application database: the account has no privileges on it.
 //
 //   yarn test:e2e      (needs JustFit_server/.env.test; otherwise every test is skipped)
@@ -28,7 +28,7 @@ const calculation = nutrition.calculateTargets(inputs);
 assert.equal(calculation.status, "ok");
 const record = nutrition.createTargetRecord(inputs, calculation);
 
-describe("onboarding e2e: sessions → Express → eato_test", () => {
+describe("onboarding e2e: sessions → Express → justfit_test", () => {
   const runId = crypto.randomBytes(4).toString("hex");
   let skipReason = null;
   let env, connection, server, testAccounts;
@@ -72,7 +72,7 @@ describe("onboarding e2e: sessions → Express → eato_test", () => {
       skipReason = `test database unreachable (${error?.code ?? "refused"})`;
       return;
     }
-    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in eato_test`);
+    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in justfit_test`);
     testAccounts = identitiesFor(env);
     const swept = await testAccounts.sweepOrphans();
     if (swept.length > 0) console.log(`swept ${swept.length} orphaned test identities from earlier runs`);
@@ -93,7 +93,7 @@ describe("onboarding e2e: sessions → Express → eato_test", () => {
       }
       try {
         assert.deepEqual(await db.rowCounts(connection), { nutrition_targets: 0, body_composition_reports: 0, profiles: 0, users: 0 });
-      } catch (error) { problems.push(`rows left in eato_test: ${error.message.split("\n")[0]}`); }
+      } catch (error) { problems.push(`rows left in justfit_test: ${error.message.split("\n")[0]}`); }
     }
     if (server) await server.stop();
     if (connection) await connection.end();

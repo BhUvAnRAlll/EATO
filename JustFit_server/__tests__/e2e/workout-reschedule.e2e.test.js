@@ -1,5 +1,5 @@
-// Moving and swapping workout sessions end to end: test accounts in eato_test against
-// the real Express server and the isolated eato_test database. Covers "Do it today instead?"
+// Moving and swapping workout sessions end to end: test accounts in justfit_test against
+// the real Express server and the isolated justfit_test database. Covers "Do it today instead?"
 // (move a missed session to today) and "Swap with today?" (two dates trade sessions), every
 // refusal the workout spec lists word for word, and the attack paths: no or forged session,
 // another member's training day, unexpected fields, malformed or far-off dates, SQL in input.
@@ -75,7 +75,7 @@ describe("workout e2e: moving a missed session to today and swapping days", () =
     if (!loaded.ok) { skipReason = loaded.reason; return; }
     env = loaded.env;
     try { connection = await db.connect(env); } catch (error) { skipReason = `test database unreachable (${error?.code ?? "refused"})`; return; }
-    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in eato_test`);
+    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in justfit_test`);
     testAccounts = identitiesFor(env);
     server = await startTestServer(env);
     try {

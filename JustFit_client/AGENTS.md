@@ -21,8 +21,9 @@ Logo: the JF mark with the JUSTFIT word, red and black. What changed and what de
   development build is needed.
 - Codes: member passes are `JF1.…` and gym check-out QR codes `JUSTFIT-OUT-…`; the server still
   reads `EATO1.…` and `EATO-OUT-…` (`owner/passes.js`), so printed QR codes keep working.
-- Kept on purpose: the MySQL names (`eato`, `eato_test`, `eato_app`), the pass-signing label
-  `justfit-member-pass` (part of the key) and the demo email domain.
+- MySQL (renamed 2026-10-30): databases `justfit` and `justfit_test`, accounts `justfit_app` and
+  `justfit_test`, demo accounts at `@demo.justfit.test`; the folders are `JustFit_client` and
+  `JustFit_server`. The pass-signing label is `justfit-member-pass` (part of the key).
 
 ## Project Overview
 
@@ -670,7 +671,7 @@ These rules apply to every future implementation, in both `JustFit_client/` and 
 11. **Security.** Never expose secrets, trust client-supplied identity or roles, or bypass existing authentication.
 12. **Keep instructions updated.** Preserve the current justFit architecture and existing project rules. Do not overwrite useful instructions.
 13. **Design source of truth.** `src/theme/tokens.css`, `src/theme/index.ts` and the utilities in `src/global.css` define justFit's look, following the 2026-10-25 redesign brief (premium minimal iOS style, see "Colour theme" above). The older mockups under `assets/design/` show earlier colours and some earlier compositions; use them only for content and flow. Do not introduce a further visual direction; when a screen and the design system disagree, report the discrepancy and ask before changing the composition.
-14. **Test isolation.** UI and integration tests use the `eato_test` database through `JustFit_server/.env.test` and the test server on port 4100. Never point tests at port 4000 or the `eato` database. Run `npm test`, `npm run test:e2e` and `npm run test:ui` in `JustFit_server/` as relevant.
+14. **Test isolation.** UI and integration tests use the `justfit_test` database through `JustFit_server/.env.test` and the test server on port 4100. Never point tests at port 4000 or the `justfit` database. Run `npm test`, `npm run test:e2e` and `npm run test:ui` in `JustFit_server/` as relevant.
 15. **Visual evidence.** After each approved UI change, capture screenshots at the supported widths with the existing test harness and include their paths in the report.
 16. **Git.** Never commit, push, amend, rewrite history, reset, stash or discard work without explicit approval. Review the staged diff before any commit. Keep `.env` files and generated artifacts out of commits.
 17. **Audits are checklists.** An audit report authorises nothing. Each finding is implemented only after its own approval, one at a time, following inspect, implement, test, review the diff, verify at supported sizes, report, wait.
@@ -736,8 +737,8 @@ Before declaring completion:
   come from an allowlist in code, never from the request.
 - Validate on the server and rely on the schema's constraints (ENUM, CHECK, UNIQUE, FOREIGN KEY);
   multi-table writes go in one transaction with rollback.
-- The app runs as the least-privilege account (`eato_app`), never as MySQL root. Production
-  (`eato`), development and test (`eato_test`) databases stay separate; tests never run
+- The app runs as the least-privilege account (`justfit_app`), never as MySQL root. Production
+  (`justfit`), development and test (`justfit_test`) databases stay separate; tests never run
   destructive queries against production.
 - Add tests with SQL-injection payloads and unauthorised-access attempts where a query takes
   user input or returns user-owned rows.
@@ -770,7 +771,7 @@ Before declaring completion:
 For every relevant feature, test: the expected authorised behaviour; missing, malformed, expired
 and invalid authentication; wrong-role access and unauthorised ownership; invalid, unexpected or
 malicious input; SQL-injection and resource-abuse cases that apply; regression behaviour and data
-integrity. Use only `eato_test`, `.env.test` and the test server on port 4100, with throwaway
+integrity. Use only `justfit_test`, `.env.test` and the test server on port 4100, with throwaway
 test accounts (`__tests__/e2e/test-identities.js`) that are deleted afterwards, and the fake SMS
 provider. Never use production accounts or data, and never send a real SMS from a test.
 
@@ -815,7 +816,7 @@ and `AUTH-MIGRATION-AUDIT.md` at the repo root). Keep these rules:
 - Never log or return a phone number, code, token or provider key; provider errors are reduced to
   their status code. The request-otp answer never says whether an account exists.
 - `SMS_PROVIDER`: `off` (default; sign-in answers 503), `fake` (tests only; refused unless
-  `NODE_ENV=test` and `DB_NAME=eato_test`), `fast2sms` (only after a real code has been verified on a
+  `NODE_ENV=test` and `DB_NAME=justfit_test`), `fast2sms` (only after a real code has been verified on a
   real phone). The Fast2SMS key is never used for signing anything.
 - The app keeps only the token, never the role or setup state: at launch it asks `GET /api/auth/me`;
   a 401 forgets the token, any other failure keeps it and offers Try again.

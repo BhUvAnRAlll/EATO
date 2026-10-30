@@ -1,4 +1,4 @@
-// The photo body-fat scan end to end: a test account in eato_test against the real
+// The photo body-fat scan end to end: a test account in justfit_test against the real
 // Express server, with a local fake standing in for the Forma scan server (FORMA_SCAN_URL).
 // Covers the happy path, Forma's refusals and outages, and the attack paths: no or forged
 // session, oversized bodies, non-image bytes, out-of-range inputs, unexpected fields and the
@@ -79,7 +79,7 @@ describe("body scan e2e: POST /api/body-composition/scan", () => {
     if (!loaded.ok) { skipReason = loaded.reason; return; }
     env = loaded.env;
     try { connection = await db.connect(env); } catch (error) { skipReason = `test database unreachable (${error?.code ?? "refused"})`; return; }
-    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in eato_test`);
+    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in justfit_test`);
     testAccounts = identitiesFor(env);
     fake = await startFakeForma();
     server = await startTestServer({ ...env, FORMA_SCAN_URL: fake.url });

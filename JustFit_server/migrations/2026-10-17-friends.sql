@@ -1,7 +1,7 @@
 -- Community friendships (Add Friend): one row per pair of members, separate from follows.
 -- Adds one table to an existing database; safe to run more than once. schema.sql has the
 -- same definition for a fresh install. Run by hand after 2026-10-16-stories.sql, e.g.:
---   mysql -u root -p eato < migrations/2026-10-17-friends.sql
+--   mysql -u root -p justfit < migrations/2026-10-17-friends.sql
 --
 -- user_low / user_high are the two members in a fixed order, so the primary key allows one
 -- row per pair whichever side asks first. requester_id is who sent the current request.

@@ -1,16 +1,20 @@
 import Constants from "expo-constants";
+import { NativeModules } from "react-native";
 
-// Port the justFit server (justFit-SERVER) listens on in development
+import { devServerHost } from "@/lib/apiHost";
+
+// Port the justFit server (JustFit_server) listens on in development
 const SERVER_PORT = 4000;
 
 // Where the justFit server is:
 // - EXPO_PUBLIC_API_URL in .env, for a deployed server
-// - otherwise the computer running the Expo dev server, so a real phone on the
-//   same Wi-Fi reaches it too (not just the simulator)
+// - otherwise the computer running the Expo dev server (Metro), so a real phone on the same
+//   Wi-Fi reaches it too, whatever its address today (see lib/apiHost.ts)
 export function getApiUrl(): string {
   const configured = process.env.EXPO_PUBLIC_API_URL?.replace(/\/+$/, "");
   if (configured) return configured;
-  const host = Constants.expoConfig?.hostUri?.split(":")[0];
+  const scriptUrl: unknown = NativeModules.SourceCode?.getConstants?.().scriptURL;
+  const host = devServerHost(Constants.expoConfig?.hostUri, typeof scriptUrl === "string" ? scriptUrl : null);
   return `http://${host ?? "localhost"}:${SERVER_PORT}`;
 }
 

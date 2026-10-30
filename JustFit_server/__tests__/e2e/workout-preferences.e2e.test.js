@@ -1,5 +1,5 @@
-// Workout preferences end to end: test accounts in eato_test against the real Express
-// server and the isolated eato_test database. Covers reading the four settings, saving new ones
+// Workout preferences end to end: test accounts in justfit_test against the real Express
+// server and the isolated justfit_test database. Covers reading the four settings, saving new ones
 // (a new plan from the engine, the old one kept as superseded with its days and logs, sessions
 // moved onto today or later cleared), no trainer read-only flag, every refusal the spec
 // lists, and the attack paths: no or forged session, another member's plan, unexpected fields,
@@ -65,7 +65,7 @@ describe("workout e2e: preferences rebuild the plan from goal, level, days and s
     if (!loaded.ok) { skipReason = loaded.reason; return; }
     env = loaded.env;
     try { connection = await db.connect(env); } catch (error) { skipReason = `test database unreachable (${error?.code ?? "refused"})`; return; }
-    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in eato_test`);
+    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in justfit_test`);
     testAccounts = identitiesFor(env);
     server = await startTestServer(env);
     try {

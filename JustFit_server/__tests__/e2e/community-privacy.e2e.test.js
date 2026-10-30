@@ -1,5 +1,5 @@
-// Audience and account privacy for the community feed, with real sessions (eato_test) against the
-// test server and eato_test: post audiences (public / followers / only me), private accounts
+// Audience and account privacy for the community feed, with real sessions (justfit_test) against the
+// test server and justfit_test: post audiences (public / followers / only me), private accounts
 // and follow requests, blocking, suspension, profiles, and the media route. Every check is
 // what the server returns, never what the app would hide.
 //
@@ -60,7 +60,7 @@ describe("community privacy e2e: audiences, private accounts, blocks and suspens
     if (!loaded.ok) { skipReason = loaded.reason; return; }
     env = loaded.env;
     try { connection = await db.connect(env); } catch (error) { skipReason = `test database unreachable (${error?.code ?? "refused"})`; return; }
-    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in eato_test`);
+    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in justfit_test`);
     testAccounts = identitiesFor(env);
     uploadDir = fs.mkdtempSync(path.join(os.tmpdir(), "justfit-privacy-uploads-"));
     server = await startTestServer({ ...env, UPLOAD_DIR: uploadDir });

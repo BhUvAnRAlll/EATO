@@ -1,5 +1,5 @@
-// Authenticated tests for the community API: test accounts in eato_test (two
-// members and an admin) against the real Express server and the isolated `eato_test`
+// Authenticated tests for the community API: test accounts in justfit_test (two
+// members and an admin) against the real Express server and the isolated `justfit_test`
 // database. Covers posts, likes, comments, stories, reports and direct messages (and that the
 // removed Groups feature stays gone),
 // and the attack paths: spoofed authors, other members' content, private conversations.
@@ -57,7 +57,7 @@ describe("community e2e: posts, stories and messages with real sessions", () => 
     if (!loaded.ok) { skipReason = loaded.reason; return; }
     env = loaded.env;
     try { connection = await db.connect(env); } catch (error) { skipReason = `test database unreachable (${error?.code ?? "refused"})`; return; }
-    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in eato_test`);
+    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in justfit_test`);
     testAccounts = identitiesFor(env);
     uploadDir = fs.mkdtempSync(path.join(os.tmpdir(), "justfit-test-uploads-"));
     server = await startTestServer({ ...env, UPLOAD_DIR: uploadDir });

@@ -1,5 +1,5 @@
 // The AI Coach in the real Expo web build against the isolated test server (with the fake AI)
-// and the eato_test database, as a signed-in member who finished setup (muscle gain, gym) and
+// and the justfit_test database, as a signed-in member who finished setup (muscle gain, gym) and
 // has a workout profile. Covers the intro on the Coach tab, every intake step (prefilled answers,
 // Continue staying off until a step is answered, the doctor note), the disclaimer tick, the
 // save, the summary on the Coach tab, Edit, making the plan, logging a plan meal to Macro, and
@@ -76,7 +76,7 @@ describe("ui coach: the AI Coach intake", () => {
     if (!fs.existsSync(CHROME)) { skipReason = "Google Chrome is not installed"; return; }
     for (const port of [Number(env.PORT), EXPO_PORT]) if (!(await portFree(port))) throw new Error(`port ${port} is in use; refusing to start`);
     try { connection = await db.connect(env); } catch (error) { skipReason = `test database unreachable (${error?.code ?? "refused"})`; return; }
-    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in eato_test`);
+    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in justfit_test`);
     testAccounts = identitiesFor(env);
     server = await startTestServer({ ...env, AI_PROVIDER: "fake" }); // the plan's meals never call a paid model in tests
     expo = await startExpoWeb({ port: EXPO_PORT, apiUrl: `http://localhost:${env.PORT}` });

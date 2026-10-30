@@ -2,7 +2,7 @@
 -- report keeps its context, story reports, and each member's Close Friends list.
 -- Adds to an existing database; safe to run more than once. schema.sql already has all of
 -- this for a fresh install. Run by hand after 2026-10-15-post-media.sql, for example:
---   mysql -u root -p eato < migrations/2026-10-16-stories.sql
+--   mysql -u root -p justfit < migrations/2026-10-16-stories.sql
 -- MySQL has no ADD COLUMN IF NOT EXISTS, so each change checks INFORMATION_SCHEMA first.
 
 -- community_stories.audience

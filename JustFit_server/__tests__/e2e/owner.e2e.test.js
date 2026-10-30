@@ -1,5 +1,5 @@
-// The gym owner portal end to end: test accounts in eato_test against the real Express
-// server and the isolated `eato_test` database. Covers who may open it (the gym's owner and
+// The gym owner portal end to end: test accounts in justfit_test against the real Express
+// server and the isolated `justfit_test` database. Covers who may open it (the gym's owner and
 // admins, and justFit platform admins; never its members or outsiders), the Home summary
 // built from real rows, renewals (extend, restart, a new package, validation, no payment), and a
 // member reading only their own package.
@@ -57,7 +57,7 @@ describe("owner e2e: the gym owner portal's access, Home summary and renewals", 
     if (!loaded.ok) { skipReason = loaded.reason; return; }
     env = loaded.env;
     try { connection = await db.connect(env); } catch (error) { skipReason = `test database unreachable (${error?.code ?? "refused"})`; return; }
-    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in eato_test`);
+    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in justfit_test`);
     testAccounts = identitiesFor(env);
     server = await startTestServer(env);
     try {

@@ -1,5 +1,5 @@
-// The gym assistant's owner side end to end, with the test-only fake AI: test accounts in eato_test
-// identities against the real Express server and the isolated `eato_test` database. Covers a
+// The gym assistant's owner side end to end, with the test-only fake AI: test accounts in justfit_test
+// identities against the real Express server and the isolated `justfit_test` database. Covers a
 // question the assistant can't answer reaching the team, custom answers being used first (and
 // switched off), replies reaching only the asker (their Ask chat and bell), dismissing, one reply
 // per question, who may do what, input checks, another gym's data looking missing, and the counts
@@ -49,7 +49,7 @@ describe("owner assistant e2e: questions for the team and custom answers", () =>
     if (!loaded.ok) { skipReason = loaded.reason; return; }
     env = loaded.env;
     try { connection = await db.connect(env); } catch (error) { skipReason = `test database unreachable (${error?.code ?? "refused"})`; return; }
-    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in eato_test`);
+    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in justfit_test`);
     testAccounts = identitiesFor(env);
     server = await startTestServer({ ...env, AI_PROVIDER: "fake" }); // never a paid model in tests
     try {

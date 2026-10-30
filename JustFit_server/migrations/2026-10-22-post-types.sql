@@ -2,8 +2,8 @@
 -- details each type carries, an optional location, tagged friends and poll options and votes.
 -- Adds to an existing database; safe to run more than once. schema.sql has all of this for a
 -- fresh install. Needs 2026-10-20-gyms.sql first. Run by hand with an account allowed to
--- create and alter tables (eato_app can't), e.g.:
---   mysql -u root -p eato < migrations/2026-10-22-post-types.sql
+-- create and alter tables (justfit_app can't), e.g.:
+--   mysql -u root -p justfit < migrations/2026-10-22-post-types.sql
 --
 -- Cascades stay one level below a table that cascades from users (posts), because a chain
 -- three levels deep orphans rows on this MySQL version. A vote's option is an indexed column

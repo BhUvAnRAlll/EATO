@@ -2,8 +2,8 @@
 -- gym posts (community_posts gains gym_id and review_status). Adds to an existing database;
 -- safe to run more than once. schema.sql already has all of this for a fresh install. Needs
 -- 2026-10-14-community.sql first (gyms reference community_media). Run by hand with an
--- account allowed to create and alter tables (the app's eato_app account can't), e.g.:
---   mysql -u root -p eato < migrations/2026-10-20-gyms.sql
+-- account allowed to create and alter tables (the app's justfit_app account can't), e.g.:
+--   mysql -u root -p justfit < migrations/2026-10-20-gyms.sql
 
 CREATE TABLE IF NOT EXISTS gyms (
   id                     CHAR(36)      NOT NULL DEFAULT (UUID()),

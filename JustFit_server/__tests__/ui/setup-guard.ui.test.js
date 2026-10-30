@@ -2,7 +2,7 @@
 // Real browser navigation in the Expo web build: a signed-out visitor opening any setup
 // route lands on Log in; a signed-in account reaches setup; a page reload while signed in
 // never passes through Log in while the saved session is checked; and a session revoked on
-// the server (for real, in eato_test) while the targets step is open is refused on the next
+// the server (for real, in justfit_test) while the targets step is open is refused on the next
 // request (Finish), which offers Log in and forgets the answers.
 //
 //   yarn test:ui      (needs JustFit_server/.env.test and Google Chrome; otherwise skipped)
@@ -155,7 +155,7 @@ describe("ui setup guard: setup needs a session, loading never redirects, a lost
     await fillSetup(page, expo.baseUrl, { fullName: "Guard Tester" });
     assert.equal(await page.path(), "/setup/targets");
 
-    // A real revocation in eato_test, as "Sign out of all devices" on another phone would do it.
+    // A real revocation in justfit_test, as "Sign out of all devices" on another phone would do it.
     // The app isn't told; its next request is refused (401) and it offers Log in.
     await connection.query("UPDATE auth_sessions SET revoked_at = NOW() WHERE user_id = ? AND revoked_at IS NULL", [identities.a.id]);
     await page.clickText("Finish");

@@ -1,7 +1,7 @@
 // WhatsApp agent, phase B: every gym gets exactly one connection row (disconnected) and one
 // agent row (disabled) when it's created, repeating provisioning changes nothing, two gyms stay
 // separate, gym-owned rows can't be removed by deleting a member, and a member's own plan and
-// link-code rows go with them. Test accounts in eato_test, the real server, `eato_test` only.
+// link-code rows go with them. Test accounts in justfit_test, the real server, `justfit_test` only.
 //
 //   yarn test:e2e      (needs JustFit_server/.env.test; otherwise every test is skipped)
 const assert = require("node:assert/strict");
@@ -51,7 +51,7 @@ describe("whatsapp e2e: agent provisioning per gym", () => {
     if (!loaded.ok) { skipReason = loaded.reason; return; }
     env = loaded.env;
     try { connection = await db.connect(env); } catch (error) { skipReason = `test database unreachable (${error?.code ?? "refused"})`; return; }
-    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in eato_test`);
+    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in justfit_test`);
     testAccounts = identitiesFor(env);
     server = await startTestServer(env);
     try {

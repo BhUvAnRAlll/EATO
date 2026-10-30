@@ -1,4 +1,4 @@
-// The workout tables in schema.sql against the isolated eato_test database: they build, the
+// The workout tables in schema.sql against the isolated justfit_test database: they build, the
 // engine's real output fits them, and the rules the screens will rely on are enforced by
 // MySQL itself (one active plan, one running session per date, a redone set replaces the
 // first, value limits, in-use exercises kept, everything removed with the member).
@@ -60,7 +60,7 @@ describe("workout schema e2e: the eight tables, the engine's output, and the rul
     const loaded = db.loadTestEnv();
     if (!loaded.ok) { skipReason = loaded.reason; return; }
     try { connection = await db.connect(loaded.env); } catch (error) { skipReason = `test database unreachable (${error?.code ?? "refused"})`; return; }
-    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in eato_test`);
+    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in justfit_test`);
     for (const tag of ["a", "b"]) {
       await connection.query("INSERT INTO users (id, email, full_name) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE email = VALUES(email), full_name = VALUES(full_name)", [`user_wk_${runId}_${tag}`, `wk-${runId}-${tag}@example.com`, `Workout ${tag}`]);
     }

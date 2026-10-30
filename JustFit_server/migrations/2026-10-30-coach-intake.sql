@@ -1,7 +1,7 @@
 -- The AI Coach intake: one row of answers per member. Approved by the user on 2026-10-26 (Phase 1,
 -- intake only). Safe to run more than once. Run after 2026-10-29-gym-assistant-questions.sql, by
--- hand, with an account allowed to create tables (eato_app can't), for example:
---   mysql -u root -p eato < migrations/2026-10-30-coach-intake.sql
+-- hand, with an account allowed to create tables (justfit_app can't), for example:
+--   mysql -u root -p justfit < migrations/2026-10-30-coach-intake.sql
 
 -- One row per member: their AI coach intake answers (goal, schedule, where they train, what to
 -- work around, food habits, the coach they picked). Read by the coach on the server only. The

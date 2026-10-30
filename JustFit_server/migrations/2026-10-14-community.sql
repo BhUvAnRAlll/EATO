@@ -1,7 +1,7 @@
 -- Adds the community tables (feed, stories, groups, direct messages) to an existing justFit database.
 -- Fresh databases get them from schema.sql; run this once on a database created before it.
 --
---   mysql -u root -p eato < migrations/2026-10-14-community.sql
+--   mysql -u root -p justfit < migrations/2026-10-14-community.sql
 --
 -- Safe to run more than once: tables are created only if missing and seed rows are skipped
 -- when they already exist (INSERT IGNORE). Existing rows are never changed.

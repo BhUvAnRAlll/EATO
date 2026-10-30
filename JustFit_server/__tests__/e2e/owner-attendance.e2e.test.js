@@ -1,5 +1,5 @@
-// QR attendance end to end: test accounts in eato_test against the real Express server and
-// the isolated `eato_test` database. Covers the member's pass (their own, short-lived, unforgeable),
+// QR attendance end to end: test accounts in justfit_test against the real Express server and
+// the isolated `justfit_test` database. Covers the member's pass (their own, short-lived, unforgeable),
 // verification and every refusal (bad code, expired, another gym's member, pending, suspended,
 // expired package, already in), each recorded as a failed scan; checking in (once, even when two
 // check-ins race); who may scan (owner and admins, never members); the check-out QR
@@ -60,7 +60,7 @@ describe("owner attendance e2e: passes, check-in, check-out and the front desk l
     if (!loaded.ok) { skipReason = loaded.reason; return; }
     env = loaded.env;
     try { connection = await db.connect(env); } catch (error) { skipReason = `test database unreachable (${error?.code ?? "refused"})`; return; }
-    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in eato_test`);
+    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in justfit_test`);
     testAccounts = identitiesFor(env);
     server = await startTestServer(env);
     try {

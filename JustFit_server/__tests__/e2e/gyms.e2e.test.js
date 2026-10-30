@@ -1,5 +1,5 @@
-// Gym communities end to end: test accounts in eato_test against the real Express
-// server and the isolated `eato_test` database. A platform admin creates gyms; an owner, a
+// Gym communities end to end: test accounts in justfit_test against the real Express
+// server and the isolated `justfit_test` database. A platform admin creates gyms; an owner, a
 // gym admin and two members use them; an outsider tries what they shouldn't.
 // Covers: creating gyms, visibility (public, private, hidden), joining (instant, request and
 // approval, invite codes), member management with the owner protected, gym posts and their
@@ -58,7 +58,7 @@ describe("gyms e2e: communities, roles, joining, posts, events and invitations",
     if (!loaded.ok) { skipReason = loaded.reason; return; }
     env = loaded.env;
     try { connection = await db.connect(env); } catch (error) { skipReason = `test database unreachable (${error?.code ?? "refused"})`; return; }
-    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in eato_test`);
+    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in justfit_test`);
     testAccounts = identitiesFor(env);
     server = await startTestServer(env);
     try {

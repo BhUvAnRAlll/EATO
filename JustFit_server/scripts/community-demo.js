@@ -8,10 +8,10 @@
 // can't sign in. Nothing here is written as the real account: it only receives requests,
 // likes, comments, messages, a tag and gym roles.
 //
-//   node scripts/community-demo.js seed   --email you@example.com --database eato [--env-file .env]
-//   node scripts/community-demo.js remove --database eato [--env-file .env]
+//   node scripts/community-demo.js seed   --email you@example.com --database justfit [--env-file .env]
+//   node scripts/community-demo.js remove --database justfit [--env-file .env]
 //
-// Uses the database named in the env file (default .env). Any database other than eato_test
+// Uses the database named in the env file (default .env). Any database other than justfit_test
 // must be named again with --database, so the script can't write to the wrong one by
 // accident. Never run it against production.
 const crypto = require("node:crypto");
@@ -55,7 +55,7 @@ const uid = (key) => `${SEED}${key}`;
 async function seed(conn, me) {
   // Demo members, with a bio each
   for (const m of MEMBERS) {
-    await conn.query("INSERT INTO users (id, email, full_name, role, created_at) VALUES (?, ?, ?, ?, ?)", [uid(m.key), `${m.key}@demo.eato.test`, m.name, m.role ?? "user", ago(60)]);
+    await conn.query("INSERT INTO users (id, email, full_name, role, created_at) VALUES (?, ?, ?, ?, ?)", [uid(m.key), `${m.key}@demo.justfit.test`, m.name, m.role ?? "user", ago(60)]);
     await conn.query("INSERT INTO community_profiles (user_id, bio) VALUES (?, ?)", [uid(m.key), m.bio]);
   }
 
@@ -298,7 +298,7 @@ async function main() {
     return;
   }
   const [[{ db }]] = await pool.query("SELECT DATABASE() AS db");
-  if (db !== "eato_test" && option("database") !== db) {
+  if (db !== "justfit_test" && option("database") !== db) {
     console.error(`This would write to the "${db}" database. Name it to confirm: --database ${db}`);
     process.exitCode = 1;
     await pool.end();

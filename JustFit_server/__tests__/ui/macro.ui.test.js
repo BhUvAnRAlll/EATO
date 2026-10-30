@@ -1,4 +1,4 @@
-// The Macro tab in the real Expo web build against the isolated test server and the eato_test
+// The Macro tab in the real Expo web build against the isolated test server and the justfit_test
 // database, as a signed-in member with a 2000 kcal target. Covers the hub (target ring, empty
 // day, week strip, past day), the logging flow (Add meal → Log food → Manual entry → back to
 // the hub), Home's Today's Macros card, Daily calories (today and a past day), Calories &
@@ -82,7 +82,7 @@ describe("ui macro: the Macro tab hub and logging a meal by hand", () => {
     if (!fs.existsSync(CHROME)) { skipReason = "Google Chrome is not installed"; return; }
     for (const port of [Number(env.PORT), EXPO_PORT]) if (!(await portFree(port))) throw new Error(`port ${port} is in use; refusing to start`);
     try { connection = await db.connect(env); } catch (error) { skipReason = `test database unreachable (${error?.code ?? "refused"})`; return; }
-    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in eato_test`);
+    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in justfit_test`);
     testAccounts = identitiesFor(env);
     server = await startTestServer({ ...env, AI_PROVIDER: "fake" }); // Scan food answers a fixed estimate, never a paid model
     fs.writeFileSync(TINY_PNG, Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64"));

@@ -4,8 +4,8 @@
 -- own cascades), then community_posts.group_id with its foreign key and index, then the two
 -- group tables. Group cover images become unattached uploads, which the orphan sweep removes.
 -- Safe to run more than once: each step checks first. Run after 2026-10-22-post-types.sql, by
--- hand, with an account allowed to alter and drop tables (eato_app can't), for example:
---   mysql -u root -p eato < migrations/2026-10-23-drop-groups.sql
+-- hand, with an account allowed to alter and drop tables (justfit_app can't), for example:
+--   mysql -u root -p justfit < migrations/2026-10-23-drop-groups.sql
 -- This deletes data and can't be undone: back up the database first.
 
 -- 1. Old group posts (only while the column still exists)

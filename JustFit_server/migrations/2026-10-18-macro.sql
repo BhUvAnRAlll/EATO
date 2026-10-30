@@ -3,7 +3,7 @@
 -- Safe to run more than once (every table is created only if it is missing). schema.sql
 -- already has these for a fresh install. Run by hand with an account allowed to create
 -- tables, for example:
---   mysql -u root -p eato < migrations/2026-10-18-macro.sql
+--   mysql -u root -p justfit < migrations/2026-10-18-macro.sql
 
 -- Macro diary: the meals and water a member logs for themselves. Separate from the
 -- delivery menu (`meals`) and from `food_log` (kept for logging delivered orders).

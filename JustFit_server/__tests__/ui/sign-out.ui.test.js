@@ -1,5 +1,5 @@
 // Signing out clears everything the app holds for the account. Two test accounts with different
-// calorie targets (seeded in eato_test) sign in through the real phone sign-in screens, one after
+// calorie targets (seeded in justfit_test) sign in through the real phone sign-in screens, one after
 // the other in the same tab, without reloading the page (so the app's in-memory stores carry
 // over exactly as on a phone):
 //   - signing out ends the session on the server and opens onboarding;

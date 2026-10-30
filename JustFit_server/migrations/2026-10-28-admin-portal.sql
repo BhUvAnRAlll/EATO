@@ -1,8 +1,8 @@
 -- The Super Admin portal: an audit log of admin actions, trainer verification, and a gym's
 -- status (active, on a trial, or suspended). Adds to an existing database; safe to run more
 -- than once. schema.sql has all of this for a fresh install. Run by hand with an account
--- allowed to create and alter tables (eato_app can't), e.g.:
---   mysql -u root -p eato < migrations/2026-10-28-admin-portal.sql
+-- allowed to create and alter tables (justfit_app can't), e.g.:
+--   mysql -u root -p justfit < migrations/2026-10-28-admin-portal.sql
 --
 -- Existing gyms become "active" and existing trainers unverified. Nothing cascades more than
 -- one level from users; an admin who leaves keeps their log rows (admin_id becomes NULL).

@@ -3,7 +3,7 @@
 //
 //   off       (default) nothing is sent; the request-otp route answers 503
 //   fake      tests only: writes { phone, code } to a file in SMS_FAKE_OUTBOX for the test to
-//             read. Refused unless NODE_ENV=test and DB_NAME=eato_test.
+//             read. Refused unless NODE_ENV=test and DB_NAME=justfit_test.
 //   fast2sms  Fast2SMS over HTTPS with FAST2SMS_API_KEY (DLT route or OTP API, see below)
 //
 // Nothing here logs or returns the phone number, the code, the request body or the key. A
@@ -28,8 +28,8 @@ class SmsError extends Error {
 // named fail-<phone> in the outbox makes the next sends to that number fail, so tests can
 // check provider failures.
 function fakeProvider(env) {
-  if (env.NODE_ENV !== "test" || env.DB_NAME !== "eato_test") {
-    throw new Error("SMS_PROVIDER=fake is only allowed in tests (NODE_ENV=test and DB_NAME=eato_test)");
+  if (env.NODE_ENV !== "test" || env.DB_NAME !== "justfit_test") {
+    throw new Error("SMS_PROVIDER=fake is only allowed in tests (NODE_ENV=test and DB_NAME=justfit_test)");
   }
   const outbox = env.SMS_FAKE_OUTBOX;
   if (!outbox || !path.isAbsolute(outbox) || !fs.existsSync(outbox)) throw new Error("SMS_FAKE_OUTBOX must be an existing absolute folder");

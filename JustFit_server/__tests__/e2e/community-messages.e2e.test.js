@@ -1,5 +1,5 @@
-// Direct messages end to end: test accounts in eato_test against the real Express
-// server and the isolated `eato_test` database. Covers the normal flow (open, send, read,
+// Direct messages end to end: test accounts in justfit_test against the real Express
+// server and the isolated `justfit_test` database. Covers the normal flow (open, send, read,
 // page) and the attack paths: no session, non-members, admins, unknown or malformed ids,
 // bad or oversized input, SQL in a message, a retried send, suspended and blocked members.
 //
@@ -51,7 +51,7 @@ describe("community messages e2e: conversations, pages, retries and who may read
     if (!loaded.ok) { skipReason = loaded.reason; return; }
     env = loaded.env;
     try { connection = await db.connect(env); } catch (error) { skipReason = `test database unreachable (${error?.code ?? "refused"})`; return; }
-    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in eato_test`);
+    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in justfit_test`);
     testAccounts = identitiesFor(env);
     server = await startTestServer(env);
     try {

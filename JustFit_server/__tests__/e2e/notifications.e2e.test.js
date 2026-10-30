@@ -1,5 +1,5 @@
-// The bell end to end: test accounts in eato_test against the real Express server and
-// the isolated `eato_test` database. Each notification comes from the route that causes it
+// The bell end to end: test accounts in justfit_test against the real Express server and
+// the isolated `justfit_test` database. Each notification comes from the route that causes it
 // (a friend accepting, a gym approval, an RSVP), and shows only to the member it concerns.
 // Covers the actionable counts on the badge, blocking, no session, and that the removed
 // trainer entries never appear.
@@ -60,7 +60,7 @@ describe("notifications e2e: the bell for friends and gyms", () => {
     if (!loaded.ok) { skipReason = loaded.reason; return; }
     env = loaded.env;
     try { connection = await db.connect(env); } catch (error) { skipReason = `test database unreachable (${error?.code ?? "refused"})`; return; }
-    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in eato_test`);
+    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in justfit_test`);
     testAccounts = identitiesFor(env);
     server = await startTestServer(env);
     try {

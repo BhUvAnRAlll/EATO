@@ -1,5 +1,5 @@
-// Friendships end to end: test accounts in eato_test against the real Express server
-// and the isolated `eato_test` database. Covers search and suggestions, request → accept,
+// Friendships end to end: test accounts in justfit_test against the real Express server
+// and the isolated `justfit_test` database. Covers search and suggestions, request → accept,
 // cancel, decline (with its cool-down), remove, and blocking; that messaging stays locked
 // until a request is accepted; and the attack paths: no session, answering a request meant
 // for someone else, spoofed ids in the body, malformed and unknown ids, SQL in the search.
@@ -52,7 +52,7 @@ describe("community friends e2e: requests, answers, removal and the messaging lo
     if (!loaded.ok) { skipReason = loaded.reason; return; }
     env = loaded.env;
     try { connection = await db.connect(env); } catch (error) { skipReason = `test database unreachable (${error?.code ?? "refused"})`; return; }
-    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in eato_test`);
+    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in justfit_test`);
     testAccounts = identitiesFor(env);
     server = await startTestServer(env);
     try {

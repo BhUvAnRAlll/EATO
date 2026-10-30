@@ -1,5 +1,5 @@
 // The Community tab in the real Expo web build against the isolated test server and the
-// eato_test database, as a signed-in member whose profile is complete. Covers: the Feed,
+// justfit_test database, as a signed-in member whose profile is complete. Covers: the Feed,
 // Friends and Gyms tabs (no Leagues, and Groups were removed), the empty feed, creating a post
 // with a photo (preview, then publish), editing it, liking, commenting, opening messages,
 // deleting a post behind a confirmation, the private-account audience rule, moderation,
@@ -108,7 +108,7 @@ describe("ui community: feed, stories and messages for a signed-in member", () =
     if (!fs.existsSync(CHROME)) { skipReason = "Google Chrome is not installed"; return; }
     for (const port of [Number(env.PORT), EXPO_PORT]) if (!(await portFree(port))) throw new Error(`port ${port} is in use; refusing to start`);
     try { connection = await db.connect(env); } catch (error) { skipReason = `test database unreachable (${error?.code ?? "refused"})`; return; }
-    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in eato_test`);
+    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in justfit_test`);
     testAccounts = identitiesFor(env);
     uploadDir = fs.mkdtempSync(path.join(os.tmpdir(), "justfit-ui-uploads-"));
     photoFile = path.join(os.tmpdir(), `justfit-ui-photo-${runId}.png`);

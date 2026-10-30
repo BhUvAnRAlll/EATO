@@ -2,8 +2,8 @@
 -- diet-plan logging in the Macro diary (macro_meal_logs gains the 'plan' source and a key that
 -- makes logging a plan meal idempotent). Adds to an existing database; safe to run more than
 -- once. schema.sql has all of this for a fresh install. Needs 2026-10-18-macro.sql first. Run
--- by hand with an account allowed to create and alter tables (eato_app can't), e.g.:
---   mysql -u root -p eato < migrations/2026-10-21-trainers.sql
+-- by hand with an account allowed to create and alter tables (justfit_app can't), e.g.:
+--   mysql -u root -p justfit < migrations/2026-10-21-trainers.sql
 
 ALTER TABLE macro_meal_logs
   MODIFY source ENUM('manual', 'favorite', 'repeat', 'plan') NOT NULL DEFAULT 'manual';

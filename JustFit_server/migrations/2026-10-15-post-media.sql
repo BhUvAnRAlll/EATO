@@ -2,7 +2,7 @@
 -- that makes publishing idempotent (a repeated Publish tap can't save a second post).
 -- Adds to an existing database; safe to run more than once. schema.sql already has all of
 -- this for a fresh install. Run by hand against the development database, for example:
---   mysql -u root -p eato < migrations/2026-10-15-post-media.sql
+--   mysql -u root -p justfit < migrations/2026-10-15-post-media.sql
 
 ALTER TABLE community_posts
   MODIFY category ENUM('general', 'meal', 'workout', 'progress', 'achievement') NOT NULL DEFAULT 'general';

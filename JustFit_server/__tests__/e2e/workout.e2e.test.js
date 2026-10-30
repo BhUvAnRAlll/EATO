@@ -1,5 +1,5 @@
-// The Fitness tab end to end: test accounts in eato_test against the real Express
-// server and the isolated eato_test database. Covers building the first plan (once, even when
+// The Fitness tab end to end: test accounts in justfit_test against the real Express
+// server and the isolated justfit_test database. Covers building the first plan (once, even when
 // asked for at the same time), the hub and day reads, how each date resolves (log, then
 // override, then weekday), history, and the attack paths: no or forged session, another
 // member's training day, malformed or far-off dates, unexpected fields, SQL in input.
@@ -55,7 +55,7 @@ describe("workout e2e: the first plan, the hub, the training day and who may see
     if (!loaded.ok) { skipReason = loaded.reason; return; }
     env = loaded.env;
     try { connection = await db.connect(env); } catch (error) { skipReason = `test database unreachable (${error?.code ?? "refused"})`; return; }
-    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in eato_test`);
+    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in justfit_test`);
     testAccounts = identitiesFor(env);
     server = await startTestServer(env);
     try {

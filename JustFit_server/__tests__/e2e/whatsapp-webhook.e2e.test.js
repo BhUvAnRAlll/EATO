@@ -1,7 +1,7 @@
 // WhatsApp agent, phase C: the webhook, routing by phone-number id, the job worker and sending
 // through the gym's own number. A fake Meta (a local HTTP server) stands in for the Graph API,
 // and every Meta setting is a made-up test value. The real Express server runs on the test port
-// against `eato_test`; the worker runs here, in the test process, so each step is deterministic.
+// against `justfit_test`; the worker runs here, in the test process, so each step is deterministic.
 //
 //   yarn test:e2e      (needs JustFit_server/.env.test; otherwise every test is skipped)
 const assert = require("node:assert/strict");
@@ -56,7 +56,7 @@ describe("whatsapp e2e: webhook, routing, worker and sending", () => {
     if (!loaded.ok) { skipReason = loaded.reason; return; }
     env = loaded.env;
     try { connection = await db.connect(env); } catch (error) { skipReason = `test database unreachable (${error?.code ?? "refused"})`; return; }
-    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in eato_test`);
+    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in justfit_test`);
     process.env.WHATSAPP_TOKEN_KEY = TOKEN_KEY;
     ({ createWorker } = require("../../whatsapp/worker.js"));
     ({ eventHandler } = require("../../whatsapp/process.js"));

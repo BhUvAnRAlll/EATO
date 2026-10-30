@@ -1,11 +1,11 @@
 // The upload and account routes under abuse, against the isolated test server (port
-// from .env.test, database eato_test): per-user rate limiting and the request-body cap,
+// from .env.test, database justfit_test): per-user rate limiting and the request-body cap,
 // exercised with raw HTTP so that chunked bodies and declared sizes can be controlled.
 //
 // Every upload body sent here is malformed on purpose (not base64, or far too large), so
 // the route rejects it before the AI provider is ever called: no OpenAI credit is spent
 // (the test server is not even given an OpenAI key). Tokens are minted for throwaway test
-// accounts in eato_test and never logged.
+// accounts in justfit_test and never logged.
 //
 //   yarn test:e2e      (needs JustFit_server/.env.test; otherwise skipped)
 const assert = require("node:assert/strict");

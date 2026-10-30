@@ -1,5 +1,5 @@
-// The Macro diary end to end: test accounts in eato_test against the real Express
-// server and the isolated eato_test database. Covers logging a meal, the day view, week
+// The Macro diary end to end: test accounts in justfit_test against the real Express
+// server and the isolated justfit_test database. Covers logging a meal, the day view, week
 // grading, recent meals, the period summary, adjusting targets, water, deleting, favourites, and the attack paths: no or forged session,
 // another member's meal or favourite, other days, malformed ids and dates, SQL in input.
 //
@@ -51,7 +51,7 @@ describe("macro e2e: meals, the day view, favourites and who may see them", () =
     if (!loaded.ok) { skipReason = loaded.reason; return; }
     env = loaded.env;
     try { connection = await db.connect(env); } catch (error) { skipReason = `test database unreachable (${error?.code ?? "refused"})`; return; }
-    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in eato_test`);
+    assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in justfit_test`);
     testAccounts = identitiesFor(env);
     server = await startTestServer({ ...env, AI_PROVIDER: "fake" }); // the food scan never calls a paid model in tests
     try {

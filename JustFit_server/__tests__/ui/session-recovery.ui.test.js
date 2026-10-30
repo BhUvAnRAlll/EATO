@@ -2,7 +2,7 @@
 // phone sign-in screens; the server's answers to the app's own requests are then simulated
 // inside the page (fetch replaced for /api/profile only) to produce 401, 500 and network
 // failures. Two more cases at launch: a session revoked on the server (for real, in
-// eato_test) is forgotten, and an unreachable server keeps the saved session and offers
+// justfit_test) is forgotten, and an unreachable server keeps the saved session and offers
 // Try again (fetch replaced for /api/auth/me before the app loads).
 //
 //   yarn test:ui      (needs JustFit_server/.env.test and Google Chrome; otherwise skipped)

@@ -2,8 +2,8 @@
 -- automatic "checked in" and "renewed" notes), and who received each one. They show in each
 -- recipient's notification bell. Approved by the user on 2026-10-18. Safe to run more than once.
 -- Run after 2026-10-26-gym-attendance.sql, by hand, with an account allowed to create tables
--- (eato_app can't), for example:
---   mysql -u root -p eato < migrations/2026-10-27-gym-notices.sql
+-- (justfit_app can't), for example:
+--   mysql -u root -p justfit < migrations/2026-10-27-gym-notices.sql
 
 -- One row per notice. Gyms are never deleted (RESTRICT); a sender's account going leaves the notice.
 CREATE TABLE IF NOT EXISTS gym_notices (

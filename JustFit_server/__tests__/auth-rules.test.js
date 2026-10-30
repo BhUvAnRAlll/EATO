@@ -103,10 +103,10 @@ describe("SMS providers", () => {
   it("refuse the fake provider outside the test database", () => {
     const outbox = fs.mkdtempSync(path.join(os.tmpdir(), "justfit-sms-unit-"));
     try {
-      assert.throws(() => createSmsProvider({ SMS_PROVIDER: "fake", SMS_FAKE_OUTBOX: outbox, NODE_ENV: "development", DB_NAME: "eato_test" }), /only allowed in tests/);
-      assert.throws(() => createSmsProvider({ SMS_PROVIDER: "fake", SMS_FAKE_OUTBOX: outbox, NODE_ENV: "test", DB_NAME: "eato" }), /only allowed in tests/);
-      assert.throws(() => createSmsProvider({ SMS_PROVIDER: "fake", SMS_FAKE_OUTBOX: "relative/dir", NODE_ENV: "test", DB_NAME: "eato_test" }), /SMS_FAKE_OUTBOX/);
-      assert.equal(createSmsProvider({ SMS_PROVIDER: "fake", SMS_FAKE_OUTBOX: outbox, NODE_ENV: "test", DB_NAME: "eato_test" }).enabled, true);
+      assert.throws(() => createSmsProvider({ SMS_PROVIDER: "fake", SMS_FAKE_OUTBOX: outbox, NODE_ENV: "development", DB_NAME: "justfit_test" }), /only allowed in tests/);
+      assert.throws(() => createSmsProvider({ SMS_PROVIDER: "fake", SMS_FAKE_OUTBOX: outbox, NODE_ENV: "test", DB_NAME: "justfit" }), /only allowed in tests/);
+      assert.throws(() => createSmsProvider({ SMS_PROVIDER: "fake", SMS_FAKE_OUTBOX: "relative/dir", NODE_ENV: "test", DB_NAME: "justfit_test" }), /SMS_FAKE_OUTBOX/);
+      assert.equal(createSmsProvider({ SMS_PROVIDER: "fake", SMS_FAKE_OUTBOX: outbox, NODE_ENV: "test", DB_NAME: "justfit_test" }).enabled, true);
     } finally {
       fs.rmSync(outbox, { recursive: true, force: true });
     }
@@ -279,28 +279,28 @@ describe("the development sign-in code (auth/devLogin.js)", () => {
   const good = { DEV_LOGIN_PHONE: "9876500001", DEV_LOGIN_CODE: "480317" };
 
   it("is off unless both settings are given", () => {
-    assert.equal(devLoginConfig({ NODE_ENV: "production", DB_NAME: "eato" }), null);
+    assert.equal(devLoginConfig({ NODE_ENV: "production", DB_NAME: "justfit" }), null);
     assert.equal(devLoginConfig({}), null);
   });
 
-  it("works only with NODE_ENV=development on eato, or in tests on eato_test", () => {
-    assert.deepEqual(devLoginConfig({ ...good, NODE_ENV: "development", DB_NAME: "eato" }), { phone: "9876500001", code: "480317" });
-    assert.deepEqual(devLoginConfig({ ...good, NODE_ENV: "test", DB_NAME: "eato_test" }), { phone: "9876500001", code: "480317" });
+  it("works only with NODE_ENV=development on justfit, or in tests on justfit_test", () => {
+    assert.deepEqual(devLoginConfig({ ...good, NODE_ENV: "development", DB_NAME: "justfit" }), { phone: "9876500001", code: "480317" });
+    assert.deepEqual(devLoginConfig({ ...good, NODE_ENV: "test", DB_NAME: "justfit_test" }), { phone: "9876500001", code: "480317" });
     for (const where of [
-      { NODE_ENV: "production", DB_NAME: "eato" },
-      { DB_NAME: "eato" }, // NODE_ENV forgotten: refused, not assumed to be development
-      { NODE_ENV: "development", DB_NAME: "eato_test" },
-      { NODE_ENV: "test", DB_NAME: "eato" },
+      { NODE_ENV: "production", DB_NAME: "justfit" },
+      { DB_NAME: "justfit" }, // NODE_ENV forgotten: refused, not assumed to be development
+      { NODE_ENV: "development", DB_NAME: "justfit_test" },
+      { NODE_ENV: "test", DB_NAME: "justfit" },
       { NODE_ENV: "development", DB_NAME: "justfit_prod" },
-      { NODE_ENV: "Development", DB_NAME: "eato" },
+      { NODE_ENV: "Development", DB_NAME: "justfit" },
     ]) {
       assert.throws(() => devLoginConfig({ ...good, ...where }), /only allowed with NODE_ENV=development/, JSON.stringify(where));
     }
-    assert.throws(() => devLoginConfig({ DEV_LOGIN_PHONE: "9876500001", NODE_ENV: "production", DB_NAME: "eato" }), /only allowed/, "half a setting is refused too");
+    assert.throws(() => devLoginConfig({ DEV_LOGIN_PHONE: "9876500001", NODE_ENV: "production", DB_NAME: "justfit" }), /only allowed/, "half a setting is refused too");
   });
 
   it("refuses a bad number, a code that isn't 6 digits, or one anyone would guess, and never echoes them", () => {
-    const dev = { NODE_ENV: "development", DB_NAME: "eato" };
+    const dev = { NODE_ENV: "development", DB_NAME: "justfit" };
     for (const [setting, message] of [
       [{ DEV_LOGIN_PHONE: "12345" }, /10-digit/], [{ DEV_LOGIN_PHONE: "5876500001" }, /10-digit/], [{ DEV_LOGIN_PHONE: "' OR 1=1 --" }, /10-digit/],
       [{ DEV_LOGIN_CODE: "48031" }, /6 digits/], [{ DEV_LOGIN_CODE: "48031a" }, /6 digits/], [{ DEV_LOGIN_CODE: "" }, /6 digits/],
@@ -308,7 +308,7 @@ describe("the development sign-in code (auth/devLogin.js)", () => {
     ]) {
       assert.throws(() => devLoginConfig({ ...good, ...dev, ...setting }), message, JSON.stringify(setting));
     }
-    try { devLoginConfig({ ...good, NODE_ENV: "production", DB_NAME: "eato" }); } catch (error) {
+    try { devLoginConfig({ ...good, NODE_ENV: "production", DB_NAME: "justfit" }); } catch (error) {
       assert.ok(!error.message.includes(good.DEV_LOGIN_PHONE) && !error.message.includes(good.DEV_LOGIN_CODE));
     }
     assert.equal(weakCode("480317"), false);
