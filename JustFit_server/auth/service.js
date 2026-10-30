@@ -33,7 +33,7 @@ const BASE62 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 const newUserId = () => "user_" + Array.from({ length: 24 }, () => BASE62[crypto.randomInt(0, 62)]).join("");
 
 // Sends a new code to the number. Returns { retryAfterSeconds, expiresInSeconds }.
-// devLogin (auth/devLogin.js, development only): for its one number the code is the fixed
+// devLogin (auth/devLogin.js, development only): for its numbers the code is the fixed
 // development code and no SMS is sent; everything else (limits, hashing, expiry) is the same.
 async function requestOtp(pool, phone, { sms, otpKey, config, devLogin = null }) {
   const dev = isDevPhone(devLogin, phone);

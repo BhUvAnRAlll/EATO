@@ -55,10 +55,10 @@ const { createMetaClient } = require("./whatsapp/metaClient");
 const otpKey = deriveOtpKey(process.env.AUTH_SECRET);
 const sms = createSmsProvider(process.env);
 const otpLimits = otpConfig(process.env);
-// Development only: a fixed code for one number (auth/devLogin.js). Refused outside
+// Development only: a fixed code for a few numbers (auth/devLogin.js). Refused outside
 // NODE_ENV=development on justfit (or tests), so this line stops a production start that has it.
 const devLogin = devLoginConfig(process.env);
-if (devLogin) console.warn("Development sign-in code is ON for one number. Never set DEV_LOGIN_* outside development.");
+if (devLogin) console.warn(`Development sign-in code is ON for ${devLogin.phones.length} number${devLogin.phones.length === 1 ? "" : "s"}. Never set DEV_LOGIN_* outside development.`);
 
 const app = express();
 app.disable("x-powered-by"); // no need to advertise the framework

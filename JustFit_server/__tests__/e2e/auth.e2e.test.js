@@ -388,42 +388,50 @@ describe("phone sign-in e2e: request and verify codes, sessions, roles", () => {
     }
   }));
 
-  // The development sign-in code (auth/devLogin.js): one number, a fixed code, no SMS
-  const DEV = { DEV_LOGIN_PHONE: randomPhone(), DEV_LOGIN_CODE: "480317" };
+  // The development sign-in code (auth/devLogin.js): a short list of numbers, one fixed code, no SMS
+  const DEV_PHONES = [randomPhone(), randomPhone()];
+  const DEV = { DEV_LOGIN_PHONE: DEV_PHONES.join(","), DEV_LOGIN_CODE: "480317" };
 
   it("19. development code: its one number signs in with the fixed code and no SMS, inside the normal limits; other numbers are unaffected", run(async () => {
     const dev = await startTestServer({ ...env, ...LIMITS, ...DEV }, { sms: "off" });
     try {
-      const sent = await requestCode(DEV.DEV_LOGIN_PHONE, dev.baseUrl);
+      const sent = await requestCode(DEV_PHONES[0], dev.baseUrl);
       assert.equal(sent.status, 200, "the development number gets a code although SMS is off");
-      assert.equal(dev.readCode(DEV.DEV_LOGIN_PHONE), null, "no SMS was sent");
-      const [stored] = await challenges(DEV.DEV_LOGIN_PHONE);
+      assert.equal(dev.readCode(DEV_PHONES[0]), null, "no SMS was sent");
+      const [stored] = await challenges(DEV_PHONES[0]);
       assert.equal(stored.status, "sent");
       assert.match(stored.code_hash, /^[0-9a-f]{64}$/, "stored as a hash, like any code");
 
-      assert.equal((await requestCode(DEV.DEV_LOGIN_PHONE, dev.baseUrl)).status, 429, "the cooldown still applies");
+      assert.equal((await requestCode(DEV_PHONES[0], dev.baseUrl)).status, 429, "the cooldown still applies");
       assert.equal((await requestCode(randomPhone(), dev.baseUrl)).status, 503, "any other number still needs the SMS provider (off here)");
 
-      const wrong = await call(dev.baseUrl, "POST", "/api/auth/verify-otp", { body: { phone: DEV.DEV_LOGIN_PHONE, code: "480318" } });
+      const wrong = await call(dev.baseUrl, "POST", "/api/auth/verify-otp", { body: { phone: DEV_PHONES[0], code: "480318" } });
       assert.equal(wrong.status, 400, "a wrong code is refused and counted");
-      const signedIn = await call(dev.baseUrl, "POST", "/api/auth/verify-otp", { body: { phone: DEV.DEV_LOGIN_PHONE, code: DEV.DEV_LOGIN_CODE } });
+      const signedIn = await call(dev.baseUrl, "POST", "/api/auth/verify-otp", { body: { phone: DEV_PHONES[0], code: DEV.DEV_LOGIN_CODE } });
       assert.equal(signedIn.status, 200, JSON.stringify(signedIn.json));
       assert.equal(signedIn.json.user.role, "user", "a new account from it is a member, like any other");
       const me = await call(dev.baseUrl, "GET", "/api/auth/me", { token: signedIn.json.token });
       assert.equal(me.status, 200);
-      assert.equal(me.json.user.phone, `+91${DEV.DEV_LOGIN_PHONE}`);
-      const again = await call(dev.baseUrl, "POST", "/api/auth/verify-otp", { body: { phone: DEV.DEV_LOGIN_PHONE, code: DEV.DEV_LOGIN_CODE } });
+      assert.equal(me.json.user.phone, `+91${DEV_PHONES[0]}`);
+      const again = await call(dev.baseUrl, "POST", "/api/auth/verify-otp", { body: { phone: DEV_PHONES[0], code: DEV.DEV_LOGIN_CODE } });
       assert.equal(again.status, 400, "a code works once, the fixed one too");
 
       // Five wrong tries still lock it; after that even the fixed code is refused
-      await age(DEV.DEV_LOGIN_PHONE, 61);
-      assert.equal((await requestCode(DEV.DEV_LOGIN_PHONE, dev.baseUrl)).status, 200);
-      for (let i = 0; i < 5; i++) await call(dev.baseUrl, "POST", "/api/auth/verify-otp", { body: { phone: DEV.DEV_LOGIN_PHONE, code: "111112" } });
-      assert.equal((await call(dev.baseUrl, "POST", "/api/auth/verify-otp", { body: { phone: DEV.DEV_LOGIN_PHONE, code: DEV.DEV_LOGIN_CODE } })).status, 429, "locked after 5 wrong tries");
+      await age(DEV_PHONES[0], 61);
+      assert.equal((await requestCode(DEV_PHONES[0], dev.baseUrl)).status, 200);
+      for (let i = 0; i < 5; i++) await call(dev.baseUrl, "POST", "/api/auth/verify-otp", { body: { phone: DEV_PHONES[0], code: "111112" } });
+      assert.equal((await call(dev.baseUrl, "POST", "/api/auth/verify-otp", { body: { phone: DEV_PHONES[0], code: DEV.DEV_LOGIN_CODE } })).status, 429, "locked after 5 wrong tries");
+
+      // The second listed number works the same way, with the same code
+      assert.equal((await requestCode(DEV_PHONES[1], dev.baseUrl)).status, 200, "every listed number gets a code without SMS");
+      assert.equal(dev.readCode(DEV_PHONES[1]), null);
+      const second = await call(dev.baseUrl, "POST", "/api/auth/verify-otp", { body: { phone: DEV_PHONES[1], code: DEV.DEV_LOGIN_CODE } });
+      assert.equal(second.status, 200, JSON.stringify(second.json));
+      assert.equal(second.json.user.role, "user");
 
       const logText = dev.logs.join("\n");
-      assert.ok(logText.includes("Development sign-in code is ON"), "the server says the development code is on");
-      assert.ok(!logText.includes(DEV.DEV_LOGIN_PHONE) && !logText.includes(DEV.DEV_LOGIN_CODE), "but never logs the number or the code");
+      assert.ok(logText.includes("Development sign-in code is ON for 2 numbers"), "the server says the development code is on");
+      assert.ok(DEV_PHONES.every((p) => !logText.includes(p)) && !logText.includes(DEV.DEV_LOGIN_CODE), "but never logs the numbers or the code");
     } finally {
       await dev.stop();
     }
@@ -455,7 +463,7 @@ describe("phone sign-in e2e: request and verify codes, sessions, roles", () => {
       const result = start(overrides);
       assert.notEqual(result.status, 0, `refused to start: ${JSON.stringify(overrides)}`);
       assert.match(result.stderr, expected, JSON.stringify(overrides));
-      assert.ok(!result.stderr.includes(DEV.DEV_LOGIN_CODE) && !result.stderr.includes(DEV.DEV_LOGIN_PHONE), "the error never shows the number or the code");
+      assert.ok(!result.stderr.includes(DEV.DEV_LOGIN_CODE) && DEV_PHONES.every((p) => !result.stderr.includes(p)), "the error never shows the number or the code");
     }
   }));
 });

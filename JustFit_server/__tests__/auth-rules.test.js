@@ -12,7 +12,7 @@ const otp = require("../auth/otp");
 const { createSmsProvider, SmsError } = require("../auth/sms");
 const sessions = require("../auth/sessions");
 const { newUserId, requestOtp } = require("../auth/service");
-const { devLoginConfig, weakCode } = require("../auth/devLogin");
+const { devLoginConfig, isDevPhone, weakCode } = require("../auth/devLogin");
 
 const SECRET = "a-test-secret-that-is-long-enough-1234567890";
 
@@ -255,10 +255,10 @@ describe("replacing a code (fake database connection, nothing sent)", () => {
   });
 
   it("the development number: the fixed code is stored (as its hash) and no SMS is sent, even with SMS off; other numbers still need SMS", async () => {
-    const devLogin = { phone: "9876500001", code: "480317" };
+    const devLogin = { phones: ["9876500001", "9876500003"], code: "480317" };
     const { log, pool } = fakePool();
     const off = { enabled: false, async sendOtp() { log.push("send"); } };
-    await requestOtp(pool, devLogin.phone, { sms: off, otpKey, config, devLogin });
+    await requestOtp(pool, devLogin.phones[0], { sms: off, otpKey, config, devLogin });
     assert.deepEqual(log, ["lock", "history", "daily cap", "insert pending", "begin", "supersede others", "mark sent", "commit", "unlock", "release"], "same steps, minus the SMS");
     const other = fakePool();
     await assert.rejects(requestOtp(other.pool, "9876500002", { sms: off, otpKey, config, devLogin }), (error) => error.status === 503);
@@ -284,8 +284,8 @@ describe("the development sign-in code (auth/devLogin.js)", () => {
   });
 
   it("works only with NODE_ENV=development on justfit, or in tests on justfit_test", () => {
-    assert.deepEqual(devLoginConfig({ ...good, NODE_ENV: "development", DB_NAME: "justfit" }), { phone: "9876500001", code: "480317" });
-    assert.deepEqual(devLoginConfig({ ...good, NODE_ENV: "test", DB_NAME: "justfit_test" }), { phone: "9876500001", code: "480317" });
+    assert.deepEqual(devLoginConfig({ ...good, NODE_ENV: "development", DB_NAME: "justfit" }), { phones: ["9876500001"], code: "480317" });
+    assert.deepEqual(devLoginConfig({ ...good, NODE_ENV: "test", DB_NAME: "justfit_test" }), { phones: ["9876500001"], code: "480317" });
     for (const where of [
       { NODE_ENV: "production", DB_NAME: "justfit" },
       { DB_NAME: "justfit" }, // NODE_ENV forgotten: refused, not assumed to be development
@@ -297,6 +297,18 @@ describe("the development sign-in code (auth/devLogin.js)", () => {
       assert.throws(() => devLoginConfig({ ...good, ...where }), /only allowed with NODE_ENV=development/, JSON.stringify(where));
     }
     assert.throws(() => devLoginConfig({ DEV_LOGIN_PHONE: "9876500001", NODE_ENV: "production", DB_NAME: "justfit" }), /only allowed/, "half a setting is refused too");
+  });
+
+  it("takes a short comma-separated list of numbers, sharing the code", () => {
+    const dev = { NODE_ENV: "development", DB_NAME: "justfit", DEV_LOGIN_CODE: "480317" };
+    assert.deepEqual(devLoginConfig({ ...dev, DEV_LOGIN_PHONE: "9876500001, 9902100002" }), { phones: ["9876500001", "9902100002"], code: "480317" });
+    assert.deepEqual(devLoginConfig({ ...dev, DEV_LOGIN_PHONE: "9876500001,9876500001" }).phones, ["9876500001"], "duplicates count once");
+    assert.throws(() => devLoginConfig({ ...dev, DEV_LOGIN_PHONE: "9876500001,12345" }), /10-digit/, "one bad entry refuses the list");
+    assert.throws(() => devLoginConfig({ ...dev, DEV_LOGIN_PHONE: "9876500001," }), /10-digit/, "an empty entry is refused");
+    assert.throws(() => devLoginConfig({ ...dev, DEV_LOGIN_PHONE: Array.from({ length: 6 }, (_, i) => `987650000${i}`).join(",") }), /at most 5/);
+    assert.equal(isDevPhone({ phones: ["9876500001", "9902100002"], code: "480317" }, "9902100002"), true);
+    assert.equal(isDevPhone({ phones: ["9876500001"], code: "480317" }, "9902100002"), false);
+    assert.equal(isDevPhone(null, "9876500001"), false);
   });
 
   it("refuses a bad number, a code that isn't 6 digits, or one anyone would guess, and never echoes them", () => {
