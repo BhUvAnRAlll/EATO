@@ -18,6 +18,7 @@ import { useMe } from "@/lib/me";
 import { useSessionToken } from "@/lib/session";
 import { useCommunityStore } from "@/store/community";
 import { colors } from "@/theme";
+import { track } from "@/lib/analytics";
 
 const MAX_LENGTH = 1000;
 const MAX_PHOTOS = 4;
@@ -256,6 +257,7 @@ export default function ComposePost() {
         ? await gyms.createPost(token, place.id, draft)
         : await community.createPost(token, { ...draft, audience });
     setPublishing(false);
+    if (result.ok) track("community_post_created", { place: place.kind, type: draft.category });
     if (!result.ok) {
       // The account went private while this draft was open: a valid audience is needed now
       if (result.status === 409) {

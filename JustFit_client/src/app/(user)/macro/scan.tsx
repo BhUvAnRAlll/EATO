@@ -13,6 +13,7 @@ import { loggedAtFor, macro, slotForNow, slotInfo, slots, todayIso, whole, type 
 import { useSessionToken } from "@/lib/session";
 import { useMacroStore } from "@/store/macro";
 import { colors } from "@/theme";
+import { track } from "@/lib/analytics";
 
 const macroFields = [
   { key: "kcal", label: "kcal", color: colors.danger },
@@ -50,6 +51,7 @@ export default function ScanFood() {
     const result = await macro.scanFood(await getToken().catch(() => null), { data: picked.data, hint });
     setScanning(false);
     if (!result.ok) return setError(result.status ? result.error : "Could not reach justFit. Check your connection and try again.");
+    track("food_scanned");
     setTitle(result.data.scan.title);
     setRows(result.data.scan.items.map(toRow));
   };
@@ -95,6 +97,7 @@ export default function ScanFood() {
     });
     setSaving(false);
     if (!result.ok) return setError(result.status ? result.error : "Could not save that meal.");
+    track("meal_logged", { source: "scan" });
     router.dismissTo("/macro"); // the Macro tab reloads the day when it comes back into view
   };
 

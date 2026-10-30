@@ -5,6 +5,7 @@ import { goAfterSignIn } from "@/lib/auth";
 import { normalizeIndianMobile, phoneInput } from "@/lib/phone";
 import { secondsLeft } from "@/lib/sessionRules";
 import { useAuthStore } from "@/store/auth";
+import { track } from "@/lib/analytics";
 
 const INVALID_PHONE = "Enter a valid 10-digit mobile number.";
 
@@ -77,6 +78,7 @@ export function usePhoneSignIn() {
     const result = await verifyCode(sentTo, code);
     if (!result.ok) return result.error;
     await useAuthStore.getState().signedIn(result.data.token, result.data.user);
+    track("login_completed", { newAccount: result.data.user.isNew });
     setCodeOpen(false);
     goAfterSignIn();
     return null;

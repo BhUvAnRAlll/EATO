@@ -49,6 +49,14 @@ export default function AdminProfile() {
               </View>
               <SymbolView name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }} size={14} tintColor={colors.faint} />
             </Pressable>
+            <Pressable onPress={() => router.push("/admin/app-usage")} className="admin-row admin-row--divided" accessibilityRole="button" accessibilityLabel="App Usage. Which features members use">
+              <View className="admin-row__icon"><SymbolView name={{ ios: "chart.line.uptrend.xyaxis", android: "trending_up", web: "trending_up" }} size={18} tintColor={colors.forestInk} /></View>
+              <View className="min-w-0 flex-1">
+                <Text className="card__title">App Usage</Text>
+                <Text className="post__time">Which features members use, and how many of them</Text>
+              </View>
+              <SymbolView name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }} size={14} tintColor={colors.faint} />
+            </Pressable>
           </View>
 
           <View className="admin-list">

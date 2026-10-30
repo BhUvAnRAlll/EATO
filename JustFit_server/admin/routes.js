@@ -9,6 +9,9 @@ const users = require("./users");
 const gyms = require("./gyms");
 const reports = require("./reports");
 const aiUsage = require("./aiUsage");
+const usage = require("./usage");
+const retention = require("./retention");
+const usageExport = require("./export");
 const aiRules = require("../ai/rules");
 const { NotFoundError } = require("../community/posts");
 
@@ -105,6 +108,30 @@ router.put("/ai-usage/budget", smallBody, aiRoute(async (req, res) => {
 }));
 router.post("/ai-usage/alerts/:alertId/acknowledge", aiRoute(async (req, res) => {
   res.json(await aiUsage.acknowledgeAlert(pool(req), aiRules.alertId(req.params.alertId)));
+}));
+
+// App Usage: how members use the app, from the rows the features write (admin/usage.js). Not the
+// AI Usage module above, which is about tokens and cost.
+router.get("/usage", route(async (req, res) => {
+  res.json(await usage.summary(pool(req), req.query));
+}));
+// Phase 3: retention by join cohort, the member-level list, one feature's detail (admin/retention.js)
+router.get("/usage/retention", route(async (req, res) => {
+  res.json(await retention.retention(pool(req), req.query));
+}));
+router.get("/usage/members", route(async (req, res) => {
+  res.json(await retention.members(pool(req), req.query));
+}));
+router.get("/usage/features/:featureId", route(async (req, res) => {
+  res.json(await retention.featureDetail(pool(req), String(req.params.featureId), req.query));
+}));
+// Phase 4: the same numbers as CSV, with the screen's filters (admin/export.js)
+router.get("/usage/export", route(async (req, res) => {
+  const { fileName, csv } = await usageExport.exportCsv(pool(req), req.query);
+  res.set("Content-Type", "text/csv; charset=utf-8");
+  res.set("Content-Disposition", `attachment; filename="${fileName}"`);
+  res.set("Cache-Control", "no-store");
+  res.send(csv);
 }));
 
 module.exports = { adminPortalRouter: router };

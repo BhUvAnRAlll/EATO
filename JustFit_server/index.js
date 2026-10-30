@@ -19,6 +19,7 @@ const { pool } = require("./database");
 const { randomUUID } = require("node:crypto");
 const { requireUser, requireAdmin } = require("./auth");
 const { authRouter } = require("./auth/routes");
+const { analyticsRouter } = require("./analytics/routes");
 const { deriveOtpKey, otpConfig } = require("./auth/otp");
 const { createSmsProvider } = require("./auth/sms");
 const { devLoginConfig } = require("./auth/devLogin");
@@ -98,11 +99,15 @@ const coachLimiter = createRateLimiter(rateLimits.standard); // the AI Coach: th
 const workoutLimiter = createRateLimiter(rateLimits.community); // the Fitness tab: plan, training day, history
 const gymsLimiter = createRateLimiter(rateLimits.community); // gym communities: gyms, members, posts, events, invitations
 const ownerLimiter = createRateLimiter(rateLimits.community); // the gym owner portal: dashboard, renewals
+const analyticsLimiter = createRateLimiter(rateLimits.community); // the app's usage events, in small batches
 
 // Phone sign-in (auth/routes.js): request and check a code, who am I, logout. The two sign-in
 // routes are the only ones besides the health check and Meta's webhook without a session;
 // they are budgeted per IP address and per phone number instead.
 app.use("/api/auth", authRouter({ pool, sms, otpKey, config: otpLimits, devLogin }));
+
+// The app's usage events (analytics/routes.js): the signed-in member's own, in small batches
+app.use("/api/analytics", requireUser, limitPerUser(analyticsLimiter), analyticsRouter({ pool }));
 
 // Meta's WhatsApp webhook: the one other route without a session, because Meta calls it. It
 // checks Meta's signature over the raw body instead (whatsapp/webhook.js), routes each event to

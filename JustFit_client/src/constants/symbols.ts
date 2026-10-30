@@ -88,6 +88,7 @@ export const materialSymbols: Record<string, AndroidSymbol> = {
   "figure.stand": "accessibility_new",
   "figure.strengthtraining.traditional": "fitness_center",
   "figure.walk": "directions_walk",
+  "square.and.arrow.down": "download",
   "figure.arms.open": "accessibility_new",
   "figure.yoga": "self_improvement",
   flag: "flag",

@@ -13,6 +13,7 @@ import { dayLabel, loggedAtFor, macro, slotForNow, slotInfo, slots, todayIso, ty
 import { useSessionToken } from "@/lib/session";
 import { useMacroStore } from "@/store/macro";
 import { colors } from "@/theme";
+import { track } from "@/lib/analytics";
 
 // Re-log anything from the last 3 days as a new meal today. The foods are copied, so changing
 // or removing the original later leaves the repeat as it was. Asks for the slot only when
@@ -61,6 +62,7 @@ export default function RepeatMeal() {
     });
     setSaving(false);
     if (!result.ok) return setError(result.status ? result.error : "Could not repeat that meal.");
+    track("meal_logged", { source: "repeat" });
     router.dismissTo("/macro"); // the Macro tab reloads the day when it comes back into view
   };
 

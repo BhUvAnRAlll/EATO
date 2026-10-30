@@ -9,6 +9,7 @@ import { Avatar } from "@/components/community/Avatar";
 import { audienceLabels, audiencesFor, community, type Member, type PostAudience } from "@/lib/community";
 import { useCommunityStore } from "@/store/community";
 import { colors } from "@/theme";
+import { track } from "@/lib/analytics";
 
 const MAX_LENGTH = 1000;
 
@@ -63,6 +64,7 @@ export function QuickPostComposer({ me, getToken, onError }: QuickPostComposerPr
     setPosting(true);
     const result = await community.createPost(await getToken(), { body: text, category: "general", audience, clientKey: clientKey.current });
     setPosting(false);
+    if (result.ok) track("community_post_created", { place: "feed", type: "general" });
     if (!result.ok) {
       // The account went private since this screen loaded: the server refuses "public"
       if (result.status === 409) {

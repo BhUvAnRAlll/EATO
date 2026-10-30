@@ -3,6 +3,7 @@ import { create } from "zustand";
 import { onAccountCleared, sameAccount } from "@/lib/accountScope";
 import { community, type Post, type Story, type StoryGroup } from "@/lib/community";
 import { withOwnStory } from "@/lib/storyRing";
+import { track } from "@/lib/analytics";
 
 // What the Community tab shows: the feed, the stories row, the groups and the unread
 // message count. Kept here so likes, joins and new posts stay in step across screens and
@@ -140,6 +141,7 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
       return result.error;
     }
     get().patchPost(postId, { liked: result.data.liked, likeCount: result.data.likeCount });
+    if (result.data.liked) track("community_post_liked");
     return null;
   },
 

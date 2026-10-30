@@ -21,6 +21,9 @@ export function clearAccountData(): void {
   for (const clear of clears) clear();
 }
 
+// A store registers how to empty itself (once, when its module loads); lib/analytics.ts registers
+// its queue the same way from its own module
+
 // Call before a request; the returned check says whether its answer still belongs to the
 // account on screen:
 //   const stillCurrent = sameAccount();

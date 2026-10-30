@@ -13,6 +13,7 @@ import { weekOf, workoutApi, type TrainingDay } from "@/lib/workoutApi";
 import { buildSteps, exerciseProgress, setKey, setTotals, startIndex } from "@/lib/workoutSteps";
 import { colors } from "@/theme";
 import { fonts } from "@/constants/fonts";
+import { track } from "@/lib/analytics";
 
 // The session player: today's session set by set, on the dark ink surface so it reads at arm's
 // length with the phone propped against a rack. Every set of every exercise in plan order, with
@@ -65,8 +66,10 @@ export default function SessionPlayer() {
         started.current = true;
         const start = await workoutApi.startSession(token, date, today);
         if (cancelled) return;
-        if (start.ok) logId = start.data.log.id;
-        else setError("Could not start the session");
+        if (start.ok) {
+          logId = start.data.log.id;
+          if (start.data.created) track("workout_started");
+        } else setError("Could not start the session");
       }
       const progress = await workoutApi.session(token, date, today);
       if (cancelled) return;
@@ -170,6 +173,7 @@ function Player({ day, logId, completed, initialLogged, startExercise, getToken,
     const result = await workoutApi.completeSession(token, logId);
     setFinishing(false);
     if (!result.ok) return onError("Could not finish the session");
+    track("workout_completed");
     onError(null);
     setFinished(true);
   };

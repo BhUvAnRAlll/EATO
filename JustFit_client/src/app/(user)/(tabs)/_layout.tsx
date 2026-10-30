@@ -1,12 +1,21 @@
 import { Tabs } from "expo-router/js-tabs";
+import { useEffect } from "react";
+import { useSegments } from "expo-router";
 
 import { BottomTabBar } from "@/components/BottomTabBar";
 import { homeTabs } from "@/data/home";
 import { colors } from "@/theme";
+import { trackScreen } from "@/lib/analytics";
 
 // Home, Meals, AI Coach (raised, in the middle), Macro, Community. Workout lives on Profile. The navigator's own bar is replaced by
 // BottomTabBar, so only the custom pill is ever visible.
 export default function TabsLayout() {
+  // The open tab, for App Usage (a tab re-tapped counts once; see trackScreen)
+  const segments = useSegments();
+  const tab = segments[segments.length - 1];
+  useEffect(() => {
+    if (tab) trackScreen(tab);
+  }, [tab]);
   return (
     <Tabs
       tabBar={(props) => <BottomTabBar {...props} />}

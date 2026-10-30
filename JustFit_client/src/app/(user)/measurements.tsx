@@ -10,6 +10,7 @@ import { fetchProfile, saveProfile, type SavedData } from "@/lib/profile";
 import { measurementSave, type MeasurementSave } from "@/lib/profileScan";
 import { SESSION_EXPIRED_MESSAGE, isSessionExpired, useSessionToken } from "@/lib/session";
 import { colors } from "@/theme";
+import { track } from "@/lib/analytics";
 
 // Profile › Edit: change height and weight after setup. Both feed the calorie calculation, so
 // the first tap shows what changes (including the daily target) and the second saves it.
@@ -56,6 +57,7 @@ export default function Measurements() {
     const saved = await saveProfile(await getToken(), pending.body);
     setIsBusy(false);
     if (!saved.ok) return setError(isSessionExpired(saved) ? SESSION_EXPIRED_MESSAGE : saved.error);
+    track("weight_logged");
     router.back();
   };
 

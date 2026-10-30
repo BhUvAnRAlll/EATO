@@ -8,6 +8,7 @@ import { ActivityIndicator, View } from "react-native";
 import { fontFiles } from "@/constants/fonts";
 import { useAuthStore } from "@/store/auth";
 import { colors } from "@/theme";
+import { startAnalytics } from "@/lib/analytics";
 
 // Each role can only open its own dashboard. If someone opens a screen they
 // aren't allowed to (or signs out), Expo Router sends them back to the start
@@ -19,7 +20,7 @@ function RootStack() {
 
   // Ask the server about the saved session once at launch (the store runs one check at a time)
   useEffect(() => {
-    useAuthStore.getState().restore();
+    useAuthStore.getState().restore().then(startAnalytics);
   }, []);
 
   // Until the saved session has been checked, nobody's role is known yet. The guards below

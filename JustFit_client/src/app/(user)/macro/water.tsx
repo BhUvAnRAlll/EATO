@@ -12,6 +12,7 @@ import { clockTime, hourLabel, litres, longDate, macro, todayIso, type WaterDay,
 import { useSessionToken } from "@/lib/session";
 import { useMacroStore } from "@/store/macro";
 import { colors, switchColors } from "@/theme";
+import { track } from "@/lib/analytics";
 
 const GLASS_ML = 250;
 const GLASS = { width: 88, height: 152 };
@@ -54,6 +55,7 @@ export default function Water() {
     const result = await macro.logWater(await getToken().catch(() => null), { date: selectedDate, amountMl, source, label });
     setBusy(false);
     if (!result.ok) return setError(`Could not log water. ${result.status ? result.error : "Please check your connection and try again."}`);
+    track("water_logged", { source });
     setSheetOpen(false);
     load();
   };

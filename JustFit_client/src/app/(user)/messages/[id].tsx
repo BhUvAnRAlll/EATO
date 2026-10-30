@@ -15,6 +15,7 @@ import { useSessionToken } from "@/lib/session";
 import { useCommunityStore } from "@/store/community";
 import { colors } from "@/theme";
 import { fonts } from "@/constants/fonts";
+import { track } from "@/lib/analytics";
 
 const MAX_LENGTH = 1000;
 // While the screen is open, the newest page is fetched this often so replies show up
@@ -134,6 +135,7 @@ export default function ConversationScreen() {
     const token = await getToken().catch(() => undefined);
     const result = token === undefined ? { ok: false as const, error: OFFLINE_MESSAGE } : await community.sendMessage(token, id, item.body, item.id);
     if (result.ok) {
+      track("message_sent");
       setPending((current) => current.filter((p) => p.id !== item.id));
       addMessages([result.data.message]);
     } else {

@@ -16,6 +16,7 @@ import { useMe } from "@/lib/me";
 import { useSessionToken } from "@/lib/session";
 import { useCommunityStore } from "@/store/community";
 import { colors } from "@/theme";
+import { track } from "@/lib/analytics";
 
 const MAX_LENGTH = 500;
 
@@ -96,6 +97,7 @@ export default function PostComments() {
     if (!body || sending) return;
     setSending(true);
     const result = await community.addComment(await getToken(), id, body);
+    if (result.ok) track("community_comment_sent");
     setSending(false);
     if (!result.ok) return setError(result.error);
     setText("");

@@ -12,6 +12,7 @@ import { pickPhotos, type PickedPhoto } from "@/lib/media";
 import { SESSION_EXPIRED_MESSAGE, isSessionExpired, returnToSignIn, useSessionToken } from "@/lib/session";
 import { useCommunityStore } from "@/store/community";
 import { colors } from "@/theme";
+import { track } from "@/lib/analytics";
 
 const MAX_CAPTION = 200;
 
@@ -102,6 +103,7 @@ export default function NewStory() {
       }
       setStage("sharing");
       const result = await community.createStory(token, { mediaId, caption: caption.trim() || null, audience });
+      if (result.ok) track("story_created");
       if (!result.ok) {
         // The account went private while this screen was open: a valid audience is needed now
         if (result.status === 409) {

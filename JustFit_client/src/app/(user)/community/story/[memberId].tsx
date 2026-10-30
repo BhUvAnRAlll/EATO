@@ -13,6 +13,7 @@ import { community, storyAudienceLabels, timeAgo } from "@/lib/community";
 import { useSessionToken } from "@/lib/session";
 import { useCommunityStore } from "@/store/community";
 import { colors } from "@/theme";
+import { track } from "@/lib/analytics";
 
 // Each story stays this long before the next one (ms), and the bar updates this often
 const STORY_MS = 5000;
@@ -91,6 +92,7 @@ export default function StoryViewer() {
     viewed.current.add(story.id);
     getToken().then(async (token) => {
       const result = await community.viewStory(token, story.id);
+      if (result.ok) track("story_viewed");
       if (!result.ok && result.status === 404) store.removeStory(story.id);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps

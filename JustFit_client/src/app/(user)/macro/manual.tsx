@@ -12,6 +12,7 @@ import { useSessionToken } from "@/lib/session";
 import { useMacroStore } from "@/store/macro";
 import { colors } from "@/theme";
 import { fonts } from "@/constants/fonts";
+import { track } from "@/lib/analytics";
 
 type Unit = "g" | "oz" | "cup";
 const units: { value: Unit; label: string }[] = [
@@ -76,6 +77,7 @@ export default function ManualEntry() {
     });
     setSaving(false);
     if (!result.ok) return setError(result.status ? result.error : "Could not save that food.");
+    track("meal_logged", { source: "manual" });
     router.dismissTo("/macro"); // the Macro tab reloads the day when it comes back into view
   };
 
