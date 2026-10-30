@@ -8,6 +8,8 @@ const { overview } = require("./overview");
 const users = require("./users");
 const gyms = require("./gyms");
 const reports = require("./reports");
+const aiUsage = require("./aiUsage");
+const aiRules = require("../ai/rules");
 const { NotFoundError } = require("../community/posts");
 
 const router = express.Router();
@@ -80,6 +82,29 @@ router.get("/reports", route(async (req, res) => {
 // Remove or dismiss every open report on one post, comment or story
 router.post("/reports/resolve", smallBody, route(async (req, res) => {
   res.json(await reports.resolveGroup(pool(req), req.userId, reports.resolveBody(req.body)));
+}));
+
+// AI usage and cost (admin/aiUsage.js): the summary for a period, the call history, the budget.
+// Before migrations/2026-11-03-ai-usage.sql has run on this database, say so instead of a 500.
+const aiRoute = (handler) => (req, res, next) =>
+  handler(req, res, next).catch((error) => {
+    if (error?.code === "ER_NO_SUCH_TABLE") return res.status(503).json({ error: "AI usage tracking isn't set up on this server yet." });
+    next(error);
+  });
+router.get("/ai-usage/summary", aiRoute(async (req, res) => {
+  res.json(await aiUsage.summary(pool(req), aiRules.summaryQuery(req.query)));
+}));
+router.get("/ai-usage/history", aiRoute(async (req, res) => {
+  res.json(await aiUsage.history(pool(req), aiRules.historyQuery(req.query)));
+}));
+router.get("/ai-usage/budget", aiRoute(async (req, res) => {
+  res.json(await aiUsage.budget(pool(req)));
+}));
+router.put("/ai-usage/budget", smallBody, aiRoute(async (req, res) => {
+  res.json(await aiUsage.saveBudget(pool(req), req.userId, aiRules.budgetBody(req.body)));
+}));
+router.post("/ai-usage/alerts/:alertId/acknowledge", aiRoute(async (req, res) => {
+  res.json(await aiUsage.acknowledgeAlert(pool(req), aiRules.alertId(req.params.alertId)));
 }));
 
 module.exports = { adminPortalRouter: router };

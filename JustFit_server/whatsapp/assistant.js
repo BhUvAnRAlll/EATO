@@ -4,6 +4,7 @@
 const { ValidationError } = require("../profile");
 const { gymKnowledge, answer } = require("./agent");
 const { recordUsage } = require("./usage");
+const aiUsage = require("../ai/usage");
 const { createRateLimiter, tooManyRequestsMessage } = require("../rateLimit");
 
 const limiter = createRateLimiter({ limit: 20, windowMs: 10 * 60 * 1000 }); // each question is a paid AI call
@@ -22,8 +23,16 @@ async function ask(pool, userId, gym, question) {
   if (!budget.ok) throw new AssistantUnavailable(tooManyRequestsMessage(budget.retryAfterSeconds), 429);
   const knowledge = await gymKnowledge(pool, gym.id);
   if (!knowledge || knowledge.agentStatus === "disabled") throw new AssistantUnavailable("This gym's assistant isn't switched on yet.", 409);
-  const result = await answer(getProvider(), knowledge, [{ role: "user", content: question }], { channel: "app" });
+  const usage = aiUsage.tracker(pool, { feature: "gym_assistant", userId, gymId: gym.id });
+  let result;
+  try {
+    result = await answer(getProvider(), knowledge, [{ role: "user", content: question }], { channel: "app" });
+  } catch (error) {
+    await usage.record({ provider: "openai", model: getProvider().model ?? "unknown", status: "failed" });
+    throw error;
+  }
   await recordUsage(pool, gym.id, "ai", 1, { inputTokens: result.inputTokens, outputTokens: result.outputTokens });
+  await usage.record({ provider: "openai", model: result.model, inputTokens: result.inputTokens, outputTokens: result.outputTokens, status: "ok" });
   // Questions it couldn't answer go to the gym's team (owner portal › Gym assistant)
   if (result.escalate) await require("../owner/questions").recordQuestion(pool, gym.id, userId, question, result.reply);
   return { reply: result.reply, escalated: result.escalate, contact: result.escalate ? knowledge.escalationContact : null };

@@ -35,6 +35,7 @@ const media = require("./community/media");
 const stories = require("./community/stories");
 const { macroRouter } = require("./macro/routes");
 const { coachRouter } = require("./coach/routes");
+const aiUsage = require("./ai/usage");
 const { FoodScanError, checkFoodPhoto, scanFood, scanLimits: foodScanLimits } = require("./macro/foodScan");
 const { workoutRouter } = require("./workout/routes");
 const { gymsRouter } = require("./gyms/routes");
@@ -149,12 +150,10 @@ app.post("/api/body-composition", requireUser, limitPerUser(uploadLimiter), json
   const upload = checkUpload(req.body);
   if (!upload.ok) return res.status(upload.status).json({ error: upload.error });
   try {
-    const report = await extractReport({
-      base64: req.body.data.replace(/\s/g, ""),
-      mediaType: upload.mediaType,
-      layout: "inbody",
-      reportId: randomUUID(),
-    });
+    const report = await extractReport(
+      { base64: req.body.data.replace(/\s/g, ""), mediaType: upload.mediaType, layout: "inbody", reportId: randomUUID() },
+      aiUsage.tracker(pool, { feature: "body_report", userId: req.userId }),
+    );
     res.json({ report });
   } catch (error) {
     if (error instanceof ExtractionError) return res.status(error.status).json({ error: error.message });
@@ -170,7 +169,7 @@ app.post("/api/body-composition/scan", requireUser, limitPerUser(scanLimiter), j
   const checked = checkScanRequest(req.body);
   if (!checked.ok) return res.status(checked.status).json({ error: checked.error });
   try {
-    res.json({ estimate: await requestScan(checked) });
+    res.json({ estimate: await requestScan(checked, { usage: aiUsage.tracker(pool, { feature: "body_scan", userId: req.userId }) }) });
   } catch (error) {
     if (error instanceof ScanError) return res.status(error.status).json({ error: error.message });
     next(error);
@@ -344,7 +343,7 @@ app.post("/api/macro/scan", requireUser, limitPerUser(foodScanLimiter), jsonBody
   const photo = checkFoodPhoto(req.body);
   if (!photo.ok) return res.status(photo.status).json({ error: photo.error });
   try {
-    res.json({ scan: await scanFood(photo) });
+    res.json({ scan: await scanFood(photo, process.env, aiUsage.tracker(pool, { feature: "food_scan", userId: req.userId })) });
   } catch (error) {
     if (error instanceof FoodScanError) return res.status(error.status).json({ error: error.message });
     next(error);
@@ -354,7 +353,7 @@ app.post("/api/macro/scan", requireUser, limitPerUser(foodScanLimiter), jsonBody
 app.use("/api/macro", requireUser, limitPerUser(macroLimiter), macroRouter);
 
 // ---------------------------------------------------------------------------
-// AI Coach (see coach/routes.js): the intake answers and the plan (making one has its own hourly budget)
+// AI Coach (see coach/routes.js): the intake answers, the plan and the chat (making a plan and each chat message have their own hourly budgets)
 // ---------------------------------------------------------------------------
 
 app.use("/api/coach", requireUser, limitPerUser(coachLimiter), coachRouter);

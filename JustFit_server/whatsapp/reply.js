@@ -7,6 +7,7 @@ const { enqueue } = require("./jobs");
 const { gymKnowledge, conversationHistory, answer } = require("./agent");
 const { sendText, SendRefused } = require("./send");
 const { recordUsage } = require("./usage");
+const aiUsage = require("../ai/usage");
 
 const PER_CONVERSATION_HOURLY = 15; // AI replies in one conversation per hour before a person takes over
 
@@ -71,8 +72,16 @@ function replyHandler({ provider, meta }) {
       return handOff(pool, meta, gymId, conversationId, HANDOFF.limit);
     }
 
-    const result = await answer(provider, knowledge, await conversationHistory(pool, gymId, conversationId), { channel: "whatsapp" });
+    const usage = aiUsage.tracker(pool, { feature: "gym_assistant", gymId });
+    let result;
+    try {
+      result = await answer(provider, knowledge, await conversationHistory(pool, gymId, conversationId), { channel: "whatsapp" });
+    } catch (error) {
+      await usage.record({ provider: "openai", model: provider.model ?? "unknown", status: "failed" });
+      throw error;
+    }
     await recordUsage(pool, gymId, "ai", 1, { inputTokens: result.inputTokens, outputTokens: result.outputTokens });
+    await usage.record({ provider: "openai", model: result.model, inputTokens: result.inputTokens, outputTokens: result.outputTokens, status: "ok" });
     if (result.escalate) await pool.query("UPDATE whatsapp_conversations SET handler = 'human' WHERE id = ? AND gym_id = ?", [conversationId, gymId]);
     try {
       await sendText(pool, meta, { gymId, conversationId, body: result.reply, sender: "ai" });

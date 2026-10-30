@@ -122,9 +122,13 @@ const FAKE_SCAN = {
   ],
 };
 
-// { base64, mediaType, hint } → { title, items }, an UNCONFIRMED estimate
-async function scanFood(params, env = process.env) {
-  if (env.NODE_ENV === "test" && env.AI_PROVIDER === "fake") return normalizeFoodScan(FAKE_SCAN);
+// { base64, mediaType, hint } → { title, items }, an UNCONFIRMED estimate. `usage` (ai/usage.tracker)
+// records the call for the admin's AI Usage screen; never the photo or the answer.
+async function scanFood(params, env = process.env, usage = null) {
+  if (env.NODE_ENV === "test" && env.AI_PROVIDER === "fake") {
+    await usage?.record({ provider: "openai", model: "fake", inputTokens: 10, outputTokens: 5, status: "ok" });
+    return normalizeFoodScan(FAKE_SCAN);
+  }
 
   const client = new OpenAI(); // reads OPENAI_API_KEY
   let response;
@@ -145,6 +149,7 @@ async function scanFood(params, env = process.env) {
       text: { format: { type: "json_schema", name: "food_scan", strict: true, schema: scanSchema } },
     });
   } catch (error) {
+    await usage?.record({ provider: "openai", model: MODEL, status: "failed" });
     // Never log the request or response content, only the status
     if (error instanceof OpenAI.RateLimitError) throw new FoodScanError("We're busy right now. Please try again in a minute.", 503);
     if (error instanceof OpenAI.APIError) {
@@ -155,9 +160,9 @@ async function scanFood(params, env = process.env) {
   }
 
   const refused = response.output.some((item) => item.type === "message" && item.content.some((part) => part.type === "refusal"));
-  if (refused || response.status === "incomplete" || !response.output_text) {
-    throw new FoodScanError("We couldn't read that photo. Try another photo or log it by hand.", 422);
-  }
+  const usable = !refused && response.status !== "incomplete" && Boolean(response.output_text);
+  await usage?.record({ provider: "openai", model: MODEL, inputTokens: response.usage?.input_tokens, outputTokens: response.usage?.output_tokens, status: usable ? "ok" : "refused" });
+  if (!usable) throw new FoodScanError("We couldn't read that photo. Try another photo or log it by hand.", 422);
   return normalizeFoodScan(JSON.parse(response.output_text));
 }
 

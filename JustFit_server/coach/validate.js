@@ -151,4 +151,13 @@ function logBody(body, now) {
 
 const mealId = (value) => id(value, "The meal");
 
-module.exports = { options, equipmentBySpot, limits, validateIntake, prefillFrom, planBody, planQuery, logBody, mealId };
+// PUT /intake/coach { coach, coachStyle }: switching coaches without redoing the intake
+function coachChoice(body) {
+  onlyFields(body, ["coach", "coachStyle"]);
+  return {
+    coach: oneOf(body.coach, options.coach, "Choose one of the coaches."),
+    coachStyle: oneOf(body.coachStyle, options.coachStyle, "Choose how your coach talks to you."),
+  };
+}
+
+module.exports = { options, equipmentBySpot, limits, validateIntake, prefillFrom, planBody, planQuery, logBody, mealId, coachChoice };

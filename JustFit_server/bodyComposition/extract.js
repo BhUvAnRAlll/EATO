@@ -35,8 +35,9 @@ function fileInput(mediaType, base64) {
   return { type: "input_image", detail: "high", image_url: `data:${mediaType};base64,${base64}` };
 }
 
-// { base64, mediaType, layout, reportId } → an UNCONFIRMED report
-async function extractReport(params) {
+// { base64, mediaType, layout, reportId } → an UNCONFIRMED report. `usage` (ai/usage.tracker) records
+// the call for the admin's AI Usage screen; never the file or the answer.
+async function extractReport(params, usage = null) {
   const client = new OpenAI(); // reads OPENAI_API_KEY
   const layout = reportLayouts[params.layout];
 
@@ -60,6 +61,7 @@ async function extractReport(params) {
       },
     });
   } catch (error) {
+    await usage?.record({ provider: "openai", model: MODEL, status: "failed" });
     // Never log request or response content (it's health data) — only the status
     if (error instanceof OpenAI.RateLimitError) throw new ExtractionError("We're busy right now. Please try again in a minute.", 503);
     if (error instanceof OpenAI.APIError) {
@@ -72,9 +74,9 @@ async function extractReport(params) {
   const refused = response.output.some(
     (item) => item.type === "message" && item.content.some((part) => part.type === "refusal"),
   );
-  if (refused || response.status === "incomplete" || !response.output_text) {
-    throw new ExtractionError("We couldn't read this report. Please enter your details manually.", 422);
-  }
+  const usable = !refused && response.status !== "incomplete" && Boolean(response.output_text);
+  await usage?.record({ provider: "openai", model: MODEL, inputTokens: response.usage?.input_tokens, outputTokens: response.usage?.output_tokens, status: usable ? "ok" : "refused" });
+  if (!usable) throw new ExtractionError("We couldn't read this report. Please enter your details manually.", 422);
 
   const raw = JSON.parse(response.output_text);
   if (!raw.isBodyCompositionReport) {

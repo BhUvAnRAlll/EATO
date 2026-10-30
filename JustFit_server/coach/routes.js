@@ -1,20 +1,26 @@
 // HTTP routes for the AI Coach, mounted at /api/coach in index.js behind requireUser and the
 // per-user rate limit. The intake (read the member's answers, with what justFit already knows to
-// start from, and save them) and the plan (make it, read it, log its meals to Macro). The member
+// start from, and save them), the plan (make it, read it, log its meals to Macro) and the chat. The member
 // is always the verified caller.
 const express = require("express");
 
 const { ensureUser } = require("../community/members");
 const { createRateLimiter, limitPerUser } = require("../rateLimit");
-const { validateIntake, prefillFrom, planBody, planQuery, logBody, mealId } = require("./validate");
+const { validateIntake, prefillFrom, planBody, planQuery, logBody, mealId, coachChoice } = require("./validate");
 const { toIntake, makePlan, getPlan, logMeal } = require("./plan");
 const { CoachPlanError } = require("./planRules");
+const { chat } = require("./chat");
+const { chatBody } = require("./chatRules");
 
 const router = express.Router();
 const smallBody = express.json({ limit: "16kb" });
 
 // Making a plan is an OpenAI call: a few an hour per member is plenty
 const makePlanLimiter = createRateLimiter({ limit: 5, windowMs: 60 * 60 * 1000 });
+// Every chat message is an OpenAI call too: enough for a real conversation, never unlimited
+const chatLimiter = createRateLimiter({ limit: 30, windowMs: 60 * 60 * 1000 });
+// The last 20 turns of up to 1,000 characters each, with room for the JSON around them
+const chatBodyParser = express.json({ limit: "32kb" });
 
 const pool = (req) => req.app.locals.pool;
 
@@ -64,6 +70,16 @@ router.put("/intake", smallBody, route(async (req, res) => {
   res.json({ intake: toIntake(row) });
 }));
 
+// PUT /intake/coach { coach, coachStyle }: changes only who coaches the member and how, keeping
+// every other answer (and the disclaimer they already accepted). Needs a saved intake.
+router.put("/intake/coach", smallBody, route(async (req, res) => {
+  const { coach, coachStyle } = coachChoice(req.body);
+  const [result] = await pool(req).query("UPDATE coach_profiles SET coach = ?, coach_style = ? WHERE user_id = ?", [coach, coachStyle, req.userId]);
+  if (result.affectedRows === 0) return res.status(400).json({ error: "Answer your coach's questions first." });
+  const [[row]] = await pool(req).query("SELECT * FROM coach_profiles WHERE user_id = ?", [req.userId]);
+  res.json({ intake: toIntake(row) });
+}));
+
 // GET /plan?date=YYYY-MM-DD → { state: "none" | "ready", plan, workout }
 router.get("/plan", route(async (req, res) => {
   res.json(await getPlan(pool(req), req.userId, planQuery(req.query, Date.now())));
@@ -82,6 +98,12 @@ router.post("/plan/meals/:mealId/log", smallBody, route(async (req, res) => {
   const { date } = logBody(req.body, Date.now());
   await ensureUser(pool(req), req.userId);
   res.json(await logMeal(pool(req), req.userId, mealId(req.params.mealId), { date }));
+}));
+
+// POST /chat { date, messages }: the coach's reply to the member's latest message. Nothing is stored.
+router.post("/chat", limitPerUser(chatLimiter), chatBodyParser, route(async (req, res) => {
+  const body = chatBody(req.body, Date.now());
+  res.json(await chat(pool(req), req.userId, body));
 }));
 
 module.exports = { coachRouter: router };

@@ -29,6 +29,7 @@ const SCHEMA = {
 function openAiProvider({ model, timeoutMs = 20000 }) {
   const client = new OpenAI({ timeout: timeoutMs, maxRetries: 0 }); // the job queue retries, not the SDK
   return {
+    model, // named on each ai_usage row
     async complete({ instructions, messages }) {
       let response;
       try {
@@ -64,6 +65,7 @@ function openAiProvider({ model, timeoutMs = 20000 }) {
 // only when told to (to prove the price guard), and fails or escalates on request.
 function fakeProvider() {
   return {
+    model: "fake",
     calls: [],
     async complete({ instructions, messages }) {
       this.calls.push({ instructions, messages });

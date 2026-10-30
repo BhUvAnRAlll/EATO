@@ -10,6 +10,7 @@ const { NotFoundError } = require("../community/posts");
 const diary = require("../macro/diary");
 const workoutPlans = require("../workout/plans");
 const rules = require("./planRules");
+const aiUsage = require("../ai/usage");
 
 const MODEL = process.env.OPENAI_MODEL || "gpt-4o";
 
@@ -46,8 +47,12 @@ function toIntake(row) {
 
 // ---- asking the model ---------------------------------------------------------------
 
-async function askForDiet(brief, env) {
-  if (env.NODE_ENV === "test" && env.AI_PROVIDER === "fake") return rules.FAKE_DIET;
+// `usage` (ai/usage.tracker) records the call for the admin's AI Usage screen; never the text
+async function askForDiet(brief, env, usage) {
+  if (env.NODE_ENV === "test" && env.AI_PROVIDER === "fake") {
+    await usage?.record({ provider: "openai", model: "fake", inputTokens: 10, outputTokens: 5, status: "ok" });
+    return rules.FAKE_DIET;
+  }
   const client = new OpenAI(); // reads OPENAI_API_KEY
   let response;
   try {
@@ -59,6 +64,7 @@ async function askForDiet(brief, env) {
       text: { format: { type: "json_schema", name: "coach_diet", strict: true, schema: rules.dietSchema } },
     });
   } catch (error) {
+    await usage?.record({ provider: "openai", model: MODEL, status: "failed" });
     // Never log the request or the answer, only the status
     if (error instanceof OpenAI.RateLimitError) throw new rules.CoachPlanError("Your coach is busy right now. Please try again in a minute.", 503);
     if (error instanceof OpenAI.APIError) {
@@ -68,9 +74,9 @@ async function askForDiet(brief, env) {
     throw error;
   }
   const refused = response.output.some((item) => item.type === "message" && item.content.some((part) => part.type === "refusal"));
-  if (refused || response.status === "incomplete" || !response.output_text) {
-    throw new rules.CoachPlanError("Your coach couldn't put a meal plan together right now. Please try again.", 502);
-  }
+  const usable = !refused && response.status !== "incomplete" && Boolean(response.output_text);
+  await usage?.record({ provider: "openai", model: MODEL, inputTokens: response.usage?.input_tokens, outputTokens: response.usage?.output_tokens, status: usable ? "ok" : "refused" });
+  if (!usable) throw new rules.CoachPlanError("Your coach couldn't put a meal plan together right now. Please try again.", 502);
   return JSON.parse(response.output_text);
 }
 
@@ -99,7 +105,8 @@ async function makePlan(pool, userId, { today }, env = process.env) {
   const coachName = COACH_NAMES[intake.coach];
   const days = intake.weekdays.map((d) => WEEKDAY[d]).join(", ");
   const workoutSummary = `${intake.weekdays.length} days a week (${days}), ${intake.sessionMinutes} minutes, mainly at ${intake.mainSpot}`;
-  const diet = rules.normalizeDiet(await askForDiet(rules.dietBrief({ intake, profile, targets, coachName, workoutSummary }), env), targets);
+  const usage = aiUsage.tracker(pool, { feature: "coach_plan", userId });
+  const diet = rules.normalizeDiet(await askForDiet(rules.dietBrief({ intake, profile, targets, coachName, workoutSummary }), env, usage), targets);
 
   const planId = await workoutPlans.withMemberLock(pool, userId, async (conn) => {
     const { planId: workoutPlanId } = await workoutPlans

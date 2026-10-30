@@ -166,9 +166,12 @@ function normalizeScan(result, inputs) {
 }
 
 // Sends the checked photos and inputs to Forma and returns the estimate. Every failure
-// becomes a ScanError with a safe message; nothing about the photos is ever logged.
-async function requestScan({ images, inputs }, { url = scanUrl(), fetchImpl = fetch, timeoutMs = scanLimits.timeoutMs } = {}) {
+// becomes a ScanError with a safe message; nothing about the photos is ever logged. `usage`
+// (ai/usage.tracker) records the call for the admin's AI Usage screen: Forma has no tokens, so
+// only the count and whether it worked.
+async function requestScan({ images, inputs }, { url = scanUrl(), fetchImpl = fetch, timeoutMs = scanLimits.timeoutMs, usage = null } = {}) {
   if (!url) throw new ScanError("Body scan isn't available right now. Please try again later or skip this step.", 503);
+  const record = (status) => usage?.record({ provider: "forma", model: "forma", status });
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -193,6 +196,7 @@ async function requestScan({ images, inputs }, { url = scanUrl(), fetchImpl = fe
       }),
     });
   } catch (error) {
+    await record("failed");
     console.error(`Body scan failed: Forma unreachable (${error?.name ?? "error"})`);
     throw new ScanError("We couldn't scan your photos right now. Please try again.", 502);
   } finally {
@@ -206,15 +210,21 @@ async function requestScan({ images, inputs }, { url = scanUrl(), fetchImpl = fe
     result = null;
   }
   if (response.status === 400) {
+    await record("refused");
     // Forma's refusals are written for the user ("the side photo is too blurred…")
     const message = typeof result?.error === "string" && result.error.trim() ? result.error.trim().slice(0, 300) : "We couldn't read those photos. Please retake them.";
     throw new ScanError(message, 422);
   }
-  if (response.status === 413) throw new ScanError("The photos are too large. Please retake them at a lower size.", 413);
+  if (response.status === 413) {
+    await record("refused");
+    throw new ScanError("The photos are too large. Please retake them at a lower size.", 413);
+  }
   if (!response.ok || !result) {
+    await record("failed");
     console.error(`Body scan failed: Forma answered ${response.status}`);
     throw new ScanError("We couldn't scan your photos right now. Please try again.", 502);
   }
+  await record("ok");
   return normalizeScan(result, inputs);
 }
 

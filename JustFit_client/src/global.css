@@ -4790,6 +4790,97 @@
   color: var(--color-ink);
 }
 
+/* ---- Super Admin › AI Usage (app/admin/ai-usage; BEM ai-*) ---- */
+/* A bar chart drawn with views: columns side by side, the peak value printed over its bar */
+@utility ai-chart {
+  flex-direction: row;
+  align-items: flex-end;
+  gap: 3px;
+}
+
+@utility ai-chart__col {
+  flex: 1;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+@utility ai-chart__bar {
+  width: 100%;
+  border-top-left-radius: 3px;
+  border-top-right-radius: 3px;
+  background-color: var(--color-cream-tab);
+}
+
+@utility ai-chart__peak {
+  font-family: var(--font-sans-medium);
+  font-size: 10px;
+  line-height: 14px;
+  color: var(--color-muted);
+}
+
+@utility ai-chart__label {
+  flex: 1;
+  text-align: center;
+  font-family: var(--font-sans);
+  font-size: 10px;
+  line-height: 14px;
+  color: var(--color-faint);
+}
+
+/* A horizontal share or budget bar */
+@utility ai-bar {
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-cream-tab);
+  overflow: hidden;
+}
+
+@utility ai-bar__fill {
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-accent-blue);
+}
+
+@utility ai-bar__fill--warning {
+  background-color: var(--color-warning);
+}
+
+@utility ai-bar__fill--danger {
+  background-color: var(--color-danger);
+}
+
+/* One label / value line inside a card */
+@utility ai-kv {
+  flex-direction: row;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--spacing-md);
+}
+
+@utility ai-kv__key {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+@utility ai-kv__value {
+  font-family: var(--font-sans-medium);
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--color-ink);
+  text-align: right;
+}
+
+/* The monetary figure on a summary card */
+@utility ai-money {
+  font-family: var(--font-sans-semibold);
+  font-size: 20px;
+  line-height: 26px;
+  color: var(--color-ink);
+}
+
 /* The reasons a piece of content was reported */
 @utility admin-flag {
   flex-direction: row;
@@ -5403,21 +5494,7 @@
   color: var(--color-leaf);
 }
 
-/* The coach plan: one meal (time, name, foods) with its log button */
-@utility coach__meal {
-  gap: 6px;
-  padding-top: var(--spacing-md);
-  border-top-width: 1px;
-  border-color: var(--color-line);
-}
-
-@utility coach__meal-food {
-  font-family: var(--font-sans);
-  font-size: 13px;
-  line-height: 18px;
-  color: var(--color-muted);
-}
-
+/* The coach plan: a meal's Log button (Logged once it is in today's Macro diary) */
 @utility coach__log {
   height: 34px;
   padding-inline: 14px;
@@ -5443,6 +5520,347 @@
 
 @utility coach__log-label--done {
   color: var(--color-leaf);
+}
+
+/* AI Coach tab (2026-10-30): the coach card's Change pill, the ask box with its chips, today's
+   numbers, the plan's Today / Week / Insights tabs and its timeline */
+@utility coach__pill {
+  height: 34px;
+  padding-inline: 14px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-accent-soft);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility coach__pill-label {
+  font-family: var(--font-sans-semibold);
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--color-primary-text);
+}
+
+/* The ask box: a white pill with a sparkle, the prompt and a red send circle */
+@utility coach__ask {
+  min-height: 56px;
+  padding-left: 16px;
+  padding-right: 6px;
+  border-radius: var(--radius-pill);
+  border-width: 1px;
+  border-color: var(--color-line);
+  background-color: var(--color-surface);
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+}
+
+@utility coach__ask-text {
+  flex: 1;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--color-faint);
+}
+
+@utility coach__send {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-primary);
+  background-image: linear-gradient(135deg, var(--color-primary-bright) 0%, var(--color-primary) 100%);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility coach__send--disabled {
+  opacity: 0.4;
+}
+
+@utility coach__prompt {
+  height: 36px;
+  padding-inline: 14px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface);
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-coach-btn);
+}
+
+@utility coach__prompt-label {
+  font-family: var(--font-sans-medium);
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--color-forest-ink);
+}
+
+/* Today's overview: four columns (calories and the three macros) */
+@utility coach__stat {
+  flex: 1;
+  gap: 6px;
+}
+
+@utility coach__stat-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-pill);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility coach__stat-label {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--color-forest-ink);
+}
+
+@utility coach__stat-value {
+  font-family: var(--font-sans-semibold);
+  font-size: 14px;
+  line-height: 18px;
+  color: var(--color-forest-ink);
+}
+
+@utility coach__stat-of {
+  font-family: var(--font-sans);
+  font-size: 10px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+@utility coach__bar {
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-cream-tab);
+  overflow: hidden;
+}
+
+@utility coach__bar-fill {
+  height: 6px;
+  border-radius: var(--radius-pill);
+}
+
+@utility coach__stat-percent {
+  font-family: var(--font-sans-medium);
+  font-size: 10px;
+  line-height: 14px;
+  color: var(--color-muted);
+  text-align: right;
+}
+
+/* Today / Week / Insights */
+@utility coach__tabs {
+  padding: 3px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-cream-deep);
+  flex-direction: row;
+}
+
+@utility coach__tab {
+  flex: 1;
+  height: 32px;
+  border-radius: var(--radius-pill);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility coach__tab--active {
+  background-color: var(--color-primary);
+}
+
+@utility coach__tab-label {
+  font-family: var(--font-sans-medium);
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+@utility coach__tab-label--active {
+  color: var(--color-on-primary);
+}
+
+/* The timeline: an icon circle per entry on a thin line, then the entry's card */
+@utility coach__step-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-pill);
+  border-width: 1px;
+  border-color: var(--color-line);
+  background-color: var(--color-surface);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility coach__step-line {
+  position: absolute;
+  top: 36px;
+  bottom: -12px;
+  left: 17.5px;
+  width: 1px;
+  background-color: var(--color-line);
+}
+
+@utility coach__step-head {
+  height: 36px;
+  padding-inline: 12px;
+  border-radius: var(--radius-md);
+  background-color: var(--color-cream-deep);
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+}
+
+@utility coach__step-time {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+@utility coach__thumb {
+  width: 30%;
+  max-width: 96px;
+  height: 80px;
+  border-radius: var(--radius-md);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility coach__food {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+@utility coach__macros {
+  min-height: 36px;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  background-color: var(--color-coach-wash);
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  row-gap: 4px;
+  column-gap: 8px;
+}
+
+@utility coach__macro {
+  font-family: var(--font-sans-medium);
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--color-forest-ink);
+}
+
+/* The timeline's Log button (smaller than the plan card's) and the goal row under the workout */
+@utility coach__log--small {
+  height: 28px;
+  padding-inline: 12px;
+}
+
+@utility coach__goal {
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background-color: var(--color-cream-deep);
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+}
+
+/* A workout exercise's tick: an outlined circle, solid red when done */
+@utility coach__done {
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-pill);
+  border-width: 1.5px;
+  border-color: var(--color-line-strong);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility coach__done--on {
+  border-color: var(--color-primary);
+  background-color: var(--color-primary);
+}
+
+@utility coach__start {
+  height: 36px;
+  padding-inline: 14px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-coach-wash);
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+}
+
+@utility coach__start-label {
+  font-family: var(--font-sans-semibold);
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--color-primary-text);
+}
+
+/* The week under the workout: a circle per day, red with a tick when done */
+@utility coach__week-day {
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-pill);
+  border-width: 1.5px;
+  border-color: var(--color-line-strong);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility coach__week-day--done {
+  border-color: var(--color-primary);
+  background-color: var(--color-primary);
+}
+
+@utility coach__week-day--rest {
+  border-color: var(--color-line);
+}
+
+@utility coach__week-label {
+  font-family: var(--font-sans);
+  font-size: 10px;
+  line-height: 14px;
+  color: var(--color-muted);
+}
+
+/* The coach chat: the coach's white bubble and the member's red one */
+@utility coach__bubble {
+  max-width: 84%;
+  align-self: flex-start;
+  padding: 12px 16px;
+  border-radius: 18px;
+  border-bottom-left-radius: 6px;
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-coach-card);
+}
+
+@utility coach__bubble--me {
+  align-self: flex-end;
+  border-bottom-left-radius: 18px;
+  border-bottom-right-radius: 6px;
+  background-color: var(--color-primary);
+  background-image: linear-gradient(135deg, var(--color-primary-bright) 0%, var(--color-primary) 100%);
+}
+
+@utility coach__bubble--failed {
+  border-width: 1px;
+  border-color: var(--color-danger);
+}
+
+@utility coach__bubble-text {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 22px;
+  color: var(--color-forest-ink);
+}
+
+@utility coach__bubble-text--me {
+  color: var(--color-on-primary);
 }
 
 /* Peak Fitness ActivityCard: an outlined card holding a dark hero and ProgressStat rows */

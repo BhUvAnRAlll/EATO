@@ -2,8 +2,8 @@
 // and the justfit_test database, as a signed-in member who finished setup (muscle gain, gym) and
 // has a workout profile. Covers the intro on the Coach tab, every intake step (prefilled answers,
 // Continue staying off until a step is answered, the doctor note), the disclaimer tick, the
-// save, the summary on the Coach tab, Edit, making the plan, logging a plan meal to Macro, and
-// screenshots at 3 widths.
+// save, the summary on the Coach tab, Edit, making the plan (the timeline, Week and Insights), logging
+// a plan meal to Macro, the coach chat (the fake AI's reply), and screenshots at 3 widths.
 //
 //   yarn test:ui      (needs JustFit_server/.env.test and Google Chrome; otherwise skipped)
 //   JUSTFIT_SCREENSHOT_DIR=<dir> saves screenshots of each screen at three widths
@@ -131,7 +131,8 @@ describe("ui coach: the AI Coach intake", () => {
     await signInAs(page, h, identities.a);
     await h.expectPath("/home");
     await h.goto("/coach", "Meet your AI coach");
-    await h.expectText("A diet plan made for you");
+    await h.expectText("Customized Diet Plan");
+    await h.expectText("Problem Solving & Guidance Anytime");
     await snapshotAllWidths("coach-intro");
   }));
 
@@ -202,12 +203,10 @@ describe("ui coach: the AI Coach intake", () => {
     await page.clickText("Meet my coach");
     await h.expectPath("/coach");
     await h.expectText("Coach Priya");
-    await h.expectText("Your answers");
-    await h.expectText("Build muscle");
-    await h.expectText("Mon, Tue, Thu · 45 min");
-    await h.expectText("Gym · backup Home");
-    await h.expectText("Knees, Diabetes");
+    await h.expectText("Food first · Supportive");
+    await h.expectText("Ask Priya anything...");
     await h.expectText("Make my plan");
+    await h.expectText("Edit my answers");
     const [[row]] = await connection.query("SELECT * FROM coach_profiles WHERE user_id = ?", [identities.a.id]);
     assert.deepEqual(
       { goal: row.goal, experience: row.experience, training: !!row.currently_training, days: row.weekdays, minutes: row.session_minutes, main: row.main_spot, backup: row.backup_spot, mainEq: row.main_equipment, backupEq: row.backup_equipment, joints: row.joints, conditions: row.conditions, notes: row.limitation_notes, cooking: row.cooking_time, budget: row.food_budget, stress: row.stress, sleep: row.sleep, coach: row.coach, style: row.coach_style, plan: row.plan_notes },
@@ -225,16 +224,26 @@ describe("ui coach: the AI Coach intake", () => {
     assert.equal(row.coach, "priya");
   }));
 
-  it("5. Make my plan shows today's meals on the targets and the workout week", run("plan", async () => {
+  it("5. Make my plan shows Logged today and the plan on a timeline, with Week and Insights", run("plan", async () => {
     await page.clickText("Make my plan");
-    await h.expectText("Today's meals");
+    await h.expectText("Logged today");
+    await h.expectText("Your plan");
+    await h.expectText("Breakfast");
     await h.expectText("Moong dal chilla");
-    await h.expectText("Your workout week");
-    await h.expectText("Mon");
+    await h.expectText("Today's workout");
     const [[plan]] = await connection.query("SELECT COUNT(*) AS n, MAX(calories) AS kcal FROM coach_plans WHERE user_id = ? AND status = 'active'", [identities.a.id]);
     assert.deepEqual({ n: plan.n, kcal: plan.kcal }, { n: 1, kcal: 1800 });
-    await h.expectText("/ 1800 kcal");
+    await h.expectText("/ 1800"); // the calories column of Logged today
     await snapshotAllWidths("coach-plan");
+    // Week: the workout week and the day's calories; Insights: coming soon
+    await page.clickText("Week");
+    await h.expectText("Mon");
+    await h.expectText("Open my workouts");
+    await snapshotAllWidths("coach-plan-week");
+    await page.clickText("Insights");
+    await h.expectText("Insights are coming soon");
+    await page.clickText("Today");
+    await h.expectText("Moong dal chilla");
   }));
 
   it("6. Log puts a plan meal in today's Macro diary, once", run("log", async () => {
@@ -244,8 +253,46 @@ describe("ui coach: the AI Coach intake", () => {
     assert.deepEqual({ n: log.n, source: log.source, slot: log.slot }, { n: 1, source: "plan", slot: "lunch" });
     // Coming back keeps it logged
     await h.goto("/home", "");
-    await h.goto("/coach", "Today's meals");
+    await h.goto("/coach", "Your plan");
     await page.waitFor(`(() => !![...document.querySelectorAll('[aria-label="Dal, rice and sabzi logged"]')].find((e) => e.getClientRects().length > 0))()`, NAV_TIMEOUT, "still Logged after reload");
+  }));
+
+  it("7. a quick question opens the chat and the coach answers; a typed message too", run("chat", async () => {
+    await clickLabel("Ask: Adjust my diet");
+    await h.expectPath("/coach/chat");
+    await h.expectText("Hi! I'm Coach Priya");
+    await h.expectText("Adjust my diet");
+    await h.expectText("test reply");
+    await page.setInput('textarea[aria-label="Message your coach"]', "How much water should I drink?");
+    await clickLabel("Send message");
+    await h.expectText("How much water should I drink?");
+    await page.waitFor(`(document.body.innerText.match(/test reply/g) || []).length >= 2`, NAV_TIMEOUT, "a second reply");
+    await snapshotAllWidths("coach-chat");
+    // Back on the Coach tab, the ask box opens the same conversation
+    await clickLabel("Back");
+    await h.expectPath("/coach");
+    await clickLabel("Ask Priya");
+    await h.expectPath("/coach/chat");
+    await h.expectText("How much water should I drink?");
+  }));
+
+  it("8. Change opens the coach picker; saving switches the coach and keeps the other answers", run("change-coach", async () => {
+    await clickLabel("Back");
+    await h.expectPath("/coach");
+    await clickLabel("Change coach");
+    await h.expectText("How should Priya coach you?");
+    await snapshotAllWidths("coach-change");
+    await clickLabel("Coach Meera, Mobility and yoga. Mindful.");
+    await h.expectText("How should Meera coach you?");
+    await page.clickText("Direct");
+    await clickLabel("Save");
+    await h.expectText("Mobility and yoga · Direct");
+    const [[row]] = await connection.query("SELECT coach, coach_style, goal, weekdays FROM coach_profiles WHERE user_id = ?", [identities.a.id]);
+    assert.deepEqual({ coach: row.coach, style: row.coach_style, goal: row.goal, days: row.weekdays }, { coach: "meera", style: "direct", goal: "build_muscle", days: [1, 2, 4] });
+    // The chat with Priya is over: Meera starts a new one
+    await clickLabel("Ask Meera");
+    await h.expectText("Hi! I'm Coach Meera");
+    assert.equal(await page.hasText("How much water should I drink?"), false);
   }));
 });
 

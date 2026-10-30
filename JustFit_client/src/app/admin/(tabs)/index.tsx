@@ -9,7 +9,6 @@ import { DashedBlock } from "@/components/macro/DashedBlock";
 import { adminPortal, ago, type AdminOverview } from "@/lib/adminPortal";
 import { longDate } from "@/lib/macro";
 import { useSessionToken } from "@/lib/session";
-import { useAuthStore } from "@/store/auth";
 import type { Icon } from "@/types/profile";
 import { colors } from "@/theme";
 
@@ -52,8 +51,8 @@ export default function AdminOverviewScreen() {
               <Text className="type-overline text-muted">justFit admin</Text>
               <Text className="type-title text-forest-ink">Overview</Text>
             </View>
-            <Pressable onPress={() => useAuthStore.getState().signOut()} hitSlop={8} className="h-11 w-11 items-center justify-center rounded-full bg-surface" accessibilityRole="button" accessibilityLabel="Sign out">
-              <SymbolView name={{ ios: "rectangle.portrait.and.arrow.right", android: "logout", web: "logout" }} size={18} tintColor={colors.forestInk} />
+            <Pressable onPress={() => router.push("/admin/profile")} hitSlop={8} className="h-11 w-11 items-center justify-center rounded-full bg-surface" accessibilityRole="button" accessibilityLabel="Profile">
+              <SymbolView name={{ ios: "person.crop.circle", android: "account_circle", web: "account_circle" }} size={22} tintColor={colors.forestInk} />
             </Pressable>
           </View>
 

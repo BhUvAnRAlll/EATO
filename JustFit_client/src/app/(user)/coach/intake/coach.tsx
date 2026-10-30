@@ -25,7 +25,7 @@ export default function IntakeCoach() {
             key={coach.id}
             label={coach.name}
             note={coach.note}
-            initials={coach.name.replace("Coach ", "").charAt(0)}
+            coach={coach.id}
             selected={draft.coach === coach.id}
             onPress={() => update({ coach: coach.id })}
           />

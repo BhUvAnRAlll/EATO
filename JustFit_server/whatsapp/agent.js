@@ -101,7 +101,7 @@ function guardReply(result, knowledge) {
 
 async function answer(provider, knowledge, messages, { channel }) {
   const raw = await provider.complete({ instructions: buildInstructions(knowledge, { channel }), messages });
-  return { ...guardReply(raw, knowledge), inputTokens: raw.inputTokens ?? 0, outputTokens: raw.outputTokens ?? 0 };
+  return { ...guardReply(raw, knowledge), inputTokens: raw.inputTokens ?? 0, outputTokens: raw.outputTokens ?? 0, model: provider.model ?? "unknown" };
 }
 
 module.exports = { gymKnowledge, buildInstructions, conversationHistory, guardReply, answer, SAFE_PRICE_REPLY, MAX_REPLY };

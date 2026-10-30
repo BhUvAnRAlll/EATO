@@ -46,6 +46,12 @@ export type CoachPlan = {
 export type PlanWorkout = { level: string; daysPerWeek: number; sessions: { weekday: number; title: string; minutes: number; exerciseCount: number }[] };
 export type PlanState = { state: "none" | "ready"; plan: CoachPlan | null; workout: PlanWorkout | null };
 
+// One line of the coach chat (POST /api/coach/chat). The server keeps no history: the app sends
+// the last CHAT_TURNS lines each time.
+export type ChatLine = { role: "member" | "coach"; text: string };
+export const CHAT_TURNS = 20;
+export const CHAT_MAX_TEXT = 1000;
+
 const signedOut = <T>(): Promise<ApiResult<T>> => Promise.resolve({ ok: false, error: "Please sign in again." });
 
 export const coachApi = {
@@ -57,6 +63,11 @@ export const coachApi = {
   saveIntake(token: string | null, intake: Intake & { acceptedDisclaimer: boolean }): Promise<ApiResult<{ intake: Intake }>> {
     if (!token) return signedOut();
     return apiFetch("/api/coach/intake", { method: "PUT", body: intake, token });
+  },
+  // Switches coach and coaching style, keeping every other answer
+  changeCoach(token: string | null, coach: CoachId, coachStyle: CoachStyle): Promise<ApiResult<{ intake: Intake }>> {
+    if (!token) return signedOut();
+    return apiFetch("/api/coach/intake/coach", { method: "PUT", body: { coach, coachStyle }, token });
   },
   // The plan, with which meals were logged on `date` (the member's today)
   plan(token: string | null, date: string): Promise<ApiResult<PlanState>> {
@@ -72,5 +83,10 @@ export const coachApi = {
   logMeal(token: string | null, mealId: string, date: string): Promise<ApiResult<{ mealId: string; logId: string; alreadyLogged: boolean }>> {
     if (!token) return signedOut();
     return apiFetch(`/api/coach/plan/meals/${encodeURIComponent(mealId)}/log`, { method: "POST", body: { date }, token });
+  },
+  // The coach's reply to the conversation so far (ending with the member's new message)
+  chat(token: string | null, messages: ChatLine[], date: string): Promise<ApiResult<{ reply: string }>> {
+    if (!token) return signedOut();
+    return apiFetch("/api/coach/chat", { method: "POST", body: { date, messages: messages.slice(-CHAT_TURNS) }, token });
   },
 };

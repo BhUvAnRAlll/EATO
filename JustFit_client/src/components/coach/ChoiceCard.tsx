@@ -1,6 +1,8 @@
 import { Pressable, Text, View } from "react-native";
 import { SymbolView } from "@/components/SymbolView";
 
+import { CoachAvatar } from "@/components/coach/CoachAvatar";
+import type { CoachId } from "@/data/coach";
 import type { Icon } from "@/types/profile";
 import { colors } from "@/theme";
 
@@ -8,8 +10,8 @@ type ChoiceCardProps = {
   label: string;
   note?: string;
   icon?: Icon;
-  // Initials in a lavender circle instead of an icon (the coaches)
-  initials?: string;
+  // A coach's photo (or initial) in a circle instead of an icon
+  coach?: CoachId;
   selected: boolean;
   onPress: () => void;
   // "row": full width with the check on the right; "tile": half width, centred
@@ -21,12 +23,10 @@ type ChoiceCardProps = {
 // One white option card on the intake steps (soft shadow). Selected: a red outline on a pink
 // wash and a red check, at the right of a row or as a badge in a tile's top-right corner.
 // Icons are red in a soft pink circle in both states.
-export function ChoiceCard({ label, note, icon, initials, selected, onPress, layout = "row", multi = false }: ChoiceCardProps) {
+export function ChoiceCard({ label, note, icon, coach, selected, onPress, layout = "row", multi = false }: ChoiceCardProps) {
   const tile = layout === "tile";
-  const leading = initials ? (
-    <View className="coach__avatar">
-      <Text className="coach__avatar-label">{initials}</Text>
-    </View>
+  const leading = coach ? (
+    <CoachAvatar coach={coach} size={52} />
   ) : icon ? (
     <View className={tile ? "coach__option-icon" : "coach__option-icon h-11 w-11"}>
       <SymbolView name={icon} size={tile ? 26 : 22} tintColor={colors.primary} />

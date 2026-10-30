@@ -161,3 +161,6 @@ export const coachStyles: Choice<CoachStyle>[] = [
 ];
 
 export const labelOf = <T,>(list: { id: T; label: string }[], id: T | null | undefined) => list.find((item) => item.id === id)?.label ?? "";
+
+// Quick questions under the Coach tab's ask box and in an empty chat
+export const coachPrompts = ["Adjust my diet", "Change my workout", "Explain this exercise", "Tips for better sleep"];

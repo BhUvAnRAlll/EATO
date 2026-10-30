@@ -5,52 +5,85 @@ import { StatusBar } from "expo-status-bar";
 import { SymbolView } from "@/components/SymbolView";
 import { router, useFocusEffect } from "expo-router";
 
+import { ChangeCoachSheet } from "@/components/coach/ChangeCoachSheet";
+import { CoachAvatar } from "@/components/coach/CoachAvatar";
 import { CoachButton } from "@/components/coach/CoachButton";
-import { PlanMeals } from "@/components/coach/PlanMeals";
-import { coaches, coachGoals, coachStyles, conditions, joints, labelOf, sessionLengths, spots, weekdayChoices } from "@/data/coach";
+import { PlanTimeline, type TodayWorkout } from "@/components/coach/PlanTimeline";
+import { TodayOverview } from "@/components/coach/TodayOverview";
+import { coachPrompts, coaches, coachStyles, labelOf, weekdayChoices, type CoachId, type CoachStyle } from "@/data/coach";
 import { coachApi, type Intake, type IntakePrefill, type PlanState } from "@/lib/coach";
-import { todayIso } from "@/lib/macro";
+import { macro, todayIso, type DayView } from "@/lib/macro";
 import { useSessionToken } from "@/lib/session";
+import { weekOf, workoutApi } from "@/lib/workoutApi";
+import { useCoachChatStore } from "@/store/coachChat";
 import { useCoachIntakeStore } from "@/store/coachIntake";
 import type { Icon } from "@/types/profile";
 import { colors } from "@/theme";
+import { track } from "@/lib/analytics";
 
 // What the coach will do, shown before the intake
 const promises: { icon: Icon; title: string; text: string }[] = [
-  { icon: { ios: "fork.knife", android: "restaurant", web: "restaurant" }, title: "A diet plan made for you", text: "Indian meals and easy recipes that hit your targets." },
-  { icon: { ios: "dumbbell", android: "fitness_center", web: "fitness_center" }, title: "Training that fits", text: "Your days, your spot, your equipment." },
-  { icon: { ios: "bell", android: "notifications", web: "notifications" }, title: "Daily follow-ups", text: "One nudge a day based on what you logged." },
-  { icon: { ios: "chart.line.uptrend.xyaxis", android: "trending_up", web: "trending_up" }, title: "Weekly check-ins", text: "Your progress, and what to change next." },
+  { icon: { ios: "fork.knife", android: "restaurant", web: "restaurant" }, title: "Customized Diet Plan", text: "Indian meals and easy recipes that hit your targets." },
+  { icon: { ios: "play.circle.fill", android: "play_circle", web: "play_circle" }, title: "Live Workout Sessions", text: "Train step by step, for your days and equipment." },
+  { icon: { ios: "bell", android: "notifications", web: "notifications" }, title: "Daily Follow-Ups", text: "A nudge each day based on what you logged." },
+  { icon: { ios: "chart.line.uptrend.xyaxis", android: "trending_up", web: "trending_up" }, title: "Weekly Progress Check-ins", text: "Your progress, and what to change next." },
+  { icon: { ios: "bubble.left.and.bubble.right", android: "forum", web: "forum" }, title: "Problem Solving & Guidance Anytime", text: "Ask your coach about food, training or progress, any time." },
+];
+
+type PlanTab = "today" | "week" | "insights";
+const planTabs: { id: PlanTab; label: string }[] = [
+  { id: "today", label: "Today" },
+  { id: "week", label: "Week" },
+  { id: "insights", label: "Insights" },
 ];
 
 const OFFLINE = "Could not reach justFit. Check your connection and try again.";
 
-// The AI Coach tab, in the coach's own look (pink wash, red label over a large title, soft
-// cards, the red arrow button): an intro and Get started before the intake; then your coach,
-// your plan (Make my plan, then today's meals to log and the workout week) and a summary of
-// your answers (with Edit). Reads the intake and the plan each time it comes into view.
+// The AI Coach tab, in the coach's own look (pink wash, white cards, red accents). Before the
+// intake: what the coach does and Get started. After it, each thing once, top to bottom: your
+// coach (Change, and the ask box that opens the chat), today's numbers from Macro, the plan
+// (Today's meals and workout on a timeline, the Week, Insights), then Edit my answers and Make
+// a new plan. Reads everything each time it comes into view.
 export default function Coach() {
   const getToken = useSessionToken();
   const start = useCoachIntakeStore((state) => state.start);
+  const clearChat = useCoachChatStore((state) => state.clear);
   const [loaded, setLoaded] = useState<{ intake: Intake | null; prefill: IntakePrefill } | null>(null);
   const [plan, setPlan] = useState<PlanState | null>(null);
+  const [day, setDay] = useState<DayView | null>(null);
+  const [workout, setWorkout] = useState<TodayWorkout | null>(null);
+  const [tab, setTab] = useState<PlanTab>("today");
   const [error, setError] = useState<string | null>(null);
   const [making, setMaking] = useState(false);
   const [logging, setLogging] = useState<string | null>(null);
   const [planError, setPlanError] = useState<string | null>(null);
+  const [changing, setChanging] = useState(false);
+  const [savingCoach, setSavingCoach] = useState(false);
+  const [coachError, setCoachError] = useState<string | null>(null);
+
+  // Today's workout and the week; a failure here only hides the workout, never the tab
+  const loadWorkout = useCallback(async (token: string | null, today: string) => {
+    const home = await workoutApi.home(token, today, weekOf(today), today);
+    if (!home.ok || home.data.plan === null) return setWorkout(null);
+    const session = home.data.day ? await workoutApi.session(token, today, today) : null;
+    const doneIds = new Set(session?.ok ? session.data.sets.map((s) => s.dayExerciseId) : []);
+    setWorkout({ plan: home.data.plan, status: home.data.status, day: home.data.day, week: home.data.week, doneIds });
+  }, []);
 
   const load = useCallback(async () => {
     setError(null);
     const token = await getToken().catch(() => null);
+    const today = todayIso();
     const result = await coachApi.intake(token);
     if (!result.ok) return setError(result.status ? result.error : OFFLINE);
     if (result.data.intake) {
-      const planResult = await coachApi.plan(token, todayIso());
+      const [planResult, dayResult] = await Promise.all([coachApi.plan(token, today), macro.day(token, today), loadWorkout(token, today)]);
       if (!planResult.ok) return setError(planResult.status ? planResult.error : OFFLINE);
       setPlan(planResult.data);
+      setDay(dayResult.ok ? dayResult.data : null);
     }
     setLoaded(result.data);
-  }, [getToken]);
+  }, [getToken, loadWorkout]);
 
   useFocusEffect(
     useCallback(() => {
@@ -68,39 +101,61 @@ export default function Coach() {
     if (making) return;
     setPlanError(null);
     setMaking(true);
-    const result = await coachApi.makePlan(await getToken().catch(() => null), todayIso());
+    const token = await getToken().catch(() => null);
+    const result = await coachApi.makePlan(token, todayIso());
+    if (result.ok) track("coach_plan_made");
     setMaking(false);
-    if (result.ok) setPlan(result.data);
-    else setPlanError(result.status ? result.error : OFFLINE);
+    if (!result.ok) return setPlanError(result.status ? result.error : OFFLINE);
+    setPlan(result.data);
+    loadWorkout(token, todayIso());
   };
 
   const logMeal = async (mealId: string) => {
     if (logging) return;
     setPlanError(null);
     setLogging(mealId);
-    const result = await coachApi.logMeal(await getToken().catch(() => null), mealId, todayIso());
+    const token = await getToken().catch(() => null);
+    const result = await coachApi.logMeal(token, mealId, todayIso());
     setLogging(null);
     if (!result.ok) return setPlanError(result.status ? result.error : OFFLINE);
     setPlan((current) =>
       current?.plan ? { ...current, plan: { ...current.plan, meals: current.plan.meals.map((m) => (m.id === mealId ? { ...m, logged: true } : m)) } } : current,
     );
+    const dayResult = await macro.day(token, todayIso());
+    if (dayResult.ok) setDay(dayResult.data);
+  };
+
+  // A new coach starts a new conversation: the old chat was with someone else
+  const saveCoach = async (coach: CoachId, coachStyle: CoachStyle) => {
+    if (savingCoach) return;
+    setCoachError(null);
+    setSavingCoach(true);
+    const result = await coachApi.changeCoach(await getToken().catch(() => null), coach, coachStyle);
+    setSavingCoach(false);
+    if (!result.ok) return setCoachError(result.status ? result.error : OFFLINE);
+    if (result.data.intake.coach !== loaded?.intake?.coach) clearChat();
+    setLoaded((current) => (current ? { ...current, intake: result.data.intake } : current));
+    setChanging(false);
   };
 
   const intake = loaded?.intake ?? null;
   const coach = coaches.find((c) => c.id === intake?.coach);
   const firstName = coach?.name.replace("Coach ", "") ?? "Your coach";
+  const openChat = (q?: string) => router.push({ pathname: "/coach/chat", params: { name: coach?.name ?? "Your coach", ...(coach ? { coach: coach.id } : {}), ...(q ? { q } : {}) } });
 
   return (
     <View className="coach__page">
       <StatusBar style="dark" />
       <SafeAreaView style={{ flex: 1 }} edges={["top", "left", "right"]}>
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 16, paddingBottom: 120, gap: 16 }} showsVerticalScrollIndicator={false}>
-          <View>
-            <Text className="coach__eyebrow">AI Coach</Text>
-            {loaded && (
-              <Text className="coach__title mt-1.5" accessibilityRole="header">{intake ? "Your coach and plan" : "Meet your AI coach"}</Text>
+        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 120, gap: 16 }} showsVerticalScrollIndicator={false}>
+          {/* Header: one title, the bell at the right */}
+          <View className="flex-row items-center justify-between gap-3">
+            <Text className="coach__title" accessibilityRole="header">{intake ? "AI Coach" : "Meet your AI coach"}</Text>
+            {intake && (
+              <Pressable onPress={() => router.push("/community/notifications")} className="coach__circle-btn" accessibilityRole="button" accessibilityLabel="Notifications">
+                <SymbolView name={{ ios: "bell", android: "notifications", web: "notifications" }} size={20} tintColor={colors.forestInk} />
+              </Pressable>
             )}
-            {loaded && !intake && <Text className="coach__lead mt-2">Answer a few questions (about 2 minutes) and your coach gets to know you.</Text>}
           </View>
 
           {!loaded && !error && (
@@ -121,6 +176,7 @@ export default function Coach() {
 
           {loaded && !intake && (
             <>
+              <Text className="coach__lead -mt-2">Answer a few questions (about 2 minutes) and your coach gets to know you.</Text>
               <View className="coach__card">
                 {promises.map((item) => (
                   <View key={item.title} className="flex-row items-center gap-3">
@@ -136,9 +192,7 @@ export default function Coach() {
               </View>
               <View className="flex-row justify-center gap-2" accessibilityLabel={`Coaches: ${coaches.map((c) => c.name).join(", ")}`}>
                 {coaches.map((c) => (
-                  <View key={c.id} className="coach__avatar">
-                    <Text className="coach__avatar-label">{c.name.replace("Coach ", "").charAt(0)}</Text>
-                  </View>
+                  <CoachAvatar key={c.id} coach={c.id} />
                 ))}
               </View>
               <CoachButton label="Get started" onPress={begin} />
@@ -147,88 +201,137 @@ export default function Coach() {
 
           {intake && coach && (
             <>
-              <View className="coach__card flex-row items-center">
-                <View className="coach__avatar">
-                  <Text className="coach__avatar-label">{coach.name.replace("Coach ", "").charAt(0)}</Text>
-                </View>
-                <View className="flex-1 gap-1">
-                  <Text className="coach__option-title">{coach.name}</Text>
-                  <View className="coach__tag">
-                    <Text className="coach__tag-label">{labelOf(coachStyles, intake.coachStyle)}</Text>
+              {/* Your coach: who, Change, and the ask box (everything here opens the chat) */}
+              <View className="coach__card">
+                <View className="flex-row items-center gap-3">
+                  <CoachAvatar coach={coach.id} size={56} />
+                  <View className="flex-1 gap-0.5">
+                    <Text className="coach__option-title">{coach.name}</Text>
+                    <Text className="coach__option-note" numberOfLines={1}>{`${coach.note.split(".")[0]} · ${labelOf(coachStyles, intake.coachStyle)}`}</Text>
                   </View>
+                  <Pressable onPress={() => setChanging(true)} className="coach__pill" accessibilityRole="button" accessibilityLabel="Change coach">
+                    <Text className="coach__pill-label">Change</Text>
+                  </Pressable>
                 </View>
+                <Pressable onPress={() => openChat()} className="coach__ask" accessibilityRole="button" accessibilityLabel={`Ask ${firstName}`}>
+                  <SymbolView name={{ ios: "sparkles", android: "auto_awesome", web: "auto_awesome" }} size={18} tintColor={colors.primary} />
+                  <Text className="coach__ask-text" numberOfLines={1}>{`Ask ${firstName} anything...`}</Text>
+                  <View className="coach__send">
+                    <SymbolView name={{ ios: "paperplane.fill", android: "send", web: "send" }} size={17} tintColor={colors.onPrimary} />
+                  </View>
+                </Pressable>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 2, paddingHorizontal: 1 }}>
+                  {coachPrompts.map((prompt) => (
+                    <Pressable key={prompt} onPress={() => openChat(prompt)} className="coach__prompt" accessibilityRole="button" accessibilityLabel={`Ask: ${prompt}`}>
+                      <Text className="coach__prompt-label">{prompt}</Text>
+                    </Pressable>
+                  ))}
+                </ScrollView>
               </View>
+
+              {day && <TodayOverview date={day.date} totals={day.totals} targets={day.targets} />}
 
               {plan?.state === "none" && (
                 <View className="coach__card">
                   <Text className="coach__section">Your plan</Text>
-                  <Text className="coach__lead">{`${firstName} will build a day of Indian meals on your calorie and protein targets, and a workout week for your days, spot and equipment.`}</Text>
+                  <Text className="coach__option-note">{`${firstName} will build a day of Indian meals on your targets, and a workout week for your days, spot and equipment.`}</Text>
                   {making && <Text className="coach__hint">{`${firstName} is building your plan. This can take up to a minute.`}</Text>}
                   <CoachButton label="Make my plan" onPress={makePlan} loading={making} />
                 </View>
               )}
 
               {plan?.state === "ready" && plan.plan && (
-                <>
-                  <View className="coach__card flex-row items-start">
-                    <View className="coach__avatar">
-                      <Text className="coach__avatar-label">{firstName.charAt(0)}</Text>
-                    </View>
-                    <Text className="coach__lead flex-1">{plan.plan.message}</Text>
+                <View className="coach__card">
+                  <View className="flex-row items-center justify-between">
+                    <Text className="coach__section">Your plan</Text>
+                    <Text className="coach__hint">{`${plan.plan.totals.kcal} / ${plan.plan.targets.calories} kcal`}</Text>
+                  </View>
+                  <View className="coach__tabs" accessibilityRole="tablist">
+                    {planTabs.map((t) => {
+                      const active = tab === t.id;
+                      return (
+                        <Pressable key={t.id} onPress={() => setTab(t.id)} className={active ? "coach__tab coach__tab--active" : "coach__tab"} accessibilityRole="tab" aria-selected={active}>
+                          <Text className={active ? "coach__tab-label coach__tab-label--active" : "coach__tab-label"}>{t.label}</Text>
+                        </Pressable>
+                      );
+                    })}
                   </View>
 
-                  <PlanMeals plan={plan.plan} logging={logging} onLog={logMeal} />
-
-                  {plan.workout && (
-                    <View className="coach__card">
-                      <View className="flex-row items-end justify-between gap-3">
-                        <Text className="coach__section">Your workout week</Text>
-                        <Text className="coach__hint">{`${plan.workout.daysPerWeek} days · ${plan.workout.level.charAt(0).toUpperCase()}${plan.workout.level.slice(1)}`}</Text>
-                      </View>
-                      {plan.workout.sessions.map((session) => (
-                        <View key={session.weekday} className="flex-row justify-between gap-4">
-                          <Text className="coach__hint">{labelOf(weekdayChoices, session.weekday)}</Text>
-                          <Text className="coach__row-value flex-1 text-right">{`${session.title} · ${session.minutes} min`}</Text>
-                        </View>
-                      ))}
-                      <Pressable onPress={() => router.push("/workout")} className="coach__ghost" accessibilityRole="button">
-                        <Text className="coach__ghost-label">Open my workouts</Text>
-                      </Pressable>
-                    </View>
+                  {tab === "today" && (
+                    <>
+                      <Text className="coach__option-note" numberOfLines={3}>{plan.plan.message}</Text>
+                      <PlanTimeline
+                        plan={plan.plan}
+                        workout={workout}
+                        logging={logging}
+                        onLog={logMeal}
+                        onStartWorkout={() => router.push({ pathname: "/workout/session", params: { date: todayIso() } })}
+                      />
+                    </>
                   )}
 
-                  <View className="setup__note">
-                    <SymbolView name={{ ios: "exclamationmark.triangle", android: "warning", web: "warning" }} size={20} tintColor={colors.warning} />
-                    <Text className="setup__note-text flex-1 self-center">Fitness guidance, not medical advice. Check every food against your allergies.</Text>
-                  </View>
-                </>
+                  {tab === "week" &&
+                    (plan.workout ? (
+                      <>
+                        {plan.workout.sessions.map((session) => (
+                          <View key={session.weekday} className="flex-row justify-between gap-4">
+                            <Text className="coach__hint">{labelOf(weekdayChoices, session.weekday)}</Text>
+                            <Text className="coach__row-value flex-1 text-right">{`${session.title} · ${session.minutes} min`}</Text>
+                          </View>
+                        ))}
+                        <Pressable onPress={() => router.push("/workout")} className="coach__ghost" accessibilityRole="button">
+                          <Text className="coach__ghost-label">Open my workouts</Text>
+                        </Pressable>
+                      </>
+                    ) : (
+                      <Text className="coach__hint">Your workout week appears here once your plan has one.</Text>
+                    ))}
+
+                  {tab === "insights" && (
+                    <View className="items-center gap-2 py-6">
+                      <View className="coach__option-icon">
+                        <SymbolView name={{ ios: "chart.bar.fill", android: "bar_chart", web: "bar_chart" }} size={22} tintColor={colors.primary} />
+                      </View>
+                      <Text className="coach__option-title">Insights are coming soon</Text>
+                      <Text className="coach__hint text-center">{`${firstName} will show your trends here: meals logged, workouts done and how close you get to your targets.`}</Text>
+                    </View>
+                  )}
+                </View>
               )}
 
               {planError && <Text className="macro__error" accessibilityRole="alert">{planError}</Text>}
 
-              <View className="coach__card">
-                <Text className="coach__section">Your answers</Text>
-                {[
-                  ["Goal", labelOf(coachGoals, intake.goal)],
-                  ["Training", `${weekdayChoices.filter((d) => intake.weekdays.includes(d.id)).map((d) => d.label).join(", ")} · ${labelOf(sessionLengths, intake.sessionMinutes)}`],
-                  ["Where", intake.backupSpot ? `${labelOf(spots, intake.mainSpot)} · backup ${labelOf(spots, intake.backupSpot)}` : labelOf(spots, intake.mainSpot)],
-                  ["Work around", [...intake.joints.map((j) => labelOf(joints, j)), ...intake.conditions.map((c) => labelOf(conditions, c))].join(", ") || "Nothing"],
-                ].map(([label, value]) => (
-                  <View key={label} className="flex-row justify-between gap-4">
-                    <Text className="coach__hint">{label}</Text>
-                    <Text className="coach__row-value flex-1 text-right">{value}</Text>
-                  </View>
-                ))}
+              {/* Changing the plan: a settings-style group */}
+              <View className="coach__card gap-0 py-1">
+                <Pressable onPress={begin} className={plan?.state === "ready" ? "list-row" : "list-row border-b-0"} accessibilityRole="button" accessibilityLabel="Edit my answers">
+                  <SymbolView name={{ ios: "slider.horizontal.3", android: "tune", web: "tune" }} size={18} tintColor={colors.primary} />
+                  <Text className="list-row__label">Edit my answers</Text>
+                  <SymbolView name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }} size={14} tintColor={colors.faint} />
+                </Pressable>
+                {plan?.state === "ready" && (
+                  <Pressable onPress={makePlan} disabled={making} className="list-row border-b-0" accessibilityRole="button" accessibilityLabel="Make a new plan">
+                    <SymbolView name={{ ios: "arrow.clockwise", android: "refresh", web: "refresh" }} size={18} tintColor={colors.primary} />
+                    <Text className="list-row__label">Make a new plan</Text>
+                    {making ? <ActivityIndicator color={colors.primary} /> : <SymbolView name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }} size={14} tintColor={colors.faint} />}
+                  </Pressable>
+                )}
               </View>
 
-              {plan?.state === "ready" && (
-                <Pressable onPress={makePlan} disabled={making} className="coach__ghost" accessibilityRole="button">
-                  {making ? <ActivityIndicator color={colors.primary} /> : <Text className="coach__ghost-label">Make a new plan</Text>}
-                </Pressable>
+              <Text className="coach__hint text-center">Fitness guidance, not medical advice. Check every food against your allergies.</Text>
+
+              {changing && (
+                <ChangeCoachSheet
+                  coach={intake.coach}
+                  coachStyle={intake.coachStyle}
+                  saving={savingCoach}
+                  error={coachError}
+                  onSave={saveCoach}
+                  onClose={() => {
+                    setChanging(false);
+                    setCoachError(null);
+                  }}
+                />
               )}
-              <Pressable onPress={begin} className="coach__ghost" accessibilityRole="button">
-                <Text className="coach__ghost-label">Edit my answers</Text>
-              </Pressable>
             </>
           )}
         </ScrollView>
