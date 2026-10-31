@@ -1,4 +1,5 @@
 import { apiFetch, type ApiResult } from "@/lib/api";
+import { normalizeSummary } from "@/lib/aiUsageRules";
 
 // Super Admin › AI Usage (JustFit_server/admin/aiUsage.js, under /api/admin/portal/ai-usage).
 // The server checks the admin role on every request; nothing here decides who may see what.
@@ -67,9 +68,11 @@ const query = (params: Record<string, string | number | null>) =>
     .join("&");
 
 export const aiUsage = {
-  summary(token: string | null, period: Period): Promise<ApiResult<AiSummary>> {
+  // Every number is filled in (0 when the server left it out) before the screen formats it
+  async summary(token: string | null, period: Period): Promise<ApiResult<AiSummary>> {
     if (!token) return signedOut();
-    return apiFetch(`/api/admin/portal/ai-usage/summary?period=${period}`, { token });
+    const result = await apiFetch<AiSummary>(`/api/admin/portal/ai-usage/summary?period=${period}`, { token });
+    return result.ok ? { ok: true, data: normalizeSummary(result.data) } : result;
   },
   history(token: string | null, filters: HistoryFilters): Promise<ApiResult<HistoryPage>> {
     if (!token) return signedOut();

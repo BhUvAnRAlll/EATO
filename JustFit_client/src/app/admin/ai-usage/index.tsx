@@ -9,6 +9,7 @@ import { DashedBlock } from "@/components/macro/DashedBlock";
 import { SymbolView } from "@/components/SymbolView";
 import { AI_SECTIONS, FEATURE_LABEL, FEATURE_SHORT, PERIOD_LABEL, PERIOD_PREVIOUS, PROVIDER_LABEL } from "@/data/aiUsage";
 import { aiUsage, changeLabel, compact, inr, type AiSummary, type FeatureTotals, type Period } from "@/lib/aiUsage";
+import { mergeModels } from "@/lib/aiUsageRules";
 import { dateOf } from "@/lib/macro";
 import { useSessionToken } from "@/lib/session";
 import type { Icon } from "@/types/profile";
@@ -211,7 +212,7 @@ function Ready({ data, period, onPeriod }: { data: AiSummary; period: Period; on
 
       {AI_SECTIONS.map((section) => {
         const rows = section.features.map((id) => ({ id, totals: featureOf(id) }));
-        const models = rows.flatMap((r) => r.totals?.models ?? []);
+        const models = mergeModels(rows.flatMap((r) => r.totals?.models ?? []));
         const cost = rows.reduce((sum, r) => sum + (r.totals?.costInr ?? 0), 0);
         const requests = rows.reduce((sum, r) => sum + (r.totals?.requests ?? 0), 0);
         return (
