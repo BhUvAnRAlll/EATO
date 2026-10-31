@@ -19,6 +19,8 @@ const views: { view: ScanView; label: string; hint: string }[] = [
   { view: "side", label: "Side photo", hint: "Turn so the camera sees your right side, feet together, arms down" },
 ];
 
+const retakeIcon: Icon = { ios: "arrow.counterclockwise", android: "refresh", web: "refresh" };
+
 const sources: { source: PhotoSource; label: string; icon: Icon }[] = [
   { source: "camera", label: "Take photo", icon: { ios: "camera", android: "photo_camera", web: "photo_camera" } },
   { source: "library", label: "Choose from gallery", icon: { ios: "photo", android: "image", web: "image" } },
@@ -37,9 +39,10 @@ function PhotoTile({ view, label, hint, photo, onPick, onClear }: { view: ScanVi
       {photo ? (
         <View className="gap-2">
           <Image source={{ uri: photo.previewUri }} contentFit="cover" style={{ width: "100%", height: 220, borderRadius: 16 }} accessibilityLabel={`${label} preview`} />
-          <Text className="auth__link" onPress={() => onClear(view)}>
-            Retake
-          </Text>
+          <Pressable onPress={() => onClear(view)} className="btn-outline flex-row gap-2 self-start" accessibilityRole="button" accessibilityLabel={`Retake ${label.toLowerCase()}`}>
+            <SymbolView name={retakeIcon} size={18} tintColor={colors.forestInk} />
+            <Text className="btn-outline__label">Retake</Text>
+          </Pressable>
         </View>
       ) : (
         <View className="flex-row gap-2">
