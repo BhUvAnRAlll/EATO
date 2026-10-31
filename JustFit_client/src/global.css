@@ -170,7 +170,7 @@
 }
 
 @utility badge--paused {
-  background-color: var(--color-line);
+  background-color: var(--color-cream-line);
 }
 
 @utility badge__label--paused {
@@ -553,7 +553,7 @@
   width: 22px;
   height: 4px;
   border-radius: var(--radius-pill);
-  background-color: var(--color-line);
+  background-color: var(--color-cream-line);
 }
 
 @utility setup__dash--done {
@@ -3621,6 +3621,101 @@
   color: var(--color-faint);
 }
 
+/* The Macro tab (2026-10-31 look): the day tiles of the week strip */
+@utility macro__day-tile {
+  align-items: center;
+  gap: 6px;
+  padding-block: 10px;
+  border-radius: var(--radius-md);
+  background-color: var(--color-white);
+  box-shadow: var(--shadow-card);
+}
+
+@utility macro__day-tile--selected {
+  background-color: var(--color-accent-soft);
+}
+
+@utility macro__day-tile--today {
+  background-color: var(--color-cream-tab);
+}
+
+/* The intake card: the big number, the macro panel and its three columns, the share chips */
+@utility macro__intake-number {
+  font-family: var(--font-sans-semibold);
+  font-size: 40px;
+  line-height: 46px;
+  color: var(--color-ink);
+}
+
+@utility macro__intake-panel {
+  flex-direction: row;
+  padding: var(--spacing-md);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface-alt);
+}
+
+@utility macro__macro-col {
+  flex: 1;
+  min-width: 0;
+  gap: 8px;
+  padding-inline: 8px;
+}
+
+@utility macro__macro-col--divided {
+  border-left-width: 1px;
+  border-left-color: var(--color-cream-line);
+}
+
+@utility macro__macro-value {
+  font-family: var(--font-sans-semibold);
+  font-size: 15px;
+  line-height: 19px;
+  color: var(--color-ink);
+}
+
+@utility macro__chip {
+  height: 22px;
+  padding-inline: 8px;
+  border-radius: var(--radius-pill);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility macro__chip-label {
+  font-family: var(--font-sans-semibold);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+/* A tinted icon tile at the start of a card's heading (44pt, or 32pt in the macro columns) */
+@utility macro__icon-tile {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility macro__icon-tile--small {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+}
+
+/* The water bar under "Water intake" */
+@utility macro__water-track {
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-cream-line);
+  overflow: hidden;
+}
+
+@utility macro__water-fill {
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-accent-blue);
+}
+
 @utility macro__thumb {
   width: 44px;
   height: 44px;
@@ -4705,21 +4800,26 @@
   background-color: var(--color-cream-deep);
 }
 
-/* A feature's rank in a small circle (App Usage › Most used) */
+/* A feature's rank: a small dark circle on the corner of its icon (App Usage › Most used) */
 @utility admin-rank {
-  width: 26px;
-  height: 26px;
+  position: absolute;
+  top: -5px;
+  left: -5px;
+  width: 18px;
+  height: 18px;
   border-radius: var(--radius-pill);
   align-items: center;
   justify-content: center;
-  background-color: var(--color-cream-deep);
+  background-color: var(--color-ink);
+  border-width: 2px;
+  border-color: var(--color-surface);
 }
 
 @utility admin-rank__label {
   font-family: var(--font-sans-semibold);
-  font-size: 12px;
-  line-height: 16px;
-  color: var(--color-ink);
+  font-size: 9px;
+  line-height: 11px;
+  color: var(--color-surface);
 }
 
 /* A gym's initials in a dark square (Super Admin user and gym rows) */
@@ -4804,6 +4904,57 @@
 
 /* ---- Super Admin › AI Usage (app/admin/ai-usage; BEM ai-*) ---- */
 /* A bar chart drawn with views: columns side by side, the peak value printed over its bar */
+/* TrendChart (App Usage): axis ticks, the day labels and the value readout over the plot */
+@utility trend__tick {
+  position: absolute;
+  left: 0;
+  width: 24px;
+  text-align: right;
+  font-family: var(--font-sans);
+  font-size: 10px;
+  line-height: 14px;
+  color: var(--color-faint);
+}
+
+@utility trend__label {
+  position: absolute;
+  top: 2px;
+  width: 48px;
+  text-align: center;
+  font-family: var(--font-sans);
+  font-size: 10px;
+  line-height: 14px;
+  color: var(--color-faint);
+}
+
+@utility trend__readout {
+  position: absolute;
+  top: 0;
+  width: 96px;
+  align-items: center;
+  padding-block: 2px;
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface);
+}
+
+@utility trend__readout--live {
+  background-color: var(--color-ink);
+}
+
+@utility trend__readout-value {
+  font-family: var(--font-sans-semibold);
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--color-ink);
+}
+
+@utility trend__readout-day {
+  font-family: var(--font-sans);
+  font-size: 10px;
+  line-height: 12px;
+  color: var(--color-muted);
+}
+
 @utility ai-chart {
   flex-direction: row;
   align-items: flex-end;
@@ -5854,7 +6005,7 @@
   bottom: -12px;
   left: 17.5px;
   width: 1px;
-  background-color: var(--color-line);
+  background-color: var(--color-cream-line);
 }
 
 @utility coach__step-head {

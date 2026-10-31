@@ -5,22 +5,25 @@ import { StatusBar } from "expo-status-bar";
 import { SymbolView } from "@/components/SymbolView";
 import { router, useFocusEffect } from "expo-router";
 
-import { ActivityCard } from "@/components/ActivityCard";
 import { IconButton } from "@/components/IconButton";
 import { DashedBlock } from "@/components/macro/DashedBlock";
+import { IntakeCard } from "@/components/macro/IntakeCard";
 import { MealCard } from "@/components/macro/MealCard";
 import { MealDetailSheet } from "@/components/macro/MealDetailSheet";
 import { MonthCalendarSheet } from "@/components/macro/MonthCalendarSheet";
 import { WeekStrip } from "@/components/macro/WeekStrip";
-import { MetricCard } from "@/components/MetricCard";
-import { ProgressStat } from "@/components/ProgressStat";
-import { longDate, macro, todayIso, whole, type DayProgress, type DayView, type Meal } from "@/lib/macro";
+import { usePullToRefresh } from "@/components/PullToRefresh";
+import { longDate, macro, todayIso, whole, type DayProgress, type DayView, type Meal, type WaterDay } from "@/lib/macro";
 import { useSessionToken } from "@/lib/session";
 import { useMacroStore, useMacroWeek } from "@/store/macro";
 import { colors } from "@/theme";
 
-// The Macro tab: the day at a glance (calories left, macros, what was eaten), a week of
-// day rings, and the way into logging. The selected day is shared with the Macro screens.
+// The Macro tab: the day at a glance (what was eaten against the target, the macros, water,
+// calories left), a week of day tiles, and the way into logging. The selected day is shared
+// with the Macro screens.
+// "1.5 L" (or "1.5" without the unit) from millilitres
+const litres = (ml: number, unit = true) => `${(ml / 1000).toFixed(1).replace(/\.0$/, "")}${unit ? " L" : ""}`;
+
 export default function MacroHub() {
   const getToken = useSessionToken();
   const { width } = useWindowDimensions();
@@ -32,6 +35,7 @@ export default function MacroHub() {
   const [day, setDay] = useState<DayView | null>(null);
   const [loading, setLoading] = useState(true);
   const [progress, setProgress] = useState<Record<string, DayProgress>>({});
+  const [water, setWater] = useState<WaterDay | null>(null);
   const [openMeal, setOpenMeal] = useState<Meal | null>(null);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [fade] = useState(() => new Animated.Value(1));
@@ -43,7 +47,7 @@ export default function MacroHub() {
     const request = ++latest.current;
     setLoading(true);
     const token = await getToken().catch(() => null);
-    const [dayResult, weekResult] = await Promise.all([macro.day(token, selectedDate), macro.progress(token, week)]);
+    const [dayResult, weekResult, waterResult] = await Promise.all([macro.day(token, selectedDate), macro.progress(token, week), macro.water(token, selectedDate)]);
     if (request !== latest.current) return;
     if (dayResult.ok) {
       setDay(dayResult.data);
@@ -52,6 +56,8 @@ export default function MacroHub() {
       Animated.timing(fade, { toValue: 1, duration: 200, useNativeDriver: true }).start();
     }
     if (weekResult.ok) setProgress(Object.fromEntries(weekResult.data.days.map((d) => [d.date, d])));
+    // The water card only with a day's water; without it (or on a medical note) the card is left out
+    setWater(waterResult.ok && waterResult.data.medicalNote === null ? waterResult.data : null);
   }, [getToken, selectedDate, week, fade]);
 
   // Loads when the tab comes into view (so a meal saved in the logging flow is there on
@@ -62,17 +68,23 @@ export default function MacroHub() {
     }, [load]),
   );
 
+  // A pull reads the day and the week strip again
+  const { refreshControl } = usePullToRefresh(load);
+
   const showing = day;
   const switching = loading && day !== null;
   const targets = showing?.targets ?? null;
   const eaten = showing?.totals.kcal ?? 0;
   const left = targets ? Math.max(0, targets.kcal - eaten) : 0;
+  // How the day stands against its target, for the Calories left card's pill
+  const standing = eaten === 0 ? "Nothing logged" : targets && eaten > targets.kcal ? "Over target" : "On track";
+  const standingColor = standing === "Over target" ? { tint: colors.dangerSoft, text: colors.danger } : { tint: colors.successSoft, text: colors.success };
 
   return (
     <View className="flex-1 bg-cream">
       <StatusBar style="dark" />
       <SafeAreaView style={{ flex: 1 }} edges={["top", "left", "right"]}>
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 140, gap: 16 }} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 140, gap: 16 }} showsVerticalScrollIndicator={false} refreshControl={refreshControl}>
           {/* Header */}
           <View className="flex-row items-center pt-2">
             <View className="flex-1">
@@ -93,37 +105,46 @@ export default function MacroHub() {
             <Animated.View style={{ opacity: switching ? 0.55 : fade, gap: 16 }}>
               {targets ? (
                 <>
-                  <ActivityCard
-                    title={isToday ? "Today's calories" : "Calories"}
-                    metric={whole(eaten).toLocaleString("en-IN")}
-                    meta={`/ ${targets.kcal.toLocaleString("en-IN")} Kcal`}
-                    progress={targets.kcal > 0 ? eaten / targets.kcal : 0}
-                    compact={width < 375}
-                    onPress={() => router.push("/macro/daily")}
-                    accessibilityLabel={`${whole(left)} kcal left. Eaten ${whole(eaten)} of ${targets.kcal}. Open daily calories`}
-                  >
-                    <ProgressStat label="Protein" value={`${whole(showing.totals.proteinG)}/${targets.proteinG}`} unit="g" progress={targets.proteinG > 0 ? showing.totals.proteinG / targets.proteinG : 0} color={colors.protein} />
-                    <ProgressStat label="Carbs" value={`${whole(showing.totals.carbsG)}/${targets.carbsG}`} unit="g" progress={targets.carbsG > 0 ? showing.totals.carbsG / targets.carbsG : 0} color={colors.carbs} />
-                    <ProgressStat label="Fat" value={`${whole(showing.totals.fatG)}/${targets.fatG}`} unit="g" progress={targets.fatG > 0 ? showing.totals.fatG / targets.fatG : 0} color={colors.fat} />
-                  </ActivityCard>
-                  <View className="flex-row gap-3">
-                    <MetricCard
-                      tone="peach"
-                      label="Left"
-                      icon={{ ios: "flame", android: "local_fire_department", web: "local_fire_department" }}
-                      value={whole(left).toLocaleString("en-IN")}
-                      unit="Kcal"
-                      status={left > 0 ? "On track" : "Reached"}
-                      onPress={() => router.push("/macro/daily")}
-                    />
-                    <MetricCard
-                      tone="blue"
-                      label="Burned"
-                      icon={{ ios: "bolt", android: "bolt", web: "bolt" }}
-                      value={whole(showing.burned).toLocaleString("en-IN")}
-                      unit="Kcal"
-                      status={showing.burned > 0 ? "Active" : "Rest"}
-                    />
+                  <IntakeCard title={isToday ? "Today's intake" : "Intake"} totals={showing.totals} targets={targets} width={width - 32} onPress={() => router.push("/macro/daily")} />
+
+                  {/* Water and calories left, side by side (stacked on a 320pt phone) */}
+                  <View className="flex-row flex-wrap" style={{ gap: 12 }}>
+                    {water && (
+                      <Pressable onPress={() => router.push("/macro/water")} className="home__card" style={{ flexGrow: 1, flexBasis: 150, gap: 10 }} accessibilityRole="button" accessibilityLabel={`Water intake: ${litres(water.consumedMl)} of ${litres(water.targetMl)}. Open water`}>
+                        <View className="flex-row items-center" style={{ gap: 10 }}>
+                          <View className="macro__icon-tile" style={{ backgroundColor: colors.tintBlue }}>
+                            <SymbolView name={{ ios: "drop.fill", android: "water_drop", web: "water_drop" }} size={18} tintColor={colors.iconBlue} />
+                          </View>
+                          <Text className="card__title flex-1" numberOfLines={1}>Water intake</Text>
+                          <SymbolView name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }} size={14} tintColor={colors.faint} />
+                        </View>
+                        <View className="flex-row items-baseline" style={{ gap: 6 }}>
+                          <Text className="home__stat-big" numberOfLines={1}>{litres(water.consumedMl, false)}</Text>
+                          <Text className="home__stat-unit" numberOfLines={1}>{`/ ${litres(water.targetMl)}`}</Text>
+                        </View>
+                        <View className="macro__water-track">
+                          <View className="macro__water-fill" style={{ width: `${Math.round(Math.min(1, water.targetMl > 0 ? water.consumedMl / water.targetMl : 0) * 100)}%` }} />
+                        </View>
+                        <Text className="home__note" numberOfLines={1}>{`${litres(water.consumedMl)} consumed  ·  ${litres(Math.max(0, water.remainingMl))} remaining`}</Text>
+                      </Pressable>
+                    )}
+                    <Pressable onPress={() => router.push("/macro/daily")} className="home__card" style={{ flexGrow: 1, flexBasis: 150, gap: 10, backgroundColor: colors.tintPeach }} accessibilityRole="button" accessibilityLabel={`Calories left: ${whole(left).toLocaleString("en-IN")} kcal, ${standing.toLowerCase()}. Open daily calories`}>
+                      <View className="flex-row items-center" style={{ gap: 10 }}>
+                        <View className="macro__icon-tile" style={{ backgroundColor: colors.accentSoft }}>
+                          <SymbolView name={{ ios: "target", android: "track_changes", web: "track_changes" }} size={18} tintColor={colors.primary} />
+                        </View>
+                        <Text className="card__title flex-1" numberOfLines={1}>Calories left</Text>
+                        <SymbolView name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }} size={14} tintColor={colors.faint} />
+                      </View>
+                      <View className="flex-row items-baseline" style={{ gap: 6 }}>
+                        <Text className="home__stat-big" numberOfLines={1} adjustsFontSizeToFit>{whole(left).toLocaleString("en-IN")}</Text>
+                        <Text className="home__stat-unit">Kcal</Text>
+                      </View>
+                      <View className="macro__chip flex-row self-start" style={{ backgroundColor: standingColor.tint, gap: 4, height: 26, paddingHorizontal: 10 }}>
+                        <SymbolView name={{ ios: "fork.knife", android: "restaurant", web: "restaurant" }} size={12} tintColor={standingColor.text} />
+                        <Text className="macro__chip-label" style={{ color: standingColor.text }}>{standing}</Text>
+                      </View>
+                    </Pressable>
                   </View>
                 </>
               ) : (
@@ -135,18 +156,26 @@ export default function MacroHub() {
                 />
               )}
 
-              <Pressable onPress={() => router.push("/macro/calories-macros")} className="home__card flex-row items-center gap-3" accessibilityRole="button" accessibilityLabel="Calories and macros: split, weekly trend and targets">
-                <View className="macro__thumb" style={{ backgroundColor: colors.forestSoft }}>
-                  <SymbolView name={{ ios: "chart.pie.fill", android: "pie_chart", web: "pie_chart" }} size={20} tintColor={colors.forest} />
+              <Pressable onPress={() => router.push("/macro/calories-macros")} className="home__card flex-row items-center gap-3" style={{ backgroundColor: colors.accentSoft }} accessibilityRole="button" accessibilityLabel="Calories and macros: split, weekly trend and targets">
+                <View className="macro__icon-tile" style={{ backgroundColor: colors.white }}>
+                  <SymbolView name={{ ios: "chart.pie.fill", android: "pie_chart", web: "pie_chart" }} size={20} tintColor={colors.primary} />
                 </View>
                 <View className="flex-1">
                   <Text className="card__title">Calories & macros</Text>
                   <Text className="post__time">Split, weekly trend & targets</Text>
                 </View>
-                <IconButton icon={{ ios: "arrow.right", android: "arrow_forward", web: "arrow_forward" }} label="Open" variant="primary" size={36} />
+                <SymbolView name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }} size={14} tintColor={colors.faint} />
               </Pressable>
 
-              <Text className="setup__section">{isToday ? "Today's meals" : "Meals"}</Text>
+              <View className="flex-row items-center justify-between">
+                <Text className="home__card-title">{isToday ? "Today's meals" : "Meals"}</Text>
+                {showing.meals.length > 0 && (
+                  <Pressable onPress={() => router.push("/macro/daily")} className="flex-row items-center" style={{ gap: 2 }} hitSlop={8} accessibilityRole="button" accessibilityLabel="View all meals">
+                    <Text className="post__time">View all</Text>
+                    <SymbolView name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }} size={12} tintColor={colors.faint} />
+                  </Pressable>
+                )}
+              </View>
               {showing.meals.length === 0 ? (
                 <DashedBlock
                   icon={{ ios: "fork.knife", android: "restaurant", web: "restaurant" }}
