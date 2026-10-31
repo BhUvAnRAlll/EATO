@@ -3,20 +3,17 @@ import { ActivityIndicator, Pressable, Text, View } from "react-native";
 
 import { SymbolView } from "@/components/SymbolView";
 import type { CoachPlan, PlanMeal, PlanSlot } from "@/lib/coach";
-import { dateOf } from "@/lib/macro";
-import { GOAL_LABEL, LEVEL_LABEL, type DayExercise, type DayStatus, type Plan, type TrainingDay } from "@/lib/workoutApi";
+import type { DayStatus, Plan, TrainingDay } from "@/lib/workoutApi";
 import { colors } from "@/theme";
 import type { Icon } from "@/types/profile";
 
-// Today's workout from the workout plan, for the timeline's last entry
+// Today's workout from the workout plan, for the Workout row under the meal plan on the AI Coach tab
 export type TodayWorkout = {
   plan: Plan;
   status: DayStatus;
   // Null on a rest day
   day: TrainingDay | null;
   week: { date: string; status: DayStatus }[];
-  // Exercises with at least one set logged today
-  doneIds: Set<string>;
 };
 
 type Props = {
@@ -44,18 +41,6 @@ function clockParts(time: string): [string, string] {
   const hour12 = h % 12 === 0 ? 12 : h % 12;
   return [`${String(hour12).padStart(2, "0")}:${String(m).padStart(2, "0")}`, h < 12 ? "AM" : "PM"];
 }
-
-// "4 × 10", "3 × 30 s" or "2 × 8-12": how many sets, and the reps or time of each
-function setsLabel(exercise: DayExercise) {
-  const count = exercise.sets.length;
-  const first = exercise.sets[0];
-  if (first?.durationSec !== undefined) return `${count} × ${first.durationSec} s`;
-  if (first?.reps !== undefined) return `${count} × ${first.reps}`;
-  if (exercise.repsMin !== null && exercise.repsMax !== null) return `${count} × ${exercise.repsMin}-${exercise.repsMax}`;
-  return `${count} sets`;
-}
-
-const weekLabel = (iso: string) => dateOf(iso).toLocaleDateString("en-GB", { weekday: "short" });
 
 // One entry on the timeline: the time column (the icon circle, the time, a red dot and the
 // dashed line down to the next entry) beside whatever the entry holds
@@ -163,83 +148,8 @@ function MealEntry({ meal, last, logging, onLog, swapping, onSwap }: { meal: Pla
   );
 }
 
-// Today's workout from the workout plan as a card of its own (it is not part of the meal plan):
-// the day's exercises with what's done, the goal line, Start / Continue, and the week
-export function WorkoutCard({ workout, onStart }: { workout: TodayWorkout; onStart: () => void }) {
-  const { day, status, plan, week, doneIds } = workout;
-  const main = day ? day.exercises.filter((e) => e.section === "workout").slice(0, 4) : [];
-  const done = status === "completed";
-  return (
-    <View className="coach__meal-card" accessibilityLabel={day ? `Today's workout: ${day.title}, ${day.minutes} minutes` : "Today's workout: rest day"}>
-      <View className="flex-row flex-wrap items-center justify-between" style={{ gap: 8 }}>
-        <View className="flex-row items-center" style={{ gap: 8 }}>
-          <View className="coach__tl-icon" style={{ width: 36, height: 36, backgroundColor: colors.accentSoft }}>
-            <SymbolView name={{ ios: "dumbbell.fill", android: "fitness_center", web: "fitness_center" }} size={16} tintColor={colors.primary} />
-          </View>
-          <View className="coach__slot-pill">
-            <Text className="coach__slot-pill-label">Workout</Text>
-          </View>
-        </View>
-        {day && <Text className="coach__meal-kcal">{`${day.minutes} min`}</Text>}
-      </View>
-      <Text className="coach__meal-name">{day ? day.title : "Rest day"}</Text>
-      {day ? (
-        <View style={{ gap: 6 }}>
-          {main.map((exercise) => {
-            const ticked = done || doneIds.has(exercise.id);
-            return (
-              <View key={exercise.id} className="flex-row items-center gap-2" accessibilityLabel={`${exercise.name}, ${setsLabel(exercise)}${ticked ? ", done" : ""}`}>
-                <View className={ticked ? "coach__done coach__done--on" : "coach__done"}>
-                  {ticked && <SymbolView name={{ ios: "checkmark", android: "check", web: "check" }} size={10} tintColor={colors.onPrimary} />}
-                </View>
-                <Text className="coach__food flex-1" numberOfLines={1}>
-                  <Text className="text-forest-ink">{exercise.name}</Text>
-                  {`  ${setsLabel(exercise)}`}
-                </Text>
-              </View>
-            );
-          })}
-        </View>
-      ) : (
-        <Text className="coach__meal-ings">Recover well, and drink enough water.</Text>
-      )}
-      <View className="flex-row flex-wrap items-end justify-between" style={{ gap: 10 }}>
-        <View className="coach__goal" style={{ flexGrow: 1, flexShrink: 1, minWidth: 160 }}>
-          <SymbolView name={{ ios: "target", android: "track_changes", web: "track_changes" }} size={20} tintColor={colors.primary} />
-          <View className="min-w-0 flex-1">
-            <Text className="coach__macro" numberOfLines={1}>{GOAL_LABEL[plan.goal]}</Text>
-            <Text className="coach__week-label" numberOfLines={1}>{`${plan.daysPerWeek} days/week · ${LEVEL_LABEL[plan.level]}`}</Text>
-          </View>
-        </View>
-        {day && (
-          <Pressable onPress={onStart} disabled={done} className={done ? "coach__log coach__log--meal coach__log--done" : "coach__log coach__log--meal"} accessibilityRole="button" accessibilityLabel={done ? "Workout done" : "Start workout"}>
-            {done ? (
-              <>
-                <SymbolView name={{ ios: "checkmark", android: "check", web: "check" }} size={12} tintColor={colors.leaf} />
-                <Text className="coach__log-label coach__log-label--done">Done</Text>
-              </>
-            ) : (
-              <Text className="coach__log-label">{status === "in_progress" ? "Continue" : "Start"}</Text>
-            )}
-          </Pressable>
-        )}
-      </View>
-      <View className="flex-row justify-between px-1">
-        {week.map((d) => (
-          <View key={d.date} className="items-center gap-1" accessibilityLabel={`${weekLabel(d.date)}: ${d.status.replace("_", " ")}`}>
-            <View className={d.status === "completed" ? "coach__week-day coach__week-day--done" : d.status === "rest" ? "coach__week-day coach__week-day--rest" : "coach__week-day"}>
-              {d.status === "completed" && <SymbolView name={{ ios: "checkmark", android: "check", web: "check" }} size={11} tintColor={colors.onPrimary} />}
-            </View>
-            <Text className="coach__week-label">{weekLabel(d.date)}</Text>
-          </View>
-        ))}
-      </View>
-    </View>
-  );
-}
-
 // The meal plan: the coach's meals in time order down a timeline, each a card with its macros
-// and a Log Meal button. The workout is not on it (see WorkoutCard).
+// and a Log Meal button. The workout is not on it (the AI Coach tab shows it as a row).
 export function PlanTimeline({ plan, logging, onLog, swapping, onSwap }: Props) {
   return (
     <View>

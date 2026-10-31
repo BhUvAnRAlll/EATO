@@ -8,13 +8,13 @@ import { router, useFocusEffect } from "expo-router";
 import { ChangeCoachSheet } from "@/components/coach/ChangeCoachSheet";
 import { CoachAvatar } from "@/components/coach/CoachAvatar";
 import { CoachButton } from "@/components/coach/CoachButton";
-import { WorkoutCard, type TodayWorkout } from "@/components/coach/PlanTimeline";
+import type { TodayWorkout } from "@/components/coach/PlanTimeline";
 import { TodayOverview } from "@/components/coach/TodayOverview";
 import { coachPrompts, coaches, coachStyles, labelOf, weekdayChoices, type CoachId, type CoachStyle } from "@/data/coach";
 import { coachApi, type Intake, type IntakePrefill, type PlanState } from "@/lib/coach";
 import { macro, todayIso, type DayView } from "@/lib/macro";
 import { useSessionToken } from "@/lib/session";
-import { weekOf, workoutApi } from "@/lib/workoutApi";
+import { LEVEL_LABEL, weekOf, workoutApi } from "@/lib/workoutApi";
 import { useCoachChatStore } from "@/store/coachChat";
 import { useCoachIntakeStore } from "@/store/coachIntake";
 import type { Icon } from "@/types/profile";
@@ -39,6 +39,14 @@ const planTabs: { id: PlanTab; label: string }[] = [
 
 const OFFLINE = "Could not reach justFit. Check your connection and try again.";
 
+// The workout row's one line, as the Workout screen's hero puts it: "Legs · 7 exercises · 61 min ·
+// Continue", or the rest day
+function workoutNote({ day, status, plan }: TodayWorkout) {
+  if (!day) return "Rest day · Recover well";
+  const action = status === "completed" ? "Done" : status === "in_progress" ? "Continue" : "Start";
+  return `${day.title} · ${day.exerciseCount} exercises · ${day.minutes} min · ${LEVEL_LABEL[plan.level]} · ${action}`;
+}
+
 // The AI Coach tab, in the coach's own look (pink wash, white cards, red accents). Before the
 // intake: what the coach does and Get started. After it, each thing once, top to bottom: your
 // coach (Change, and the ask box that opens the chat), today's numbers from Macro, the plan
@@ -60,13 +68,11 @@ export default function Coach() {
   const [savingCoach, setSavingCoach] = useState(false);
   const [coachError, setCoachError] = useState<string | null>(null);
 
-  // Today's workout and the week; a failure here only hides the workout, never the tab
+  // Today's workout; a failure here only hides the workout row, never the tab
   const loadWorkout = useCallback(async (token: string | null, today: string) => {
     const home = await workoutApi.home(token, today, weekOf(today), today);
     if (!home.ok || home.data.plan === null) return setWorkout(null);
-    const session = home.data.day ? await workoutApi.session(token, today, today) : null;
-    const doneIds = new Set(session?.ok ? session.data.sets.map((s) => s.dayExerciseId) : []);
-    setWorkout({ plan: home.data.plan, status: home.data.status, day: home.data.day, week: home.data.week, doneIds });
+    setWorkout({ plan: home.data.plan, status: home.data.status, day: home.data.day, week: home.data.week });
   }, []);
 
   const load = useCallback(async () => {
@@ -260,7 +266,18 @@ export default function Coach() {
                         </View>
                         <SymbolView name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }} size={14} tintColor={colors.faint} />
                       </Pressable>
-                      {workout && <WorkoutCard workout={workout} onStart={() => router.push({ pathname: "/workout/session", params: { date: todayIso() } })} />}
+                      {workout && (
+                        <Pressable onPress={() => router.push("/workout")} className="coach__option" accessibilityRole="button" accessibilityLabel="Open workout" accessibilityHint={workoutNote(workout)}>
+                          <View className="coach__option-icon h-11 w-11">
+                            <SymbolView name={{ ios: "dumbbell.fill", android: "fitness_center", web: "fitness_center" }} size={20} tintColor={colors.primary} />
+                          </View>
+                          <View className="min-w-0 flex-1 gap-0.5">
+                            <Text className="coach__option-title">Workout</Text>
+                            <Text className="coach__option-note" numberOfLines={1}>{workoutNote(workout)}</Text>
+                          </View>
+                          <SymbolView name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }} size={14} tintColor={colors.faint} />
+                        </Pressable>
+                      )}
                     </>
                   )}
 

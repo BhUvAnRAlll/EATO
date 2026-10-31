@@ -18,6 +18,10 @@ import homeMealPaneerTikka from "../../assets/images/home-meal-paneer-tikka.jpg"
 import homeMealSalmon from "../../assets/images/home-meal-salmon.jpg";
 import homeMealLemonHerbChicken from "../../assets/images/home-meal-lemon-herb-chicken.jpg";
 import coachArjunFace from "../../assets/images/coach-arjun-face.jpg";
+import coachPriyaFace from "../../assets/images/coach-priya-face.jpg";
+import coachMeeraFace from "../../assets/images/coach-meera-face.jpg";
+import coachRohanFace from "../../assets/images/coach-rohan-face.jpg";
+import coachAdityaFace from "../../assets/images/coach-aditya-face.jpg";
 
 import type { CoachId } from "@/data/coach";
 
@@ -53,8 +57,12 @@ export type HomeImageKey = keyof typeof homeImages;
 
 export const homeImageKeys = Object.keys(homeImages) as HomeImageKey[];
 
-// The AI coaches' face photos, for every round avatar (CoachAvatar). A coach without one shows
-// their initial.
+// The AI coaches' face photos, for every round avatar (CoachAvatar). A coach without one would
+// show their initial.
 export const coachFaces: Partial<Record<CoachId, typeof coachArjunFace>> = {
   arjun: coachArjunFace,
+  priya: coachPriyaFace,
+  meera: coachMeeraFace,
+  rohan: coachRohanFace,
+  aditya: coachAdityaFace,
 };

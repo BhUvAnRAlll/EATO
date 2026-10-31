@@ -4705,6 +4705,23 @@
   background-color: var(--color-cream-deep);
 }
 
+/* A feature's rank in a small circle (App Usage › Most used) */
+@utility admin-rank {
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-pill);
+  align-items: center;
+  justify-content: center;
+  background-color: var(--color-cream-deep);
+}
+
+@utility admin-rank__label {
+  font-family: var(--font-sans-semibold);
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--color-ink);
+}
+
 /* A gym's initials in a dark square (Super Admin user and gym rows) */
 @utility admin-gym-badge {
   width: 36px;
@@ -5893,35 +5910,10 @@
   color: var(--color-forest-ink);
 }
 
-/* The timeline's Log button (smaller than the plan card's) and the goal row under the workout */
+/* The timeline's Log button (smaller than the plan card's) */
 @utility coach__log--small {
   height: 28px;
   padding-inline: 12px;
-}
-
-@utility coach__goal {
-  padding: 10px 12px;
-  border-radius: var(--radius-md);
-  background-color: var(--color-cream-deep);
-  flex-direction: row;
-  align-items: center;
-  gap: 12px;
-}
-
-/* A workout exercise's tick: an outlined circle, solid red when done */
-@utility coach__done {
-  width: 18px;
-  height: 18px;
-  border-radius: var(--radius-pill);
-  border-width: 1.5px;
-  border-color: var(--color-line-strong);
-  align-items: center;
-  justify-content: center;
-}
-
-@utility coach__done--on {
-  border-color: var(--color-primary);
-  background-color: var(--color-primary);
 }
 
 @utility coach__start {
@@ -5939,33 +5931,6 @@
   font-size: 13px;
   line-height: 18px;
   color: var(--color-primary-text);
-}
-
-/* The week under the workout: a circle per day, red with a tick when done */
-@utility coach__week-day {
-  width: 24px;
-  height: 24px;
-  border-radius: var(--radius-pill);
-  border-width: 1.5px;
-  border-color: var(--color-line-strong);
-  align-items: center;
-  justify-content: center;
-}
-
-@utility coach__week-day--done {
-  border-color: var(--color-primary);
-  background-color: var(--color-primary);
-}
-
-@utility coach__week-day--rest {
-  border-color: var(--color-line);
-}
-
-@utility coach__week-label {
-  font-family: var(--font-sans);
-  font-size: 10px;
-  line-height: 14px;
-  color: var(--color-muted);
 }
 
 /* The coach chat: the coach's white bubble and the member's red one */
