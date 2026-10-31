@@ -15,3 +15,12 @@ export function devServerHost(hostUri: string | null | undefined, scriptUrl: str
   const match = typeof scriptUrl === "string" ? /^https?:\/\/([^/:?#]+)/.exec(scriptUrl) : null;
   return match ? match[1] : null;
 }
+
+// A release build must talk to the server over HTTPS only: the session token travels in every
+// request, and a plain-HTTP address in a shipped app would hand it to anyone on the same
+// Wi-Fi. A development build may use http:// (the Mac on the local network). Refusing here
+// means every call fails with the "couldn't reach the server" line instead of leaking.
+export function requireHttpsInRelease(url: string, isDevBuild: boolean): string {
+  if (isDevBuild || /^https:\/\//i.test(url)) return url;
+  throw new Error("EXPO_PUBLIC_API_URL must start with https:// in a release build");
+}

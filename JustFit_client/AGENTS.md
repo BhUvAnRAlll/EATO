@@ -703,7 +703,8 @@ While implementing:
 - Apply the rules below to all new and modified code. Reuse the existing secure helpers:
   `requireUser` and `getAccount` (`JustFit_server/auth.js`), `ValidationError` and the validators in
   `profile.js`, `logRequestError` (`logging.js`), `checkUpload` (`bodyComposition/upload.js`),
-  `jsonBodyWithLimit` (`requestBody.js`), `limitPerUser` (`rateLimit.js`), and the test harness
+  `jsonBodyWithLimit` (`requestBody.js`), `limitPerUser` and `limitPerIp` (`rateLimit.js`), `securityHeaders` and
+  `corsOptions` (`httpSecurity.js`), `logSecurityEvent` (`logging.js`), and the test harness
   under `JustFit_server/__tests__/`.
 - Never disable, loosen or skip a security check to make a test pass.
 - Never treat client-side validation, a hidden screen, a client-supplied role or user id, or
@@ -785,6 +786,44 @@ provider. Never use production accounts or data, and never send a real SMS from 
   (`AUTH_SECRET`, `SMS_PROVIDER`, `FAST2SMS_*`, `OTP_*`, `TRUST_PROXY`), or deployment settings without approval.
 - Never stop, restart or interfere with the development server on port 4000.
 - Report confirmed findings, potential risks and untested areas; never claim security is guaranteed.
+
+### 8. The pre-launch security pass: run it on every prompt (added 2026-10-31)
+
+The user's standing instruction: every prompt that implements or changes something is checked
+against this 27-point pass before it is reported done, and the report says which points applied
+and what was confirmed. Suggest the fix when a point fails; don't wait to be asked. Points that
+cannot apply (no cookies, no passwords, no payments) are still named as "not applicable", not
+skipped silently. Where justFit already meets a point, keep it that way.
+
+| # | Point | Where justFit meets it today |
+|---|-------|------------------------------|
+| 1 | Proper authentication | phone OTP, hashed tokens in `auth_sessions`, `requireUser` on every protected route |
+| 2 | Hide API keys | all provider keys in `JustFit_server/.env` only; nothing secret in `EXPO_PUBLIC_*` |
+| 3 | Secure the database | `justfit_app` least privilege, every user-owned query scoped by `req.userId` / gym role |
+| 4 | HTTPS everywhere | Caddy on the droplet; HSTS from `httpSecurity.js` over HTTPS; `requireHttpsInRelease` in `lib/apiHost.ts` refuses a plain-HTTP server in a release build |
+| 5 | Hash all passwords | no passwords: codes HMAC-hashed (`auth/otp.js`), session tokens SHA-256 (`auth/sessions.js`) |
+| 6 | Validate forms on the server | `ValidationError` + the `*/validate.js` and `*/rules.js` modules; the app's checks are hints only |
+| 7 | Block XSS | JSON only, no HTML rendering in the app; uploads type-sniffed; `nosniff` + CSP `default-src 'none'` on every answer |
+| 8 | Log and monitor suspicious activity | `logRequestError` (safe fields) and `logSecurityEvent` (`otp.locked`, `otp.throttled`, `admin.denied`, `rate.limited`); `admin_audit_log` for admin actions |
+| 9 | Lock down admin routes | `requireAdmin` reads `users.role` on every call; owner routes check `gym_members` |
+| 10 | Parameterised queries | `pool.query(sql, params)`; SQL fragments only from allowlists in code |
+| 11 | Check environment variables | startup refuses a missing DB setting or short `AUTH_SECRET`, dev login outside development; warns without `OPENAI_API_KEY` |
+| 12 | Rate limiting | `limitPerUser` on every signed-in group, `limitPerIp` + per-number limits on sign-in |
+| 13 | Restrict CORS | `corsOptions`: `CORS_ORIGINS` allowlist, none in production, any in development/tests |
+| 14 | Security headers | `securityHeaders`: nosniff, DENY framing, CSP, no-referrer, no-store, Permissions-Policy, HSTS |
+| 15 | Secure session cookies | not applicable: bearer token in `expo-secure-store` (`AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY`), never a cookie |
+| 16 | CSRF protection | not applicable without cookies; Meta webhook checks `X-Hub-Signature-256` |
+| 17 | Expiring reset links | codes last 5 minutes, single use, 5 attempts; sessions 30 days, revocable |
+| 18 | Restrict uploads | `checkUpload` sniffs real bytes, allowed types and byte caps; bodies capped before parsing |
+| 19 | Verify prices and payments | not applicable: no checkout; gym plan prices are owner-entered data validated in `gyms/validate.js` |
+| 20 | No production debug mode | `x-powered-by` off, generic 500s, `DEV_LOGIN_*` refused outside development, `NODE_ENV=production` on the droplet |
+| 21 | Update vulnerable dependencies | `npm audit` in both folders before a release; server at 0 |
+| 22 | Remove unused packages | compare `package.json` with imports before a release; native modules need a prebuild to remove |
+| 23 | No exposed files | no `express.static`; uploads only via `GET /api/media/:id` with a session; every `.env` git-ignored |
+| 24 | Scan Git history for secrets | `git log -p` grep before pushing; only test placeholders so far |
+| 25 | Revoke compromised keys | any key shown in a chat, a log or a screenshot is rotated, never reused |
+| 26 | Full security review | this section plus sections 1-7, on the whole diff |
+| 27 | Test and report | unit + e2e + UI suites green, and the report lists each point's status |
 
 ---
 

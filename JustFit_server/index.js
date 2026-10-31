@@ -25,6 +25,7 @@ const { createSmsProvider } = require("./auth/sms");
 const { devLoginConfig } = require("./auth/devLogin");
 const { ValidationError, validateProfileSubmission, persistProfile, loadProfile } = require("./profile");
 const { logRequestError } = require("./logging");
+const { securityHeaders, corsOptions } = require("./httpSecurity");
 const { limitPerUser, createRateLimiter, rateLimits } = require("./rateLimit");
 const { jsonBodyWithLimit } = require("./requestBody");
 const { checkUpload, uploadLimits } = require("./bodyComposition/upload");
@@ -60,6 +61,9 @@ const otpLimits = otpConfig(process.env);
 // Development only: a fixed code for a few numbers (auth/devLogin.js). Refused outside
 // NODE_ENV=development on justfit (or tests), so this line stops a production start that has it.
 const devLogin = devLoginConfig(process.env);
+// The AI features (reports, food scan, coach) need OpenAI; without the key each call fails with
+// a 500. Said once at startup rather than discovered from the app.
+if (!process.env.OPENAI_API_KEY && process.env.AI_PROVIDER !== "fake") console.warn("OPENAI_API_KEY is not set: report reading, food scan and the AI Coach will fail until it is.");
 if (devLogin) console.warn(`Development sign-in code is ON for ${devLogin.phones.length} number${devLogin.phones.length === 1 ? "" : "s"}. Never set DEV_LOGIN_* outside development.`);
 
 const app = express();
@@ -74,7 +78,10 @@ if (process.env.TRUST_PROXY) {
   app.set("trust proxy", /^[0-9]+$/.test(value) ? Number(value) : value.split(",").map((part) => part.trim()));
 }
 app.locals.pool = pool; // the community router reads the pool from here
-app.use(cors()); // the app runs on a different origin (phone / simulator), so allow it
+app.use(securityHeaders); // httpSecurity.js: nosniff, no framing, no caching, HSTS over HTTPS
+// Browser origins (httpSecurity.js): CORS_ORIGINS, or none in production, or any in development
+// and tests (Expo web). The native app sends no Origin header and is never affected.
+app.use(cors(corsOptions(process.env)));
 
 // Bodies are parsed per route, after the caller is verified, with the limit each route
 // needs: a profile with a report is well under 200 kB; a report upload is a whole file.

@@ -46,6 +46,8 @@ function createRateLimiter({ limit, windowMs }) {
   };
 }
 
+const { logSecurityEvent } = require("./logging");
+
 // The one message every route sends with a 429
 const tooManyRequestsMessage = (retryAfterSeconds) =>
   `Too many requests. Please try again in ${retryAfterSeconds} second${retryAfterSeconds === 1 ? "" : "s"}.`;
@@ -62,6 +64,7 @@ function limitPerUser(limiter) {
     }
     const budget = limiter.check(userId);
     if (budget.ok) return next();
+    logSecurityEvent("rate.limited", { by: "user", userId, method: req.method, path: req.originalUrl?.split("?")[0] ?? req.path, retryAfterSeconds: budget.retryAfterSeconds });
     res.set("Retry-After", String(budget.retryAfterSeconds));
     res.status(429).json({ error: tooManyRequestsMessage(budget.retryAfterSeconds) });
   };
@@ -74,6 +77,7 @@ function limitPerIp(limiter) {
   return (req, res, next) => {
     const budget = limiter.check(`ip:${req.ip ?? "unknown"}`);
     if (budget.ok) return next();
+    logSecurityEvent("rate.limited", { by: "ip", ip: req.ip ?? "unknown", method: req.method, path: req.originalUrl?.split("?")[0] ?? req.path, retryAfterSeconds: budget.retryAfterSeconds });
     res.set("Retry-After", String(budget.retryAfterSeconds));
     res.status(429).json({ error: tooManyRequestsMessage(budget.retryAfterSeconds) });
   };

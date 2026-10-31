@@ -16,6 +16,7 @@ const { normalizePhone } = require("./phone");
 const otp = require("./otp");
 const service = require("./service");
 const sessions = require("./sessions");
+const { logSecurityEvent, maskPhone } = require("../logging");
 
 const smallBody = express.json({ limit: "1kb" });
 
@@ -46,7 +47,10 @@ function authRouter({ pool, sms, otpKey, config, devLogin = null }) {
       const sent = await service.requestOtp(pool, phone, { sms, otpKey, config, devLogin });
       res.json({ sent: true, ...sent });
     } catch (error) {
-      if (error instanceof ValidationError) return sendRefusal(res, error);
+      if (error instanceof ValidationError) {
+        if (error.status === 429) logSecurityEvent("otp.throttled", { phone: maskPhone(req.body?.phone), ip: req.ip ?? "unknown", retryAfterSeconds: error.retryAfterSeconds ?? null });
+        return sendRefusal(res, error);
+      }
       next(error);
     }
   });
@@ -58,7 +62,10 @@ function authRouter({ pool, sms, otpKey, config, devLogin = null }) {
       if (typeof body.code !== "string" || !otp.CODE.test(body.code)) throw new ValidationError("Enter the 6-digit code.");
       res.json(await service.verifyOtp(pool, phone, body.code, { otpKey, config }));
     } catch (error) {
-      if (error instanceof ValidationError) return sendRefusal(res, error);
+      if (error instanceof ValidationError) {
+        if (error.status === 429) logSecurityEvent("otp.locked", { phone: maskPhone(req.body?.phone), ip: req.ip ?? "unknown" });
+        return sendRefusal(res, error);
+      }
       next(error);
     }
   });

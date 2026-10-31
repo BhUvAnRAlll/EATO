@@ -3,6 +3,7 @@
 // and the session on req.sessionId. Identity and role come from the database only, never
 // from the request body. Tokens are never logged.
 const sessions = require("./auth/sessions");
+const { logSecurityEvent } = require("./logging");
 
 const ROLES = ["user", "admin"];
 
@@ -45,7 +46,10 @@ async function requireAdmin(req, res, next) {
     console.error("Account lookup failed");
     return res.status(503).json({ error: "We couldn't verify your account right now. Please try again." });
   }
-  if (account.role !== "admin") return res.status(403).json({ error: "Only admins can do that." });
+  if (account.role !== "admin") {
+    logSecurityEvent("admin.denied", { userId: req.userId, method: req.method, path: req.originalUrl?.split("?")[0] ?? req.path });
+    return res.status(403).json({ error: "Only admins can do that." });
+  }
   req.account = account;
   next();
 }

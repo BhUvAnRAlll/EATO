@@ -34,4 +34,18 @@ function logRequestError(req, error) {
   console.error(JSON.stringify(entry));
 }
 
-module.exports = { describeError, logRequestError };
+// One line per security event worth watching (a locked sign-in code, an admin route refused,
+// a rate limit hit), so the server log answers "is someone probing us?". The details are a
+// flat object of safe fields: a user id, a masked phone, a path, an IP address. Never a
+// token, a code, a body or a full phone number.
+function logSecurityEvent(event, details = {}) {
+  console.warn(JSON.stringify({ at: new Date().toISOString(), security: event, ...details }));
+}
+
+// A phone number for a log line: only its last 4 digits ("+91******6439")
+function maskPhone(phone) {
+  if (typeof phone !== "string" || phone.length < 4) return "unknown";
+  return `${phone.slice(0, 3)}${"*".repeat(Math.max(0, phone.length - 7))}${phone.slice(-4)}`;
+}
+
+module.exports = { describeError, logRequestError, logSecurityEvent, maskPhone };
