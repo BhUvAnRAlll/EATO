@@ -3635,41 +3635,77 @@
   background-color: var(--color-accent-soft);
 }
 
+/* The picked tile tinted by the day's standing (complete, partial, low) */
+@utility macro__day-tile--complete {
+  background-color: var(--color-success-soft);
+}
+
+@utility macro__day-tile--partial {
+  background-color: var(--color-warning-soft);
+}
+
+@utility macro__day-tile--low {
+  background-color: var(--color-danger-soft);
+}
+
 @utility macro__day-tile--today {
   background-color: var(--color-cream-tab);
 }
 
-/* The intake card: the big number, the macro panel and its three columns, the share chips */
+/* The solid green disc inside a day's ring once its target was reached */
+@utility macro__day-disc {
+  position: absolute;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-success);
+}
+
+/* The intake card: the big number over "of <target> kcal", a hairline, then the macro rows */
 @utility macro__intake-number {
   font-family: var(--font-sans-semibold);
-  font-size: 40px;
-  line-height: 46px;
+  font-size: 34px;
+  line-height: 40px;
   color: var(--color-ink);
 }
 
-@utility macro__intake-panel {
-  flex-direction: row;
-  padding: var(--spacing-md);
-  border-radius: var(--radius-md);
-  background-color: var(--color-surface-alt);
+@utility macro__intake-of {
+  font-family: var(--font-sans-medium);
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--color-muted);
 }
 
-@utility macro__macro-col {
-  flex: 1;
-  min-width: 0;
-  gap: 8px;
-  padding-inline: 8px;
-}
-
-@utility macro__macro-col--divided {
-  border-left-width: 1px;
-  border-left-color: var(--color-cream-line);
+@utility macro__divider {
+  height: 1px;
+  background-color: var(--color-line);
 }
 
 @utility macro__macro-value {
   font-family: var(--font-sans-semibold);
-  font-size: 15px;
-  line-height: 19px;
+  font-size: 14px;
+  line-height: 18px;
+  color: var(--color-ink);
+}
+
+/* The target part of "250 / 135 g", softer than the eaten grams */
+@utility macro__macro-target {
+  font-family: var(--font-sans-medium);
+  color: var(--color-muted);
+}
+
+/* The water and calories-left pair: white stat cards with a tile, a title, the number, a bar */
+@utility macro__stat-card {
+  flex-grow: 1;
+  flex-basis: 150px;
+  padding: var(--spacing-lg);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-white);
+  box-shadow: var(--shadow-card);
+}
+
+@utility macro__stat-number {
+  font-family: var(--font-sans-semibold);
+  font-size: 28px;
+  line-height: 34px;
   color: var(--color-ink);
 }
 
@@ -3687,7 +3723,7 @@
   line-height: 16px;
 }
 
-/* A tinted icon tile at the start of a card's heading (44pt, or 32pt in the macro columns) */
+/* A tinted icon tile at the start of a card's heading (44pt in rows, 40pt on the stat cards, 32pt in the macro rows) */
 @utility macro__icon-tile {
   width: 44px;
   height: 44px;
@@ -3696,24 +3732,15 @@
   justify-content: center;
 }
 
+@utility macro__icon-tile--heading {
+  width: 40px;
+  height: 40px;
+}
+
 @utility macro__icon-tile--small {
   width: 32px;
   height: 32px;
   border-radius: 10px;
-}
-
-/* The water bar under "Water intake" */
-@utility macro__water-track {
-  height: 8px;
-  border-radius: var(--radius-pill);
-  background-color: var(--color-cream-line);
-  overflow: hidden;
-}
-
-@utility macro__water-fill {
-  height: 8px;
-  border-radius: var(--radius-pill);
-  background-color: var(--color-accent-blue);
 }
 
 @utility macro__thumb {

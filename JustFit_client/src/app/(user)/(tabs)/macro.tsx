@@ -107,42 +107,47 @@ export default function MacroHub() {
                 <>
                   <IntakeCard title={isToday ? "Today's intake" : "Intake"} totals={showing.totals} targets={targets} width={width - 32} onPress={() => router.push("/macro/daily")} />
 
-                  {/* Water and calories left, side by side (stacked on a 320pt phone) */}
-                  <View className="flex-row flex-wrap" style={{ gap: 12 }}>
+                  {/* Water and calories left as a matching pair of stat cards (stacked on a 320pt phone) */}
+                  <View className="flex-row flex-wrap items-stretch" style={{ gap: 12 }}>
                     {water && (
-                      <Pressable onPress={() => router.push("/macro/water")} className="home__card" style={{ flexGrow: 1, flexBasis: 150, gap: 10 }} accessibilityRole="button" accessibilityLabel={`Water intake: ${litres(water.consumedMl)} of ${litres(water.targetMl)}. Open water`}>
-                        <View className="flex-row items-center" style={{ gap: 10 }}>
-                          <View className="macro__icon-tile" style={{ backgroundColor: colors.tintBlue }}>
+                      <Pressable onPress={() => router.push("/macro/water")} className="macro__stat-card" accessibilityRole="button" accessibilityLabel={`Water intake: ${litres(water.consumedMl)} of ${litres(water.targetMl)}. Open water`}>
+                        <View className="flex-row items-center justify-between">
+                          <View className="macro__icon-tile macro__icon-tile--heading" style={{ backgroundColor: colors.tintBlue }}>
                             <SymbolView name={{ ios: "drop.fill", android: "water_drop", web: "water_drop" }} size={18} tintColor={colors.iconBlue} />
                           </View>
-                          <Text className="card__title flex-1" numberOfLines={1}>Water intake</Text>
                           <SymbolView name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }} size={14} tintColor={colors.faint} />
                         </View>
+                        <Text className="card__title mt-3" numberOfLines={1}>Water intake</Text>
                         <View className="flex-row items-baseline" style={{ gap: 6 }}>
-                          <Text className="home__stat-big" numberOfLines={1}>{litres(water.consumedMl, false)}</Text>
-                          <Text className="home__stat-unit" numberOfLines={1}>{`/ ${litres(water.targetMl)}`}</Text>
+                          <Text className="macro__stat-number" numberOfLines={1} adjustsFontSizeToFit>{litres(water.consumedMl, false)}</Text>
+                          <Text className="macro__intake-of" numberOfLines={1}>{`/ ${litres(water.targetMl)}`}</Text>
                         </View>
-                        <View className="macro__water-track">
-                          <View className="macro__water-fill" style={{ width: `${Math.round(Math.min(1, water.targetMl > 0 ? water.consumedMl / water.targetMl : 0) * 100)}%` }} />
+                        <View className="flex-1" />
+                        <View className="macro__track mt-3">
+                          <View className="h-full rounded-pill" style={{ width: `${Math.round(Math.min(1, water.targetMl > 0 ? water.consumedMl / water.targetMl : 0) * 100)}%`, backgroundColor: colors.accentBlue }} />
                         </View>
-                        <Text className="home__note" numberOfLines={1}>{`${litres(water.consumedMl)} consumed  ·  ${litres(Math.max(0, water.remainingMl))} remaining`}</Text>
+                        <Text className="home__note mt-2" numberOfLines={1}>{water.remainingMl > 0 ? `${litres(water.remainingMl)} remaining` : "Target reached"}</Text>
                       </Pressable>
                     )}
-                    <Pressable onPress={() => router.push("/macro/daily")} className="home__card" style={{ flexGrow: 1, flexBasis: 150, gap: 10, backgroundColor: colors.tintPeach }} accessibilityRole="button" accessibilityLabel={`Calories left: ${whole(left).toLocaleString("en-IN")} kcal, ${standing.toLowerCase()}. Open daily calories`}>
-                      <View className="flex-row items-center" style={{ gap: 10 }}>
-                        <View className="macro__icon-tile" style={{ backgroundColor: colors.accentSoft }}>
+                    <Pressable onPress={() => router.push("/macro/daily")} className="macro__stat-card" accessibilityRole="button" accessibilityLabel={`Calories left: ${whole(left).toLocaleString("en-IN")} kcal, ${standing.toLowerCase()}. Open daily calories`}>
+                      <View className="flex-row items-center justify-between">
+                        <View className="macro__icon-tile macro__icon-tile--heading" style={{ backgroundColor: colors.accentSoft }}>
                           <SymbolView name={{ ios: "target", android: "track_changes", web: "track_changes" }} size={18} tintColor={colors.primary} />
                         </View>
-                        <Text className="card__title flex-1" numberOfLines={1}>Calories left</Text>
                         <SymbolView name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }} size={14} tintColor={colors.faint} />
                       </View>
+                      <Text className="card__title mt-3" numberOfLines={1}>Calories left</Text>
                       <View className="flex-row items-baseline" style={{ gap: 6 }}>
-                        <Text className="home__stat-big" numberOfLines={1} adjustsFontSizeToFit>{whole(left).toLocaleString("en-IN")}</Text>
-                        <Text className="home__stat-unit">Kcal</Text>
+                        <Text className="macro__stat-number" numberOfLines={1} adjustsFontSizeToFit>{whole(left).toLocaleString("en-IN")}</Text>
+                        <Text className="macro__intake-of">kcal</Text>
                       </View>
-                      <View className="macro__chip flex-row self-start" style={{ backgroundColor: standingColor.tint, gap: 4, height: 26, paddingHorizontal: 10 }}>
-                        <SymbolView name={{ ios: "fork.knife", android: "restaurant", web: "restaurant" }} size={12} tintColor={standingColor.text} />
-                        <Text className="macro__chip-label" style={{ color: standingColor.text }}>{standing}</Text>
+                      <View className="flex-1" />
+                      <View className="macro__track mt-3">
+                        <View className="h-full rounded-pill" style={{ width: `${Math.round(Math.min(1, targets.kcal > 0 ? eaten / targets.kcal : 0) * 100)}%`, backgroundColor: standing === "Over target" ? colors.danger : colors.primary }} />
+                      </View>
+                      <View className="mt-2 flex-row items-center" style={{ gap: 4 }}>
+                        <View className="h-2 w-2 rounded-pill" style={{ backgroundColor: standing === "Nothing logged" ? colors.lineStrong : standingColor.text }} />
+                        <Text className="home__note" style={standing === "Nothing logged" ? undefined : { color: standingColor.text }} numberOfLines={1}>{standing}</Text>
                       </View>
                     </Pressable>
                   </View>
@@ -156,8 +161,8 @@ export default function MacroHub() {
                 />
               )}
 
-              <Pressable onPress={() => router.push("/macro/calories-macros")} className="home__card flex-row items-center gap-3" style={{ backgroundColor: colors.accentSoft }} accessibilityRole="button" accessibilityLabel="Calories and macros: split, weekly trend and targets">
-                <View className="macro__icon-tile" style={{ backgroundColor: colors.white }}>
+              <Pressable onPress={() => router.push("/macro/calories-macros")} className="home__card flex-row items-center gap-3" accessibilityRole="button" accessibilityLabel="Calories and macros: split, weekly trend and targets">
+                <View className="macro__icon-tile" style={{ backgroundColor: colors.accentSoft }}>
                   <SymbolView name={{ ios: "chart.pie.fill", android: "pie_chart", web: "pie_chart" }} size={20} tintColor={colors.primary} />
                 </View>
                 <View className="flex-1">

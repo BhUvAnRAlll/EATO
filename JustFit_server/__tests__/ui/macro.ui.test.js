@@ -137,8 +137,8 @@ describe("ui macro: the Macro tab hub and logging a meal by hand", () => {
     await h.expectPath("/macro");
     // The intake card (eaten of the target) and the Calories left card: nothing eaten, 2,000 left
     await h.expectText("Today's intake");
-    await h.expectText("/ 2,000 Kcal");
-    assert.ok(await page.evaluate(`!!document.querySelector('[aria-label="Today's intake: 0 of 2,000 kcal, 0% of the daily goal. Open daily calories"]')`), "the intake card opens daily calories");
+    await h.expectText("of 2,000 kcal");
+    assert.ok(await page.evaluate(`!!document.querySelector(${JSON.stringify(`[aria-label="Today's intake: 0 of 2,000 kcal, 0% of the daily goal. Open daily calories"]`)})`), "the intake card opens daily calories");
     assert.ok(await page.evaluate(`!!document.querySelector('[aria-label="Calories left: 2,000 kcal, nothing logged. Open daily calories"]')`), "the Calories left card");
     await h.expectText("Add your first meal to start today."); // only the Macro hub says this (Home has its own "Nothing logged yet today.")
     await h.expectText("Today's meals");
