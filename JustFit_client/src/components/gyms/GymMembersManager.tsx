@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type RefObject } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { SymbolView } from "@/components/SymbolView";
 
@@ -7,6 +7,7 @@ import { Avatar } from "@/components/community/Avatar";
 import { EmptyState } from "@/components/community/CommunityStates";
 import { ConfirmSheet } from "@/components/community/ConfirmSheet";
 import { FormAlert } from "@/components/FormAlert";
+import { usePullToRefresh } from "@/components/PullToRefresh";
 import { roleLabels, type MembershipStatus } from "@/lib/gymRules";
 import { gyms, type Gym, type GymMember } from "@/lib/gyms";
 import { colors } from "@/theme";
@@ -17,12 +18,22 @@ const lists: { key: MembershipStatus; label: string }[] = [
   { key: "suspended", label: "Suspended" },
 ];
 
-// start: which list opens first
-type Props = { gym: Gym; getToken: () => Promise<string | null>; onChanged: () => void; start?: MembershipStatus };
+// start: which list opens first. onRefresh: given by a caller that has no scroll view of its own
+// (the owner portal's Members tab): the manager then scrolls, and a pull re-reads its lists and
+// the caller's data. Inside ManageShell (which scrolls already) it is left out; that page gives
+// reloadRef instead, and the shell's pull calls it to read the lists again (rows kept on screen).
+type Props = {
+  gym: Gym;
+  getToken: () => Promise<string | null>;
+  onChanged: () => void;
+  start?: MembershipStatus;
+  onRefresh?: () => Promise<unknown>;
+  reloadRef?: RefObject<(() => Promise<unknown>) | null>;
+};
 
 // Manage → Members: approve or decline requests, change roles, suspend, reinstate or remove. The owner is never offered an action, and only
 // the owner is offered "Make admin"; the server enforces both whatever the screen shows.
-export function GymMembersManager({ gym, getToken, onChanged, start = "active" }: Props) {
+export function GymMembersManager({ gym, getToken, onChanged, start = "active", onRefresh, reloadRef }: Props) {
   const [list, setList] = useState<MembershipStatus>(start);
   const [counts, setCounts] = useState<Record<MembershipStatus, number> | null>(null);
   const [search, setSearch] = useState("");
@@ -33,9 +44,10 @@ export function GymMembersManager({ gym, getToken, onChanged, start = "active" }
   const [busy, setBusy] = useState<string | null>(null);
   const isOwner = gym.membership?.role === "owner";
 
-  // The open list, and the counts on every chip
-  const load = useCallback(async () => {
-    setRows(null);
+  // The open list, and the counts on every chip. `keep` leaves the rows on screen while they are
+  // read again (a pull), instead of the spinner
+  const load = useCallback(async (keep = false) => {
+    if (!keep) setRows(null);
     const token = await getToken();
     const results = await Promise.all(lists.map((item) => gyms.members(token, gym.id, item.key)));
     const next = {} as Record<MembershipStatus, number>;
@@ -54,6 +66,13 @@ export function GymMembersManager({ gym, getToken, onChanged, start = "active" }
     const timer = setTimeout(load, 0);
     return () => clearTimeout(timer);
   }, [load]);
+
+  useEffect(() => {
+    if (reloadRef) reloadRef.current = () => load(true);
+  }, [reloadRef, load]);
+
+  const refresh = useCallback(() => Promise.all([load(true), onRefresh?.()]), [load, onRefresh]);
+  const { refreshControl } = usePullToRefresh(refresh);
 
   const apply = async (row: GymMember, change: Parameters<typeof gyms.changeMember>[3] | "remove") => {
     setBusy(row.member.id);
@@ -89,7 +108,7 @@ export function GymMembersManager({ gym, getToken, onChanged, start = "active" }
   const shown = (rows ?? []).filter((row) => !term || row.member.name.toLowerCase().includes(term));
   const chips = lists.filter((item) => item.key !== "suspended" || (counts?.suspended ?? 0) > 0);
 
-  return (
+  const body = (
     <View className="gap-3">
       <View className="search search--pill">
         <SymbolView name={{ ios: "magnifyingglass", android: "search", web: "search" }} size={18} tintColor={colors.muted} />
@@ -158,5 +177,12 @@ export function GymMembersManager({ gym, getToken, onChanged, start = "active" }
         onCancel={() => setRemoving(null)}
       />
     </View>
+  );
+
+  if (!onRefresh) return body;
+  return (
+    <ScrollView contentContainerStyle={{ paddingBottom: 24 }} keyboardShouldPersistTaps="handled" refreshControl={refreshControl}>
+      {body}
+    </ScrollView>
   );
 }

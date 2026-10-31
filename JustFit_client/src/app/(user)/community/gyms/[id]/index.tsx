@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, useWindowDimensions, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, Text, useWindowDimensions, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { SymbolView } from "@/components/SymbolView";
@@ -15,6 +15,7 @@ import { GymEventsTab } from "@/components/gyms/GymEventsTab";
 import { GymHeader, type GymTab as Tab } from "@/components/gyms/GymHeader";
 import { GymMembersTab } from "@/components/gyms/GymMembersTab";
 import { FormAlert } from "@/components/FormAlert";
+import { usePullToRefresh } from "@/components/PullToRefresh";
 import { community, isOffline, timeAgo, type Post } from "@/lib/community";
 import { membershipButton, roleLabels } from "@/lib/gymRules";
 import { gyms, type Announcement, type Gym, type GymEvent, type GymMember } from "@/lib/gyms";
@@ -41,7 +42,6 @@ export default function GymScreen() {
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [menuPost, setMenuPost] = useState<Post | null>(null);
   const [confirm, setConfirm] = useState<{ title: string; text: string; label: string; run: () => Promise<void> } | null>(null);
@@ -92,11 +92,9 @@ export default function GymScreen() {
     }, [load, tab]),
   );
 
-  const refresh = async () => {
-    setRefreshing(true);
-    await load(tab);
-    setRefreshing(false);
-  };
+  // A pull reads the gym and the open tab again
+  const reload = useCallback(() => load(tab), [load, tab]);
+  const { refreshControl } = usePullToRefresh(reload);
 
   // One page at a time: scroll events keep firing while a page is on its way
   const loadingMore = useRef(false);
@@ -218,7 +216,7 @@ export default function GymScreen() {
       <StatusBar style="dark" />
       <ScrollView
         contentContainerStyle={{ paddingBottom: 40 }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.forest} />}
+        refreshControl={refreshControl}
         showsVerticalScrollIndicator={false}
         onScroll={({ nativeEvent }) => {
           const nearEnd = nativeEvent.layoutMeasurement.height + nativeEvent.contentOffset.y >= nativeEvent.contentSize.height - 400;

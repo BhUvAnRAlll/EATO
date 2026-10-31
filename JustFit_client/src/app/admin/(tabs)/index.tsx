@@ -5,6 +5,7 @@ import { StatusBar } from "expo-status-bar";
 import { SymbolView } from "@/components/SymbolView";
 import { router, useFocusEffect, type Href } from "expo-router";
 
+import { usePullToRefresh } from "@/components/PullToRefresh";
 import { DashedBlock } from "@/components/macro/DashedBlock";
 import { adminPortal, ago, type AdminOverview } from "@/lib/adminPortal";
 import { longDate } from "@/lib/macro";
@@ -40,12 +41,13 @@ export default function AdminOverviewScreen() {
       refresh();
     }, [refresh]),
   );
+  const { refreshControl } = usePullToRefresh(refresh);
 
   return (
     <View className="flex-1 bg-cream">
       <StatusBar style="dark" />
       <SafeAreaView style={{ flex: 1 }} edges={["top", "left", "right"]}>
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 110, gap: 16 }} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 110, gap: 16 }} showsVerticalScrollIndicator={false} refreshControl={refreshControl}>
           <View className="flex-row items-start justify-between pt-2">
             <View>
               <Text className="type-overline text-muted">justFit admin</Text>

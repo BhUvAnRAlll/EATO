@@ -74,6 +74,7 @@ export default function AdminPromotions() {
     <AdminScreen
       title="Home Screen & Promotions"
       headerRight={<AdminButton label="New" variant="primary" onPress={() => router.push("/admin/promotions/new")} />}
+      onRefresh={load}
     >
       <Pressable onPress={() => router.push("/admin/home-content")} className="card mb-4 flex-row items-center gap-3" accessibilityRole="button">
         <View className="card__icon">

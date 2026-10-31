@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 
+import { usePullToRefresh } from "@/components/PullToRefresh";
 import { BarChart } from "@/components/admin/BarChart";
 import { DashedBlock } from "@/components/macro/DashedBlock";
 import { SymbolView } from "@/components/SymbolView";
@@ -36,6 +37,9 @@ export default function FeatureDetailScreen() {
       refresh(range);
     }, [refresh, range]),
   );
+  // A pull reads the range that is showing again
+  const reload = useCallback(() => refresh(range), [refresh, range]);
+  const { refreshControl } = usePullToRefresh(reload);
 
   const pick = (r: UsageRange) => { setRange(r); setLoad({ state: "loading" }); };
   const title = load.state === "ready" ? load.data.feature.label : "Feature";
@@ -52,7 +56,7 @@ export default function FeatureDetailScreen() {
           <View style={{ width: 44 }} />
         </View>
 
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40, gap: 16 }} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40, gap: 16 }} showsVerticalScrollIndicator={false} refreshControl={refreshControl}>
           <View className="flex-row rounded-full bg-cream-tab p-1" accessibilityRole="tablist">
             {ranges.map((r) => (
               <Pressable key={r} onPress={() => pick(r)} className={range === r ? "admin-segment admin-segment--on" : "admin-segment"} accessibilityRole="tab" accessibilityState={{ selected: range === r }} accessibilityLabel={RANGE_LABEL[r]}>

@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { SymbolView } from "@/components/SymbolView";
@@ -8,6 +8,7 @@ import { router, useFocusEffect } from "expo-router";
 import { Avatar } from "@/components/community/Avatar";
 import { EmptyState } from "@/components/community/CommunityStates";
 import { FormAlert } from "@/components/FormAlert";
+import { usePullToRefresh } from "@/components/PullToRefresh";
 import { community, isOffline, timeAgo, type Activity, type FollowRequest, type FriendRequest, type GymRequestSummary } from "@/lib/community";
 import { useSessionToken } from "@/lib/session";
 import { useCommunityStore } from "@/store/community";
@@ -71,7 +72,6 @@ export default function CommunityNotifications() {
   const loadUnread = useCommunityStore((state) => state.loadUnread);
   const [rows, setRows] = useState<Row[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
   const [loadedAt, setLoadedAt] = useState(0); // when the list was loaded: "New" is the day before it
 
   const load = useCallback(async () => {
@@ -95,11 +95,8 @@ export default function CommunityNotifications() {
     }, [load]),
   );
 
-  const refresh = async () => {
-    setRefreshing(true);
-    await load();
-    setRefreshing(false);
-  };
+  // A pull reads the notifications (and the badge counts) again
+  const { refreshControl } = usePullToRefresh(load);
 
   const answer = async (userId: string, accept: boolean) => {
     const result = await community.answerFollowRequest(await getToken(), userId, accept);
@@ -211,7 +208,7 @@ export default function CommunityNotifications() {
         {rows === null && !error ? (
           <ActivityIndicator color={colors.forest} className="mt-6" />
         ) : (
-          <ScrollView contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 32 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.forest} />} showsVerticalScrollIndicator={false}>
+          <ScrollView contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 32 }} refreshControl={refreshControl} showsVerticalScrollIndicator={false}>
             {error && (
               <Pressable onPress={() => setError(null)}>
                 <FormAlert message={error} />

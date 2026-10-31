@@ -140,6 +140,13 @@ export function changeText(change: number | null): string {
 }
 
 // "30 Oct" or "24 Oct – 30 Oct": the range as a person reads it
+/** A day key (2026-10-27) as "Mon 27 Oct" */
+export function dayName(key: string) {
+  const [y, m, d] = key.split("-").map(Number);
+  if (!y || !m || !d) return key;
+  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });
+}
+
 export function rangeText(from: string, to: string): string {
   const day = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleDateString("en-IN", { day: "numeric", month: "short" });
   return from === to ? day(from) : `${day(from)} – ${day(to)}`;

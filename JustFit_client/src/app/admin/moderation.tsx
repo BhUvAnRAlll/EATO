@@ -48,7 +48,7 @@ export default function AdminModeration() {
   };
 
   return (
-    <AdminScreen title="Community moderation" subtitle="Reports from members, and who is suspended. Deleting content and suspending members takes effect at once.">
+    <AdminScreen title="Community moderation" subtitle="Reports from members, and who is suspended. Deleting content and suspending members takes effect at once." onRefresh={load}>
       {error && (
         <Pressable onPress={() => setError(null)} className="mb-3">
           <FormAlert message={error} />

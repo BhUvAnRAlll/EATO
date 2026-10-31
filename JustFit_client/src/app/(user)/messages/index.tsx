@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { ActivityIndicator, Modal, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { SymbolView } from "@/components/SymbolView";
@@ -8,6 +8,7 @@ import { router, useFocusEffect } from "expo-router";
 import { Avatar } from "@/components/community/Avatar";
 import { EmptyState } from "@/components/community/CommunityStates";
 import { FormAlert } from "@/components/FormAlert";
+import { usePullToRefresh } from "@/components/PullToRefresh";
 import { community, timeAgo, type Conversation, type Member } from "@/lib/community";
 import { useSessionToken } from "@/lib/session";
 import { useCommunityStore } from "@/store/community";
@@ -28,7 +29,6 @@ export default function Conversations() {
   const [filter, setFilter] = useState<Filter>("all");
   const [picking, setPicking] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
     const token = await getToken();
@@ -48,11 +48,8 @@ export default function Conversations() {
     }, [load]),
   );
 
-  const refresh = async () => {
-    setRefreshing(true);
-    await load();
-    setRefreshing(false);
-  };
+  // A pull reads the conversations, the friends row and the unread counts again
+  const { refreshControl } = usePullToRefresh(load);
 
   const open = async (member: Member) => {
     setPicking(false);
@@ -83,7 +80,7 @@ export default function Conversations() {
           </Pressable>
         </View>
 
-        <ScrollView contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: 32 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.forest} />} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: 32 }} refreshControl={refreshControl} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           {error && <Pressable onPress={() => setError(null)}><FormAlert message={error} /></Pressable>}
 
           <View className="mt-1 flex-row items-center justify-between">

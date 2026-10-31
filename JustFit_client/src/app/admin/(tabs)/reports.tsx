@@ -6,6 +6,7 @@ import { SymbolView } from "@/components/SymbolView";
 import { useFocusEffect } from "expo-router";
 
 import { FormAlert } from "@/components/FormAlert";
+import { usePullToRefresh } from "@/components/PullToRefresh";
 import { AuthImage } from "@/components/community/AuthImage";
 import { Avatar } from "@/components/community/Avatar";
 import { ConfirmSheet } from "@/components/community/ConfirmSheet";
@@ -47,6 +48,7 @@ export default function AdminReports() {
       refresh();
     }, [refresh]),
   );
+  const { refreshControl } = usePullToRefresh(refresh);
 
   const resolve = async (group: ReportGroup, action: "remove" | "dismiss") => {
     setBusy(true);
@@ -74,7 +76,7 @@ export default function AdminReports() {
     <View className="flex-1 bg-cream">
       <StatusBar style="dark" />
       <SafeAreaView style={{ flex: 1 }} edges={["top", "left", "right"]}>
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 110, gap: 14 }} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 110, gap: 14 }} showsVerticalScrollIndicator={false} refreshControl={refreshControl}>
           <View className="pt-2">
             <Text className="type-overline text-muted">justFit admin</Text>
             <Text className="type-title text-forest-ink">Reports</Text>

@@ -10,6 +10,7 @@ import QRCode from "react-native-qrcode-svg";
 import { Avatar } from "@/components/community/Avatar";
 import { GymLogo, joinAction } from "@/components/community/GymCard";
 import { FormAlert } from "@/components/FormAlert";
+import { usePullToRefresh } from "@/components/PullToRefresh";
 import { codeFromScan, formatCode, membershipButton, roleLabels } from "@/lib/gymRules";
 import { gyms, inviteLink, type Gym, type MyInvitation } from "@/lib/gyms";
 import { useSessionToken } from "@/lib/session";
@@ -99,6 +100,14 @@ export default function JoinGym() {
     return () => clearTimeout(timer);
   }, [tab, search, runSearch]);
 
+  // A pull reads your invitations and the gyms you can share a code for again, and the
+  // search results when that tab is open
+  const reload = useCallback(
+    () => Promise.all([loadInvitations(), loadStaffGyms(), tab === "search" ? runSearch() : undefined]),
+    [loadInvitations, loadStaffGyms, runSearch, tab],
+  );
+  const { refreshControl } = usePullToRefresh(reload);
+
   const act = async (gym: Gym, action: "join" | "request" | "cancel") => {
     setBusyId(gym.id);
     const token = await getToken();
@@ -147,7 +156,7 @@ export default function JoinGym() {
           <View className="screen-bar__spacer" />
         </View>
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-          <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 32, gap: 16 }} keyboardShouldPersistTaps="handled">
+          <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 32, gap: 16 }} keyboardShouldPersistTaps="handled" refreshControl={refreshControl}>
             <View className="segment" accessibilityRole="tablist">
               {tabs.map((item) => (
                 <Pressable key={item.key} onPress={() => { setTab(item.key); setError(null); }} className={tab === item.key ? "segment__item segment__item--active" : "segment__item"} accessibilityRole="tab" accessibilityState={{ selected: tab === item.key }}>

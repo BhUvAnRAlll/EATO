@@ -11,6 +11,7 @@ import { EmptyState } from "@/components/community/CommunityStates";
 import { PostCard } from "@/components/community/PostCard";
 import { PostMenu } from "@/components/community/PostMenu";
 import { FormAlert } from "@/components/FormAlert";
+import { usePullToRefresh } from "@/components/PullToRefresh";
 import { community, timeAgo, type Comment, type Post } from "@/lib/community";
 import { useMe } from "@/lib/me";
 import { useSessionToken } from "@/lib/session";
@@ -60,6 +61,9 @@ export default function PostComments() {
       load();
     }, [load]),
   );
+
+  // A pull reads the post and the first page of comments again (the post stays on screen meanwhile)
+  const { refreshControl } = usePullToRefresh(load);
 
   const loadMore = async () => {
     if (!cursor) return;
@@ -195,6 +199,7 @@ export default function PostComments() {
                   </Pressable>
                 </View>
               )}
+              refreshControl={refreshControl}
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
             />

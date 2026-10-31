@@ -6,6 +6,7 @@ import { SymbolView } from "@/components/SymbolView";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 
 import { EmptyState, PostSkeleton } from "@/components/community/CommunityStates";
+import { usePullToRefresh } from "@/components/PullToRefresh";
 import { gyms, type Gym } from "@/lib/gyms";
 import { useSessionToken } from "@/lib/session";
 import { colors } from "@/theme";
@@ -15,13 +16,15 @@ type ManageShellProps = {
   // Who may open the page: gym admins (manage), or staff who can invite
   need?: "manage" | "invite";
   children: (gym: Gym, reload: () => Promise<void>, setGym: (gym: Gym) => void) => ReactNode;
+  // What the page reads besides the gym (members, announcements...), read again on pull to refresh
+  onRefresh?: () => Promise<unknown>;
   footer?: (gym: Gym) => ReactNode;
 };
 
 // The frame shared by a gym's staff pages: a bar with the title and the gym's name, the gym
 // loaded (again each time the page is shown), and a friendly refusal for anyone without the
 // role. The server checks every change again whatever this shows.
-export function ManageShell({ title, need = "manage", children, footer }: ManageShellProps) {
+export function ManageShell({ title, need = "manage", children, footer, onRefresh }: ManageShellProps) {
   const { id } = useLocalSearchParams<{ id: string }>();
   const getToken = useSessionToken();
   const [gym, setGym] = useState<Gym | null>(null);
@@ -41,6 +44,10 @@ export function ManageShell({ title, need = "manage", children, footer }: Manage
       return () => clearTimeout(timer);
     }, [load]),
   );
+
+  // A pull reads the gym and, when the page has some, its own data
+  const refresh = useCallback(() => Promise.all([load(), onRefresh?.()]), [load, onRefresh]);
+  const { refreshControl } = usePullToRefresh(refresh);
 
   const allowed = gym ? (need === "manage" ? gym.can.manage : gym.can.invite) : false;
 
@@ -66,7 +73,7 @@ export function ManageShell({ title, need = "manage", children, footer }: Manage
           </View>
         ) : (
           <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-            <ScrollView contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
+            <ScrollView contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 40 }} keyboardShouldPersistTaps="handled" refreshControl={refreshControl}>
               {children(gym, load, setGym)}
             </ScrollView>
             {footer && <View className="compose__footer">{footer(gym)}</View>}

@@ -12,6 +12,7 @@ import { GymLogo } from "@/components/community/GymCard";
 import { timeAgo } from "@/lib/community";
 import { ConfirmSheet } from "@/components/community/ConfirmSheet";
 import { FormAlert } from "@/components/FormAlert";
+import { usePullToRefresh } from "@/components/PullToRefresh";
 import { formatCode, inviteMessage, roleLabels } from "@/lib/gymRules";
 import { gyms, type Gym, type Invitation } from "@/lib/gyms";
 import { useSessionToken } from "@/lib/session";
@@ -65,6 +66,9 @@ export default function InviteToGym() {
       load();
     }, [load]),
   );
+
+  // A pull reads the gym (its code) and the invitations list again
+  const { refreshControl } = usePullToRefresh(load);
 
   const linkFor = (code: string) => Linking.createURL(`/community/gyms/invite/${code}`);
 
@@ -134,7 +138,7 @@ export default function InviteToGym() {
           <View className="screen-bar__spacer" />
         </View>
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-          <ScrollView contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
+          <ScrollView contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 40 }} keyboardShouldPersistTaps="handled" refreshControl={refreshControl}>
             <View className="segment" accessibilityRole="tablist">
               {tabs.map((item) => (
                 <Pressable key={item.key} onPress={() => setTab(item.key)} className={tab === item.key ? "segment__item segment__item--active" : "segment__item"} accessibilityRole="tab" accessibilityState={{ selected: tab === item.key }}>

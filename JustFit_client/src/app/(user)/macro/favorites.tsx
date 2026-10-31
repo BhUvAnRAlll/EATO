@@ -9,6 +9,7 @@ import { DashedBlock } from "@/components/macro/DashedBlock";
 import { FoodCard } from "@/components/macro/FoodCard";
 import { MacroHeader } from "@/components/macro/MacroHeader";
 import { Segmented } from "@/components/macro/Segmented";
+import { usePullToRefresh } from "@/components/PullToRefresh";
 import { loggedAtFor, macro, slotForNow, slotInfo, slots, todayIso, type Favorite, type Slot } from "@/lib/macro";
 import { useSessionToken } from "@/lib/session";
 import { useMacroStore } from "@/store/macro";
@@ -30,20 +31,20 @@ export default function Favorites() {
   // Two per row, never wider than 200
   const cardWidth = Math.min(200, Math.floor((width - 32 - 12) / 2));
 
+  const load = useCallback(async () => {
+    const result = await macro.favorites(await getToken().catch(() => null));
+    if (result.ok) setFavorites(result.data.favorites);
+    else setError(result.error);
+  }, [getToken]);
+
   useFocusEffect(
     useCallback(() => {
-      let cancelled = false;
-      (async () => {
-        const result = await macro.favorites(await getToken().catch(() => null));
-        if (cancelled) return;
-        if (result.ok) setFavorites(result.data.favorites);
-        else setError(result.error);
-      })();
-      return () => {
-        cancelled = true;
-      };
-    }, [getToken]),
+      load();
+    }, [load]),
   );
+
+  // A pull reads the favourites again
+  const { refreshControl } = usePullToRefresh(load);
 
   // The heart removes the favourite at once and puts it back if the server says no
   const unheart = async (favorite: Favorite) => {
@@ -83,7 +84,7 @@ export default function Favorites() {
           </View>
         ) : (
           <>
-            <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24, gap: 16 }} showsVerticalScrollIndicator={false}>
+            <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24, gap: 16 }} showsVerticalScrollIndicator={false} refreshControl={refreshControl}>
               {favorites.length === 0 ? (
                 <DashedBlock icon={{ ios: "heart", android: "favorite_border", web: "favorite_border" }} title="No favourites yet" text="Tap the heart on a recent meal to save it here." />
               ) : (

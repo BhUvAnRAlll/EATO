@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Switch, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, Switch, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "expo-router";
 
@@ -9,6 +9,7 @@ import { EmptyState } from "@/components/community/CommunityStates";
 import { ConfirmSheet } from "@/components/community/ConfirmSheet";
 import { FormAlert } from "@/components/FormAlert";
 import { OwnerHeader } from "@/components/owner/OwnerHeader";
+import { usePullToRefresh } from "@/components/PullToRefresh";
 import { isOffline, timeAgo } from "@/lib/community";
 import { owner, type ReviewPost, type ReviewQueue } from "@/lib/owner";
 import { useSessionToken } from "@/lib/session";
@@ -58,7 +59,6 @@ export default function OwnerReview() {
   const [notice, setNotice] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<{ post: ReviewPost; action: "reject" | "remove" } | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
     if (!gymId) return;
@@ -75,6 +75,7 @@ export default function OwnerReview() {
       return () => clearTimeout(timer);
     }, [load]),
   );
+  const { refreshControl } = usePullToRefresh(load);
 
   const act = async (post: ReviewPost, action: Action) => {
     if (!gymId || busyId) return;
@@ -106,7 +107,7 @@ export default function OwnerReview() {
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.cream }} edges={["top", "left", "right"]}>
       <ScrollView
         contentContainerStyle={{ paddingBottom: 24 }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} tintColor={colors.forest} />}
+        refreshControl={refreshControl}
       >
         <OwnerHeader title="Review" subtitle="Posts waiting for your approval, and posts members reported." />
         {!data ? (

@@ -40,11 +40,12 @@ export default function OwnerMembers() {
     return () => clearTimeout(timer);
   }, [load]);
 
-  // A change here (approve, role, remove) also changes Home's counts and the tab badge
-  const changed = async () => {
+  // A change here (approve, role, remove) also changes Home's counts and the tab badge; a pull
+  // reads the same (the manager adds its own lists)
+  const changed = useCallback(async () => {
     await load();
     await loadSummary(await getToken());
-  };
+  }, [load, loadSummary, getToken]);
 
   const links = (
     <View className="mx-5 mt-4 flex-row flex-wrap gap-2">
@@ -75,7 +76,7 @@ export default function OwnerMembers() {
           </View>
         ) : gym ? (
           // Remount when the list changes (all ↔ requests), so the manager starts there
-          <GymMembersManager key={list ?? "all"} gym={gym} getToken={getToken} onChanged={changed} start={list === "pending" ? "pending" : "active"} />
+          <GymMembersManager key={list ?? "all"} gym={gym} getToken={getToken} onChanged={changed} onRefresh={changed} start={list === "pending" ? "pending" : "active"} />
         ) : error ? (
           <View className="px-5">
             <EmptyState icon={{ ios: "exclamationmark.triangle", android: "error_outline", web: "error_outline" }} title="Couldn't load" text={error} actionLabel="Retry" onAction={load} />

@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { router, useFocusEffect } from "expo-router";
 
+import { usePullToRefresh } from "@/components/PullToRefresh";
 import { BarChart } from "@/components/admin/BarChart";
 import { DashedBlock } from "@/components/macro/DashedBlock";
 import { SymbolView } from "@/components/SymbolView";
@@ -38,6 +39,9 @@ export default function AiUsageScreen() {
       refresh(period);
     }, [refresh, period]),
   );
+  // A pull reads the period that is showing again
+  const reload = useCallback(() => refresh(period), [refresh, period]);
+  const { refreshControl } = usePullToRefresh(reload);
 
   const pick = (p: Period) => {
     setPeriod(p);
@@ -58,7 +62,7 @@ export default function AiUsageScreen() {
           </Pressable>
         </View>
 
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40, gap: 16 }} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40, gap: 16 }} showsVerticalScrollIndicator={false} refreshControl={refreshControl}>
           {load.state === "loading" ? (
             <View className="items-center gap-3 py-16">
               <ActivityIndicator color={colors.forest} />

@@ -8,6 +8,7 @@ import { Avatar } from "@/components/community/Avatar";
 import { ConfirmSheet } from "@/components/community/ConfirmSheet";
 import { EmptyState } from "@/components/community/CommunityStates";
 import { FormAlert } from "@/components/FormAlert";
+import { usePullToRefresh } from "@/components/PullToRefresh";
 import { timeAgo } from "@/lib/community";
 import { owner, type CustomAnswer, type TeamQuestion } from "@/lib/owner";
 import { useSessionToken } from "@/lib/session";
@@ -80,6 +81,7 @@ export default function OwnerAssistant() {
     const timer = setTimeout(load, 0);
     return () => clearTimeout(timer);
   }, [load]);
+  const { refreshControl } = usePullToRefresh(load);
 
   const done = async (message: string) => {
     setNotice(message);
@@ -153,7 +155,7 @@ export default function OwnerAssistant() {
         )}
       </View>
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={{ padding: 16, gap: 14 }} keyboardShouldPersistTaps="handled">
+        <ScrollView contentContainerStyle={{ padding: 16, gap: 14 }} keyboardShouldPersistTaps="handled" refreshControl={refreshControl}>
           <Text className="owner__subtitle">The assistant answers from your gym profile (hours, prices, facilities, events). Add custom answers for anything else; it uses them first.</Text>
           <View className="segment" accessibilityRole="tablist">
             {(["questions", "answers"] as const).map((key) => {

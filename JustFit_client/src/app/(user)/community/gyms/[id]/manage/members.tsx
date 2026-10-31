@@ -1,3 +1,4 @@
+import { useCallback, useRef } from "react";
 import { useLocalSearchParams } from "expo-router";
 
 import { GymMembersManager } from "@/components/gyms/GymMembersManager";
@@ -9,9 +10,12 @@ import { useSessionToken } from "@/lib/session";
 export default function ManageMembers() {
   const { list } = useLocalSearchParams<{ list?: string }>();
   const getToken = useSessionToken();
+  // A pull on the shell reads the member lists again as well as the gym
+  const reloadLists = useRef<(() => Promise<unknown>) | null>(null);
+  const onRefresh = useCallback(() => reloadLists.current?.() ?? Promise.resolve(), []);
   return (
-    <ManageShell title="Members">
-      {(gym, reload) => <GymMembersManager gym={gym} getToken={getToken} onChanged={reload} start={list === "pending" ? "pending" : "active"} />}
+    <ManageShell title="Members" onRefresh={onRefresh}>
+      {(gym, reload) => <GymMembersManager gym={gym} getToken={getToken} onChanged={reload} start={list === "pending" ? "pending" : "active"} reloadRef={reloadLists} />}
     </ManageShell>
   );
 }

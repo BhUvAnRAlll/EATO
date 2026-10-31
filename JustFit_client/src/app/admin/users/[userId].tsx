@@ -6,6 +6,7 @@ import { SymbolView } from "@/components/SymbolView";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 
 import { FormAlert } from "@/components/FormAlert";
+import { usePullToRefresh } from "@/components/PullToRefresh";
 import { Avatar } from "@/components/community/Avatar";
 import { ConfirmSheet } from "@/components/community/ConfirmSheet";
 import { DashedBlock } from "@/components/macro/DashedBlock";
@@ -44,6 +45,7 @@ export default function AdminUserDetail() {
       load();
     }, [load]),
   );
+  const { refreshControl } = usePullToRefresh(load);
 
   const setSuspended = async (suspended: boolean) => {
     if (!user || busy) return;
@@ -80,7 +82,7 @@ export default function AdminUserDetail() {
             )}
           </View>
         ) : (
-          <ScrollView contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+          <ScrollView contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: 40 }} showsVerticalScrollIndicator={false} refreshControl={refreshControl}>
             <View className="admin-list flex-row items-center gap-3" style={{ padding: 16 }}>
               <Avatar member={{ id: user.id, name: user.name, initial: user.name.charAt(0).toUpperCase() }} size={64} />
               <View className="min-w-0 flex-1 gap-1.5">

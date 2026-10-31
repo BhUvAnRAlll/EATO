@@ -5,6 +5,7 @@ import { StatusBar } from "expo-status-bar";
 import { SymbolView } from "@/components/SymbolView";
 import { router, useFocusEffect } from "expo-router";
 
+import { usePullToRefresh } from "@/components/PullToRefresh";
 import { Avatar } from "@/components/community/Avatar";
 import { DashedBlock } from "@/components/macro/DashedBlock";
 import { KIND_LABEL, adminPortal, type AdminUserRow, type UserFilter } from "@/lib/adminPortal";
@@ -46,12 +47,13 @@ export default function AdminUsers() {
       refresh();
     }, [refresh]),
   );
+  const { refreshControl } = usePullToRefresh(refresh);
 
   return (
     <View className="flex-1 bg-cream">
       <StatusBar style="dark" />
       <SafeAreaView style={{ flex: 1 }} edges={["top", "left", "right"]}>
-        <ScrollView contentContainerStyle={{ paddingBottom: 110, gap: 14 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={{ paddingBottom: 110, gap: 14 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} refreshControl={refreshControl}>
           <View className="px-5 pt-2">
             <Text className="type-overline text-muted">justFit admin</Text>
             <Text className="type-title text-forest-ink">Users</Text>

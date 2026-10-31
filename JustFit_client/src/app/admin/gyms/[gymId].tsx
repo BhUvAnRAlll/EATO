@@ -6,6 +6,7 @@ import { SymbolView } from "@/components/SymbolView";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 
 import { FormAlert } from "@/components/FormAlert";
+import { usePullToRefresh } from "@/components/PullToRefresh";
 import { GymStatusPill } from "@/components/admin/GymStatusPill";
 import { Avatar } from "@/components/community/Avatar";
 import { ConfirmSheet } from "@/components/community/ConfirmSheet";
@@ -46,6 +47,7 @@ export default function AdminGymDetail() {
       load();
     }, [load]),
   );
+  const { refreshControl } = usePullToRefresh(load);
 
   const changePlan = async (plan: GymPlan) => {
     if (!gym || busy || plan === gym.plan) return;
@@ -94,7 +96,7 @@ export default function AdminGymDetail() {
             )}
           </View>
         ) : (
-          <ScrollView contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+          <ScrollView contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: 40 }} showsVerticalScrollIndicator={false} refreshControl={refreshControl}>
             <View className="admin-list flex-row items-center gap-3" style={{ padding: 16 }}>
               <View className="admin-gym-badge" style={{ width: 56, height: 56, borderRadius: 14 }}><Text className="admin-gym-badge__label" style={{ fontSize: 18 }}>{gymInitials(gym.name)}</Text></View>
               <View className="min-w-0 flex-1 gap-1">

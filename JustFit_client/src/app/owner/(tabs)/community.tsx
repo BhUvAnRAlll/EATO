@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useFocusEffect, type Href } from "expo-router";
 import { SymbolView } from "@/components/SymbolView";
@@ -7,6 +7,7 @@ import { SymbolView } from "@/components/SymbolView";
 import { Avatar } from "@/components/community/Avatar";
 import { EmptyState } from "@/components/community/CommunityStates";
 import { OwnerHeader } from "@/components/owner/OwnerHeader";
+import { usePullToRefresh } from "@/components/PullToRefresh";
 import { isOffline, timeAgo } from "@/lib/community";
 import { owner, type CommunitySummary } from "@/lib/owner";
 import { useSessionToken } from "@/lib/session";
@@ -82,7 +83,6 @@ export default function OwnerCommunity() {
   const gymId = useOwnerStore((state) => state.gymId);
   const [data, setData] = useState<CommunitySummary | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
     if (!gymId) return;
@@ -99,6 +99,7 @@ export default function OwnerCommunity() {
       return () => clearTimeout(timer);
     }, [load]),
   );
+  const { refreshControl } = usePullToRefresh(load);
 
   const memberApp = data?.gym.as !== "platform";
   const button = (action: Action, primary: boolean) => {
@@ -122,7 +123,7 @@ export default function OwnerCommunity() {
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.cream }} edges={["top", "left", "right"]}>
       <ScrollView
         contentContainerStyle={{ paddingBottom: 24 }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} tintColor={colors.forest} />}
+        refreshControl={refreshControl}
       >
         <OwnerHeader title="Community" subtitle="Everything members see in your gym, and where to manage each part." />
         {!data ? (

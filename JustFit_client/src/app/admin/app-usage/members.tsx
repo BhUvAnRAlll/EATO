@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { router, useFocusEffect } from "expo-router";
 
+import { usePullToRefresh } from "@/components/PullToRefresh";
 import { DashedBlock } from "@/components/macro/DashedBlock";
 import { SymbolView } from "@/components/SymbolView";
 import { appUsage, MEMBER_SORT_LABEL, MEMBER_SORTS, type MemberList, type MemberSort } from "@/lib/appUsage";
@@ -43,6 +44,15 @@ export default function MembersUsageScreen() {
   );
 
   const pickSort = (s: MemberSort) => { setSort(s); setPage(1); setLoad({ state: "loading" }); };
+
+  // A pull goes back to the first page with the sort and search as they are: read in place on
+  // page 1, otherwise the page change loads it the way Previous and Next do
+  const reload = useCallback(async () => {
+    if (page === 1) return refresh();
+    setPage(1);
+    setLoad({ state: "loading" });
+  }, [page, refresh]);
+  const { refreshControl } = usePullToRefresh(reload);
   const pages = load.state === "ready" ? Math.max(1, Math.ceil(load.data.total / load.data.pageSize)) : 1;
 
   return (
@@ -57,7 +67,7 @@ export default function MembersUsageScreen() {
           <View style={{ width: 44 }} />
         </View>
 
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40, gap: 12 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40, gap: 12 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" refreshControl={refreshControl}>
           <TextInput value={typed} onChangeText={setTyped} placeholder="Search by name or member id" placeholderTextColor={colors.faint} className="admin__input" accessibilityLabel="Search members" autoCapitalize="none" autoCorrect={false} />
           <View className="flex-row flex-wrap" style={{ gap: 8 }} accessibilityRole="tablist">
             {MEMBER_SORTS.map((s) => (

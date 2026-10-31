@@ -10,6 +10,7 @@ import { Avatar } from "@/components/community/Avatar";
 import { EmptyState } from "@/components/community/CommunityStates";
 import { ConfirmSheet } from "@/components/community/ConfirmSheet";
 import { FormAlert } from "@/components/FormAlert";
+import { usePullToRefresh } from "@/components/PullToRefresh";
 import type { Member } from "@/lib/community";
 import { formatTime, isEventPast } from "@/lib/gymRules";
 import { gyms, type Gym, type GymEvent } from "@/lib/gyms";
@@ -46,6 +47,9 @@ export default function EventScreen() {
       return () => clearTimeout(timer);
     }, [load]),
   );
+
+  // A pull reads the gym and the event (attendees, spots left) again
+  const { refreshControl } = usePullToRefresh(load);
 
   const rsvp = async () => {
     if (!event || busy) return;
@@ -99,7 +103,7 @@ export default function EventScreen() {
           </View>
         ) : (
           <>
-            <ScrollView contentContainerStyle={{ paddingBottom: 24 }}>
+            <ScrollView contentContainerStyle={{ paddingBottom: 24 }} refreshControl={refreshControl}>
               {gym?.coverUrl ? <AuthImage path={gym.coverUrl} style={{ width: "100%", height: 190 }} accessibilityLabel={`${gym.name} cover photo`} /> : null}
               <View className="gap-3 px-5 pt-4">
                 <View className={past ? "gym-badge self-start" : "gym-badge gym-badge--member self-start"}>

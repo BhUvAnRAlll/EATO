@@ -10,6 +10,7 @@ import { CoachAvatar } from "@/components/coach/CoachAvatar";
 import { CoachButton } from "@/components/coach/CoachButton";
 import type { TodayWorkout } from "@/components/coach/PlanTimeline";
 import { TodayOverview } from "@/components/coach/TodayOverview";
+import { usePullToRefresh } from "@/components/PullToRefresh";
 import { coachPrompts, coaches, coachStyles, labelOf, weekdayChoices, type CoachId, type CoachStyle } from "@/data/coach";
 import { coachApi, type Intake, type IntakePrefill, type PlanState } from "@/lib/coach";
 import { macro, todayIso, type DayView } from "@/lib/macro";
@@ -96,6 +97,9 @@ export default function Coach() {
     }, [load]),
   );
 
+  // A pull reads the intake, the plan, today's numbers and the workout again
+  const { refreshControl } = usePullToRefresh(load);
+
   const begin = () => {
     if (!loaded) return;
     start(loaded.intake, loaded.prefill);
@@ -137,7 +141,7 @@ export default function Coach() {
     <View className="coach__page">
       <StatusBar style="dark" />
       <SafeAreaView style={{ flex: 1 }} edges={["top", "left", "right"]}>
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 120, gap: 16 }} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 120, gap: 16 }} showsVerticalScrollIndicator={false} refreshControl={refreshControl}>
           {/* Header: one title, the bell at the right */}
           <View className="flex-row items-center justify-between gap-3">
             <Text className="coach__title" accessibilityRole="header">{intake ? "AI Coach" : "Meet your AI coach"}</Text>

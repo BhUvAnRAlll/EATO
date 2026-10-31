@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, FlatList, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { SymbolView } from "@/components/SymbolView";
@@ -8,6 +8,7 @@ import { router } from "expo-router";
 import { EmptyState } from "@/components/community/CommunityStates";
 import { GymCard } from "@/components/community/GymCard";
 import { FormAlert } from "@/components/FormAlert";
+import { usePullToRefresh } from "@/components/PullToRefresh";
 import { isOffline } from "@/lib/community";
 import { gyms, type Gym } from "@/lib/gyms";
 import { useSessionToken } from "@/lib/session";
@@ -28,7 +29,6 @@ export default function ExploreGyms() {
   const [filter, setFilter] = useState<Filter>("all");
   const [list, setList] = useState<Gym[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -45,11 +45,8 @@ export default function ExploreGyms() {
     return () => clearTimeout(timer);
   }, [load, search]);
 
-  const refresh = async () => {
-    setRefreshing(true);
-    await load();
-    setRefreshing(false);
-  };
+  // A pull reads the gym list again (with the current search)
+  const { refreshControl } = usePullToRefresh(load);
 
   const act = async (gym: Gym, action: "join" | "request" | "cancel") => {
     setBusyId(gym.id);
@@ -120,7 +117,7 @@ export default function ExploreGyms() {
             </View>
           )}
           contentContainerStyle={{ paddingBottom: 24 }}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.forest} />}
+          refreshControl={refreshControl}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         />

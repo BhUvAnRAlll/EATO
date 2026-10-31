@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { router, useFocusEffect } from "expo-router";
 
+import { usePullToRefresh } from "@/components/PullToRefresh";
 import { DashedBlock } from "@/components/macro/DashedBlock";
 import { SymbolView } from "@/components/SymbolView";
 import { aiUsage, inr, type BudgetSettings, type BudgetView } from "@/lib/aiUsage";
@@ -56,6 +57,18 @@ export default function AiBudgetScreen() {
     }, [refresh]),
   );
 
+  // Whether the settings on screen differ from what was loaded (typed, not yet saved)
+  const edited = load.state === "ready" && form !== null && (limitText !== String(load.data.settings.monthlyLimitInr) || rateText !== String(load.data.settings.usdToInr) || switches.some((item) => form[item.key] !== load.data.settings[item.key]));
+
+  // A pull reads the usage and alerts again; the settings form is only replaced when nothing is typed in it
+  const reload = useCallback(async () => {
+    if (!edited) return refresh();
+    const result = await aiUsage.budget(await getToken().catch(() => null));
+    if (result.ok) setLoad({ state: "ready", data: result.data });
+    else setLoad({ state: "failed", error: result.error });
+  }, [edited, refresh, getToken]);
+  const { refreshControl } = usePullToRefresh(reload);
+
   const save = async () => {
     if (!form || saving) return;
     const limit = Number(limitText.replace(/[^0-9.]/g, ""));
@@ -92,7 +105,7 @@ export default function AiBudgetScreen() {
           <View className="screen-bar__spacer" />
         </View>
 
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40, gap: 16 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40, gap: 16 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" refreshControl={refreshControl}>
           {load.state === "loading" ? (
             <View className="items-center py-16"><ActivityIndicator color={colors.forest} /></View>
           ) : load.state === "failed" ? (

@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { ActivityIndicator, Platform, Pressable, RefreshControl, ScrollView, Text, useWindowDimensions, View } from "react-native";
+import { ActivityIndicator, Platform, Pressable, ScrollView, Text, useWindowDimensions, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useFocusEffect } from "expo-router";
 import { SymbolView } from "@/components/SymbolView";
@@ -8,6 +8,7 @@ import { Avatar } from "@/components/community/Avatar";
 import { EmptyState } from "@/components/community/CommunityStates";
 import { OwnerHeader } from "@/components/owner/OwnerHeader";
 import { QrScanner } from "@/components/owner/QrScanner";
+import { usePullToRefresh } from "@/components/PullToRefresh";
 import { isOffline } from "@/lib/community";
 import { durationLabel, owner, refusalTitles, timeLabel, type ActivityItem, type AttendanceToday, type Visit } from "@/lib/owner";
 import { useSessionToken } from "@/lib/session";
@@ -60,7 +61,6 @@ export default function OwnerCheckin() {
   const [data, setData] = useState<AttendanceToday | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
   const tileWidth = useWindowDimensions().width < 360 ? "45%" : "46%";
 
   const load = useCallback(async () => {
@@ -83,6 +83,7 @@ export default function OwnerCheckin() {
       };
     }, [load]),
   );
+  const { refreshControl } = usePullToRefresh(load);
 
   // Back from verification with "Scan again" or "Scan next member": open the scanner
   useFocusEffect(
@@ -117,7 +118,7 @@ export default function OwnerCheckin() {
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.cream }} edges={["top", "left", "right"]}>
       <ScrollView
         contentContainerStyle={{ paddingBottom: 24 }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} tintColor={colors.forest} />}
+        refreshControl={refreshControl}
       >
         <OwnerHeader title="Check-in" subtitle="Scan member QR codes at the front desk and see who's in the gym." />
         <View className="mx-5 mt-4 flex-row gap-3">

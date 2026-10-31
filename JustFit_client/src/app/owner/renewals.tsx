@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, View } from "react-native";
+import { ActivityIndicator, FlatList, Pressable, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { SymbolView } from "@/components/SymbolView";
@@ -8,6 +8,7 @@ import { ActionSheet } from "@/components/community/ActionSheet";
 import { Avatar } from "@/components/community/Avatar";
 import { EmptyState } from "@/components/community/CommunityStates";
 import { FormAlert } from "@/components/FormAlert";
+import { usePullToRefresh } from "@/components/PullToRefresh";
 import { daysLeftLabel, flagLabel, owner, type RenewalFlag, type RenewalRow } from "@/lib/owner";
 import { useSessionToken } from "@/lib/session";
 import { useOwnerStore } from "@/store/owner";
@@ -42,7 +43,6 @@ export default function OwnerRenewals() {
   const [notice, setNotice] = useState<string | null>(null);
   const [selected, setSelected] = useState<RenewalRow | null>(null);
   const [busy, setBusy] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
     if (!gymId) return;
@@ -57,6 +57,7 @@ export default function OwnerRenewals() {
     const timer = setTimeout(load, 0);
     return () => clearTimeout(timer);
   }, [load]);
+  const { refreshControl } = usePullToRefresh(load);
 
   const renew = async (row: RenewalRow, months: 1 | 3) => {
     if (!gymId || busy) return;
@@ -153,17 +154,7 @@ export default function OwnerRenewals() {
           </Pressable>
         )}
         contentContainerStyle={{ paddingBottom: 24 }}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={async () => {
-              setRefreshing(true);
-              await load();
-              setRefreshing(false);
-            }}
-            tintColor={colors.forest}
-          />
-        }
+        refreshControl={refreshControl}
       />
       <ActionSheet
         visible={selected !== null}

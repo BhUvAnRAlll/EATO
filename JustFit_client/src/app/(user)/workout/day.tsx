@@ -7,6 +7,7 @@ import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 
 import { ActionSheet } from "@/components/community/ActionSheet";
 import { DashedBlock } from "@/components/macro/DashedBlock";
+import { usePullToRefresh } from "@/components/PullToRefresh";
 import { WorkoutSheet } from "@/components/workout/WorkoutSheet";
 import { isValidIso, longDate, todayIso } from "@/lib/macro";
 import { useSessionToken } from "@/lib/session";
@@ -81,6 +82,9 @@ export default function TrainingDayScreen() {
     }, [refresh]),
   );
 
+  // A pull reads the day and its running session again
+  const { refreshControl } = usePullToRefresh(refresh);
+
   const back = () => (router.canGoBack() ? router.back() : router.replace("/workout"));
   const when = isToday ? "Today" : longDate(date);
 
@@ -136,7 +140,7 @@ export default function TrainingDayScreen() {
   return (
     <View className="flex-1 bg-cream">
       <StatusBar style="light" />
-      <ScrollView contentContainerStyle={{ paddingBottom: 180 }} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 180 }} showsVerticalScrollIndicator={false} refreshControl={refreshControl}>
         {/* Art: the session's figure on the dark surface (the plan has no photos yet) */}
         <View className="bg-ink" style={{ paddingTop: insets.top + 64, paddingHorizontal: 20, paddingBottom: 48, gap: 12 }}>
           <View className="absolute right-6" style={{ top: insets.top + 56 }}>

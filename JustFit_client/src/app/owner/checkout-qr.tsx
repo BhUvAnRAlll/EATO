@@ -8,6 +8,7 @@ import QRCode from "react-native-qrcode-svg";
 import { EmptyState } from "@/components/community/CommunityStates";
 import { ConfirmSheet } from "@/components/community/ConfirmSheet";
 import { FormAlert } from "@/components/FormAlert";
+import { usePullToRefresh } from "@/components/PullToRefresh";
 import { owner, type CheckoutQr } from "@/lib/owner";
 import { useSessionToken } from "@/lib/session";
 import { useOwnerStore } from "@/store/owner";
@@ -36,6 +37,7 @@ export default function OwnerCheckoutQr() {
     const timer = setTimeout(load, 0);
     return () => clearTimeout(timer);
   }, [load]);
+  const { refreshControl } = usePullToRefresh(load);
 
   const toggle = async (enabled: boolean) => {
     if (!gymId || busy) return;
@@ -65,7 +67,7 @@ export default function OwnerCheckoutQr() {
         <Text className="screen-bar__title">Check-out QR</Text>
         <View className="screen-bar__spacer" />
       </View>
-      <ScrollView contentContainerStyle={{ padding: 16, gap: 14 }}>
+      <ScrollView contentContainerStyle={{ padding: 16, gap: 14 }} refreshControl={refreshControl}>
         {error && qr && <FormAlert message={error} />}
         {!qr ? (
           error ? (

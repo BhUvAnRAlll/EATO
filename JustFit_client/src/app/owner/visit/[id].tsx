@@ -8,6 +8,7 @@ import { Avatar } from "@/components/community/Avatar";
 import { EmptyState } from "@/components/community/CommunityStates";
 import { ConfirmSheet } from "@/components/community/ConfirmSheet";
 import { FormAlert } from "@/components/FormAlert";
+import { usePullToRefresh } from "@/components/PullToRefresh";
 import { durationLabel, owner, timeLabel, type Visit } from "@/lib/owner";
 import { useSessionToken } from "@/lib/session";
 import { useOwnerStore } from "@/store/owner";
@@ -39,6 +40,7 @@ export default function OwnerVisit() {
     const timer = setTimeout(load, 0);
     return () => clearTimeout(timer);
   }, [load]);
+  const { refreshControl } = usePullToRefresh(load);
 
   const end = async () => {
     if (!gymId || !id) return;
@@ -72,7 +74,7 @@ export default function OwnerVisit() {
         <Text className="screen-bar__title">Visit</Text>
         <View className="screen-bar__spacer" />
       </View>
-      <ScrollView contentContainerStyle={{ padding: 16, gap: 16 }}>
+      <ScrollView contentContainerStyle={{ padding: 16, gap: 16 }} refreshControl={refreshControl}>
         {error && visit && <FormAlert message={error} />}
         {!visit ? (
           error ? (

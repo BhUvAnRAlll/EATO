@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { SymbolView } from "@/components/SymbolView";
 import QRCode from "react-native-qrcode-svg";
 
+import { usePullToRefresh } from "@/components/PullToRefresh";
 import { owner, type CheckoutQr } from "@/lib/owner";
 import { useSessionToken } from "@/lib/session";
 import { useOwnerStore } from "@/store/owner";
@@ -38,6 +39,8 @@ export default function OwnerDisplay() {
       clearInterval(timer);
     };
   }, [load]);
+  // A pull reads the code again between the 30-second ticks (after it was switched or regenerated)
+  const { refreshControl } = usePullToRefresh(load);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.cream }}>
@@ -48,33 +51,36 @@ export default function OwnerDisplay() {
         <Text className="screen-bar__title">{now.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })}</Text>
         <View className="owner__header-button" />
       </View>
-      <View className="flex-1 items-center justify-center gap-4 px-6">
-        {!qr ? (
-          <ActivityIndicator color={colors.forest} />
-        ) : (
-          <>
-            <View className="gym-logo" style={{ width: 64, height: 64, borderRadius: 18 }}>
-              <Text className="gym-logo__initials">{initials(qr.gym.name)}</Text>
-            </View>
-            <Text className="friend-row__name">{qr.gym.name}</Text>
-            {qr.enabled ? (
-              <>
-                <Text className="owner-display__title">Leaving? Scan to check out</Text>
-                <View className="owner-qr owner-qr--large" accessibilityLabel="Check-out QR code">
-                  <QRCode value={qr.qrText} size={240} color={colors.ink} backgroundColor={colors.white} />
-                </View>
-                <Text className="owner__subtitle text-center">Open justFit → Home → Check out, then point your camera here.</Text>
-                <Text className="owner-stat__label">{qr.checkoutsToday} checked out today</Text>
-              </>
-            ) : (
-              <>
-                <Text className="owner-display__title">Check-out by QR is off</Text>
-                <Text className="owner__subtitle text-center">Please ask the front desk to check you out.</Text>
-              </>
-            )}
-          </>
-        )}
-      </View>
+      {/* Grows to the screen so the content stays centred; the scroll only exists for the pull */}
+      <ScrollView contentContainerStyle={{ flexGrow: 1 }} refreshControl={refreshControl}>
+        <View className="flex-1 items-center justify-center gap-4 px-6">
+          {!qr ? (
+            <ActivityIndicator color={colors.forest} />
+          ) : (
+            <>
+              <View className="gym-logo" style={{ width: 64, height: 64, borderRadius: 18 }}>
+                <Text className="gym-logo__initials">{initials(qr.gym.name)}</Text>
+              </View>
+              <Text className="friend-row__name">{qr.gym.name}</Text>
+              {qr.enabled ? (
+                <>
+                  <Text className="owner-display__title">Leaving? Scan to check out</Text>
+                  <View className="owner-qr owner-qr--large" accessibilityLabel="Check-out QR code">
+                    <QRCode value={qr.qrText} size={240} color={colors.ink} backgroundColor={colors.white} />
+                  </View>
+                  <Text className="owner__subtitle text-center">Open justFit → Home → Check out, then point your camera here.</Text>
+                  <Text className="owner-stat__label">{qr.checkoutsToday} checked out today</Text>
+                </>
+              ) : (
+                <>
+                  <Text className="owner-display__title">Check-out by QR is off</Text>
+                  <Text className="owner__subtitle text-center">Please ask the front desk to check you out.</Text>
+                </>
+              )}
+            </>
+          )}
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }

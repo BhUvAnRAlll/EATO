@@ -9,6 +9,7 @@ import { DashedBlock } from "@/components/macro/DashedBlock";
 import { MacroHeader } from "@/components/macro/MacroHeader";
 import { Ring } from "@/components/macro/Ring";
 import { Segmented } from "@/components/macro/Segmented";
+import { usePullToRefresh } from "@/components/PullToRefresh";
 import { calorieSplit, macro, todayIso, weekdayInitial, whole, type Period, type Summary } from "@/lib/macro";
 import { useSessionToken } from "@/lib/session";
 import { colors } from "@/theme";
@@ -36,18 +37,19 @@ export default function CaloriesMacros() {
   const [summary, setSummary] = useState<Summary | null | undefined>(undefined); // undefined = loading
   const [notice, setNotice] = useState<string | null>(null);
 
+  const load = useCallback(async () => {
+    const result = await macro.summary(await getToken().catch(() => null), period, todayIso());
+    if (result.ok) setSummary(result.data.summary);
+  }, [getToken, period]);
+
   useFocusEffect(
     useCallback(() => {
-      let cancelled = false;
-      (async () => {
-        const result = await macro.summary(await getToken().catch(() => null), period, todayIso());
-        if (!cancelled && result.ok) setSummary(result.data.summary);
-      })();
-      return () => {
-        cancelled = true;
-      };
-    }, [getToken, period]),
+      load();
+    }, [load]),
   );
+
+  // A pull reads the period's summary again
+  const { refreshControl } = usePullToRefresh(load);
 
   const share = async () => {
     if (!summary) return;
@@ -94,7 +96,7 @@ export default function CaloriesMacros() {
           </View>
         ) : (
           <>
-            <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24, gap: 16 }} showsVerticalScrollIndicator={false}>
+            <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24, gap: 16 }} showsVerticalScrollIndicator={false} refreshControl={refreshControl}>
               <Segmented options={periods} value={period} onChange={setPeriod} label="Period" />
               {notice && <Text className="macro__error" accessibilityRole="alert">{notice}</Text>}
               <SplitCard summary={summary} size={ringSize} stroke={stroke} />

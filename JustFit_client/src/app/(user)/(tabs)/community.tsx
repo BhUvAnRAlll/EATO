@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, useWindowDimensions, View } from "react-native";
+import { ActivityIndicator, FlatList, Pressable, Text, useWindowDimensions, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { SymbolView } from "@/components/SymbolView";
@@ -13,6 +13,7 @@ import { PostMenu } from "@/components/community/PostMenu";
 import { QuickPostComposer } from "@/components/community/QuickPostComposer";
 import { StoriesRow } from "@/components/community/StoriesRow";
 import { FormAlert } from "@/components/FormAlert";
+import { usePullToRefresh } from "@/components/PullToRefresh";
 import { community, isOffline, type Post } from "@/lib/community";
 import { useMe } from "@/lib/me";
 import { useSessionToken } from "@/lib/session";
@@ -34,6 +35,7 @@ export default function Community() {
   const getToken = useSessionToken();
   const me = useMe();
   const store = useCommunityStore();
+  const loadFeed = useCommunityStore((state) => state.loadFeed);
   const params = useLocalSearchParams<{ tab?: string }>();
   const [tab, setTab] = useState<Tab>("feed");
 
@@ -44,7 +46,6 @@ export default function Community() {
     const timer = setTimeout(() => setTab(wanted), 0);
     return () => clearTimeout(timer);
   }, [params.tab]);
-  const [refreshing, setRefreshing] = useState(false);
   const [menuPost, setMenuPost] = useState<Post | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -63,12 +64,13 @@ export default function Community() {
     }, [getToken]),
   );
 
-  const refresh = async () => {
-    setRefreshing(true);
+  // A pull (or Retry) reads the feed, the stories row and the badge counts again, past the
+  // freshness window
+  const refresh = useCallback(async () => {
     const token = await getToken();
-    await store.loadFeed(token, { force: true });
-    setRefreshing(false);
-  };
+    await loadFeed(token, { force: true });
+  }, [getToken, loadFeed]);
+  const { refreshControl } = usePullToRefresh(refresh);
 
   // A poll vote answers with the post and its new counts
   const vote = async (post: Post, optionId: string) => {
@@ -201,7 +203,7 @@ export default function Community() {
             )}
             onEndReached={async () => store.loadMoreFeed(await getToken())}
             onEndReachedThreshold={0.4}
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.forest} />}
+            refreshControl={refreshControl}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           />

@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, Switch, Text, useWindowDimensions, View } from "react-native";
+import { ActivityIndicator, FlatList, Pressable, Switch, Text, useWindowDimensions, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { SymbolView } from "@/components/SymbolView";
@@ -13,6 +13,7 @@ import { EmptyState, PostSkeleton } from "@/components/community/CommunityStates
 import { PostCard } from "@/components/community/PostCard";
 import { StoryAvatar } from "@/components/community/StoryAvatar";
 import { FormAlert } from "@/components/FormAlert";
+import { usePullToRefresh } from "@/components/PullToRefresh";
 import { community, isOffline, type Post, type Profile } from "@/lib/community";
 import { friendButton, friendConfirm, messageLockText } from "@/lib/friends";
 import { useSessionToken } from "@/lib/session";
@@ -33,7 +34,6 @@ export default function ProfileScreen() {
   const [cursor, setCursor] = useState<string | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [error, setError] = useState<string | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuPost, setMenuPost] = useState<Post | null>(null);
@@ -81,11 +81,8 @@ export default function ProfileScreen() {
     }, [load]),
   );
 
-  const refresh = async () => {
-    setRefreshing(true);
-    await load();
-    setRefreshing(false);
-  };
+  // A pull reads the profile, its posts and tagged posts again
+  const { refreshControl } = usePullToRefresh(load);
 
   const loadMore = async () => {
     if (tab === "tagged") {
@@ -349,7 +346,7 @@ export default function ProfileScreen() {
                 <PostCard post={item} width={width - 32} onLike={() => like(item)} onOpenComments={() => router.push({ pathname: "/community/post/[id]", params: { id: item.id } })} onMenu={() => setMenuPost(item)} />
               </View>
             )}
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.forest} />}
+            refreshControl={refreshControl}
             showsVerticalScrollIndicator={false}
           />
         )}

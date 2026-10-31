@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { router, useFocusEffect } from "expo-router";
 
+import { usePullToRefresh } from "@/components/PullToRefresh";
 import { DashedBlock } from "@/components/macro/DashedBlock";
 import { SymbolView } from "@/components/SymbolView";
 import { appUsage, cohortText, type CohortUnit, type Retention } from "@/lib/appUsage";
@@ -34,6 +35,9 @@ export default function RetentionScreen() {
       refresh(unit);
     }, [refresh, unit]),
   );
+  // A pull reads the grouping that is showing again
+  const reload = useCallback(() => refresh(unit), [refresh, unit]);
+  const { refreshControl } = usePullToRefresh(reload);
 
   const pick = (u: CohortUnit) => {
     setUnit(u);
@@ -53,7 +57,7 @@ export default function RetentionScreen() {
           <View style={{ width: 44 }} />
         </View>
 
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40, gap: 16 }} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40, gap: 16 }} showsVerticalScrollIndicator={false} refreshControl={refreshControl}>
           <View className="flex-row rounded-full bg-cream-tab p-1" accessibilityRole="tablist">
             {units.map((u) => (
               <Pressable key={u} onPress={() => pick(u)} className={unit === u ? "admin-segment admin-segment--on" : "admin-segment"} accessibilityRole="tab" accessibilityState={{ selected: unit === u }} accessibilityLabel={UNIT_LABEL[u]}>

@@ -6,6 +6,7 @@ import { SymbolView } from "@/components/SymbolView";
 
 import { Avatar } from "@/components/community/Avatar";
 import { EmptyState } from "@/components/community/CommunityStates";
+import { usePullToRefresh } from "@/components/PullToRefresh";
 import { durationLabel, owner, timeLabel, type Visit } from "@/lib/owner";
 import { useSessionToken } from "@/lib/session";
 import { useOwnerStore } from "@/store/owner";
@@ -41,6 +42,8 @@ export default function OwnerToday() {
     const timer = setTimeout(load, search ? 300 : 0);
     return () => clearTimeout(timer);
   }, [load, search]);
+  // A pull re-reads the list with the filter and search as they are now
+  const { refreshControl } = usePullToRefresh(load);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.cream }} edges={["top", "left", "right"]}>
@@ -107,6 +110,7 @@ export default function OwnerToday() {
         }}
         contentContainerStyle={{ paddingBottom: 24 }}
         keyboardShouldPersistTaps="handled"
+        refreshControl={refreshControl}
       />
     </SafeAreaView>
   );

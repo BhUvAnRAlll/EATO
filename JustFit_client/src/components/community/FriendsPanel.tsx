@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type ReactElement } from "react";
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, FlatList, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { SymbolView } from "@/components/SymbolView";
 import { router } from "expo-router";
 
@@ -7,9 +7,11 @@ import { Avatar } from "@/components/community/Avatar";
 import { EmptyState } from "@/components/community/CommunityStates";
 import { ConfirmSheet } from "@/components/community/ConfirmSheet";
 import { FormAlert } from "@/components/FormAlert";
+import { usePullToRefresh } from "@/components/PullToRefresh";
 import { community, isOffline, timeAgo, type FriendState, type Member } from "@/lib/community";
 import { friendButton, friendConfirm } from "@/lib/friends";
 import { useSessionToken } from "@/lib/session";
+import { useCommunityStore } from "@/store/community";
 import { colors } from "@/theme";
 
 type Filter = "suggested" | "friends" | "sent";
@@ -32,12 +34,12 @@ const filters = (counts: { friends: number; sent: number } | null): { key: Filte
 
 export function FriendsPanel({ header }: { header: ReactElement }) {
   const getToken = useSessionToken();
+  const loadUnread = useCommunityStore((state) => state.loadUnread);
   const [filter, setFilter] = useState<Filter>("suggested");
   const [search, setSearch] = useState("");
   const [rows, setRows] = useState<Row[] | null>(null);
   const [counts, setCounts] = useState<{ friends: number; sent: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [pending, setPending] = useState<Pending | null>(null);
 
@@ -69,11 +71,11 @@ export function FriendsPanel({ header }: { header: ReactElement }) {
     return () => clearTimeout(timer);
   }, [load, search]);
 
-  const refresh = async () => {
-    setRefreshing(true);
-    await load();
-    setRefreshing(false);
-  };
+  // A pull reads the open list again, and the badge counts in the header above it
+  const refresh = useCallback(async () => {
+    await Promise.all([load(), getToken().then(loadUnread)]);
+  }, [load, getToken, loadUnread]);
+  const { refreshControl } = usePullToRefresh(refresh);
 
   // Runs one friendship change. Suggestions and search results keep the row and show the
   // server's new state on it (Add Friend → Requested), since a reload would drop anyone with an
@@ -205,7 +207,7 @@ export function FriendsPanel({ header }: { header: ReactElement }) {
             </View>
           );
         }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.forest} />}
+        refreshControl={refreshControl}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       />

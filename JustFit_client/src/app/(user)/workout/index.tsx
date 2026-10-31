@@ -9,6 +9,7 @@ import * as Haptics from "expo-haptics";
 import { IconButton } from "@/components/IconButton";
 import { DashedBlock } from "@/components/macro/DashedBlock";
 import { ProgramCard } from "@/components/ProgramCard";
+import { usePullToRefresh } from "@/components/PullToRefresh";
 import { WorkoutSheet } from "@/components/workout/WorkoutSheet";
 import { addDays, dateOf, todayIso } from "@/lib/macro";
 import { useSessionToken } from "@/lib/session";
@@ -90,6 +91,9 @@ export default function WorkoutHub() {
     }, [refresh]),
   );
 
+  // A pull reads the plan, the week and the last seven days again
+  const { refreshControl } = usePullToRefresh(refresh);
+
   const retry = () => {
     setLoad({ state: "loading" });
     refresh();
@@ -123,7 +127,7 @@ export default function WorkoutHub() {
     <View className="flex-1 bg-cream">
       <StatusBar style="dark" />
       <SafeAreaView style={{ flex: 1 }} edges={["top", "left", "right"]}>
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40, gap: 20 }} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40, gap: 20 }} showsVerticalScrollIndicator={false} refreshControl={refreshControl}>
           {/* Opened from Profile (no longer a tab), so it has a way back; preferences only once
               there is a plan to change */}
           <View className="app-bar">

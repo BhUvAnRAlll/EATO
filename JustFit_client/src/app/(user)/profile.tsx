@@ -8,6 +8,7 @@ import { router, useFocusEffect, type Href } from "expo-router";
 import { IconButton } from "@/components/IconButton";
 import { MetricCard } from "@/components/MetricCard";
 import { PrimaryButton } from "@/components/PrimaryButton";
+import { usePullToRefresh } from "@/components/PullToRefresh";
 import { accountContact } from "@/lib/me";
 import { fetchProfile, type SavedProfile } from "@/lib/profile";
 import { scanFieldsFromSaved } from "@/lib/profileScan";
@@ -48,24 +49,24 @@ export default function Profile() {
   const [loadError, setLoadError] = useState<string | null>(null);
 
   // Reloaded whenever Profile shows, so a scan saved a moment ago appears at once
+  const load = useCallback(async () => {
+    const result = await fetchProfile(await getToken());
+    if (result.ok) {
+      setSaved(result.data.profile);
+      setLoadError(null);
+    } else {
+      setLoadError(result.error);
+    }
+  }, [getToken]);
+
   useFocusEffect(
     useCallback(() => {
-      let active = true;
-      (async () => {
-        const result = await fetchProfile(await getToken());
-        if (!active) return;
-        if (result.ok) {
-          setSaved(result.data.profile);
-          setLoadError(null);
-        } else {
-          setLoadError(result.error);
-        }
-      })();
-      return () => {
-        active = false;
-      };
-    }, [getToken]),
+      load();
+    }, [load]),
   );
+
+  // A pull reads the saved profile again
+  const { refreshControl } = usePullToRefresh(load);
 
   // The scan screens read height, weight, age and gender from the setup store, as in setup:
   // fill it from the saved profile, then open the same instructions → photos → report screens
@@ -118,7 +119,7 @@ export default function Profile() {
           <View style={{ width: 44 }} />
         </View>
 
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 32 }} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 32 }} showsVerticalScrollIndicator={false} refreshControl={refreshControl}>
           {/* The member */}
           <View className="card flex-row items-center gap-3.5">
             <View className="home__avatar" style={{ width: 56, height: 56 }}>

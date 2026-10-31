@@ -14,6 +14,7 @@ import { TodayRingsCard } from "@/components/home/TodayRingsCard";
 import { WeeklyActivityCard } from "@/components/home/WeeklyActivityCard";
 import { WorkoutHeroCard } from "@/components/home/WorkoutHeroCard";
 import { ActiveVisitCard } from "@/components/owner/ActiveVisitCard";
+import { usePullToRefresh } from "@/components/PullToRefresh";
 import { routeFor, sampleDeliveryPincode, sampleMeals, sampleNutrition, sampleTodayOrder } from "@/data/home";
 import { formatShortDate } from "@/lib/date";
 import { todayIso } from "@/lib/macro";
@@ -75,6 +76,14 @@ export default function Home() {
     return () => subscription.remove();
   }, [getToken, load]);
 
+  // A pull reads everything again, past the freshness window: the content, promotions and
+  // today's numbers (a forced load reads the same numbers refreshIntake does)
+  const reload = useCallback(async () => {
+    const token = await getToken().catch(() => null);
+    await load(token, { force: true });
+  }, [getToken, load]);
+  const { refreshControl } = usePullToRefresh(reload);
+
   // Only destinations the app knows are ever opened (see destinationRoutes)
   const open = (destination: string) => {
     const href = routeFor(destination);
@@ -102,7 +111,7 @@ export default function Home() {
     <View className="flex-1 bg-cream">
       <StatusBar style="dark" />
       <SafeAreaView style={{ flex: 1 }} edges={["top", "left", "right"]}>
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 16 }}>
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 16 }} refreshControl={refreshControl}>
           <HomeHeader
             name={firstName}
             pincode={sampleDeliveryPincode}

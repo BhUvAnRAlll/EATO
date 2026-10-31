@@ -9,6 +9,7 @@ import { DashedBlock } from "@/components/macro/DashedBlock";
 import { MacroHeader } from "@/components/macro/MacroHeader";
 import { MealDetailSheet } from "@/components/macro/MealDetailSheet";
 import { Ring } from "@/components/macro/Ring";
+import { usePullToRefresh } from "@/components/PullToRefresh";
 import { clockTime, isValidIso, litres, longDate, macro, slotInfo, timeLabel, todayIso, whole, type DayView, type Meal, type Slot, type WaterDay } from "@/lib/macro";
 import { useSessionToken } from "@/lib/session";
 import { useMacroStore } from "@/store/macro";
@@ -58,6 +59,9 @@ export default function DailyCalories() {
     }, [load]),
   );
 
+  // A pull reads the day and its water again
+  const { refreshControl } = usePullToRefresh(load);
+
   const backToToday = () => {
     jumpToDate(today);
     if (router.canGoBack()) router.back();
@@ -88,7 +92,7 @@ export default function DailyCalories() {
           </View>
         ) : (
           <>
-            <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24, gap: 16, opacity: switching ? 0.55 : 1 }} showsVerticalScrollIndicator={false}>
+            <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24, gap: 16, opacity: switching ? 0.55 : 1 }} showsVerticalScrollIndicator={false} refreshControl={refreshControl}>
               <Hero day={showing} />
               {water && water.date === showing.date && <WaterCard water={water} />}
               <MacrosCard day={showing} />

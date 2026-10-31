@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type RefObject } from "react";
 import { ActivityIndicator, Modal, Pressable, Switch, Text, TextInput, View } from "react-native";
 import { SymbolView } from "@/components/SymbolView";
 
@@ -12,11 +12,12 @@ import { colors, switchColors } from "@/theme";
 const input = { borderRadius: 14, borderWidth: 1, borderColor: colors.creamLine, backgroundColor: colors.white, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, color: colors.forestInk } as const;
 
 // composeSignal: bump it (the page's "New announcement" button) to open a blank editor
-type Props = { gymId: string; getToken: () => Promise<string | null>; composeSignal?: number };
+// reloadRef: the page hands it to ManageShell's pull to refresh, which reads the list again
+type Props = { gymId: string; getToken: () => Promise<string | null>; composeSignal?: number; reloadRef?: RefObject<(() => Promise<unknown>) | null> };
 
 // Announcements: write one (optionally pinned), edit, pin or unpin, delete. They show at the top
 // of the gym feed, pinned first. The editor opens in a sheet.
-export function GymAnnouncementsManager({ gymId, getToken, composeSignal = 0 }: Props) {
+export function GymAnnouncementsManager({ gymId, getToken, composeSignal = 0, reloadRef }: Props) {
   const [composing, setComposing] = useState(false);
   const [items, setItems] = useState<Announcement[] | null>(null);
   const [editing, setEditing] = useState<Announcement | null>(null);
@@ -38,6 +39,10 @@ export function GymAnnouncementsManager({ gymId, getToken, composeSignal = 0 }: 
     const timer = setTimeout(load, 0);
     return () => clearTimeout(timer);
   }, [load]);
+
+  useEffect(() => {
+    if (reloadRef) reloadRef.current = load;
+  }, [reloadRef, load]);
 
   const reset = () => {
     setEditing(null);

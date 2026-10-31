@@ -6,6 +6,7 @@ import { SymbolView } from "@/components/SymbolView";
 import QRCode from "react-native-qrcode-svg";
 
 import { EmptyState } from "@/components/community/CommunityStates";
+import { usePullToRefresh } from "@/components/PullToRefresh";
 import { owner } from "@/lib/owner";
 import { useSessionToken } from "@/lib/session";
 import { colors } from "@/theme";
@@ -34,6 +35,9 @@ export default function MyQr() {
     };
   }, [load]);
 
+  // A pull asks for a fresh pass without waiting for the next minute
+  const { refreshControl } = usePullToRefresh(load);
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.cream }}>
       <View className="screen-bar">
@@ -43,7 +47,7 @@ export default function MyQr() {
         <Text className="screen-bar__title">My QR code</Text>
         <View className="screen-bar__spacer" />
       </View>
-      <ScrollView contentContainerStyle={{ padding: 16, gap: 16, alignItems: "center", flexGrow: 1, justifyContent: "center" }}>
+      <ScrollView contentContainerStyle={{ padding: 16, gap: 16, alignItems: "center", flexGrow: 1, justifyContent: "center" }} refreshControl={refreshControl}>
         {pass ? (
           <>
             <Text className="owner-display__title">Show this at the front desk</Text>

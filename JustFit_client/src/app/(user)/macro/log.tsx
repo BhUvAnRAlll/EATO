@@ -7,6 +7,7 @@ import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 
 import { MacroHeader } from "@/components/macro/MacroHeader";
 import { MealDetailSheet } from "@/components/macro/MealDetailSheet";
+import { usePullToRefresh } from "@/components/PullToRefresh";
 import { dayLabel, macro, slotInfo, todayIso, whole, type Meal } from "@/lib/macro";
 import { useSessionToken } from "@/lib/session";
 import { colors } from "@/theme";
@@ -37,6 +38,9 @@ export default function LogFood() {
     }, [load]),
   );
 
+  // A pull reads the recent meals and the hearts again
+  const { refreshControl } = usePullToRefresh(load);
+
   // The heart: updates at once, then follows the server's answer
   const toggleHeart = async (meal: Meal) => {
     const key = `meal:${meal.id}`;
@@ -59,7 +63,7 @@ export default function LogFood() {
       <StatusBar style="dark" />
       <SafeAreaView style={{ flex: 1 }}>
         <MacroHeader title="Log food" />
-        <ScrollView contentContainerStyle={{ paddingBottom: 24, gap: 18 }} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={{ paddingBottom: 24, gap: 18 }} showsVerticalScrollIndicator={false} refreshControl={refreshControl}>
           <View className="gap-3 px-5">
             <Text className="type-headline text-forest-ink">How would you like to log?</Text>
 

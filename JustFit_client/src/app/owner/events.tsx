@@ -1,11 +1,12 @@
 import { useCallback, useState } from "react";
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useFocusEffect } from "expo-router";
 import { SymbolView } from "@/components/SymbolView";
 
 import { EmptyState } from "@/components/community/CommunityStates";
 import { GymEventsTab } from "@/components/gyms/GymEventsTab";
+import { usePullToRefresh } from "@/components/PullToRefresh";
 import { splitEvents } from "@/lib/gymRules";
 import { gyms, type Gym, type GymEvent } from "@/lib/gyms";
 import { useSessionToken } from "@/lib/session";
@@ -21,7 +22,6 @@ export default function OwnerEvents() {
   const [events, setEvents] = useState<GymEvent[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
     if (!gymId) return;
@@ -39,6 +39,7 @@ export default function OwnerEvents() {
       return () => clearTimeout(timer);
     }, [load]),
   );
+  const { refreshControl } = usePullToRefresh(load);
 
   const rsvp = async (event: GymEvent) => {
     if (!gymId) return;
@@ -63,7 +64,7 @@ export default function OwnerEvents() {
       </View>
       <ScrollView
         contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: 32 }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} tintColor={colors.forest} />}
+        refreshControl={refreshControl}
       >
         <Text className="owner__subtitle">Classes, workshops and meetups members can RSVP to.</Text>
         {!gym || !events ? (

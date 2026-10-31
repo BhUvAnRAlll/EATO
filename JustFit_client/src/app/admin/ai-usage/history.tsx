@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { router } from "expo-router";
 
+import { usePullToRefresh } from "@/components/PullToRefresh";
 import { DashedBlock } from "@/components/macro/DashedBlock";
 import { SymbolView } from "@/components/SymbolView";
 import { FEATURE_SHORT, PROVIDER_LABEL, STATUS_LABEL } from "@/data/aiUsage";
@@ -39,22 +40,35 @@ export default function AiUsageHistory() {
     return () => clearTimeout(timer);
   }, [search]);
 
+  // One page of the history for some filters, as a load state
+  const read = useCallback(async (f: HistoryFilters): Promise<Load> => {
+    const result = await aiUsage.history(await getToken().catch(() => null), f);
+    return result.ok ? { state: "ready", data: result.data } : { state: "failed", error: result.error };
+  }, [getToken]);
+
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      const result = await aiUsage.history(await getToken().catch(() => null), filters);
-      if (cancelled) return;
-      setLoad(result.ok ? { state: "ready", data: result.data } : { state: "failed", error: result.error });
-    })();
+    read(filters).then((next) => {
+      if (!cancelled) setLoad(next);
+    });
     return () => {
       cancelled = true;
     };
-  }, [filters, getToken]);
+  }, [filters, read]);
 
   const change = (patch: Partial<HistoryFilters>) => {
     setLoad({ state: "loading" });
     setFilters((f) => ({ ...f, ...patch, page: patch.page ?? 1 }));
   };
+
+  // A pull goes back to the first page with the filters as they are: read in place on page 1,
+  // otherwise the page change loads it the way Previous and Next do
+  const reload = useCallback(async () => {
+    if (filters.page === 1) return setLoad(await read(filters));
+    setLoad({ state: "loading" });
+    setFilters((f) => ({ ...f, page: 1 }));
+  }, [filters, read]);
+  const { refreshControl } = usePullToRefresh(reload);
 
   const pages = load.state === "ready" ? Math.max(1, Math.ceil(load.data.total / load.data.pageSize)) : 1;
 
@@ -70,7 +84,7 @@ export default function AiUsageHistory() {
           <View className="screen-bar__spacer" />
         </View>
 
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40, gap: 12 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40, gap: 12 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" refreshControl={refreshControl}>
           <View className="search search--pill">
             <SymbolView name={{ ios: "magnifyingglass", android: "search", web: "search" }} size={18} tintColor={colors.muted} />
             <TextInput

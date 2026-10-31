@@ -51,7 +51,7 @@ export default function ManageGym() {
     router.push({ pathname: `/community/gyms/[id]/manage/${path}`, params: { id, ...params } });
 
   return (
-    <ManageShell title="Manage Gym">
+    <ManageShell title="Manage Gym" onRefresh={loadCounts}>
       {(gym: Gym) => {
         const plan = plans.find((p) => p.id === gym.plan);
         const n = counts;

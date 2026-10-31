@@ -8,6 +8,7 @@ import { router, useFocusEffect } from "expo-router";
 import { Avatar } from "@/components/community/Avatar";
 import { EmptyState } from "@/components/community/CommunityStates";
 import { FormAlert } from "@/components/FormAlert";
+import { usePullToRefresh } from "@/components/PullToRefresh";
 import { community, type CloseFriend } from "@/lib/community";
 import { useSessionToken } from "@/lib/session";
 import { colors } from "@/theme";
@@ -36,6 +37,9 @@ export default function CloseFriends() {
       load();
     }, [load]),
   );
+
+  // A pull reads the followers and who is a close friend again
+  const { refreshControl } = usePullToRefresh(load);
 
   const toggle = async (entry: CloseFriend) => {
     if (busyId) return;
@@ -67,6 +71,7 @@ export default function CloseFriends() {
             data={entries}
             keyExtractor={(entry) => entry.member.id}
             contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24 }}
+            refreshControl={refreshControl}
             ListHeaderComponent={
               <View className="gap-3 pb-4">
                 <View className="setup__info">

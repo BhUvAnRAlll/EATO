@@ -1,5 +1,5 @@
 import { useCallback, useState, type ReactElement } from "react";
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 import { SymbolView } from "@/components/SymbolView";
 import { router, useFocusEffect } from "expo-router";
 
@@ -7,9 +7,11 @@ import { Avatar } from "@/components/community/Avatar";
 import { EmptyState } from "@/components/community/CommunityStates";
 import { GymCard, GymLogo, GymTile } from "@/components/community/GymCard";
 import { FormAlert } from "@/components/FormAlert";
+import { usePullToRefresh } from "@/components/PullToRefresh";
 import { isOffline } from "@/lib/community";
 import { gyms, type Gym, type MyInvitation } from "@/lib/gyms";
 import { useSessionToken } from "@/lib/session";
+import { useCommunityStore } from "@/store/community";
 import { useOwnerStore } from "@/store/owner";
 import { colors } from "@/theme";
 
@@ -20,10 +22,10 @@ const PREVIEW = 4; // gyms in the Explore preview (two rows of two)
 // `header` is the Community header, drawn above so the page scrolls as one.
 export function GymsPanel({ header }: { header: ReactElement }) {
   const getToken = useSessionToken();
+  const loadUnread = useCommunityStore((state) => state.loadUnread);
   const [lists, setLists] = useState<{ mine: Gym[]; explore: Gym[] } | null>(null);
   const [invitations, setInvitations] = useState<MyInvitation[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -45,11 +47,11 @@ export function GymsPanel({ header }: { header: ReactElement }) {
     }, [load]),
   );
 
-  const refresh = async () => {
-    setRefreshing(true);
-    await load();
-    setRefreshing(false);
-  };
+  // A pull reads the gyms and invitations again, and the badge counts in the header above them
+  const refresh = useCallback(async () => {
+    await Promise.all([load(), getToken().then(loadUnread)]);
+  }, [load, getToken, loadUnread]);
+  const { refreshControl } = usePullToRefresh(refresh);
 
   // Join, ask to join, or withdraw a request; the server answers with the gym as it now stands
   const act = async (gym: Gym, action: "join" | "request" | "cancel") => {
@@ -68,7 +70,7 @@ export function GymsPanel({ header }: { header: ReactElement }) {
   return (
     <ScrollView
       contentContainerStyle={{ paddingBottom: 24 }}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.forest} />}
+      refreshControl={refreshControl}
       showsVerticalScrollIndicator={false}
     >
       {header}

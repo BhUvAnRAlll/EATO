@@ -5,6 +5,7 @@ import { StatusBar } from "expo-status-bar";
 import { SymbolView } from "@/components/SymbolView";
 import { router } from "expo-router";
 
+import { usePullToRefresh } from "@/components/PullToRefresh";
 import { colors } from "@/theme";
 
 type AdminScreenProps = {
@@ -12,11 +13,16 @@ type AdminScreenProps = {
   subtitle?: string;
   // Small control on the right of the header (e.g. a "New" button)
   headerRight?: ReactNode;
+  // Reads the screen's data again when it is pulled down (screens that only show a form leave it out)
+  onRefresh?: () => Promise<unknown>;
   children: ReactNode;
 };
 
-// Shared frame for the admin screens: back arrow, title, scrolling content
-export function AdminScreen({ title, subtitle, headerRight, children }: AdminScreenProps) {
+const none = async () => {};
+
+// Shared frame for the admin screens: back arrow, title, scrolling content (pull to refresh with onRefresh)
+export function AdminScreen({ title, subtitle, headerRight, onRefresh, children }: AdminScreenProps) {
+  const { refreshControl } = usePullToRefresh(onRefresh ?? none);
   return (
     <View className="flex-1 bg-cream">
       <StatusBar style="dark" />
@@ -36,6 +42,7 @@ export function AdminScreen({ title, subtitle, headerRight, children }: AdminScr
             contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 32 }}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
+            refreshControl={onRefresh ? refreshControl : undefined}
           >
             {subtitle && <Text className="auth__subtitle mb-4">{subtitle}</Text>}
             {children}

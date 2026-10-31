@@ -1,11 +1,12 @@
-import { useCallback, useState } from "react";
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, useWindowDimensions, View } from "react-native";
+import { useCallback } from "react";
+import { ActivityIndicator, Pressable, ScrollView, Text, useWindowDimensions, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useFocusEffect, type Href } from "expo-router";
 import { SymbolView } from "@/components/SymbolView";
 
 import { EmptyState } from "@/components/community/CommunityStates";
 import { OwnerHeader } from "@/components/owner/OwnerHeader";
+import { usePullToRefresh } from "@/components/PullToRefresh";
 import { isOffline } from "@/lib/community";
 import { monthLabel, type OwnerSummary } from "@/lib/owner";
 import { useSessionToken } from "@/lib/session";
@@ -39,21 +40,17 @@ export default function OwnerHome() {
   const summary = useOwnerStore((state) => state.summary);
   const error = useOwnerStore((state) => state.error);
   const loadSummary = useOwnerStore((state) => state.loadSummary);
-  const [refreshing, setRefreshing] = useState(false);
   // Three tiles a row, or two on narrow phones (so "Upcoming events" never breaks mid-word)
   const tileWidth = useWindowDimensions().width < 360 ? "45%" : "30%";
 
+  // The summary is everything this screen shows, so one read covers a focus, a pull and Retry
+  const load = useCallback(async () => loadSummary(await getToken()), [getToken, loadSummary]);
   useFocusEffect(
     useCallback(() => {
-      (async () => loadSummary(await getToken()))();
-    }, [getToken, loadSummary]),
+      load();
+    }, [load]),
   );
-
-  const refresh = async () => {
-    setRefreshing(true);
-    await loadSummary(await getToken());
-    setRefreshing(false);
-  };
+  const { refreshControl } = usePullToRefresh(load);
 
   // Screens under the member app (manage, invite, events) open for the gym's own staff; an
   // justFit admin helping out sees the dashboard and renewals
@@ -71,7 +68,7 @@ export default function OwnerHome() {
               title={isOffline(error) ? "You're offline" : "Couldn't load"}
               text={error}
               actionLabel="Retry"
-              onAction={refresh}
+              onAction={load}
             />
           ) : (
             <ActivityIndicator color={colors.forest} />
@@ -94,7 +91,7 @@ export default function OwnerHome() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.cream }} edges={["top", "left", "right"]}>
-      <ScrollView contentContainerStyle={{ paddingBottom: 24 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.forest} />}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 24 }} refreshControl={refreshControl}>
         <OwnerHeader title="Home" subtitle="Today at a glance: what needs you and how the gym is doing." />
 
         <View className="mx-5 mt-4 flex-row flex-wrap gap-3">

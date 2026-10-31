@@ -7,6 +7,7 @@ import { router, useFocusEffect } from "expo-router";
 import { SymbolView } from "@/components/SymbolView";
 import { CoachButton } from "@/components/coach/CoachButton";
 import { PlanTimeline } from "@/components/coach/PlanTimeline";
+import { usePullToRefresh } from "@/components/PullToRefresh";
 import { coaches } from "@/data/coach";
 import { track } from "@/lib/analytics";
 import { coachApi, type Intake, type IntakePrefill, type PlanState } from "@/lib/coach";
@@ -51,6 +52,9 @@ export default function MealPlanScreen() {
       load();
     }, [load]),
   );
+
+  // A pull reads the intake and today's plan again
+  const { refreshControl } = usePullToRefresh(load);
 
   const logMeal = async (mealId: string) => {
     if (logging) return;
@@ -116,7 +120,7 @@ export default function MealPlanScreen() {
           )}
         </View>
 
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 32, gap: 16 }} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 32, gap: 16 }} showsVerticalScrollIndicator={false} refreshControl={refreshControl}>
           {!plan && !error && (
             <View className="items-center py-16">
               <ActivityIndicator color={colors.primary} />

@@ -8,6 +8,7 @@ import { useFocusEffect } from "expo-router";
 import { DashedBlock } from "@/components/macro/DashedBlock";
 import { MacroHeader } from "@/components/macro/MacroHeader";
 import { MonthCalendarSheet } from "@/components/macro/MonthCalendarSheet";
+import { usePullToRefresh } from "@/components/PullToRefresh";
 import { clockTime, hourLabel, litres, longDate, macro, todayIso, type WaterDay, type WaterEntry } from "@/lib/macro";
 import { useSessionToken } from "@/lib/session";
 import { useMacroStore } from "@/store/macro";
@@ -47,6 +48,9 @@ export default function Water() {
       load();
     }, [load]),
   );
+
+  // A pull reads the day's water again
+  const { refreshControl } = usePullToRefresh(load);
 
   const log = async (amountMl: number, source: "quick_add" | "custom", label?: string) => {
     if (busy) return;
@@ -99,7 +103,7 @@ export default function Water() {
             <ActivityIndicator color={colors.forest} />
           </View>
         ) : (
-          <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 110, gap: 16, opacity: switching ? 0.55 : 1 }} showsVerticalScrollIndicator={false}>
+          <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 110, gap: 16, opacity: switching ? 0.55 : 1 }} showsVerticalScrollIndicator={false} refreshControl={refreshControl}>
             <ProgressCard day={day} isToday={isToday} />
 
             {isToday && (
