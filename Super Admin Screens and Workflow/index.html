@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>EATO Super Admin Screens</title>
+<style>
+  :root { --bg: #f4f2ee; --card: #fff; --ink: #151515; --muted: #6b6b6b; --line: #e3e0da; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: Inter, -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--ink); padding: 32px 16px 64px; }
+  h1 { margin: 0 0 4px; font-size: 28px; }
+  p.lead { margin: 0 0 28px; color: var(--muted); }
+  h2 { margin: 40px 0 6px; font-size: 20px; }
+  p.flow { margin: 0 0 16px; color: var(--muted); max-width: 900px; line-height: 1.5; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+  figure { margin: 0; background: var(--card); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+  figure img { width: 100%; display: block; aspect-ratio: 1000 / 2800; object-fit: cover; object-position: top; max-height: 560px; }
+  figcaption { padding: 10px 12px 12px; font-size: 13px; }
+  figcaption b { display: block; font-size: 14px; margin-bottom: 2px; }
+  figcaption code { color: var(--muted); font-size: 12px; }
+  a { color: inherit; }
+</style>
+</head>
+<body>
+<h1>EATO Super Admin portal: screens and workflow</h1>
+<p class="lead">Captured from the running prototype at phone width, signed in as the Super admin demo account (Maya Ortiz). Click any image to open it full size. The full written workflow is in <a href="ADMIN_WORKFLOW.md">ADMIN_WORKFLOW.md</a>.</p>
+<h2>1. Overview</h2>
+<p class="flow">Switch account (demo) → Super admin → Overview: stat tiles, Attendance and Kitchen orders buttons, a To-do list that opens the fixing screen, and the admin activity log.</p>
+<div class="grid">
+<figure><a href="screens/00-switch-account-sheet.png"><img src="screens/00-switch-account-sheet.png" alt=""></a><figcaption><b>00 Switch account (demo)</b><code>⇄ on any header</code></figcaption></figure>
+<figure><a href="screens/01-admin-overview.png"><img src="screens/01-admin-overview.png" alt=""></a><figcaption><b>01 Overview</b><code>/admin</code></figcaption></figure>
+</div>
+<h2>2. Users</h2>
+<p class="flow">Search and filter users. Verify trainers, suspend or reinstate accounts. Suspension hides posts and removes trainers from search.</p>
+<div class="grid">
+<figure><a href="screens/02-users.png"><img src="screens/02-users.png" alt=""></a><figcaption><b>02 Users</b><code>/admin/users</code></figcaption></figure>
+<figure><a href="screens/03-user-detail-trainer.png"><img src="screens/03-user-detail-trainer.png" alt=""></a><figcaption><b>03 User detail, trainer</b><code>/admin/users/:userId</code></figcaption></figure>
+<figure><a href="screens/04-user-detail-member.png"><img src="screens/04-user-detail-member.png" alt=""></a><figcaption><b>04 User detail, member</b><code>/admin/users/:userId</code></figcaption></figure>
+</div>
+<h2>3. Gyms</h2>
+<p class="flow">Create a gym (14-day trial, assign owner), change plan (recorded only), suspend a gym to hide it from Explore.</p>
+<div class="grid">
+<figure><a href="screens/05-gyms.png"><img src="screens/05-gyms.png" alt=""></a><figcaption><b>05 Gyms</b><code>/admin/gyms</code></figcaption></figure>
+<figure><a href="screens/06-gym-detail.png"><img src="screens/06-gym-detail.png" alt=""></a><figcaption><b>06 Gym detail</b><code>/admin/gyms/:gymId</code></figcaption></figure>
+<figure><a href="screens/07-create-gym.png"><img src="screens/07-create-gym.png" alt=""></a><figcaption><b>07 Create gym</b><code>/admin/gyms/new</code></figcaption></figure>
+</div>
+<h2>4. Reports</h2>
+<p class="flow">Reports grouped by post with reasons and reporters. Remove, Dismiss, or Suspend the author. Gym posts are shared with the owner's Review queue.</p>
+<div class="grid">
+<figure><a href="screens/08-reports.png"><img src="screens/08-reports.png" alt=""></a><figcaption><b>08 Reports</b><code>/admin/reports</code></figcaption></figure>
+</div>
+<h2>5. Content</h2>
+<p class="flow">Create and edit Home promotions with a live preview. Save draft, publish, pause, reorder. Only live ones show on members' Home.</p>
+<div class="grid">
+<figure><a href="screens/09-content-promotions.png"><img src="screens/09-content-promotions.png" alt=""></a><figcaption><b>09 Content</b><code>/admin/content</code></figcaption></figure>
+<figure><a href="screens/10-promo-editor.png"><img src="screens/10-promo-editor.png" alt=""></a><figcaption><b>10 Promotion editor</b><code>/admin/content/:promoId</code></figcaption></figure>
+<figure><a href="screens/11-new-promotion.png"><img src="screens/11-new-promotion.png" alt=""></a><figcaption><b>11 New promotion</b><code>/admin/content/new</code></figcaption></figure>
+<figure><a href="screens/18-member-home-promotions.png"><img src="screens/18-member-home-promotions.png" alt=""></a><figcaption><b>18 Member Home (result)</b><code>/</code></figcaption></figure>
+</div>
+<h2>6. Kitchen orders</h2>
+<p class="flow">Move trainer-placed meal orders: Start preparing → Send out → Mark delivered. Members track each step.</p>
+<div class="grid">
+<figure><a href="screens/12-kitchen-orders.png"><img src="screens/12-kitchen-orders.png" alt=""></a><figcaption><b>12 Kitchen orders</b><code>/admin/orders</code></figcaption></figure>
+</div>
+<h2>7. Attendance</h2>
+<p class="flow">All gyms or one gym. Today, History, Failed scans, and per-gym check-out QR with download, on/off and regenerate.</p>
+<div class="grid">
+<figure><a href="screens/13-attendance-today.png"><img src="screens/13-attendance-today.png" alt=""></a><figcaption><b>13 Attendance › Today</b><code>/admin/attendance</code></figcaption></figure>
+<figure><a href="screens/14-attendance-history.png"><img src="screens/14-attendance-history.png" alt=""></a><figcaption><b>14 Attendance › History</b><code>/admin/attendance</code></figcaption></figure>
+<figure><a href="screens/15-attendance-failed.png"><img src="screens/15-attendance-failed.png" alt=""></a><figcaption><b>15 Attendance › Failed</b><code>/admin/attendance</code></figcaption></figure>
+<figure><a href="screens/16-attendance-qr.png"><img src="screens/16-attendance-qr.png" alt=""></a><figcaption><b>16 Attendance › QR</b><code>/admin/attendance?view=qr</code></figcaption></figure>
+<figure><a href="screens/17-attendance-visit-detail.png"><img src="screens/17-attendance-visit-detail.png" alt=""></a><figcaption><b>17 Visit detail</b><code>/admin/attendance/visit/:recordId</code></figcaption></figure>
+</div>
+</body>
+</html>

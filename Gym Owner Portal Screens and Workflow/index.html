@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>EATO Gym Owner Portal Screens</title>
+<style>
+  :root { --bg: #f4f2ee; --card: #fff; --ink: #151515; --muted: #6b6b6b; --line: #e3e0da; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: Inter, -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--ink); padding: 32px 16px 64px; }
+  h1 { margin: 0 0 4px; font-size: 28px; }
+  p.lead { margin: 0 0 28px; color: var(--muted); }
+  h2 { margin: 40px 0 6px; font-size: 20px; }
+  p.flow { margin: 0 0 16px; color: var(--muted); max-width: 900px; line-height: 1.5; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+  figure { margin: 0; background: var(--card); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+  figure img { width: 100%; display: block; aspect-ratio: 1000 / 2800; object-fit: cover; object-position: top; max-height: 560px; }
+  figcaption { padding: 10px 12px 12px; font-size: 13px; }
+  figcaption b { display: block; font-size: 14px; margin-bottom: 2px; }
+  figcaption code { color: var(--muted); font-size: 12px; }
+  a { color: inherit; }
+</style>
+</head>
+<body>
+<h1>EATO Gym Owner portal: screens and workflow</h1>
+<p class="lead">Captured from the running prototype at phone width, signed in as the Gym owner demo account (FitZone Fitness). Click any image to open it full size. The full written workflow is in <a href="OWNER_PORTAL_WORKFLOW.md">OWNER_PORTAL_WORKFLOW.md</a>.</p>
+
+<h2>1. Switching in and Home</h2>
+<p class="flow">Switch account (demo) → Gym owner → Home: stat tiles, in the gym now, quick actions (Invite · Announce · Event · Notify), a Needs-your-attention list that opens the fixing screen, new members per month, coaching team, next event.</p>
+<div class="grid">
+<figure><a href="screens/00-switch-account-sheet.png"><img src="screens/00-switch-account-sheet.png" alt=""></a><figcaption><b>00 Switch account (demo)</b><code>⇄ on any header</code></figcaption></figure>
+<figure><a href="screens/01-owner-home.png"><img src="screens/01-owner-home.png" alt=""></a><figcaption><b>01 Home dashboard</b><code>/owner</code></figcaption></figure>
+</div>
+
+<h2>2. Members</h2>
+<p class="flow">Approve or decline join requests, change roles, remove members (owner protected). Renewals lists every package by days left with renew and reminder actions.</p>
+<div class="grid">
+<figure><a href="screens/02-owner-members.png"><img src="screens/02-owner-members.png" alt=""></a><figcaption><b>02 Members tab</b><code>/owner/members</code></figcaption></figure>
+<figure><a href="screens/23-manage-members.png"><img src="screens/23-manage-members.png" alt=""></a><figcaption><b>23 Manage › Members</b><code>/gyms/:id/manage/members</code></figcaption></figure>
+<figure><a href="screens/18-renewals.png"><img src="screens/18-renewals.png" alt=""></a><figcaption><b>18 Renewals</b><code>/owner/renewals</code></figcaption></figure>
+</div>
+
+<h2>3. Check-in (QR attendance)</h2>
+<p class="flow">Scan member QR (simulated) → Verification → Check in → Success → Scan next. Failed scans (inactive, already in, not a member, bad code) are recorded. Today's list and visit details, plus the gym's check-out QR and a front-desk display.</p>
+<div class="grid">
+<figure><a href="screens/03-owner-check-in-tab.png"><img src="screens/03-owner-check-in-tab.png" alt=""></a><figcaption><b>03 Check-in tab</b><code>/owner/attendance</code></figcaption></figure>
+<figure><a href="screens/07-scan-member-qr.png"><img src="screens/07-scan-member-qr.png" alt=""></a><figcaption><b>07 Scan member QR</b><code>/owner/attendance/scan</code></figcaption></figure>
+<figure><a href="screens/08-verification-eligible.png"><img src="screens/08-verification-eligible.png" alt=""></a><figcaption><b>08 Verification, eligible</b><code>/owner/attendance/verify</code></figcaption></figure>
+<figure><a href="screens/09-check-in-success.png"><img src="screens/09-check-in-success.png" alt=""></a><figcaption><b>09 Check-in successful</b><code>/owner/attendance/checked-in/:id</code></figcaption></figure>
+<figure><a href="screens/10-verification-failed.png"><img src="screens/10-verification-failed.png" alt=""></a><figcaption><b>10 Verification failed</b><code>/owner/attendance/verify</code></figcaption></figure>
+<figure><a href="screens/11-todays-list.png"><img src="screens/11-todays-list.png" alt=""></a><figcaption><b>11 Today's list</b><code>/owner/attendance/today</code></figcaption></figure>
+<figure><a href="screens/12-visit-detail.png"><img src="screens/12-visit-detail.png" alt=""></a><figcaption><b>12 Visit detail</b><code>/owner/attendance/visit/:id</code></figcaption></figure>
+<figure><a href="screens/13-checkout-qr.png"><img src="screens/13-checkout-qr.png" alt=""></a><figcaption><b>13 Check-out QR</b><code>/owner/attendance/qr</code></figcaption></figure>
+<figure><a href="screens/14-front-desk-display.png"><img src="screens/14-front-desk-display.png" alt=""></a><figcaption><b>14 Front-desk display</b><code>/owner/attendance/qr/display</code></figcaption></figure>
+</div>
+
+<h2>4. Community</h2>
+<p class="flow">A map of everything members see: gym feed, announcements, events, gym assistant, member notifications, invites, rules and permissions. Each card has a main action and a manage button.</p>
+<div class="grid">
+<figure><a href="screens/04-owner-community.png"><img src="screens/04-owner-community.png" alt=""></a><figcaption><b>04 Community tab</b><code>/owner/community</code></figcaption></figure>
+<figure><a href="screens/15-owner-events.png"><img src="screens/15-owner-events.png" alt=""></a><figcaption><b>15 Events</b><code>/owner/schedule</code></figcaption></figure>
+<figure><a href="screens/28-create-event.png"><img src="screens/28-create-event.png" alt=""></a><figcaption><b>28 Create event</b><code>/gyms/:id/events/new</code></figcaption></figure>
+<figure><a href="screens/16-owner-gym-assistant.png"><img src="screens/16-owner-gym-assistant.png" alt=""></a><figcaption><b>16 Gym assistant (owner)</b><code>/owner/assistant</code></figcaption></figure>
+<figure><a href="screens/17-notify-members.png"><img src="screens/17-notify-members.png" alt=""></a><figcaption><b>17 Notify members</b><code>/owner/notify</code></figcaption></figure>
+<figure><a href="screens/27-invite-members.png"><img src="screens/27-invite-members.png" alt=""></a><figcaption><b>27 Invite members</b><code>/gyms/:id/invite</code></figcaption></figure>
+<figure><a href="screens/25-announcements.png"><img src="screens/25-announcements.png" alt=""></a><figcaption><b>25 Announcements</b><code>/gyms/:id/manage/announcements</code></figcaption></figure>
+<figure><a href="screens/26-community-settings.png"><img src="screens/26-community-settings.png" alt=""></a><figcaption><b>26 Community settings</b><code>/gyms/:id/manage/settings</code></figcaption></figure>
+</div>
+
+<h2>5. Review (moderation)</h2>
+<p class="flow">Toggle review-before-publish. Approve or reject pending member posts. Keep or remove reported posts; EATO's super admins see the same reports.</p>
+<div class="grid">
+<figure><a href="screens/05-owner-review.png"><img src="screens/05-owner-review.png" alt=""></a><figcaption><b>05 Review</b><code>/owner/moderation</code></figcaption></figure>
+</div>
+
+<h2>6. Gym</h2>
+<p class="flow">Links to every gym-level screen: profile, subscription (no payment), trainers, members, invitations, announcements, settings, assistant, invite, check-out QR, and the public gym page as the owner sees it.</p>
+<div class="grid">
+<figure><a href="screens/06-owner-gym.png"><img src="screens/06-owner-gym.png" alt=""></a><figcaption><b>06 Gym tab</b><code>/owner/gym</code></figcaption></figure>
+<figure><a href="screens/19-manage-gym.png"><img src="screens/19-manage-gym.png" alt=""></a><figcaption><b>19 Manage gym</b><code>/gyms/:id/manage</code></figcaption></figure>
+<figure><a href="screens/20-edit-gym-profile.png"><img src="screens/20-edit-gym-profile.png" alt=""></a><figcaption><b>20 Edit gym profile</b><code>/gyms/:id/manage/profile</code></figcaption></figure>
+<figure><a href="screens/21-subscription.png"><img src="screens/21-subscription.png" alt=""></a><figcaption><b>21 Subscription</b><code>/gyms/:id/manage/subscription</code></figcaption></figure>
+<figure><a href="screens/22-manage-trainers.png"><img src="screens/22-manage-trainers.png" alt=""></a><figcaption><b>22 Trainers</b><code>/gyms/:id/manage/trainers</code></figcaption></figure>
+<figure><a href="screens/24-manage-invitations.png"><img src="screens/24-manage-invitations.png" alt=""></a><figcaption><b>24 Invitations</b><code>/gyms/:id/manage/invitations</code></figcaption></figure>
+<figure><a href="screens/29-gym-page-as-owner.png"><img src="screens/29-gym-page-as-owner.png" alt=""></a><figcaption><b>29 Gym page (owner view)</b><code>/gyms/:id</code></figcaption></figure>
+</div>
+</body>
+</html>
