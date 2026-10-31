@@ -178,8 +178,12 @@ describe("ui workout: the Fitness hub and a training day", () => {
     const dayOf = (iso) => state.days.find((d) => d.weekday === weekdayOf(iso));
     await connection.query("INSERT INTO workout_logs (user_id, plan_id, day_id, on_date, status, completed_at) VALUES (?, ?, ?, ?, 'completed', NOW(3))", [identities.a.id, state.planId, dayOf(done).id, done]);
     state.done = done;
-    // Reload the hub (it reads on focus): Workout has no tab bar now, so go Home directly
+    // Reload the hub (it reads on focus): Workout has no tab bar now, so go Home directly.
+    // Home's own workout cards are there: today's workout (or a rest day) and the week's minutes
     await h.goto("/home", "Today's Macros");
+    await h.expectText("Active this week");
+    assert.ok((await page.hasText("Today's workout")) || (await page.hasText("Rest day")), "the workout hero card");
+    await snapshotAllWidths("home-workout-cards");
     await openWorkout();
     await h.expectPath("/workout");
     await h.expectText("History");

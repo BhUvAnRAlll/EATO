@@ -5,15 +5,18 @@ import { StatusBar } from "expo-status-bar";
 import { router, useFocusEffect } from "expo-router";
 
 import { HomeHeader } from "@/components/home/HomeHeader";
-import { NutritionProgressCard } from "@/components/home/NutritionProgressCard";
 import { PopularMealCard } from "@/components/home/PopularMealCard";
 import { PromotionCarousel } from "@/components/home/PromotionCarousel";
 import { QuickActionCard } from "@/components/home/QuickActionCard";
 import { SectionHeader } from "@/components/home/SectionHeader";
 import { TodayMealCard } from "@/components/home/TodayMealCard";
+import { TodayRingsCard } from "@/components/home/TodayRingsCard";
+import { WeeklyActivityCard } from "@/components/home/WeeklyActivityCard";
+import { WorkoutHeroCard } from "@/components/home/WorkoutHeroCard";
 import { ActiveVisitCard } from "@/components/owner/ActiveVisitCard";
 import { routeFor, sampleDeliveryPincode, sampleMeals, sampleNutrition, sampleTodayOrder } from "@/data/home";
 import { formatShortDate } from "@/lib/date";
+import { todayIso } from "@/lib/macro";
 import { firstNameOf } from "@/lib/me";
 import { useSessionToken } from "@/lib/session";
 import { useAuthStore } from "@/store/auth";
@@ -24,13 +27,15 @@ import { useHomeStore } from "@/store/home";
 const PAGE_PADDING = 16;
 const GAP = 8;
 
-// Home for members: hero promotions, quick actions, today's nutrition, popular meals and
-// today's delivery. Promotions and labels come from the server (admins edit them); the
-// nutrition targets are the member's own; orders aren't built yet, so that card is a sample.
+// Home for members (2026-10-31 look): the greeting, then today's rings (calories, protein,
+// water), today's workout as a dark hero, the week's training minutes, hero promotions, quick
+// actions, popular meals and today's delivery. Promotions and labels come from the server
+// (admins edit them); the numbers are the member's own; orders aren't built yet, so that
+// card is a sample.
 export default function Home() {
   const { width } = useWindowDimensions();
   const getToken = useSessionToken();
-  const { promotions, content, nutrition, load, refreshIntake } = useHomeStore();
+  const { promotions, content, nutrition, water, workout, activity, load, refreshIntake } = useHomeStore();
   const cart = useCartStore();
   const [favorites, setFavorites] = useState<string[]>([]);
 
@@ -50,8 +55,8 @@ export default function Home() {
     };
   }, [getToken, load]);
 
-  // Back on Home (after logging a meal or changing the target on the Macro tab): the content
-  // (within its freshness window, or at once after a target change) and today's eaten totals
+  // Back on Home (after logging a meal, a workout, or changing the target): the content
+  // (within its freshness window, or at once after a target change) and today's numbers
   useFocusEffect(
     useCallback(() => {
       (async () => {
@@ -79,6 +84,12 @@ export default function Home() {
   const toggleFavorite = (mealId: string) =>
     setFavorites((current) => (current.includes(mealId) ? current.filter((id) => id !== mealId) : [...current, mealId]));
 
+  // A session still to do opens the player; a rest day or a finished one, the Workout hub
+  const openWorkout = () => {
+    if (workout?.day && workout.status !== "completed" && workout.status !== "rest") router.push({ pathname: "/workout/session", params: { date: todayIso() } });
+    else router.push("/workout");
+  };
+
   const quickActions = content.quickActions;
   // Four cards across on standard phones; below 360pt that leaves under 70pt per card, so
   // narrow phones get two per row (the row wraps, keeping the admin's order)
@@ -104,7 +115,26 @@ export default function Home() {
           {/* The member's active gym session (only while checked in somewhere) */}
           <ActiveVisitCard />
 
-          <View className="mt-3">
+          {/* Today: calories, protein and water against their targets */}
+          <View className="mt-4 px-4">
+            <TodayRingsCard heading={content.nutritionHeading} nutrition={nutrition ?? sampleNutrition} water={water} width={contentWidth} onOpen={() => router.navigate("/macro")} />
+          </View>
+
+          {/* Today's workout (only with a plan) */}
+          {workout && (
+            <View className="mt-3 px-4">
+              <WorkoutHeroCard workout={workout} onOpen={openWorkout} />
+            </View>
+          )}
+
+          {/* Minutes trained this week */}
+          {activity && (
+            <View className="mt-3 px-4">
+              <WeeklyActivityCard activity={activity} onOpen={() => router.push("/workout")} />
+            </View>
+          )}
+
+          <View className="mt-5">
             <PromotionCarousel promotions={promotions} width={width} onOpen={open} />
           </View>
 
@@ -116,18 +146,6 @@ export default function Home() {
               ))}
             </View>
           )}
-
-          {/* Today's nutrition */}
-          <View className="mt-5 px-4">
-            <NutritionProgressCard
-              heading={content.nutritionHeading}
-              actionLabel={content.nutritionActionLabel}
-              nutrition={nutrition ?? sampleNutrition}
-              width={contentWidth}
-              onEditGoal={() => router.push("/goals")}
-              onOpen={() => router.navigate("/macro")}
-            />
-          </View>
 
           {/* Popular meals */}
           <View className="mt-5 px-4">

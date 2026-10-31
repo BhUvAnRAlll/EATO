@@ -351,19 +351,21 @@ Prefer reusable class patterns through utilities in `global.css`. If there isn't
 
 ### Colour theme
 
-Since 2026-10-27 justFit follows the **Peak Fitness** design system (`Peak-Fitness-Design-System.pdf`,
-shared by the user) with one change: its orange is replaced by the **justFit logo red `#D40005`**
-(black was tried on 2026-10-28 and reverted the same day at the user's request).
-White screens, cards outlined with a 1px border (no shadows), one hot red for the main button,
-progress fills, selection, links and the active tab, near-black ink, and pastel tiles for body
-metrics. The palette lives in `src/theme/tokens.css` with a JS copy in `src/theme/index.ts`; keep
-the two in sync and never hard-code a hex value in a screen or component when a token exists.
-The redesign goes screen by screen: the tokens changed first, each screen's layout follows with
-the user's approval.
+Since 2026-10-31 justFit follows the look of the "After" screen the user shared (a Home redesign
+by appbrainy), app-wide, the AI Coach included: a **light grey page** with **white, borderless
+cards** (20 px corners, a very soft shadow), **one accent, the logo red `#D40005`** (where the
+reference used orange), near-black ink, thin progress rings with the value inside and "of target"
+under, soft tinted pills (green for a gain, pink for a heart-rate or alert), photo hero cards with
+an overlay label and a round play button, and a flat white tab bar. This replaced the Peak Fitness
+system of 2026-10-27 and the coach-only pink wash of 2026-10-29; their token names stay.
+The palette lives in `src/theme/tokens.css` with a JS copy in `src/theme/index.ts`; keep the two
+in sync and never hard-code a hex value in a screen or component when a token exists. Layouts
+follow screen by screen (Home first, from the reference); each is verified at 320/390/430.
 
 | Role | Token(s) | Value |
 | --- | --- | --- |
-| Page background, cards and sheets | `cream`, `background`, `surface`, `cream-light` | `#FFFFFF` |
+| Page background | `cream`, `background` | `#F4F4F5` |
+| Cards and sheets | `surface`, `cream-light` | `#FFFFFF` (no border, `shadow-card`) |
 | Filled containers: fields, tiles / tracks, empty bars | `cream-deep`, `surface-alt` / `cream-tab` | `#F4F4F5` / `#E9E9EC` |
 | Borders and dividers / control outlines | `cream-line`, `line`, `sand` / `line-strong` | `#E8E8EA` / `#C9C9CF` |
 | Ink: titles and body | `forest-ink`, `ink`, `leaf-dark` | `#111111` |
@@ -384,10 +386,10 @@ the user's approval.
 - Selected chips and options: `accent-soft` fill with a red (`primary`) outline and ink text.
 - Token names (`forest`, `cream`, `leaf`) come from earlier themes. They keep their roles; only the
   values changed. Use them by role, not by the colour their name suggests.
-- Radius: `sm` 8, `md` 12 (fields, stat cells, thumbnails), `lg` 16 (cards, metric tiles), `xl` 24
+- Radius: `sm` 8, `md` 12 (fields, stat cells, thumbnails), `lg` 20 (cards, metric tiles), `xl` 24
   (dark hero card, sheets), `pill` (buttons, chips, progress bars, icon buttons).
-- Elevation: cards use a 1px border; `shadow-card` is now empty. `shadow-sheet` is only for floating
-  things (bottom nav, mini player), `shadow-glow` only for the main play button.
+- Elevation: cards have no border and a soft `shadow-card`; `shadow-sheet` is for floating things
+  (bottom nav, mini player), `shadow-glow` only for the main play button.
 - Type: Poppins 400/500/600 (`assets/fonts/`, SIL OFL), loaded in `app/_layout.tsx` from
   `constants/fonts.ts`. Each weight is its own family (`--font-sans`, `--font-sans-medium`,
   `--font-sans-semibold`; `fonts.regular|medium|semibold` in code): set the family, never

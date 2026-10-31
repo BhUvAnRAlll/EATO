@@ -10,7 +10,7 @@ export const colors = {
   accentSoft: "#FDEAEA",
   // AI Coach only: the bright start of the button gradient and the page wash
   primaryBright: "#F0262B",
-  coachWash: "#FFF3F3",
+  coachWash: "#F4F4F5",
   ink: "#111111",
   violet: "#7C5CD6",
 
@@ -28,7 +28,7 @@ export const colors = {
   line: "#E8E8EA",
   lineStrong: "#C9C9CF",
   surfaceAlt: "#F4F4F5",
-  background: "#FFFFFF",
+  background: "#F4F4F5",
   surface: "#FFFFFF",
   infoSoft: "#E6EEFD",
 
@@ -51,7 +51,7 @@ export const colors = {
   leafSoft: "#FDEAEA",
   leafDark: "#111111",
 
-  cream: "#FFFFFF",
+  cream: "#F4F4F5",
   creamDeep: "#F4F4F5",
   forest: "#D40005",
   forestInk: "#111111",

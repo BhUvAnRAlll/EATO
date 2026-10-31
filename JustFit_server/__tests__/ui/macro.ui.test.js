@@ -203,11 +203,14 @@ describe("ui macro: the Macro tab hub and logging a meal by hand", () => {
     await h.expectPath("/home");
     await h.expectText("Today's Macros");
     await h.expectText("480 kcal logged today. Tap to see your meals.");
-    // Every row matches the Macro hub: the meal eaten against the same targets (2000 kcal, 150/200/60 g)
-    await h.expectText("/ 2,000 Kcal");
-    for (const label of ["Calories: 480 Kcal", "Protein: 32/150 g", "Carbs: 40/200 g", "Fats: 18/60 g"]) {
-      assert.ok(await page.evaluate(`!!document.querySelector('[aria-label=${JSON.stringify(label)}]')`), `the "${label}" row`);
+    // The rings match the Macro hub: the meal eaten against the same targets (2000 kcal, 150 g protein),
+    // and water against the member's own target
+    await h.expectText("of 2,000 kcal");
+    await h.expectText("1,520 kcal left");
+    for (const label of ["Calories: 480 of 2000 kcal", "Protein: 32 of 150 g"]) {
+      assert.ok(await page.evaluate(`!!document.querySelector('[aria-label=${JSON.stringify(label)}]')`), `the "${label}" ring`);
     }
+    assert.ok(await page.evaluate(`!!document.querySelector('[aria-label^="Water: "]')`), "the water ring");
     assert.equal(await page.hasText("Sample numbers"), false, "real targets, not the sample");
     for (const tile of ["Browse menu", "For your goals", "Track intake", "At your doorstep"]) assert.equal(await page.hasText(tile), false, `the "${tile}" card is gone`);
     await snapshotAllWidths("home-todays-macros");

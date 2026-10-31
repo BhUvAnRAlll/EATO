@@ -19,6 +19,11 @@ router.get("/home", route(async (req, res) => {
   res.json(await plans.home(pool(req), req.userId, v.homeQuery(req.query, Date.now())));
 }));
 
+// Active this week: minutes trained per day, the week's total and last week's to compare
+router.get("/activity", route(async (req, res) => {
+  res.json(await plans.activity(pool(req), req.userId, v.activityQuery(req.query, Date.now())));
+}));
+
 // Recent days that were scheduled or trained, newest first
 router.get("/history", route(async (req, res) => {
   res.json({ days: await plans.history(pool(req), req.userId, v.historyQuery(req.query, Date.now())) });

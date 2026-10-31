@@ -4,6 +4,7 @@ import { defaultHomeContent, defaultPromotions, sampleNutrition, type HomeConten
 import { onAccountCleared, sameAccount } from "@/lib/accountScope";
 import { fetchActivePromotions, fetchHomeContent } from "@/lib/home";
 import { macro, todayIso, type Totals } from "@/lib/macro";
+import { weekOf, workoutApi, type WeekActivity } from "@/lib/workoutApi";
 
 // Everything the home screen loads: promotions, labels, quick actions, popular meals and
 // the member's nutrition targets. Starts with the bundled defaults so the screen never
@@ -15,11 +16,23 @@ import { macro, todayIso, type Totals } from "@/lib/macro";
 // Don't ask the server again within this long of a successful load
 const FRESH_FOR_MS = 60 * 1000;
 
+// Today's workout as Home's hero card shows it (day null on a rest day)
+export type HomeWorkout = {
+  status: "completed" | "in_progress" | "missed" | "planned" | "rest";
+  day: { title: string; minutes: number; exerciseCount: number } | null;
+  level: string;
+};
+
 type HomeState = {
   promotions: Promotion[];
   content: HomeContent;
   // The member's targets with today's intake (null until the first load finishes)
   nutrition: NutritionToday | null;
+  // Today's water against its target (null until loaded, or when Macro has no water target)
+  water: { consumedMl: number; targetMl: number } | null;
+  // Today's workout and the week's minutes (null without a workout plan, or until loaded)
+  workout: HomeWorkout | null;
+  activity: WeekActivity | null;
   // "default" until the first successful load, then "server"
   source: "default" | "server";
   loading: boolean;
@@ -46,10 +59,27 @@ async function nutritionToday(token: string | null): Promise<NutritionToday | nu
   return { consumed: amounts(day.data.totals), targets: amounts(day.data.targets), source: "targets" };
 }
 
+// The other Home cards: water, today's workout and the week's activity. Each stands on its
+// own, so a failure leaves that card out, never the screen.
+async function extrasToday(token: string | null) {
+  const today = todayIso();
+  const [water, home, activity] = await Promise.all([macro.water(token, today), workoutApi.home(token, today, weekOf(today), today), workoutApi.activity(token, today)]);
+  return {
+    water: water.ok && water.data.targetMl > 0 ? { consumedMl: water.data.consumedMl, targetMl: water.data.targetMl } : null,
+    workout: home.ok && home.data.plan
+      ? { status: home.data.status, day: home.data.day ? { title: home.data.day.title, minutes: home.data.day.minutes, exerciseCount: home.data.day.exerciseCount } : null, level: home.data.plan.level }
+      : null,
+    activity: activity.ok ? activity.data : null,
+  };
+}
+
 export const useHomeStore = create<HomeState>((set, get) => ({
   promotions: defaultPromotions,
   content: defaultHomeContent,
   nutrition: null,
+  water: null,
+  workout: null,
+  activity: null,
   source: "default",
   loading: false,
   error: null,
@@ -61,8 +91,9 @@ export const useHomeStore = create<HomeState>((set, get) => ({
     if (!force && loadedAt !== null && Date.now() - loadedAt < FRESH_FOR_MS) return;
     set({ loading: true });
     const stillCurrent = sameAccount();
-    const [promotions, content, today] = await Promise.all([fetchActivePromotions(token), fetchHomeContent(token), nutritionToday(token)]);
+    const [promotions, content, today, extras] = await Promise.all([fetchActivePromotions(token), fetchHomeContent(token), nutritionToday(token), extrasToday(token)]);
     if (!stillCurrent()) return; // signed out meanwhile: these numbers were the previous account's
+    set(extras);
     // A failed refresh keeps the last real numbers; the bundled sample only until the first real load
     const nutrition = today ?? get().nutrition ?? sampleNutrition;
 
@@ -85,11 +116,12 @@ export const useHomeStore = create<HomeState>((set, get) => ({
 
   refreshIntake: async (token) => {
     const stillCurrent = sameAccount();
-    const today = await nutritionToday(token);
-    if (today && stillCurrent()) set({ nutrition: today });
+    const [today, extras] = await Promise.all([nutritionToday(token), extrasToday(token)]);
+    if (!stillCurrent()) return;
+    set({ ...extras, ...(today ? { nutrition: today } : {}) });
   },
 }));
 
 // The member's own numbers go with the account, and the next account loads afresh. The
 // promotions and labels are the same for everyone, so they stay.
-onAccountCleared(() => useHomeStore.setState({ nutrition: null, loading: false, error: null, loadedAt: null }));
+onAccountCleared(() => useHomeStore.setState({ nutrition: null, water: null, workout: null, activity: null, loading: false, error: null, loadedAt: null }));

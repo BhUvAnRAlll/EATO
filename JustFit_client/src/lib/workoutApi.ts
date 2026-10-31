@@ -12,6 +12,15 @@ export type Level = "beginner" | "intermediate" | "advanced";
 export type Goal = "lose_weight" | "build_muscle" | "get_fitter" | "stay_healthy";
 export type Section = "warmup" | "workout" | "cooldown";
 export type DayStatus = "completed" | "in_progress" | "missed" | "planned" | "rest";
+// Active this week (Home's card): Monday to Sunday around today, with last week to compare
+export type WeekActivity = {
+  today: string;
+  week: { date: string; minutes: number }[];
+  totalMinutes: number;
+  previousTotalMinutes: number;
+  // Percent change on last week; null when there was nothing to compare with
+  changePercent: number | null;
+};
 export type WorkoutSet = { reps?: number; durationSec?: number; weightKg?: number };
 
 export type Plan = {
@@ -88,6 +97,11 @@ const signedOut = <T>(): Promise<ApiResult<T>> => Promise.resolve({ ok: false, e
 const query = (params: Record<string, string>) => "?" + Object.entries(params).map(([key, value]) => `${key}=${encodeURIComponent(value)}`).join("&");
 
 export const workoutApi = {
+  // Minutes trained on each day of this week, with last week's total to compare
+  activity(token: string | null, today: string): Promise<ApiResult<WeekActivity>> {
+    if (!token) return signedOut();
+    return apiFetch(`/api/workout/activity${query({ today })}`, { token });
+  },
   home(token: string | null, date: string, dates: string[], today: string): Promise<ApiResult<WorkoutHome>> {
     if (!token) return signedOut();
     return apiFetch(`/api/workout/home${query({ date, dates: dates.join(","), today })}`, { token });

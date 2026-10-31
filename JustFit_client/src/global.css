@@ -181,8 +181,6 @@
 @utility card {
   background-color: var(--color-surface);
   border-radius: var(--radius-lg);
-  border-width: 1px;
-  border-color: var(--color-line);
   padding: var(--spacing-lg);
   box-shadow: var(--shadow-card);
 }
@@ -1034,8 +1032,6 @@
 @utility home__card {
   padding: var(--spacing-lg);
   border-radius: var(--radius-lg);
-  border-width: 1px;
-  border-color: var(--color-cream-line);
   background-color: var(--color-white);
   box-shadow: var(--shadow-card);
 }
@@ -1108,8 +1104,6 @@
 /* Popular meal card */
 @utility meal__card {
   border-radius: var(--radius-lg);
-  border-width: 1px;
-  border-color: var(--color-cream-line);
   background-color: var(--color-white);
   box-shadow: var(--shadow-card);
   overflow: hidden;
@@ -1161,8 +1155,6 @@
 @utility today__card {
   padding: var(--spacing-md);
   border-radius: var(--radius-lg);
-  border-width: 1px;
-  border-color: var(--color-cream-line);
   background-color: var(--color-white);
   box-shadow: var(--shadow-card);
 }
@@ -1311,8 +1303,6 @@
 @utility admin__row {
   padding: var(--spacing-md);
   border-radius: var(--radius-md);
-  border-width: 1px;
-  border-color: var(--color-cream-line);
   background-color: var(--color-white);
   box-shadow: var(--shadow-card);
 }
@@ -1397,8 +1387,6 @@
   padding-inline: var(--spacing-md);
   padding-block: 10px;
   border-radius: var(--radius-md);
-  border-width: 1px;
-  border-color: var(--color-cream-line);
   background-color: var(--color-white);
   box-shadow: var(--shadow-card);
   flex-direction: row;
@@ -3645,8 +3633,7 @@
   padding-block: var(--spacing-md);
   border-radius: var(--radius-md);
   background-color: var(--color-cream-light);
-  border-width: 1px;
-  border-color: var(--color-cream-line);
+  box-shadow: var(--shadow-card);
 }
 
 @utility macro__table-head {
@@ -3722,9 +3709,8 @@
   width: 150px;
   padding: var(--spacing-md);
   border-radius: var(--radius-lg);
-  border-width: 1px;
-  border-color: var(--color-cream-line);
   background-color: var(--color-white);
+  box-shadow: var(--shadow-card);
 }
 
 @utility macro__food-art {
@@ -3786,9 +3772,8 @@
   min-width: 0;
   padding: var(--spacing-md);
   border-radius: var(--radius-md);
-  border-width: 1px;
-  border-color: var(--color-cream-line);
   background-color: var(--color-cream-light);
+  box-shadow: var(--shadow-card);
 }
 
 /* Daily calories: the dark hero card, the macros badge and the meals timeline */
@@ -3845,12 +3830,11 @@
   min-height: 60px;
   padding: var(--spacing-md);
   border-radius: var(--radius-md);
-  border-width: 1px;
-  border-color: var(--color-cream-line);
   background-color: var(--color-white);
   flex-direction: row;
   align-items: center;
   gap: var(--spacing-md);
+  box-shadow: var(--shadow-card);
 }
 
 @utility macro__timeline-card--empty {
@@ -3865,9 +3849,8 @@
   min-width: 0;
   padding: var(--spacing-md);
   border-radius: var(--radius-lg);
-  border-width: 1px;
-  border-color: var(--color-cream-line);
   background-color: var(--color-white);
+  box-shadow: var(--shadow-card);
 }
 
 /* Water: the glass that fills to the day's target */
@@ -3921,12 +3904,11 @@
   flex: 1;
   aspect-ratio: 0.8;
   border-radius: var(--radius-md);
-  border-width: 1px;
-  border-color: var(--color-cream-line);
   background-color: var(--color-white);
   align-items: center;
   justify-content: center;
   gap: 4px;
+  box-shadow: var(--shadow-card);
 }
 
 @utility workout__tile--today {
@@ -4012,9 +3994,8 @@
   padding: 14px;
   gap: 4px;
   border-radius: var(--radius-md);
-  border-width: 1px;
-  border-color: var(--color-cream-line);
   background-color: var(--color-white);
+  box-shadow: var(--shadow-card);
 }
 
 @utility owner-stat--highlight {
@@ -4087,9 +4068,8 @@
   padding: 16px;
   gap: 12px;
   border-radius: var(--radius-lg);
-  border-width: 1px;
-  border-color: var(--color-cream-line);
   background-color: var(--color-white);
+  box-shadow: var(--shadow-card);
 }
 
 @utility owner-chart__track {
@@ -4176,9 +4156,8 @@
   padding: 14px;
   gap: 2px;
   border-radius: var(--radius-md);
-  border-width: 1px;
-  border-color: var(--color-cream-line);
   background-color: var(--color-white);
+  box-shadow: var(--shadow-card);
 }
 
 /* The entry button on Community › Gyms */
@@ -4282,9 +4261,8 @@
 @utility owner-qr {
   padding: 18px;
   border-radius: var(--radius-lg);
-  border-width: 1px;
-  border-color: var(--color-cream-line);
   background-color: var(--color-white);
+  box-shadow: var(--shadow-card);
 }
 
 @utility owner-qr--large {
@@ -4669,9 +4647,8 @@
   gap: 4px;
   padding: var(--spacing-md);
   border-radius: var(--radius-lg);
-  border-width: 1px;
-  border-color: var(--color-cream-line);
   background-color: var(--color-surface);
+  box-shadow: var(--shadow-card);
 }
 
 @utility admin-stat--danger {
@@ -4701,10 +4678,9 @@
 /* A card of rows (To do, Recent admin activity, user and gym lists) */
 @utility admin-list {
   border-radius: var(--radius-lg);
-  border-width: 1px;
-  border-color: var(--color-cream-line);
   background-color: var(--color-surface);
   overflow: hidden;
+  box-shadow: var(--shadow-card);
 }
 
 @utility admin-row {
@@ -4788,6 +4764,25 @@
 @utility admin-segment__label--on {
   font-family: var(--font-sans-semibold);
   color: var(--color-ink);
+}
+
+/* One choice in a row that wraps (App Usage range, Members sort): as wide as its label. No flex
+   basis on purpose: NativeWind drops `flex-basis: auto`, so a segment's `flex: 1` cannot be undone */
+@utility admin-chip {
+  height: 40px;
+  padding-left: 12px;
+  padding-right: 12px;
+  border-radius: var(--radius-md);
+  border-width: 1px;
+  border-color: var(--color-line);
+  background-color: var(--color-surface);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility admin-chip--on {
+  border-width: 1.5px;
+  border-color: var(--color-accent-blue);
 }
 
 /* ---- Super Admin › AI Usage (app/admin/ai-usage; BEM ai-*) ---- */
@@ -5120,9 +5115,8 @@
   padding: var(--spacing-md);
   gap: 6px;
   border-radius: var(--radius-md);
-  border-width: 1px;
-  border-color: var(--color-cream-line);
   background-color: var(--color-surface);
+  box-shadow: var(--shadow-card);
 }
 
 /* Settings-style list row (Profile and other menus): icon, label, chevron, hairline between rows */
@@ -5172,7 +5166,6 @@
 @utility coach__page {
   flex: 1;
   background-color: var(--color-cream);
-  background-image: linear-gradient(180deg, var(--color-coach-wash) 0%, var(--color-cream) 45%, var(--color-coach-wash) 100%);
 }
 
 @utility coach__circle-btn {
@@ -5257,7 +5250,7 @@
 
 @utility coach__option--selected {
   border-color: var(--color-primary);
-  background-color: var(--color-coach-wash);
+  background-color: var(--color-accent-soft);
 }
 
 @utility coach__option-icon {
@@ -5309,11 +5302,10 @@
   height: 60px;
   border-radius: var(--radius-pill);
   background-color: var(--color-primary);
-  background-image: linear-gradient(90deg, var(--color-primary-bright) 0%, var(--color-primary) 100%);
   flex-direction: row;
   align-items: center;
   justify-content: center;
-  box-shadow: var(--shadow-coach-cta);
+  box-shadow: var(--shadow-card);
 }
 
 @utility coach__cta-label {
@@ -5361,7 +5353,6 @@
 
 @utility coach__day--selected {
   background-color: var(--color-primary);
-  background-image: linear-gradient(135deg, var(--color-primary-bright) 0%, var(--color-primary) 100%);
 }
 
 @utility coach__day-label {
@@ -5495,12 +5486,162 @@
 }
 
 /* The coach plan: a meal's Log button (Logged once it is in today's Macro diary) */
+/* The meal plan timeline (the Coach tab's Today): a time column (icon circle, time, red dot,
+   dashed line) beside one white card per meal with a slot pill, the dish, its ingredients,
+   calories, macro chips and the Log Meal button; then the Adjust Plan banner. */
+@utility coach__tl-col {
+  width: 56px;
+  align-items: center;
+  gap: 4px;
+}
+
+@utility coach__tl-icon {
+  width: 46px;
+  height: 46px;
+  border-radius: var(--radius-pill);
+  border-width: 1px;
+  border-color: var(--color-line);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility coach__tl-time {
+  font-family: var(--font-sans-medium);
+  font-size: 13px;
+  line-height: 16px;
+  color: var(--color-forest-ink);
+}
+
+@utility coach__tl-dot {
+  width: 8px;
+  height: 8px;
+  margin-top: 4px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-primary);
+}
+
+/* 1 px wide with a dashed border on every side, which draws as a dashed vertical line on iOS,
+   Android and the web alike */
+@utility coach__tl-line {
+  flex: 1;
+  width: 1px;
+  margin-top: 4px;
+  border-width: 1px;
+  border-style: dashed;
+  border-radius: 1px;
+  border-color: var(--color-line-strong);
+}
+
+@utility coach__meal-card {
+  padding: 16px;
+  border-radius: var(--radius-lg);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-coach-card);
+  gap: 8px;
+}
+
+@utility coach__slot-pill {
+  align-self: flex-start;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-cream-deep);
+}
+
+@utility coach__slot-pill-label {
+  font-family: var(--font-sans-medium);
+  font-size: 11px;
+  line-height: 14px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+@utility coach__meal-kcal {
+  font-family: var(--font-sans-medium);
+  font-size: 15px;
+  line-height: 20px;
+  color: var(--color-forest-ink);
+}
+
+@utility coach__meal-name {
+  font-family: var(--font-sans-semibold);
+  font-size: 20px;
+  line-height: 26px;
+  color: var(--color-forest-ink);
+}
+
+@utility coach__meal-ings {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--color-muted);
+}
+
+@utility coach__macro-chip {
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  background-color: var(--color-cream-deep);
+}
+
+@utility coach__macro-chip-label {
+  font-family: var(--font-sans-medium);
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--color-forest-ink);
+}
+
+@utility coach__log--meal {
+  height: 44px;
+  padding-inline: 20px;
+  border-radius: var(--radius-pill);
+}
+
+@utility coach__banner {
+  padding: 14px 16px;
+  border-radius: var(--radius-lg);
+  background-color: var(--color-accent-soft);
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+}
+
+@utility coach__banner-title {
+  font-family: var(--font-sans-semibold);
+  font-size: 15px;
+  line-height: 20px;
+  color: var(--color-forest-ink);
+}
+
+@utility coach__banner-text {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--color-muted);
+}
+
+@utility coach__banner-btn {
+  height: 40px;
+  padding-inline: 16px;
+  border-radius: var(--radius-pill);
+  border-width: 1.5px;
+  border-color: var(--color-primary);
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+}
+
+@utility coach__banner-btn-label {
+  font-family: var(--font-sans-semibold);
+  font-size: 14px;
+  line-height: 18px;
+  color: var(--color-primary-text);
+}
+
 @utility coach__log {
   height: 34px;
   padding-inline: 14px;
   border-radius: var(--radius-pill);
   background-color: var(--color-primary);
-  background-image: linear-gradient(90deg, var(--color-primary-bright) 0%, var(--color-primary) 100%);
   flex-direction: row;
   align-items: center;
   gap: 4px;
@@ -5567,7 +5708,6 @@
   height: 44px;
   border-radius: var(--radius-pill);
   background-color: var(--color-primary);
-  background-image: linear-gradient(135deg, var(--color-primary-bright) 0%, var(--color-primary) 100%);
   align-items: center;
   justify-content: center;
 }
@@ -5844,7 +5984,6 @@
   border-bottom-left-radius: 18px;
   border-bottom-right-radius: 6px;
   background-color: var(--color-primary);
-  background-image: linear-gradient(135deg, var(--color-primary-bright) 0%, var(--color-primary) 100%);
 }
 
 @utility coach__bubble--failed {
@@ -5867,10 +6006,9 @@
 @utility activity-card {
   background-color: var(--color-surface);
   border-radius: var(--radius-lg);
-  border-width: 1px;
-  border-color: var(--color-line);
   padding: var(--spacing-sm);
   padding-bottom: var(--spacing-md);
+  box-shadow: var(--shadow-card);
 }
 
 @utility activity-card__hero {
@@ -6008,9 +6146,8 @@
   padding: var(--spacing-sm);
   padding-right: var(--spacing-lg);
   border-radius: var(--radius-lg);
-  border-width: 1px;
-  border-color: var(--color-line);
   background-color: var(--color-surface);
+  box-shadow: var(--shadow-card);
 }
 
 @utility program-card__thumb {
@@ -6111,4 +6248,116 @@
 @utility screen-bar__spacer {
   width: 44px;
   height: 44px;
+}
+
+/* ---- Home, 2026-10-31 look: grey page, white borderless cards, rings, a dark hero, weekly bars ---- */
+@utility home__card-title {
+  font-family: var(--font-sans-semibold);
+  font-size: 17px;
+  line-height: 22px;
+  color: var(--color-ink);
+}
+@utility home__pill-soft {
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+  height: 28px;
+  padding-inline: 10px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-accent-soft);
+}
+@utility home__pill-soft--grey {
+  background-color: var(--color-surface-alt);
+}
+@utility home__pill-soft-label {
+  font-family: var(--font-sans-semibold);
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--color-primary-text);
+}
+@utility home__pill-soft-label--grey {
+  color: var(--color-muted);
+}
+@utility home__ring-value {
+  font-family: var(--font-sans-semibold);
+  font-size: 16px;
+  line-height: 20px;
+  color: var(--color-ink);
+  padding-inline: 8px;
+}
+@utility home__ring-label {
+  font-family: var(--font-sans-medium);
+  font-size: 13px;
+  line-height: 17px;
+  color: var(--color-ink);
+}
+@utility home__ring-of {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  line-height: 14px;
+  color: var(--color-faint);
+}
+@utility home__stat-big {
+  font-family: var(--font-sans-semibold);
+  font-size: 30px;
+  line-height: 36px;
+  color: var(--color-ink);
+}
+@utility home__stat-unit {
+  font-family: var(--font-sans-medium);
+  font-size: 15px;
+  line-height: 20px;
+  color: var(--color-muted);
+}
+@utility home__bar {
+  width: 100%;
+  max-width: 28px;
+  border-radius: 8px;
+  background-color: var(--color-cream-tab);
+}
+@utility home__bar--filled {
+  background-color: var(--color-line-strong);
+}
+@utility home__bar--today {
+  background-color: var(--color-primary);
+}
+@utility home__bar-label {
+  font-family: var(--font-sans-medium);
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--color-faint);
+}
+@utility home__bar-label--today {
+  color: var(--color-primary-text);
+}
+@utility home__hero {
+  padding: var(--spacing-lg);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-inverse);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+@utility home__hero-title {
+  font-family: var(--font-sans-semibold);
+  font-size: 22px;
+  line-height: 27px;
+  color: var(--color-white);
+}
+@utility home__hero-meta {
+  margin-top: 4px;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 19px;
+  color: var(--color-on-inverse-muted);
+}
+@utility home__play {
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-primary);
+  align-items: center;
+  justify-content: center;
+}
+@utility home__play--done {
+  background-color: var(--color-success);
 }

@@ -8,7 +8,7 @@ import { router, useFocusEffect } from "expo-router";
 import { ChangeCoachSheet } from "@/components/coach/ChangeCoachSheet";
 import { CoachAvatar } from "@/components/coach/CoachAvatar";
 import { CoachButton } from "@/components/coach/CoachButton";
-import { PlanTimeline, type TodayWorkout } from "@/components/coach/PlanTimeline";
+import { WorkoutCard, type TodayWorkout } from "@/components/coach/PlanTimeline";
 import { TodayOverview } from "@/components/coach/TodayOverview";
 import { coachPrompts, coaches, coachStyles, labelOf, weekdayChoices, type CoachId, type CoachStyle } from "@/data/coach";
 import { coachApi, type Intake, type IntakePrefill, type PlanState } from "@/lib/coach";
@@ -55,7 +55,6 @@ export default function Coach() {
   const [tab, setTab] = useState<PlanTab>("today");
   const [error, setError] = useState<string | null>(null);
   const [making, setMaking] = useState(false);
-  const [logging, setLogging] = useState<string | null>(null);
   const [planError, setPlanError] = useState<string | null>(null);
   const [changing, setChanging] = useState(false);
   const [savingCoach, setSavingCoach] = useState(false);
@@ -108,21 +107,6 @@ export default function Coach() {
     if (!result.ok) return setPlanError(result.status ? result.error : OFFLINE);
     setPlan(result.data);
     loadWorkout(token, todayIso());
-  };
-
-  const logMeal = async (mealId: string) => {
-    if (logging) return;
-    setPlanError(null);
-    setLogging(mealId);
-    const token = await getToken().catch(() => null);
-    const result = await coachApi.logMeal(token, mealId, todayIso());
-    setLogging(null);
-    if (!result.ok) return setPlanError(result.status ? result.error : OFFLINE);
-    setPlan((current) =>
-      current?.plan ? { ...current, plan: { ...current.plan, meals: current.plan.meals.map((m) => (m.id === mealId ? { ...m, logged: true } : m)) } } : current,
-    );
-    const dayResult = await macro.day(token, todayIso());
-    if (dayResult.ok) setDay(dayResult.data);
   };
 
   // A new coach starts a new conversation: the old chat was with someone else
@@ -260,13 +244,23 @@ export default function Coach() {
                   {tab === "today" && (
                     <>
                       <Text className="coach__option-note" numberOfLines={3}>{plan.plan.message}</Text>
-                      <PlanTimeline
-                        plan={plan.plan}
-                        workout={workout}
-                        logging={logging}
-                        onLog={logMeal}
-                        onStartWorkout={() => router.push({ pathname: "/workout/session", params: { date: todayIso() } })}
-                      />
+                      <Pressable
+                        onPress={() => router.push("/coach/meal-plan")}
+                        className="coach__option"
+                        accessibilityRole="button"
+                        accessibilityLabel="Open meal plan"
+                        accessibilityHint={`${plan.plan.meals.length} meals, ${plan.plan.totals.kcal} kcal, ${plan.plan.meals.filter((m) => m.logged).length} of ${plan.plan.meals.length} logged`}
+                      >
+                        <View className="coach__option-icon h-11 w-11">
+                          <SymbolView name={{ ios: "fork.knife", android: "restaurant", web: "restaurant" }} size={20} tintColor={colors.primary} />
+                        </View>
+                        <View className="min-w-0 flex-1 gap-0.5">
+                          <Text className="coach__option-title">Meal plan</Text>
+                          <Text className="coach__option-note" numberOfLines={1}>{`${plan.plan.meals.length} meals · ${plan.plan.totals.kcal.toLocaleString("en-IN")} kcal · ${plan.plan.meals.filter((m) => m.logged).length} of ${plan.plan.meals.length} logged`}</Text>
+                        </View>
+                        <SymbolView name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }} size={14} tintColor={colors.faint} />
+                      </Pressable>
+                      {workout && <WorkoutCard workout={workout} onStart={() => router.push({ pathname: "/workout/session", params: { date: todayIso() } })} />}
                     </>
                   )}
 

@@ -336,6 +336,39 @@ async function home(pool, userId, { date, dates, today }) {
   };
 }
 
+// A completed session longer than this was left running by mistake: it counts as this much
+const MAX_SESSION_MINUTES = 180;
+
+/**
+ * Active this week (Home's card): the minutes trained on each day of the week holding `today`
+ * (Monday to Sunday), the week's total, and last week's total to compare with. A session's
+ * minutes run from its start to its finish, capped; only completed sessions count.
+ */
+async function activity(pool, userId, { today }) {
+  const start = new Date(`${today}T00:00:00Z`);
+  const monday = new Date(start);
+  monday.setUTCDate(start.getUTCDate() - ((start.getUTCDay() + 6) % 7));
+  const day = (offset) => {
+    const d = new Date(monday);
+    d.setUTCDate(monday.getUTCDate() + offset);
+    return d.toISOString().slice(0, 10);
+  };
+  const [rows] = await pool.query(
+    `SELECT DATE_FORMAT(on_date, '%Y-%m-%d') AS date,
+            SUM(LEAST(GREATEST(TIMESTAMPDIFF(MINUTE, started_at, completed_at), 1), ?)) AS minutes
+     FROM workout_logs
+     WHERE user_id = ? AND status = 'completed' AND completed_at IS NOT NULL AND on_date BETWEEN ? AND ?
+     GROUP BY on_date`,
+    [MAX_SESSION_MINUTES, userId, day(-7), day(6)],
+  );
+  const minutesOn = new Map(rows.map((r) => [r.date, Number(r.minutes)]));
+  const week = Array.from({ length: 7 }, (_, i) => ({ date: day(i), minutes: minutesOn.get(day(i)) ?? 0 }));
+  const totalMinutes = week.reduce((sum, d) => sum + d.minutes, 0);
+  const previousTotalMinutes = Array.from({ length: 7 }, (_, i) => minutesOn.get(day(i - 7)) ?? 0).reduce((sum, m) => sum + m, 0);
+  const changePercent = previousTotalMinutes > 0 ? Math.round(((totalMinutes - previousTotalMinutes) / previousTotalMinutes) * 100) : null;
+  return { today, week, totalMinutes, previousTotalMinutes, changePercent };
+}
+
 /** One row per date that was trained or missed, newest first (a session still ahead isn't history). */
 async function history(pool, userId, { from, to, today }) {
   const plan = await activePlanRow(pool, userId);
@@ -668,7 +701,7 @@ async function planOverview(pool, userId) {
 module.exports = {
   recreateInputs, recreatePlan, planOverview, planFromCoach, activePlanRow,
   preferences, updatePreferences,
-  syncLibrary, ensurePlan, home, history, resolveDates, moveSessionToToday, swapDays, withMemberLock,
+  syncLibrary, ensurePlan, home, activity, history, resolveDates, moveSessionToToday, swapDays, withMemberLock,
   sessionProgress, startSession, logSet, completeSession: (pool, userId, body) => closeSession(pool, userId, body, "completed"),
   abandonSession: (pool, userId, body) => closeSession(pool, userId, body, "abandoned"), SET_LOG_CAP,
 };

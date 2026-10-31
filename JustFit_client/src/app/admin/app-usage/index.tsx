@@ -88,10 +88,10 @@ export default function AppUsageScreen() {
         </View>
 
         <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40, gap: 16 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-          {/* The range: a row of segments that wraps on narrow phones */}
+          {/* The range: a row of chips that wraps on narrow phones */}
           <View className="flex-row flex-wrap" style={{ gap: 8 }} accessibilityRole="tablist">
             {RANGE_OPTIONS.map((r) => (
-              <Pressable key={r} onPress={() => pick(r)} className={query.range === r ? "admin-segment admin-segment--on grow-0 basis-auto px-3" : "admin-segment grow-0 basis-auto px-3"} accessibilityRole="tab" accessibilityState={{ selected: query.range === r }} accessibilityLabel={RANGE_LABEL[r]}>
+              <Pressable key={r} onPress={() => pick(r)} className={query.range === r ? "admin-chip admin-chip--on" : "admin-chip"} accessibilityRole="tab" accessibilityState={{ selected: query.range === r }} accessibilityLabel={RANGE_LABEL[r]}>
                 <Text className={query.range === r ? "admin-segment__label admin-segment__label--on" : "admin-segment__label"}>{RANGE_LABEL[r]}</Text>
               </Pressable>
             ))}

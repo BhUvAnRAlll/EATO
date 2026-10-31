@@ -34,6 +34,11 @@ function homeQuery(query, now) {
   return { date: isoDate(query.date), dates: dates(query.dates), today: today(query.today, now) };
 }
 
+// GET /activity?today=… (the server works the week out from today)
+function activityQuery(query, now) {
+  return { today: today(query.today, now) };
+}
+
 // GET /history?from=…&to=…&today=…
 function historyQuery(query, now) {
   const from = isoDate(query.from, "From");
@@ -202,4 +207,4 @@ function recreateQuery(query, now) {
   return { today: today(query.today, now) };
 }
 
-module.exports = { limits, recreateBody, recreateQuery, preferencesBody, homeQuery, historyQuery, ensureBody, moveBody, swapBody, progressQuery, startBody, setBody, logBody, dayNumber, shape };
+module.exports = { limits, recreateBody, recreateQuery, preferencesBody, homeQuery, activityQuery, historyQuery, ensureBody, moveBody, swapBody, progressQuery, startBody, setBody, logBody, dayNumber, shape };

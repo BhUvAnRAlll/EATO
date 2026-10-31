@@ -61,7 +61,7 @@ export default function MembersUsageScreen() {
           <TextInput value={typed} onChangeText={setTyped} placeholder="Search by name or member id" placeholderTextColor={colors.faint} className="admin__input" accessibilityLabel="Search members" autoCapitalize="none" autoCorrect={false} />
           <View className="flex-row flex-wrap" style={{ gap: 8 }} accessibilityRole="tablist">
             {MEMBER_SORTS.map((s) => (
-              <Pressable key={s} onPress={() => pickSort(s)} className={sort === s ? "admin-segment admin-segment--on grow-0 basis-auto px-3" : "admin-segment grow-0 basis-auto px-3"} accessibilityRole="tab" accessibilityState={{ selected: sort === s }} accessibilityLabel={`Sort by ${MEMBER_SORT_LABEL[s]}`}>
+              <Pressable key={s} onPress={() => pickSort(s)} className={sort === s ? "admin-chip admin-chip--on" : "admin-chip"} accessibilityRole="tab" accessibilityState={{ selected: sort === s }} accessibilityLabel={`Sort by ${MEMBER_SORT_LABEL[s]}`}>
                 <Text className={sort === s ? "admin-segment__label admin-segment__label--on" : "admin-segment__label"}>{MEMBER_SORT_LABEL[s]}</Text>
               </Pressable>
             ))}

@@ -224,17 +224,28 @@ describe("ui coach: the AI Coach intake", () => {
     assert.equal(row.coach, "priya");
   }));
 
-  it("5. Make my plan shows Logged today and the plan on a timeline, with Week and Insights", run("plan", async () => {
+  it("5. Make my plan shows Logged today, the meal plan summary and today's workout; the Meal Plan screen lists the meals", run("plan", async () => {
     await page.clickText("Make my plan");
     await h.expectText("Logged today");
-    await h.expectText("Your plan");
-    await h.expectText("Breakfast");
-    await h.expectText("Moong dal chilla");
-    await h.expectText("Today's workout");
+    await h.expectText("Meal plan");
+    await h.expectText("WORKOUT"); // today's workout, a card of its own (not on the meal plan)
     const [[plan]] = await connection.query("SELECT COUNT(*) AS n, MAX(calories) AS kcal FROM coach_plans WHERE user_id = ? AND status = 'active'", [identities.a.id]);
     assert.deepEqual({ n: plan.n, kcal: plan.kcal }, { n: 1, kcal: 1800 });
     await h.expectText("/ 1800"); // the calories column of Logged today
     await snapshotAllWidths("coach-plan");
+    // The Meal Plan screen: the meals on a timeline, and the Adjust Plan banner
+    await clickLabel("Open meal plan");
+    await h.expectPath("/coach/meal-plan");
+    await h.expectText("Meal Plan");
+    await h.expectText("BREAKFAST"); // the slot pill, shown in capitals
+    await h.expectText("Moong dal chilla");
+    await h.expectText("Need to make changes?");
+    await snapshotAllWidths("coach-meal-plan");
+    await page.evaluate(`(() => { const el = [...document.querySelectorAll("body *")].find((e) => e.childElementCount === 0 && (e.textContent || "").trim() === "Adjust Plan"); if (el) el.scrollIntoView({ block: "center" }); })()`);
+    await h.settle();
+    await snapshotAllWidths("coach-meal-plan-adjust");
+    await clickLabel("Back");
+    await h.expectPath("/coach");
     // Week: the workout week and the day's calories; Insights: coming soon
     await page.clickText("Week");
     await h.expectText("Mon");
@@ -243,18 +254,24 @@ describe("ui coach: the AI Coach intake", () => {
     await page.clickText("Insights");
     await h.expectText("Insights are coming soon");
     await page.clickText("Today");
-    await h.expectText("Moong dal chilla");
+    await h.expectText("Meal plan");
   }));
 
-  it("6. Log puts a plan meal in today's Macro diary, once", run("log", async () => {
+  it("6. Log on the Meal Plan screen puts a plan meal in today's Macro diary, once", run("log", async () => {
+    await clickLabel("Open meal plan");
+    await h.expectPath("/coach/meal-plan");
     await clickLabel("Log Dal, rice and sabzi");
     await page.waitFor(`(() => !![...document.querySelectorAll('[aria-label="Dal, rice and sabzi logged"]')].find((e) => e.getClientRects().length > 0))()`, NAV_TIMEOUT, "the meal to show Logged");
     const [[log]] = await connection.query("SELECT COUNT(*) AS n, MAX(source) AS source, MAX(slot) AS slot FROM macro_meal_logs WHERE user_id = ?", [identities.a.id]);
     assert.deepEqual({ n: log.n, source: log.source, slot: log.slot }, { n: 1, source: "plan", slot: "lunch" });
-    // Coming back keeps it logged
+    // Coming back keeps it logged, and the tab's summary counts it
     await h.goto("/home", "");
-    await h.goto("/coach", "Your plan");
+    await h.goto("/coach", "Meal plan");
+    await h.expectText("1 of 5 logged");
+    await clickLabel("Open meal plan");
     await page.waitFor(`(() => !![...document.querySelectorAll('[aria-label="Dal, rice and sabzi logged"]')].find((e) => e.getClientRects().length > 0))()`, NAV_TIMEOUT, "still Logged after reload");
+    await clickLabel("Back");
+    await h.expectPath("/coach");
   }));
 
   it("7. a quick question opens the chat and the coach answers; a typed message too", run("chat", async () => {
