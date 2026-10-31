@@ -4,9 +4,10 @@ const OpenAI = require("openai");
 
 const { reportLayouts } = require("./layouts");
 const { extractionSchema, normalizeExtraction } = require("./normalize");
+const models = require("../ai/models");
 
-// Vision-capable model with structured outputs; override with OPENAI_MODEL
-const MODEL = process.env.OPENAI_MODEL || "gpt-4o";
+// The model and caps come from ai/models.js (AI_MODEL_BODY_REPORT): a vision model with structured outputs
+const FEATURE = "body_report";
 
 const INSTRUCTIONS = `You read body composition analysis (BCA) result sheets and copy the printed values.
 
@@ -37,14 +38,15 @@ function fileInput(mediaType, base64) {
 
 // { base64, mediaType, layout, reportId } → an UNCONFIRMED report. `usage` (ai/usage.tracker) records
 // the call for the admin's AI Usage screen; never the file or the answer.
-async function extractReport(params, usage = null) {
-  const client = new OpenAI(); // reads OPENAI_API_KEY
+async function extractReport(params, usage = null, env = process.env) {
+  const { request, model: MODEL } = models.settingsFor(FEATURE, env);
+  const client = models.openaiClient();
   const layout = reportLayouts[params.layout];
 
   let response;
   try {
     response = await client.responses.create({
-      model: MODEL,
+      ...request,
       instructions: INSTRUCTIONS,
       store: false, // health data: don't keep the response on OpenAI's side
       input: [
@@ -75,7 +77,10 @@ async function extractReport(params, usage = null) {
     (item) => item.type === "message" && item.content.some((part) => part.type === "refusal"),
   );
   const usable = !refused && response.status !== "incomplete" && Boolean(response.output_text);
-  await usage?.record({ provider: "openai", model: MODEL, inputTokens: response.usage?.input_tokens, outputTokens: response.usage?.output_tokens, status: usable ? "ok" : "refused" });
+  await usage?.record({
+    provider: "openai", model: MODEL, inputTokens: response.usage?.input_tokens, outputTokens: response.usage?.output_tokens,
+    cachedInputTokens: models.cachedTokensOf(response), status: usable ? "ok" : "refused",
+  });
   if (!usable) throw new ExtractionError("We couldn't read this report. Please enter your details manually.", 422);
 
   const raw = JSON.parse(response.output_text);

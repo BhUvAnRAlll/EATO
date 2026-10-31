@@ -88,6 +88,8 @@ function Ready({ data, period, onPeriod }: { data: AiSummary; period: Period; on
     { label: "Cost this month", value: inr(month.costInr), icon: { ios: "calendar", android: "calendar_month", web: "calendar_month" } },
     { label: "Total tokens", value: compact(allTime.tokens), icon: { ios: "text.word.spacing", android: "data_object", web: "data_object" } },
     { label: "Avg cost / request", value: inr(allTime.avgCostInr), icon: { ios: "divide.circle", android: "calculate", web: "calculate" } },
+    { label: "Cached input tokens", value: compact(allTime.cachedInputTokens), icon: { ios: "bolt.horizontal.circle", android: "cached", web: "cached" } },
+    { label: "Answered from cache", value: allTime.fromCache.toLocaleString("en-US"), icon: { ios: "arrow.counterclockwise.circle", android: "history", web: "history" } },
   ];
   const over = budget.percent >= 100;
   const warn = budget.percent >= 75;
@@ -168,10 +170,10 @@ function Ready({ data, period, onPeriod }: { data: AiSummary; period: Period; on
           <Text className="post__time">No AI calls in this period.</Text>
         ) : (
           [...data.features].sort((a, b) => b.costInr - a.costInr).map((f) => (
-            <View key={f.feature} style={{ gap: 4 }} accessibilityLabel={`${FEATURE_SHORT[f.feature]}: ${inr(f.costInr)}, ${f.requests} requests`}>
+            <View key={f.feature} style={{ gap: 4 }} accessibilityLabel={`${FEATURE_SHORT[f.feature]}: ${inr(f.costInr)}, ${f.requests} requests, ${inr(f.avgCostInr)} per call`}>
               <View className="ai-kv">
                 <Text className="ai-kv__key">{FEATURE_SHORT[f.feature]}</Text>
-                <Text className="ai-kv__value">{`${inr(f.costInr)} · ${f.requests} req`}</Text>
+                <Text className="ai-kv__value">{`${inr(f.costInr)} · ${f.requests} req · ${inr(f.avgCostInr)}/call`}</Text>
               </View>
               <View className="ai-bar"><View className="ai-bar__fill" style={{ width: `${totalCost > 0 ? Math.round((f.costInr / totalCost) * 100) : 0}%` }} /></View>
             </View>
@@ -188,6 +190,20 @@ function Ready({ data, period, onPeriod }: { data: AiSummary; period: Period; on
             <View key={`${m.provider}-${m.model}`} className="ai-kv" accessibilityLabel={`${m.model} (${PROVIDER_LABEL[m.provider]}): ${inr(m.costInr)}, ${compact(m.tokens)} tokens, ${m.requests} requests`}>
               <Text className="ai-kv__key">{`${m.model} · ${PROVIDER_LABEL[m.provider]}`}</Text>
               <Text className="ai-kv__value">{`${inr(m.costInr)} · ${compact(m.tokens)} tok · ${m.requests} req`}</Text>
+            </View>
+          ))
+        )}
+      </View>
+
+      <Text className="setup__section">Top members</Text>
+      <View className="admin-list px-4 py-3" style={{ gap: 10 }}>
+        {data.topMembers.length === 0 ? (
+          <Text className="post__time">No member AI calls in this period.</Text>
+        ) : (
+          data.topMembers.map((m) => (
+            <View key={m.userId} className="ai-kv" accessibilityLabel={`${m.userName ?? m.userId}: ${inr(m.costInr)}, ${m.requests} requests`}>
+              <Text className="ai-kv__key" numberOfLines={1} style={{ flexShrink: 1 }}>{m.userName ?? m.userId}</Text>
+              <Text className="ai-kv__value">{`${inr(m.costInr)} · ${m.requests} req`}</Text>
             </View>
           ))
         )}
@@ -226,6 +242,16 @@ function Ready({ data, period, onPeriod }: { data: AiSummary; period: Period; on
                         <View className="ai-kv">
                           <Text className="ai-kv__key">   Tokens in / out / total</Text>
                           <Text className="ai-kv__value">{`${compact(totals.inputTokens)} / ${compact(totals.outputTokens)} / ${compact(totals.tokens)}`}</Text>
+                        </View>
+                      )}
+                      <View className="ai-kv">
+                        <Text className="ai-kv__key">   Average cost per call</Text>
+                        <Text className="ai-kv__value">{inr(totals.avgCostInr)}</Text>
+                      </View>
+                      {(totals.cachedInputTokens > 0 || totals.fromCache > 0) && (
+                        <View className="ai-kv">
+                          <Text className="ai-kv__key">   Cached tokens / answered from cache</Text>
+                          <Text className="ai-kv__value">{`${compact(totals.cachedInputTokens)} / ${totals.fromCache}`}</Text>
                         </View>
                       )}
                     </>

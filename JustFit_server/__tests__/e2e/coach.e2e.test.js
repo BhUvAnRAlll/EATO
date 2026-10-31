@@ -49,7 +49,8 @@ describe("coach e2e: the intake, its prefill, and who may see it", () => {
     try { connection = await db.connect(env); } catch (error) { skipReason = `test database unreachable (${error?.code ?? "refused"})`; return; }
     assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in justfit_test`);
     testAccounts = identitiesFor(env);
-    server = await startTestServer({ ...env, AI_PROVIDER: "fake" }); // the plan's meals never call a paid model in tests
+    // The plan's meals never call a paid model in tests; the daily plan limit is pinned so test 19 can prove it
+    server = await startTestServer({ ...env, AI_PROVIDER: "fake", AI_PLAN_LIMIT_PER_DAY: "3" });
     try {
       for (const tag of ["a", "b", "c"]) {
         const identity = await testAccounts.createIdentity(runId, tag);
@@ -384,6 +385,37 @@ describe("coach e2e: the intake, its prefill, and who may see it", () => {
     }
     const huge = await api("POST", "/api/coach/chat", tokens.b, { date: today(), messages: [{ role: "member", text: "x".repeat(40 * 1024) }] });
     assert.equal(huge.status, 413, JSON.stringify(huge.json));
+  }));
+
+  it("18. swapping one meal replaces only that meal (a small AI call); nobody else can swap it", run(async () => {
+    const before = (await api("GET", `/api/coach/plan?date=${today()}`, tokens.a)).json.plan;
+    const breakfast = before.meals.find((m) => m.slot === "breakfast");
+    const swapped = await api("POST", `/api/coach/plan/meals/${breakfast.id}/swap`, tokens.a, { date: today() });
+    assert.equal(swapped.status, 200, JSON.stringify(swapped.json));
+    assert.equal(swapped.json.mealId, breakfast.id);
+    const after = swapped.json.plan;
+    assert.equal(after.id, before.id, "the same plan");
+    const newBreakfast = after.meals.find((m) => m.slot === "breakfast");
+    assert.deepEqual({ id: newBreakfast.id, name: newBreakfast.name, time: newBreakfast.time, items: newBreakfast.items.length }, { id: breakfast.id, name: "Vegetable poha", time: breakfast.time, items: 2 });
+    // Scaled to the replaced meal's calories, then portions rounded to amounts you can measure (a bowl in halves), hence the slack
+    assert.ok(Math.abs(newBreakfast.totals.kcal - breakfast.totals.kcal) / breakfast.totals.kcal <= 0.15, `about the same calories (${newBreakfast.totals.kcal} vs ${breakfast.totals.kcal})`);
+    assert.deepEqual(after.meals.filter((m) => m.slot !== "breakfast"), before.meals.filter((m) => m.slot !== "breakfast"), "the other meals are untouched");
+    assert.equal(await count("SELECT COUNT(*) AS n FROM ai_usage WHERE user_id = ? AND feature = 'coach_meal' AND status = 'ok'", [ids.a]), 1);
+    // B can't swap A's meal; bad ids and dates are 400s
+    assert.equal((await api("POST", `/api/coach/plan/meals/${breakfast.id}/swap`, tokens.b, { date: today() })).status, 404);
+    assert.equal((await api("POST", "/api/coach/plan/meals/' OR 1=1 --/swap", tokens.a, { date: today() })).status, 400);
+    assert.equal((await api("POST", `/api/coach/plan/meals/${breakfast.id}/swap`, tokens.a, { date: "2020-01-01" })).status, 400);
+  }));
+
+  it("19. a member may make a few plans a day (3 here): the next is a friendly 429, not a paid call", run(async () => {
+    // A has made 2 plans today (tests 8 and 9)
+    const third = await api("POST", "/api/coach/plan", tokens.a, { today: today() });
+    assert.equal(third.status, 201, JSON.stringify(third.json));
+    const fourth = await api("POST", "/api/coach/plan", tokens.a, { today: today() });
+    assert.equal(fourth.status, 429, JSON.stringify(fourth.json));
+    assert.match(fourth.json.error, /3 plans today/);
+    assert.equal(await count("SELECT COUNT(*) AS n FROM ai_usage WHERE user_id = ? AND feature = 'coach_plan'", [ids.a]), 3, "the refused request made no AI call");
+    planA = third.json.plan;
   }));
 
   it("17. each member has an hourly chat budget of 30 messages, counted even when refused", run(async () => {

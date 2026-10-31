@@ -92,6 +92,7 @@ router.post("/reports/resolve", smallBody, route(async (req, res) => {
 const aiRoute = (handler) => (req, res, next) =>
   handler(req, res, next).catch((error) => {
     if (error?.code === "ER_NO_SUCH_TABLE") return res.status(503).json({ error: "AI usage tracking isn't set up on this server yet." });
+    if (error?.code === "ER_BAD_FIELD_ERROR") return res.status(503).json({ error: "AI usage tracking needs the 2026-11-04-ai-cost-optimization migration on this server." });
     next(error);
   });
 router.get("/ai-usage/summary", aiRoute(async (req, res) => {

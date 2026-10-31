@@ -47,9 +47,9 @@ export type PlanWorkout = { level: string; daysPerWeek: number; sessions: { week
 export type PlanState = { state: "none" | "ready"; plan: CoachPlan | null; workout: PlanWorkout | null };
 
 // One line of the coach chat (POST /api/coach/chat). The server keeps no history: the app sends
-// the last CHAT_TURNS lines each time.
+// the last CHAT_TURNS lines each time (the server shows the model the newest ten of them).
 export type ChatLine = { role: "member" | "coach"; text: string };
-export const CHAT_TURNS = 20;
+export const CHAT_TURNS = 12;
 export const CHAT_MAX_TEXT = 1000;
 
 const signedOut = <T>(): Promise<ApiResult<T>> => Promise.resolve({ ok: false, error: "Please sign in again." });
@@ -78,6 +78,11 @@ export const coachApi = {
   makePlan(token: string | null, today: string): Promise<ApiResult<PlanState>> {
     if (!token) return signedOut();
     return apiFetch("/api/coach/plan", { method: "POST", body: { today }, token });
+  },
+  // Swaps one meal for a new dish from the coach (the other meals and the workout stay); answers the plan
+  swapMeal(token: string | null, mealId: string, date: string): Promise<ApiResult<PlanState & { mealId: string }>> {
+    if (!token) return signedOut();
+    return apiFetch(`/api/coach/plan/meals/${encodeURIComponent(mealId)}/swap`, { method: "POST", body: { date }, token });
   },
   // Logs a plan meal to the Macro diary for today, once (a repeat answers alreadyLogged)
   logMeal(token: string | null, mealId: string, date: string): Promise<ApiResult<{ mealId: string; logId: string; alreadyLogged: boolean }>> {

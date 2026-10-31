@@ -24,6 +24,9 @@ type Props = {
   // The meal being logged right now, if any
   logging: string | null;
   onLog: (mealId: string) => void;
+  // The meal being swapped for a new dish right now, if any (no Swap buttons without onSwap)
+  swapping?: string | null;
+  onSwap?: (mealId: string) => void;
 };
 
 const SLOT: Record<PlanSlot, { label: string; icon: Icon; tint: string; color: string }> = {
@@ -80,11 +83,13 @@ function Entry({ icon, tint, color, time, last, label, children }: { icon: Icon;
 
 // One meal: the slot, the dish, its ingredients, calories, macros and the Log Meal button. The
 // chevron opens the foods with their amounts and the coach's tip.
-function MealEntry({ meal, last, logging, onLog }: { meal: PlanMeal; last: boolean; logging: string | null; onLog: (id: string) => void }) {
+function MealEntry({ meal, last, logging, onLog, swapping, onSwap }: { meal: PlanMeal; last: boolean; logging: string | null; onLog: (id: string) => void; swapping?: string | null; onSwap?: (id: string) => void }) {
   const slot = SLOT[meal.slot];
   const [open, setOpen] = useState(false);
   const ingredients = meal.items.map((i) => i.name).join(", ");
   const macros: [string, number][] = [["P", meal.totals.proteinG], ["C", meal.totals.carbsG], ["F", meal.totals.fatG]];
+  // Busy while any meal is being swapped or logged: one change at a time
+  const busy = logging !== null || (swapping ?? null) !== null;
   return (
     <Entry icon={slot.icon} tint={slot.tint} color={slot.color} time={meal.time} last={last} label={slot.label}>
       <View className="coach__meal-card">
@@ -115,9 +120,28 @@ function MealEntry({ meal, last, logging, onLog }: { meal: PlanMeal; last: boole
               </View>
             ))}
           </View>
+          {onSwap && !meal.logged && (
+            <Pressable
+              onPress={() => onSwap(meal.id)}
+              disabled={busy}
+              hitSlop={6}
+              className="flex-row items-center"
+              style={{ gap: 4, opacity: busy && swapping !== meal.id ? 0.5 : 1 }}
+              accessibilityRole="button"
+              accessibilityLabel={swapping === meal.id ? `Swapping ${meal.name}` : `Swap ${meal.name} for another dish`}
+              accessibilityState={{ disabled: busy }}
+            >
+              {swapping === meal.id ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : (
+                <SymbolView name={{ ios: "arrow.triangle.2.circlepath", android: "swap_horiz", web: "swap_horiz" }} size={14} tintColor={colors.primary} />
+              )}
+              <Text className="coach__macro-chip-label" style={{ color: colors.primary }}>{swapping === meal.id ? "Swapping" : "Swap"}</Text>
+            </Pressable>
+          )}
           <Pressable
             onPress={() => onLog(meal.id)}
-            disabled={meal.logged || logging !== null}
+            disabled={meal.logged || busy}
             className={meal.logged ? "coach__log coach__log--meal coach__log--done" : "coach__log coach__log--meal"}
             accessibilityRole="button"
             accessibilityLabel={meal.logged ? `${meal.name} logged` : `Log ${meal.name}`}
@@ -216,11 +240,11 @@ export function WorkoutCard({ workout, onStart }: { workout: TodayWorkout; onSta
 
 // The meal plan: the coach's meals in time order down a timeline, each a card with its macros
 // and a Log Meal button. The workout is not on it (see WorkoutCard).
-export function PlanTimeline({ plan, logging, onLog }: Props) {
+export function PlanTimeline({ plan, logging, onLog, swapping, onSwap }: Props) {
   return (
     <View>
       {plan.meals.map((meal, i) => (
-        <MealEntry key={meal.id} meal={meal} last={i === plan.meals.length - 1} logging={logging} onLog={onLog} />
+        <MealEntry key={meal.id} meal={meal} last={i === plan.meals.length - 1} logging={logging} onLog={onLog} swapping={swapping} onSwap={onSwap} />
       ))}
     </View>
   );

@@ -20,6 +20,7 @@ const EVENTS = {
   macro_updated: "nutrition",
   ai_chat_sent: "coach",
   coach_plan_made: "coach",
+  coach_meal_swapped: "coach",
   community_post_created: "community",
   community_post_liked: "community",
   community_comment_sent: "community",

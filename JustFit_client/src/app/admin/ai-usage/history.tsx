@@ -13,7 +13,7 @@ import { colors } from "@/theme";
 
 type Load = { state: "loading" } | { state: "failed"; error: string } | { state: "ready"; data: HistoryPage };
 
-const FEATURES: AiFeature[] = ["gym_assistant", "coach_plan", "coach_chat", "food_scan", "body_scan", "body_report"];
+const FEATURES: AiFeature[] = ["gym_assistant", "coach_plan", "coach_meal", "coach_chat", "food_scan", "body_scan", "body_report"];
 const STATUSES: AiStatus[] = ["ok", "failed", "refused"];
 const SORTS: { id: HistorySort; label: string }[] = [
   { id: "newest", label: "Newest" },

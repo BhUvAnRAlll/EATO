@@ -230,6 +230,11 @@ describe("whatsapp e2e: the AI agent's replies and the in-app assistant", () => 
     const asked = await api("POST", `/api/gyms/${state.gymA}/assistant`, tokens.memberA, { question: "What are your timings?" });
     assert.equal(asked.status, 200, JSON.stringify(asked.json));
     assert.deepEqual(asked.json, { reply: "Gym Alpha is open 6am to 10pm every day.", escalated: false, contact: null });
+    // The same question again (in different clothes) is answered from the server's cache: no model call, a ₹0 usage row
+    const again = await api("POST", `/api/gyms/${state.gymA}/assistant`, tokens.memberA, { question: "  what are YOUR timings " });
+    assert.deepEqual(again.json, asked.json);
+    const [[cached]] = await connection.query("SELECT COUNT(*) AS n, COALESCE(SUM(input_tokens), 0) AS tokens FROM ai_usage WHERE gym_id = ? AND user_id = ? AND feature = 'gym_assistant' AND from_cache = TRUE", [state.gymA, ids.memberA]);
+    assert.deepEqual({ n: Number(cached.n), tokens: Number(cached.tokens) }, { n: 1, tokens: 0 });
     assert.equal((await api("POST", `/api/gyms/${state.gymB}/assistant`, tokens.memberA, { question: "What are your timings?" })).status, 403, "a private gym's assistant is for its members");
     assert.equal((await api("POST", `/api/gyms/${state.gymA}/assistant`, tokens.memberA, { question: "" })).status, 400);
     assert.equal((await api("POST", `/api/gyms/${state.gymA}/assistant`, tokens.memberA, { question: "hi", gymId: state.gymB })).status, 400, "no extra fields");

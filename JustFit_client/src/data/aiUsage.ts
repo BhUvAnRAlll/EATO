@@ -7,6 +7,7 @@ import type { Icon } from "@/types/profile";
 export const FEATURE_LABEL: Record<AiFeature, string> = {
   gym_assistant: "Gym assistant replies",
   coach_plan: "Plan generations (meals and workout)",
+  coach_meal: "Meal swaps (one meal replaced)",
   coach_chat: "Coaching messages",
   food_scan: "Food photo scans",
   body_scan: "Body fat predictions",
@@ -16,6 +17,7 @@ export const FEATURE_LABEL: Record<AiFeature, string> = {
 export const FEATURE_SHORT: Record<AiFeature, string> = {
   gym_assistant: "Gym assistant",
   coach_plan: "Coach plan",
+  coach_meal: "Meal swap",
   coach_chat: "Coach chat",
   food_scan: "Food scan",
   body_scan: "Body scan",
@@ -32,7 +34,7 @@ export type AiSection = { id: string; title: string; note: string; icon: Icon; f
 
 export const AI_SECTIONS: AiSection[] = [
   { id: "chatbot", title: "AI Chatbot", note: "The gym assistant: in-app Ask and WhatsApp replies", icon: { ios: "bubble.left.and.bubble.right", android: "forum", web: "forum" }, features: ["gym_assistant"] },
-  { id: "coach", title: "AI Coach", note: "Plan generations (a day of meals with the workout week) and coaching messages", icon: { ios: "sparkles", android: "auto_awesome", web: "auto_awesome" }, features: ["coach_plan", "coach_chat"] },
+  { id: "coach", title: "AI Coach", note: "Plan generations (a day of meals with the workout week), single meal swaps and coaching messages", icon: { ios: "sparkles", android: "auto_awesome", web: "auto_awesome" }, features: ["coach_plan", "coach_meal", "coach_chat"] },
   { id: "food", title: "Food & Nutrition AI", note: "Scan Food: recognising the foods in a photo and estimating their nutrition", icon: { ios: "fork.knife", android: "restaurant", web: "restaurant" }, features: ["food_scan"] },
   { id: "body", title: "Body Fat Prediction AI", note: "Scan Body: the Forma model, self-hosted (no tokens)", icon: { ios: "figure.stand", android: "accessibility_new", web: "accessibility_new" }, features: ["body_scan"] },
   { id: "other", title: "Other AI services", note: "Reading uploaded body composition reports", icon: { ios: "doc.text", android: "description", web: "description" }, features: ["body_report"] },

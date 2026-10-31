@@ -6,24 +6,65 @@ const rules = require("./rules");
 const PRICE_TTL_MS = 5 * 60 * 1000;
 let priceCache = { at: 0, byModel: new Map() };
 let warnedMissing = false;
+let warnedColumns = false;
+// Before migrations/2026-11-04-ai-cost-optimization.sql has run, the cached-token columns don't
+// exist yet: rows are then written the old way (and cached tokens are billed at the full price)
+let legacyColumns = false;
 
 const missingTable = (error) => error?.code === "ER_NO_SUCH_TABLE";
+const missingColumn = (error) => error?.code === "ER_BAD_FIELD_ERROR";
 
 const warnOnce = () => {
   if (warnedMissing) return;
   warnedMissing = true;
   console.log("AI usage isn't recorded until migrations/2026-11-03-ai-usage.sql has run");
 };
+const warnColumnsOnce = () => {
+  if (warnedColumns) return;
+  warnedColumns = true;
+  console.log("AI usage: cached tokens aren't recorded until migrations/2026-11-04-ai-cost-optimization.sql has run");
+};
 
 // The price rows and the exchange rate, refreshed every five minutes
 async function pricing(pool) {
   if (Date.now() - priceCache.at > PRICE_TTL_MS) {
-    const [rows] = await pool.query("SELECT model, input_usd_per_million, output_usd_per_million, request_usd FROM ai_model_prices");
+    let rows;
+    if (legacyColumns) {
+      [rows] = await pool.query("SELECT model, input_usd_per_million, output_usd_per_million, request_usd FROM ai_model_prices");
+    } else {
+      try {
+        [rows] = await pool.query("SELECT model, input_usd_per_million, cached_input_usd_per_million, output_usd_per_million, request_usd FROM ai_model_prices");
+      } catch (error) {
+        if (!missingColumn(error)) throw error;
+        legacyColumns = true;
+        warnColumnsOnce();
+        [rows] = await pool.query("SELECT model, input_usd_per_million, output_usd_per_million, request_usd FROM ai_model_prices");
+      }
+    }
     const [[budget]] = await pool.query("SELECT usd_to_inr FROM ai_budget WHERE id = 1");
     priceCache = { at: Date.now(), byModel: new Map(rows.map((r) => [r.model, r])), usdToInr: Number(budget?.usd_to_inr ?? rules.DEFAULT_USD_TO_INR) };
   }
   return priceCache;
 }
+
+/** What a call with these tokens costs right now, in rupees (the admin's price table and rate) */
+async function priceCall(pool, { model, inputTokens = 0, outputTokens = 0, cachedInputTokens = 0 }) {
+  const { byModel, usdToInr } = await pricing(pool);
+  return rules.costInr(byModel.get(model) ?? null, inputTokens, outputTokens, usdToInr, cachedInputTokens);
+}
+
+const insertRow = (pool, row, cost) =>
+  legacyColumns
+    ? pool.query(
+        `INSERT INTO ai_usage (user_id, gym_id, feature, provider, model, input_tokens, output_tokens, cost_inr, status, duration_ms)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [row.userId, row.gymId, row.feature, row.provider, row.model, row.inputTokens, row.outputTokens, cost, row.status, row.durationMs],
+      )
+    : pool.query(
+        `INSERT INTO ai_usage (user_id, gym_id, feature, provider, model, input_tokens, cached_input_tokens, output_tokens, cost_inr, status, from_cache, duration_ms)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [row.userId, row.gymId, row.feature, row.provider, row.model, row.inputTokens, row.cachedInputTokens, row.outputTokens, cost, row.status, row.fromCache, row.durationMs],
+      );
 
 /**
  * Writes one usage row and checks the budget alerts. Returns the row id, or null when nothing
@@ -32,13 +73,16 @@ async function pricing(pool) {
 async function recordAiUsage(pool, input) {
   try {
     const row = rules.usageRow(input);
-    const { byModel, usdToInr } = await pricing(pool);
-    const cost = rules.costInr(byModel.get(row.model) ?? null, row.inputTokens, row.outputTokens, usdToInr);
-    const [result] = await pool.query(
-      `INSERT INTO ai_usage (user_id, gym_id, feature, provider, model, input_tokens, output_tokens, cost_inr, status, duration_ms)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [row.userId, row.gymId, row.feature, row.provider, row.model, row.inputTokens, row.outputTokens, cost, row.status, row.durationMs],
-    );
+    const cost = row.fromCache ? 0 : await priceCall(pool, row);
+    let result;
+    try {
+      [result] = await insertRow(pool, row, cost);
+    } catch (error) {
+      if (!missingColumn(error) || legacyColumns) throw error;
+      legacyColumns = true;
+      warnColumnsOnce();
+      [result] = await insertRow(pool, row, cost);
+    }
     if (cost > 0) await checkAlerts(pool);
     return result.insertId;
   } catch (error) {
@@ -130,8 +174,9 @@ async function budgetStatus(pool) {
 // Tests only: forget the cached prices and rate
 const resetPriceCache = () => {
   priceCache = { at: 0, byModel: new Map() };
+  legacyColumns = false;
 };
 // The budget screen saved a new rate: new rows use it at once
 const refreshPricing = resetPriceCache;
 
-module.exports = { recordAiUsage, tracker, checkAlerts, budgetStatus, settings, monthSpend, resetPriceCache, refreshPricing };
+module.exports = { recordAiUsage, priceCall, tracker, checkAlerts, budgetStatus, settings, monthSpend, resetPriceCache, refreshPricing };

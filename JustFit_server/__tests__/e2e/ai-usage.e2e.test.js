@@ -101,12 +101,12 @@ describe("ai usage e2e: recording, the admin summary, history and budget", () =>
     const jpeg = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(60)]).toString("base64");
     const scan = await api("POST", "/api/macro/scan", tokens.member, { data: jpeg, mediaType: "image/jpeg", hint: "'; DROP TABLE ai_usage; --" });
     assert.equal(scan.status, 200, JSON.stringify(scan.json));
-    const [rows] = await connection.query("SELECT user_id, gym_id, feature, provider, model, input_tokens, output_tokens, total_tokens, cost_inr, status, duration_ms FROM ai_usage");
+    const [rows] = await connection.query("SELECT user_id, gym_id, feature, provider, model, input_tokens, cached_input_tokens, output_tokens, total_tokens, cost_inr, status, from_cache, duration_ms FROM ai_usage");
     assert.equal(rows.length, 1);
     const row = rows[0];
     assert.deepEqual(
-      { user: row.user_id, gym: row.gym_id, feature: row.feature, provider: row.provider, model: row.model, tokens: [row.input_tokens, row.output_tokens, row.total_tokens], cost: Number(row.cost_inr), status: row.status },
-      { user: ids.member, gym: null, feature: "food_scan", provider: "openai", model: "fake", tokens: [10, 5, 15], cost: 0, status: "ok" },
+      { user: row.user_id, gym: row.gym_id, feature: row.feature, provider: row.provider, model: row.model, tokens: [row.input_tokens, row.cached_input_tokens, row.output_tokens, row.total_tokens], cost: Number(row.cost_inr), status: row.status, fromCache: row.from_cache },
+      { user: ids.member, gym: null, feature: "food_scan", provider: "openai", model: "fake", tokens: [10, 0, 5, 15], cost: 0, status: "ok", fromCache: 0 },
     );
     assert.ok(row.duration_ms !== null && row.duration_ms >= 0);
     // The table has no column that could hold the photo or the note
@@ -153,6 +153,10 @@ describe("ai usage e2e: recording, the admin summary, history and budget", () =>
     assert.equal(s.series.at(-1).key, s.range.to);
     near(s.series.reduce((sum, p) => sum + p.costInr, 0), s.current.costInr, "the series adds up to the period");
     assert.equal(s.byModel[0].model, MODEL, "the dearest model first");
+    near(chat.avgCostInr, 100, "the average cost of a coaching message");
+    assert.deepEqual({ cached: s.allTime.cachedInputTokens, fromCache: s.allTime.fromCache }, { cached: 0, fromCache: 0 });
+    assert.deepEqual(s.topMembers.map((m) => [m.userName, m.requests]), [["Priya Patel", 5], ["Maya Ortiz", 1]], "the dearest members first; the gym's own calls have no member");
+    near(s.topMembers[0].costInr, 350, "the member's week: today's chat, plan and scan, and the chat three days ago");
     assert.deepEqual({ limit: s.budget.monthlyLimitInr, open: s.budget.openAlerts }, { limit: 4000, open: 0 });
     near(s.budget.spentInr, s.month.costInr, "budget spend is this month's cost");
 
@@ -169,7 +173,7 @@ describe("ai usage e2e: recording, the admin summary, history and budget", () =>
     assert.equal(all.status, 200, JSON.stringify(all.json));
     assert.deepEqual({ page: all.json.page, pageSize: all.json.pageSize, total: all.json.total, rows: all.json.rows.length }, { page: 1, pageSize: 25, total: 9, rows: 9 });
     assert.ok(all.json.rows.every((r, i, rows) => i === 0 || rows[i - 1].at >= r.at), "newest first");
-    assert.deepEqual(Object.keys(all.json.rows[0]).sort(), ["at", "costInr", "durationMs", "feature", "gymId", "id", "inputTokens", "model", "outputTokens", "provider", "status", "totalTokens", "userId", "userName"]);
+    assert.deepEqual(Object.keys(all.json.rows[0]).sort(), ["at", "cachedInputTokens", "costInr", "durationMs", "feature", "fromCache", "gymId", "id", "inputTokens", "model", "outputTokens", "provider", "status", "totalTokens", "userId", "userName"]);
     const q = async (query) => (await api("GET", `/api/admin/portal/ai-usage/history?${query}`, tokens.admin)).json;
     assert.equal((await q("feature=coach_chat")).total, 4);
     assert.equal((await q("status=failed")).total, 1);

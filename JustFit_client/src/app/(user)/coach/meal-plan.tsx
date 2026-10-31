@@ -20,9 +20,10 @@ const OFFLINE = "Could not reach justFit. Check your connection and try again.";
 const back = () => (router.canGoBack() ? router.back() : router.replace("/coach"));
 
 // The coach's Meal Plan for today, on its own: the five meals down a timeline (time, slot, dish,
-// ingredients, calories, macros, Log Meal), with "N Meals · kcal" in the header and the Adjust
-// Plan banner at the bottom (ask the coach to adjust a meal, regenerate with AI Coach, or edit the
-// answers). The workout is not here: it has its own card on the Coach tab.
+// ingredients, calories, macros, Swap, Log Meal), with "N Meals · kcal" in the header and the
+// Adjust Plan banner at the bottom (ask the coach to adjust a meal, regenerate with AI Coach, or
+// edit the answers). Swap replaces one meal with a new dish (a small AI call) instead of remaking
+// the whole day. The workout is not here: it has its own card on the Coach tab.
 export default function MealPlanScreen() {
   const getToken = useSessionToken();
   const start = useCoachIntakeStore((state) => state.start);
@@ -31,6 +32,7 @@ export default function MealPlanScreen() {
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [logging, setLogging] = useState<string | null>(null);
+  const [swapping, setSwapping] = useState<string | null>(null);
   const [making, setMaking] = useState(false);
   const [adjusting, setAdjusting] = useState(false);
 
@@ -62,8 +64,20 @@ export default function MealPlanScreen() {
     );
   };
 
+  // One meal at a time; the server answers the whole plan with the new dish in place
+  const swapMeal = async (mealId: string) => {
+    if (swapping || making) return;
+    setActionError(null);
+    setSwapping(mealId);
+    const result = await coachApi.swapMeal(await getToken().catch(() => null), mealId, todayIso());
+    if (result.ok) track("coach_meal_swapped");
+    setSwapping(null);
+    if (!result.ok) return setActionError(result.status ? result.error : OFFLINE);
+    setPlan({ state: result.data.state, plan: result.data.plan, workout: result.data.workout });
+  };
+
   const regenerate = async () => {
-    if (making) return;
+    if (making || swapping) return;
     setActionError(null);
     setMaking(true);
     const result = await coachApi.makePlan(await getToken().catch(() => null), todayIso());
@@ -130,7 +144,7 @@ export default function MealPlanScreen() {
 
           {plan?.plan && (
             <>
-              <PlanTimeline plan={plan.plan} logging={logging} onLog={logMeal} />
+              <PlanTimeline plan={plan.plan} logging={logging} onLog={logMeal} swapping={swapping} onSwap={swapMeal} />
 
               <View className="coach__banner">
                 <SymbolView name={{ ios: "doc.text", android: "description", web: "description" }} size={26} tintColor={colors.primary} />

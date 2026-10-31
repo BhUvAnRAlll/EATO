@@ -4,6 +4,10 @@
 // Nothing is stored: the app keeps the conversation and sends the last few turns each time, and
 // neither the messages nor the reply are logged. Every query is scoped to the verified member id
 // passed in by the route. In tests (NODE_ENV=test with AI_PROVIDER=fake) a fixed reply is used.
+//
+// Cost: the model comes from ai/models.js (a small one), the model sees only the newest turns
+// (chatRules.modelHistory), the reply is capped, the member's limits are checked first
+// (ai/limits.js) and an identical message already being answered is not asked twice (ai/dedupe.js).
 const OpenAI = require("openai");
 
 const { ValidationError } = require("../profile");
@@ -12,8 +16,11 @@ const { toIntake, getPlan } = require("./plan");
 const { CoachPlanError } = require("./planRules");
 const rules = require("./chatRules");
 const aiUsage = require("../ai/usage");
+const models = require("../ai/models");
+const aiLimits = require("../ai/limits");
+const dedupe = require("../ai/dedupe");
 
-const MODEL = process.env.OPENAI_MODEL || "gpt-4o";
+const FEATURE = "coach_chat";
 const WEEKDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const BUSY = "Your coach couldn't answer right now. Please try again.";
 
@@ -37,19 +44,20 @@ async function memberFacts(pool, userId, date) {
 }
 
 // `usage` (ai/usage.tracker) records the call for the admin's AI Usage screen; never the text
-async function askCoach({ instructions, messages }, env, usage) {
-  if (env.NODE_ENV === "test" && env.AI_PROVIDER === "fake") {
+async function askCoach({ instructions, messages, cacheKey }, env, usage) {
+  if (models.isFake(env)) {
     await usage?.record({ provider: "openai", model: "fake", inputTokens: 10, outputTokens: 5, status: "ok" });
     return rules.FAKE_REPLY;
   }
-  const client = new OpenAI(); // reads OPENAI_API_KEY
+  const { request, model: MODEL } = models.settingsFor(FEATURE, env);
+  const client = models.openaiClient();
   let response;
   try {
     response = await client.responses.create({
-      model: MODEL,
+      ...request,
       instructions,
       store: false,
-      max_output_tokens: 600,
+      prompt_cache_key: cacheKey, // the same member's prompts share one cache slot on OpenAI's side
       input: messages.map((m) =>
         m.role === "member"
           ? { role: "user", content: [{ type: "input_text", text: m.text }] }
@@ -68,7 +76,10 @@ async function askCoach({ instructions, messages }, env, usage) {
   }
   const refused = response.output.some((item) => item.type === "message" && item.content.some((part) => part.type === "refusal"));
   const usable = !refused && Boolean(response.output_text);
-  await usage?.record({ provider: "openai", model: MODEL, inputTokens: response.usage?.input_tokens, outputTokens: response.usage?.output_tokens, status: usable ? "ok" : "refused" });
+  await usage?.record({
+    provider: "openai", model: MODEL, inputTokens: response.usage?.input_tokens, outputTokens: response.usage?.output_tokens,
+    cachedInputTokens: models.cachedTokensOf(response), status: usable ? "ok" : "refused",
+  });
   if (!usable) throw new CoachPlanError(BUSY, 502);
   return response.output_text;
 }
@@ -76,10 +87,17 @@ async function askCoach({ instructions, messages }, env, usage) {
 /** The coach's reply to the member's latest message: { reply } */
 async function chat(pool, userId, { date, messages }, env = process.env) {
   const facts = await memberFacts(pool, userId, date);
-  const instructions = `${rules.chatInstructions(facts.intake)}\n\nFacts about the member:\n${rules.memberBrief(facts)}`;
-  const reply = rules.cleanReply(await askCoach({ instructions, messages }, env, aiUsage.tracker(pool, { feature: "coach_chat", userId })));
-  if (!reply) throw new CoachPlanError(BUSY, 502);
-  return { reply };
+  await aiLimits.check(pool, { feature: FEATURE, userId }, env);
+  const history = rules.modelHistory(messages);
+  // The same message sent twice at once (a double tap, a retried connection) is answered once
+  return dedupe.shared.run(dedupe.requestKey(FEATURE, userId, history), async () => {
+    const instructions = `${rules.chatInstructions(facts.intake)}\n\nFacts about the member:\n${rules.memberBrief(facts)}`;
+    const reply = rules.cleanReply(
+      await askCoach({ instructions, messages: history, cacheKey: `${FEATURE}:${userId}` }, env, aiUsage.tracker(pool, { feature: FEATURE, userId })),
+    );
+    if (!reply) throw new CoachPlanError(BUSY, 502);
+    return { reply };
+  });
 }
 
 module.exports = { chat };

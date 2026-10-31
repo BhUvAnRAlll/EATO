@@ -134,19 +134,39 @@ function scaleItem(item, factor) {
 // The day may be this far off the calorie target before portions are scaled
 const TOLERANCE = 0.08;
 
+// ---- the member's allergies, checked in code -------------------------------------------
+
+// "peanuts, tree nuts and shellfish" → ["peanut", "tree nut", "shellfish"]: the words to look for
+// in a food's name (singulars, so "peanut" also catches "peanuts" and "peanut chutney")
+function allergenWords(allergies) {
+  return String(allergies ?? "")
+    .toLowerCase()
+    .split(/[,;/]|\band\b|\bor\b|\n/)
+    .map((w) => w.replace(/[^\p{L}\p{N}\s]/gu, " ").replace(/\s+/g, " ").trim().replace(/s$/, ""))
+    .filter((w) => w.length >= 3 && !/^(none|no|nil|na|nothing|allerg\w*)$/.test(w));
+}
+
+// The foods whose name carries one of the member's allergens; the model was told to leave them
+// out, and this is the check that it did (a food, not a tip that says to avoid it)
+const allergenHits = (items, words) => items.filter((item) => words.some((w) => item.name.toLowerCase().includes(w)));
+
 /**
  * The model's answer → { message, meals } ready to store: all five slots once each, in order,
- * with clean text, real times and at least one food. When the day's calories are more than 8%
- * off the member's target, every portion is scaled by the same factor (at most halved or
+ * with clean text, real times and at least one food. A food named after one of the member's
+ * `allergies` is dropped (a meal left with nothing is unusable). When the day's calories are more
+ * than 8% off the member's target, every portion is scaled by the same factor (at most halved or
  * doubled). Throws a 502 CoachPlanError when the answer is unusable.
  */
-function normalizeDiet(raw, targets) {
+function normalizeDiet(raw, targets, allergies = "") {
   const unusable = () => new CoachPlanError("Your coach couldn't put a meal plan together right now. Please try again.", 502);
   if (!raw || !Array.isArray(raw.meals)) throw unusable();
+  const allergens = allergenWords(allergies);
   const bySlot = new Map();
   for (const meal of raw.meals) {
     if (!SLOTS.includes(meal?.slot) || bySlot.has(meal.slot)) continue;
-    const items = (Array.isArray(meal.items) ? meal.items : []).slice(0, limits.itemsPerMeal).map(cleanItem).filter((i) => i.name !== "");
+    const cleaned = (Array.isArray(meal.items) ? meal.items : []).slice(0, limits.itemsPerMeal).map(cleanItem).filter((i) => i.name !== "");
+    const unsafe = allergenHits(cleaned, allergens);
+    const items = cleaned.filter((i) => !unsafe.includes(i));
     if (items.length === 0) continue;
     bySlot.set(meal.slot, {
       slot: meal.slot,
@@ -248,6 +268,86 @@ const dietSchema = {
   required: ["message", "meals"],
 };
 
+// ---- swapping one meal ----------------------------------------------------------------
+
+const SLOT_LABEL = { breakfast: "breakfast", morning_snack: "morning snack", lunch: "lunch", evening_snack: "evening snack", dinner: "dinner" };
+
+/**
+ * The brief for replacing one meal: the member's food facts (never the whole plan or intake) and
+ * the meal to replace with its numbers, so the new one lands in the same place.
+ */
+function mealBrief({ profile, intake, meal }) {
+  const lines = [
+    `Diet: ${DIET_LABEL[profile.diet] ?? "not given (assume vegetarian)"}.`,
+    profile.cuisines?.length ? `Cuisines they like: ${profile.cuisines.join(", ")}.` : null,
+    profile.allergies ? `Allergies (never include): ${profile.allergies}` : null,
+    profile.dislikes ? `Dislikes (avoid): ${profile.dislikes}` : null,
+    `Cooking time: ${COOKING[intake.cookingTime]}.`,
+    `Food budget: ${BUDGET[intake.foodBudget]}.`,
+    intake.conditions.length ? `Health conditions: ${intake.conditions.join(", ").replace(/_/g, " ")}.` : null,
+    `Replace this ${SLOT_LABEL[meal.slot]}: "${meal.name}" (${meal.totals.kcal} kcal, protein ${meal.totals.proteinG} g, carbs ${meal.totals.carbsG} g, fat ${meal.totals.fatG} g; ${meal.items.map((i) => i.name).join(", ")}).`,
+    "Give a different dish with about the same calories and protein.",
+  ];
+  return lines.filter(Boolean).join("\n");
+}
+
+const MEAL_INSTRUCTIONS = `You are an AI fitness coach in an Indian fitness app, replacing one meal in a member's day.
+
+Rules:
+- Write one meal with a short name and 1 to 6 foods, different from the meal being replaced.
+- Use everyday Indian foods and home recipes that fit the member's diet, cuisines, cooking time and budget. Never include anything from their allergies, and respect the diet type strictly.
+- Portions: quantity plus a unit from g, ml, piece, cup, bowl, tbsp, tsp. Give kcal, protein, carbs and fat in grams for that portion, using typical Indian recipes.
+- Keep the calories within 10% of the meal being replaced and the protein at least as high.
+- With diabetes, prefer whole grains, dals and vegetables and avoid sugary foods; with high BP, keep salt and pickles low; with PCOS or thyroid, keep meals balanced and whole-food based.
+- note: one short practical tip, or "".`;
+
+const mealSchema = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    name: { type: "string" },
+    note: { type: "string" },
+    items: { type: "array", items: ITEM_SCHEMA },
+  },
+  required: ["name", "note", "items"],
+};
+
+/**
+ * The model's replacement meal → { name, note, items } for the same slot and time, cleaned like a
+ * plan meal and scaled so its calories match the meal it replaces (within the same 8% tolerance,
+ * at most halved or doubled). Throws a 502 CoachPlanError when the answer is unusable.
+ */
+function normalizeMeal(raw, replaced, allergies = "") {
+  const unusable = () => new CoachPlanError("Your coach couldn't find a swap for that meal right now. Please try again.", 502);
+  if (!raw || !Array.isArray(raw.items)) throw unusable();
+  const allergens = allergenWords(allergies);
+  let items = raw.items.slice(0, limits.itemsPerMeal).map(cleanItem).filter((i) => i.name !== "");
+  items = items.filter((i) => !allergenHits([i], allergens).length);
+  if (items.length === 0) throw unusable();
+  const kcal = totalsOf(items).kcal;
+  if (kcal <= 0) throw unusable();
+  const off = replaced.totals.kcal / kcal;
+  if (replaced.totals.kcal > 0 && Math.abs(off - 1) > TOLERANCE) {
+    const factor = Math.min(2, Math.max(0.5, off));
+    items = items.map((i) => scaleItem(i, factor));
+  }
+  return {
+    name: clean(raw.name, limits.mealName) || items.map((i) => i.name).join(", ").slice(0, limits.mealName),
+    note: clean(raw.note, limits.note) || null,
+    items,
+  };
+}
+
+// A fixed replacement for tests: never calls OpenAI
+const FAKE_MEAL = {
+  name: "Vegetable poha",
+  note: "Add peanuts for extra protein.",
+  items: [
+    { name: "Vegetable poha", quantity: 1, unit: "bowl", kcal: 250, proteinG: 6, carbsG: 45, fatG: 6 },
+    { name: "Buttermilk", quantity: 200, unit: "ml", kcal: 60, proteinG: 3, carbsG: 5, fatG: 2 },
+  ],
+};
+
 // A fixed vegetarian day for tests: never calls OpenAI (about 1,600 kcal before scaling)
 const FAKE_DIET = {
   message: "Here's a simple day built around your goal. Eat your protein first at each meal, and we'll adjust after your first week.",
@@ -287,4 +387,6 @@ module.exports = {
   FAKE_DIET, SLOTS, limits, CoachPlanError,
   engineGoalFor, engineLevelFor, libraryFilterFor, fitDaysTo,
   totalsOf, normalizeDiet, dietBrief, DIET_INSTRUCTIONS, dietSchema,
+  mealBrief, MEAL_INSTRUCTIONS, mealSchema, normalizeMeal, FAKE_MEAL,
+  allergenWords, allergenHits,
 };

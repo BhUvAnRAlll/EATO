@@ -3,13 +3,16 @@ import { apiFetch, type ApiResult } from "@/lib/api";
 // Super Admin › AI Usage (JustFit_server/admin/aiUsage.js, under /api/admin/portal/ai-usage).
 // The server checks the admin role on every request; nothing here decides who may see what.
 
-export type AiFeature = "gym_assistant" | "coach_plan" | "coach_chat" | "food_scan" | "body_scan" | "body_report";
+export type AiFeature = "gym_assistant" | "coach_plan" | "coach_meal" | "coach_chat" | "food_scan" | "body_scan" | "body_report";
 export type AiProvider = "openai" | "forma";
 export type AiStatus = "ok" | "failed" | "refused";
 export type Period = "day" | "week" | "month";
 
-export type Totals = { requests: number; inputTokens: number; outputTokens: number; tokens: number; costInr: number };
+// cachedInputTokens: the part of the input OpenAI served from its prompt cache (cheaper);
+// fromCache: calls the server answered from its own cache (no model call, ₹0); avgCostInr: per call
+export type Totals = { requests: number; inputTokens: number; cachedInputTokens: number; outputTokens: number; tokens: number; costInr: number; fromCache: number; avgCostInr: number };
 export type ModelTotals = Totals & { model: string; provider: AiProvider };
+export type MemberTotals = Totals & { userId: string; userName: string | null };
 export type FeatureTotals = Totals & { feature: AiFeature; ok: number; failed: number; refused: number; models: ModelTotals[] };
 export type SeriesPoint = { key: string; requests: number; tokens: number; costInr: number };
 export type BudgetStatus = { monthlyLimitInr: number; spentInr: number; remainingInr: number; percent: number; openAlerts: number };
@@ -17,13 +20,15 @@ export type BudgetStatus = { monthlyLimitInr: number; spentInr: number; remainin
 export type AiSummary = {
   period: Period;
   range: { from: string; to: string };
-  allTime: Totals & { avgCostInr: number };
+  allTime: Totals;
   today: { costInr: number; requests: number };
   month: { costInr: number; requests: number };
   current: Totals;
   previous: Totals;
   features: FeatureTotals[];
   byModel: ModelTotals[];
+  // The members who cost the most in the period, dearest first
+  topMembers: MemberTotals[];
   series: SeriesPoint[];
   budget: BudgetStatus;
 };
@@ -38,10 +43,12 @@ export type HistoryRow = {
   provider: AiProvider;
   model: string;
   inputTokens: number;
+  cachedInputTokens: number;
   outputTokens: number;
   totalTokens: number;
   costInr: number;
   status: AiStatus;
+  fromCache: boolean;
   durationMs: number | null;
 };
 export type HistorySort = "newest" | "oldest" | "cost" | "tokens";

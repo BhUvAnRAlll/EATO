@@ -21,7 +21,7 @@ export type EventName =
   | "app_opened" | "screen_viewed" | "login_completed"
   | "workout_started" | "workout_completed"
   | "meal_logged" | "food_scanned" | "water_logged" | "macro_updated"
-  | "ai_chat_sent" | "coach_plan_made"
+  | "ai_chat_sent" | "coach_plan_made" | "coach_meal_swapped"
   | "community_post_created" | "community_post_liked" | "community_comment_sent" | "message_sent"
   | "story_viewed" | "story_created"
   | "attendance_checked_in" | "attendance_checked_out"

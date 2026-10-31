@@ -25,7 +25,7 @@ describe("ai rules: cost", () => {
 
   it("a usage row is checked and cleaned; bad token counts become 0", () => {
     const row = rules.usageRow({ feature: "coach_chat", provider: "openai", model: " gpt-4o ", inputTokens: 12, outputTokens: -3, status: "ok", userId: "u1", durationMs: 1234.6 });
-    assert.deepEqual(row, { feature: "coach_chat", provider: "openai", model: "gpt-4o", inputTokens: 12, outputTokens: 0, status: "ok", userId: "u1", gymId: null, durationMs: 1235 });
+    assert.deepEqual(row, { feature: "coach_chat", provider: "openai", model: "gpt-4o", inputTokens: 12, outputTokens: 0, cachedInputTokens: 0, fromCache: false, status: "ok", userId: "u1", gymId: null, durationMs: 1235 });
     assert.throws(() => rules.usageRow({ feature: "trainer", provider: "openai", model: "x", status: "ok" }), /unknown AI feature/);
     assert.throws(() => rules.usageRow({ feature: "coach_chat", provider: "openai", model: "", status: "ok" }), /needs a model/);
     assert.throws(() => rules.usageRow({ feature: "coach_chat", provider: "openai", model: "x", status: "maybe" }), /unknown AI status/);

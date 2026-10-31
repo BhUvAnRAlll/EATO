@@ -1,9 +1,11 @@
 // The AI model behind the gym agent, behind one small interface so the provider can change:
 //   complete({ instructions, messages }) → { reply, escalate, reason, inputTokens, outputTokens }
-// OpenAI is the provider today (OPENAI_API_KEY, model AI_MODEL). Nothing is stored on the
-// provider's side, and no prompt or reply is ever logged. In tests (NODE_ENV=test with
-// AI_PROVIDER=fake) a deterministic stand-in is used instead.
+// OpenAI is the provider today (OPENAI_API_KEY; the model and caps from ai/models.js, feature
+// gym_assistant). Nothing is stored on the provider's side, and no prompt or reply is ever
+// logged. In tests (NODE_ENV=test with AI_PROVIDER=fake) a deterministic stand-in is used instead.
 const OpenAI = require("openai");
+
+const models = require("../ai/models");
 
 class AiError extends Error {
   constructor(code, retryable) {
@@ -26,18 +28,20 @@ const SCHEMA = {
   },
 };
 
-function openAiProvider({ model, timeoutMs = 20000 }) {
-  const client = new OpenAI({ timeout: timeoutMs, maxRetries: 0 }); // the job queue retries, not the SDK
+function openAiProvider({ env = process.env, timeoutMs = 20000 }) {
+  const { request, model } = models.settingsFor("gym_assistant", env);
+  const client = models.openaiClient({ timeout: timeoutMs, maxRetries: 0 }); // the job queue retries, not the SDK
   return {
     model, // named on each ai_usage row
-    async complete({ instructions, messages }) {
+    // `cacheKey` (the gym) lets OpenAI reuse the cached prompt prefix (the gym's facts) across customers
+    async complete({ instructions, messages, cacheKey }) {
       let response;
       try {
         response = await client.responses.create({
-          model,
+          ...request,
           instructions,
           store: false,
-          max_output_tokens: 400,
+          prompt_cache_key: cacheKey,
           input: messages.map((m) => ({ role: m.role, content: m.content })),
           text: { format: { type: "json_schema", name: "gym_agent_reply", strict: true, schema: SCHEMA } },
         });
@@ -56,6 +60,7 @@ function openAiProvider({ model, timeoutMs = 20000 }) {
         reason: typeof parsed.reason === "string" ? parsed.reason.slice(0, 120) : "",
         inputTokens: response.usage?.input_tokens ?? 0,
         outputTokens: response.usage?.output_tokens ?? 0,
+        cachedInputTokens: models.cachedTokensOf(response),
       };
     },
   };
@@ -86,7 +91,7 @@ function fakeProvider() {
 
 function createAiProvider(env = process.env) {
   if (env.NODE_ENV === "test" && env.AI_PROVIDER === "fake") return fakeProvider();
-  return openAiProvider({ model: env.AI_MODEL || "gpt-4o-mini" });
+  return openAiProvider({ env });
 }
 
 module.exports = { createAiProvider, fakeProvider, AiError };

@@ -38,6 +38,9 @@ const stories = require("./community/stories");
 const { macroRouter } = require("./macro/routes");
 const { coachRouter } = require("./coach/routes");
 const aiUsage = require("./ai/usage");
+const aiModels = require("./ai/models");
+const aiLimits = require("./ai/limits");
+const aiDedupe = require("./ai/dedupe");
 const { FoodScanError, checkFoodPhoto, scanFood, scanLimits: foodScanLimits } = require("./macro/foodScan");
 const { workoutRouter } = require("./workout/routes");
 const { gymsRouter } = require("./gyms/routes");
@@ -64,6 +67,8 @@ const devLogin = devLoginConfig(process.env);
 // The AI features (reports, food scan, coach) need OpenAI; without the key each call fails with
 // a 500. Said once at startup rather than discovered from the app.
 if (!process.env.OPENAI_API_KEY && process.env.AI_PROVIDER !== "fake") console.warn("OPENAI_API_KEY is not set: report reading, food scan and the AI Coach will fail until it is.");
+// Which model each AI feature uses (ai/models.js; AI_MODEL_* to change), said once so a costly override is visible
+if (process.env.NODE_ENV !== "test") console.log(`AI models: ${aiModels.routingSummary()}`);
 if (devLogin) console.warn(`Development sign-in code is ON for ${devLogin.phones.length} number${devLogin.phones.length === 1 ? "" : "s"}. Never set DEV_LOGIN_* outside development.`);
 
 const app = express();
@@ -162,6 +167,7 @@ app.post("/api/body-composition", requireUser, limitPerUser(uploadLimiter), json
   const upload = checkUpload(req.body);
   if (!upload.ok) return res.status(upload.status).json({ error: upload.error });
   try {
+    await aiLimits.check(pool, { feature: "body_report", userId: req.userId });
     const report = await extractReport(
       { base64: req.body.data.replace(/\s/g, ""), mediaType: upload.mediaType, layout: "inbody", reportId: randomUUID() },
       aiUsage.tracker(pool, { feature: "body_report", userId: req.userId }),
@@ -355,7 +361,12 @@ app.post("/api/macro/scan", requireUser, limitPerUser(foodScanLimiter), jsonBody
   const photo = checkFoodPhoto(req.body);
   if (!photo.ok) return res.status(photo.status).json({ error: photo.error });
   try {
-    res.json({ scan: await scanFood(photo, process.env, aiUsage.tracker(pool, { feature: "food_scan", userId: req.userId })) });
+    await aiLimits.check(pool, { feature: "food_scan", userId: req.userId });
+    // The same photo sent twice at once (a double tap, a retried upload) is scanned once
+    const scan = await aiDedupe.shared.run(aiDedupe.requestKey("food_scan", req.userId, photo.base64, photo.hint), () =>
+      scanFood(photo, process.env, aiUsage.tracker(pool, { feature: "food_scan", userId: req.userId })),
+    );
+    res.json({ scan });
   } catch (error) {
     if (error instanceof FoodScanError) return res.status(error.status).json({ error: error.message });
     next(error);

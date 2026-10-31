@@ -6,9 +6,10 @@ const OpenAI = require("openai");
 
 const { checkUpload, uploadLimits } = require("../bodyComposition/upload");
 const { limits } = require("./validate");
+const models = require("../ai/models");
 
-// Vision-capable model with structured outputs; override with OPENAI_MODEL
-const MODEL = process.env.OPENAI_MODEL || "gpt-4o";
+// The model and caps come from ai/models.js (AI_MODEL_FOOD_SCAN): a small vision model with structured outputs
+const FEATURE = "food_scan";
 
 const scanLimits = {
   maxItems: 20,
@@ -125,16 +126,17 @@ const FAKE_SCAN = {
 // { base64, mediaType, hint } → { title, items }, an UNCONFIRMED estimate. `usage` (ai/usage.tracker)
 // records the call for the admin's AI Usage screen; never the photo or the answer.
 async function scanFood(params, env = process.env, usage = null) {
-  if (env.NODE_ENV === "test" && env.AI_PROVIDER === "fake") {
+  if (models.isFake(env)) {
     await usage?.record({ provider: "openai", model: "fake", inputTokens: 10, outputTokens: 5, status: "ok" });
     return normalizeFoodScan(FAKE_SCAN);
   }
 
-  const client = new OpenAI(); // reads OPENAI_API_KEY
+  const { request, model: MODEL } = models.settingsFor(FEATURE, env);
+  const client = models.openaiClient();
   let response;
   try {
     response = await client.responses.create({
-      model: MODEL,
+      ...request,
       instructions: INSTRUCTIONS,
       store: false, // don't keep the photo or the answer on OpenAI's side
       input: [
@@ -161,7 +163,10 @@ async function scanFood(params, env = process.env, usage = null) {
 
   const refused = response.output.some((item) => item.type === "message" && item.content.some((part) => part.type === "refusal"));
   const usable = !refused && response.status !== "incomplete" && Boolean(response.output_text);
-  await usage?.record({ provider: "openai", model: MODEL, inputTokens: response.usage?.input_tokens, outputTokens: response.usage?.output_tokens, status: usable ? "ok" : "refused" });
+  await usage?.record({
+    provider: "openai", model: MODEL, inputTokens: response.usage?.input_tokens, outputTokens: response.usage?.output_tokens,
+    cachedInputTokens: models.cachedTokensOf(response), status: usable ? "ok" : "refused",
+  });
   if (!usable) throw new FoodScanError("We couldn't read that photo. Try another photo or log it by hand.", 422);
   return normalizeFoodScan(JSON.parse(response.output_text));
 }

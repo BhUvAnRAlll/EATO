@@ -3,7 +3,7 @@
 // and when a budget alert fires.
 const { ValidationError } = require("../profile");
 
-const FEATURES = ["gym_assistant", "coach_plan", "coach_chat", "food_scan", "body_scan", "body_report"];
+const FEATURES = ["gym_assistant", "coach_plan", "coach_meal", "coach_chat", "food_scan", "body_scan", "body_report"];
 const PROVIDERS = ["openai", "forma"];
 const STATUSES = ["ok", "failed", "refused"];
 const PERIODS = ["day", "week", "month"];
@@ -19,11 +19,18 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const DEFAULT_USD_TO_INR = 84;
 
 // What a call costs in rupees: the model's dollar price row (null when it has none → 0) at the
-// exchange rate (rupees per dollar)
-function costInr(price, inputTokens, outputTokens, usdToInr = DEFAULT_USD_TO_INR) {
+// exchange rate (rupees per dollar). `cachedTokens` is the part of the input OpenAI served from
+// its prompt cache, billed at the row's cached price (or the full input price when the row has
+// none). The input count includes the cached tokens, as OpenAI reports it.
+function costInr(price, inputTokens, outputTokens, usdToInr = DEFAULT_USD_TO_INR, cachedTokens = 0) {
   if (!price) return 0;
+  const cached = Math.min(count(Number(cachedTokens)), count(Number(inputTokens)));
+  const cachedPrice = price.cached_input_usd_per_million === null || price.cached_input_usd_per_million === undefined
+    ? Number(price.input_usd_per_million)
+    : Number(price.cached_input_usd_per_million);
   const usd =
-    (Number(inputTokens) / 1_000_000) * Number(price.input_usd_per_million) +
+    ((Number(inputTokens) - cached) / 1_000_000) * Number(price.input_usd_per_million) +
+    (cached / 1_000_000) * cachedPrice +
     (Number(outputTokens) / 1_000_000) * Number(price.output_usd_per_million) +
     Number(price.request_usd);
   return Math.round(usd * Number(usdToInr) * 10_000) / 10_000;
@@ -31,24 +38,63 @@ function costInr(price, inputTokens, outputTokens, usdToInr = DEFAULT_USD_TO_INR
 
 const count = (value) => (Number.isInteger(value) && value >= 0 ? value : 0);
 
-// One usage row, checked: a programming error here is logged by the recorder, never thrown to a member
-function usageRow({ feature, provider, model, inputTokens = 0, outputTokens = 0, status, userId = null, gymId = null, durationMs = null }) {
+// One usage row, checked: a programming error here is logged by the recorder, never thrown to a member.
+// `fromCache` marks an answer the server reused instead of asking the model (no tokens, no cost).
+function usageRow({ feature, provider, model, inputTokens = 0, outputTokens = 0, cachedInputTokens = 0, fromCache = false, status, userId = null, gymId = null, durationMs = null }) {
   if (!FEATURES.includes(feature)) throw new Error(`unknown AI feature: ${feature}`);
   if (!PROVIDERS.includes(provider)) throw new Error(`unknown AI provider: ${provider}`);
   if (!STATUSES.includes(status)) throw new Error(`unknown AI status: ${status}`);
   if (typeof model !== "string" || !model.trim()) throw new Error("an AI usage row needs a model");
+  const input = count(inputTokens);
   return {
     feature,
     provider,
     model: model.trim().slice(0, limits.model),
-    inputTokens: count(inputTokens),
+    inputTokens: input,
     outputTokens: count(outputTokens),
+    cachedInputTokens: Math.min(count(cachedInputTokens), input),
+    fromCache: fromCache === true,
     status,
     userId: typeof userId === "string" && userId ? userId : null,
     gymId: typeof gymId === "string" && gymId ? gymId : null,
     durationMs: durationMs === null ? null : Math.min(count(Math.round(durationMs)), 4_000_000_000),
   };
 }
+
+// ---- prompt size and usage limits ---------------------------------------------------------
+
+// A rough token count for budgeting a prompt (English and JSON run about four characters a token)
+const estimateTokens = (text) => Math.ceil(String(text ?? "").length / 4);
+
+// The configurable limits (environment variables, with these defaults). 0 switches a limit off.
+//   AI_LIMIT_PER_MINUTE      AI calls one member may make in a minute, across every feature
+//   AI_LIMIT_PER_DAY         AI calls one member may make in a day
+//   AI_PLAN_LIMIT_PER_DAY    plans (meals + workout) one member may make in a day
+//   AI_BUDGET_HARD_STOP      "off" to keep answering after the monthly budget is spent (alerts only)
+//   AI_CACHE_TTL_MINUTES     how long a reusable answer is kept; AI_CACHE=off disables the cache
+const nonNegativeInt = (value, fallback) => {
+  if (value === undefined || value === null || value === "") return fallback;
+  const n = Number(value);
+  return Number.isInteger(n) && n >= 0 ? n : fallback;
+};
+function limitsConfig(env = process.env) {
+  return {
+    perMinute: nonNegativeInt(env.AI_LIMIT_PER_MINUTE, 12),
+    perDay: nonNegativeInt(env.AI_LIMIT_PER_DAY, 150),
+    plansPerDay: nonNegativeInt(env.AI_PLAN_LIMIT_PER_DAY, 3),
+    budgetHardStop: !/^(off|false|0|no)$/i.test(String(env.AI_BUDGET_HARD_STOP ?? "")),
+    cacheTtlMs: nonNegativeInt(env.AI_CACHE_TTL_MINUTES, 24 * 60) * 60 * 1000,
+    cacheEnabled: !/^(off|false|0|no)$/i.test(String(env.AI_CACHE ?? "")),
+  };
+}
+
+// The messages members see when a limit stops a call (friendly, and never silent)
+const LIMIT_MESSAGES = {
+  budget: "AI features are paused for the rest of this month because the monthly AI budget has been used. Everything else in justFit keeps working.",
+  minute: "You're sending requests very quickly. Please wait a moment and try again.",
+  day: (n) => `You've reached today's limit of ${n} AI requests. It resets at midnight.`,
+  plans: (n) => `You've made ${n} plans today, which is the daily limit. Ask your coach to adjust a meal, or make a new plan tomorrow.`,
+};
 
 // ---- periods ----------------------------------------------------------------------------
 
@@ -167,7 +213,8 @@ const money = (inr) => `₹${Number(inr).toLocaleString("en-IN", { minimumFracti
 
 module.exports = {
   FEATURES, PROVIDERS, STATUSES, PERIODS, SORTS, THRESHOLDS, PAGE_SIZE, limits,
-  DEFAULT_USD_TO_INR, costInr, usageRow, periodDays, addDays, seriesKeys, fillSeries,
+  DEFAULT_USD_TO_INR, costInr, usageRow, estimateTokens, limitsConfig, LIMIT_MESSAGES,
+  periodDays, addDays, seriesKeys, fillSeries,
   summaryQuery, historyQuery, budgetBody, alertId,
   percentOf, crossedThresholds, isSpike, money,
 };

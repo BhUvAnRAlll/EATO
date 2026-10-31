@@ -8,6 +8,8 @@ const { gymKnowledge, conversationHistory, answer } = require("./agent");
 const { sendText, SendRefused } = require("./send");
 const { recordUsage } = require("./usage");
 const aiUsage = require("../ai/usage");
+const aiLimits = require("../ai/limits");
+const aiCache = require("../ai/cache");
 
 const PER_CONVERSATION_HOURLY = 15; // AI replies in one conversation per hour before a person takes over
 
@@ -72,16 +74,34 @@ function replyHandler({ provider, meta }) {
       return handOff(pool, meta, gymId, conversationId, HANDOFF.limit);
     }
 
-    const usage = aiUsage.tracker(pool, { feature: "gym_assistant", gymId });
-    let result;
+    // The monthly AI budget is a hard stop here too: the customer gets a person instead of silence
     try {
-      result = await answer(provider, knowledge, await conversationHistory(pool, gymId, conversationId), { channel: "whatsapp" });
+      await aiLimits.check(pool, { feature: "gym_assistant", userId: null });
     } catch (error) {
-      await usage.record({ provider: "openai", model: provider.model ?? "unknown", status: "failed" });
+      if (error instanceof aiLimits.AiLimitError) return handOff(pool, meta, gymId, conversationId, HANDOFF.limit);
       throw error;
     }
-    await recordUsage(pool, gymId, "ai", 1, { inputTokens: result.inputTokens, outputTokens: result.outputTokens });
-    await usage.record({ provider: "openai", model: result.model, inputTokens: result.inputTokens, outputTokens: result.outputTokens, status: "ok" });
+    const history = await conversationHistory(pool, gymId, conversationId);
+    // A first question that another customer already asked this gym is answered from the cache
+    const cache = aiCache.shared();
+    const cacheKey = history.length === 1 ? aiCache.keyOf("gym_assistant", gymId, "whatsapp", knowledge.facts, knowledge.ownerInstructions, aiCache.normalizeQuestion(history[0].content)) : null;
+    const cached = cacheKey ? cache.get(cacheKey) : undefined;
+    const usage = aiUsage.tracker(pool, { feature: "gym_assistant", gymId });
+    let result;
+    if (cached) {
+      result = { reply: cached.reply, escalate: false, model: cached.model };
+      await usage.record({ provider: "openai", model: cached.model, fromCache: true, status: "ok" });
+    } else {
+      try {
+        result = await answer(provider, knowledge, history, { channel: "whatsapp" });
+      } catch (error) {
+        await usage.record({ provider: "openai", model: provider.model ?? "unknown", status: "failed" });
+        throw error;
+      }
+      await recordUsage(pool, gymId, "ai", 1, { inputTokens: result.inputTokens, outputTokens: result.outputTokens });
+      await usage.record({ provider: "openai", model: result.model, inputTokens: result.inputTokens, outputTokens: result.outputTokens, cachedInputTokens: result.cachedInputTokens, status: "ok" });
+      if (cacheKey && !result.escalate) cache.set(cacheKey, { reply: result.reply, model: result.model });
+    }
     if (result.escalate) await pool.query("UPDATE whatsapp_conversations SET handler = 'human' WHERE id = ? AND gym_id = ?", [conversationId, gymId]);
     try {
       await sendText(pool, meta, { gymId, conversationId, body: result.reply, sender: "ai" });

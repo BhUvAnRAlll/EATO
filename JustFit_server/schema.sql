@@ -1619,14 +1619,16 @@ CREATE TABLE ai_usage (
   created_at     TIMESTAMP        NOT NULL DEFAULT CURRENT_TIMESTAMP,
   user_id        VARCHAR(64)      NULL,
   gym_id         CHAR(36)         NULL,
-  feature        ENUM('gym_assistant', 'coach_plan', 'coach_chat', 'food_scan', 'body_scan', 'body_report') NOT NULL,
+  feature        ENUM('gym_assistant', 'coach_plan', 'coach_meal', 'coach_chat', 'food_scan', 'body_scan', 'body_report') NOT NULL,
   provider       ENUM('openai', 'forma') NOT NULL,
   model          VARCHAR(64)      NOT NULL,
   input_tokens   INT UNSIGNED     NOT NULL DEFAULT 0,
+  cached_input_tokens INT UNSIGNED NOT NULL DEFAULT 0,  -- the part of input_tokens OpenAI served from its prompt cache (billed cheaper)
   output_tokens  INT UNSIGNED     NOT NULL DEFAULT 0,
   total_tokens   INT UNSIGNED     AS (input_tokens + output_tokens) STORED,
   cost_inr       DECIMAL(12, 4)   NOT NULL DEFAULT 0,
   status         ENUM('ok', 'failed', 'refused') NOT NULL,
+  from_cache     BOOLEAN          NOT NULL DEFAULT FALSE,  -- answered from the server's own cache: no model call, no tokens, ₹0
   duration_ms    INT UNSIGNED     NULL,
   PRIMARY KEY (id),
   KEY idx_ai_usage_time (created_at),
@@ -1642,16 +1644,24 @@ CREATE TABLE ai_model_prices (
   model                   VARCHAR(64)    NOT NULL,
   provider                ENUM('openai', 'forma') NOT NULL,
   input_usd_per_million   DECIMAL(10, 4) NOT NULL DEFAULT 0,
+  cached_input_usd_per_million DECIMAL(10, 4) NULL,  -- for input served from OpenAI's prompt cache; NULL: same as input
   output_usd_per_million  DECIMAL(10, 4) NOT NULL DEFAULT 0,
   request_usd             DECIMAL(10, 6) NOT NULL DEFAULT 0,  -- a flat cost per call (self-hosted models)
   updated_at              TIMESTAMP      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (model)
 ) ENGINE = InnoDB;
 
-INSERT INTO ai_model_prices (model, provider, input_usd_per_million, output_usd_per_million, request_usd) VALUES
-  ('gpt-4o',      'openai', 2.5000, 10.0000, 0),
-  ('gpt-4o-mini', 'openai', 0.1500,  0.6000, 0),
-  ('forma',       'forma',  0,       0,      0);
+-- Official list prices (developers.openai.com/api/docs/pricing, read 2026-10-31). ai/models.js
+-- picks the model per feature; a model used without a row here is recorded at ₹0.
+INSERT INTO ai_model_prices (model, provider, input_usd_per_million, cached_input_usd_per_million, output_usd_per_million, request_usd) VALUES
+  ('gpt-4o',       'openai', 2.5000, 1.2500, 10.0000, 0),
+  ('gpt-4o-mini',  'openai', 0.1500, 0.0750,  0.6000, 0),
+  ('gpt-4.1',      'openai', 2.0000, 0.5000,  8.0000, 0),
+  ('gpt-4.1-mini', 'openai', 0.4000, 0.1000,  1.6000, 0),
+  ('gpt-4.1-nano', 'openai', 0.1000, 0.0250,  0.4000, 0),
+  ('gpt-5-mini',   'openai', 0.2500, 0.0250,  2.0000, 0),
+  ('gpt-5-nano',   'openai', 0.0500, 0.0050,  0.4000, 0),
+  ('forma',        'forma',  0,      NULL,    0,      0);
 
 -- The monthly budget in rupees, the dollar exchange rate and which alerts are on: one row (id 1).
 -- Reaching the limit only alerts; nothing is switched off.

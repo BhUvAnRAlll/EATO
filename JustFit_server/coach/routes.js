@@ -7,7 +7,7 @@ const express = require("express");
 const { ensureUser } = require("../community/members");
 const { createRateLimiter, limitPerUser } = require("../rateLimit");
 const { validateIntake, prefillFrom, planBody, planQuery, logBody, mealId, coachChoice } = require("./validate");
-const { toIntake, makePlan, getPlan, logMeal } = require("./plan");
+const { toIntake, makePlan, swapMeal, getPlan, logMeal } = require("./plan");
 const { CoachPlanError } = require("./planRules");
 const { chat } = require("./chat");
 const { chatBody } = require("./chatRules");
@@ -19,6 +19,8 @@ const smallBody = express.json({ limit: "16kb" });
 const makePlanLimiter = createRateLimiter({ limit: 5, windowMs: 60 * 60 * 1000 });
 // Every chat message is an OpenAI call too: enough for a real conversation, never unlimited
 const chatLimiter = createRateLimiter({ limit: 30, windowMs: 60 * 60 * 1000 });
+// Swapping one meal is a small OpenAI call; a few an hour covers a day of changes
+const swapMealLimiter = createRateLimiter({ limit: 10, windowMs: 60 * 60 * 1000 });
 // The last 20 turns of up to 1,000 characters each, with room for the JSON around them
 const chatBodyParser = express.json({ limit: "32kb" });
 
@@ -91,6 +93,13 @@ router.post("/plan", limitPerUser(makePlanLimiter), smallBody, route(async (req,
   await ensureUser(pool(req), req.userId);
   await makePlan(pool(req), req.userId, { today });
   res.status(201).json(await getPlan(pool(req), req.userId, { date: today }));
+}));
+
+// POST /plan/meals/:mealId/swap { date }: a new dish in that meal's place (the rest of the plan stays); answers the plan
+router.post("/plan/meals/:mealId/swap", limitPerUser(swapMealLimiter), smallBody, route(async (req, res) => {
+  const { date } = logBody(req.body, Date.now());
+  const changed = await swapMeal(pool(req), req.userId, mealId(req.params.mealId));
+  res.json({ mealId: changed, ...(await getPlan(pool(req), req.userId, { date })) });
 }));
 
 // POST /plan/meals/:mealId/log { date }: the meal goes into the Macro diary as it is, once a day

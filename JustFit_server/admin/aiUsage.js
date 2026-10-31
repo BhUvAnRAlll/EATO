@@ -7,20 +7,30 @@ const { NotFoundError } = require("../community/posts");
 
 const num = (value) => Number(value ?? 0);
 
+const round6 = (value) => Math.round(value * 1_000_000) / 1_000_000;
+
+// The totals of a group of calls, with what one call costs on average (cache hits included: they
+// are free answers the members got) and how many were answered from the server's cache
 const totalsOf = (row) => ({
   requests: num(row.requests),
   inputTokens: num(row.inputTokens),
+  cachedInputTokens: num(row.cachedInputTokens),
   outputTokens: num(row.outputTokens),
   tokens: num(row.tokens),
   costInr: num(row.costInr),
+  fromCache: num(row.fromCache),
+  avgCostInr: num(row.requests) > 0 ? round6(num(row.costInr) / num(row.requests)) : 0,
 });
 
-const TOTALS = "COUNT(*) AS requests, COALESCE(SUM(input_tokens), 0) AS inputTokens, COALESCE(SUM(output_tokens), 0) AS outputTokens, COALESCE(SUM(total_tokens), 0) AS tokens, COALESCE(SUM(cost_inr), 0) AS costInr";
+const TOTALS = "COUNT(*) AS requests, COALESCE(SUM(input_tokens), 0) AS inputTokens, COALESCE(SUM(cached_input_tokens), 0) AS cachedInputTokens, COALESCE(SUM(output_tokens), 0) AS outputTokens, COALESCE(SUM(total_tokens), 0) AS tokens, COALESCE(SUM(cost_inr), 0) AS costInr, COALESCE(SUM(from_cache), 0) AS fromCache";
+
+// The members who cost the most in the period (the admin sees who, to spot a runaway account)
+const TOP_MEMBERS = 10;
 
 /**
  * Everything the AI Usage screen shows for one period: all-time and period totals (with the
- * previous period to compare), each feature with its models and outcomes, the charts' series,
- * the cost by model and the budget.
+ * previous period to compare), each feature with its models, outcomes and average cost per call,
+ * the charts' series, the cost by model, the members who cost the most, and the budget.
  */
 async function summary(pool, { period }) {
   const days = rules.periodDays(period);
@@ -56,11 +66,16 @@ async function summary(pool, { period }) {
   const [series] = period === "day"
     ? await pool.query(`SELECT DATE_FORMAT(created_at, '%H') AS k, ${TOTALS} FROM ai_usage WHERE DATE(created_at) = CURDATE() GROUP BY k`)
     : await pool.query(`SELECT DATE_FORMAT(created_at, '%Y-%m-%d') AS k, ${TOTALS} FROM ai_usage WHERE ${current} GROUP BY k`, currentParams);
+  const [members] = await pool.query(
+    `SELECT u.user_id, us.full_name, ${TOTALS} FROM ai_usage u LEFT JOIN users us ON us.id = u.user_id
+     WHERE ${current.replace("created_at", "u.created_at")} AND u.user_id IS NOT NULL GROUP BY u.user_id, us.full_name ORDER BY costInr DESC, requests DESC LIMIT ${TOP_MEMBERS}`,
+    currentParams,
+  );
 
   return {
     period,
     range: { from: dates.fromDate, to: dates.today },
-    allTime: { ...totalsOf(allTime), avgCostInr: num(allTime.requests) > 0 ? Math.round((num(allTime.costInr) / num(allTime.requests)) * 1_000_000) / 1_000_000 : 0 },
+    allTime: totalsOf(allTime),
     today: { costInr: num(today.costInr), requests: num(today.requests) },
     month: { costInr: num(month.costInr), requests: num(month.requests) },
     current: totalsOf(cur),
@@ -74,6 +89,7 @@ async function summary(pool, { period }) {
       models: models.filter((m) => m.feature === f.feature).map((m) => ({ model: m.model, provider: m.provider, ...totalsOf(m) })),
     })),
     byModel: byModel.map((m) => ({ model: m.model, provider: m.provider, ...totalsOf(m) })),
+    topMembers: members.map((m) => ({ userId: m.user_id, userName: m.full_name, ...totalsOf(m) })),
     series: rules.fillSeries(rules.seriesKeys(period, dates.fromDate), series),
     budget: await usage.budgetStatus(pool),
   };
@@ -106,8 +122,8 @@ async function history(pool, q) {
   const from = `FROM ai_usage u LEFT JOIN users us ON us.id = u.user_id ${whereSql}`;
   const [[{ total }]] = await pool.query(`SELECT COUNT(*) AS total ${from}`, params);
   const [rows] = await pool.query(
-    `SELECT u.id, u.created_at, u.user_id, us.full_name, u.gym_id, u.feature, u.provider, u.model, u.input_tokens, u.output_tokens,
-            u.total_tokens, u.cost_inr, u.status, u.duration_ms
+    `SELECT u.id, u.created_at, u.user_id, us.full_name, u.gym_id, u.feature, u.provider, u.model, u.input_tokens, u.cached_input_tokens, u.output_tokens,
+            u.total_tokens, u.cost_inr, u.status, u.from_cache, u.duration_ms
      ${from} ORDER BY ${ORDER[q.sort]} LIMIT ? OFFSET ?`,
     [...params, rules.PAGE_SIZE, (q.page - 1) * rules.PAGE_SIZE],
   );
@@ -125,10 +141,12 @@ async function history(pool, q) {
       provider: r.provider,
       model: r.model,
       inputTokens: num(r.input_tokens),
+      cachedInputTokens: num(r.cached_input_tokens),
       outputTokens: num(r.output_tokens),
       totalTokens: num(r.total_tokens),
       costInr: num(r.cost_inr),
       status: r.status,
+      fromCache: Boolean(r.from_cache),
       durationMs: r.duration_ms === null ? null : num(r.duration_ms),
     })),
   };
