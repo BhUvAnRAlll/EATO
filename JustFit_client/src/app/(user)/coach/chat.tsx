@@ -13,6 +13,14 @@ import { useSessionToken } from "@/lib/session";
 import { useCoachChatStore } from "@/store/coachChat";
 import { colors } from "@/theme";
 
+// A coach reply with its main points marked **like this** → runs of Text, the marked ones semibold.
+// Only the coach's text is parsed; what the member typed is shown exactly as written.
+function boldPoints(text: string) {
+  const parts = text.split(/\*\*(.+?)\*\*/);
+  if (parts.length === 1) return text;
+  return parts.map((part, i) => (i % 2 ? <Text key={i} style={{ fontFamily: fonts.semibold }}>{part}</Text> : part));
+}
+
 // Chat with the AI coach. Opened from the Coach tab's ask box (with what was typed, or a
 // suggestion chip, as `q`, sent straight away). Each message is one paid AI call, limited per
 // member by the server; nothing is saved, so the chat lasts until the app closes or sign-out.
@@ -86,7 +94,7 @@ export default function CoachChat() {
                 key={turn.id}
                 className={["coach__bubble", turn.role === "member" && "coach__bubble--me", turn.failed && "coach__bubble--failed"].filter(Boolean).join(" ")}
               >
-                <Text className={turn.role === "member" ? "coach__bubble-text coach__bubble-text--me" : "coach__bubble-text"}>{turn.text}</Text>
+                <Text className={turn.role === "member" ? "coach__bubble-text coach__bubble-text--me" : "coach__bubble-text"}>{turn.role === "member" ? turn.text : boldPoints(turn.text)}</Text>
               </View>
             ))}
 

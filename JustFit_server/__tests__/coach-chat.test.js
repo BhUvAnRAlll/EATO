@@ -96,8 +96,8 @@ describe("coach chat: what the model is told", () => {
 });
 
 describe("coach chat: the reply", () => {
-  it("is trimmed plain text without markdown emphasis or headings", () => {
-    assert.equal(cleanReply("  ## Plan\n**Eat** dal and rice.  "), "Plan\nEat dal and rice.");
+  it("is trimmed, keeps **bold** main points, and drops headings and a stray **", () => {
+    assert.equal(cleanReply("  ## Plan\n**Eat** dal and rice. ** Walk daily.  "), "Plan\n**Eat** dal and rice.  Walk daily.");
   });
 
   it("is capped, and an empty answer is null", () => {

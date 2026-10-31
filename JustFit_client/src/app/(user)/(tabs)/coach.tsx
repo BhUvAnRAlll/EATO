@@ -297,18 +297,11 @@ export default function Coach() {
 
               {/* Changing the plan: a settings-style group */}
               <View className="coach__card gap-0 py-1">
-                <Pressable onPress={begin} className={plan?.state === "ready" ? "list-row" : "list-row border-b-0"} accessibilityRole="button" accessibilityLabel="Edit my answers">
+                <Pressable onPress={begin} className="list-row border-b-0" accessibilityRole="button" accessibilityLabel="Edit my answers">
                   <SymbolView name={{ ios: "slider.horizontal.3", android: "tune", web: "tune" }} size={18} tintColor={colors.primary} />
                   <Text className="list-row__label">Edit my answers</Text>
                   <SymbolView name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }} size={14} tintColor={colors.faint} />
                 </Pressable>
-                {plan?.state === "ready" && (
-                  <Pressable onPress={makePlan} disabled={making} className="list-row border-b-0" accessibilityRole="button" accessibilityLabel="Make a new plan">
-                    <SymbolView name={{ ios: "arrow.clockwise", android: "refresh", web: "refresh" }} size={18} tintColor={colors.primary} />
-                    <Text className="list-row__label">Make a new plan</Text>
-                    {making ? <ActivityIndicator color={colors.primary} /> : <SymbolView name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }} size={14} tintColor={colors.faint} />}
-                  </Pressable>
-                )}
               </View>
 
               <Text className="coach__hint text-center">Fitness guidance, not medical advice. Check every food against your allergies.</Text>

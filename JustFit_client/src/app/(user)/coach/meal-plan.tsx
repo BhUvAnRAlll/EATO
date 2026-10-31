@@ -21,7 +21,7 @@ const back = () => (router.canGoBack() ? router.back() : router.replace("/coach"
 
 // The coach's Meal Plan for today, on its own: the five meals down a timeline (time, slot, dish,
 // ingredients, calories, macros, Log Meal), with "N Meals · kcal" in the header and the Adjust
-// Plan banner at the bottom (ask the coach to adjust a meal, regenerate with AI, or edit the
+// Plan banner at the bottom (ask the coach to adjust a meal, regenerate with AI Coach, or edit the
 // answers). The workout is not here: it has its own card on the Coach tab.
 export default function MealPlanScreen() {
   const getToken = useSessionToken();
@@ -136,7 +136,7 @@ export default function MealPlanScreen() {
                 <SymbolView name={{ ios: "doc.text", android: "description", web: "description" }} size={26} tintColor={colors.primary} />
                 <View className="min-w-0 flex-1">
                   <Text className="coach__banner-title">Need to make changes?</Text>
-                  <Text className="coach__banner-text">Edit your meal plan or regenerate with AI</Text>
+                  <Text className="coach__banner-text">Edit your meal plan or regenerate with AI Coach</Text>
                 </View>
                 <Pressable onPress={() => setAdjusting((v) => !v)} className="coach__banner-btn" accessibilityRole="button" accessibilityLabel="Adjust plan" accessibilityState={{ expanded: adjusting }}>
                   <Text className="coach__banner-btn-label">Adjust Plan</Text>
@@ -150,9 +150,9 @@ export default function MealPlanScreen() {
                     <SymbolView name={{ ios: "bubble.left.fill", android: "chat", web: "chat" }} size={18} tintColor={colors.primary} />
                     <Text className="list-row__label">Ask my coach to adjust a meal</Text>
                   </Pressable>
-                  <Pressable onPress={() => { setAdjusting(false); regenerate(); }} disabled={making} className="list-row" accessibilityRole="button" accessibilityLabel="Regenerate the plan with AI">
+                  <Pressable onPress={() => { setAdjusting(false); regenerate(); }} disabled={making} className="list-row" accessibilityRole="button" accessibilityLabel="Regenerate the plan with AI Coach">
                     <SymbolView name={{ ios: "sparkles", android: "auto_awesome", web: "auto_awesome" }} size={18} tintColor={colors.primary} />
-                    <Text className="list-row__label">{making ? "Regenerating…" : "Regenerate with AI"}</Text>
+                    <Text className="list-row__label">{making ? "Regenerating…" : "Regenerate with AI Coach"}</Text>
                   </Pressable>
                   <Pressable onPress={() => { setAdjusting(false); editAnswers(); }} className="list-row border-b-0" accessibilityRole="button" accessibilityLabel="Edit my answers to change the plan">
                     <SymbolView name={{ ios: "pencil", android: "edit", web: "edit" }} size={18} tintColor={colors.primary} />

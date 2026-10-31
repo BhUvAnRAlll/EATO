@@ -349,9 +349,9 @@ describe("ui body scan: Scan Body, the photo instructions, the scan screen and t
     await h.expectPath("/profile");
   }));
 
-  it("6. Profile's edit button changes height and weight after a confirmation; the targets are recalculated and the body fat % kept", run("measurements", async () => {
+  it("6. Profile's Weight tile changes height and weight after a confirmation; the targets are recalculated and the body fat % kept", run("measurements", async () => {
     await h.goto("/profile", "Body composition");
-    await page.clickLabel("Edit height and weight");
+    await page.clickText("Weight");
     await h.expectPath("/measurements");
     await h.expectText("Height & weight");
     assert.equal(await page.inputValue(h.input("170")), "170", "the saved height fills the field");

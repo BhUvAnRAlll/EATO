@@ -115,7 +115,7 @@ export default function Profile() {
             <View style={{ width: 44 }} />
           )}
           <Text className="app-bar__title">Profile</Text>
-          <IconButton icon={{ ios: "pencil", android: "edit", web: "edit" }} label="Edit height and weight" onPress={() => router.push("/measurements")} disabled={!saved} />
+          <View style={{ width: 44 }} />
         </View>
 
         <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 32 }} showsVerticalScrollIndicator={false}>
