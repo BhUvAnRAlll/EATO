@@ -1,14 +1,15 @@
 import { useCallback, useState } from "react";
-import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, Text, TextInput, View, useWindowDimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { router, useFocusEffect } from "expo-router";
 
-import { BarChart } from "@/components/admin/BarChart";
+import { TrendChart } from "@/components/admin/TrendChart";
 import { DashedBlock } from "@/components/macro/DashedBlock";
+import { usePullToRefresh } from "@/components/PullToRefresh";
 import { SymbolView } from "@/components/SymbolView";
-import { MODULE_ICON, RANK_LIMIT, SCREEN_LABEL } from "@/data/appUsage";
-import { appUsage, changeText, durationText, isIsoDate, rangeText, RANGE_LABEL, RANGE_OPTIONS, type FeatureUsage, type UsageQuery, type UsageRange, type UsageSummary } from "@/lib/appUsage";
+import { FEATURE_ICON, MODULE_ICON, RANK_LIMIT, SCREEN_ICON, SCREEN_LABEL } from "@/data/appUsage";
+import { appUsage, changeText, dayName, durationText, isIsoDate, rangeText, RANGE_LABEL, RANGE_OPTIONS, type FeatureUsage, type UsageQuery, type UsageRange, type UsageSummary } from "@/lib/appUsage";
 import { downloadFile } from "@/lib/download";
 import { useSessionToken } from "@/lib/session";
 import { colors } from "@/theme";
@@ -59,6 +60,12 @@ export default function AppUsageScreen() {
     }, [refresh, query]),
   );
 
+  // A pull reads the summary again for the range on screen (a half-typed custom range waits)
+  const reload = useCallback(async () => {
+    if (query.range !== "custom" || (query.from && query.to)) await refresh(query);
+  }, [refresh, query]);
+  const { refreshControl } = usePullToRefresh(reload);
+
   const pick = (range: UsageRange) => {
     if (range === "custom") {
       setQuery({ range: "custom", from: isIsoDate(custom.from) ? custom.from : undefined, to: isIsoDate(custom.to) ? custom.to : undefined });
@@ -87,7 +94,7 @@ export default function AppUsageScreen() {
           </Pressable>
         </View>
 
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40, gap: 16 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40, gap: 16 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" refreshControl={refreshControl}>
           {/* The range: a row of chips that wraps on narrow phones */}
           <View className="flex-row flex-wrap" style={{ gap: 8 }} accessibilityRole="tablist">
             {RANGE_OPTIONS.map((r) => (
@@ -160,6 +167,8 @@ function Ready({ data }: { data: UsageSummary }) {
   const mostUsed = used.slice(0, RANK_LIMIT);
   // Least used: the fewest members first, declining and unused features included
   const leastUsed = [...data.features].sort((a, b) => a.members - b.members || a.uses - b.uses).slice(0, RANK_LIMIT);
+  const peakDay = data.series.reduce((best, p) => (p.members > best.members ? p : best), data.series[0] ?? { key: range.to, members: 0 });
+  const average = data.series.length > 0 ? Math.round((data.series.reduce((sum, p) => sum + p.members, 0) / data.series.length) * 10) / 10 : 0;
   const daysLabel = (key: string, index: number) => {
     const every = range.days <= 7 ? 1 : range.days <= 31 ? 5 : 15;
     return index % every === 0 || index === range.days - 1 ? key.slice(8) : "";
@@ -199,11 +208,15 @@ function Ready({ data }: { data: UsageSummary }) {
       </View>
 
       <View className="admin-list px-4 py-3" style={{ gap: 14 }}>
-        <Text className="card__title">Active members per day</Text>
-        {members.active === 0 ? (
-          <Text className="post__time">Nobody was active in this range.</Text>
-        ) : (
-          <BarChart points={data.series.map((p) => ({ key: p.key, value: p.members }))} format={(v) => `${v} ${v === 1 ? "member" : "members"}`} label={daysLabel} color={colors.primary} />
+        <View>
+          <Text className="card__title">Active members per day</Text>
+          <Text className="post__time">{members.active === 0 ? "Nobody was active in this range." : `${average} a day on average · peak ${peakDay.members} on ${dayName(peakDay.key)}`}</Text>
+        </View>
+        {members.active > 0 && (
+          <>
+            <TrendChart points={data.series.map((p) => ({ key: p.key, value: p.members }))} format={(v) => `${v} ${v === 1 ? "member" : "members"}`} label={daysLabel} describe={dayName} color={colors.primary} />
+            <Text className="admin__hint">Touch the chart to read any day.</Text>
+          </>
         )}
       </View>
 
@@ -222,20 +235,23 @@ function Ready({ data }: { data: UsageSummary }) {
               <Text className="admin-stat__label" numberOfLines={2}>from the first to the last thing done in the app</Text>
             </View>
           </View>
-          <View className="admin-list px-4 py-3" style={{ gap: 10 }}>
-            <Text className="card__title">Screen visits</Text>
+          {/* Screen visits: one row per screen, like the feature lists below */}
+          <View className="admin-list">
+            <Text className="card__title px-4 pt-4 pb-1">Screen visits</Text>
             {data.engagement.screens.length === 0 ? (
-              <Text className="post__time">No screen views in this range yet.</Text>
+              <Text className="post__time px-4 pb-4">No screen views in this range yet.</Text>
             ) : (
-              data.engagement.screens.map((sc) => {
-                const share = members.active > 0 ? Math.round((sc.members / members.active) * 100) : 0;
+              data.engagement.screens.map((sc, i) => {
+                const label = SCREEN_LABEL[sc.screen] ?? sc.screen;
+                const members = `${sc.members} ${sc.members === 1 ? "member" : "members"}`;
                 return (
-                  <View key={sc.screen} style={{ gap: 4 }} accessibilityLabel={`${SCREEN_LABEL[sc.screen] ?? sc.screen}: ${sc.members} ${sc.members === 1 ? "member" : "members"}, ${sc.visits} visits`}>
-                    <View className="ai-kv">
-                      <Text className="ai-kv__key">{SCREEN_LABEL[sc.screen] ?? sc.screen}</Text>
-                      <Text className="ai-kv__value">{`${sc.members} ${sc.members === 1 ? "member" : "members"} · ${sc.visits.toLocaleString("en-IN")} visits`}</Text>
+                  <View key={sc.screen} className={i > 0 ? "admin-row admin-row--divided" : "admin-row"} accessibilityLabel={`${label}: ${members}, ${sc.visits} visits`}>
+                    <View className="admin-row__icon"><SymbolView name={SCREEN_ICON[sc.screen] ?? MODULE_ICON.progress} size={18} tintColor={colors.forestInk} /></View>
+                    <View className="min-w-0 flex-1">
+                      <Text className="card__title" numberOfLines={1}>{label}</Text>
+                      <Text className="post__time">{members}</Text>
                     </View>
-                    <View className="ai-bar"><View className="ai-bar__fill" style={{ width: `${share}%` }} /></View>
+                    <CountPill text={`${sc.visits.toLocaleString("en-IN")} ${sc.visits === 1 ? "visit" : "visits"}`} />
                   </View>
                 );
               })
@@ -290,26 +306,44 @@ function Ready({ data }: { data: UsageSummary }) {
   );
 }
 
-// One feature: its members (the share bar) and uses, with the change from the range before
+// Phones narrower than this show only the number in a row's pill, so the name keeps its room
+const NARROW = 360;
+
+// A count in a soft pill at the end of a row (visits, members); grey when it is zero
+function CountPill({ text, zero = false }: { text: string; zero?: boolean }) {
+  const narrow = useWindowDimensions().width < NARROW;
+  const shown = narrow ? text.split(" ")[0] : text;
+  return (
+    <View className={zero ? "home__pill-soft home__pill-soft--grey" : "home__pill-soft"}>
+      <Text className={zero ? "home__pill-soft-label home__pill-soft-label--grey" : "home__pill-soft-label"}>{shown}</Text>
+    </View>
+  );
+}
+
+// One feature as a row: its icon (with its rank on the corner in Most used), name and uses, then
+// its members in a pill with the change from the range before. Tapping opens the feature's detail.
 function FeatureRow({ feature: f, rank, active, divided, compact = false }: { feature: FeatureUsage; rank?: number; active: number; divided: boolean; compact?: boolean }) {
   const open = () => router.push({ pathname: "/admin/app-usage/feature/[id]", params: { id: f.id } });
   const share = active > 0 ? Math.round((f.members / active) * 100) : 0;
   const trend = f.unused ? "unused" : f.declining ? "declining" : changeText(f.changePercent);
   const trendColor = f.unused || f.declining ? colors.danger : f.changePercent !== null && f.changePercent > 0 ? colors.success : colors.muted;
-  const label = `${rank ? `${rank}. ` : ""}${f.label}: ${f.members} ${f.members === 1 ? "member" : "members"} (${share}% of active), ${f.uses} uses, ${f.usesPerMember} per member, ${trend} vs the range before`;
+  const members = `${f.members} ${f.members === 1 ? "member" : "members"}`;
+  const label = `${rank ? `${rank}. ` : ""}${f.label}: ${members} (${share}% of active), ${f.uses} uses, ${f.usesPerMember} per member, ${trend} vs the range before`;
   return (
     <Pressable onPress={open} className={divided ? "admin-row admin-row--divided" : "admin-row"} style={compact ? { paddingVertical: 8 } : undefined} accessibilityRole="button" accessibilityLabel={`${label}. Open details`}>
-      <View className="min-w-0 flex-1" style={{ gap: 4 }}>
-        <View className="ai-kv">
-          <Text className={compact ? "post__time" : "card__title"} numberOfLines={1}>{`${rank ? `${rank}. ` : ""}${f.label}`}</Text>
-          <Text className="ai-kv__value">{`${f.members} ${f.members === 1 ? "member" : "members"}`}</Text>
-        </View>
-        <View className="ai-bar"><View className="ai-bar__fill" style={{ width: `${share}%` }} /></View>
-        <View className="ai-kv">
-          <Text className="ai-kv__key">{`${f.uses.toLocaleString("en-IN")} uses · ${f.usesPerMember} per member`}</Text>
-          <Text className="ai-kv__key" style={{ color: trendColor }}>{trend}</Text>
-        </View>
+      <View>
+        <View className="admin-row__icon"><SymbolView name={FEATURE_ICON[f.id] ?? MODULE_ICON[f.module]} size={18} tintColor={colors.forestInk} /></View>
+        {rank !== undefined && <View className="admin-rank"><Text className="admin-rank__label">{rank}</Text></View>}
       </View>
+      <View className="min-w-0 flex-1">
+        <Text className={compact ? "post__time" : "card__title"} numberOfLines={2} style={compact ? { color: colors.ink } : undefined}>{f.label}</Text>
+        <Text className="post__time" numberOfLines={2}>{`${f.uses.toLocaleString("en-IN")} uses · ${f.usesPerMember} per member`}</Text>
+      </View>
+      <View className="items-end" style={{ gap: 2 }}>
+        <CountPill text={members} zero={f.members === 0} />
+        <Text className="admin-stat__label" style={{ color: trendColor }} numberOfLines={1}>{trend}</Text>
+      </View>
+      <SymbolView name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }} size={14} tintColor={colors.faint} />
     </Pressable>
   );
 }
