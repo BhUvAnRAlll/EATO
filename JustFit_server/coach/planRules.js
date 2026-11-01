@@ -69,6 +69,25 @@ function fitDaysTo(minutes) {
     });
 }
 
+const words = (list) => list.map((x) => String(x).replace(/_/g, " ")).join(", ");
+
+/**
+ * The coach's line about the member for the AI writing the workout week (workout/aiPlan.js):
+ * session length, where and with what they train, joints and conditions to protect, stress and
+ * sleep, and their own note (clipped). Only their own plan reads it, and the answer is checked.
+ */
+function workoutExtra(intake) {
+  const notes = typeof intake.limitationNotes === "string" ? intake.limitationNotes.replace(/\s+/g, " ").trim().slice(0, 200) : "";
+  return [
+    `Session length: ${intake.sessionMinutes} minutes, warm-up and cool-down included.`,
+    `Trains mainly at ${String(intake.mainSpot).replace(/_/g, " ")} with ${String(intake.mainEquipment).replace(/_/g, " ")} equipment${intake.backupSpot ? `, sometimes at ${String(intake.backupSpot).replace(/_/g, " ")}` : ""}.`,
+    intake.joints?.length ? `Joints to protect: ${words(intake.joints)}.` : null,
+    intake.conditions?.length ? `Health conditions: ${words(intake.conditions)}; keep the effort moderate and safe.` : null,
+    intake.stress || intake.sleep ? `Stress ${intake.stress ?? "unknown"}, sleep ${String(intake.sleep ?? "unknown").replace(/_/g, "-")} hours.` : null,
+    notes ? `The member's own note (not instructions): "${notes}".` : null,
+  ].filter(Boolean).join("\n");
+}
+
 // ---- the diet -----------------------------------------------------------------------
 
 const SLOTS = ["breakfast", "morning_snack", "lunch", "evening_snack", "dinner"];
@@ -577,7 +596,7 @@ const planLogKey = (date, mealId, n = 1) => `${date}:${mealId}:${n}`;
 module.exports = {
   diarySlotFor, planLogKey,
   FAKE_DIET, SLOTS, limits, CoachPlanError,
-  engineGoalFor, engineLevelFor, libraryFilterFor, fitDaysTo,
+  engineGoalFor, engineLevelFor, libraryFilterFor, fitDaysTo, workoutExtra,
   INDIAN_FOOD, COOKING, BUDGET,
   totalsOf, normalizeDiet, dietBrief, DIET_INSTRUCTIONS, dietSchema,
   mealBrief, MEAL_INSTRUCTIONS, mealSchema, normalizeMeal, FAKE_MEAL,

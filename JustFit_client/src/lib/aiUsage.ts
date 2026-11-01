@@ -4,7 +4,7 @@ import { normalizeSummary } from "@/lib/aiUsageRules";
 // Super Admin › AI Usage (JustFit_server/admin/aiUsage.js, under /api/admin/portal/ai-usage).
 // The server checks the admin role on every request; nothing here decides who may see what.
 
-export type AiFeature = "gym_assistant" | "coach_plan" | "coach_meal" | "coach_chat" | "food_scan" | "body_scan" | "body_report";
+export type AiFeature = "gym_assistant" | "coach_plan" | "coach_workout" | "coach_meal" | "coach_chat" | "food_scan" | "body_scan" | "body_report" | "exercise_library";
 export type AiProvider = "openai" | "forma";
 export type AiStatus = "ok" | "failed" | "refused";
 export type Period = "day" | "week" | "month";

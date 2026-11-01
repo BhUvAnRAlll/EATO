@@ -67,7 +67,8 @@ async function check(pool, { feature, userId = null }, env = process.env) {
   if (config.perMinute > 0 && !burstLimiter(config.perMinute).check(userId).ok) throw new AiLimitError(rules.LIMIT_MESSAGES.minute, 429, "minute");
   try {
     if (config.perDay > 0 && (await todayCount(pool, userId)) >= config.perDay) throw new AiLimitError(rules.LIMIT_MESSAGES.day(config.perDay), 429, "day");
-    if (feature === "coach_plan" && config.plansPerDay > 0 && (await todayCount(pool, userId, "coach_plan")) >= config.plansPerDay) {
+    // A plan (meals) and a workout plan each count on their own against the daily plan limit
+    if ((feature === "coach_plan" || feature === "coach_workout") && config.plansPerDay > 0 && (await todayCount(pool, userId, feature)) >= config.plansPerDay) {
       throw new AiLimitError(rules.LIMIT_MESSAGES.plans(config.plansPerDay), 429, "plans");
     }
   } catch (error) {

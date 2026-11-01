@@ -457,7 +457,10 @@ CREATE TABLE workout_exercise_library (
   region              ENUM('lower', 'upper', 'any') NOT NULL DEFAULT 'any',
   timed_sec           SMALLINT UNSIGNED NULL,         -- held or timed work: the base seconds
   instructions        JSON              NULL,         -- up to 10 lines of up to 200 characters
+  video_key           VARCHAR(200)      NULL,         -- the demo clip in storage (NULL: no video yet)
+  video_uploaded_at   TIMESTAMP         NULL,
   built_in            BOOLEAN           NOT NULL DEFAULT FALSE,
+  ai_drafted          BOOLEAN           NOT NULL DEFAULT FALSE,  -- written by the AI for Admin › Exercises
   created_by          VARCHAR(64)       NULL,         -- set on admin-authored rows only
   archived_at         TIMESTAMP         NULL,
   created_at          TIMESTAMP         NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -637,7 +640,7 @@ CREATE TABLE admin_audit_log (
   id           CHAR(36)     NOT NULL DEFAULT (UUID()),
   admin_id     VARCHAR(64)  NULL,
   action       VARCHAR(40)  NOT NULL,                -- e.g. promotion.publish
-  target_type  ENUM('user', 'gym', 'post', 'report', 'promotion') NOT NULL,
+  target_type  ENUM('user', 'gym', 'post', 'report', 'promotion', 'exercise') NOT NULL,
   target_id    VARCHAR(64)  NULL,
   summary      VARCHAR(200) NOT NULL,                -- "Verified Marcus Johnson", shown as written
   created_at   TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),  -- sub-second, so actions keep their order
@@ -822,7 +825,7 @@ CREATE TABLE ai_usage (
   created_at     TIMESTAMP        NOT NULL DEFAULT CURRENT_TIMESTAMP,
   user_id        VARCHAR(64)      NULL,
   gym_id         CHAR(36)         NULL,
-  feature        ENUM('gym_assistant', 'coach_plan', 'coach_meal', 'coach_chat', 'food_scan', 'body_scan', 'body_report') NOT NULL,
+  feature        ENUM('gym_assistant', 'coach_plan', 'coach_workout', 'coach_meal', 'coach_chat', 'food_scan', 'body_scan', 'body_report', 'exercise_library') NOT NULL,
   provider       ENUM('openai', 'forma') NOT NULL,
   model          VARCHAR(64)      NOT NULL,
   input_tokens   INT UNSIGNED     NOT NULL DEFAULT 0,

@@ -8,22 +8,26 @@ import type { Icon } from "@/types/profile";
 
 export const FEATURE_LABEL: Record<AiFeature, string> = {
   gym_assistant: "Gym assistant replies (removed)",
-  coach_plan: "Plan generations (meals and workout)",
+  coach_plan: "Plan generations (a day of meals)",
+  coach_workout: "Workout plans written by the AI",
   coach_meal: "Meal swaps (one meal replaced)",
   coach_chat: "Coaching messages",
   food_scan: "Food photo scans",
   body_scan: "Body fat predictions",
   body_report: "Body composition report reading",
+  exercise_library: "Exercises drafted for the library (admin)",
 };
 
 export const FEATURE_SHORT: Record<AiFeature, string> = {
   gym_assistant: "Gym assistant (removed)",
   coach_plan: "Coach plan",
+  coach_workout: "Workout plan",
   coach_meal: "Meal swap",
   coach_chat: "Coach chat",
   food_scan: "Food scan",
   body_scan: "Body scan",
   body_report: "Report reading",
+  exercise_library: "Exercise drafts",
 };
 
 export const STATUS_LABEL: Record<AiStatus, string> = { ok: "OK", failed: "Failed", refused: "Refused" };
@@ -35,8 +39,8 @@ export const PERIOD_PREVIOUS: Record<Period, string> = { day: "yesterday", week:
 export type AiSection = { id: string; title: string; note: string; icon: Icon; features: AiFeature[] };
 
 export const AI_SECTIONS: AiSection[] = [
-  { id: "coach", title: "AI Coach", note: "Plan generations (a day of meals with the workout week), single meal swaps and coaching messages", icon: { ios: "sparkles", android: "auto_awesome", web: "auto_awesome" }, features: ["coach_plan", "coach_meal", "coach_chat"] },
+  { id: "coach", title: "AI Coach", note: "Meal plans, workout plans, single meal swaps and coaching messages", icon: { ios: "sparkles", android: "auto_awesome", web: "auto_awesome" }, features: ["coach_plan", "coach_workout", "coach_meal", "coach_chat"] },
   { id: "food", title: "Food & Nutrition AI", note: "Scan Food: recognising the foods in a photo and estimating their nutrition", icon: { ios: "fork.knife", android: "restaurant", web: "restaurant" }, features: ["food_scan"] },
   { id: "body", title: "Body Fat Prediction AI", note: "Scan Body: the Forma model, self-hosted (no tokens)", icon: { ios: "figure.stand", android: "accessibility_new", web: "accessibility_new" }, features: ["body_scan"] },
-  { id: "other", title: "Other AI services", note: "Reading uploaded body composition reports", icon: { ios: "doc.text", android: "description", web: "description" }, features: ["body_report"] },
+  { id: "other", title: "Other AI services", note: "Reading uploaded body composition reports, and exercises the admin asks the AI to add", icon: { ios: "doc.text", android: "description", web: "description" }, features: ["body_report", "exercise_library"] },
 ];

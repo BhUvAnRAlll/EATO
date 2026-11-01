@@ -216,8 +216,12 @@ describe("coach e2e: the intake, its prefill, and who may see it", () => {
     // The workout: the member's answers saved, a member plan on Mon/Wed/Fri, no high-risk lift (knees)
     const [[answersRow]] = await connection.query("SELECT goal, experience, weekdays FROM workout_profiles WHERE user_id = ?", [ids.a]);
     assert.deepEqual({ goal: answersRow.goal, experience: answersRow.experience, weekdays: answersRow.weekdays }, { goal: "build_muscle", experience: "advanced", weekdays: [1, 3, 5] });
-    const [[workoutPlan]] = await connection.query("SELECT id, source FROM workout_plans WHERE user_id = ? AND status = 'active'", [ids.a]);
+    const [[workoutPlan]] = await connection.query("SELECT id, source, engine_version, calibration FROM workout_plans WHERE user_id = ? AND status = 'active'", [ids.a]);
     assert.equal(workoutPlan.source, "member");
+    // The week is the AI's (the fake AI answers the engine's week): marked, and one coach_workout call
+    assert.equal(workoutPlan.engine_version, null);
+    assert.equal(workoutPlan.calibration.writtenBy, "ai");
+    assert.equal(await count("SELECT COUNT(*) AS n FROM ai_usage WHERE user_id = ? AND feature = 'coach_workout' AND status = 'ok'", [ids.a]), 1);
     const [days] = await connection.query("SELECT weekday FROM workout_days WHERE plan_id = ? ORDER BY weekday", [workoutPlan.id]);
     assert.deepEqual(days.map((d) => d.weekday), [1, 3, 5]);
     assert.equal(await count(
@@ -534,6 +538,12 @@ describe("coach e2e: the intake, its prefill, and who may see it", () => {
     assert.equal(fourth.status, 429, JSON.stringify(fourth.json));
     assert.match(fourth.json.error, /3 plans today/);
     assert.equal(await count("SELECT COUNT(*) AS n FROM ai_usage WHERE user_id = ? AND feature = 'coach_plan'", [ids.a]), 3, "the refused request made no AI call");
+    // The third plan's workout was over the workout limit too (tests 8, 9 and 18c used it): the
+    // engine wrote that week instead, with no AI call and no error for the member
+    assert.equal(await count("SELECT COUNT(*) AS n FROM ai_usage WHERE user_id = ? AND feature = 'coach_workout'", [ids.a]), 3);
+    const [[fallback]] = await connection.query("SELECT engine_version, calibration FROM workout_plans WHERE user_id = ? AND status = 'active'", [ids.a]);
+    assert.ok(fallback.engine_version > 0, "the engine's week");
+    assert.equal(fallback.calibration.writtenBy, undefined);
     planA = third.json.plan;
   }));
 

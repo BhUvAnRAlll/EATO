@@ -10,6 +10,9 @@ const aiUsage = require("./aiUsage");
 const usage = require("./usage");
 const retention = require("./retention");
 const usageExport = require("./export");
+const exercises = require("./exercises");
+const exerciseRules = require("./exerciseRules");
+const { CoachPlanError } = require("../coach/planRules");
 const aiRules = require("../ai/rules");
 const { NotFoundError } = require("../errors");
 
@@ -87,6 +90,33 @@ router.get("/usage/export", route(async (req, res) => {
   res.set("Content-Disposition", `attachment; filename="${fileName}"`);
   res.set("Cache-Control", "no-store");
   res.send(csv);
+}));
+
+// Exercises (admin/exercises.js): every exercise a member can be given, with its video state;
+// the AI adds new ones. Before migrations/2026-11-07-exercise-library-admin.sql has run on this
+// database, say so instead of a 500; the AI's own failures carry their message and status.
+const exerciseRoute = (handler) => (req, res, next) =>
+  handler(req, res, next).catch((error) => {
+    if (error?.code === "ER_BAD_FIELD_ERROR" || error?.code === "WARN_DATA_TRUNCATED" || error?.code === "ER_TRUNCATED_WRONG_VALUE_FOR_FIELD") {
+      return res.status(503).json({ error: "Exercises need the 2026-11-07-exercise-library-admin migration on this server." });
+    }
+    if (error instanceof CoachPlanError) return res.status(error.status).json({ error: error.message });
+    next(error);
+  });
+router.get("/exercises", exerciseRoute(async (req, res) => {
+  res.json(await exercises.list(pool(req), exerciseRules.listQuery(req.query)));
+}));
+router.post("/exercises/ai-draft", smallBody, exerciseRoute(async (req, res) => {
+  res.status(201).json(await exercises.draftWithAi(pool(req), req.userId, exerciseRules.draftBody(req.body)));
+}));
+router.get("/exercises/:exerciseId", exerciseRoute(async (req, res) => {
+  res.json({ exercise: await exercises.detail(pool(req), exerciseRules.exerciseId(req.params.exerciseId)) });
+}));
+router.post("/exercises/:exerciseId/archive", exerciseRoute(async (req, res) => {
+  res.json({ exercise: await exercises.setArchived(pool(req), req.userId, exerciseRules.exerciseId(req.params.exerciseId), true) });
+}));
+router.post("/exercises/:exerciseId/restore", exerciseRoute(async (req, res) => {
+  res.json({ exercise: await exercises.setArchived(pool(req), req.userId, exerciseRules.exerciseId(req.params.exerciseId), false) });
 }));
 
 module.exports = { adminPortalRouter: router };

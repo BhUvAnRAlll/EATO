@@ -828,6 +828,18 @@ Every OpenAI call goes through the small services in `JustFit_server/ai/`, and n
   (`chatRules.modelHistory`), a meal swap sends the member's food facts and the one meal
   (`POST /api/coach/plan/meals/:id/swap`, feature `coach_meal`).
   Arithmetic (targets, scaling, totals, workouts) stays in code, never in a prompt.
+- Admin › Exercises (added 2026-11-01, `JustFit_server/admin/exercises.js` + `exerciseRules.js`,
+  screens under `src/app/admin/exercises/`) lists every library exercise with its video state; "Add
+  with AI" (feature `exercise_library`, one call for up to 20) writes new exercises, which are
+  cleaned, de-duplicated by `exerciseKey` and go live at once. Migration
+  `2026-11-07-exercise-library-admin.sql` adds `ai_drafted`, `video_key`, `video_uploaded_at`.
+- The workout week is written by the AI (added 2026-11-01, `JustFit_server/workout/aiPlan.js`,
+  feature `coach_workout`) for every plan path (coach plan, chat workout change, Preferences,
+  Rebuild, first plan). The server keeps: library exercises only, one entry per chosen day, no
+  high-risk moves after a serious injury, low-impact only for heavier bodies, bounded numbers.
+  The engine still sets level, calibration and the review flag, and its week is stored whenever
+  the AI is unconfigured, over a limit, failing or unusable (`engine_version` empty and
+  `calibration.writtenBy = "ai"` mark the AI's weeks). The AI call runs before the member lock.
 - `ai/usage.js` records every call with `cached_input_tokens` and `from_cache`; the admin's AI
   Usage screen shows cached tokens, cache hits, cost per call per feature and the top members.
   Migration `2026-11-04-ai-cost-optimization.sql` (run once, after the 2026-11-03 one) adds the

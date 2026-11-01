@@ -1,7 +1,9 @@
 // Workout plans for the hub and the day screen: creating a member's first plan, and turning
-// dates into the session that runs on them. The plan itself comes from the engine in
-// JustFit_client/src/lib/workout (deterministic arithmetic, no AI); this file only reads the
-// member's answers, stores what the engine produced, and reads it back.
+// dates into the session that runs on them. The week is written by the AI from the exercise
+// library (workout/aiPlan.js, since 2026-11-01), with the engine in JustFit_client/src/lib/workout
+// (deterministic arithmetic) for the facts it still decides (level, calibration, the professional
+// review flag) and as the fallback whenever the AI can't answer. This file reads the member's
+// answers, drafts the plan (the AI call, outside any transaction), stores it and reads it back.
 //
 // Every query is scoped to the verified member id passed in by the route, never one taken
 // from the request. Structural links (plan_id, day_id) are not foreign keys (see the Workout
@@ -9,6 +11,7 @@
 const workout = require("../../JustFit_client/src/lib/workout/index.ts");
 // A failed check the member should read word for word (the route answers 400 with it)
 const { ValidationError } = require("../profile");
+const aiPlan = require("./aiPlan");
 
 const SECTION_ORDER = "FIELD(e.section, 'warmup', 'workout', 'cooldown')";
 
@@ -120,7 +123,11 @@ async function activePlanRow(conn, userId) {
  * none (the spec's ensurePlan). Idempotent and safe to call twice at once: the member's users
  * row is locked for the transaction, and the one-active-plan key refuses a second plan.
  */
-async function ensurePlan(pool, userId, today) {
+async function ensurePlan(pool, userId, today, env = process.env) {
+  const held = await activePlanRow(pool, userId);
+  if (held) return { planId: held.id, created: false };
+  // The slow part (the AI) before the lock; a request that made the plan meanwhile still wins
+  const prepared = await draftPlan(pool, userId, today, {}, env);
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
@@ -132,7 +139,7 @@ async function ensurePlan(pool, userId, today) {
       return { planId: existing.id, created: false };
     }
 
-    const { planId } = await generateAndStore(conn, userId, today, "engine");
+    const { planId } = await generateAndStore(conn, userId, today, "engine", prepared);
     await conn.commit();
     return { planId, created: true };
   } catch (error) {
@@ -149,18 +156,33 @@ async function ensurePlan(pool, userId, today) {
 }
 
 /**
- * Runs the engine on the member's current answers and stores the plan it produced as the
- * active one, stamped with the engine version, the input hash, the inputs and the calibration.
- * The caller holds the transaction and has already retired any previous active plan.
- * `shape` (the AI Coach's) may narrow the library the engine picks from and trim the days.
+ * The plan for the member's answers, before anything is written: the engine's week first (its
+ * level, calibration and review flag are kept either way), then the AI's week from the same
+ * library, used when it passes the checks (workout/aiPlan.js). `answers` are the answers about to
+ * be saved (they override what's stored), `shape` the AI Coach's: `library` narrows the
+ * exercises, `days` fits each day to the session length, `extra` is its line for the AI. Makes
+ * the AI call, so it runs outside any transaction; generateAndStore stores what it returns.
  */
-async function generateAndStore(conn, userId, today, source, shape = {}) {
-  await syncLibrary(conn);
-  const { library, idByName } = await programmableLibrary(conn);
-  const { justfit, saved } = await memberSources(conn, userId);
-  const inputs = workout.inputsForMember(justfit, saved, today);
-  const generated = workout.generatePlan(inputs, shape.library ? shape.library(library) : library);
-  const plan = shape.days ? { ...generated, days: shape.days(generated.days) } : generated;
+async function draftPlan(pool, userId, today, { answers = {}, shape = {} } = {}, env = process.env) {
+  await syncLibrary(pool);
+  const { library } = await programmableLibrary(pool);
+  const { justfit, saved } = await memberSources(pool, userId);
+  const inputs = workout.inputsForMember(justfit, { ...saved, ...answers }, today);
+  const allowed = shape.library ? shape.library(library) : library;
+  const fit = (plan) => (shape.days ? { ...plan, days: shape.days(plan.days) } : plan);
+  const enginePlan = fit(workout.generatePlan(inputs, allowed));
+  const written = await aiPlan.write(pool, userId, { inputs, enginePlan, library: allowed, extra: shape.extra ?? null }, env);
+  return { inputs, plan: written ? fit(written) : enginePlan };
+}
+
+/**
+ * Stores a drafted plan (draftPlan) as the active one, stamped with the engine version (empty
+ * for the AI's week), the input hash, the inputs and the calibration. The caller holds the
+ * transaction and has already retired any previous active plan.
+ */
+async function generateAndStore(conn, userId, today, source, prepared) {
+  const { idByName } = await programmableLibrary(conn);
+  const { inputs, plan } = prepared;
 
   const [[{ id: planId }]] = await conn.query("SELECT UUID() AS id");
   await conn.query(
@@ -175,7 +197,7 @@ async function generateAndStore(conn, userId, today, source, shape = {}) {
     await conn.query("INSERT INTO workout_days (id, plan_id, user_id, weekday, title, session_type) VALUES (?, ?, ?, ?, ?, ?)", [dayId, planId, userId, day.weekday, day.title, day.sessionType]);
     for (const e of day.exercises) {
       const exerciseId = idByName(e.name);
-      if (!exerciseId) throw new Error(`The engine chose an exercise the library doesn't have: ${e.name}`);
+      if (!exerciseId) throw new Error(`The plan has an exercise the library doesn't have: ${e.name}`);
       await conn.query(
         `INSERT INTO workout_day_exercises (day_id, plan_id, user_id, exercise_id, section, position, sets, rest_sec, role, reps_min, reps_max, note)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -561,7 +583,10 @@ async function preferences(pool, userId) {
  * A level the member picks becomes their experience, and the fitness scores follow it, so the
  * engine calibrates to that level (a safety-mode answer still keeps the plan at beginner).
  */
-async function updatePreferences(pool, userId, { today, goal, level, weekdays, split }) {
+async function updatePreferences(pool, userId, { today, goal, level, weekdays, split }, env = process.env) {
+  await requireProfile(pool, userId);
+  const before = await activePlanRow(pool, userId);
+  const prepared = await draftPlan(pool, userId, today, { answers: { ...answersFor(before, { goal, level, weekdays }), split } }, env);
   return withMemberLock(pool, userId, async (conn) => {
     const current = await activePlanRow(conn, userId);
     const [[profile]] = await conn.query("SELECT user_id FROM profiles WHERE user_id = ?", [userId]);
@@ -582,9 +607,27 @@ async function updatePreferences(pool, userId, { today, goal, level, weekdays, s
     // today or later pointed at its days, so they go; past ones stay as history.
     if (current) await conn.query("UPDATE workout_plans SET status = 'superseded' WHERE id = ? AND user_id = ?", [current.id, userId]);
     await conn.query("DELETE FROM workout_day_overrides WHERE user_id = ? AND on_date >= ?", [userId, today]);
-    const { planId, plan } = await generateAndStore(conn, userId, today, "member");
+    const { planId, plan } = await generateAndStore(conn, userId, today, "member", prepared);
     return { planId, level: plan.level, goal: plan.goal, daysPerWeek: plan.daysPerWeek, requiresProfessionalReview: plan.requiresProfessionalReview };
   });
+}
+
+/**
+ * The answers Preferences and the AI Coach save, as draftPlan reads them: goal, experience and
+ * days, and when the level changes the fitness base that follows it (the capability scores are
+ * cleared, so the engine calibrates to the chosen level).
+ */
+async function requireProfile(pool, userId) {
+  const [[profile]] = await pool.query("SELECT user_id FROM profiles WHERE user_id = ?", [userId]);
+  if (!profile) throw new ValidationError("Profile missing");
+}
+
+function answersFor(current, { goal, level, weekdays }) {
+  const levelChanged = !current || current.level !== level;
+  return {
+    goal, experience: level, weekdays,
+    ...(levelChanged ? { fitnessBase: workout.fitnessBaseFromExperience(level), squatScore: null, pushScore: null, pullScore: null } : {}),
+  };
 }
 
 // ---- rebuild my plan ---------------------------------------------------------------
@@ -624,7 +667,9 @@ async function recreateInputs(pool, userId, { today }) {
  * about the body, not the split), makes it the active one, and writes the calibrated level
  * back as the member's experience. The old plan stays, superseded, with its history.
  */
-async function recreatePlan(pool, userId, { today, answers }) {
+async function recreatePlan(pool, userId, { today, answers }, env = process.env) {
+  await requireProfile(pool, userId);
+  const prepared = await draftPlan(pool, userId, today, { answers: { ...answers, split: "auto" } }, env);
   return withMemberLock(pool, userId, async (conn) => {
     const current = await activePlanRow(conn, userId);
     const [[profile]] = await conn.query("SELECT user_id FROM profiles WHERE user_id = ?", [userId]);
@@ -640,7 +685,7 @@ async function recreatePlan(pool, userId, { today, answers }) {
     );
     if (current) await conn.query("UPDATE workout_plans SET status = 'superseded' WHERE id = ? AND user_id = ?", [current.id, userId]);
     await conn.query("DELETE FROM workout_day_overrides WHERE user_id = ? AND on_date >= ?", [userId, today]);
-    const { planId, plan } = await generateAndStore(conn, userId, today, "member");
+    const { planId, plan } = await generateAndStore(conn, userId, today, "member", prepared);
     // The level the engine calibrated becomes the member's experience (Preferences shows it)
     await conn.query("UPDATE workout_profiles SET experience = ? WHERE user_id = ?", [plan.level, userId]);
     return { planId, level: plan.level, goal: plan.goal, daysPerWeek: plan.daysPerWeek, requiresProfessionalReview: plan.requiresProfessionalReview };
@@ -648,12 +693,21 @@ async function recreatePlan(pool, userId, { today, answers }) {
 }
 
 /**
- * The AI Coach's workout: saves the intake's goal, level and training days as the member's
- * answers, then makes a new active plan from them with the coach's `shape` (equipment, joints,
- * session length). Runs inside the caller's transaction, which holds the member's lock. The
- * old plan stays as superseded, with its history.
+ * The AI Coach's workout, drafted before the lock (the AI call): the intake's goal, level and
+ * training days with the coach's `shape` (equipment, joints, session length, its line for the AI).
  */
-async function planFromCoach(conn, userId, { today, goal, level, weekdays, shape }) {
+async function draftFromCoach(pool, userId, { today, goal, level, weekdays, shape }, env = process.env) {
+  const current = await activePlanRow(pool, userId);
+  return draftPlan(pool, userId, today, { answers: answersFor(current, { goal, level, weekdays }), shape }, env);
+}
+
+/**
+ * Stores the coach's drafted workout (draftFromCoach): saves the intake's goal, level and
+ * training days as the member's answers and makes the plan the active one. Runs inside the
+ * caller's transaction, which holds the member's lock. The old plan stays as superseded, with
+ * its history.
+ */
+async function planFromCoach(conn, userId, { today, goal, level, weekdays, prepared }) {
   const current = await activePlanRow(conn, userId);
   const levelChanged = !current || current.level !== level;
   const base = workout.fitnessBaseFromExperience(level);
@@ -667,7 +721,7 @@ async function planFromCoach(conn, userId, { today, goal, level, weekdays, shape
   );
   if (current) await conn.query("UPDATE workout_plans SET status = 'superseded' WHERE id = ? AND user_id = ?", [current.id, userId]);
   await conn.query("DELETE FROM workout_day_overrides WHERE user_id = ? AND on_date >= ?", [userId, today]);
-  const { planId, plan } = await generateAndStore(conn, userId, today, "member", shape);
+  const { planId, plan } = await generateAndStore(conn, userId, today, "member", prepared);
   return { planId, plan };
 }
 
@@ -699,7 +753,7 @@ async function planOverview(pool, userId) {
 }
 
 module.exports = {
-  recreateInputs, recreatePlan, planOverview, planFromCoach, activePlanRow,
+  recreateInputs, recreatePlan, planOverview, draftFromCoach, planFromCoach, activePlanRow,
   preferences, updatePreferences,
   syncLibrary, ensurePlan, home, activity, history, resolveDates, moveSessionToToday, swapDays, withMemberLock,
   sessionProgress, startSession, logSet, completeSession: (pool, userId, body) => closeSession(pool, userId, body, "completed"),

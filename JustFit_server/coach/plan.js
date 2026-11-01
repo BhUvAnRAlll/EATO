@@ -1,5 +1,6 @@
-// The AI Coach plan: the workout (made by the existing engine from the intake) and one day of
-// meals (written by the model, cleaned and scaled to the member's targets in planRules.js).
+// The AI Coach plan: the workout week (written by the model from the exercise library and the
+// intake, workout/aiPlan.js, with the engine as the fallback) and one day of meals (written by the
+// model, cleaned and scaled to the member's targets in planRules.js). The two calls run at once.
 //
 // Every query is scoped to the verified member id passed in by the route. In tests (NODE_ENV=test with AI_PROVIDER=fake) a fixed day of meals is
 // used instead of calling OpenAI.
@@ -7,17 +8,15 @@
 // Cost: the model comes from ai/models.js, the whole day is one structured call, one meal can be
 // swapped on its own (a much smaller call) instead of remaking the day, the daily plan limit is
 // checked first (ai/limits.js) and two requests for the same member at once make one plan.
-const OpenAI = require("openai");
-
 const { ValidationError } = require("../profile");
 const { NotFoundError } = require("../errors");
 const diary = require("../macro/diary");
 const workoutPlans = require("../workout/plans");
 const rules = require("./planRules");
 const aiUsage = require("../ai/usage");
-const models = require("../ai/models");
 const aiLimits = require("../ai/limits");
 const dedupe = require("../ai/dedupe");
+const { askStructured } = require("../ai/structured");
 
 const COACH_NAMES = { arjun: "Arjun", priya: "Priya", rohan: "Rohan", meera: "Meera", aditya: "Aditya" };
 const WEEKDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -50,47 +49,7 @@ function toIntake(row) {
   };
 }
 
-// ---- asking the model ---------------------------------------------------------------
-
-// `usage` (ai/usage.tracker) records the call for the admin's AI Usage screen; never the text
-// One structured call: `feature` picks the model and caps (coach_plan: the whole day; coach_meal:
-// one meal; exercise_library: Admin › Exercises), `schema` the answer's shape, `fake` the test
-// answer, `failure` and `busy` what the caller reads when the model fails or is rate limited.
-async function askStructured({ feature, instructions, brief, schema, fake, failure, busy = "Your coach is busy right now. Please try again in a minute." }, env, usage) {
-  if (models.isFake(env)) {
-    await usage?.record({ provider: "openai", model: "fake", inputTokens: 10, outputTokens: 5, status: "ok" });
-    return fake;
-  }
-  const { request, model: MODEL } = models.settingsFor(feature, env);
-  const client = models.openaiClient();
-  let response;
-  try {
-    response = await client.responses.create({
-      ...request,
-      instructions,
-      store: false,
-      input: [{ role: "user", content: [{ type: "input_text", text: brief }] }],
-      text: { format: { type: "json_schema", name: feature, strict: true, schema } },
-    });
-  } catch (error) {
-    await usage?.record({ provider: "openai", model: MODEL, status: "failed" });
-    // Never log the request or the answer, only the status
-    if (error instanceof OpenAI.RateLimitError) throw new rules.CoachPlanError(busy, 503);
-    if (error instanceof OpenAI.APIError) {
-      console.error(`Coach ${feature} failed: OpenAI ${error.status ?? "unknown"} ${error.name}`);
-      throw new rules.CoachPlanError(failure, 502);
-    }
-    throw error;
-  }
-  const refused = response.output.some((item) => item.type === "message" && item.content.some((part) => part.type === "refusal"));
-  const usable = !refused && response.status !== "incomplete" && Boolean(response.output_text);
-  await usage?.record({
-    provider: "openai", model: MODEL, inputTokens: response.usage?.input_tokens, outputTokens: response.usage?.output_tokens,
-    cachedInputTokens: models.cachedTokensOf(response), status: usable ? "ok" : "refused",
-  });
-  if (!usable) throw new rules.CoachPlanError(failure, 502);
-  return JSON.parse(response.output_text);
-}
+// ---- asking the model (ai/structured.js) ------------------------------------------------
 
 const PLAN_FAILURE = "Your coach couldn't put a meal plan together right now. Please try again.";
 const askForDiet = (brief, env, usage) =>
@@ -128,22 +87,15 @@ async function buildPlan(pool, userId, { today, intake, profile, targets }, env)
   const days = intake.weekdays.map((d) => WEEKDAY[d]).join(", ");
   const workoutSummary = `${intake.weekdays.length} days a week (${days}), ${intake.sessionMinutes} minutes, mainly at ${intake.mainSpot}`;
   const usage = aiUsage.tracker(pool, { feature: "coach_plan", userId });
-  const diet = rules.normalizeDiet(await askForDiet(rules.dietBrief({ intake, profile, targets, coachName, workoutSummary }), env, usage), targets, profile.allergies);
+  // The meals and the workout week are asked for at the same time (both are slow)
+  const [rawDiet, workoutDraft] = await Promise.all([
+    askForDiet(rules.dietBrief({ intake, profile, targets, coachName, workoutSummary }), env, usage),
+    draftWorkout(pool, userId, today, intake, env),
+  ]);
+  const diet = rules.normalizeDiet(rawDiet, targets, profile.allergies);
 
   const planId = await workoutPlans.withMemberLock(pool, userId, async (conn) => {
-    const { planId: workoutPlanId } = await workoutPlans
-      .planFromCoach(conn, userId, {
-        today,
-        goal: rules.engineGoalFor(intake.goal),
-        level: rules.engineLevelFor(intake.experience),
-        weekdays: intake.weekdays,
-        shape: { library: rules.libraryFilterFor(intake), days: rules.fitDaysTo(intake.sessionMinutes) },
-      })
-      .catch((error) => {
-        // The engine needs the body facts from setup (gender, age, height, weight)
-        if (error?.name === "PlanInputError") throw new ValidationError("Finish your profile first, so your coach knows your targets.");
-        throw error;
-      });
+    const { planId: workoutPlanId } = await workoutPlans.planFromCoach(conn, userId, { ...workoutDraft.facts, today, prepared: workoutDraft.prepared });
 
     await conn.query("UPDATE coach_plans SET status = 'superseded' WHERE user_id = ? AND status = 'active'", [userId]);
     const [[{ id }]] = await conn.query("SELECT UUID() AS id");
@@ -165,6 +117,23 @@ async function buildPlan(pool, userId, { today, intake, profile, targets }, env)
     return id;
   });
   return planId;
+}
+
+/**
+ * The coach's workout week for these intake answers, drafted before any lock (the AI call): the
+ * engine goal and level, the training days, and the coach's shape (equipment, joints, session
+ * length, and its line for the AI).
+ */
+async function draftWorkout(pool, userId, today, intake, env) {
+  const facts = { goal: rules.engineGoalFor(intake.goal), level: rules.engineLevelFor(intake.experience), weekdays: intake.weekdays };
+  const shape = { library: rules.libraryFilterFor(intake), days: rules.fitDaysTo(intake.sessionMinutes), extra: rules.workoutExtra(intake) };
+  try {
+    return { facts, prepared: await workoutPlans.draftFromCoach(pool, userId, { ...facts, today, shape }, env) };
+  } catch (error) {
+    // The engine needs the body facts from setup (gender, age, height, weight)
+    if (error?.name === "PlanInputError") throw new ValidationError("Finish your profile first, so your coach knows your targets.");
+    throw error;
+  }
 }
 
 // ---- reading it back ----------------------------------------------------------------
@@ -370,31 +339,21 @@ async function replaceMeal(pool, userId, mealId, optionId, quantities = null) {
 }
 
 /**
- * Puts a workout change the coach suggested in chat into effect: saves the new training days and
- * session length as the member's intake answers, then, in one transaction with the member locked,
- * makes a new workout from them the same way the plan did (equipment, joints, session length) and
- * points the active coach plan at it. The meals stay; the old workout is kept as superseded, with
- * its history. No AI call.
+ * Puts a workout change the coach suggested in chat into effect: drafts a new week for the new
+ * training days and session length the same way the plan did (the AI from the library, the
+ * engine as the fallback), then, in one transaction with the member locked, saves them as the
+ * member's intake answers, stores the week and points the active coach plan at it. The meals
+ * stay; the old workout is kept as superseded, with its history. One AI call (coach_workout).
  */
-async function changeWorkout(pool, userId, { today, weekdays, sessionMinutes }) {
+async function changeWorkout(pool, userId, { today, weekdays, sessionMinutes }, env = process.env) {
   const plan = await activeCoachPlan(pool, userId);
   if (!plan) throw new NotFoundError("Make your coach plan first.");
   const { intake } = await memberFacts(pool, userId);
   const next = { ...intake, weekdays, sessionMinutes };
+  const draft = await draftWorkout(pool, userId, today, next, env);
   await workoutPlans.withMemberLock(pool, userId, async (conn) => {
     await conn.query("UPDATE coach_profiles SET weekdays = ?, session_minutes = ? WHERE user_id = ?", [JSON.stringify(weekdays), sessionMinutes, userId]);
-    const { planId: workoutPlanId } = await workoutPlans
-      .planFromCoach(conn, userId, {
-        today,
-        goal: rules.engineGoalFor(next.goal),
-        level: rules.engineLevelFor(next.experience),
-        weekdays,
-        shape: { library: rules.libraryFilterFor(next), days: rules.fitDaysTo(sessionMinutes) },
-      })
-      .catch((error) => {
-        if (error?.name === "PlanInputError") throw new ValidationError("Finish your profile first, so your coach knows your targets.");
-        throw error;
-      });
+    const { planId: workoutPlanId } = await workoutPlans.planFromCoach(conn, userId, { ...draft.facts, today, prepared: draft.prepared });
     await conn.query("UPDATE coach_plans SET workout_plan_id = ? WHERE id = ? AND user_id = ?", [workoutPlanId, plan.id, userId]);
   });
 }
@@ -425,4 +384,4 @@ async function logMeal(pool, userId, mealId, { date }) {
   }
 }
 
-module.exports = { askStructured, toIntake, makePlan, swapMeal, mealOptions, replaceMeal, changeWorkout, storeOption, getPlan, logMeal };
+module.exports = { toIntake, makePlan, swapMeal, mealOptions, replaceMeal, changeWorkout, storeOption, getPlan, logMeal };
