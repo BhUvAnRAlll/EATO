@@ -77,6 +77,24 @@
   --color-icon-peach: #c25400;
   --color-icon-lavender: #7c5cd6;
 
+  /* Fitness program cards: gradient from / to (theme/index.ts programGradients) */
+  --color-program-lavender-from: #8b7cf6;
+  --color-program-lavender-to: #5b47d6;
+  --color-program-coral-from: #ff8a65;
+  --color-program-coral-to: #e0435b;
+  --color-program-mint-from: #34c796;
+  --color-program-mint-to: #178a6a;
+  --color-program-sky-from: #5aacf8;
+  --color-program-sky-to: #2f6fd8;
+  --color-program-amber-from: #f7b955;
+  --color-program-amber-to: #e07b1e;
+  --color-program-rose-from: #f27aa6;
+  --color-program-rose-to: #c2417a;
+  --color-program-ink-from: #4a4a5a;
+  --color-program-ink-to: #17171f;
+  --color-program-teal-from: #33bcc8;
+  --color-program-teal-to: #16808f;
+
   /* Accent: links, progress rings, "today", icons (leaf), its soft fill and the
      active tab icon (leaf-dark) */
   --color-leaf: #d40005;

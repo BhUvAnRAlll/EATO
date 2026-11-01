@@ -6,6 +6,7 @@ const express = require("express");
 
 const { ensureUser } = require("../auth");
 const plans = require("./plans");
+const place = require("./place");
 const v = require("./validate");
 
 const router = express.Router();
@@ -16,7 +17,17 @@ const pool = (req) => req.app.locals.pool;
 
 // The hub and the day screen: the active plan, one day in full and the week strip
 router.get("/home", route(async (req, res) => {
-  res.json(await plans.home(pool(req), req.userId, v.homeQuery(req.query, Date.now())));
+  const query = v.homeQuery(req.query, Date.now());
+  const view = await plans.home(pool(req), req.userId, query);
+  // Today's place (At home / At center): where its session is set for, and whether it may change
+  if (view.plan && view.date === query.today) view.place = await place.todayPlace(pool(req), req.userId, { dayId: view.day?.id ?? null, status: view.status }).catch(() => null);
+  res.json(view);
+}));
+
+// "At home / At center": today's session for that place (the plan's own day, or one adapted for
+// the other place, made the first time with one small AI call)
+router.post("/place", smallBody, route(async (req, res) => {
+  res.json(await place.setPlace(pool(req), req.userId, v.placeBody(req.body, Date.now())));
 }));
 
 // Active this week: minutes trained per day, the week's total and last week's to compare

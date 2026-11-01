@@ -73,6 +73,13 @@ function moveBody(body, now) {
   return { from, today: t };
 }
 
+// POST /place { today, place }: where today's session is done (At home / At center)
+function placeBody(body, now) {
+  shape(body, ["today", "place"]);
+  if (!["home", "center"].includes(body.place)) throw new ValidationError("Choose home or the center.");
+  return { today: today(body.today, now), place: body.place };
+}
+
 // POST /reschedule/swap { a, b, today }: two dates in the next two weeks
 function swapBody(body, now) {
   shape(body, ["a", "b", "today"]);
@@ -207,4 +214,4 @@ function recreateQuery(query, now) {
   return { today: today(query.today, now) };
 }
 
-module.exports = { limits, recreateBody, recreateQuery, preferencesBody, homeQuery, activityQuery, historyQuery, ensureBody, moveBody, swapBody, progressQuery, startBody, setBody, logBody, dayNumber, shape };
+module.exports = { limits, recreateBody, recreateQuery, preferencesBody, homeQuery, activityQuery, historyQuery, ensureBody, moveBody, placeBody, swapBody, progressQuery, startBody, setBody, logBody, dayNumber, shape };

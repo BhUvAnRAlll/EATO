@@ -94,6 +94,6 @@ async function deleteUsers(connection, userIds) {
 // How many tables schema.sql creates. Every suite that rebuilds justfit_test checks it, so a
 // table added to schema.sql (or a migration missing from it) is caught at once. Update it
 // here, in one place, when schema.sql gains or loses a table.
-const SCHEMA_TABLE_COUNT = 40;
+const SCHEMA_TABLE_COUNT = 43;
 
 module.exports = { SCHEMA_TABLE_COUNT, PROFILE_TABLES, loadTestEnv, connect, schemaStatements, resetSchema, rowCounts, rowsForUser, deleteUsers };

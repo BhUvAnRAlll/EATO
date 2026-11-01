@@ -7,7 +7,7 @@ import { homeTabs } from "@/data/home";
 import { useThemeColors } from "@/theme";
 import { trackScreen } from "@/lib/analytics";
 
-// Home, Meals, AI Coach (raised, in the middle), Macro, Workout. The navigator's own bar is replaced by
+// Home, Meals, AI Coach (raised, in the middle), Macro, Fitness (the workout route). The navigator's own bar is replaced by
 // BottomTabBar, so only the custom pill is ever visible.
 export default function TabsLayout() {
   const colors = useThemeColors();

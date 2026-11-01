@@ -244,4 +244,4 @@ async function write(pool, userId, { inputs, enginePlan, library, extra = null }
   }
 }
 
-module.exports = { INSTRUCTIONS, schema, limits, brief, allowedLibrary, asAnswer, normalizeWeek, write };
+module.exports = { INSTRUCTIONS, schema, exerciseSchema, limits, cleanText, libraryLine, configured, brief, allowedLibrary, asAnswer, normalizeWeek, write };

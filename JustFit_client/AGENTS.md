@@ -840,6 +840,23 @@ Every OpenAI call goes through the small services in `JustFit_server/ai/`, and n
   The engine still sets level, calibration and the review flag, and its week is stored whenever
   the AI is unconfigured, over a limit, failing or unusable (`engine_version` empty and
   `calibration.writtenBy = "ai"` mark the AI's weeks). The AI call runs before the member lock.
+- Workout › At home / At center (added 2026-11-02, `JustFit_server/workout/place.js`, `POST
+  /api/workout/place`, feature `workout_place`): today's session can switch to the place the plan
+  wasn't written for (the coach intake's main spot: gym = center, else home). The other place
+  gets an adapted day (`workout_days.variant_of` + `place`, kept and reused, run through an
+  override); the AI swaps exercises the place's equipment can't do, else the same-movement swap.
+  Plan-level day lists skip adapted days (`planDaysOnly`). Migration `2026-11-08-workout-place.sql`.
+- The Fitness tab (added 2026-11-02; the Workout tab relabelled, route still `/workout`): a fixed
+  `FitnessHeader` (AT HOME default / AT CENTER, location sheet, search), today's session and week,
+  six sections of free programs (`FitnessCategorySection` > `ProgramCarousel` > `FitnessProgramCard`,
+  gradient `ProgramArt` until real photos exist; colours are `programGradients` tokens), then
+  History. Programs: `fitness_programs` / `_sessions` / `_exercises` (no cascades), seeded from
+  `src/lib/fitness/catalog.ts` (also the offline fallback), served by `JustFit_server/fitness/`.
+  "Do this today" makes a program session a day of the plan (`workout_days.program_session_id`
+  + today's override), so the day screen and player run it. Admin › Programs edits, hides,
+  creates and rewrites them with the AI (feature `fitness_program`). No premium, prices or locks.
+  Migration `2026-11-09-fitness-programs.sql` (also adds `workout_profiles.home_equipment` /
+  `center_equipment` for the location sheet).
 - `ai/usage.js` records every call with `cached_input_tokens` and `from_cache`; the admin's AI
   Usage screen shows cached tokens, cache hits, cost per call per feature and the top members.
   Migration `2026-11-04-ai-cost-optimization.sql` (run once, after the 2026-11-03 one) adds the

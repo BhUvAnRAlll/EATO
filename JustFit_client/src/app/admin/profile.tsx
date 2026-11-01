@@ -9,7 +9,7 @@ import { useThemeColors } from "@/theme";
 
 const back = () => (router.canGoBack() ? router.back() : router.replace("/admin"));
 
-// Super Admin › Profile: who is signed in, the admin-only tools (AI Usage, App Usage, Exercises) and Sign out
+// Super Admin › Profile: who is signed in, the admin-only tools (AI Usage, App Usage, Exercises, Programs) and Sign out
 export default function AdminProfile() {
   const colors = useThemeColors();
   const user = useAuthStore((state) => state.user);
@@ -63,6 +63,14 @@ export default function AdminProfile() {
               <View className="min-w-0 flex-1">
                 <Text className="card__title">Exercises</Text>
                 <Text className="meta-text">Every workout exercise, its demo video, and adding more with AI</Text>
+              </View>
+              <SymbolView name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }} size={14} tintColor={colors.faint} />
+            </Pressable>
+            <Pressable onPress={() => router.push("/admin/programs")} className="admin-row admin-row--divided" accessibilityRole="button" accessibilityLabel="Programs. The Fitness tab's free programs">
+              <View className="admin-row__icon"><SymbolView name={{ ios: "square.grid.2x2", android: "grid_view", web: "grid_view" }} size={18} tintColor={colors.forestInk} /></View>
+              <View className="min-w-0 flex-1">
+                <Text className="card__title">Programs</Text>
+                <Text className="meta-text">{"The Fitness tab's free programs: edit, hide, or write new ones with AI"}</Text>
               </View>
               <SymbolView name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }} size={14} tintColor={colors.faint} />
             </Pressable>

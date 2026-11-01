@@ -73,9 +73,9 @@ describe("ui workout: the Fitness hub and a training day", () => {
     const pos = await page.waitFor(`(() => { const el = [...document.querySelectorAll('[aria-label]')].filter((e) => e.getClientRects().length > 0 && e.getAttribute("aria-label").startsWith(${JSON.stringify(prefix)}))[0]; if (!el) return null; el.scrollIntoView({ block: "center" }); const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`, NAV_TIMEOUT, `element labelled ${prefix}…`);
     await page.clickAt(pos.x, pos.y);
   };
-  // Workout is a tab again (it took Community's place on 2026-11-01)
+  // The workout tab, labelled Fitness since 2026-11-02 (its route is still /workout)
   const openWorkout = async () => {
-    await clickTab("Workout");
+    await clickTab("Fitness");
   };
   // Back to the hub and load it fresh (the hub reloads on focus)
   const backToHub = async () => {
@@ -129,8 +129,8 @@ describe("ui workout: the Fitness hub and a training day", () => {
     await viewport(390, 844);
     await signInAs(page, h, identities.a);
     await h.expectPath("/home");
-    // The tab bar has AI Coach where Fitness was; Workout lives on Profile
-    assert.equal(await page.evaluate(`!!document.querySelector('[role="tab"][aria-label="Fitness"]')`), false, "no Fitness tab");
+    // The tab bar: AI Coach in the middle, and the Fitness tab (the workout route)
+    assert.equal(await page.evaluate(`!![...document.querySelectorAll('[role="tab"]')].find((t) => (t.getAttribute("aria-label") || t.textContent || "").includes("Fitness"))`), true, "a Fitness tab");
     await clickTab("AI Coach");
     await h.expectPath("/coach");
     await h.expectText("Get started");

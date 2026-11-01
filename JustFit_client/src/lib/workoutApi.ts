@@ -65,9 +65,15 @@ export type TrainingDay = {
   exercises: DayExercise[];
 };
 
+// Where today's session is done (At home / At center): the place it's set for now, the place the
+// plan was written for, and whether it may still change (only before the session starts)
+export type Place = "home" | "center";
+export type TodayPlace = { current: Place; plan: Place; canChange: boolean };
+
 export type WorkoutHome =
   | { plan: null }
-  | { plan: Plan; date: string; status: DayStatus; day: TrainingDay | null; week: { date: string; status: DayStatus }[] };
+  // `place` is there for today only, when today has a session
+  | { plan: Plan; date: string; status: DayStatus; day: TrainingDay | null; week: { date: string; status: DayStatus }[]; place?: TodayPlace | null };
 
 export type HistoryDay = { date: string; status: Exclude<DayStatus, "rest" | "planned">; title: string | null; sessionType: string | null; totalMinutes: number; exerciseCount: number };
 
@@ -165,6 +171,11 @@ export const workoutApi = {
   planOverview(token: string | null): Promise<ApiResult<PlanOverview>> {
     if (!token) return signedOut();
     return apiFetch("/api/workout/plan/overview", { token });
+  },
+  // At home / At center: today's session for that place (adapted the first time, then kept)
+  setPlace(token: string | null, today: string, place: Place): Promise<ApiResult<{ date: string; place: Place; dayId: string }>> {
+    if (!token) return signedOut();
+    return apiFetch("/api/workout/place", { method: "POST", body: { today, place }, token });
   },
   // "Swap with today?": today and `other` trade sessions
   swapWithToday(token: string | null, other: string, today: string): Promise<ApiResult<{ swapped: string[] }>> {

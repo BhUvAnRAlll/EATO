@@ -40,6 +40,7 @@ const aiLimits = require("./ai/limits");
 const aiDedupe = require("./ai/dedupe");
 const { FoodScanError, checkFoodPhoto, scanFood, scanLimits: foodScanLimits, checkEstimateRequest, estimateFood } = require("./macro/foodScan");
 const { workoutRouter } = require("./workout/routes");
+const { fitnessRouter } = require("./fitness/routes");
 const { adminPortalRouter } = require("./admin/routes");
 const { recordAdminAction } = require("./admin/overview");
 
@@ -377,6 +378,8 @@ app.use("/api/coach", requireUser, limitPerUser(coachLimiter), coachRouter);
 // ---------------------------------------------------------------------------
 
 app.use("/api/workout", requireUser, limitPerUser(workoutLimiter), workoutRouter);
+// The Fitness tab's programs and location sheet (fitness/routes.js), on the same budget as the workout routes
+app.use("/api/fitness", requireUser, limitPerUser(workoutLimiter), fitnessRouter);
 
 // No route matched: answer in JSON like every other response, not Express's HTML page
 app.use((req, res) => {

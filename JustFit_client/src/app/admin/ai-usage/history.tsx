@@ -15,7 +15,7 @@ import { useThemeColors } from "@/theme";
 type Load = { state: "loading" } | { state: "failed"; error: string } | { state: "ready"; data: HistoryPage };
 
 // The gym assistant last, for its calls from before gyms were removed
-const FEATURES: AiFeature[] = ["coach_plan", "coach_workout", "coach_meal", "coach_chat", "food_scan", "body_scan", "body_report", "exercise_library", "gym_assistant"];
+const FEATURES: AiFeature[] = ["coach_plan", "coach_workout", "workout_place", "coach_meal", "coach_chat", "food_scan", "body_scan", "body_report", "exercise_library", "fitness_program", "gym_assistant"];
 const STATUSES: AiStatus[] = ["ok", "failed", "refused"];
 const SORTS: { id: HistorySort; label: string }[] = [
   { id: "newest", label: "Newest" },

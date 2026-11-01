@@ -596,7 +596,7 @@ const planLogKey = (date, mealId, n = 1) => `${date}:${mealId}:${n}`;
 module.exports = {
   diarySlotFor, planLogKey,
   FAKE_DIET, SLOTS, limits, CoachPlanError,
-  engineGoalFor, engineLevelFor, libraryFilterFor, fitDaysTo, workoutExtra,
+  EQUIPMENT, engineGoalFor, engineLevelFor, libraryFilterFor, fitDaysTo, workoutExtra,
   INDIAN_FOOD, COOKING, BUDGET,
   totalsOf, normalizeDiet, dietBrief, DIET_INSTRUCTIONS, dietSchema,
   mealBrief, MEAL_INSTRUCTIONS, mealSchema, normalizeMeal, FAKE_MEAL,

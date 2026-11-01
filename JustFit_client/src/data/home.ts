@@ -245,5 +245,5 @@ export const homeTabs: HomeTab[] = [
   // AI Coach sits in the middle as a raised round button
   { name: "coach", label: "AI Coach", icon: { ios: "sparkles", android: "auto_awesome", web: "auto_awesome" }, raised: true },
   { name: "macro", label: "Macro", icon: { ios: "scalemass", android: "balance", web: "balance" } },
-  { name: "workout", label: "Workout", icon: { ios: "dumbbell", android: "fitness_center", web: "fitness_center" } },
+  { name: "workout", label: "Fitness", icon: { ios: "dumbbell", android: "fitness_center", web: "fitness_center" } },
 ];

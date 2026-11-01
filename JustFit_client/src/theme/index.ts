@@ -76,6 +76,20 @@ export const lightColors = {
 
 export type Palette = { [K in keyof typeof lightColors]: string };
 
+// The Fitness tab's program cards: one gradient (top-left to bottom-right) per palette name the
+// server stores (fitness_programs.palette). White text and icons sit on every one. Kept in sync
+// with the --color-program-* tokens in tokens.css.
+export const programGradients: Record<string, [string, string]> = {
+  lavender: ["#8B7CF6", "#5B47D6"],
+  coral: ["#FF8A65", "#E0435B"],
+  mint: ["#34C796", "#178A6A"],
+  sky: ["#5AACF8", "#2F6FD8"],
+  amber: ["#F7B955", "#E07B1E"],
+  rose: ["#F27AA6", "#C2417A"],
+  ink: ["#4A4A5A", "#17171F"],
+  teal: ["#33BCC8", "#16808F"],
+};
+
 // justFit has one look: light (2026-11-01: dark mode and the Appearance picker were removed).
 // The hooks stay so components keep one way to read colours:
 //   const colors = useThemeColors();

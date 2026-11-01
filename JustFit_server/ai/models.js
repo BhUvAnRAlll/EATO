@@ -3,7 +3,7 @@
 //
 // Each feature has a default model, a cap on the answer (max_output_tokens) and a cap on the
 // prompt. Environment variables override them per feature:
-//   AI_MODEL_COACH_CHAT, AI_MODEL_COACH_PLAN, AI_MODEL_COACH_WORKOUT, AI_MODEL_COACH_MEAL, AI_MODEL_COACH_MEAL_OPTIONS, AI_MODEL_FOOD_SCAN, AI_MODEL_FOOD_ESTIMATE,
+//   AI_MODEL_COACH_CHAT, AI_MODEL_COACH_PLAN, AI_MODEL_COACH_WORKOUT, AI_MODEL_WORKOUT_PLACE, AI_MODEL_FITNESS_PROGRAM, AI_MODEL_COACH_MEAL, AI_MODEL_COACH_MEAL_OPTIONS, AI_MODEL_FOOD_SCAN, AI_MODEL_FOOD_ESTIMATE,
 //   AI_MODEL_BODY_REPORT, AI_MODEL_EXERCISE_LIBRARY     the model id, as OpenAI names it
 //   AI_MAX_OUTPUT_<FEATURE>                             the answer cap in tokens
 // The older OPENAI_MODEL still works as a fallback for a server that already sets it, below the
@@ -25,6 +25,8 @@ const DEFAULTS = {
   coach_chat: { model: "gpt-4.1-mini", maxOutputTokens: 900, maxInputTokens: 6000 }, // the reply, plus up to three meals or a workout change when it suggests one
   coach_plan: { model: "gpt-4.1-mini", maxOutputTokens: 2200, maxInputTokens: 4000 },
   coach_workout: { model: "gpt-4.1-mini", maxOutputTokens: 4000, maxInputTokens: 5000 }, // the week of training, picked from the exercise library
+  workout_place: { model: "gpt-4.1-mini", maxOutputTokens: 1200, maxInputTokens: 4000 }, // one session adapted for home or the center
+  fitness_program: { model: "gpt-4.1-mini", maxOutputTokens: 4000, maxInputTokens: 5000 }, // Admin › Programs: a program's sessions rewritten
   coach_meal: { model: "gpt-4.1-mini", maxOutputTokens: 500, maxInputTokens: 3000 },
   coach_meal_options: { model: "gpt-4.1-mini", maxOutputTokens: 2200, maxInputTokens: 3000 }, // five options for one meal (Swap Meal); recorded as coach_meal
   food_scan: { model: "gpt-4.1-mini", maxOutputTokens: 900, maxInputTokens: 8000 },

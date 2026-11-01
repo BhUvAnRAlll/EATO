@@ -474,6 +474,66 @@ CREATE TABLE workout_exercise_library (
   CONSTRAINT chk_workout_library_timed CHECK (timed_sec IS NULL OR timed_sec BETWEEN 1 AND 3600)
 ) ENGINE = InnoDB;
 
+-- The Fitness tab's free programs (migrations/2026-11-09-fitness-programs.sql): sections of
+-- programs made of sessions of library exercises. No cascades: fitness/programs.js deletes children.
+CREATE TABLE fitness_programs (
+  id           CHAR(36)          NOT NULL DEFAULT (UUID()),
+  slug         VARCHAR(60)       NOT NULL,
+  title        VARCHAR(60)       NOT NULL,
+  subtitle     VARCHAR(120)      NOT NULL DEFAULT '',
+  description  VARCHAR(600)      NOT NULL DEFAULT '',
+  section      ENUM('popular', 'categories', 'build_muscle', 'stay_fit', 'dance', 'workplace') NOT NULL,
+  place        ENUM('home', 'center', 'both') NOT NULL DEFAULT 'both',
+  level        ENUM('beginner', 'intermediate', 'advanced') NOT NULL DEFAULT 'beginner',
+  kit          ENUM('none', 'some', 'full_gym') NOT NULL DEFAULT 'none',
+  icon         VARCHAR(20)       NOT NULL DEFAULT 'strength',
+  palette      VARCHAR(20)       NOT NULL DEFAULT 'lavender',
+  position     SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  published    BOOLEAN           NOT NULL DEFAULT TRUE,
+  built_in     BOOLEAN           NOT NULL DEFAULT FALSE,
+  ai_drafted   BOOLEAN           NOT NULL DEFAULT FALSE,
+  created_by   VARCHAR(64)       NULL,
+  created_at   TIMESTAMP         NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at   TIMESTAMP         NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_fitness_programs_slug (slug),
+  KEY idx_fitness_programs_section (section, position),
+  CONSTRAINT fk_fitness_programs_creator FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL
+) ENGINE = InnoDB;
+
+CREATE TABLE fitness_program_sessions (
+  id          CHAR(36)          NOT NULL DEFAULT (UUID()),
+  program_id  CHAR(36)          NOT NULL,
+  position    TINYINT UNSIGNED  NOT NULL,
+  title       VARCHAR(60)       NOT NULL,
+  minutes     SMALLINT UNSIGNED NOT NULL DEFAULT 30,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_fitness_sessions_order (program_id, position),
+  CONSTRAINT fk_fitness_sessions_program FOREIGN KEY (program_id) REFERENCES fitness_programs (id),
+  CONSTRAINT chk_fitness_sessions_minutes CHECK (minutes BETWEEN 5 AND 180)
+) ENGINE = InnoDB;
+
+CREATE TABLE fitness_program_exercises (
+  id           CHAR(36)          NOT NULL DEFAULT (UUID()),
+  session_id   CHAR(36)          NOT NULL,
+  program_id   CHAR(36)          NOT NULL,
+  exercise_id  CHAR(36)          NOT NULL,
+  section      ENUM('warmup', 'workout', 'cooldown') NOT NULL,
+  position     TINYINT UNSIGNED  NOT NULL,
+  sets         JSON              NOT NULL,
+  rest_sec     SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  role         ENUM('main', 'secondary', 'isolation', 'conditioning', 'warmup', 'stretch') NULL,
+  reps_min     TINYINT UNSIGNED  NULL,
+  reps_max     TINYINT UNSIGNED  NULL,
+  note         VARCHAR(160)      NULL,
+  PRIMARY KEY (id),
+  KEY idx_fitness_exercises_session (session_id, position),
+  KEY idx_fitness_exercises_program (program_id),
+  CONSTRAINT fk_fitness_exercises_session FOREIGN KEY (session_id) REFERENCES fitness_program_sessions (id),
+  CONSTRAINT fk_fitness_exercises_exercise FOREIGN KEY (exercise_id) REFERENCES workout_exercise_library (id),
+  CONSTRAINT chk_fitness_exercises_rest CHECK (rest_sec <= 600)
+) ENGINE = InnoDB;
+
 -- The answers the engine reads, one row per member: what Preferences and "Rebuild my
 -- plan" saved. Each one is NULL until asked. They shape training only: the setup profile
 -- (profiles) stays the source for nutrition and is never written by the workout feature.
@@ -495,6 +555,8 @@ CREATE TABLE workout_profiles (
   serious_injury  BOOLEAN           NULL,
   split           ENUM('auto', 'full_body', 'upper_lower', 'push_pull_legs') NULL,
   updated_at      TIMESTAMP         NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  home_equipment  ENUM('none', 'some', 'home_gym') NULL,             -- the Fitness tab's location sheet
+  center_equipment ENUM('free_weights', 'basic_gym', 'full_gym') NULL,
   PRIMARY KEY (user_id),
   CONSTRAINT fk_workout_profiles_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
   CONSTRAINT chk_workout_profiles_age CHECK (age_years IS NULL OR age_years BETWEEN 13 AND 100),
@@ -543,10 +605,15 @@ CREATE TABLE workout_days (
   weekday       TINYINT UNSIGNED  NOT NULL,
   title         VARCHAR(60)       NOT NULL,
   session_type  VARCHAR(20)       NULL,             -- full_body, upper, lower, push, pull, legs
+  variant_of    CHAR(36)          NULL,             -- an adapted day (At home / At center): the plan day it adapts
+  place         ENUM('home', 'center') NULL,        -- the adapted day's place; NULL for the plan's own days
+  program_session_id CHAR(36)     NULL,             -- a Fitness program session done on a date (fitness/programs.js)
+  place_key     VARCHAR(36)       AS (COALESCE(place, program_session_id, 'plan')) STORED,
   created_at    TIMESTAMP         NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
-  UNIQUE KEY uq_workout_days_plan_weekday (plan_id, weekday),
+  UNIQUE KEY uq_workout_days_plan_weekday_place (plan_id, weekday, place_key),
   KEY idx_workout_days_user (user_id),
+  KEY idx_workout_days_variant (variant_of, place),
   CONSTRAINT fk_workout_days_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
   CONSTRAINT chk_workout_days_weekday CHECK (weekday BETWEEN 0 AND 6)
 ) ENGINE = InnoDB;
@@ -640,7 +707,7 @@ CREATE TABLE admin_audit_log (
   id           CHAR(36)     NOT NULL DEFAULT (UUID()),
   admin_id     VARCHAR(64)  NULL,
   action       VARCHAR(40)  NOT NULL,                -- e.g. promotion.publish
-  target_type  ENUM('user', 'gym', 'post', 'report', 'promotion', 'exercise') NOT NULL,
+  target_type  ENUM('user', 'gym', 'post', 'report', 'promotion', 'exercise', 'program') NOT NULL,
   target_id    VARCHAR(64)  NULL,
   summary      VARCHAR(200) NOT NULL,                -- "Verified Marcus Johnson", shown as written
   created_at   TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),  -- sub-second, so actions keep their order
@@ -825,7 +892,7 @@ CREATE TABLE ai_usage (
   created_at     TIMESTAMP        NOT NULL DEFAULT CURRENT_TIMESTAMP,
   user_id        VARCHAR(64)      NULL,
   gym_id         CHAR(36)         NULL,
-  feature        ENUM('gym_assistant', 'coach_plan', 'coach_workout', 'coach_meal', 'coach_chat', 'food_scan', 'body_scan', 'body_report', 'exercise_library') NOT NULL,
+  feature        ENUM('gym_assistant', 'coach_plan', 'coach_workout', 'coach_meal', 'coach_chat', 'food_scan', 'body_scan', 'body_report', 'exercise_library', 'workout_place', 'fitness_program') NOT NULL,
   provider       ENUM('openai', 'forma') NOT NULL,
   model          VARCHAR(64)      NOT NULL,
   input_tokens   INT UNSIGNED     NOT NULL DEFAULT 0,

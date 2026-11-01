@@ -108,6 +108,24 @@ async function memberWeight(conn, userId) {
 
 // ---- plans -------------------------------------------------------------------------
 
+// A plan's own days, without the days adapted for home or the center (workout/place.js) or the
+// Fitness program sessions done on a date (fitness/programs.js), which only ever run on a date
+// through an override. Before migrations 2026-11-08 / 2026-11-09 have run there are none, and the
+// columns aren't there to filter on; once a column is there, that's remembered.
+const dayColumns = { variant_of: false, program_session_id: false };
+async function planDaysOnly(db) {
+  const missing = Object.keys(dayColumns).filter((c) => !dayColumns[c]);
+  if (missing.length > 0) {
+    const [rows] = await db.query(
+      "SELECT COLUMN_NAME AS c FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'workout_days' AND COLUMN_NAME IN (?)",
+      [missing],
+    );
+    for (const row of rows) dayColumns[row.c] = true;
+  }
+  return Object.keys(dayColumns).filter((c) => dayColumns[c]).map((c) => ` AND ${c} IS NULL`).join("");
+}
+
+
 async function activePlanRow(conn, userId) {
   const [[plan]] = await conn.query(
     `SELECT id, name, goal, level, days_per_week, split, source, requires_professional_review,
@@ -236,7 +254,7 @@ const parseSets = (value) => (Array.isArray(value) ? value : typeof value === "s
  */
 async function resolveDates(conn, userId, planId, dates, today, startDate = null) {
   if (dates.length === 0) return [];
-  const [planDays] = planId ? await conn.query("SELECT id, weekday FROM workout_days WHERE plan_id = ? AND user_id = ?", [planId, userId]) : [[]];
+  const [planDays] = planId ? await conn.query(`SELECT id, weekday FROM workout_days WHERE plan_id = ? AND user_id = ?${await planDaysOnly(conn)}`, [planId, userId]) : [[]];
   const byWeekday = new Map(planDays.map((d) => [d.weekday, d.id]));
   const [overrides] = await conn.query(
     "SELECT DATE_FORMAT(on_date, '%Y-%m-%d') AS date, day_id FROM workout_day_overrides WHERE user_id = ? AND on_date IN (?)",
@@ -343,7 +361,7 @@ async function dayDetail(conn, userId, dayId, weightKg) {
 async function home(pool, userId, { date, dates, today }) {
   const plan = await activePlanRow(pool, userId);
   if (!plan) return { plan: null };
-  const [weekdays] = await pool.query("SELECT weekday FROM workout_days WHERE plan_id = ? AND user_id = ?", [plan.id, userId]);
+  const [weekdays] = await pool.query(`SELECT weekday FROM workout_days WHERE plan_id = ? AND user_id = ?${await planDaysOnly(pool)}`, [plan.id, userId]);
   const all = [...new Set([date, ...dates])];
   const resolved = await resolveDates(pool, userId, plan.id, all, today, plan.start_date);
   const of = new Map(resolved.map((r) => [r.date, r]));
@@ -568,7 +586,7 @@ async function closeSession(pool, userId, { logId }, outcome) {
 async function preferences(pool, userId) {
   const plan = await activePlanRow(pool, userId);
   if (!plan) throw new ValidationError("No active plan");
-  const [days] = await pool.query("SELECT weekday FROM workout_days WHERE plan_id = ? AND user_id = ?", [plan.id, userId]);
+  const [days] = await pool.query(`SELECT weekday FROM workout_days WHERE plan_id = ? AND user_id = ?${await planDaysOnly(pool)}`, [plan.id, userId]);
   return {
     goal: plan.goal,
     level: plan.level,
@@ -734,7 +752,7 @@ async function planOverview(pool, userId) {
   if (!plan) throw new ValidationError("No active plan");
   const [[stamp]] = await pool.query("SELECT inputs_snapshot FROM workout_plans WHERE id = ? AND user_id = ?", [plan.id, userId]);
   const inputs = typeof stamp.inputs_snapshot === "string" ? JSON.parse(stamp.inputs_snapshot) : stamp.inputs_snapshot;
-  const [days] = await pool.query("SELECT id, weekday, title, session_type FROM workout_days WHERE plan_id = ? AND user_id = ?", [plan.id, userId]);
+  const [days] = await pool.query(`SELECT id, weekday, title, session_type FROM workout_days WHERE plan_id = ? AND user_id = ?${await planDaysOnly(pool)}`, [plan.id, userId]);
   const ordered = [...days].sort((x, y) => ((x.weekday + 6) % 7) - ((y.weekday + 6) % 7));
   const summaries = await daySummaries(pool, userId, ordered.map((d) => d.id));
   const first = ordered[0] ? await dayDetail(pool, userId, ordered[0].id, null) : null;
@@ -755,7 +773,7 @@ async function planOverview(pool, userId) {
 module.exports = {
   recreateInputs, recreatePlan, planOverview, draftFromCoach, planFromCoach, activePlanRow,
   preferences, updatePreferences,
-  syncLibrary, ensurePlan, home, activity, history, resolveDates, moveSessionToToday, swapDays, withMemberLock,
+  syncLibrary, programmableLibrary, pointDate, ensurePlan, home, activity, history, resolveDates, moveSessionToToday, swapDays, withMemberLock,
   sessionProgress, startSession, logSet, completeSession: (pool, userId, body) => closeSession(pool, userId, body, "completed"),
   abandonSession: (pool, userId, body) => closeSession(pool, userId, body, "abandoned"), SET_LOG_CAP,
 };

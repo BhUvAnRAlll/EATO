@@ -12,6 +12,8 @@ const retention = require("./retention");
 const usageExport = require("./export");
 const exercises = require("./exercises");
 const exerciseRules = require("./exerciseRules");
+const fitnessPrograms = require("../fitness/programs");
+const fitnessRules = require("../fitness/rules");
 const { CoachPlanError } = require("../coach/planRules");
 const aiRules = require("../ai/rules");
 const { NotFoundError } = require("../errors");
@@ -117,6 +119,33 @@ router.post("/exercises/:exerciseId/archive", exerciseRoute(async (req, res) => 
 }));
 router.post("/exercises/:exerciseId/restore", exerciseRoute(async (req, res) => {
   res.json({ exercise: await exercises.setArchived(pool(req), req.userId, exerciseRules.exerciseId(req.params.exerciseId), false) });
+}));
+
+// Programs (fitness/programs.js): the Fitness tab's programs, edited, published or hidden, created
+// and rewritten with the AI. Before the 2026-11-09 migration, say so instead of a 500.
+const programBody = express.json({ limit: "8kb" });
+const programRoute = (handler) => (req, res, next) =>
+  handler(req, res, next).catch((error) => {
+    if (["ER_NO_SUCH_TABLE", "ER_BAD_FIELD_ERROR", "WARN_DATA_TRUNCATED", "ER_TRUNCATED_WRONG_VALUE_FOR_FIELD"].includes(error?.code)) {
+      return res.status(503).json({ error: "Programs need the 2026-11-09-fitness-programs migration on this server." });
+    }
+    if (error instanceof CoachPlanError) return res.status(error.status).json({ error: error.message });
+    next(error);
+  });
+router.get("/programs", programRoute(async (req, res) => {
+  res.json(await fitnessPrograms.adminList(pool(req)));
+}));
+router.post("/programs", programBody, programRoute(async (req, res) => {
+  res.status(201).json({ program: await fitnessPrograms.create(pool(req), req.userId, fitnessRules.programBody(req.body, { creating: true })) });
+}));
+router.get("/programs/:programId", programRoute(async (req, res) => {
+  res.json({ program: await fitnessPrograms.detail(pool(req), fitnessRules.id(req.params.programId), { admin: true }) });
+}));
+router.patch("/programs/:programId", programBody, programRoute(async (req, res) => {
+  res.json({ program: await fitnessPrograms.update(pool(req), req.userId, fitnessRules.id(req.params.programId), fitnessRules.programBody(req.body, { creating: false })) });
+}));
+router.post("/programs/:programId/redraft", programBody, programRoute(async (req, res) => {
+  res.json({ program: await fitnessPrograms.redraft(pool(req), req.userId, fitnessRules.id(req.params.programId), fitnessRules.redraftBody(req.body)) });
 }));
 
 module.exports = { adminPortalRouter: router };

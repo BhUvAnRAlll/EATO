@@ -3,7 +3,7 @@
 // and when a budget alert fires.
 const { ValidationError } = require("../profile");
 
-const FEATURES = ["gym_assistant", "coach_plan", "coach_workout", "coach_meal", "coach_chat", "food_scan", "body_scan", "body_report", "exercise_library"];
+const FEATURES = ["gym_assistant", "coach_plan", "coach_workout", "coach_meal", "coach_chat", "food_scan", "body_scan", "body_report", "exercise_library", "workout_place", "fitness_program"];
 const PROVIDERS = ["openai", "forma"];
 const STATUSES = ["ok", "failed", "refused"];
 const PERIODS = ["day", "week", "month"];
