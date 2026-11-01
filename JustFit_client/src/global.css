@@ -1791,37 +1791,6 @@
   color: var(--color-faint);
 }
 
-/* The Macro tab (2026-10-31 look): the day tiles of the week strip */
-@utility macro__day-tile {
-  align-items: center;
-  gap: 6px;
-  padding-block: 10px;
-  border-radius: var(--radius-md);
-  background-color: var(--color-surface);
-  box-shadow: var(--shadow-card);
-}
-
-@utility macro__day-tile--selected {
-  background-color: var(--color-accent-soft);
-}
-
-/* The picked tile tinted by the day's standing (complete, partial, low) */
-@utility macro__day-tile--complete {
-  background-color: var(--color-success-soft);
-}
-
-@utility macro__day-tile--partial {
-  background-color: var(--color-warning-soft);
-}
-
-@utility macro__day-tile--low {
-  background-color: var(--color-danger-soft);
-}
-
-@utility macro__day-tile--today {
-  background-color: var(--color-cream-tab);
-}
-
 /* The solid green disc inside a day's ring once its target was reached */
 @utility macro__day-disc {
   position: absolute;

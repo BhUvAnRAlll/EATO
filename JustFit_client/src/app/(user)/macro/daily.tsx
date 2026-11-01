@@ -89,7 +89,16 @@ export default function DailyCalories() {
 
               <View className="gap-3">
                 <Text className="setup__section">Meals timeline</Text>
-                <MealTimeline rows={timelineRows(showing.meals)} onOpen={setOpenMeal} onAdd={isToday ? (slot) => router.push({ pathname: "/macro/add-meal", params: { slot } }) : undefined} />
+                {showing.meals.length === 0 ? (
+                  <DashedBlock
+                    icon={{ ios: "fork.knife", android: "restaurant", web: "restaurant" }}
+                    title={isToday ? "Nothing logged yet" : "Nothing was logged"}
+                    text={isToday ? "Add your first meal to start today." : "This day has no meals. You can only log meals on the day you eat them."}
+                    onPress={isToday ? () => router.push("/macro/add-meal") : undefined}
+                  />
+                ) : (
+                  <MealTimeline rows={timelineRows(showing.meals)} onOpen={setOpenMeal} />
+                )}
               </View>
             </ScrollView>
 
