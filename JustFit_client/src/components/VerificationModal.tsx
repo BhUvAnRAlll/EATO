@@ -13,7 +13,7 @@ import { SymbolView } from "@/components/SymbolView";
 
 import { FormAlert } from "@/components/FormAlert";
 import { codeInput } from "@/lib/phone";
-import { colors } from "@/theme";
+import { useThemeColors } from "@/theme";
 
 const CODE_LENGTH = 6;
 
@@ -32,6 +32,7 @@ type VerificationModalProps = {
 };
 
 export function VerificationModal({ visible, title, destination, onClose, onComplete, onResend, resendIn }: VerificationModalProps) {
+  const colors = useThemeColors();
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isChecking, setIsChecking] = useState(false);
@@ -75,7 +76,7 @@ export function VerificationModal({ visible, title, destination, onClose, onComp
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
         <View className="verify__backdrop">
-          <Pressable className="flex-1" onPress={handleClose} />
+          <Pressable className="flex-1" onPress={handleClose} accessibilityRole="button" accessibilityLabel="Close" />
 
           <View className="verify__sheet">
             <View className="flex-row items-start justify-between">

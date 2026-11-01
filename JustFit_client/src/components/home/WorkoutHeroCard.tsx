@@ -1,8 +1,9 @@
-import { Pressable, Text, View } from "react-native";
+import { Text, View } from "react-native";
+import { PressableScale } from "@/components/PressableScale";
 
 import { SymbolView } from "@/components/SymbolView";
 import type { HomeWorkout } from "@/store/home";
-import { colors } from "@/theme";
+import { useThemeColors } from "@/theme";
 
 type WorkoutHeroCardProps = {
   workout: HomeWorkout;
@@ -17,6 +18,7 @@ const LEVEL: Record<string, string> = { beginner: "Beginner", intermediate: "Int
 // instead of inviting a start. (No photo: the plan has none of its own, and a stock one would
 // not be the member's workout.)
 export function WorkoutHeroCard({ workout, onOpen }: WorkoutHeroCardProps) {
+  const colors = useThemeColors();
   const { status, day } = workout;
   const done = status === "completed";
   const resting = status === "rest" || !day;
@@ -31,7 +33,7 @@ export function WorkoutHeroCard({ workout, onOpen }: WorkoutHeroCardProps) {
   const label = resting ? "Rest day. Open your workout plan" : done ? `${title} done. Open today's workout` : `Start ${title}, ${day.minutes} minutes`;
 
   return (
-    <Pressable onPress={onOpen} className="home__hero" accessibilityRole="button" accessibilityLabel={label}>
+    <PressableScale scaleTo={0.98} onPress={onOpen} className="home__hero" accessibilityRole="button" accessibilityLabel={label}>
       <View className="flex-row" style={{ gap: 8 }}>
         <View className="workout__chip">
           <SymbolView name={{ ios: "figure.strengthtraining.traditional", android: "fitness_center", web: "fitness_center" }} size={13} tintColor={colors.white} />
@@ -57,6 +59,6 @@ export function WorkoutHeroCard({ workout, onOpen }: WorkoutHeroCardProps) {
           />
         </View>
       </View>
-    </Pressable>
+    </PressableScale>
   );
 }

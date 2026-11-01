@@ -4,10 +4,10 @@
 // is always the verified caller.
 const express = require("express");
 
-const { ensureUser } = require("../community/members");
+const { ensureUser } = require("../auth");
 const { createRateLimiter, limitPerUser } = require("../rateLimit");
-const { validateIntake, prefillFrom, planBody, planQuery, logBody, mealId, coachChoice } = require("./validate");
-const { toIntake, makePlan, swapMeal, getPlan, logMeal } = require("./plan");
+const { validateIntake, prefillFrom, planBody, planQuery, logBody, optionsBody, replaceBody, mealId, coachChoice } = require("./validate");
+const { toIntake, makePlan, swapMeal, mealOptions, replaceMeal, getPlan, logMeal } = require("./plan");
 const { CoachPlanError } = require("./planRules");
 const { chat } = require("./chat");
 const { chatBody } = require("./chatRules");
@@ -100,6 +100,23 @@ router.post("/plan/meals/:mealId/swap", limitPerUser(swapMealLimiter), smallBody
   const { date } = logBody(req.body, Date.now());
   const changed = await swapMeal(pool(req), req.userId, mealId(req.params.mealId));
   res.json({ mealId: changed, ...(await getPlan(pool(req), req.userId, { date })) });
+}));
+
+// POST /plan/meals/:mealId/options { date, preference? }: five dishes the member could have in that meal's place,
+// made for them and for what's left of the day, steered by `preference` (lighter, more_protein, different_cuisine,
+// quick) when given. One AI call, the same hourly allowance as a swap. The plan doesn't change.
+router.post("/plan/meals/:mealId/options", limitPerUser(swapMealLimiter), smallBody, route(async (req, res) => {
+  const { date, preference } = optionsBody(req.body, Date.now());
+  res.json(await mealOptions(pool(req), req.userId, mealId(req.params.mealId), { date, preference }));
+}));
+
+// POST /plan/meals/:mealId/replace { date, optionId, quantities? }: that option goes in the meal's place, with the
+// member's portions when they edited them; `undoId` is an option that puts the old meal back the same way. No AI
+// call. Answers the plan with the new totals.
+router.post("/plan/meals/:mealId/replace", smallBody, route(async (req, res) => {
+  const { date, optionId, quantities } = replaceBody(req.body, Date.now());
+  const result = await replaceMeal(pool(req), req.userId, mealId(req.params.mealId), optionId, quantities);
+  res.json({ ...result, ...(await getPlan(pool(req), req.userId, { date })) });
 }));
 
 // POST /plan/meals/:mealId/log { date }: the meal goes into the Macro diary as it is, once a day

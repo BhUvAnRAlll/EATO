@@ -61,10 +61,9 @@ async function startTestServer(env, { sms = "fake" } = {}) {
       AUTH_SECRET: env.AUTH_SECRET || crypto.randomBytes(32).toString("base64url"),
       SMS_PROVIDER: sms === "off" ? "off" : "fake", SMS_FAKE_OUTBOX: outbox,
       ...RELAXED_OTP,
-      ...(env.UPLOAD_DIR ? { UPLOAD_DIR: env.UPLOAD_DIR } : {}), // community images go to a throwaway folder in tests
-      // WhatsApp tests pass fake Meta settings (never real ones) and point Graph calls at a local fake
-      // (and the phone sign-in tests pass their limits and the development sign-in code)
-      ...Object.fromEntries(Object.entries(env).filter(([key]) => /^(META_|WHATSAPP_|AI_|OTP_|DEV_LOGIN_)/.test(key))),
+      // The AI tests pass their fake provider and limits; the phone sign-in tests their limits and
+      // the development sign-in code
+      ...Object.fromEntries(Object.entries(env).filter(([key]) => /^(AI_|OTP_|DEV_LOGIN_)/.test(key))),
       // The body scan test points the scan route at a local fake Forma server
       ...(env.FORMA_SCAN_URL ? { FORMA_SCAN_URL: env.FORMA_SCAN_URL } : {}),
     },

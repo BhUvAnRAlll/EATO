@@ -1,7 +1,7 @@
 import type { Href } from "expo-router";
 
 import type { Icon } from "@/types/profile";
-import { colors } from "@/theme";
+import { colors, Palette } from "@/theme";
 
 // The home screen's content comes from the justFit server (admins edit it there). The types
 // below mirror the API shape (see JustFit_server/home.js); the defaults are what the screen
@@ -16,7 +16,6 @@ export const destinationRoutes = {
   macro: "/macro",
   nutrition: "/macro", // older content saved as "nutrition" opens the Macro tab
   fitness: "/workout",
-  community: "/community",
   plans: "/plans",
   orders: "/orders",
   profile: "/profile",
@@ -35,7 +34,7 @@ export function routeFor(destination: string): Href | null {
 }
 
 // Icons a quick-action card may show, with the tint and soft container colour of each
-export const quickActionIcons = {
+export const quickActionIcons = (colors: Palette) => ({
   meals: { icon: { ios: "fork.knife.circle", android: "room_service", web: "room_service" }, tint: colors.iconGreen, background: colors.tintGreen },
   plans: { icon: { ios: "dumbbell", android: "fitness_center", web: "fitness_center" }, tint: colors.iconPeach, background: colors.tintPeach },
   nutrition: { icon: { ios: "chart.bar.fill", android: "bar_chart", web: "bar_chart" }, tint: colors.primary, background: colors.accentSoft },
@@ -44,11 +43,11 @@ export const quickActionIcons = {
   heart: { icon: { ios: "heart.fill", android: "favorite", web: "favorite" }, tint: colors.iconLavender, background: colors.tintLavender },
   calendar: { icon: { ios: "calendar", android: "calendar_today", web: "calendar_today" }, tint: colors.iconBlue, background: colors.tintBlue },
   bag: { icon: { ios: "bag.fill", android: "shopping_bag", web: "shopping_bag" }, tint: colors.iconGreen, background: colors.tintGreen },
-} satisfies Record<string, { icon: Icon; tint: string; background: string }>;
+} satisfies Record<string, { icon: Icon; tint: string; background: string }>);
 
-export type QuickActionIconKey = keyof typeof quickActionIcons;
+export type QuickActionIconKey = keyof ReturnType<typeof quickActionIcons>;
 
-export const quickActionIconKeys = Object.keys(quickActionIcons) as QuickActionIconKey[];
+export const quickActionIconKeys = Object.keys(quickActionIcons(colors)) as QuickActionIconKey[];
 
 export type PromotionStatus = "draft" | "published" | "disabled";
 
@@ -237,8 +236,8 @@ export const sampleTodayOrder: TodayOrder = {
 export const sampleDeliveryPincode = "110017";
 
 // Every bottom tab, in order
-// Home dashboard, meals and menu, macro balance (calories and macros), workouts, community
-export type HomeTab = { name: "home" | "meals" | "macro" | "coach" | "community"; label: string; icon: Icon; raised?: boolean };
+// Home dashboard, meals and menu, the AI Coach, macro balance (calories and macros), workouts
+export type HomeTab = { name: "home" | "meals" | "macro" | "coach" | "workout"; label: string; icon: Icon; raised?: boolean };
 
 export const homeTabs: HomeTab[] = [
   { name: "home", label: "Home", icon: { ios: "house", android: "home", web: "home" } },
@@ -246,5 +245,5 @@ export const homeTabs: HomeTab[] = [
   // AI Coach sits in the middle as a raised round button
   { name: "coach", label: "AI Coach", icon: { ios: "sparkles", android: "auto_awesome", web: "auto_awesome" }, raised: true },
   { name: "macro", label: "Macro", icon: { ios: "scalemass", android: "balance", web: "balance" } },
-  { name: "community", label: "Community", icon: { ios: "person.2", android: "group", web: "group" } },
+  { name: "workout", label: "Workout", icon: { ios: "dumbbell", android: "fitness_center", web: "fitness_center" } },
 ];

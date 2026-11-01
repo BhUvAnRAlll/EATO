@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { View } from "react-native";
 
-import { colors } from "@/theme";
+import { useThemeColors } from "@/theme";
 
 type RingProps = {
   size: number;
@@ -20,7 +20,9 @@ type RingProps = {
 // A progress ring drawn with plain Views (no SVG library), the same technique as the home
 // screen's rings: a half-circle border rotated into place, clipped to the right half for
 // the first 180° and to the left half beyond that, with round caps at both ends.
-export function Ring({ size, stroke, progress, color, trackColor = colors.creamLine, dashed = false, caps = true, children }: RingProps) {
+export function Ring({ size, stroke, progress, color, trackColor: trackColorProp, dashed = false, caps = true, children }: RingProps) {
+  const colors = useThemeColors();
+  const trackColor = trackColorProp ?? colors.creamLine;
   const angle = Math.min(1, Math.max(0, progress)) * 360;
   const radius = (size - stroke) / 2;
 

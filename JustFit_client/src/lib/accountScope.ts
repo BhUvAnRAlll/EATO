@@ -1,5 +1,5 @@
-// Everything the app keeps in memory about the signed-in account (the feed, the owner portal's
-// gym, the coach intake, the cart...) belongs to one "account generation". Signing out, or in
+// Everything the app keeps in memory about the signed-in account (the Macro diary, the
+// coach intake, the cart...) belongs to one "account generation". Signing out, or in
 // as someone else, starts a new generation: every store that registered a clear function is
 // emptied, and the answer to a request started in an earlier generation is thrown away instead
 // of being written into the next account's screens.

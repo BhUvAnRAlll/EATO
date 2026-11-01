@@ -10,9 +10,10 @@ import { Segmented } from "@/components/macro/Segmented";
 import { kcalOf, loggedAtFor, macro, macrosAgree, slotForNow, slotInfo, slots, todayIso, whole, type Slot } from "@/lib/macro";
 import { useSessionToken } from "@/lib/session";
 import { useMacroStore } from "@/store/macro";
-import { colors } from "@/theme";
+import { useThemeColors, Palette } from "@/theme";
 import { fonts } from "@/constants/fonts";
 import { track } from "@/lib/analytics";
+import { haptic } from "@/lib/haptics";
 
 type Unit = "g" | "oz" | "cup";
 const units: { value: Unit; label: string }[] = [
@@ -20,11 +21,11 @@ const units: { value: Unit; label: string }[] = [
   { value: "oz", label: "oz" },
   { value: "cup", label: "cup" },
 ];
-const macroFields = [
+const macroFields = (colors: Palette) => ([
   { key: "protein", label: "Protein", color: colors.protein },
   { key: "carbs", label: "Carbs", color: colors.carbs },
   { key: "fat", label: "Fat", color: colors.fat },
-] as const;
+] as const);
 
 // Digits and one decimal point only, at most 6 characters
 const numeric = (text: string) => text.replace(/[^\d.]/g, "").replace(/(\..*)\./g, "$1").slice(0, 6);
@@ -33,6 +34,7 @@ const toNumber = (text: string) => (text.trim() === "" ? 0 : Number(text));
 // Logging by hand: a food's name, amount, calories and macros, saved as one meal. On
 // success the whole logging flow closes back to the Macro tab.
 export default function ManualEntry() {
+  const colors = useThemeColors();
   const params = useLocalSearchParams<{ slot?: string; hour?: string; minute?: string }>();
   const getToken = useSessionToken();
   const selectedDate = useMacroStore((state) => state.selectedDate);
@@ -78,16 +80,18 @@ export default function ManualEntry() {
     setSaving(false);
     if (!result.ok) return setError(result.status ? result.error : "Could not save that food.");
     track("meal_logged", { source: "manual" });
+    haptic.success();
     router.dismissTo("/macro"); // the Macro tab reloads the day when it comes back into view
   };
 
   return (
     <View className="flex-1 bg-cream">
-      <StatusBar style="dark" />
+      <StatusBar style="auto" />
       <SafeAreaView style={{ flex: 1 }}>
         <MacroHeader title="Manual entry" />
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-          <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24, gap: 16 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+          <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24, gap: 16 }} keyboardShouldPersistTaps="handled"
+            keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"} showsVerticalScrollIndicator={false}>
             <Text className="home__lead">{"Know the numbers? Type them in and we'll add it to your day."}</Text>
 
             <View className="gap-2">
@@ -122,7 +126,7 @@ export default function ManualEntry() {
             <View className="gap-2">
               <Text className="setup__section">Macros</Text>
               <View className="flex-row gap-2">
-                {macroFields.map((m) => (
+                {macroFields(colors).map((m) => (
                   <View key={m.key} className="macro__macro-box">
                     <View className="flex-row items-center gap-1.5">
                       <View className="h-2 w-2 rounded-pill" style={{ backgroundColor: m.color }} />

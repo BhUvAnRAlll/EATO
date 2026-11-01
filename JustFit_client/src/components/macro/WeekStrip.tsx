@@ -1,13 +1,14 @@
-import { Pressable, Text, View } from "react-native";
+import { Text, View } from "react-native";
+import { PressableScale } from "@/components/PressableScale";
 
 import { Ring } from "@/components/macro/Ring";
 import { weekdayInitial, type DayProgress, type DayStatus } from "@/lib/macro";
-import { colors } from "@/theme";
+import { useThemeColors, Palette } from "@/theme";
 
-export const statusColor: Record<DayStatus, string> = { none: colors.creamLine, complete: colors.success, partial: colors.warning, low: colors.danger };
+export const statusColor = (colors: Palette): Record<DayStatus, string> => ({ none: colors.creamLine, complete: colors.success, partial: colors.warning, low: colors.danger });
 // The picked tile's tint and the day number's colour follow the day's standing
 const statusTile: Record<DayStatus, string> = { none: "macro__day-tile--selected", complete: "macro__day-tile--complete", partial: "macro__day-tile--partial", low: "macro__day-tile--low" };
-const statusText: Record<DayStatus, string> = { none: colors.primaryText, complete: colors.success, partial: colors.warning, low: colors.danger };
+const statusText = (colors: Palette): Record<DayStatus, string> => ({ none: colors.primaryText, complete: colors.success, partial: colors.warning, low: colors.danger });
 
 type WeekStripProps = {
   week: string[];
@@ -23,6 +24,7 @@ type WeekStripProps = {
 // the weekday under it. The picked day sits on a tile tinted in its standing's colour, today on
 // grey; future days can't be picked.
 export function WeekStrip({ week, selectedDate, today, progress, onSelect, width }: WeekStripProps) {
+  const colors = useThemeColors();
   const gap = 6;
   const tile = Math.floor((width - gap * 6) / 7);
   const ring = Math.max(28, Math.min(34, tile - 14));
@@ -37,7 +39,7 @@ export function WeekStrip({ week, selectedDate, today, progress, onSelect, width
         const done = status === "complete";
         const tileClass = selected ? `macro__day-tile ${statusTile[status]}` : date === today ? "macro__day-tile macro__day-tile--today" : "macro__day-tile";
         return (
-          <Pressable
+          <PressableScale haptic="select"
             key={date}
             onPress={() => onSelect(date)}
             disabled={future}
@@ -47,12 +49,12 @@ export function WeekStrip({ week, selectedDate, today, progress, onSelect, width
             accessibilityState={{ selected }}
             accessibilityLabel={`${date}${date === today ? ", today" : ""}${status === "none" ? ", nothing logged" : `, ${Math.round((day?.ratio ?? 0) * 100)}% of target`}`}
           >
-            <Ring size={ring} stroke={stroke} progress={status === "none" ? 0 : Math.max(0.08, day?.ratio ?? 0)} color={statusColor[status]} trackColor={selected && status !== "none" ? colors.white : colors.creamLine} dashed={status === "none"}>
+            <Ring size={ring} stroke={stroke} progress={status === "none" ? 0 : Math.max(0.08, day?.ratio ?? 0)} color={statusColor(colors)[status]} trackColor={selected && status !== "none" ? colors.white : colors.creamLine} dashed={status === "none"}>
               {done && <View className="macro__day-disc" style={{ width: ring - stroke * 2, height: ring - stroke * 2 }} />}
-              <Text className="macro__ring-day" style={{ color: done ? colors.white : selected ? statusText[status] : colors.ink }}>{Number(date.slice(8))}</Text>
+              <Text className="macro__ring-day" style={{ color: done ? colors.white : selected ? statusText(colors)[status] : colors.ink }}>{Number(date.slice(8))}</Text>
             </Ring>
-            <Text className="macro__weekday" style={selected ? { color: statusText[status] } : undefined}>{weekdayInitial(date)}</Text>
-          </Pressable>
+            <Text className="macro__weekday" style={selected ? { color: statusText(colors)[status] } : undefined}>{weekdayInitial(date)}</Text>
+          </PressableScale>
         );
       })}
     </View>

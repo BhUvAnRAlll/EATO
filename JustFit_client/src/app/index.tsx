@@ -6,12 +6,13 @@ import { FormAlert } from "@/components/FormAlert";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { getHomeRoute } from "@/lib/roles";
 import { useAuthStore } from "@/store/auth";
-import { colors } from "@/theme";
+import { useThemeColors } from "@/theme";
 
 // Start screen. Signed-out people go to onboarding; signed-in people open the dashboard for
 // their role (members who haven't finished their profile go to setup first). Role and setup
 // state are the server's answer for the saved session (see store/auth.ts).
 export default function Index() {
+  const colors = useThemeColors();
   const status = useAuthStore((state) => state.status);
   const user = useAuthStore((state) => state.user);
   const notice = useAuthStore((state) => state.notice);
@@ -43,7 +44,7 @@ export default function Index() {
   if (status === "restoring") {
     return (
       <View className="flex-1 items-center justify-center bg-cream">
-        <ActivityIndicator color={colors.forest} />
+        <ActivityIndicator color={colors.leaf} />
       </View>
     );
   }

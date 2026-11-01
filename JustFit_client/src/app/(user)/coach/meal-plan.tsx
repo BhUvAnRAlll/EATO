@@ -1,5 +1,5 @@
-import { useCallback, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
+import { useCallback, useRef, useState } from "react";
+import { ActivityIndicator, Pressable, ScrollView, Text, View, type ScrollViewInstance } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { router, useFocusEffect } from "expo-router";
@@ -14,7 +14,7 @@ import { coachApi, type Intake, type IntakePrefill, type PlanState } from "@/lib
 import { todayIso } from "@/lib/macro";
 import { useSessionToken } from "@/lib/session";
 import { useCoachIntakeStore } from "@/store/coachIntake";
-import { colors } from "@/theme";
+import { useThemeColors } from "@/theme";
 
 const OFFLINE = "Could not reach justFit. Check your connection and try again.";
 
@@ -23,9 +23,11 @@ const back = () => (router.canGoBack() ? router.back() : router.replace("/coach"
 // The coach's Meal Plan for today, on its own: the five meals down a timeline (time, slot, dish,
 // ingredients, calories, macros, Swap, Log Meal), with "N Meals · kcal" in the header and the
 // Adjust Plan banner at the bottom (ask the coach to adjust a meal, regenerate with AI Coach, or
-// edit the answers). Swap replaces one meal with a new dish (a small AI call) instead of remaking
-// the whole day. The workout is not here: it has its own card on the Coach tab.
+// edit the answers). Swap opens the Swap Meal screen, where the coach offers three dishes made for
+// the member and the day, instead of remaking the whole day. The workout is not here: it has its
+// own card on the Coach tab.
 export default function MealPlanScreen() {
+  const colors = useThemeColors();
   const getToken = useSessionToken();
   const start = useCoachIntakeStore((state) => state.start);
   const [loaded, setLoaded] = useState<{ intake: Intake | null; prefill: IntakePrefill } | null>(null);
@@ -33,9 +35,10 @@ export default function MealPlanScreen() {
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [logging, setLogging] = useState<string | null>(null);
-  const [swapping, setSwapping] = useState<string | null>(null);
   const [making, setMaking] = useState(false);
   const [adjusting, setAdjusting] = useState(false);
+  // The page scrolls down to the Adjust Plan options when they open (they sit under the banner at the bottom)
+  const scroll = useRef<ScrollViewInstance>(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -68,20 +71,14 @@ export default function MealPlanScreen() {
     );
   };
 
-  // One meal at a time; the server answers the whole plan with the new dish in place
-  const swapMeal = async (mealId: string) => {
-    if (swapping || making) return;
-    setActionError(null);
-    setSwapping(mealId);
-    const result = await coachApi.swapMeal(await getToken().catch(() => null), mealId, todayIso());
-    if (result.ok) track("coach_meal_swapped");
-    setSwapping(null);
-    if (!result.ok) return setActionError(result.status ? result.error : OFFLINE);
-    setPlan({ state: result.data.state, plan: result.data.plan, workout: result.data.workout });
+  // The Swap Meal screen does the swap; this screen reads the plan again when it comes back into view
+  const swapMeal = (mealId: string) => {
+    if (making) return;
+    router.push({ pathname: "/coach/swap-meal", params: { mealId } });
   };
 
   const regenerate = async () => {
-    if (making || swapping) return;
+    if (making) return;
     setActionError(null);
     setMaking(true);
     const result = await coachApi.makePlan(await getToken().catch(() => null), todayIso());
@@ -103,7 +100,7 @@ export default function MealPlanScreen() {
 
   return (
     <View className="coach__page">
-      <StatusBar style="dark" />
+      <StatusBar style="auto" />
       <SafeAreaView style={{ flex: 1 }} edges={["top", "left", "right"]}>
         <View className="h-14 flex-row items-center px-4" style={{ gap: 12 }}>
           <Pressable onPress={back} className="coach__circle-btn" accessibilityRole="button" accessibilityLabel="Back">
@@ -120,10 +117,10 @@ export default function MealPlanScreen() {
           )}
         </View>
 
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 32, gap: 16 }} showsVerticalScrollIndicator={false} refreshControl={refreshControl}>
+        <ScrollView ref={scroll} contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 32, gap: 16 }} showsVerticalScrollIndicator={false} refreshControl={refreshControl}>
           {!plan && !error && (
             <View className="items-center py-16">
-              <ActivityIndicator color={colors.primary} />
+              <ActivityIndicator color={colors.leaf} />
             </View>
           )}
 
@@ -148,10 +145,10 @@ export default function MealPlanScreen() {
 
           {plan?.plan && (
             <>
-              <PlanTimeline plan={plan.plan} logging={logging} onLog={logMeal} swapping={swapping} onSwap={swapMeal} />
+              <PlanTimeline plan={plan.plan} logging={logging} onLog={logMeal} onSwap={swapMeal} />
 
               <View className="coach__banner">
-                <SymbolView name={{ ios: "doc.text", android: "description", web: "description" }} size={26} tintColor={colors.primary} />
+                <SymbolView name={{ ios: "doc.text", android: "description", web: "description" }} size={26} tintColor={colors.leaf} />
                 <View className="min-w-0 flex-1">
                   <Text className="coach__banner-title">Need to make changes?</Text>
                   <Text className="coach__banner-text">Edit your meal plan or regenerate with AI Coach</Text>
@@ -163,17 +160,17 @@ export default function MealPlanScreen() {
               </View>
 
               {adjusting && (
-                <View className="coach__card" style={{ gap: 0 }}>
+                <View className="coach__card" style={{ gap: 0 }} onLayout={() => scroll.current?.scrollToEnd({ animated: true })}>
                   <Pressable onPress={() => { setAdjusting(false); askCoach(); }} className="list-row" accessibilityRole="button" accessibilityLabel="Ask my coach to adjust a meal">
-                    <SymbolView name={{ ios: "bubble.left.fill", android: "chat", web: "chat" }} size={18} tintColor={colors.primary} />
+                    <SymbolView name={{ ios: "bubble.left.fill", android: "chat", web: "chat" }} size={18} tintColor={colors.leaf} />
                     <Text className="list-row__label">Ask my coach to adjust a meal</Text>
                   </Pressable>
                   <Pressable onPress={() => { setAdjusting(false); regenerate(); }} disabled={making} className="list-row" accessibilityRole="button" accessibilityLabel="Regenerate the plan with AI Coach">
-                    <SymbolView name={{ ios: "sparkles", android: "auto_awesome", web: "auto_awesome" }} size={18} tintColor={colors.primary} />
+                    <SymbolView name={{ ios: "sparkles", android: "auto_awesome", web: "auto_awesome" }} size={18} tintColor={colors.leaf} />
                     <Text className="list-row__label">{making ? "Regenerating…" : "Regenerate with AI Coach"}</Text>
                   </Pressable>
                   <Pressable onPress={() => { setAdjusting(false); editAnswers(); }} className="list-row border-b-0" accessibilityRole="button" accessibilityLabel="Edit my answers to change the plan">
-                    <SymbolView name={{ ios: "pencil", android: "edit", web: "edit" }} size={18} tintColor={colors.primary} />
+                    <SymbolView name={{ ios: "pencil", android: "edit", web: "edit" }} size={18} tintColor={colors.leaf} />
                     <Text className="list-row__label">Edit my answers</Text>
                   </Pressable>
                 </View>
@@ -181,7 +178,7 @@ export default function MealPlanScreen() {
 
               {making && !adjusting && (
                 <View className="flex-row items-center justify-center" style={{ gap: 8 }}>
-                  <ActivityIndicator color={colors.primary} />
+                  <ActivityIndicator color={colors.leaf} />
                   <Text className="coach__hint">Regenerating your plan. This can take up to a minute.</Text>
                 </View>
               )}

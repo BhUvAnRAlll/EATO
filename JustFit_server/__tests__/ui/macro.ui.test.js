@@ -136,9 +136,11 @@ describe("ui macro: the Macro tab hub and logging a meal by hand", () => {
     await clickTab("Macro");
     await h.expectPath("/macro");
     // The intake card (eaten of the target) and the Calories left card: nothing eaten, 2,000 left
-    await h.expectText("Today's intake");
-    await h.expectText("of 2,000 kcal");
-    assert.ok(await page.evaluate(`!!document.querySelector(${JSON.stringify(`[aria-label="Today's intake: 0 of 2,000 kcal, 0% of the daily goal. Open daily calories"]`)})`), "the intake card opens daily calories");
+    // The split donut (nothing eaten: every legend value is a dash, the target split shows) and the three macro tiles
+    await h.expectText("Target split");
+    await h.expectText("0% of 150g");
+    assert.ok(await page.evaluate(`!!document.querySelector(${JSON.stringify(`[aria-label="Today's intake: 0 of 2,000 kcal. Open daily calories"]`)})`), "the donut card opens daily calories");
+    assert.ok(await page.evaluate(`!!document.querySelector('[aria-label="Protein: 0 grams, 0% of 150 grams"]')`), "the protein tile");
     assert.ok(await page.evaluate(`!!document.querySelector('[aria-label="Calories left: 2,000 kcal, nothing logged. Open daily calories"]')`), "the Calories left card");
     await h.expectText("Add your first meal to start today."); // only the Macro hub says this (Home has its own "Nothing logged yet today.")
     await h.expectText("Today's meals");
@@ -228,7 +230,7 @@ describe("ui macro: the Macro tab hub and logging a meal by hand", () => {
     await h.expectText("Behind target"); // 32 g protein is under 55% of 150 g
     await h.expectText("Meals timeline");
     await h.expectText("Paneer tikka bowl");
-    assert.ok(await page.evaluate(`!!document.querySelector('[aria-label^="Lunch at "][aria-label*="Paneer tikka bowl, 480 kcal"]')`), "the lunch row shows the meal");
+    assert.ok(await page.evaluate(`!!document.querySelector('[aria-label^="Lunch: Paneer tikka bowl, 480 kcal at "]')`), "the lunch row shows the meal");
     for (const slot of ["Breakfast", "Snack", "Dinner"]) {
       assert.ok(await page.evaluate(`!!document.querySelector('[aria-label="${slot}: not logged yet. Add ${slot.toLowerCase()}"]')`), `${slot} is an unlogged, pressable row on today`);
     }

@@ -1,30 +1,30 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { SymbolView } from "@/components/SymbolView";
 import { router, useFocusEffect } from "expo-router";
 
 import { usePullToRefresh } from "@/components/PullToRefresh";
-import { Avatar } from "@/components/community/Avatar";
+import { Avatar } from "@/components/Avatar";
 import { DashedBlock } from "@/components/macro/DashedBlock";
 import { KIND_LABEL, adminPortal, type AdminUserRow, type UserFilter } from "@/lib/adminPortal";
 import { useSessionToken } from "@/lib/session";
-import { colors } from "@/theme";
+import { useThemeColors } from "@/theme";
 
 // Super Admin › Users: every account, searched by name or email and filtered by kind. Each row
-// opens the account's page (posts, reports, gyms, suspension).
+// opens the account's page (when they joined and what they logged).
 
 const FILTERS: { value: UserFilter; label: string }[] = [
   { value: "all", label: "All" },
   { value: "members", label: "Members" },
-  { value: "owners", label: "Gym owners" },
-  { value: "suspended", label: "Suspended" },
+  { value: "admins", label: "Admins" },
 ];
 
 type Load = { state: "loading" } | { state: "failed"; error: string } | { state: "ready"; users: AdminUserRow[] };
 
 export default function AdminUsers() {
+  const colors = useThemeColors();
   const getToken = useSessionToken();
   const [filter, setFilter] = useState<UserFilter>("all");
   const [search, setSearch] = useState("");
@@ -51,9 +51,10 @@ export default function AdminUsers() {
 
   return (
     <View className="flex-1 bg-cream">
-      <StatusBar style="dark" />
+      <StatusBar style="auto" />
       <SafeAreaView style={{ flex: 1 }} edges={["top", "left", "right"]}>
-        <ScrollView contentContainerStyle={{ paddingBottom: 110, gap: 14 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} refreshControl={refreshControl}>
+        <ScrollView contentContainerStyle={{ paddingBottom: 110, gap: 14 }} keyboardShouldPersistTaps="handled"
+            keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"} showsVerticalScrollIndicator={false} refreshControl={refreshControl}>
           <View className="px-5 pt-2">
             <Text className="type-overline text-muted">justFit admin</Text>
             <Text className="type-title text-forest-ink">Users</Text>
@@ -66,8 +67,8 @@ export default function AdminUsers() {
             {FILTERS.map((f) => {
               const selected = filter === f.value;
               return (
-                <Pressable key={f.value} onPress={() => setFilter(f.value)} className={selected ? "friend-chip friend-chip--selected" : "friend-chip"} accessibilityRole="tab" accessibilityState={{ selected }} accessibilityLabel={f.label}>
-                  <Text className={selected ? "friend-chip__label friend-chip__label--selected" : "friend-chip__label"}>{f.label}</Text>
+                <Pressable key={f.value} onPress={() => setFilter(f.value)} className={selected ? "filter-chip filter-chip--selected" : "filter-chip"} accessibilityRole="tab" accessibilityState={{ selected }} accessibilityLabel={f.label}>
+                  <Text className={selected ? "filter-chip__label filter-chip__label--selected" : "filter-chip__label"}>{f.label}</Text>
                 </Pressable>
               );
             })}
@@ -75,7 +76,7 @@ export default function AdminUsers() {
 
           <View className="px-5">
             {load.state === "loading" ? (
-              <View className="items-center py-16"><ActivityIndicator color={colors.forest} /></View>
+              <View className="items-center py-16"><ActivityIndicator color={colors.leaf} /></View>
             ) : load.state === "failed" ? (
               <DashedBlock icon={{ ios: "exclamationmark.triangle.fill", android: "warning", web: "warning" }} title="Could not load users" text={`${load.error.replace(/\.$/, "")}. Tap to try again.`} onPress={() => { setLoad({ state: "loading" }); refresh(); }} />
             ) : load.users.length === 0 ? (
@@ -83,7 +84,7 @@ export default function AdminUsers() {
             ) : (
               <View className="admin-list">
                 {load.users.map((u, i) => {
-                  const detail = [KIND_LABEL[u.kind], u.suspended ? "suspended" : null].filter(Boolean).join(" · ");
+                  const detail = KIND_LABEL[u.kind];
                   return (
                     <Pressable
                       key={u.id}
@@ -95,7 +96,7 @@ export default function AdminUsers() {
                       <Avatar member={{ id: u.id, name: u.name, initial: u.name.charAt(0).toUpperCase() }} size={44} />
                       <View className="min-w-0 flex-1">
                         <Text className="card__title" numberOfLines={1}>{u.name}</Text>
-                        <Text className="post__time" numberOfLines={1} style={u.suspended ? { color: colors.ink } : undefined}>{detail}</Text>
+                        <Text className="meta-text" numberOfLines={1}>{detail}</Text>
                       </View>
                       <SymbolView name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }} size={14} tintColor={colors.faint} />
                     </Pressable>

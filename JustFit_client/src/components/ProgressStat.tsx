@@ -1,6 +1,6 @@
 import { Text, View } from "react-native";
 
-import { colors } from "@/theme";
+import { useThemeColors } from "@/theme";
 
 type ProgressStatProps = {
   label: string;
@@ -14,7 +14,9 @@ type ProgressStatProps = {
 };
 
 // Peak Fitness ProgressStat: a label, a pill bar and "value unit" on one row. Stack rows with gap-2.
-export function ProgressStat({ label, value, unit, progress, color = colors.primary }: ProgressStatProps) {
+export function ProgressStat({ label, value, unit, progress, color: colorProp }: ProgressStatProps) {
+  const colors = useThemeColors();
+  const color = colorProp ?? colors.leaf;
   const share = Math.min(1, Math.max(0, progress));
   return (
     <View className="progress-stat" accessibilityLabel={`${label}: ${value}${unit ? ` ${unit}` : ""}`}>

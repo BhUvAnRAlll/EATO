@@ -6,7 +6,7 @@ import { SymbolView } from "@/components/SymbolView";
 import { router } from "expo-router";
 
 import type { Icon } from "@/types/profile";
-import { colors } from "@/theme";
+import { useThemeColors } from "@/theme";
 
 type PlaceholderScreenProps = {
   title: string;
@@ -21,11 +21,12 @@ type PlaceholderScreenProps = {
 // A screen for an area that isn't built yet: title, a friendly note and a way back.
 // Tab screens have no back arrow (the tab bar is the way around); pushed screens do.
 export function PlaceholderScreen({ title, subtitle, icon, children, showBack = true }: PlaceholderScreenProps) {
+  const colors = useThemeColors();
   const canGoBack = showBack && router.canGoBack();
 
   return (
     <View className="flex-1 bg-cream">
-      <StatusBar style="dark" />
+      <StatusBar style="auto" />
       <SafeAreaView style={{ flex: 1 }} edges={["top", "left", "right"]}>
         <View className="screen-bar">
           {canGoBack ? (
@@ -42,7 +43,7 @@ export function PlaceholderScreen({ title, subtitle, icon, children, showBack = 
         <ScrollView contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 16, paddingBottom: 24 }} showsVerticalScrollIndicator={false}>
           <View className="flex-1 items-center justify-center gap-3 py-10">
             <View className="placeholder__icon">
-              <SymbolView name={icon} size={30} tintColor={colors.forest} />
+              <SymbolView name={icon} size={30} tintColor={colors.leaf} />
             </View>
             <Text className="setup__title text-center">{title}</Text>
             <Text className="placeholder__text">{subtitle}</Text>

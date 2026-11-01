@@ -5,11 +5,12 @@ import { router } from "expo-router";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { SetupScreen } from "@/components/setup/SetupScreen";
 import { useSetupStore } from "@/store/setup";
-import { colors } from "@/theme";
+import { useThemeColors } from "@/theme";
 
 // Optional step: a body scan from two photos estimates body fat %, which lets the targets use
 // fat-free mass. Skipped, the targets are calculated from height, weight, age and gender.
 export default function BodyComposition() {
+  const colors = useThemeColors();
   const { profile, scan, removeScan } = useSetupStore();
   const scanned = profile.bodyFatPercent !== "";
 

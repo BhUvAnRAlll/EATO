@@ -228,7 +228,8 @@ describe("ui coach: the AI Coach intake", () => {
     await page.clickText("Make my plan");
     await h.expectText("Logged today");
     await h.expectText("Meal plan");
-    await h.expectText("WORKOUT"); // today's workout, a card of its own (not on the meal plan)
+    // Today's workout, a card of its own (not on the meal plan); on a rest day (A trains Tue, Thu, Sat) the row says so
+    await h.expectText([2, 4, 6].includes(new Date().getDay()) ? "WORKOUT" : "Rest day");
     const [[plan]] = await connection.query("SELECT COUNT(*) AS n, MAX(calories) AS kcal FROM coach_plans WHERE user_id = ? AND status = 'active'", [identities.a.id]);
     assert.deepEqual({ n: plan.n, kcal: plan.kcal }, { n: 1, kcal: 1800 });
     await h.expectText("/ 1800"); // the calories column of Logged today
@@ -270,6 +271,60 @@ describe("ui coach: the AI Coach intake", () => {
     await h.expectText("1 of 5 logged");
     await clickLabel("Open meal plan");
     await page.waitFor(`(() => !![...document.querySelectorAll('[aria-label="Dal, rice and sabzi logged"]')].find((e) => e.getClientRects().length > 0))()`, NAV_TIMEOUT, "still Logged after reload");
+    await clickLabel("Back");
+    await h.expectPath("/coach");
+  }));
+
+  it("6b. Swap Meal: five options for breakfast, a chip steers the next ask, edited portions go into the plan, Undo puts the old meal back", run("swap", async () => {
+    await clickLabel("Open meal plan");
+    await h.expectPath("/coach/meal-plan");
+    await clickLabel("Swap Moong dal chilla for another dish");
+    await h.expectPath("/coach/swap-meal");
+    await h.expectText("Swap meal");
+    await h.expectText("REPLACING"); // the slot pill over the meal being replaced, shown in capitals
+    await h.expectText("kcal left today");
+    await h.expectText("Options for you");
+    for (const name of ["Paneer tikka wrap", "Rajma chawal", "Curd rice with vegetables", "Moong dal khichdi", "Vegetable upma and sambar"]) await h.expectText(name);
+    await h.expectText("Protein-rich and quick, so it keeps you full on a training day."); // the one-line why
+    assert.equal(await page.evaluate(`document.querySelectorAll('[aria-label^="Replace meal with "]').length`), 5, "a Replace meal button on each card");
+    await snapshotAllWidths("coach-swap-options");
+    // A chip asks again with that in mind (the fake answers the same five) and stays selected
+    await clickLabel("Ask for lighter options");
+    await page.waitFor(`(() => !![...document.querySelectorAll('[aria-label="Lighter, selected. Tap to ask without it"]')].find((e) => e.getClientRects().length > 0))()`, NAV_TIMEOUT, "the Lighter chip selected");
+    await h.expectText("Rajma chawal");
+    // Tapping it again asks without it (the portions go back to the breakfast's size)
+    await clickLabel("Lighter, selected. Tap to ask without it");
+    await page.waitFor(`(() => !![...document.querySelectorAll('[aria-label="Ask for lighter options"]')].find((e) => e.getClientRects().length > 0))()`, NAV_TIMEOUT, "the Lighter chip cleared");
+    await h.expectText("Rajma · 1 bowl");
+    const [[asked]] = await connection.query("SELECT COUNT(*) AS n FROM coach_meal_options WHERE user_id = ? AND kind = 'suggestion'", [identities.a.id]);
+    assert.equal(asked.n, 15, "three asks, five options each, all stored");
+    // Edit portions on Rajma chawal: two bowls of rajma, the rice left out; the card's numbers follow
+    await clickLabel("Edit portions of Rajma chawal");
+    await clickLabel("More Rajma");
+    await clickLabel("More Rajma");
+    await clickLabel("Leave out Rice");
+    await h.expectText("2 bowl");
+    await h.expectText("Replace with my portions");
+    await snapshotAllWidths("coach-swap-edit");
+    await clickLabel("Replace meal with Rajma chawal");
+    await h.expectText("Replaced with Rajma chawal");
+    await h.expectText("NOW IN YOUR PLAN"); // the slot pill, shown in capitals
+    await page.waitFor(`(() => !![...document.querySelectorAll('[aria-label="Rajma chawal is in your plan"]')].find((e) => e.getClientRects().length > 0))()`, NAV_TIMEOUT, "the chosen card marked");
+    const [[swapped]] = await connection.query(
+      "SELECT m.name, COUNT(i.id) AS foods, MAX(i.quantity) AS quantity, MAX(i.name) AS food FROM coach_plan_meals m JOIN coach_plan_meal_items i ON i.meal_id = m.id WHERE m.user_id = ? AND m.slot = 'breakfast' GROUP BY m.id, m.name",
+      [identities.a.id],
+    );
+    assert.deepEqual({ name: swapped.name, foods: swapped.foods, quantity: Number(swapped.quantity), food: swapped.food }, { name: "Rajma chawal", foods: 1, quantity: 2, food: "Rajma" });
+    await snapshotAllWidths("coach-swap-done");
+    // Undo puts the chilla back
+    await clickLabel("Undo and restore the previous meal");
+    await h.expectText("Restored Moong dal chilla");
+    const [[back]] = await connection.query("SELECT name FROM coach_plan_meals WHERE user_id = ? AND slot = 'breakfast'", [identities.a.id]);
+    assert.equal(back.name, "Moong dal chilla");
+    // Done goes back to the plan, which shows the meal as it is now
+    await clickLabel("Done, back to the meal plan");
+    await h.expectPath("/coach/meal-plan");
+    await h.expectText("Moong dal chilla");
     await clickLabel("Back");
     await h.expectPath("/coach");
   }));

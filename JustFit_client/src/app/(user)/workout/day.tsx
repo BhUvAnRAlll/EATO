@@ -5,7 +5,7 @@ import { StatusBar } from "expo-status-bar";
 import { SymbolView } from "@/components/SymbolView";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 
-import { ActionSheet } from "@/components/community/ActionSheet";
+import { ActionSheet } from "@/components/ActionSheet";
 import { DashedBlock } from "@/components/macro/DashedBlock";
 import { usePullToRefresh } from "@/components/PullToRefresh";
 import { WorkoutSheet } from "@/components/workout/WorkoutSheet";
@@ -32,7 +32,7 @@ import {
   type TrainingDay,
   type WorkoutHome,
 } from "@/lib/workoutApi";
-import { colors } from "@/theme";
+import { useThemeColors } from "@/theme";
 import { fonts } from "@/constants/fonts";
 
 // One day's session in full: what it trains, the exercise list by section, and the facts
@@ -45,6 +45,7 @@ type Ready = { plan: Plan; status: Extract<WorkoutHome, { plan: object }>["statu
 const SECTIONS: Section[] = ["warmup", "workout", "cooldown"];
 
 export default function TrainingDayScreen() {
+  const colors = useThemeColors();
   const params = useLocalSearchParams<{ date?: string }>();
   const today = todayIso();
   const date = isValidIso(params.date) ? params.date : today;
@@ -91,14 +92,14 @@ export default function TrainingDayScreen() {
   if (load.state !== "ready" || !load.day) {
     return (
       <View className="flex-1 bg-cream" style={{ paddingTop: insets.top }}>
-        <StatusBar style="dark" />
+        <StatusBar style="auto" />
         <View className="flex-row items-center px-5 pt-2">
           <RoundButton icon={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} label="Back" onPress={back} light />
         </View>
         <View className="px-5 pt-6">
           {load.state === "loading" ? (
             <View className="items-center gap-3 py-16">
-              <ActivityIndicator color={colors.forest} />
+              <ActivityIndicator color={colors.leaf} />
               <Text className="home__note">Loading</Text>
             </View>
           ) : load.state === "failed" ? (
@@ -142,9 +143,9 @@ export default function TrainingDayScreen() {
       <StatusBar style="light" />
       <ScrollView contentContainerStyle={{ paddingBottom: 180 }} showsVerticalScrollIndicator={false} refreshControl={refreshControl}>
         {/* Art: the session's figure on the dark surface (the plan has no photos yet) */}
-        <View className="bg-ink" style={{ paddingTop: insets.top + 64, paddingHorizontal: 20, paddingBottom: 48, gap: 12 }}>
+        <View className="bg-immersive" style={{ paddingTop: insets.top + 64, paddingHorizontal: 20, paddingBottom: 48, gap: 12 }}>
           <View className="absolute right-6" style={{ top: insets.top + 56 }}>
-            <SymbolView name={sessionIcon(day.sessionType)} size={110} tintColor={colors.primary} style={{ opacity: 0.35 }} />
+            <SymbolView name={sessionIcon(day.sessionType)} size={110} tintColor={colors.leaf} style={{ opacity: 0.35 }} />
           </View>
           <View className="flex-row flex-wrap gap-2">
             <View className="workout__chip workout__chip--accent">
@@ -222,6 +223,7 @@ export default function TrainingDayScreen() {
 }
 
 function RoundButton({ icon, label, onPress, light = false }: { icon: React.ComponentProps<typeof SymbolView>["name"]; label: string; onPress: () => void; light?: boolean }) {
+  const colors = useThemeColors();
   return (
     <Pressable
       onPress={onPress}
@@ -237,6 +239,7 @@ function RoundButton({ icon, label, onPress, light = false }: { icon: React.Comp
 }
 
 function Stat({ value, unit, label }: { value: string; unit?: string; label: string }) {
+  const colors = useThemeColors();
   return (
     <View className="flex-1 items-center">
       <Text className="text-white" style={{ fontSize: 20, lineHeight: 24, fontFamily: fonts.semibold }}>
@@ -257,11 +260,11 @@ function ExercisesTab({ day, onMore, onPlay }: { day: TrainingDay; onMore: (e: D
           <View className="flex-row items-baseline justify-between">
             <Text className="setup__section">
               {SECTION_LABEL[section]}
-              <Text className="post__time">{` · ${day.sectionMinutes[section]} min`}</Text>
+              <Text className="meta-text">{` · ${day.sectionMinutes[section]} min`}</Text>
             </Text>
-            {index === 0 && <Text className="post__time">{`${day.totalSets} sets total`}</Text>}
+            {index === 0 && <Text className="meta-text">{`${day.totalSets} sets total`}</Text>}
           </View>
-          {SECTION_HINT[section] && <Text className="post__time">{SECTION_HINT[section]}</Text>}
+          {SECTION_HINT[section] && <Text className="meta-text">{SECTION_HINT[section]}</Text>}
           {items.map((e) => (
             <ExerciseRow key={e.id} exercise={e} onMore={() => onMore(e)} onPress={onPlay ? () => onPlay(e.id) : undefined} />
           ))}
@@ -272,6 +275,7 @@ function ExercisesTab({ day, onMore, onPlay }: { day: TrainingDay; onMore: (e: D
 }
 
 function ExerciseRow({ exercise: e, onMore, onPress }: { exercise: DayExercise; onMore: () => void; onPress?: () => void }) {
+  const colors = useThemeColors();
   const timed = isTimed(e);
   const muscle = MUSCLE_LABEL[e.muscleGroup] ?? e.muscleGroup;
   const focus = PATTERN_FOCUS[e.pattern];
@@ -286,15 +290,15 @@ function ExerciseRow({ exercise: e, onMore, onPress }: { exercise: DayExercise; 
       <View className="flex-row items-center gap-3">
         <Pressable onPress={onPress} disabled={!onPress} className="min-w-0 flex-1 flex-row items-center gap-3" accessibilityRole={onPress ? "button" : undefined} accessibilityLabel={onPress ? `Start from ${e.name}` : undefined}>
           <View className="items-center justify-center rounded-md" style={{ width: 52, height: 52, backgroundColor: colors.forestSoft }}>
-            <SymbolView name={MUSCLE_ICON[e.muscleGroup] ?? MUSCLE_ICON.full_body} size={24} tintColor={colors.forest} />
+            <SymbolView name={MUSCLE_ICON[e.muscleGroup] ?? MUSCLE_ICON.full_body} size={24} tintColor={colors.leaf} />
           </View>
           <View className="min-w-0 flex-1">
             <Text className="card__title" numberOfLines={2}>{e.name}</Text>
-            <Text className="post__time" numberOfLines={1}>{subtitle}</Text>
+            <Text className="meta-text" numberOfLines={1}>{subtitle}</Text>
           </View>
           <View className="items-end">
             <Text className="type-subhead text-forest-ink">{right}</Text>
-            <Text className="post__time">{under}</Text>
+            <Text className="meta-text">{under}</Text>
           </View>
         </Pressable>
         {/* The menu: start from here (today) and how to do it (when there are steps to read) */}
@@ -306,12 +310,13 @@ function ExerciseRow({ exercise: e, onMore, onPress }: { exercise: DayExercise; 
           <View className="h-9 w-9" />
         )}
       </View>
-      {e.note && <Text className="post__time" style={{ color: colors.leaf }}>{e.note}</Text>}
+      {e.note && <Text className="meta-text" style={{ color: colors.leaf }}>{e.note}</Text>}
     </View>
   );
 }
 
 function MusclesTab({ day }: { day: TrainingDay }) {
+  const colors = useThemeColors();
   const rows = useMemo(() => {
     const byGroup = new Map<string, { exercises: number; sets: number }>();
     for (const e of day.exercises) {
@@ -328,9 +333,9 @@ function MusclesTab({ day }: { day: TrainingDay }) {
       {rows.map((r) => (
         <View key={r.group} className="home__card gap-2" style={{ padding: 12 }}>
           <View className="flex-row items-center gap-3">
-            <SymbolView name={MUSCLE_ICON[r.group] ?? MUSCLE_ICON.full_body} size={20} tintColor={colors.forest} />
+            <SymbolView name={MUSCLE_ICON[r.group] ?? MUSCLE_ICON.full_body} size={20} tintColor={colors.leaf} />
             <Text className="card__title flex-1">{MUSCLE_LABEL[r.group] ?? r.group}</Text>
-            <Text className="post__time">{`${r.exercises} exercises · ${r.sets} sets`}</Text>
+            <Text className="meta-text">{`${r.exercises} exercises · ${r.sets} sets`}</Text>
           </View>
           <View className="h-2 overflow-hidden rounded-full bg-cream-tab">
             <View className="h-2 rounded-full" style={{ width: `${Math.round((r.sets / busiest) * 100)}%`, backgroundColor: colors.leaf }} />
@@ -342,6 +347,7 @@ function MusclesTab({ day }: { day: TrainingDay }) {
 }
 
 function AboutTab({ plan, day }: { plan: Plan; day: TrainingDay }) {
+  const colors = useThemeColors();
   const rows: [string, string][] = [
     ["Level", LEVEL_LABEL[plan.level]],
     ["Goal", GOAL_LABEL[plan.goal]],
@@ -355,7 +361,7 @@ function AboutTab({ plan, day }: { plan: Plan; day: TrainingDay }) {
     <View className="home__card" style={{ paddingVertical: 4 }}>
       {rows.map(([label, value], i) => (
         <View key={label} className="flex-row items-center justify-between py-3" style={i < rows.length - 1 ? { borderBottomWidth: 1, borderColor: colors.creamLine } : undefined}>
-          <Text className="post__time">{label}</Text>
+          <Text className="meta-text">{label}</Text>
           <Text className="card__title">{value}</Text>
         </View>
       ))}
@@ -366,6 +372,7 @@ function AboutTab({ plan, day }: { plan: Plan; day: TrainingDay }) {
 type FooterProps = { status: Ready["status"]; isToday: boolean; date: string; today: string; onPlay: () => void; onEnd?: () => void };
 
 function Footer({ status, isToday, date, today, onPlay, onEnd }: FooterProps) {
+  const colors = useThemeColors();
   if (isToday && status === "completed") {
     return (
       <View className="h-control-lg flex-row items-center justify-center gap-2 rounded-full" style={{ backgroundColor: colors.successSoft }}>
@@ -403,7 +410,7 @@ function HowToSheet({ exercise, onClose }: { exercise: DayExercise | null; onClo
   return (
     <Modal visible={exercise !== null} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable className="verify__backdrop" onPress={onClose} accessibilityLabel="Close">
-        <Pressable className="verify__sheet gap-3" onPress={() => {}} accessibilityViewIsModal>
+        <Pressable className="verify__sheet gap-3" onPress={() => {}} accessibilityViewIsModal accessible={false}>
           <Text className="setup__section text-center">{exercise ? `How to do it: ${exercise.name}` : ""}</Text>
           {exercise?.instructions.map((line, i) => (
             <Text key={i} className="type-body text-forest-ink">{`${i + 1}. ${line}`}</Text>

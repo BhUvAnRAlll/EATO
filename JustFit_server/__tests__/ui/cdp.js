@@ -40,9 +40,10 @@ async function launchChrome() {
   process.once("SIGINT", onSignal);
   process.once("SIGTERM", onSignal);
 
-  // Chrome writes the chosen port to DevToolsActivePort inside the profile
+  // Chrome writes the chosen port to DevToolsActivePort inside the profile. On an 8 GB Mac with
+  // Expo web bundling at the same time this takes well over 15 s (9 s on an idle machine).
   const portFile = path.join(profile, "DevToolsActivePort");
-  const deadline = Date.now() + 15000;
+  const deadline = Date.now() + (Number(process.env.JUSTFIT_CHROME_START_TIMEOUT_MS) || 60000);
   let port = null;
   while (Date.now() < deadline && !port) {
     if (fs.existsSync(portFile)) { const first = fs.readFileSync(portFile, "utf8").split("\n")[0]; if (/^\d+$/.test(first)) port = Number(first); }

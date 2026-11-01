@@ -1,4 +1,5 @@
-import { Pressable, Text, View } from "react-native";
+import { Text, View } from "react-native";
+import { PressableScale } from "@/components/PressableScale";
 
 type SegmentedProps<T extends string> = {
   options: { value: T; label: string }[];
@@ -14,18 +15,18 @@ export function Segmented<T extends string>({ options, value, onChange, label }:
       {options.map((option) => {
         const selected = option.value === value;
         return (
-          <Pressable
+          <PressableScale haptic="select"
             key={option.value}
             onPress={() => onChange(option.value)}
             className={selected ? "macro__segment macro__segment--selected" : "macro__segment"}
             accessibilityRole="radio"
-            accessibilityState={{ checked: selected }}
+            aria-checked={selected}
             accessibilityLabel={option.label}
           >
             <Text className={selected ? "macro__segment-label macro__segment-label--selected" : "macro__segment-label"} numberOfLines={1}>
               {option.label}
             </Text>
-          </Pressable>
+          </PressableScale>
         );
       })}
     </View>

@@ -12,7 +12,7 @@ import { FEATURE_ICON, MODULE_ICON, RANK_LIMIT, SCREEN_ICON, SCREEN_LABEL } from
 import { appUsage, changeText, dayName, durationText, isIsoDate, rangeText, RANGE_LABEL, RANGE_OPTIONS, type FeatureUsage, type UsageQuery, type UsageRange, type UsageSummary } from "@/lib/appUsage";
 import { downloadFile } from "@/lib/download";
 import { useSessionToken } from "@/lib/session";
-import { colors } from "@/theme";
+import { useThemeColors } from "@/theme";
 
 type Load = { state: "loading" } | { state: "failed"; error: string } | { state: "ready"; data: UsageSummary };
 
@@ -23,6 +23,7 @@ const back = () => (router.canGoBack() ? router.back() : router.replace("/admin/
 // the active-members trend, the most and least used features, every module, and what isn't
 // tracked yet. Everything comes from one call; the numbers are the members' own rows.
 export default function AppUsageScreen() {
+  const colors = useThemeColors();
   const getToken = useSessionToken();
   const [query, setQuery] = useState<UsageQuery>({ range: "7d" });
   const [custom, setCustom] = useState({ from: "", to: "" });
@@ -82,7 +83,7 @@ export default function AppUsageScreen() {
 
   return (
     <View className="flex-1 bg-cream">
-      <StatusBar style="dark" />
+      <StatusBar style="auto" />
       <SafeAreaView style={{ flex: 1 }}>
         <View className="screen-bar">
           <Pressable onPress={back} hitSlop={12} className="screen-bar__back" accessibilityRole="button" accessibilityLabel="Back">
@@ -94,7 +95,8 @@ export default function AppUsageScreen() {
           </Pressable>
         </View>
 
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40, gap: 16 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" refreshControl={refreshControl}>
+        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40, gap: 16 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled"
+            keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"} refreshControl={refreshControl}>
           {/* The range: a row of chips that wraps on narrow phones */}
           <View className="flex-row flex-wrap" style={{ gap: 8 }} accessibilityRole="tablist">
             {RANGE_OPTIONS.map((r) => (
@@ -120,7 +122,7 @@ export default function AppUsageScreen() {
 
           {query.range === "custom" && !(query.from && query.to) ? null : load.state === "loading" ? (
             <View className="items-center gap-3 py-16">
-              <ActivityIndicator color={colors.forest} />
+              <ActivityIndicator color={colors.leaf} />
               <Text className="home__note">Loading</Text>
             </View>
           ) : load.state === "failed" ? (
@@ -139,7 +141,7 @@ export default function AppUsageScreen() {
                   <Pressable key={report} onPress={() => exportCsv(report)} disabled={exporting !== null} className={i > 0 ? "admin-row admin-row--divided" : "admin-row"} accessibilityRole="button" accessibilityLabel={`Export ${title} as CSV. ${note}`} accessibilityState={{ disabled: exporting !== null }}>
                     <View className="min-w-0 flex-1">
                       <Text className="card__title">{`${title} (CSV)`}</Text>
-                      <Text className="post__time">{note}</Text>
+                      <Text className="meta-text">{note}</Text>
                     </View>
                     {exporting === report ? <ActivityIndicator color={colors.ink} /> : <SymbolView name={{ ios: "square.and.arrow.down", android: "download", web: "download" }} size={16} tintColor={colors.faint} />}
                   </Pressable>
@@ -155,6 +157,7 @@ export default function AppUsageScreen() {
 }
 
 function Ready({ data }: { data: UsageSummary }) {
+  const colors = useThemeColors();
   const { members, totals, range } = data;
   const before = range.days === 1 ? "the day before" : `the ${range.days} days before`;
   const cards = [
@@ -193,7 +196,7 @@ function Ready({ data }: { data: UsageSummary }) {
           <View className="admin-row__icon"><SymbolView name={{ ios: "arrow.uturn.backward", android: "replay", web: "replay" }} size={18} tintColor={colors.forestInk} /></View>
           <View className="min-w-0 flex-1">
             <Text className="card__title">Retention</Text>
-            <Text className="post__time">Who comes back after joining, by week or month</Text>
+            <Text className="meta-text">Who comes back after joining, by week or month</Text>
           </View>
           <SymbolView name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }} size={14} tintColor={colors.faint} />
         </Pressable>
@@ -201,7 +204,7 @@ function Ready({ data }: { data: UsageSummary }) {
           <View className="admin-row__icon"><SymbolView name={{ ios: "person.2", android: "group", web: "group" }} size={18} tintColor={colors.forestInk} /></View>
           <View className="min-w-0 flex-1">
             <Text className="card__title">Members</Text>
-            <Text className="post__time">Last active, interactions, active days, most-used feature</Text>
+            <Text className="meta-text">Last active, interactions, active days, most-used feature</Text>
           </View>
           <SymbolView name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }} size={14} tintColor={colors.faint} />
         </Pressable>
@@ -210,11 +213,11 @@ function Ready({ data }: { data: UsageSummary }) {
       <View className="admin-list px-4 py-3" style={{ gap: 14 }}>
         <View>
           <Text className="card__title">Active members per day</Text>
-          <Text className="post__time">{members.active === 0 ? "Nobody was active in this range." : `${average} a day on average · peak ${peakDay.members} on ${dayName(peakDay.key)}`}</Text>
+          <Text className="meta-text">{members.active === 0 ? "Nobody was active in this range." : `${average} a day on average · peak ${peakDay.members} on ${dayName(peakDay.key)}`}</Text>
         </View>
         {members.active > 0 && (
           <>
-            <TrendChart points={data.series.map((p) => ({ key: p.key, value: p.members }))} format={(v) => `${v} ${v === 1 ? "member" : "members"}`} label={daysLabel} describe={dayName} color={colors.primary} />
+            <TrendChart points={data.series.map((p) => ({ key: p.key, value: p.members }))} format={(v) => `${v} ${v === 1 ? "member" : "members"}`} label={daysLabel} describe={dayName} color={colors.leaf} />
             <Text className="admin__hint">Touch the chart to read any day.</Text>
           </>
         )}
@@ -239,7 +242,7 @@ function Ready({ data }: { data: UsageSummary }) {
           <View className="admin-list">
             <Text className="card__title px-4 pt-4 pb-1">Screen visits</Text>
             {data.engagement.screens.length === 0 ? (
-              <Text className="post__time px-4 pb-4">No screen views in this range yet.</Text>
+              <Text className="meta-text px-4 pb-4">No screen views in this range yet.</Text>
             ) : (
               data.engagement.screens.map((sc, i) => {
                 const label = SCREEN_LABEL[sc.screen] ?? sc.screen;
@@ -249,7 +252,7 @@ function Ready({ data }: { data: UsageSummary }) {
                     <View className="admin-row__icon"><SymbolView name={SCREEN_ICON[sc.screen] ?? MODULE_ICON.progress} size={18} tintColor={colors.forestInk} /></View>
                     <View className="min-w-0 flex-1">
                       <Text className="card__title" numberOfLines={1}>{label}</Text>
-                      <Text className="post__time">{members}</Text>
+                      <Text className="meta-text">{members}</Text>
                     </View>
                     <CountPill text={`${sc.visits.toLocaleString("en-IN")} ${sc.visits === 1 ? "visit" : "visits"}`} />
                   </View>
@@ -263,7 +266,7 @@ function Ready({ data }: { data: UsageSummary }) {
       <Text className="setup__section">Most used</Text>
       <View className="admin-list">
         {mostUsed.length === 0 ? (
-          <Text className="post__time px-4 py-3">No feature was used in this range.</Text>
+          <Text className="meta-text px-4 py-3">No feature was used in this range.</Text>
         ) : (
           mostUsed.map((f, i) => <FeatureRow key={f.id} feature={f} rank={i + 1} active={members.active} divided={i > 0} />)
         )}
@@ -283,7 +286,7 @@ function Ready({ data }: { data: UsageSummary }) {
               <View className="admin-row__icon"><SymbolView name={MODULE_ICON[m.id]} size={18} tintColor={colors.forestInk} /></View>
               <View className="min-w-0 flex-1">
                 <Text className="card__title">{m.label}</Text>
-                <Text className="post__time">{`${m.members} ${m.members === 1 ? "member" : "members"} · ${m.uses.toLocaleString("en-IN")} uses`}</Text>
+                <Text className="meta-text">{`${m.members} ${m.members === 1 ? "member" : "members"} · ${m.uses.toLocaleString("en-IN")} uses`}</Text>
               </View>
             </View>
             {features.map((f) => <FeatureRow key={f.id} feature={f} active={members.active} divided compact />)}
@@ -296,7 +299,7 @@ function Ready({ data }: { data: UsageSummary }) {
           <Text className="setup__section">Not tracked yet</Text>
           <View className="admin-list px-4 py-3" style={{ gap: 6 }}>
             {data.notTracked.map((n) => (
-              <Text key={n.id} className="post__time">{`${n.label}: ${n.reason}`}</Text>
+              <Text key={n.id} className="meta-text">{`${n.label}: ${n.reason}`}</Text>
             ))}
             <Text className="admin__hint">{"These show here instead of as zero, so \"nobody uses it\" is never confused with \"nothing records it\"."}</Text>
           </View>
@@ -323,6 +326,7 @@ function CountPill({ text, zero = false }: { text: string; zero?: boolean }) {
 // One feature as a row: its icon (with its rank on the corner in Most used), name and uses, then
 // its members in a pill with the change from the range before. Tapping opens the feature's detail.
 function FeatureRow({ feature: f, rank, active, divided, compact = false }: { feature: FeatureUsage; rank?: number; active: number; divided: boolean; compact?: boolean }) {
+  const colors = useThemeColors();
   const open = () => router.push({ pathname: "/admin/app-usage/feature/[id]", params: { id: f.id } });
   const share = active > 0 ? Math.round((f.members / active) * 100) : 0;
   const trend = f.unused ? "unused" : f.declining ? "declining" : changeText(f.changePercent);
@@ -336,8 +340,8 @@ function FeatureRow({ feature: f, rank, active, divided, compact = false }: { fe
         {rank !== undefined && <View className="admin-rank"><Text className="admin-rank__label">{rank}</Text></View>}
       </View>
       <View className="min-w-0 flex-1">
-        <Text className={compact ? "post__time" : "card__title"} numberOfLines={2} style={compact ? { color: colors.ink } : undefined}>{f.label}</Text>
-        <Text className="post__time" numberOfLines={2}>{`${f.uses.toLocaleString("en-IN")} uses · ${f.usesPerMember} per member`}</Text>
+        <Text className={compact ? "meta-text" : "card__title"} numberOfLines={2} style={compact ? { color: colors.ink } : undefined}>{f.label}</Text>
+        <Text className="meta-text" numberOfLines={2}>{`${f.uses.toLocaleString("en-IN")} uses · ${f.usesPerMember} per member`}</Text>
       </View>
       <View className="items-end" style={{ gap: 2 }}>
         <CountPill text={members} zero={f.members === 0} />

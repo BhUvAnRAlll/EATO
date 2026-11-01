@@ -1,4 +1,5 @@
-import { Pressable, Text } from "react-native";
+import { Text } from "react-native";
+import { PressableScale } from "@/components/PressableScale";
 
 type ChipProps = {
   label: string;
@@ -11,11 +12,13 @@ type ChipProps = {
 // Pill choice; filled forest green when selected
 export function Chip({ label, selected, onPress, grow = false }: ChipProps) {
   return (
-    <Pressable
+    <PressableScale haptic="select"
       onPress={onPress}
       className={`${selected ? "setup__chip setup__chip--selected" : "setup__chip"}${grow ? " flex-1" : ""}`}
+      accessibilityRole="radio"
+      accessibilityState={{ checked: selected }}
     >
       <Text className={selected ? "setup__chip-label setup__chip-label--selected" : "setup__chip-label"}>{label}</Text>
-    </Pressable>
+    </PressableScale>
   );
 }

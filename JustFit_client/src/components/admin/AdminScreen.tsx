@@ -6,7 +6,7 @@ import { SymbolView } from "@/components/SymbolView";
 import { router } from "expo-router";
 
 import { usePullToRefresh } from "@/components/PullToRefresh";
-import { colors } from "@/theme";
+import { useThemeColors } from "@/theme";
 
 type AdminScreenProps = {
   title: string;
@@ -22,10 +22,11 @@ const none = async () => {};
 
 // Shared frame for the admin screens: back arrow, title, scrolling content (pull to refresh with onRefresh)
 export function AdminScreen({ title, subtitle, headerRight, onRefresh, children }: AdminScreenProps) {
+  const colors = useThemeColors();
   const { refreshControl } = usePullToRefresh(onRefresh ?? none);
   return (
     <View className="flex-1 bg-cream">
-      <StatusBar style="dark" />
+      <StatusBar style="auto" />
       <SafeAreaView style={{ flex: 1 }}>
         <View className="h-12 flex-row items-center px-5">
           <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Back">
@@ -41,6 +42,7 @@ export function AdminScreen({ title, subtitle, headerRight, onRefresh, children 
           <ScrollView
             contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 32 }}
             keyboardShouldPersistTaps="handled"
+            keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
             showsVerticalScrollIndicator={false}
             refreshControl={onRefresh ? refreshControl : undefined}
           >

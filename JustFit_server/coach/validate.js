@@ -3,6 +3,7 @@
 // the member from the verified session.
 const { ValidationError } = require("../profile");
 const { isoDate, isNearToday, id } = require("../macro/validate");
+const planRules = require("./planRules");
 
 const options = {
   goal: ["build_muscle", "lose_weight", "get_stronger", "endurance", "stay_active", "flexibility", "sport", "comeback"],
@@ -151,6 +152,30 @@ function logBody(body, now) {
 
 const mealId = (value) => id(value, "The meal");
 
+// POST /plan/meals/:mealId/options { date, preference? }: `preference` steers the options (a chip on the screen)
+function optionsBody(body, now) {
+  onlyFields(body, ["date", "preference"]);
+  const preference = body.preference === undefined || body.preference === null ? null : oneOf(body.preference, planRules.PREFERENCES, "Pick one of the ways to steer the options.");
+  return { date: memberToday(body.date, now, "The date"), preference };
+}
+
+// One portion per food of the option, in the option's order: a number, 0 leaves the food out
+function portionList(value) {
+  if (!Array.isArray(value) || value.length === 0 || value.length > planRules.limits.itemsPerMeal) throw new ValidationError("Send one portion for each food of the option.");
+  return value.map((q) => {
+    if (typeof q !== "number" || !Number.isFinite(q) || q < 0 || q > planRules.limits.quantityMax) throw new ValidationError("Each portion must be a number from 0 (left out) to 10,000.");
+    return q;
+  });
+}
+
+// POST /plan/meals/:mealId/replace { date, optionId, quantities? }: one of the options the coach offered for
+// that meal (or an undo snapshot), with the member's portions when they edited them
+function replaceBody(body, now) {
+  onlyFields(body, ["date", "optionId", "quantities"]);
+  const quantities = body.quantities === undefined || body.quantities === null ? null : portionList(body.quantities);
+  return { date: memberToday(body.date, now, "The date"), optionId: id(body.optionId, "The option"), quantities };
+}
+
 // PUT /intake/coach { coach, coachStyle }: switching coaches without redoing the intake
 function coachChoice(body) {
   onlyFields(body, ["coach", "coachStyle"]);
@@ -160,4 +185,4 @@ function coachChoice(body) {
   };
 }
 
-module.exports = { options, equipmentBySpot, limits, validateIntake, prefillFrom, planBody, planQuery, logBody, mealId, coachChoice };
+module.exports = { options, equipmentBySpot, limits, validateIntake, prefillFrom, planBody, planQuery, logBody, optionsBody, replaceBody, mealId, coachChoice };

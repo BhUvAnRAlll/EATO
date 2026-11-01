@@ -2,12 +2,13 @@ import { Pressable, Text, View } from "react-native";
 import { SymbolView } from "@/components/SymbolView";
 
 import type { Icon } from "@/types/profile";
-import { colors } from "@/theme";
+import { useThemeColors } from "@/theme";
 
 type DashedBlockProps = { icon: Icon; title: string; text: string; onPress?: () => void };
 
 // The dashed "nothing here yet" block. Pressable only when there is something to do.
 export function DashedBlock({ icon, title, text, onPress }: DashedBlockProps) {
+  const colors = useThemeColors();
   const body = (
     <>
       <SymbolView name={icon} size={24} tintColor={colors.leaf} />

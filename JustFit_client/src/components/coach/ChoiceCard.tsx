@@ -1,10 +1,11 @@
-import { Pressable, Text, View } from "react-native";
+import { Text, View } from "react-native";
+import { PressableScale } from "@/components/PressableScale";
 import { SymbolView } from "@/components/SymbolView";
 
 import { CoachAvatar } from "@/components/coach/CoachAvatar";
 import type { CoachId } from "@/data/coach";
 import type { Icon } from "@/types/profile";
-import { colors } from "@/theme";
+import { useThemeColors } from "@/theme";
 
 type ChoiceCardProps = {
   label: string;
@@ -24,12 +25,13 @@ type ChoiceCardProps = {
 // wash and a red check, at the right of a row or as a badge in a tile's top-right corner.
 // Icons are red in a soft pink circle in both states.
 export function ChoiceCard({ label, note, icon, coach, selected, onPress, layout = "row", multi = false }: ChoiceCardProps) {
+  const colors = useThemeColors();
   const tile = layout === "tile";
   const leading = coach ? (
     <CoachAvatar coach={coach} size={52} />
   ) : icon ? (
     <View className={tile ? "coach__option-icon" : "coach__option-icon h-11 w-11"}>
-      <SymbolView name={icon} size={tile ? 26 : 22} tintColor={colors.primary} />
+      <SymbolView name={icon} size={tile ? 26 : 22} tintColor={colors.leaf} />
     </View>
   ) : null;
   const check = (
@@ -39,8 +41,10 @@ export function ChoiceCard({ label, note, icon, coach, selected, onPress, layout
   );
 
   return (
-    <Pressable
+    <PressableScale
       onPress={onPress}
+      scaleTo={0.98}
+      haptic="select"
       className={["coach__option", tile && "coach__option--tile basis-2/5 flex-1", selected && "coach__option--selected"].filter(Boolean).join(" ")}
       accessibilityRole={multi ? "checkbox" : "radio"}
       aria-checked={selected}
@@ -52,6 +56,6 @@ export function ChoiceCard({ label, note, icon, coach, selected, onPress, layout
         {note && <Text className={tile ? "coach__option-note text-center" : "coach__option-note"}>{note}</Text>}
       </View>
       {selected && check}
-    </Pressable>
+    </PressableScale>
   );
 }

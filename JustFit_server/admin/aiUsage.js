@@ -3,7 +3,7 @@
 // every value from the request goes through ai/rules.js and a parameterised query.
 const rules = require("../ai/rules");
 const usage = require("../ai/usage");
-const { NotFoundError } = require("../community/posts");
+const { NotFoundError } = require("../errors");
 
 const num = (value) => Number(value ?? 0);
 

@@ -9,11 +9,12 @@ import { MacroHeader } from "@/components/macro/MacroHeader";
 import { macro, slotInfo, slots, slotTimes, timeLabel, todayIso, whole, type DayView, type Slot } from "@/lib/macro";
 import { useSessionToken } from "@/lib/session";
 import { useMacroStore } from "@/store/macro";
-import { colors } from "@/theme";
+import { useThemeColors } from "@/theme";
 
 // Logging, step one: which meal and what time. Writes nothing; Continue forwards
 // { slot, hour, minute } to Log food.
 export default function AddMeal() {
+  const colors = useThemeColors();
   const params = useLocalSearchParams<{ slot?: string }>();
   const getToken = useSessionToken();
   const selectedDate = useMacroStore((state) => state.selectedDate);
@@ -52,7 +53,7 @@ export default function AddMeal() {
 
   return (
     <View className="flex-1 bg-cream">
-      <StatusBar style="dark" />
+      <StatusBar style="auto" />
       <SafeAreaView style={{ flex: 1 }}>
         <MacroHeader title="Add meal" />
         <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24, gap: 18 }} showsVerticalScrollIndicator={false}>
@@ -84,7 +85,7 @@ export default function AddMeal() {
                     </View>
                   </View>
                   <Text className="card__title mt-3">{info.label}</Text>
-                  <Text className="post__time">{info.window}</Text>
+                  <Text className="meta-text">{info.window}</Text>
                   {loggedSlots.has(s) && <Text className="macro__logged mt-1">Logged today</Text>}
                 </Pressable>
               );

@@ -11,7 +11,7 @@ import { pickScanPhoto, requestBodyScan, type PhotoSource, type ScanPhoto, type 
 import { scanInputs, scanSexFromGender, type ScanSex } from "@/lib/bodyScanRules";
 import { SESSION_EXPIRED_MESSAGE, isSessionExpired, returnToSignIn, useSessionToken } from "@/lib/session";
 import { useSetupStore } from "@/store/setup";
-import { colors } from "@/theme";
+import { useThemeColors } from "@/theme";
 import type { Icon } from "@/types/profile";
 
 const views: { view: ScanView; label: string; hint: string }[] = [
@@ -30,6 +30,7 @@ type Photos = Partial<Record<ScanView, ScanPhoto>>;
 
 // One view's tile: the picked photo with Retake, or the two ways to add one
 function PhotoTile({ view, label, hint, photo, onPick, onClear }: { view: ScanView; label: string; hint: string; photo?: ScanPhoto; onPick: (view: ScanView, source: PhotoSource) => void; onClear: (view: ScanView) => void }) {
+  const colors = useThemeColors();
   return (
     <View className="setup__card gap-3">
       <View>
@@ -62,6 +63,7 @@ function PhotoTile({ view, label, hint, photo, onPick, onClear }: { view: ScanVi
 // step. The photos go to the justFit server, which asks the Forma scan server and never stores
 // them. Nothing is used until the user taps "Use this result" on the report.
 export default function BodyScan() {
+  const colors = useThemeColors();
   const { profile, setScanDraft } = useSetupStore();
   // ?from=profile: opened from Profile; the store then holds the saved height, weight and age
   const { from } = useLocalSearchParams<{ from?: string }>();
@@ -144,14 +146,14 @@ export default function BodyScan() {
 
         {error && <FormAlert message={error} />}
         {sessionExpired && (
-          <Pressable onPress={() => returnToSignIn()} className="btn-outline">
+          <Pressable onPress={() => returnToSignIn()} className="btn-outline" accessibilityRole="button">
             <Text className="btn-outline__label">Sign in again</Text>
           </Pressable>
         )}
       </View>
 
       <View className="setup__note mt-5">
-        <SymbolView name={{ ios: "figure.stand", android: "accessibility_new", web: "accessibility_new" }} size={24} tintColor={colors.forest} />
+        <SymbolView name={{ ios: "figure.stand", android: "accessibility_new", web: "accessibility_new" }} size={24} tintColor={colors.leaf} />
         <View className="flex-1 gap-0.5">
           <Text className="setup__note-title">For a better estimate</Text>
           <Text className="setup__note-text">

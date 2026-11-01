@@ -21,20 +21,12 @@ const EVENTS = {
   ai_chat_sent: "coach",
   coach_plan_made: "coach",
   coach_meal_swapped: "coach",
-  community_post_created: "community",
-  community_post_liked: "community",
-  community_comment_sent: "community",
-  message_sent: "community",
-  story_viewed: "stories",
-  story_created: "stories",
-  attendance_checked_in: "attendance",
-  attendance_checked_out: "attendance",
   weight_logged: "progress",
   body_scanned: "progress",
 };
 const MODULES = [...new Set(Object.values(EVENTS))];
 // Screens worth a screen_viewed event, by the first path segment after the role group
-const SCREENS = ["home", "meals", "coach", "macro", "community", "workout", "profile", "my-qr", "messages", "measurements"];
+const SCREENS = ["home", "meals", "coach", "macro", "workout", "profile", "measurements"];
 const PLATFORMS = ["ios", "android", "web"];
 
 const limits = {

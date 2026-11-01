@@ -15,19 +15,17 @@ import { scanFieldsFromSaved } from "@/lib/profileScan";
 import { useSessionToken } from "@/lib/session";
 import { useAuthStore } from "@/store/auth";
 import { useSetupStore } from "@/store/setup";
-import { colors } from "@/theme";
+import { useThemeColors } from "@/theme";
 import type { Icon } from "@/types/profile";
+import { AppearanceCard } from "@/components/profile/AppearanceCard";
 
 // The account's places, in the order the reference design lists them (every one is an existing screen)
 const menu: { label: string; icon: Icon; href: Href }[] = [
-  { label: "Workout", icon: { ios: "dumbbell", android: "fitness_center", web: "fitness_center" }, href: "/workout" },
   { label: "My goals", icon: { ios: "target", android: "track_changes", web: "track_changes" }, href: "/goals" },
   { label: "My plans", icon: { ios: "calendar", android: "calendar_month", web: "calendar_month" }, href: "/plans" },
   { label: "Orders", icon: { ios: "shippingbox", android: "inventory_2", web: "inventory_2" }, href: "/orders" },
   { label: "Delivery addresses", icon: { ios: "mappin.and.ellipse", android: "location_on", web: "location_on" }, href: "/addresses" },
   { label: "Notifications", icon: { ios: "bell", android: "notifications", web: "notifications" }, href: "/notifications" },
-  { label: "My QR code", icon: { ios: "qrcode", android: "qr_code", web: "qr_code" }, href: "/my-qr" },
-  { label: "Messages", icon: { ios: "bubble.left.and.bubble.right", android: "forum", web: "forum" }, href: "/messages" },
 ];
 
 // BMI and its one-word band (WHO adult cut-offs), for the metric tile
@@ -41,6 +39,7 @@ function bmiOf(weightKg: number | null | undefined, heightCm: number | null | un
 // Profile: the member's card with body fat, weight and height, the body scan, the account's
 // places as a list, and sign out
 export default function Profile() {
+  const colors = useThemeColors();
   const user = useAuthStore((state) => state.user);
   const [signingOut, setSigningOut] = useState(false);
   const getToken = useSessionToken();
@@ -107,7 +106,7 @@ export default function Profile() {
 
   return (
     <View className="flex-1 bg-cream">
-      <StatusBar style="dark" />
+      <StatusBar style="auto" />
       <SafeAreaView style={{ flex: 1 }} edges={["top", "left", "right"]}>
         <View className="app-bar px-4">
           {router.canGoBack() ? (
@@ -203,6 +202,8 @@ export default function Profile() {
               </Pressable>
             )}
           </View>
+
+          <AppearanceCard />
 
           {/* The account's places */}
           <View className="card mt-4 py-1">

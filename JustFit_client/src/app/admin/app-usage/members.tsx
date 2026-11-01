@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { router, useFocusEffect } from "expo-router";
@@ -9,7 +9,7 @@ import { DashedBlock } from "@/components/macro/DashedBlock";
 import { SymbolView } from "@/components/SymbolView";
 import { appUsage, MEMBER_SORT_LABEL, MEMBER_SORTS, type MemberList, type MemberSort } from "@/lib/appUsage";
 import { useSessionToken } from "@/lib/session";
-import { colors } from "@/theme";
+import { useThemeColors } from "@/theme";
 
 type Load = { state: "loading" } | { state: "failed"; error: string } | { state: "ready"; data: MemberList };
 
@@ -19,6 +19,7 @@ const back = () => (router.canGoBack() ? router.back() : router.replace("/admin/
 // interactions, active days and most-used feature; searchable by name or id, sortable, paged.
 // Names are shown to admins only; no contact details appear here.
 export default function MembersUsageScreen() {
+  const colors = useThemeColors();
   const getToken = useSessionToken();
   const [sort, setSort] = useState<MemberSort>("last_active");
   const [typed, setTyped] = useState("");
@@ -57,7 +58,7 @@ export default function MembersUsageScreen() {
 
   return (
     <View className="flex-1 bg-cream">
-      <StatusBar style="dark" />
+      <StatusBar style="auto" />
       <SafeAreaView style={{ flex: 1 }}>
         <View className="screen-bar">
           <Pressable onPress={back} hitSlop={12} className="screen-bar__back" accessibilityRole="button" accessibilityLabel="Back">
@@ -67,7 +68,8 @@ export default function MembersUsageScreen() {
           <View style={{ width: 44 }} />
         </View>
 
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40, gap: 12 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" refreshControl={refreshControl}>
+        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40, gap: 12 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled"
+            keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"} refreshControl={refreshControl}>
           <TextInput value={typed} onChangeText={setTyped} placeholder="Search by name or member id" placeholderTextColor={colors.faint} className="admin__input" accessibilityLabel="Search members" autoCapitalize="none" autoCorrect={false} />
           <View className="flex-row flex-wrap" style={{ gap: 8 }} accessibilityRole="tablist">
             {MEMBER_SORTS.map((s) => (
@@ -79,7 +81,7 @@ export default function MembersUsageScreen() {
 
           {load.state === "loading" ? (
             <View className="items-center gap-3 py-16">
-              <ActivityIndicator color={colors.forest} />
+              <ActivityIndicator color={colors.leaf} />
               <Text className="home__note">Loading</Text>
             </View>
           ) : load.state === "failed" ? (
@@ -97,8 +99,8 @@ export default function MembersUsageScreen() {
                         <Text className="card__title" numberOfLines={1}>{m.name}</Text>
                         <Text className="ai-kv__value">{m.lastActive ? `Active ${m.lastActive}` : "Never active"}</Text>
                       </View>
-                      <Text className="post__time" numberOfLines={1}>{`${m.interactions} interactions · ${m.activeDays} active ${m.activeDays === 1 ? "day" : "days"}${m.sessions !== null ? ` · ${m.sessions} sessions` : ""}`}</Text>
-                      <Text className="post__time" numberOfLines={1}>{m.mostUsed ? `Most used: ${m.mostUsed.label} (${m.mostUsed.uses})` : "Hasn't used a feature yet"}</Text>
+                      <Text className="meta-text" numberOfLines={1}>{`${m.interactions} interactions · ${m.activeDays} active ${m.activeDays === 1 ? "day" : "days"}${m.sessions !== null ? ` · ${m.sessions} sessions` : ""}`}</Text>
+                      <Text className="meta-text" numberOfLines={1}>{m.mostUsed ? `Most used: ${m.mostUsed.label} (${m.mostUsed.uses})` : "Hasn't used a feature yet"}</Text>
                     </View>
                   </View>
                 ))}
@@ -108,7 +110,7 @@ export default function MembersUsageScreen() {
                   <Pressable onPress={() => { setPage((p) => Math.max(1, p - 1)); setLoad({ state: "loading" }); }} disabled={page <= 1} className="admin__action" accessibilityRole="button" accessibilityState={{ disabled: page <= 1 }}>
                     <Text className="admin__action-label">Previous</Text>
                   </Pressable>
-                  <Text className="post__time">{`Page ${page} of ${pages}`}</Text>
+                  <Text className="meta-text">{`Page ${page} of ${pages}`}</Text>
                   <Pressable onPress={() => { setPage((p) => Math.min(pages, p + 1)); setLoad({ state: "loading" }); }} disabled={page >= pages} className="admin__action" accessibilityRole="button" accessibilityState={{ disabled: page >= pages }}>
                     <Text className="admin__action-label">Next</Text>
                   </Pressable>

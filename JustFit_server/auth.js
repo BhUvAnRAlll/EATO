@@ -54,11 +54,15 @@ async function requireAdmin(req, res, next) {
   next();
 }
 
-// The account's verified email addresses, lowercased. Phone sign-in verifies only the phone,
-// so there are none: an email invitation is still recorded, but nothing unlocks it by an
-// address nobody has proved (it fails closed).
-async function verifiedEmails() {
-  return [];
+// Makes sure the verified caller still has a users row (deleting the account ends its
+// sessions, but a request can be in flight). Missing → 401, so the app asks to sign in again.
+async function ensureUser(pool, userId) {
+  const [rows] = await pool.query("SELECT id FROM users WHERE id = ?", [userId]);
+  if (rows.length > 0) return;
+  const error = new Error("Please sign in again.");
+  error.name = "AccountUnavailableError";
+  error.status = 401;
+  throw error;
 }
 
-module.exports = { requireUser, requireAdmin, getAccount, verifiedEmails, ROLES };
+module.exports = { requireUser, requireAdmin, getAccount, ensureUser, ROLES };

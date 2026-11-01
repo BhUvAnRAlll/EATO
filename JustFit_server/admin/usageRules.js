@@ -11,9 +11,8 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 // Each feature counts rows an existing table already writes when a member does the thing, so
 // nothing is tracked in the app yet. `at` is the row's time column, `member` the member column,
 // `where` an extra SQL condition (table and column names come from here, never from a request).
-// A failed or refused call never counts as a use, and a soft-deleted post or story still counts:
-// the member did use the feature. `at` is a TIMESTAMP or (weigh-ins) a DATE: both compare
-// correctly against the range's dates with "at >= from AND at < to + 1 day".
+// A failed or refused call never counts as a use. `at` is a TIMESTAMP or (weigh-ins) a DATE: both
+// compare correctly against the range's dates with "at >= from AND at < to + 1 day".
 const FEATURES = [
   { id: "meal_log", module: "nutrition", label: "Meals logged", table: "macro_meal_logs", member: "user_id", at: "created_at" },
   { id: "water_log", module: "nutrition", label: "Water logged", table: "macro_water_logs", member: "user_id", at: "logged_at" },
@@ -22,14 +21,6 @@ const FEATURES = [
   { id: "workout_completed", module: "workout", label: "Workouts completed", table: "workout_logs", member: "user_id", at: "completed_at", where: "status = 'completed'" },
   { id: "coach_plan", module: "coach", label: "Coach plans made", table: "coach_plans", member: "user_id", at: "created_at" },
   { id: "coach_chat", module: "coach", label: "Coach chat messages", table: "ai_usage", member: "user_id", at: "created_at", where: "feature = 'coach_chat' AND status = 'ok'" },
-  { id: "post", module: "community", label: "Posts created", table: "community_posts", member: "user_id", at: "created_at" },
-  { id: "like", module: "community", label: "Likes", table: "community_post_likes", member: "user_id", at: "created_at" },
-  { id: "comment", module: "community", label: "Comments", table: "community_comments", member: "user_id", at: "created_at" },
-  { id: "message", module: "community", label: "Messages sent", table: "messages", member: "sender_id", at: "created_at" },
-  { id: "story_created", module: "stories", label: "Stories created", table: "community_stories", member: "user_id", at: "created_at" },
-  { id: "story_viewed", module: "stories", label: "Stories viewed", table: "community_story_views", member: "user_id", at: "viewed_at" },
-  { id: "check_in", module: "attendance", label: "Gym check-ins", table: "gym_visits", member: "user_id", at: "checked_in_at" },
-  { id: "check_out", module: "attendance", label: "Gym check-outs", table: "gym_visits", member: "user_id", at: "checked_out_at", where: "checked_out_at IS NOT NULL" },
   { id: "weigh_in", module: "progress", label: "Weight updates", table: "weigh_ins", member: "user_id", at: "logged_on" },
   { id: "body_scan", module: "progress", label: "Body scans", table: "ai_usage", member: "user_id", at: "created_at", where: "feature = 'body_scan' AND status = 'ok'" },
 ];
@@ -38,9 +29,6 @@ const MODULES = [
   { id: "nutrition", label: "Meals & Macro" },
   { id: "workout", label: "Workout" },
   { id: "coach", label: "AI Coach" },
-  { id: "community", label: "Community" },
-  { id: "stories", label: "Stories" },
-  { id: "attendance", label: "Attendance" },
   { id: "progress", label: "Progress" },
 ];
 

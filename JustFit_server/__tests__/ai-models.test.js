@@ -10,17 +10,15 @@ const { createDeduplicator, requestKey } = require("../ai/dedupe.js");
 const rules = require("../ai/rules.js");
 
 describe("ai models: routing", () => {
-  it("defaults every app feature to a small model and the gym assistant to gpt-4o-mini", () => {
+  it("defaults every app feature to a small model", () => {
     for (const feature of ["coach_chat", "coach_plan", "coach_meal", "food_scan", "body_report"]) assert.equal(models.modelFor(feature, {}), "gpt-4.1-mini", feature);
-    assert.equal(models.modelFor("gym_assistant", {}), "gpt-4o-mini");
     assert.doesNotMatch(models.routingSummary({}), /gpt-4o(?!-mini)/, "nothing runs on gpt-4o unless configured");
   });
 
-  it("a feature's own variable wins over the old global ones, which still work", () => {
+  it("a feature's own variable wins over the old global one, which still works", () => {
     assert.equal(models.modelFor("coach_chat", { OPENAI_MODEL: "gpt-4o", AI_MODEL_COACH_CHAT: " gpt-4.1-nano " }), "gpt-4.1-nano");
     assert.equal(models.modelFor("coach_plan", { OPENAI_MODEL: "gpt-4o" }), "gpt-4o", "the old global override still applies");
-    assert.equal(models.modelFor("gym_assistant", { AI_MODEL: "gpt-4.1-nano", OPENAI_MODEL: "gpt-4o" }), "gpt-4.1-nano", "the gym assistant has its own legacy variable");
-    assert.equal(models.modelFor("gym_assistant", { AI_MODEL_GYM_ASSISTANT: "gpt-5-nano", AI_MODEL: "gpt-4.1-nano" }), "gpt-5-nano");
+    assert.throws(() => models.modelFor("gym_assistant", {}), /unknown AI feature/, "the gym assistant was removed with the gyms");
     assert.throws(() => models.modelFor("trainer", {}), /unknown AI feature/);
   });
 

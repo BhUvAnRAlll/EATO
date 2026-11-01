@@ -37,7 +37,7 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#FFFFFF",
+          "backgroundColor": "#F4F4F5",
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 220,
           "android": {
@@ -55,7 +55,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "justFit uses the camera to scan gym QR codes and to take photos for body scans, food logging and community posts.",
+          "cameraPermission": "justFit uses the camera to take photos for body scans and food logging.",
           "microphonePermission": false,
           "recordAudioAndroid": false
         }
@@ -63,8 +63,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "justFit uses your photo library so you can choose photos for body scans, food logging and community posts.",
-          "cameraPermission": "justFit uses the camera to scan gym QR codes and to take photos for body scans, food logging and community posts.",
+          "photosPermission": "justFit uses your photo library so you can choose photos for body scans and food logging.",
+          "cameraPermission": "justFit uses the camera to take photos for body scans and food logging.",
           "microphonePermission": false
         }
       ]
@@ -75,7 +75,12 @@
     },
     "ios": {
       "bundleIdentifier": "com.bhuvii3.justfit",
-      "appleTeamId": "5KZK728YHB"
+      "appleTeamId": "5KZK728YHB",
+      "icon": {
+        "light": "./assets/images/icon.png",
+        "dark": "./assets/images/icon-dark.png",
+        "tinted": "./assets/images/icon-tinted.png"
+      }
     },
     "extra": {
       "router": {
@@ -83,6 +88,7 @@
           "web": true
         }
       }
-    }
+    },
+    "backgroundColor": "#F4F4F5"
   }
 }

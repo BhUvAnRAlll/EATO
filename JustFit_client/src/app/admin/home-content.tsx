@@ -10,7 +10,7 @@ import { AdminField, ChoiceChips } from "@/components/admin/AdminField";
 import { destinations, quickActionIconKeys, type Meal, type QuickAction } from "@/data/home";
 import { adminHome, resolveImage, type HomeContentInput } from "@/lib/home";
 import { useSessionToken } from "@/lib/session";
-import { colors, switchColors } from "@/theme";
+import { useThemeColors, useSwitchColors } from "@/theme";
 
 const MAX_QUICK_ACTIONS = 6;
 const MAX_POPULAR = 10;
@@ -20,6 +20,8 @@ const iconOptions = quickActionIconKeys.map((key) => ({ value: key, label: key }
 // The editable parts of the home screen around the carousel. Labels and layout only:
 // members' nutrition numbers and orders never pass through here.
 export default function AdminHomeContent() {
+  const colors = useThemeColors();
+  const switchColors = useSwitchColors();
   const getToken = useSessionToken();
   const [content, setContent] = useState<HomeContentInput | null>(null);
   const [meals, setMeals] = useState<Meal[]>([]);
@@ -101,7 +103,7 @@ export default function AdminHomeContent() {
   return (
     <AdminScreen title="Home screen settings" headerRight={<AdminButton label={saving ? "Saving…" : "Save"} variant="primary" onPress={save} disabled={saving || !content} />}>
       {!content ? (
-        error ? <FormAlert message={error} /> : <ActivityIndicator color={colors.forest} className="mt-6" />
+        error ? <FormAlert message={error} /> : <ActivityIndicator color={colors.leaf} className="mt-6" />
       ) : (
         <View className="gap-5">
           {error && <FormAlert message={error} />}
@@ -181,7 +183,7 @@ export default function AdminHomeContent() {
                       {meal.calories} kcal · {Math.round(meal.proteinG)}g P · {Math.round(meal.carbsG)}g C · {Math.round(meal.fatG)}g F
                     </Text>
                   </View>
-                  {listed && <SymbolView name={{ ios: "checkmark.circle.fill", android: "check_circle", web: "check_circle" }} size={20} tintColor={colors.forest} />}
+                  {listed && <SymbolView name={{ ios: "checkmark.circle.fill", android: "check_circle", web: "check_circle" }} size={20} tintColor={colors.leaf} />}
                 </Pressable>
               );
             })}

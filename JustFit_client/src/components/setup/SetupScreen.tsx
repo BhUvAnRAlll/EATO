@@ -1,13 +1,6 @@
 import type { ReactNode } from "react";
-import {
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  Text,
-  View,
-} from "react-native";
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, Text, View } from "react-native";
+import { PressableScale } from "@/components/PressableScale";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { SymbolView } from "@/components/SymbolView";
@@ -16,7 +9,7 @@ import { router } from "expo-router";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { setupSteps, type SetupStep } from "@/data/setup";
 import { useAuthStore } from "@/store/auth";
-import { colors } from "@/theme";
+import { useThemeColors } from "@/theme";
 
 type SetupScreenProps = {
   step: SetupStep;
@@ -47,6 +40,7 @@ export function SetupScreen({
   onBack,
   showProgress = true,
 }: SetupScreenProps) {
+  const colors = useThemeColors();
   const steps = setupSteps;
   const index = Math.max(0, steps.indexOf(step));
   const isFirst = index === 0;
@@ -72,13 +66,13 @@ export function SetupScreen({
 
   return (
     <View className="flex-1 bg-cream">
-      <StatusBar style="dark" />
+      <StatusBar style="auto" />
       <SafeAreaView style={{ flex: 1 }}>
         {/* Header: back chevron, one dash per step (done ones dark), and the step count */}
         <View className="screen-bar">
-          <Pressable onPress={handleBack} className="screen-bar__back" accessibilityRole="button" accessibilityLabel="Back">
+          <PressableScale onPress={handleBack} className="screen-bar__back" accessibilityRole="button" accessibilityLabel="Back">
             <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={20} tintColor={colors.ink} />
-          </Pressable>
+          </PressableScale>
           <View className="flex-1 flex-row items-center justify-center gap-1.5">
             {showProgress &&
               steps.map((name, stepIndex) => (
@@ -92,6 +86,7 @@ export function SetupScreen({
           <ScrollView
             contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 24, paddingBottom: 24 }}
             keyboardShouldPersistTaps="handled"
+            keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
             showsVerticalScrollIndicator={false}
           >
             <Text className="setup__title text-center">{title}</Text>

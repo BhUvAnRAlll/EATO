@@ -10,7 +10,7 @@ import { PromotionSlide } from "@/components/home/PromotionSlide";
 import type { Promotion } from "@/data/home";
 import { adminHome, resolveImage } from "@/lib/home";
 import { useSessionToken } from "@/lib/session";
-import { colors } from "@/theme";
+import { useThemeColors } from "@/theme";
 
 // Badge per status (whole class strings, so Tailwind generates them)
 const statusBadge: Record<Promotion["effectiveStatus"], { badge: string; text: string; label: string }> = {
@@ -24,6 +24,7 @@ const statusBadge: Record<Promotion["effectiveStatus"], { badge: string; text: s
 // Home Screen & Promotions: every promotion with its status and order, and the actions
 // an admin needs (new, edit, preview, publish/disable, reorder, delete with confirmation).
 export default function AdminPromotions() {
+  const colors = useThemeColors();
   const getToken = useSessionToken();
   const { width } = useWindowDimensions();
   const [promotions, setPromotions] = useState<Promotion[] | null>(null);
@@ -78,7 +79,7 @@ export default function AdminPromotions() {
     >
       <Pressable onPress={() => router.push("/admin/home-content")} className="card mb-4 flex-row items-center gap-3" accessibilityRole="button">
         <View className="card__icon">
-          <SymbolView name={{ ios: "slider.horizontal.3", android: "tune", web: "tune" }} size={20} tintColor={colors.forest} />
+          <SymbolView name={{ ios: "slider.horizontal.3", android: "tune", web: "tune" }} size={20} tintColor={colors.leaf} />
         </View>
         <View className="flex-1">
           <Text className="card__title">Home screen settings</Text>
@@ -97,7 +98,7 @@ export default function AdminPromotions() {
       )}
 
       {promotions === null ? (
-        <ActivityIndicator color={colors.forest} className="mt-6" />
+        <ActivityIndicator color={colors.leaf} className="mt-6" />
       ) : promotions.length === 0 ? (
         <View className="home__empty mx-0">
           <Text className="card__title">No promotions yet</Text>

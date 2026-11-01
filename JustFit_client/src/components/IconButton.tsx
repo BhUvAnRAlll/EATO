@@ -1,7 +1,8 @@
-import { Pressable, View } from "react-native";
+import { View } from "react-native";
 
+import { PressableScale } from "@/components/PressableScale";
 import { SymbolView, type SymbolViewProps } from "@/components/SymbolView";
-import { colors } from "@/theme";
+import { Palette, useThemeColors } from "@/theme";
 
 type Variant = "outline" | "primary" | "soft" | "dark";
 
@@ -26,19 +27,20 @@ const variantClass: Record<Variant, string> = {
   dark: "icon-btn icon-btn--dark",
 };
 
-const tint: Record<Variant, string> = {
+const tint = (colors: Palette): Record<Variant, string> => ({
   outline: colors.forestInk,
   primary: colors.onPrimary,
-  soft: colors.primary,
+  soft: colors.leaf,
   dark: colors.onInverse,
-};
+});
 
 // Peak Fitness IconButton: outline for app bars, primary (red) for row arrows and play,
 // soft for inactive play buttons, dark on the dark hero cards
 export function IconButton({ icon, label, onPress, variant = "outline", size = 44, disabled = false, glow = false }: IconButtonProps) {
+  const colors = useThemeColors();
   const className = glow ? `${variantClass[variant]} icon-btn--glow` : variantClass[variant];
   const style = { width: size, height: size, opacity: disabled ? 0.4 : 1 };
-  const glyph = <SymbolView name={icon} size={Math.round(size * 0.45)} tintColor={tint[variant]} />;
+  const glyph = <SymbolView name={icon} size={Math.round(size * 0.45)} tintColor={tint(colors)[variant]} />;
 
   if (!onPress) {
     return (
@@ -48,9 +50,11 @@ export function IconButton({ icon, label, onPress, variant = "outline", size = 4
     );
   }
   return (
-    <Pressable
+    <PressableScale
       onPress={onPress}
       disabled={disabled}
+      scaleTo={0.92}
+      haptic={variant === "primary" ? "tap" : undefined}
       hitSlop={6}
       className={className}
       style={style}
@@ -59,6 +63,6 @@ export function IconButton({ icon, label, onPress, variant = "outline", size = 4
       accessibilityState={{ disabled }}
     >
       {glyph}
-    </Pressable>
+    </PressableScale>
   );
 }

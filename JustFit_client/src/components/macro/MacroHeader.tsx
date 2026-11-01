@@ -3,13 +3,14 @@ import { Pressable, Text, View } from "react-native";
 import { SymbolView } from "@/components/SymbolView";
 import { router } from "expo-router";
 
-import { colors } from "@/theme";
+import { useThemeColors } from "@/theme";
 
 type MacroHeaderProps = { title: string; subtitle?: string; right?: ReactNode };
 
 // The header row every pushed Macro screen draws itself: back chevron, centred title (with
 // an optional line under it), and a same-width slot on the right so the title stays centred
 export function MacroHeader({ title, subtitle, right }: MacroHeaderProps) {
+  const colors = useThemeColors();
   const back = () => (router.canGoBack() ? router.back() : router.replace("/macro"));
   return (
     <View className="screen-bar" style={{ height: undefined, minHeight: 56 }}>

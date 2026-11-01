@@ -1,6 +1,6 @@
-// A small in-memory cache for AI answers that are safe to reuse: the same question to the same
-// gym's assistant gets the same answer while the gym's facts are unchanged. Keys are hashes of
-// everything the answer depends on, so an edit to the facts simply misses. Nothing personal to
+// A small in-memory cache for AI answers that are safe to reuse: the same question with the same
+// facts gets the same answer. Keys are hashes of everything the answer depends on, so an edit to
+// the facts simply misses. Nothing personal to
 // one member goes in here (the coach's replies and plans are never cached), and entries expire.
 //
 // Per process, like the rate limits: enough for the single server in use today.

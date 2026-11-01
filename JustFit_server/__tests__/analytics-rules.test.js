@@ -18,7 +18,7 @@ describe("app events: the list", () => {
       assert.match(name, /^[a-z_]{3,40}$/);
       assert.ok(rules.MODULES.includes(module), name);
     }
-    for (const name of ["app_opened", "screen_viewed", "login_completed", "workout_started", "workout_completed", "meal_logged", "ai_chat_sent", "macro_updated", "community_post_created", "story_viewed", "attendance_checked_in"]) {
+    for (const name of ["app_opened", "screen_viewed", "login_completed", "workout_started", "workout_completed", "meal_logged", "ai_chat_sent", "macro_updated"]) {
       assert.ok(name in rules.EVENTS, `${name} is tracked`);
     }
   });

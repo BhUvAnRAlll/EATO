@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, View } from "react-native";
+import { ScreenSkeleton } from "@/components/Skeleton";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { SymbolView } from "@/components/SymbolView";
@@ -19,7 +20,7 @@ import { LEVEL_LABEL, weekOf, workoutApi } from "@/lib/workoutApi";
 import { useCoachChatStore } from "@/store/coachChat";
 import { useCoachIntakeStore } from "@/store/coachIntake";
 import type { Icon } from "@/types/profile";
-import { colors } from "@/theme";
+import { useThemeColors } from "@/theme";
 import { track } from "@/lib/analytics";
 
 // What the coach will do, shown before the intake
@@ -54,6 +55,7 @@ function workoutNote({ day, status, plan }: TodayWorkout) {
 // (Today's meals and workout on a timeline, the Week, Insights), then Edit my answers and Make
 // a new plan. Reads everything each time it comes into view.
 export default function Coach() {
+  const colors = useThemeColors();
   const getToken = useSessionToken();
   const start = useCoachIntakeStore((state) => state.start);
   const clearChat = useCoachChatStore((state) => state.clear);
@@ -139,22 +141,22 @@ export default function Coach() {
 
   return (
     <View className="coach__page">
-      <StatusBar style="dark" />
+      <StatusBar style="auto" />
       <SafeAreaView style={{ flex: 1 }} edges={["top", "left", "right"]}>
         <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 120, gap: 16 }} showsVerticalScrollIndicator={false} refreshControl={refreshControl}>
           {/* Header: one title, the bell at the right */}
           <View className="flex-row items-center justify-between gap-3">
             <Text className="coach__title" accessibilityRole="header">{intake ? "AI Coach" : "Meet your AI coach"}</Text>
             {intake && (
-              <Pressable onPress={() => router.push("/community/notifications")} className="coach__circle-btn" accessibilityRole="button" accessibilityLabel="Notifications">
+              <Pressable onPress={() => router.push("/notifications")} className="coach__circle-btn" accessibilityRole="button" accessibilityLabel="Notifications">
                 <SymbolView name={{ ios: "bell", android: "notifications", web: "notifications" }} size={20} tintColor={colors.forestInk} />
               </Pressable>
             )}
           </View>
 
           {!loaded && !error && (
-            <View className="items-center py-16">
-              <ActivityIndicator color={colors.primary} />
+            <View className="pt-2">
+              <ScreenSkeleton cards={2} hero label="Loading your coach" />
             </View>
           )}
 
@@ -175,7 +177,7 @@ export default function Coach() {
                 {promises.map((item) => (
                   <View key={item.title} className="flex-row items-center gap-3">
                     <View className="coach__option-icon h-11 w-11">
-                      <SymbolView name={item.icon} size={20} tintColor={colors.primary} />
+                      <SymbolView name={item.icon} size={20} tintColor={colors.leaf} />
                     </View>
                     <View className="flex-1 gap-0.5">
                       <Text className="coach__option-title">{item.title}</Text>
@@ -208,7 +210,7 @@ export default function Coach() {
                   </Pressable>
                 </View>
                 <Pressable onPress={() => openChat()} className="coach__ask" accessibilityRole="button" accessibilityLabel={`Ask ${firstName}`}>
-                  <SymbolView name={{ ios: "sparkles", android: "auto_awesome", web: "auto_awesome" }} size={18} tintColor={colors.primary} />
+                  <SymbolView name={{ ios: "sparkles", android: "auto_awesome", web: "auto_awesome" }} size={18} tintColor={colors.leaf} />
                   <Text className="coach__ask-text" numberOfLines={1}>{`Ask ${firstName} anything...`}</Text>
                   <View className="coach__send">
                     <SymbolView name={{ ios: "paperplane.fill", android: "send", web: "send" }} size={17} tintColor={colors.onPrimary} />
@@ -262,7 +264,7 @@ export default function Coach() {
                         accessibilityHint={`${plan.plan.meals.length} meals, ${plan.plan.totals.kcal} kcal, ${plan.plan.meals.filter((m) => m.logged).length} of ${plan.plan.meals.length} logged`}
                       >
                         <View className="coach__option-icon h-11 w-11">
-                          <SymbolView name={{ ios: "fork.knife", android: "restaurant", web: "restaurant" }} size={20} tintColor={colors.primary} />
+                          <SymbolView name={{ ios: "fork.knife", android: "restaurant", web: "restaurant" }} size={20} tintColor={colors.leaf} />
                         </View>
                         <View className="min-w-0 flex-1 gap-0.5">
                           <Text className="coach__option-title">Meal plan</Text>
@@ -273,7 +275,7 @@ export default function Coach() {
                       {workout && (
                         <Pressable onPress={() => router.push("/workout")} className="coach__option" accessibilityRole="button" accessibilityLabel="Open workout" accessibilityHint={workoutNote(workout)}>
                           <View className="coach__option-icon h-11 w-11">
-                            <SymbolView name={{ ios: "dumbbell.fill", android: "fitness_center", web: "fitness_center" }} size={20} tintColor={colors.primary} />
+                            <SymbolView name={{ ios: "dumbbell.fill", android: "fitness_center", web: "fitness_center" }} size={20} tintColor={colors.leaf} />
                           </View>
                           <View className="min-w-0 flex-1 gap-0.5">
                             <Text className="coach__option-title">Workout</Text>
@@ -305,7 +307,7 @@ export default function Coach() {
                   {tab === "insights" && (
                     <View className="items-center gap-2 py-6">
                       <View className="coach__option-icon">
-                        <SymbolView name={{ ios: "chart.bar.fill", android: "bar_chart", web: "bar_chart" }} size={22} tintColor={colors.primary} />
+                        <SymbolView name={{ ios: "chart.bar.fill", android: "bar_chart", web: "bar_chart" }} size={22} tintColor={colors.leaf} />
                       </View>
                       <Text className="coach__option-title">Insights are coming soon</Text>
                       <Text className="coach__hint text-center">{`${firstName} will show your trends here: meals logged, workouts done and how close you get to your targets.`}</Text>
@@ -319,7 +321,7 @@ export default function Coach() {
               {/* Changing the plan: a settings-style group */}
               <View className="coach__card gap-0 py-1">
                 <Pressable onPress={begin} className="list-row border-b-0" accessibilityRole="button" accessibilityLabel="Edit my answers">
-                  <SymbolView name={{ ios: "slider.horizontal.3", android: "tune", web: "tune" }} size={18} tintColor={colors.primary} />
+                  <SymbolView name={{ ios: "slider.horizontal.3", android: "tune", web: "tune" }} size={18} tintColor={colors.leaf} />
                   <Text className="list-row__label">Edit my answers</Text>
                   <SymbolView name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }} size={14} tintColor={colors.faint} />
                 </Pressable>

@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, useWindowDimensions, View } from "react-native";
+import { ScreenSkeleton } from "@/components/Skeleton";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { SymbolView } from "@/components/SymbolView";
@@ -12,13 +13,14 @@ import { Segmented } from "@/components/macro/Segmented";
 import { dayLabel, loggedAtFor, macro, slotForNow, slotInfo, slots, todayIso, type Meal, type Slot } from "@/lib/macro";
 import { useSessionToken } from "@/lib/session";
 import { useMacroStore } from "@/store/macro";
-import { colors } from "@/theme";
+import { useThemeColors } from "@/theme";
 import { track } from "@/lib/analytics";
 
 // Re-log anything from the last 3 days as a new meal today. The foods are copied, so changing
 // or removing the original later leaves the repeat as it was. Asks for the slot only when
 // the screen was opened without one.
 export default function RepeatMeal() {
+  const colors = useThemeColors();
   const params = useLocalSearchParams<{ slot?: string; hour?: string; minute?: string }>();
   const getToken = useSessionToken();
   const { width } = useWindowDimensions();
@@ -68,13 +70,19 @@ export default function RepeatMeal() {
 
   return (
     <View className="flex-1 bg-cream">
-      <StatusBar style="dark" />
+      <StatusBar style="auto" />
       <SafeAreaView style={{ flex: 1 }}>
         <MacroHeader title="Repeat a meal" />
         {recent === null ? (
-          <View className="flex-1 items-center justify-center">
-            {error ? <Text className="macro__error px-5 text-center" accessibilityRole="alert">{error}</Text> : <ActivityIndicator color={colors.forest} />}
-          </View>
+          error ? (
+            <View className="flex-1 items-center justify-center">
+              <Text className="macro__error px-5 text-center" accessibilityRole="alert">{error}</Text>
+            </View>
+          ) : (
+            <View className="px-4 pt-2">
+              <ScreenSkeleton />
+            </View>
+          )
         ) : (
           <>
             <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24, gap: 16 }} showsVerticalScrollIndicator={false}>

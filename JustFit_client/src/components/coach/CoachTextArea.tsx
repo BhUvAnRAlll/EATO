@@ -1,7 +1,7 @@
 import { TextInput } from "react-native";
 
 import { fonts } from "@/constants/fonts";
-import { colors } from "@/theme";
+import { useThemeColors } from "@/theme";
 
 type CoachTextAreaProps = {
   value: string;
@@ -14,6 +14,7 @@ type CoachTextAreaProps = {
 // A multi-line text field on the coach screens: pink-tinted with a soft pink edge. TextInput
 // takes inline styles (see AGENTS.md); outline-none turns off the browser's focus ring on the web.
 export function CoachTextArea({ value, onChangeText, placeholder, accessibilityLabel, minHeight = 120 }: CoachTextAreaProps) {
+  const colors = useThemeColors();
   return (
     <TextInput
       value={value}

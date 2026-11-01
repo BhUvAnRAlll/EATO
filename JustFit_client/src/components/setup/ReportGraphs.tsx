@@ -3,7 +3,7 @@ import { AccessibilityInfo, Animated, Text, View } from "react-native";
 
 import { ProgressRing } from "@/components/ProgressRing";
 import { barPosition, type Range } from "@/lib/bodyScanRules";
-import { colors } from "@/theme";
+import { useThemeColors } from "@/theme";
 
 // Graphs for the body composition report (setup/scan-report), laid out like the scan's own
 // report in justFit's light theme. Each graph animates in once when the report opens, one after
@@ -49,6 +49,7 @@ export function Pill({ label, tone }: { label: string; tone: Tone }) {
 
 // Body fat on a 0–50 % scale split into Low / Healthy / Elevated / High; the needle slides to the value
 export function BodyFatGauge({ value, healthy, delay = 0 }: { value: number; healthy: Range; delay?: number }) {
+  const colors = useThemeColors();
   const grow = useGrow(delay);
   const [low, high] = healthy;
   const elevated = high + 5;

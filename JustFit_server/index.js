@@ -32,9 +32,6 @@ const { checkUpload, uploadLimits } = require("./bodyComposition/upload");
 const { ExtractionError, extractReport } = require("./bodyComposition/extract");
 const { ScanError, checkScanRequest, requestScan, MAX_SCAN_BODY_BYTES } = require("./bodyComposition/scan");
 const home = require("./home");
-const { communityRouter, canSeeMedia } = require("./community/routes");
-const media = require("./community/media");
-const stories = require("./community/stories");
 const { macroRouter } = require("./macro/routes");
 const { coachRouter } = require("./coach/routes");
 const aiUsage = require("./ai/usage");
@@ -43,17 +40,8 @@ const aiLimits = require("./ai/limits");
 const aiDedupe = require("./ai/dedupe");
 const { FoodScanError, checkFoodPhoto, scanFood, scanLimits: foodScanLimits } = require("./macro/foodScan");
 const { workoutRouter } = require("./workout/routes");
-const { gymsRouter } = require("./gyms/routes");
-const { ownerRouter } = require("./owner/routes");
 const { adminPortalRouter } = require("./admin/routes");
 const { recordAdminAction } = require("./admin/overview");
-const { whatsappConfig } = require("./whatsapp/config");
-const { webhookRouter } = require("./whatsapp/webhook");
-const { createWorker } = require("./whatsapp/worker");
-const { eventHandler } = require("./whatsapp/process");
-const { afterInbound, replyHandler } = require("./whatsapp/reply");
-const { createAiProvider } = require("./whatsapp/aiProvider");
-const { createMetaClient } = require("./whatsapp/metaClient");
 
 // Phone sign-in settings, checked before the server listens: a missing or short AUTH_SECRET,
 // an unknown SMS_PROVIDER or a bad OTP_* limit stops startup with one clear line (never a value).
@@ -82,7 +70,7 @@ if (process.env.TRUST_PROXY) {
   if (/^(true|\*)$/i.test(value)) throw new Error("TRUST_PROXY must be a hop count or proxy addresses, not true");
   app.set("trust proxy", /^[0-9]+$/.test(value) ? Number(value) : value.split(",").map((part) => part.trim()));
 }
-app.locals.pool = pool; // the community router reads the pool from here
+app.locals.pool = pool; // routers read the pool from here
 app.use(securityHeaders); // httpSecurity.js: nosniff, no framing, no caching, HSTS over HTTPS
 // Browser origins (httpSecurity.js): CORS_ORIGINS, or none in production, or any in development
 // and tests (Expo web). The native app sends no Origin header and is never affected.
@@ -103,29 +91,19 @@ const uploadLimiter = createRateLimiter(rateLimits.upload); // each upload is an
 const scanLimiter = createRateLimiter(rateLimits.upload); // each photo scan runs the Forma model for a few seconds
 const homeLimiter = createRateLimiter(rateLimits.standard); // members reading the home screen content
 const adminLimiter = createRateLimiter(rateLimits.standard); // admins editing it (also caps the role lookups)
-const communityLimiter = createRateLimiter(rateLimits.community); // feed, likes, comments, stories, groups, messages
-const mediaLimiter = createRateLimiter(rateLimits.community); // image downloads
-const macroLimiter = createRateLimiter(rateLimits.community); // the Macro diary: day, week strip, meals, favourites
+const macroLimiter = createRateLimiter(rateLimits.frequent); // the Macro diary: day, week strip, meals, favourites
 const foodScanLimiter = createRateLimiter(rateLimits.upload); // each food photo is an OpenAI vision call
 const coachLimiter = createRateLimiter(rateLimits.standard); // the AI Coach: the intake answers and the plan
-const workoutLimiter = createRateLimiter(rateLimits.community); // the Fitness tab: plan, training day, history
-const gymsLimiter = createRateLimiter(rateLimits.community); // gym communities: gyms, members, posts, events, invitations
-const ownerLimiter = createRateLimiter(rateLimits.community); // the gym owner portal: dashboard, renewals
-const analyticsLimiter = createRateLimiter(rateLimits.community); // the app's usage events, in small batches
+const workoutLimiter = createRateLimiter(rateLimits.frequent); // the Fitness tab: plan, training day, history
+const analyticsLimiter = createRateLimiter(rateLimits.frequent); // the app's usage events, in small batches
 
 // Phone sign-in (auth/routes.js): request and check a code, who am I, logout. The two sign-in
-// routes are the only ones besides the health check and Meta's webhook without a session;
+// routes and the health check are the only ones without a session;
 // they are budgeted per IP address and per phone number instead.
 app.use("/api/auth", authRouter({ pool, sms, otpKey, config: otpLimits, devLogin }));
 
 // The app's usage events (analytics/routes.js): the signed-in member's own, in small batches
 app.use("/api/analytics", requireUser, limitPerUser(analyticsLimiter), analyticsRouter({ pool }));
-
-// Meta's WhatsApp webhook: the one other route without a session, because Meta calls it. It
-// checks Meta's signature over the raw body instead (whatsapp/webhook.js), routes each event to
-// a gym only by the receiving phone-number id, and queues the work for the worker below.
-const whatsapp = whatsappConfig();
-app.use("/api/whatsapp", webhookRouter({ pool, config: whatsapp, limiter: createRateLimiter({ limit: 600, windowMs: 60 * 1000 }) }));
 
 // Quick check that the server is up and can reach MySQL (public: no token needed)
 app.get("/api/health", async (req, res) => {
@@ -224,7 +202,7 @@ app.get("/api/home-content", requireUser, limitPerUser(homeLimiter), async (req,
 const adminOnly = [requireUser, limitPerUser(adminLimiter), requireAdmin];
 const adminBody = express.json({ limit: "50kb" });
 
-// The Super Admin portal (see admin/routes.js): Overview, users, gyms and moderation, for justFit
+// The Super Admin portal (see admin/routes.js): Overview, users, AI and app usage, for justFit
 // admins only (adminOnly checks the role on every request)
 app.use("/api/admin/portal", ...adminOnly, adminPortalRouter);
 
@@ -344,12 +322,6 @@ app.get("/api/admin/meals", ...adminOnly, async (req, res, next) => {
 });
 
 // ---------------------------------------------------------------------------
-// Community (see community/routes.js): feed, stories, groups and direct messages
-// ---------------------------------------------------------------------------
-
-app.use("/api/community", requireUser, limitPerUser(communityLimiter), communityRouter);
-
-// ---------------------------------------------------------------------------
 // Macro diary (see macro/routes.js): logged meals, the day view, favourites
 // ---------------------------------------------------------------------------
 
@@ -387,30 +359,6 @@ app.use("/api/coach", requireUser, limitPerUser(coachLimiter), coachRouter);
 
 app.use("/api/workout", requireUser, limitPerUser(workoutLimiter), workoutRouter);
 
-// Gym communities (see gyms/routes.js): joining, members, gym posts, announcements, events, invitations
-app.use("/api/gyms", requireUser, limitPerUser(gymsLimiter), gymsRouter);
-
-// The gym owner portal (see owner/routes.js): a gym's owner and admins (or justFit admins) only
-app.use("/api/owner", requireUser, limitPerUser(ownerLimiter), ownerRouter);
-
-// An uploaded image, for signed-in members only. The path comes from the database row,
-// never from the request, so there is nothing to traverse.
-app.get("/api/media/:id", requireUser, limitPerUser(mediaLimiter), async (req, res, next) => {
-  try {
-    if (!/^[0-9a-f-]{36}$/i.test(req.params.id)) return res.status(404).json({ error: "Not found." });
-    const row = await media.getMedia(pool, req.params.id.toLowerCase());
-    // A hidden image answers like a missing one, so nothing can be probed
-    if (!row || !(await canSeeMedia(pool, req.userId, row))) return res.status(404).json({ error: "Not found." });
-    res.set("Cache-Control", "private, max-age=3600");
-    res.type(row.media_type);
-    res.sendFile(media.pathFor(row), (error) => {
-      if (error && !res.headersSent) res.status(404).json({ error: "Not found." });
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
 // No route matched: answer in JSON like every other response, not Express's HTML page
 app.use((req, res) => {
   res.status(404).json({ error: "Not found." });
@@ -442,26 +390,6 @@ app.use((error, req, res, next) => {
   }
   res.status(status).json({ error: clientErrorMessages[error.type] ?? "The request couldn't be processed." });
 });
-
-// Hourly clean-up: stories that ended more than 30 days ago (and were never reported) are
-// removed, then uploads nobody refers to any more (never posted, or their story removed)
-if (process.env.NODE_ENV !== "test") {
-  const sweep = () =>
-    stories.purgeOldStories(pool)
-      .then(() => media.removeOrphanedMedia(pool))
-      .catch((error) => logRequestError({ method: "SWEEP", path: "/uploads" }, error));
-  setTimeout(sweep, 60 * 1000).unref();
-  setInterval(sweep, 60 * 60 * 1000).unref();
-}
-
-// The WhatsApp job worker (saved webhook events, later replies and campaigns). Off in tests,
-// which run it themselves, and when WHATSAPP_WORKER=off.
-if (process.env.NODE_ENV !== "test" && process.env.WHATSAPP_WORKER !== "off") {
-  createWorker(pool, {
-    "whatsapp.event": eventHandler({ afterInbound }),
-    "whatsapp.reply": replyHandler({ provider: createAiProvider(), meta: createMetaClient(whatsapp) }),
-  }).start(); // stays off (one log line) until the migration has run
-}
 
 const port = Number(process.env.PORT ?? 4000);
 // 0.0.0.0 so a phone on the same Wi-Fi can reach it, not just this computer

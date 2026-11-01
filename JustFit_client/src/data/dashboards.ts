@@ -63,20 +63,6 @@ export const dashboards: Record<Role, Dashboard> = {
         href: "/admin/promotions",
       },
       {
-        id: "moderation",
-        title: "Community moderation",
-        subtitle: "Reports and suspended members",
-        icon: { ios: "flag", android: "flag", web: "flag" },
-        href: "/admin/moderation",
-      },
-      {
-        id: "gyms",
-        title: "Gyms",
-        subtitle: "Create gym communities and name owners",
-        icon: { ios: "dumbbell", android: "fitness_center", web: "fitness_center" },
-        href: "/admin/gyms",
-      },
-      {
         id: "users",
         title: "Users",
         subtitle: "View members and their plans",

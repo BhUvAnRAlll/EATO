@@ -1,6 +1,7 @@
-import { ActivityIndicator, Pressable, Text } from "react-native";
+import { ActivityIndicator, Text } from "react-native";
 
-import { colors } from "@/theme";
+import { PressableScale } from "@/components/PressableScale";
+import { useThemeColors } from "@/theme";
 
 type PrimaryButtonProps = {
   label: string;
@@ -10,18 +11,21 @@ type PrimaryButtonProps = {
   disabled?: boolean;
 };
 
-// Full-width dark pill (54 pt) with a white label; dims while pressed, shows a spinner while loading
+// Full-width red pill (54 pt) with a white label; eases down while held (with a light tap),
+// shows a spinner while loading
 export function PrimaryButton({ label, onPress, loading = false, disabled = false }: PrimaryButtonProps) {
+  const colors = useThemeColors();
   return (
-    <Pressable
+    <PressableScale
       onPress={onPress}
       disabled={loading || disabled}
+      haptic="tap"
       className="btn-forest"
-      style={({ pressed }) => ({ opacity: disabled ? 0.4 : pressed ? 0.85 : 1, transform: [{ scale: pressed && !disabled ? 0.985 : 1 }] })}
+      style={{ opacity: disabled ? 0.4 : 1 }}
       accessibilityRole="button"
       accessibilityState={{ disabled: loading || disabled, busy: loading }}
     >
       {loading ? <ActivityIndicator color={colors.white} /> : <Text className="btn-forest__label">{label}</Text>}
-    </Pressable>
+    </PressableScale>
   );
 }

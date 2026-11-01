@@ -2,7 +2,7 @@ import { Pressable, Text, TextInput, View } from "react-native";
 import { SymbolView } from "@/components/SymbolView";
 
 import type { Icon } from "@/types/profile";
-import { colors } from "@/theme";
+import { useThemeColors } from "@/theme";
 
 type ReviewRowProps = {
   label: string;
@@ -25,6 +25,7 @@ type ReviewRowProps = {
 // One value from the report: tinted icon, label, and the value box with its unit.
 // Without onChangeText or onPress the value is shown read-only (e.g. a computed BMI).
 export function ReviewRow({ label, icon, tint, background, value, placeholder = "—", unit, onChangeText, onPress, invalid = false }: ReviewRowProps) {
+  const colors = useThemeColors();
   const control = (
     <View className="review__control">
       <View className={onChangeText ? "review__value" : "review__value review__value--auto"}>

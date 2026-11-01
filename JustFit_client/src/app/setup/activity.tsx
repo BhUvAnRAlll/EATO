@@ -9,9 +9,10 @@ import { SetupField } from "@/components/setup/SetupField";
 import { SetupScreen } from "@/components/setup/SetupScreen";
 import { activityOptions, healthFlagOptions } from "@/data/setup";
 import { useSetupStore } from "@/store/setup";
-import { colors } from "@/theme";
+import { useThemeColors } from "@/theme";
 
 export default function Activity() {
+  const colors = useThemeColors();
   const { profile, update, toggleHealthFlag } = useSetupStore();
   const [isActivityOpen, setIsActivityOpen] = useState(false);
 
@@ -39,7 +40,7 @@ export default function Activity() {
             <SymbolView
               name={{ ios: "info.circle", android: "info", web: "info" }}
               size={16}
-              tintColor={colors.forest}
+              tintColor={colors.leaf}
             />
             <Text className="setup__card-text flex-1">
               {`You're ${activity.label.toLowerCase()} if you ${activity.description}.`}

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Pressable, Text, TextInput, View, type TextInputProps } from "react-native";
 import { SymbolView, type SymbolViewProps } from "@/components/SymbolView";
 
-import { colors } from "@/theme";
+import { useThemeColors } from "@/theme";
 
 type AuthFieldProps = TextInputProps & {
   // Optional label above the box (the log in card has none)
@@ -15,6 +15,7 @@ type AuthFieldProps = TextInputProps & {
 };
 
 export function AuthField({ label, icon, isPassword = false, prefix, ...inputProps }: AuthFieldProps) {
+  const colors = useThemeColors();
   const [isHidden, setIsHidden] = useState(isPassword);
 
   return (
@@ -30,7 +31,7 @@ export function AuthField({ label, icon, isPassword = false, prefix, ...inputPro
           {...inputProps}
         />
         {isPassword && (
-          <Pressable onPress={() => setIsHidden(!isHidden)} hitSlop={12}>
+          <Pressable onPress={() => setIsHidden(!isHidden)} hitSlop={12} accessibilityRole="button" accessibilityLabel={isHidden ? "Show password" : "Hide password"}>
             <SymbolView
               name={
                 isHidden

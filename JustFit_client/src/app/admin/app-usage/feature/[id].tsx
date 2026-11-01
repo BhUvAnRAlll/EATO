@@ -11,7 +11,7 @@ import { SymbolView } from "@/components/SymbolView";
 import { MODULE_ICON } from "@/data/appUsage";
 import { appUsage, changeText, rangeText, RANGE_LABEL, type FeatureDetail, type UsageRange } from "@/lib/appUsage";
 import { useSessionToken } from "@/lib/session";
-import { colors } from "@/theme";
+import { useThemeColors } from "@/theme";
 
 type Load = { state: "loading" } | { state: "failed"; error: string } | { state: "ready"; data: FeatureDetail };
 
@@ -21,6 +21,7 @@ const ranges: UsageRange[] = ["7d", "30d", "90d"];
 // Super Admin › App Usage › one feature: its uses and members for a range against the range
 // before, a per-day chart, and the members who used it most (admins only).
 export default function FeatureDetailScreen() {
+  const colors = useThemeColors();
   const { id } = useLocalSearchParams<{ id: string }>();
   const getToken = useSessionToken();
   const [range, setRange] = useState<UsageRange>("30d");
@@ -46,7 +47,7 @@ export default function FeatureDetailScreen() {
 
   return (
     <View className="flex-1 bg-cream">
-      <StatusBar style="dark" />
+      <StatusBar style="auto" />
       <SafeAreaView style={{ flex: 1 }}>
         <View className="screen-bar">
           <Pressable onPress={back} hitSlop={12} className="screen-bar__back" accessibilityRole="button" accessibilityLabel="Back">
@@ -67,7 +68,7 @@ export default function FeatureDetailScreen() {
 
           {load.state === "loading" ? (
             <View className="items-center gap-3 py-16">
-              <ActivityIndicator color={colors.forest} />
+              <ActivityIndicator color={colors.leaf} />
               <Text className="home__note">Loading</Text>
             </View>
           ) : load.state === "failed" ? (
@@ -84,6 +85,7 @@ export default function FeatureDetailScreen() {
 }
 
 function Ready({ data }: { data: FeatureDetail }) {
+  const colors = useThemeColors();
   const current = data.current!;
   const previous = data.previous!;
   const series = data.series!;
@@ -112,7 +114,7 @@ function Ready({ data }: { data: FeatureDetail }) {
 
       <View className="admin-list px-4 py-3" style={{ gap: 14 }}>
         <Text className="card__title">Members per day</Text>
-        <BarChart points={series.map((p) => ({ key: p.key, value: p.members }))} format={(v) => `${v} ${v === 1 ? "member" : "members"}`} label={label} color={colors.primary} />
+        <BarChart points={series.map((p) => ({ key: p.key, value: p.members }))} format={(v) => `${v} ${v === 1 ? "member" : "members"}`} label={label} color={colors.leaf} />
         <Text className="card__title">Uses per day</Text>
         <BarChart points={series.map((p) => ({ key: p.key, value: p.uses }))} format={(v) => `${v} uses`} label={label} color={colors.accentBlue} />
       </View>
@@ -120,7 +122,7 @@ function Ready({ data }: { data: FeatureDetail }) {
       <Text className="setup__section">Used most by</Text>
       <View className="admin-list">
         {(data.topMembers ?? []).length === 0 ? (
-          <Text className="post__time px-4 py-3">Nobody in this range.</Text>
+          <Text className="meta-text px-4 py-3">Nobody in this range.</Text>
         ) : (
           data.topMembers!.map((m, i) => (
             <View key={m.id} className={i > 0 ? "admin-row admin-row--divided" : "admin-row"} accessibilityLabel={`${m.name}: ${m.uses} uses`}>

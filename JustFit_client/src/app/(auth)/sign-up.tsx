@@ -38,7 +38,7 @@ export default function SignUp() {
 
   return (
     <View className="flex-1 overflow-hidden bg-cream">
-      <StatusBar style="dark" />
+      <StatusBar style="auto" />
 
       {/* Background artwork (positions in design pixels × s) */}
       <View className="auth__circle" style={{ width: 145 * s, height: 145 * s, left: -95 * s, top: 255 * s }} />
@@ -65,6 +65,7 @@ export default function SignUp() {
           <ScrollView
             contentContainerStyle={{ paddingHorizontal: 30, paddingBottom: 40 }}
             keyboardShouldPersistTaps="handled"
+            keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
             showsVerticalScrollIndicator={false}
           >
             <BrandWordmark />
@@ -81,7 +82,7 @@ export default function SignUp() {
 
             {/* Log in / Sign up switch */}
             <View className="auth__tabs mt-9">
-              <Pressable onPress={() => router.replace("/sign-in")} className="auth__tab">
+              <Pressable onPress={() => router.replace("/sign-in")} className="auth__tab" accessibilityRole="tab" accessibilityState={{ selected: false }}>
                 <Text className="auth__tab-label">Log in</Text>
               </Pressable>
               <View className="auth__tab auth__tab--active">

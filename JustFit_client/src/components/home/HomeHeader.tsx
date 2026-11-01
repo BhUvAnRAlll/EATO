@@ -2,7 +2,7 @@ import { Pressable, Text, View } from "react-native";
 import { SymbolView } from "@/components/SymbolView";
 
 import { formatLongDate, greetingFor } from "@/lib/date";
-import { colors } from "@/theme";
+import { useThemeColors } from "@/theme";
 
 type HomeHeaderProps = {
   // The member's first name ("" when the account has none yet)
@@ -18,6 +18,7 @@ type HomeHeaderProps = {
 // Greeting, name and date on the left; notifications and the profile avatar on the right; the
 // delivery location pill underneath
 export function HomeHeader({ name, pincode, hasUnread, onLocationPress, onNotificationsPress, onProfilePress }: HomeHeaderProps) {
+  const colors = useThemeColors();
   const initial = name.trim().charAt(0).toUpperCase() || "?";
   return (
     <View className="px-4 pt-2">

@@ -1,6 +1,6 @@
 import { Pressable, Text, TextInput, View, type TextInputProps } from "react-native";
 
-import { colors } from "@/theme";
+import { useThemeColors } from "@/theme";
 
 type AdminFieldProps = TextInputProps & {
   label: string;
@@ -9,6 +9,7 @@ type AdminFieldProps = TextInputProps & {
 
 // Labelled text input with an optional hint line
 export function AdminField({ label, hint, multiline, ...inputProps }: AdminFieldProps) {
+  const colors = useThemeColors();
   return (
     <View className="gap-1.5">
       <Text className="auth__label">{label}</Text>

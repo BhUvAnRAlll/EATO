@@ -10,7 +10,7 @@ import { PACES, label } from "@/data/recreate";
 import { addDays, dateOf, todayIso } from "@/lib/macro";
 import { useSessionToken } from "@/lib/session";
 import { GOAL_LABEL, LEVEL_LABEL, SPLIT_LABEL, formatSeconds, shortDay, workoutApi, type PlanOverview } from "@/lib/workoutApi";
-import { colors } from "@/theme";
+import { useThemeColors } from "@/theme";
 import { fonts } from "@/constants/fonts";
 
 // Rebuild my plan: "Your plan is ready". Everything here is read back from what was saved,
@@ -33,6 +33,7 @@ const nextDateOn = (weekday: number, today: string) => {
 };
 
 export default function RecreateReveal() {
+  const colors = useThemeColors();
   const insets = useSafeAreaInsets();
   const getToken = useSessionToken();
   const today = todayIso();
@@ -62,7 +63,7 @@ export default function RecreateReveal() {
     return (
       <View className="flex-1 bg-cream px-5" style={{ paddingTop: insets.top + 24 }}>
         {load.state === "loading" ? (
-          <ActivityIndicator color={colors.forest} />
+          <ActivityIndicator color={colors.leaf} />
         ) : (
           <DashedBlock icon={{ ios: "exclamationmark.triangle.fill", android: "warning", web: "warning" }} title="Could not load your plan" text={`${load.error.replace(/\.$/, "")}. Tap to try again.`} onPress={() => { setLoad({ state: "loading" }); setAttempt((n) => n + 1); }} />
         )}
@@ -86,8 +87,8 @@ export default function RecreateReveal() {
       <StatusBar style="light" />
       <ScrollView contentContainerStyle={{ paddingBottom: 24, gap: 18 }} showsVerticalScrollIndicator={false}>
         {/* Hero: the plan's facts on the dark surface (sessions have no photos yet) */}
-        <View className="bg-ink" style={{ paddingTop: insets.top + 32, paddingHorizontal: 20, paddingBottom: 28, gap: 10 }}>
-          <Text className="type-overline" style={{ color: colors.primary }}>Your new plan</Text>
+        <View className="bg-immersive" style={{ paddingTop: insets.top + 32, paddingHorizontal: 20, paddingBottom: 28, gap: 10 }}>
+          <Text className="type-overline" style={{ color: colors.leaf }}>Your new plan</Text>
           <Text className="text-white" style={{ fontSize: 30, lineHeight: 36, fontFamily: fonts.semibold }}>Your plan is ready</Text>
           <Text style={{ color: colors.white, opacity: 0.8 }}>Your workout plan has been built around your goal, fitness level and schedule.</Text>
           <View className="mt-1 flex-row flex-wrap gap-2">
@@ -109,7 +110,7 @@ export default function RecreateReveal() {
             </View>
             {rows.map(([name, value]) => (
               <Pressable key={name} onPress={toPreferences} className="flex-row items-center justify-between py-1.5" accessibilityRole="button" accessibilityLabel={`${name}: ${value}`}>
-                <Text className="post__time">{name}</Text>
+                <Text className="meta-text">{name}</Text>
                 <Text className="card__title">{value}</Text>
               </Pressable>
             ))}
@@ -131,7 +132,7 @@ export default function RecreateReveal() {
                 <View className="recreate__node recreate__node--active"><Text className="recreate__node-label recreate__node-label--active">{i + 1}</Text></View>
                 <View className="min-w-0 flex-1">
                   <Text className="card__title">{title}</Text>
-                  <Text className="post__time">{text}</Text>
+                  <Text className="meta-text">{text}</Text>
                 </View>
               </View>
             ))}
@@ -148,7 +149,7 @@ export default function RecreateReveal() {
                   </View>
                   <View className="min-w-0 flex-1">
                     <Text className="card__title" numberOfLines={1}>{s.title}</Text>
-                    <Text className="post__time">{`${s.minutes} min · ${s.exerciseCount} exercises`}</Text>
+                    <Text className="meta-text">{`${s.minutes} min · ${s.exerciseCount} exercises`}</Text>
                   </View>
                 </View>
               );
@@ -169,7 +170,7 @@ export default function RecreateReveal() {
                       <Text className="card__title min-w-0 flex-1" numberOfLines={2}>{e.name}</Text>
                       <View className="items-end">
                         <Text className="type-subhead text-forest-ink">{prescription}</Text>
-                        {e.restSec > 0 && <Text className="post__time">{`Rest ${formatSeconds(e.restSec)}`}</Text>}
+                        {e.restSec > 0 && <Text className="meta-text">{`Rest ${formatSeconds(e.restSec)}`}</Text>}
                       </View>
                     </View>
                   );

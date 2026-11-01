@@ -1,7 +1,7 @@
 // The Super Admin portal in the real Expo web build against the isolated test server and the
-// justfit_test database: an justFit admin signs in onto the Overview (counts, to-do list, recent admin
-// activity), the Reports tab carries its badge, a to-do row opens the screen that resolves it,
-// and a member can't reach /admin. Screenshots at three widths.
+// justfit_test database: an justFit admin signs in onto the Overview (counts and recent admin
+// activity), with only Overview, Users and Content as tabs; Users filters and opens an account's
+// page; and a member can't reach /admin. Screenshots at three widths.
 //
 //   yarn test:ui      (needs JustFit_server/.env.test and Google Chrome; otherwise skipped)
 //   JUSTFIT_SCREENSHOT_DIR=<dir> saves screenshots of each screen at three widths
@@ -111,15 +111,13 @@ describe("ui admin: the Super Admin Overview and its tabs", () => {
       await connection.query("INSERT INTO users (id, email, full_name, role) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE email = VALUES(email), full_name = VALUES(full_name), role = IF(role = 'user', VALUES(role), role)", [identities[tag].id, identities[tag].emailAddress, names[tag], tag === "admin" ? "admin" : "user"]);
     }
     await connection.query("INSERT INTO profiles (user_id, dob, gender, goal, height_cm, weight_kg, workout_frequency, profile_complete) VALUES (?, '1995-05-10', 'male', 'muscle_gain', 175, 70, '3-4', TRUE)", [identities.member.id]);
-    // Something for each to-do: a reported post and a gym on a trial
-    const [[{ id: postId }]] = await connection.query("SELECT UUID() AS id");
-    state.post = postId;
-    await connection.query("INSERT INTO community_posts (id, user_id, body) VALUES (?, ?, 'Buy followers cheap!!!')", [postId, identities.member.id]);
-    await connection.query("INSERT INTO community_reports (reporter_id, post_id, reason) VALUES (?, ?, 'Spam')", [identities.coach.id, postId]);
-    const created = await apiAs("admin", "POST", "/api/gyms", { name: "Velocity Fitness", tagline: "Move fast", location: "Austin", ownerEmail: identities.member.emailAddress });
-    assert.equal(created.status, 201, JSON.stringify(created.json));
-    state.gym = created.json.gym.id;
-    await connection.query("UPDATE gyms SET status = 'trial', trial_ends_at = DATE_ADD(CURDATE(), INTERVAL 12 DAY) WHERE id = ?", [state.gym]);
+    // Something for the counts and the activity log: a finished workout and a published promotion
+    await connection.query("INSERT INTO workout_logs (user_id, on_date, status, completed_at) VALUES (?, CURDATE(), 'completed', NOW())", [identities.member.id]);
+    const promo = await apiAs("admin", "POST", "/api/admin/promotions", {
+      title: "Train at home", eyebrow: "NEW", headline: "Train at home", description: "Plans that fit your space", imageUrl: "asset:hero-meals", ctaLabel: "See plans", ctaDestination: "fitness", status: "draft",
+    });
+    assert.equal(promo.status, 201, JSON.stringify(promo.json));
+    state.promotion = promo.json.promotion.id;
   });
 
   after(async () => {
@@ -133,12 +131,8 @@ describe("ui admin: the Super Admin Overview and its tabs", () => {
       if (!connection) return;
       const ids = Object.values(identities).map((i) => i.id);
       await connection.query("DELETE FROM admin_audit_log WHERE admin_id IN (?)", [ids]);
-      await connection.query("DELETE FROM community_reports WHERE post_id = ?", [state.post ?? ""]);
-      await connection.query("DELETE FROM community_posts WHERE id = ?", [state.post ?? ""]);
-      const gymIds = [state.gym, state.newGym].filter(Boolean);
-      if (gymIds.length) for (const table of ["gym_members", "whatsapp_agent_settings", "whatsapp_connections"]) await connection.query(`DELETE FROM \`${table}\` WHERE gym_id IN (?)`, [gymIds]);
-      if (gymIds.length) await connection.query("DELETE FROM gyms WHERE id IN (?)", [gymIds]);
-      await connection.query("DELETE FROM community_profiles WHERE user_id IN (?)", [ids]);
+      if (state.promotion) await connection.query("DELETE FROM promotions WHERE id = ?", [state.promotion]);
+      await connection.query("DELETE FROM workout_logs WHERE user_id IN (?)", [ids]);
       await connection.query("DELETE FROM profiles WHERE user_id IN (?)", [ids]);
       await db.deleteUsers(connection, ids);
       await connection.end();
@@ -151,115 +145,43 @@ describe("ui admin: the Super Admin Overview and its tabs", () => {
     if (problems.length > 0) throw new Error(`cleanup incomplete: ${problems.join("; ")}`);
   });
 
-  it("1. an admin lands on the Overview: counts, the to-do list and the Reports badge", run("overview", async () => {
+  it("1. an admin lands on the Overview: counts, recent activity, and only Overview, Users and Content as tabs", run("overview", async () => {
     await viewport(390, 844);
     await signIn(identities.admin, "/admin");
     await h.expectPath("/admin");
     await h.expectText("Overview");
-    await page.waitFor(`!!document.querySelector('[aria-label="Open reports: 1"]')`, NAV_TIMEOUT, "the open reports tile");
-    await h.expectText("1 reported post");
-    assert.equal(await page.evaluate(`(document.body.innerText || "").includes("Verify ")`), false, "no trainer to-dos any more");
-    assert.equal(await page.evaluate(`!!document.querySelector('[aria-label^="Unverified:"]')`), false, "no Unverified tile any more");
-    await h.expectText("Velocity Fitness is on a trial");
-    await h.expectText("Created gym Velocity Fitness", "the gym creation is in the activity log");
-    await page.waitFor(`!!document.querySelector('[role="tab"][aria-label="Reports, 1 waiting"]')`, NAV_TIMEOUT, "the Reports badge");
+    await page.waitFor(`!!document.querySelector('[aria-label="Users: 3"]')`, NAV_TIMEOUT, "the users tile");
+    await page.waitFor(`!!document.querySelector('[aria-label="Workouts this week: 1"]')`, NAV_TIMEOUT, "the workouts tile");
+    await h.expectText("Created promotion “Train at home”", "the promotion is in the activity log");
+    const tabs = await page.evaluate(`[...document.querySelectorAll('[role="tab"]')].filter((e) => e.getClientRects().length > 0).map((e) => e.getAttribute("aria-label"))`);
+    assert.deepEqual(tabs, ["Overview", "Users", "Content"], "no Gyms or Reports tab");
+    for (const gone of ["Open reports", "Gym members", "Suspended", "To do"]) assert.equal(await page.hasText(gone), false, `${gone} is gone`);
     await snapshotAllWidths("admin-overview");
   }));
 
-  it("2. a to-do row opens the screen that resolves it, and an action shows up in the activity", run("todo", async () => {
-    await clickLabelStarting("1 reported post");
-    await h.expectPath("/admin/reports");
-    await h.expectText("Buy followers cheap!!!");
-    await h.expectText("1 report: Spam (Marcus)");
-    await snapshotAllWidths("admin-reports");
-    // Suspend the post's author from the server side; the Overview shows it on the next visit
-    assert.equal((await apiAs("admin", "POST", `/api/community/admin/members/${identities.member.id}/suspend`)).status, 200);
-    await clickTab("Overview");
-    await h.expectPath("/admin");
-    await h.expectText("Suspended Daniel Kim");
-    await page.waitFor(`!!document.querySelector('[aria-label="Suspended: 1"]')`, NAV_TIMEOUT, "the suspended tile");
-    assert.equal((await apiAs("admin", "DELETE", `/api/community/admin/members/${identities.member.id}/suspend`)).status, 200);
-  }));
-
-  it("3. Users: filter to gym owners (no Trainers filter), then suspend and reinstate a member", run("users", async () => {
+  it("2. Users: filter to admins, then open a member's page", run("users", async () => {
     await clickTab("Users");
     await h.expectPath("/admin/users");
     await page.waitFor(`!!document.querySelector('[aria-label="Marcus Johnson, Member"]')`, NAV_TIMEOUT, "Marcus as a plain member");
     await snapshotAllWidths("admin-users");
-    assert.equal(await page.evaluate(`[...document.querySelectorAll('[role="tab"]')].some((e) => (e.getAttribute("aria-label") || e.innerText || "").startsWith("Trainers"))`), false, "no Trainers filter");
-    await clickLabelStarting("Gym owners");
-    await page.waitFor(`![...document.querySelectorAll('[aria-label^="Marcus Johnson,"]')].some((e) => e.getClientRects().length > 0)`, NAV_TIMEOUT, "non-owners filtered out");
-    await page.waitFor(`!!document.querySelector('[aria-label="Daniel Kim, Gym owner"]')`, NAV_TIMEOUT, "the gym owner row");
+    for (const gone of ["Trainers", "Gym owners", "Suspended"]) {
+      assert.equal(await page.evaluate(`[...document.querySelectorAll('[role="tab"]')].some((e) => (e.getAttribute("aria-label") || e.innerText || "").startsWith(${JSON.stringify(gone)}))`), false, `no ${gone} filter`);
+    }
+    await clickLabelStarting("Admins");
+    await page.waitFor(`![...document.querySelectorAll('[aria-label^="Marcus Johnson,"]')].some((e) => e.getClientRects().length > 0)`, NAV_TIMEOUT, "members filtered out");
+    await page.waitFor(`!!document.querySelector('[aria-label="Maya Ortiz, Admin"]')`, NAV_TIMEOUT, "the admin row");
 
-    // A member: suspend behind a confirmation, then reinstate
     await clickLabelStarting("All");
     await clickLabelStarting("Daniel Kim,");
     await page.waitFor(`location.pathname.startsWith("/admin/users/")`, NAV_TIMEOUT, "the member's page");
-    await h.expectText("Velocity Fitness");
-    await clickLabelStarting("Suspend account");
-    await h.expectText("Suspend Daniel Kim?");
-    await snapshotAllWidths("admin-user-suspend");
-    await page.clickText("Suspend");
-    const status = async () => (await connection.query("SELECT status FROM community_profiles WHERE user_id = ?", [identities.member.id]))[0][0]?.status;
-    const until = Date.now() + NAV_TIMEOUT;
-    while ((await status()) !== "suspended" && Date.now() < until) await new Promise((r) => setTimeout(r, 200));
-    assert.equal(await status(), "suspended");
-    await clickLabelStarting("Reinstate account");
-    const until2 = Date.now() + NAV_TIMEOUT;
-    while ((await status()) !== "active" && Date.now() < until2) await new Promise((r) => setTimeout(r, 200));
-    assert.equal(await status(), "active");
+    await page.waitFor(`!!document.querySelector('[aria-label="Workouts: 1"]')`, NAV_TIMEOUT, "the finished workout");
+    await h.expectText("Joined");
+    for (const gone of ["Suspend account", "Public profile", "Posts"]) assert.equal(await page.hasText(gone), false, `${gone} is gone`);
+    await snapshotAllWidths("admin-user-detail");
     await clickLabelStarting("Back");
   }));
 
-  it("4. Gyms: the list, a gym's page (plan, suspend, reinstate) and Create gym", run("gyms", async () => {
-    await clickTab("Gyms");
-    await h.expectPath("/admin/gyms");
-    await page.waitFor(`!!document.querySelector('[aria-label^="Velocity Fitness, 1 member · Starter · Daniel Kim, trial"]')`, NAV_TIMEOUT, "the trial gym's row");
-    await snapshotAllWidths("admin-gyms");
-    await clickLabelStarting("Velocity Fitness,");
-    await page.waitFor(`location.pathname.startsWith("/admin/gyms/")`, NAV_TIMEOUT, "the gym's page");
-    await h.expectText("Trial ends");
-    await snapshotAllWidths("admin-gym-detail");
-    const gymRow = async () => (await connection.query("SELECT plan, status FROM gyms WHERE id = ?", [state.gym]))[0][0];
-    const waitFor = async (check, what) => {
-      const deadline = Date.now() + NAV_TIMEOUT;
-      while (!check(await gymRow()) && Date.now() < deadline) await new Promise((r) => setTimeout(r, 200));
-      assert.ok(check(await gymRow()), what);
-    };
-    await clickLabelStarting("Pro plan");
-    await waitFor((g) => g.plan === "pro", "the plan changed to Pro");
-    await clickLabelStarting("Suspend gym");
-    await h.expectText("Suspend Velocity Fitness?");
-    await page.clickText("Suspend");
-    await waitFor((g) => g.status === "suspended", "the gym is suspended");
-    await clickLabelStarting("Reinstate gym");
-    await waitFor((g) => g.status === "trial", "reinstated to its trial");
-    await clickLabelStarting("Back");
-    await h.expectPath("/admin/gyms");
-
-    // Create gym: the owner comes from a search, and the gym starts a trial
-    await clickLabelStarting("Create gym");
-    await h.expectPath("/admin/gyms/new");
-    // Expo web bundles this screen on its first visit ("Bundling..."): wait for the form
-    await page.waitFor(`[...document.querySelectorAll('[aria-label="Gym name"]')].some((e) => e.getClientRects().length > 0)`, NAV_TIMEOUT, "the Create gym form");
-    await page.setInput('[aria-label="Gym name"]', `Core Club ${runId}`);
-    await page.setInput('[aria-label="Area"]', "Austin");
-    await page.setInput('[aria-label="Search for the owner"]', "Marcus");
-    await clickLabelStarting("Owner: Marcus Johnson");
-    await h.expectText("Marcus Johnson will own this gym");
-    await snapshotAllWidths("admin-gym-create");
-    // The footer's Create gym (the last one on the page)
-    const pos = await page.waitFor(`(() => { const els = [...document.querySelectorAll('[aria-label="Create gym"]')].filter((e) => e.getClientRects().length > 0); const el = els[els.length - 1]; if (!el) return null; const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`, NAV_TIMEOUT, "the Create gym button");
-    await page.clickAt(pos.x, pos.y);
-    await page.waitFor(`location.pathname.startsWith("/admin/gyms/") && !location.pathname.endsWith("/new")`, NAV_TIMEOUT, "the new gym's page");
-    const [[made]] = await connection.query("SELECT g.id, g.status, DATEDIFF(g.trial_ends_at, CURDATE()) AS days, m.user_id FROM gyms g JOIN gym_members m ON m.gym_id = g.id AND m.role = 'owner' WHERE g.name = ?", [`Core Club ${runId}`]);
-    state.newGym = made.id;
-    assert.deepEqual({ status: made.status, days: made.days, owner: made.user_id }, { status: "trial", days: 14, owner: identities.coach.id });
-    await h.expectText("Marcus Johnson");
-    await clickLabelStarting("Back");
-  }));
-
-  it("5. a member can't open the admin portal", run("guard", async () => {
+  it("3. a member can't open the admin portal", run("guard", async () => {
     await signIn(identities.member, "/home");
     await page.navigate(`${expo.baseUrl}/admin`);
     await page.waitFor(`!location.pathname.startsWith("/admin")`, NAV_TIMEOUT, "sent away from /admin");

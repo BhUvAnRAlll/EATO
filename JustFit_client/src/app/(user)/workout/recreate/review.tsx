@@ -7,12 +7,13 @@ import { useRecreateDraft } from "@/components/workout/RecreateDraft";
 import { BODY_TYPES, FITNESS_STATEMENTS, GENDERS, PACES, PERFORMANCE, RECREATE_GOALS, label } from "@/data/recreate";
 import { MONDAY_FIRST } from "@/lib/recreateRules";
 import { shortDay } from "@/lib/workoutApi";
-import { colors } from "@/theme";
+import { useThemeColors } from "@/theme";
 
 // Rebuild my plan: the answers on three cards, each with an Edit that jumps back to its step,
 // then "Generate my plan". Nothing is saved until the plan is generated.
 
 export default function RecreateReview() {
+  const colors = useThemeColors();
   const { draft } = useRecreateDraft();
   const or = (text: string) => (text.trim() === "" ? "—" : text);
   const range = (key: (typeof PERFORMANCE)[number]["key"]) => {
@@ -74,7 +75,7 @@ export default function RecreateReview() {
           </View>
           {card.rows.map(([name, value]) => (
             <View key={name} className="flex-row items-center justify-between py-1.5">
-              <Text className="post__time">{name}</Text>
+              <Text className="meta-text">{name}</Text>
               <Text className="card__title">{value}</Text>
             </View>
           ))}

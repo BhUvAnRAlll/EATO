@@ -4,7 +4,7 @@
 // handler, which answers 400/404 with the message and logs only safe fields.
 const express = require("express");
 
-const { ensureUser } = require("../community/members");
+const { ensureUser } = require("../auth");
 const diary = require("./diary");
 const targets = require("./targets");
 const water = require("./water");

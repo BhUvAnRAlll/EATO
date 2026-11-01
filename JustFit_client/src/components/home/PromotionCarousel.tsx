@@ -11,7 +11,7 @@ import { SymbolView } from "@/components/SymbolView";
 
 import { PromotionSlide } from "@/components/home/PromotionSlide";
 import type { Promotion } from "@/data/home";
-import { colors } from "@/theme";
+import { useThemeColors } from "@/theme";
 
 type PromotionCarouselProps = {
   promotions: Promotion[];
@@ -28,6 +28,7 @@ const SLIDE_ANIMATION_MS = 450;
 // sliding onto it we jump (without animation) to the real slide 1. A manual swipe
 // restarts the wait. Rotation pauses while the app is in the background.
 export function PromotionCarousel({ promotions, width, onOpen }: PromotionCarouselProps) {
+  const colors = useThemeColors();
   const height = Math.round(Math.min(300, Math.max(250, width * 0.62)));
   const count = promotions.length;
   const slides = count > 1 ? [...promotions, promotions[0]] : promotions;

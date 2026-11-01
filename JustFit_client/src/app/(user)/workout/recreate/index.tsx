@@ -9,11 +9,12 @@ import { RecreateField, RecreateFrame, tap } from "@/components/workout/Recreate
 import { useRecreateDraft } from "@/components/workout/RecreateDraft";
 import { BODY_TYPES, GENDERS } from "@/data/recreate";
 import { basicsErrors, type Errors } from "@/lib/recreateRules";
-import { colors } from "@/theme";
+import { useThemeColors } from "@/theme";
 
 // Rebuild my plan, step 1 of 3: gender, age, weight, height and body type
 
 export default function RecreateBasics() {
+  const colors = useThemeColors();
   const { load, draft, update, retry } = useRecreateDraft();
   const [errors, setErrors] = useState<Errors>({});
   const [tried, setTried] = useState(false);
@@ -44,7 +45,7 @@ export default function RecreateBasics() {
     >
       {load.state === "loading" ? (
         <View className="items-center py-16">
-          <ActivityIndicator color={colors.forest} />
+          <ActivityIndicator color={colors.leaf} />
         </View>
       ) : load.state === "failed" ? (
         <DashedBlock icon={{ ios: "exclamationmark.triangle.fill", android: "warning", web: "warning" }} title="Could not load your answers" text={`${load.error.replace(/\.$/, "")}. Tap to try again.`} onPress={retry} />
@@ -72,12 +73,12 @@ export default function RecreateBasics() {
                 <OptionCard key={b.value} layout="tile" label={b.label} icon={b.icon} selected={draft.bodyType === b.value} onPress={() => { tap(); set((d) => ({ ...d, bodyType: b.value })); }} />
               ))}
             </View>
-            <Text className="post__time">Only shapes the conditioning we pick. It never changes how hard you train.</Text>
+            <Text className="meta-text">Only shapes the conditioning we pick. It never changes how hard you train.</Text>
             <Pressable onPress={() => setLearnMore((v) => !v)} hitSlop={6} accessibilityRole="button" accessibilityLabel="Learn more about body type">
               <Text className="home__link">{learnMore ? "Show less" : "Learn more"}</Text>
             </Pressable>
             {learnMore && (
-              <Text className="post__time">Sets, reps and intensity come from your goal and your performance answers, not from body type.</Text>
+              <Text className="meta-text">Sets, reps and intensity come from your goal and your performance answers, not from body type.</Text>
             )}
           </RecreateField>
         </>

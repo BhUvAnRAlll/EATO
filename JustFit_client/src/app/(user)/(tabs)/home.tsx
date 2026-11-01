@@ -13,7 +13,6 @@ import { TodayMealCard } from "@/components/home/TodayMealCard";
 import { TodayRingsCard } from "@/components/home/TodayRingsCard";
 import { WeeklyActivityCard } from "@/components/home/WeeklyActivityCard";
 import { WorkoutHeroCard } from "@/components/home/WorkoutHeroCard";
-import { ActiveVisitCard } from "@/components/owner/ActiveVisitCard";
 import { usePullToRefresh } from "@/components/PullToRefresh";
 import { routeFor, sampleDeliveryPincode, sampleMeals, sampleNutrition, sampleTodayOrder } from "@/data/home";
 import { formatShortDate } from "@/lib/date";
@@ -109,7 +108,7 @@ export default function Home() {
 
   return (
     <View className="flex-1 bg-cream">
-      <StatusBar style="dark" />
+      <StatusBar style="auto" />
       <SafeAreaView style={{ flex: 1 }} edges={["top", "left", "right"]}>
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 16 }} refreshControl={refreshControl}>
           <HomeHeader
@@ -120,9 +119,6 @@ export default function Home() {
             onNotificationsPress={() => router.push("/notifications")}
             onProfilePress={() => router.push("/profile")}
           />
-
-          {/* The member's active gym session (only while checked in somewhere) */}
-          <ActiveVisitCard />
 
           {/* Today: calories, protein and water against their targets */}
           <View className="mt-4 px-4">

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Animated, Pressable, ScrollView, Switch, Text, useWindowDimensions, View } from "react-native";
+import { ScreenSkeleton } from "@/components/Skeleton";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { SymbolView } from "@/components/SymbolView";
@@ -12,8 +13,9 @@ import { usePullToRefresh } from "@/components/PullToRefresh";
 import { clockTime, hourLabel, litres, longDate, macro, todayIso, type WaterDay, type WaterEntry } from "@/lib/macro";
 import { useSessionToken } from "@/lib/session";
 import { useMacroStore } from "@/store/macro";
-import { colors, switchColors } from "@/theme";
+import { useThemeColors, useSwitchColors } from "@/theme";
 import { track } from "@/lib/analytics";
+import { haptic } from "@/lib/haptics";
 
 const GLASS_ML = 250;
 const GLASS = { width: 88, height: 152 };
@@ -25,6 +27,8 @@ const entryTitle = (entry: WaterEntry) =>
 // The day's water against an estimated target: log a glass, a bottle or any amount (today
 // only), see and remove the day's entries, and turn hydration reminders on or off
 export default function Water() {
+  const colors = useThemeColors();
+  const switchColors = useSwitchColors();
   const getToken = useSessionToken();
   const { width } = useWindowDimensions();
   // Under 375 pt the three quick tiles are narrow: a smaller amount keeps "+250 ml" on one line
@@ -60,6 +64,7 @@ export default function Water() {
     setBusy(false);
     if (!result.ok) return setError(`Could not log water. ${result.status ? result.error : "Please check your connection and try again."}`);
     track("water_logged", { source });
+    haptic.success();
     setSheetOpen(false);
     load();
   };
@@ -86,7 +91,7 @@ export default function Water() {
 
   return (
     <View className="flex-1 bg-cream">
-      <StatusBar style="dark" />
+      <StatusBar style="auto" />
       <SafeAreaView style={{ flex: 1 }}>
         <MacroHeader
           title="Water"
@@ -99,8 +104,8 @@ export default function Water() {
         />
 
         {!day ? (
-          <View className="flex-1 items-center justify-center">
-            <ActivityIndicator color={colors.forest} />
+          <View className="px-4 pt-2">
+            <ScreenSkeleton />
           </View>
         ) : (
           <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 110, gap: 16, opacity: switching ? 0.55 : 1 }} showsVerticalScrollIndicator={false} refreshControl={refreshControl}>
@@ -123,7 +128,7 @@ export default function Water() {
                 </View>
                 <View className="flex-1">
                   <Text className="card__title">Hydration reminders</Text>
-                  <Text className="post__time">
+                  <Text className="meta-text">
                     Every {day.preferences.intervalHours} hours · {hourLabel(day.preferences.startHour)} – {hourLabel(day.preferences.endHour)}
                   </Text>
                   <Text className="home__note mt-0.5">Saved now; reminders are sent once notifications arrive in a later update.</Text>
@@ -138,7 +143,7 @@ export default function Water() {
 
             <View className="flex-row items-center justify-between">
               <Text className="setup__section">{isToday ? "Today's log" : "Log"}</Text>
-              <Text className="post__time">{day.entries.length} {day.entries.length === 1 ? "entry" : "entries"}</Text>
+              <Text className="meta-text">{day.entries.length} {day.entries.length === 1 ? "entry" : "entries"}</Text>
             </View>
             {day.entries.length === 0 ? (
               <DashedBlock
@@ -149,13 +154,13 @@ export default function Water() {
             ) : (
               <View className="gap-2">
                 {day.entries.map((entry) => (
-                  <View key={entry.id} className="post__card flex-row items-center gap-3" accessibilityLabel={`${entryTitle(entry)}, ${entry.amountMl} ml at ${clockTime(entry.loggedAt)}`}>
+                  <View key={entry.id} className="list-card flex-row items-center gap-3" accessibilityLabel={`${entryTitle(entry)}, ${entry.amountMl} ml at ${clockTime(entry.loggedAt)}`}>
                     <View className="macro__thumb" style={{ backgroundColor: colors.infoSoft }}>
                       <SymbolView name={{ ios: "drop.fill", android: "water_drop", web: "water_drop" }} size={18} tintColor={colors.fat} />
                     </View>
                     <View className="flex-1">
                       <Text className="card__title">{entryTitle(entry)}</Text>
-                      <Text className="post__time">{clockTime(entry.loggedAt)}</Text>
+                      <Text className="meta-text">{clockTime(entry.loggedAt)}</Text>
                     </View>
                     <Text className="macro__kcal">{entry.amountMl} ml</Text>
                     {isToday && (
@@ -196,6 +201,7 @@ export default function Water() {
 // The glass fills to the share of the target (over 450 ms when it changes), with marks at a
 // quarter, half and three quarters. Hidden from screen readers: the numbers carry the meaning.
 function Glass({ progress, targetMl }: { progress: number; targetMl: number }) {
+  const colors = useThemeColors();
   const [fill] = useState(() => new Animated.Value(0));
   const first = useRef(true);
   useEffect(() => {
@@ -222,6 +228,7 @@ function Glass({ progress, targetMl }: { progress: number; targetMl: number }) {
 }
 
 function ProgressCard({ day, isToday }: { day: WaterDay; isToday: boolean }) {
+  const colors = useThemeColors();
   const percent = Math.round(day.progress * 100);
   const done = day.consumedMl >= day.targetMl;
   const glasses = Math.ceil(day.remainingMl / GLASS_ML);
@@ -241,7 +248,7 @@ function ProgressCard({ day, isToday }: { day: WaterDay; isToday: boolean }) {
             <View className="self-start rounded-pill px-2.5 py-1" style={{ backgroundColor: colors.infoSoft }}>
               <Text className="macro__badge" style={{ color: colors.fat }}>{percent}% of goal</Text>
             </View>
-            <Text className="post__time">{done ? "Estimated target reached" : `${litres(day.remainingMl)} L to go · about ${glasses} ${glasses === 1 ? "glass" : "glasses"}`}</Text>
+            <Text className="meta-text">{done ? "Estimated target reached" : `${litres(day.remainingMl)} L to go · about ${glasses} ${glasses === 1 ? "glass" : "glasses"}`}</Text>
           </>
         )}
         {day.workoutMinutes ? <Text className="home__note">{day.workoutMinutes} min workout · +{day.workoutAdjustmentMl} ml</Text> : null}
@@ -252,11 +259,12 @@ function ProgressCard({ day, isToday }: { day: WaterDay; isToday: boolean }) {
 }
 
 function QuickTile({ title, subtitle, quiet = false, compact, disabled, onPress }: { title: string; subtitle: string; quiet?: boolean; compact: boolean; disabled: boolean; onPress: () => void }) {
+  const colors = useThemeColors();
   return (
     <Pressable onPress={onPress} disabled={disabled} className="macro__tile items-center" style={quiet ? { backgroundColor: colors.cream } : { opacity: disabled ? 0.6 : 1 }} accessibilityRole="button" accessibilityLabel={`${title}, ${subtitle}`}>
       <SymbolView name={quiet ? { ios: "slider.horizontal.3", android: "tune", web: "tune" } : { ios: "drop.fill", android: "water_drop", web: "water_drop" }} size={18} tintColor={colors.fat} />
       <Text className="card__title mt-1.5" style={compact ? { fontSize: 14, lineHeight: 18 } : undefined} numberOfLines={1}>{title}</Text>
-      <Text className="post__time text-center" style={compact ? { fontSize: 12, lineHeight: 16 } : undefined}>{subtitle}</Text>
+      <Text className="meta-text text-center" style={compact ? { fontSize: 12, lineHeight: 16 } : undefined}>{subtitle}</Text>
     </Pressable>
   );
 }
@@ -264,11 +272,12 @@ function QuickTile({ title, subtitle, quiet = false, compact, disabled, onPress 
 // Any amount from 10 ml to 3 L: a 50 ml stepper starting at 300 ml, and quick chips. Drawn in
 // the screen's own tree, so it sits above the floating button.
 function CustomSheet({ busy, onClose, onAdd }: { busy: boolean; onClose: () => void; onAdd: (ml: number) => void }) {
+  const colors = useThemeColors();
   const [amount, setAmount] = useState(300);
   const step = (delta: number) => setAmount((current) => Math.min(3000, Math.max(10, current + delta)));
   return (
     <View className="confirm__backdrop" accessibilityViewIsModal>
-      <Pressable style={{ flex: 1 }} onPress={busy ? undefined : onClose} accessibilityLabel="Close" />
+      <Pressable style={{ flex: 1 }} onPress={busy ? undefined : onClose} accessibilityLabel="Close" accessibilityRole="button" />
       <View className="confirm__sheet gap-4">
         <Text className="setup__section text-center">Add water</Text>
         <View className="flex-row items-center justify-center gap-6">

@@ -73,11 +73,9 @@ describe("ui workout: the Fitness hub and a training day", () => {
     const pos = await page.waitFor(`(() => { const el = [...document.querySelectorAll('[aria-label]')].filter((e) => e.getClientRects().length > 0 && e.getAttribute("aria-label").startsWith(${JSON.stringify(prefix)}))[0]; if (!el) return null; el.scrollIntoView({ block: "center" }); const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`, NAV_TIMEOUT, `element labelled ${prefix}…`);
     await page.clickAt(pos.x, pos.y);
   };
-  // Workout opens from Profile (AI Coach took its tab): Home's avatar → Profile → Workout
+  // Workout is a tab again (it took Community's place on 2026-11-01)
   const openWorkout = async () => {
-    await clickLabelStarting("Profile");
-    await h.expectPath("/profile");
-    await page.clickText("Workout");
+    await clickTab("Workout");
   };
   // Back to the hub and load it fresh (the hub reloads on focus)
   const backToHub = async () => {

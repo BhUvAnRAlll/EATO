@@ -6,7 +6,7 @@ import { Ring } from "@/components/macro/Ring";
 import { statusColor } from "@/components/macro/WeekStrip";
 import { dateOf, isoOf, macro, type DayProgress } from "@/lib/macro";
 import { useSessionToken } from "@/lib/session";
-import { colors } from "@/theme";
+import { useThemeColors } from "@/theme";
 
 type MonthCalendarSheetProps = {
   visible: boolean;
@@ -33,6 +33,7 @@ export function MonthCalendarSheet(props: MonthCalendarSheetProps) {
 }
 
 function CalendarBody({ visible, selectedDate, today, onPick, onClose }: MonthCalendarSheetProps) {
+  const colors = useThemeColors();
   const getToken = useSessionToken();
   const { width } = useWindowDimensions();
   const [month, setMonth] = useState(selectedDate.slice(0, 7));
@@ -66,7 +67,7 @@ function CalendarBody({ visible, selectedDate, today, onPick, onClose }: MonthCa
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable className="verify__backdrop" onPress={onClose} accessibilityLabel="Close">
-        <Pressable className="verify__sheet gap-4" onPress={() => {}} accessibilityViewIsModal>
+        <Pressable className="verify__sheet gap-4" onPress={() => {}} accessibilityViewIsModal accessible={false}>
           <View className="flex-row items-center justify-between">
             <Text className="type-headline text-forest-ink">Jump to a day</Text>
             <Pressable onPress={onClose} hitSlop={10} accessibilityRole="button">
@@ -105,7 +106,7 @@ function CalendarBody({ visible, selectedDate, today, onPick, onClose }: MonthCa
                   accessibilityLabel={date}
                 >
                   <View className="items-center justify-center rounded-pill" style={{ width: ring + 6, height: ring + 6, backgroundColor: date === selectedDate ? colors.forestSoft : "transparent" }}>
-                    <Ring size={ring} stroke={3} progress={status === "none" ? 0 : Math.max(0.08, day?.ratio ?? 0)} color={statusColor[status]} dashed={status === "none"}>
+                    <Ring size={ring} stroke={3} progress={status === "none" ? 0 : Math.max(0.08, day?.ratio ?? 0)} color={statusColor(colors)[status]} dashed={status === "none"}>
                       <Text className="macro__ring-day" style={{ color: date === today ? colors.leaf : colors.forestInk }}>{Number(date.slice(8))}</Text>
                     </Ring>
                   </View>

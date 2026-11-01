@@ -1,8 +1,9 @@
-import { Pressable, Text, View } from "react-native";
+import { Text, View } from "react-native";
+import { PressableScale } from "@/components/PressableScale";
 
 import { SymbolView } from "@/components/SymbolView";
 import type { WeekActivity } from "@/lib/workoutApi";
-import { colors } from "@/theme";
+import { useThemeColors } from "@/theme";
 
 type WeeklyActivityCardProps = {
   activity: WeekActivity;
@@ -16,6 +17,7 @@ const BAR_AREA = 72;
 // Minutes trained on each day of this week as a bar chart, today's bar in red and the rest
 // grey, with the week's total and how it compares with last week.
 export function WeeklyActivityCard({ activity, onOpen }: WeeklyActivityCardProps) {
+  const colors = useThemeColors();
   const { week, today, totalMinutes, changePercent } = activity;
   // Bars scale to the week's longest day, but never below half an hour, so a two-minute
   // session doesn't fill the chart
@@ -24,7 +26,7 @@ export function WeeklyActivityCard({ activity, onOpen }: WeeklyActivityCardProps
   const spoken = week.map((d, i) => `${["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][i]} ${d.minutes} min`).join(", ");
 
   return (
-    <Pressable onPress={onOpen} className="home__card" accessibilityRole="button" accessibilityLabel={`Active this week: ${totalMinutes} minutes. ${change ?? ""} ${spoken}. Open workout history`}>
+    <PressableScale scaleTo={0.98} onPress={onOpen} className="home__card" accessibilityRole="button" accessibilityLabel={`Active this week: ${totalMinutes} minutes. ${change ?? ""} ${spoken}. Open workout history`}>
       <View className="flex-row items-start justify-between" style={{ gap: 8 }}>
         <View className="min-w-0 flex-1">
           <Text className="home__card-title">Active this week</Text>
@@ -60,6 +62,6 @@ export function WeeklyActivityCard({ activity, onOpen }: WeeklyActivityCardProps
           );
         })}
       </View>
-    </Pressable>
+    </PressableScale>
   );
 }

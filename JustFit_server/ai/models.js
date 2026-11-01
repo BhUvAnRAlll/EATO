@@ -3,11 +3,11 @@
 //
 // Each feature has a default model, a cap on the answer (max_output_tokens) and a cap on the
 // prompt. Environment variables override them per feature:
-//   AI_MODEL_COACH_CHAT, AI_MODEL_COACH_PLAN, AI_MODEL_COACH_MEAL, AI_MODEL_FOOD_SCAN,
-//   AI_MODEL_BODY_REPORT, AI_MODEL_GYM_ASSISTANT       the model id, as OpenAI names it
+//   AI_MODEL_COACH_CHAT, AI_MODEL_COACH_PLAN, AI_MODEL_COACH_MEAL, AI_MODEL_COACH_MEAL_OPTIONS, AI_MODEL_FOOD_SCAN,
+//   AI_MODEL_BODY_REPORT                                the model id, as OpenAI names it
 //   AI_MAX_OUTPUT_<FEATURE>                             the answer cap in tokens
-// The older OPENAI_MODEL (every app feature) and AI_MODEL (the gym assistant) still work as a
-// fallback for a server that already sets them, below the per-feature variables.
+// The older OPENAI_MODEL still works as a fallback for a server that already sets it, below the
+// per-feature variables.
 //
 // Prices live in the ai_model_prices table (ai/usage.js reads them), so a model named here must
 // have a price row or its calls are recorded at ₹0. Official list prices (developers.openai.com,
@@ -18,17 +18,16 @@
 const OpenAI = require("openai");
 
 // The defaults. gpt-4.1-mini reads photos, follows a JSON schema strictly and writes good short
-// text at a sixth of gpt-4o's price; the gym assistant keeps gpt-4o-mini, the cheapest model that
-// handles many languages well. Output caps are generous enough that a plan or a scan is never
+// text at a sixth of gpt-4o's price. Output caps are generous enough that a plan or a scan is never
 // cut short (planRules.js refuses an incomplete answer), and tight enough that a runaway answer
 // can't cost more than a few paise.
 const DEFAULTS = {
   coach_chat: { model: "gpt-4.1-mini", maxOutputTokens: 450, maxInputTokens: 6000 },
   coach_plan: { model: "gpt-4.1-mini", maxOutputTokens: 2200, maxInputTokens: 4000 },
   coach_meal: { model: "gpt-4.1-mini", maxOutputTokens: 500, maxInputTokens: 3000 },
+  coach_meal_options: { model: "gpt-4.1-mini", maxOutputTokens: 2200, maxInputTokens: 3000 }, // five options for one meal (Swap Meal); recorded as coach_meal
   food_scan: { model: "gpt-4.1-mini", maxOutputTokens: 900, maxInputTokens: 8000 },
   body_report: { model: "gpt-4.1-mini", maxOutputTokens: 1200, maxInputTokens: 12000 },
-  gym_assistant: { model: "gpt-4o-mini", maxOutputTokens: 320, maxInputTokens: 8000 },
 };
 
 const FEATURES = Object.keys(DEFAULTS);
@@ -44,7 +43,7 @@ function modelFor(feature, env = process.env) {
   if (!DEFAULTS[feature]) throw new Error(`unknown AI feature: ${feature}`);
   const own = env[`AI_MODEL_${envKey(feature)}`];
   if (typeof own === "string" && own.trim()) return own.trim();
-  const legacy = feature === "gym_assistant" ? env.AI_MODEL : env.OPENAI_MODEL;
+  const legacy = env.OPENAI_MODEL;
   if (typeof legacy === "string" && legacy.trim()) return legacy.trim();
   return DEFAULTS[feature].model;
 }

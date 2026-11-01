@@ -12,16 +12,17 @@ import { pickScanPhoto, type PhotoSource, type ScanPhoto } from "@/lib/bodyScan"
 import { loggedAtFor, macro, slotForNow, slotInfo, slots, todayIso, whole, type MealItem, type Slot } from "@/lib/macro";
 import { useSessionToken } from "@/lib/session";
 import { useMacroStore } from "@/store/macro";
-import { colors } from "@/theme";
+import { useThemeColors, Palette } from "@/theme";
 import { track } from "@/lib/analytics";
+import { haptic } from "@/lib/haptics";
 
-const macroFields = [
+const macroFields = (colors: Palette) => ([
   { key: "kcal", label: "kcal", color: colors.danger },
   { key: "proteinG", label: "Protein", color: colors.protein },
   { key: "carbsG", label: "Carbs", color: colors.carbs },
   { key: "fatG", label: "Fat", color: colors.fat },
-] as const;
-type MacroKey = (typeof macroFields)[number]["key"];
+] as const);
+type MacroKey = (ReturnType<typeof macroFields>)[number]["key"];
 
 // Digits and one decimal point only, at most 6 characters
 const numeric = (text: string) => text.replace(/[^\d.]/g, "").replace(/(\..*)\./g, "$1").slice(0, 6);
@@ -33,6 +34,7 @@ const num = (text: string) => (text.trim() === "" ? 0 : Number(text));
 // Logging by photo: pick or take a photo, the server asks OpenAI for an estimate of each
 // food on the plate, the member checks the numbers, and the meal is saved like a manual one.
 export default function ScanFood() {
+  const colors = useThemeColors();
   const params = useLocalSearchParams<{ slot?: string; hour?: string; minute?: string }>();
   const getToken = useSessionToken();
   const selectedDate = useMacroStore((state) => state.selectedDate);
@@ -98,16 +100,18 @@ export default function ScanFood() {
     setSaving(false);
     if (!result.ok) return setError(result.status ? result.error : "Could not save that meal.");
     track("meal_logged", { source: "scan" });
+    haptic.success();
     router.dismissTo("/macro"); // the Macro tab reloads the day when it comes back into view
   };
 
   return (
     <View className="flex-1 bg-cream">
-      <StatusBar style="dark" />
+      <StatusBar style="auto" />
       <SafeAreaView style={{ flex: 1 }}>
         <MacroHeader title="Scan food" />
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-          <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24, gap: 16 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+          <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24, gap: 16 }} keyboardShouldPersistTaps="handled"
+            keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"} showsVerticalScrollIndicator={false}>
             {photo ? (
               <Image source={{ uri: photo.previewUri }} contentFit="cover" style={{ width: "100%", height: 220, borderRadius: 20 }} accessibilityLabel="Your food photo" />
             ) : (
@@ -152,14 +156,14 @@ export default function ScanFood() {
                       <View className="flex-row items-center gap-3">
                         <View className="min-w-0 flex-1">
                           <Text className="card__title" numberOfLines={1}>{row.name}</Text>
-                          <Text className="post__time">{row.quantity} {row.unit}</Text>
+                          <Text className="meta-text">{row.quantity} {row.unit}</Text>
                         </View>
                         <Pressable onPress={() => removeRow(index)} hitSlop={10} accessibilityRole="button" accessibilityLabel={`Remove ${row.name}`}>
                           <SymbolView name={{ ios: "trash", android: "delete", web: "delete" }} size={18} tintColor={colors.muted} />
                         </Pressable>
                       </View>
                       <View className="flex-row flex-wrap gap-2">
-                        {macroFields.map((m) => (
+                        {macroFields(colors).map((m) => (
                           <View key={m.key} className="macro__macro-box basis-2/5">
                             <View className="flex-row items-center gap-1.5">
                               <View className="h-2 w-2 rounded-pill" style={{ backgroundColor: m.color }} />

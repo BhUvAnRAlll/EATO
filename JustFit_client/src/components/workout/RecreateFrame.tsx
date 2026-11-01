@@ -7,7 +7,7 @@ import { router } from "expo-router";
 import * as Haptics from "expo-haptics";
 import Animated, { FadeInDown, ReduceMotion } from "react-native-reanimated";
 
-import { colors } from "@/theme";
+import { useThemeColors } from "@/theme";
 
 // The shell every "Rebuild my plan" step sits in: a bar (back, a three-node stepper, close), a
 // heading block, the step's fields in a keyboard-aware scroll view, and a footer.
@@ -40,6 +40,7 @@ type FrameProps = {
 };
 
 export function RecreateFrame({ step, title, subtitle, aside, notice, children, primaryLabel, onPrimary, primaryDisabled = false, busy = false, secondary, footnote }: FrameProps) {
+  const colors = useThemeColors();
   // A full-screen modal may report no top inset, so it is applied by hand
   const insets = useSafeAreaInsets();
   // On narrow phones the stepper keeps its numbered nodes and drops the short names
@@ -48,7 +49,7 @@ export function RecreateFrame({ step, title, subtitle, aside, notice, children, 
   const back = () => (router.canGoBack() ? router.back() : leaveRecreate());
   return (
     <View className="flex-1 bg-cream" style={{ paddingTop: insets.top + 8 }}>
-      <StatusBar style="dark" />
+      <StatusBar style="auto" />
       <View className="flex-row items-center gap-3 px-5">
         <RoundButton icon={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} label="Back" onPress={back} />
         <View className="flex-1 flex-row items-center justify-center gap-1.5" accessibilityLabel={step === "review" ? "Review" : `Step ${step} of 3`}>
@@ -74,7 +75,8 @@ export function RecreateFrame({ step, title, subtitle, aside, notice, children, 
       </View>
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 24, gap: 18 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 24, gap: 18 }} keyboardShouldPersistTaps="handled"
+            keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"} showsVerticalScrollIndicator={false}>
           <View className="gap-1.5">
             <Text className="type-overline text-muted">{step === "review" ? "Review & create" : `Step ${step} of 3`}</Text>
             <Text className="type-title text-forest-ink">{title}</Text>
@@ -83,7 +85,7 @@ export function RecreateFrame({ step, title, subtitle, aside, notice, children, 
           {aside && (
             <View className="home__card gap-0.5">
               <Text className="card__title">{aside.title}</Text>
-              <Text className="post__time">{aside.text}</Text>
+              <Text className="meta-text">{aside.text}</Text>
             </View>
           )}
           {notice && (
@@ -122,11 +124,12 @@ export function RecreateFrame({ step, title, subtitle, aside, notice, children, 
 // One question: its label, the answer control, and an error once a Continue has failed. The
 // groups fade in one after another (about 60 ms apart), unless the phone asks for less motion.
 export function RecreateField({ index, label, hint, error, children }: { index: number; label: string; hint?: string; error?: string; children: ReactNode }) {
+  const colors = useThemeColors();
   return (
     <Animated.View entering={FadeInDown.delay(index * 60).duration(250).reduceMotion(ReduceMotion.System)} className="gap-2">
       <View className="flex-row items-baseline justify-between gap-3">
         <Text className="setup__section">{label}</Text>
-        {hint && <Text className="post__time">{hint}</Text>}
+        {hint && <Text className="meta-text">{hint}</Text>}
       </View>
       {children}
       {error && (
@@ -139,6 +142,7 @@ export function RecreateField({ index, label, hint, error, children }: { index: 
 }
 
 export function RoundButton({ icon, label, onPress }: { icon: React.ComponentProps<typeof SymbolView>["name"]; label: string; onPress: () => void }) {
+  const colors = useThemeColors();
   return (
     <Pressable onPress={onPress} hitSlop={8} className="h-11 w-11 items-center justify-center rounded-full bg-surface" accessibilityRole="button" accessibilityLabel={label}>
       <SymbolView name={icon} size={16} tintColor={colors.forestInk} />

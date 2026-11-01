@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Text, View } from "react-native";
+import { PressableScale } from "@/components/PressableScale";
 
 import { IconButton } from "@/components/IconButton";
 import { ProgressRing } from "@/components/ProgressRing";
@@ -24,7 +25,7 @@ type ActivityCardProps = {
 export function ActivityCard({ title, metric, meta, progress, compact = false, onPress, accessibilityLabel, children }: ActivityCardProps) {
   const ringSize = compact ? 72 : 84;
   return (
-    <Pressable onPress={onPress} className="activity-card" accessibilityRole="button" accessibilityLabel={accessibilityLabel}>
+    <PressableScale scaleTo={0.98} onPress={onPress} className="activity-card" accessibilityRole="button" accessibilityLabel={accessibilityLabel}>
       <View className="activity-card__hero">
         <View className="flex-1">
           <Text className="activity-card__title" numberOfLines={1}>
@@ -43,6 +44,6 @@ export function ActivityCard({ title, metric, meta, progress, compact = false, o
         </ProgressRing>
       </View>
       {children ? <View className="gap-2 px-2 pt-3">{children}</View> : null}
-    </Pressable>
+    </PressableScale>
   );
 }

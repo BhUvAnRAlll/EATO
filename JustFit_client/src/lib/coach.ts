@@ -43,6 +43,14 @@ export type CoachPlan = {
   meals: PlanMeal[];
   totals: Totals;
 };
+// Swap Meal: one dish the coach offers in a meal's place (POST /plan/meals/:id/options), or the
+// "previous" snapshot a replacement left behind, which is what Undo puts back
+export type MealOption = { id: string; kind: "suggestion" | "previous"; name: string; description: string | null; note: string | null; items: PlanItem[]; totals: Totals };
+// How the member can steer the options (the chips on the Swap Meal screen)
+export type MealPreference = "lighter" | "more_protein" | "different_cuisine" | "quick";
+// `remaining`: what the diary says is left of the day; `targetKcal`: what each option aims for
+export type MealOptions = { mealId: string; remaining: Totals; targetKcal: number; preference: MealPreference | null; options: MealOption[] };
+export type MealReplaced = PlanState & { mealId: string; undoId: string; replaced: { name: string; totals: Totals }; name: string; totals: Totals };
 export type PlanWorkout = { level: string; daysPerWeek: number; sessions: { weekday: number; title: string; minutes: number; exerciseCount: number }[] };
 export type PlanState = { state: "none" | "ready"; plan: CoachPlan | null; workout: PlanWorkout | null };
 
@@ -83,6 +91,18 @@ export const coachApi = {
   swapMeal(token: string | null, mealId: string, date: string): Promise<ApiResult<PlanState & { mealId: string }>> {
     if (!token) return signedOut();
     return apiFetch(`/api/coach/plan/meals/${encodeURIComponent(mealId)}/swap`, { method: "POST", body: { date }, token });
+  },
+  // Five dishes the member could have instead of a plan meal, made for them and for what's left of `date`,
+  // steered by `preference` when they picked a chip (one small AI call)
+  mealOptions(token: string | null, mealId: string, date: string, preference: MealPreference | null = null): Promise<ApiResult<MealOptions>> {
+    if (!token) return signedOut();
+    return apiFetch(`/api/coach/plan/meals/${encodeURIComponent(mealId)}/options`, { method: "POST", body: { date, ...(preference ? { preference } : {}) }, token });
+  },
+  // Puts one of those options (or an undo snapshot) in the meal's place, with the member's portions when they
+  // edited them (one per food, 0 leaves it out); answers the plan with its new totals and an undoId
+  replaceMeal(token: string | null, mealId: string, date: string, optionId: string, quantities: number[] | null = null): Promise<ApiResult<MealReplaced>> {
+    if (!token) return signedOut();
+    return apiFetch(`/api/coach/plan/meals/${encodeURIComponent(mealId)}/replace`, { method: "POST", body: { date, optionId, ...(quantities ? { quantities } : {}) }, token });
   },
   // Logs a plan meal to the Macro diary for today, once (a repeat answers alreadyLogged)
   logMeal(token: string | null, mealId: string, date: string): Promise<ApiResult<{ mealId: string; logId: string; alreadyLogged: boolean }>> {

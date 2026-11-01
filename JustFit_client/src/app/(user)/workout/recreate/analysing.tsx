@@ -12,7 +12,7 @@ import { todayIso } from "@/lib/macro";
 import { toAnswers } from "@/lib/recreateRules";
 import { useSessionToken } from "@/lib/session";
 import { workoutApi } from "@/lib/workoutApi";
-import { colors } from "@/theme";
+import { useThemeColors } from "@/theme";
 
 // Rebuild my plan: "Creating your plan". The stages are paced (about 650 ms each) against the
 // real save: the screen walks through stage five, waits for the server, then ticks the last
@@ -30,6 +30,7 @@ const STAGES = [
 const STAGE_MS = 650;
 
 export default function RecreateAnalysing() {
+  const colors = useThemeColors();
   const insets = useSafeAreaInsets();
   const getToken = useSessionToken();
   const { draft } = useRecreateDraft();
@@ -67,7 +68,7 @@ export default function RecreateAnalysing() {
 
   return (
     <View className="flex-1 bg-cream" style={{ paddingTop: insets.top + 8, paddingBottom: Math.max(insets.bottom, 16) }}>
-      <StatusBar style="dark" />
+      <StatusBar style="auto" />
       <View className="flex-row justify-end px-5">
         <RoundButton icon={{ ios: "xmark", android: "close", web: "close" }} label="Close" onPress={leaveRecreate} />
       </View>
@@ -91,9 +92,9 @@ export default function RecreateAnalysing() {
                     </View>
                     <View className="min-w-0 flex-1">
                       <Text className="card__title" style={{ opacity: complete || running ? 1 : 0.45 }}>{title}</Text>
-                      <Text className="post__time" numberOfLines={1}>{text}</Text>
+                      <Text className="meta-text" numberOfLines={1}>{text}</Text>
                     </View>
-                    {(complete || running) && <Text className="post__time">{complete ? "Completed" : "In progress"}</Text>}
+                    {(complete || running) && <Text className="meta-text">{complete ? "Completed" : "In progress"}</Text>}
                   </View>
                 );
               })}
@@ -102,11 +103,11 @@ export default function RecreateAnalysing() {
               <View className="h-2 overflow-hidden rounded-full bg-cream-tab">
                 <View className="h-2 rounded-full" style={{ width: `${percent}%`, backgroundColor: colors.leaf }} />
               </View>
-              <Text className="post__time text-right">{`${percent}%`}</Text>
+              <Text className="meta-text text-right">{`${percent}%`}</Text>
             </View>
             <View className="home__card gap-0.5">
               <Text className="card__title">· Good things take a moment</Text>
-              <Text className="post__time">A better, stronger you is on the way.</Text>
+              <Text className="meta-text">A better, stronger you is on the way.</Text>
             </View>
             <View className="flex-row justify-center gap-2">
               {["Personalized", "Balanced", "Effective"].map((chip) => (
@@ -131,6 +132,7 @@ export default function RecreateAnalysing() {
 
 // A 140 pt ring with a turning arc and a pulsing dumbbell; red and still when it failed
 function Ring({ failed }: { failed: boolean }) {
+  const colors = useThemeColors();
   const turn = useSharedValue(0);
   const pulse = useSharedValue(1);
   useEffect(() => {

@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, useWindowDimensions, View } from "react-native";
+import { ScreenSkeleton } from "@/components/Skeleton";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { SymbolView } from "@/components/SymbolView";
@@ -13,11 +14,12 @@ import { usePullToRefresh } from "@/components/PullToRefresh";
 import { loggedAtFor, macro, slotForNow, slotInfo, slots, todayIso, type Favorite, type Slot } from "@/lib/macro";
 import { useSessionToken } from "@/lib/session";
 import { useMacroStore } from "@/store/macro";
-import { colors } from "@/theme";
+import { useThemeColors } from "@/theme";
 
 // Pick a food hearted earlier and log it in one tap. Reached through Add meal → Log food (the
 // slot and time come along) or opened directly, when it asks for the slot itself.
 export default function Favorites() {
+  const colors = useThemeColors();
   const params = useLocalSearchParams<{ slot?: string; hour?: string; minute?: string }>();
   const getToken = useSessionToken();
   const { width } = useWindowDimensions();
@@ -75,13 +77,19 @@ export default function Favorites() {
 
   return (
     <View className="flex-1 bg-cream">
-      <StatusBar style="dark" />
+      <StatusBar style="auto" />
       <SafeAreaView style={{ flex: 1 }}>
         <MacroHeader title="Favourites" />
         {favorites === null ? (
-          <View className="flex-1 items-center justify-center">
-            {error ? <Text className="macro__error px-5 text-center" accessibilityRole="alert">{error}</Text> : <ActivityIndicator color={colors.forest} />}
-          </View>
+          error ? (
+            <View className="flex-1 items-center justify-center">
+              <Text className="macro__error px-5 text-center" accessibilityRole="alert">{error}</Text>
+            </View>
+          ) : (
+            <View className="px-4 pt-2">
+              <ScreenSkeleton />
+            </View>
+          )
         ) : (
           <>
             <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24, gap: 16 }} showsVerticalScrollIndicator={false} refreshControl={refreshControl}>

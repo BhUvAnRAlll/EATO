@@ -81,7 +81,7 @@
 
 /* Button: <Pressable className="btn btn--primary"><Text className="btn__label btn__label--primary" /> */
 @utility btn {
-  height: var(--spacing-control-md);
+  min-height: var(--spacing-control-md);
   padding-inline: var(--spacing-xl);
   border-radius: var(--radius-pill);
   align-items: center;
@@ -90,11 +90,11 @@
 }
 
 @utility btn--sm {
-  height: var(--spacing-control-sm);
+  min-height: var(--spacing-control-sm);
 }
 
 @utility btn--lg {
-  height: var(--spacing-control-lg);
+  min-height: var(--spacing-control-lg);
 }
 
 @utility btn--primary {
@@ -236,7 +236,7 @@
 }
 
 @utility onboarding__button {
-  height: 54px;
+  min-height: 54px;
   border-radius: var(--radius-pill);
   background-color: var(--color-forest);
   flex-direction: row;
@@ -302,7 +302,7 @@
 
 /* Forest-green pill button: <Pressable className="btn-forest"><Text className="btn-forest__label" /> */
 @utility btn-forest {
-  height: var(--spacing-control-lg);
+  min-height: var(--spacing-control-lg);
   padding-inline: var(--spacing-xl);
   border-radius: var(--radius-pill);
   background-color: var(--color-forest);
@@ -413,7 +413,7 @@
 
 @utility auth__note-link {
   font-family: var(--font-sans-semibold);
-  color: var(--color-forest);
+  color: var(--color-leaf);
 }
 
 /* "Forgot password?" */
@@ -466,7 +466,7 @@
 
 @utility auth__footer-link {
   font-family: var(--font-sans-semibold);
-  color: var(--color-forest);
+  color: var(--color-leaf);
 }
 
 /* Slogan at the top of the log in card */
@@ -474,7 +474,7 @@
   font-family: var(--font-sans-semibold);
   font-size: 23px;
   line-height: 28px;
-  color: var(--color-forest);
+  color: var(--color-leaf);
 }
 
 /* Log in form card that overlaps the food art */
@@ -703,7 +703,7 @@
 
 /* Chip / segment: <Pressable className="setup__chip setup__chip--selected"><Text className="setup__chip-label …" /> */
 @utility setup__chip {
-  height: 38px;
+  min-height: 38px;
   padding-inline: 16px;
   border-radius: var(--radius-pill);
   border-width: 1px;
@@ -740,7 +740,7 @@
 
 /* Outline pill (Back) next to the forest Next button */
 @utility btn-outline {
-  height: var(--spacing-control-lg);
+  min-height: var(--spacing-control-lg);
   padding-inline: var(--spacing-xl);
   border-radius: var(--radius-pill);
   border-width: 1px;
@@ -844,7 +844,7 @@
 }
 
 @utility upload__button {
-  height: 42px;
+  min-height: 42px;
   align-self: stretch;
   border-radius: var(--radius-pill);
   background-color: var(--color-forest);
@@ -899,7 +899,7 @@
 
 /* Home screen: header pill and bell */
 @utility home__pill {
-  height: 34px;
+  min-height: 34px;
   padding-inline: 12px;
   border-radius: var(--radius-pill);
   background-color: var(--color-surface-alt);
@@ -921,7 +921,7 @@
   border-radius: var(--radius-pill);
   border-width: 1px;
   border-color: var(--color-line-strong);
-  background-color: var(--color-white);
+  background-color: var(--color-surface);
   align-items: center;
   justify-content: center;
 }
@@ -981,7 +981,7 @@
 }
 
 @utility home__cta {
-  height: 46px;
+  min-height: 46px;
   padding-inline: 22px;
   border-radius: var(--radius-pill);
   background-color: var(--color-forest);
@@ -1032,7 +1032,7 @@
 @utility home__card {
   padding: var(--spacing-lg);
   border-radius: var(--radius-lg);
-  background-color: var(--color-white);
+  background-color: var(--color-surface);
   box-shadow: var(--shadow-card);
 }
 
@@ -1104,7 +1104,7 @@
 /* Popular meal card */
 @utility meal__card {
   border-radius: var(--radius-lg);
-  background-color: var(--color-white);
+  background-color: var(--color-surface);
   box-shadow: var(--shadow-card);
   overflow: hidden;
 }
@@ -1155,7 +1155,7 @@
 @utility today__card {
   padding: var(--spacing-md);
   border-radius: var(--radius-lg);
-  background-color: var(--color-white);
+  background-color: var(--color-surface);
   box-shadow: var(--shadow-card);
 }
 
@@ -1195,7 +1195,7 @@
   height: 38px;
   padding-inline: 14px;
   border-radius: 12px;
-  background-color: var(--color-ink);
+  background-color: var(--color-ink-fill);
   align-items: center;
   justify-content: center;
 }
@@ -1303,12 +1303,12 @@
 @utility admin__row {
   padding: var(--spacing-md);
   border-radius: var(--radius-md);
-  background-color: var(--color-white);
+  background-color: var(--color-surface);
   box-shadow: var(--shadow-card);
 }
 
 @utility admin__action {
-  height: 36px;
+  min-height: 36px;
   padding-inline: 12px;
   border-radius: var(--radius-pill);
   border-width: 1px;
@@ -1387,7 +1387,7 @@
   padding-inline: var(--spacing-md);
   padding-block: 10px;
   border-radius: var(--radius-md);
-  background-color: var(--color-white);
+  background-color: var(--color-surface);
   box-shadow: var(--shadow-card);
   flex-direction: row;
   align-items: center;
@@ -1434,7 +1434,7 @@
   border-radius: 9px;
   border-width: 1px;
   border-color: var(--color-cream-line);
-  background-color: var(--color-white);
+  background-color: var(--color-surface);
   align-items: center;
   justify-content: center;
 }
@@ -1473,7 +1473,7 @@
   border-radius: var(--radius-lg);
   border-width: 1px;
   border-color: var(--color-cream-line);
-  background-color: var(--color-white);
+  background-color: var(--color-surface);
   box-shadow: var(--shadow-card);
 }
 
@@ -1531,353 +1531,30 @@
   padding-inline: 8px;
   padding-block: 6px;
   border-radius: 12px;
-  background-color: var(--color-white);
-  box-shadow: var(--shadow-card);
-  align-items: center;
-}
-
-/* Community: header, segmented tabs, stories, posts, groups, messages */
-@utility community__kicker {
-  font-family: var(--font-sans-semibold);
-  font-size: 11px;
-  line-height: 14px;
-  letter-spacing: 1.6px;
-  text-transform: uppercase;
-  color: var(--color-muted);
-}
-
-@utility community__title {
-  font-family: var(--font-sans-semibold);
-  font-size: 24px;
-  line-height: 32px;
-  color: var(--color-ink);
-}
-
-@utility community__badge {
-  position: absolute;
-  top: -4px;
-  right: -4px;
-  min-width: 20px;
-  height: 20px;
-  padding-inline: 5px;
-  border-radius: var(--radius-pill);
-  background-color: var(--color-danger);
-  align-items: center;
-  justify-content: center;
-}
-
-@utility community__badge-label {
-  font-family: var(--font-sans-semibold);
-  font-size: 11px;
-  line-height: 14px;
-  color: var(--color-white);
-}
-
-/* Segmented switch (the gym screen's Feed / Members / Events / About; the auth tabs, a little taller) */
-@utility segment {
-  height: 44px;
-  flex-direction: row;
-  gap: var(--spacing-sm);
-}
-
-@utility segment__item {
-  flex: 1;
-  border-radius: var(--radius-md);
-  border-width: 1px;
-  border-color: var(--color-line);
   background-color: var(--color-surface);
-  align-items: center;
-  justify-content: center;
-  padding-inline: 6px;
-}
-
-@utility segment__item--active {
-  border-width: 1.5px;
-  border-color: var(--color-accent-blue);
-}
-
-@utility segment__label {
-  font-family: var(--font-sans);
-  font-size: 14px;
-  line-height: 20px;
-  color: var(--color-muted);
-}
-
-@utility segment__label--active {
-  font-family: var(--font-sans-semibold);
-  color: var(--color-ink);
-}
-
-/* Stories row */
-@utility story__ring {
-  width: 66px;
-  height: 66px;
-  border-radius: var(--radius-pill);
-  border-width: 2px;
-  border-color: transparent;
-  align-items: center;
-  justify-content: center;
-}
-
-@utility story__ring--new {
-  border-color: var(--color-primary);
-}
-
-@utility story__add {
-  position: absolute;
-  right: -2px;
-  bottom: -2px;
-  width: 24px;
-  height: 24px;
-  border-radius: var(--radius-pill);
-  border-width: 2px;
-  border-color: var(--color-cream);
-  background-color: var(--color-ink);
-  align-items: center;
-  justify-content: center;
-}
-
-@utility story__name {
-  font-family: var(--font-sans-medium);
-  font-size: 13px;
-  line-height: 16px;
-  color: var(--color-ink-soft);
-  max-width: 72px;
-  text-align: center;
-}
-
-/* Community header icons (notifications, messages): a bare icon in a 44px touch target, with community__badge */
-@utility community__icon-button {
-  width: 44px;
-  height: 44px;
-  border-radius: var(--radius-pill);
-  border-width: 1px;
-  border-color: var(--color-line-strong);
-  background-color: var(--color-surface);
-  align-items: center;
-  justify-content: center;
-}
-/* Community section tabs: text labels with an ink underline on the active one (Feed, Friends, Gyms) */
-@utility section-tabs {
-  flex-direction: row;
-  gap: 22px;
-  border-bottom-width: 1px;
-  border-color: var(--color-cream-line);
-}
-
-@utility section-tabs__item {
-  padding-top: 6px;
-  padding-bottom: 10px;
-  border-bottom-width: 2px;
-  border-color: transparent;
-  margin-bottom: -1px;
-}
-
-@utility section-tabs__item--active {
-  border-color: var(--color-primary);
-}
-
-@utility section-tabs__label {
-  font-family: var(--font-sans-medium);
-  font-size: 15px;
-  line-height: 20px;
-  color: var(--color-muted);
-}
-
-@utility section-tabs__label--active {
-  font-family: var(--font-sans-semibold);
-  color: var(--color-ink);
-}
-
-/* Quick post on the feed: caption, divider, then photo, Create Post, audience and Post */
-@utility quick-post {
-  padding: 14px;
-  padding-bottom: 12px;
-  border-radius: 20px;
-  border-width: 1px;
-  border-color: var(--color-cream-line);
-  background-color: var(--color-white);
   box-shadow: var(--shadow-card);
-}
-
-@utility quick-post__divider {
-  height: 1px;
-  margin-top: 6px;
-  margin-bottom: 8px;
-  background-color: var(--color-cream-line);
-}
-
-@utility quick-post__tool {
-  width: 36px;
-  height: 40px;
   align-items: center;
-  justify-content: center;
 }
 
-/* Shrinks (its label truncates) so Post always fits on a 320px screen */
-@utility quick-post__audience {
-  flex-shrink: 1;
-  min-width: 0;
-  height: 30px;
-  padding-inline: 10px;
-  border-radius: var(--radius-pill);
-  border-width: 1px;
-  border-color: var(--color-cream-line);
-  flex-direction: row;
-  align-items: center;
-  gap: 6px;
-}
-
-@utility quick-post__audience-label {
-  flex-shrink: 1;
-  font-family: var(--font-sans-semibold);
-  font-size: 13px;
-  line-height: 16px;
-  color: var(--color-ink);
-}
-
-@utility quick-post__submit {
-  flex-shrink: 0;
-  min-width: 56px;
-  height: 34px;
-  margin-left: 8px;
-  padding-inline: 14px;
-  border-radius: var(--radius-pill);
-  background-color: var(--color-ink);
-  align-items: center;
-  justify-content: center;
-}
-
-@utility quick-post__submit--disabled {
-  background-color: var(--color-faint);
-}
-
-@utility quick-post__submit-label {
-  font-family: var(--font-sans-semibold);
-  font-size: 15px;
-  line-height: 18px;
-  color: var(--color-white);
-}
-
-/* Composer row: avatar, prompt, image button */
-@utility composer {
-  height: 64px;
-  padding-inline: 12px;
-  border-radius: 20px;
-  border-width: 1px;
-  border-color: var(--color-cream-line);
-  background-color: var(--color-white);
-  box-shadow: var(--shadow-card);
-  flex-direction: row;
-  align-items: center;
-  gap: 12px;
-}
-
-@utility composer__prompt {
-  flex: 1;
-  font-family: var(--font-sans);
-  font-size: 16px;
-  line-height: 20px;
-  color: var(--color-muted);
-}
-
-@utility composer__image {
-  width: 44px;
-  height: 44px;
-  border-radius: var(--radius-pill);
-  background-color: var(--color-primary);
-  align-items: center;
-  justify-content: center;
-}
-
-/* Post card */
-@utility post__card {
+/* A bordered card in a list (water entries) */
+@utility list-card {
   padding: var(--spacing-lg);
   border-radius: 20px;
   border-width: 1px;
   border-color: var(--color-cream-line);
-  background-color: var(--color-white);
+  background-color: var(--color-surface);
   box-shadow: var(--shadow-card);
 }
 
-/* Gym screen header: cover, logo, name and membership tools in one card (like post__card, edge to edge) */
-@utility gym__header {
-  overflow: hidden;
-  border-radius: 20px;
-  border-width: 1px;
-  border-color: var(--color-cream-line);
-  background-color: var(--color-white);
-  box-shadow: var(--shadow-card);
-}
-
-@utility post__author {
-  font-family: var(--font-sans-semibold);
-  font-size: 16px;
-  line-height: 20px;
-  color: var(--color-ink);
-}
-
-@utility post__time {
+/* Small muted text under a row's title (times, details) */
+@utility meta-text {
   font-family: var(--font-sans);
   font-size: 13px;
   line-height: 17px;
   color: var(--color-muted);
 }
 
-@utility post__body {
-  font-family: var(--font-sans);
-  font-size: 15px;
-  line-height: 22px;
-  color: var(--color-ink);
-}
-
-@utility post__count {
-  font-family: var(--font-sans-semibold);
-  font-size: 14px;
-  line-height: 18px;
-  color: var(--color-ink-soft);
-}
-
-@utility post__tag {
-  height: 24px;
-  padding-inline: 10px;
-  border-radius: var(--radius-pill);
-  align-items: center;
-  justify-content: center;
-  background-color: var(--color-cream-tab);
-}
-
-@utility post__tag-label {
-  font-family: var(--font-sans-semibold);
-  font-size: 11px;
-  line-height: 14px;
-  letter-spacing: 1px;
-  color: var(--color-ink-soft);
-}
-
-@utility post__tag--meal {
-  background-color: var(--color-leaf-soft);
-}
-
-@utility post__tag--progress {
-  background-color: var(--color-accent-soft);
-}
-
-@utility post__tag--achievement {
-  background-color: var(--color-accent-soft);
-}
-
-/* Category chips on the compose screen reuse setup__chip */
-
-/* Comment row */
-@utility comment__body {
-  font-family: var(--font-sans);
-  font-size: 15px;
-  line-height: 21px;
-  color: var(--color-ink);
-}
-
-/* Screen bar: back chevron, centred title, hairline below (Post detail) */
+/* Screen bar: back chevron, centred title, hairline below */
 @utility screen-bar {
   height: 56px;
   padding-inline: var(--spacing-lg);
@@ -1906,141 +1583,6 @@
   color: var(--color-ink);
 }
 
-/* Post detail comments: "Comments (n)", then a white bubble per comment beside the avatar */
-@utility comments__heading {
-  font-family: var(--font-sans-semibold);
-  font-size: 16px;
-  line-height: 20px;
-  color: var(--color-ink);
-}
-
-@utility comment__bubble {
-  flex: 1;
-  min-width: 0;
-  padding-inline: 13px;
-  padding-block: 9px;
-  border-radius: 16px;
-  border-width: 1px;
-  border-color: var(--color-cream-line);
-  background-color: var(--color-white);
-}
-
-@utility comment__meta {
-  font-family: var(--font-sans);
-  font-size: 12px;
-  line-height: 18px;
-  color: var(--color-faint);
-}
-
-@utility comment__author {
-  font-size: 14px;
-  font-family: var(--font-sans-semibold);
-  color: var(--color-ink);
-}
-
-/* Comment box on Post detail: your avatar, a pill field and a round send button */
-@utility comment-bar {
-  flex-direction: row;
-  align-items: center;
-  gap: 10px;
-  padding-inline: 20px;
-  padding-block: 10px;
-  border-top-width: 1px;
-  border-color: var(--color-cream-line);
-  background-color: var(--color-cream);
-}
-
-@utility comment-bar__input {
-  flex: 1;
-  min-width: 0;
-  min-height: 42px;
-  max-height: 120px;
-  padding-inline: 16px;
-  padding-top: 11px;
-  padding-bottom: 11px;
-  border-radius: 21px;
-  border-width: 1px;
-  border-color: var(--color-cream-line);
-  background-color: var(--color-white);
-  font-family: var(--font-sans);
-  font-size: 15px;
-  line-height: 20px;
-  color: var(--color-ink);
-}
-
-@utility comment-bar__send {
-  width: 40px;
-  height: 40px;
-  border-radius: var(--radius-pill);
-  background-color: var(--color-ink);
-  align-items: center;
-  justify-content: center;
-}
-
-@utility comment-bar__send--disabled {
-  background-color: var(--color-faint);
-}
-
-/* Text box at the bottom of comments and conversations */
-@utility reply {
-  min-height: 48px;
-  max-height: 120px;
-  flex: 1;
-  padding-inline: 16px;
-  padding-block: 12px;
-  border-radius: 24px;
-  border-width: 1px;
-  border-color: var(--color-cream-line);
-  background-color: var(--color-white);
-  font-family: var(--font-sans);
-  font-size: 15px;
-  line-height: 20px;
-  color: var(--color-ink);
-}
-
-@utility reply__send {
-  width: 48px;
-  height: 48px;
-  border-radius: var(--radius-pill);
-  background-color: var(--color-forest);
-  align-items: center;
-  justify-content: center;
-}
-
-/* Groups */
-@utility group__tile {
-  width: 52px;
-  height: 52px;
-  border-radius: 14px;
-  background-color: var(--color-leaf-soft);
-  align-items: center;
-  justify-content: center;
-}
-
-@utility group__join {
-  height: 36px;
-  padding-inline: 16px;
-  border-radius: var(--radius-pill);
-  background-color: var(--color-forest);
-  align-items: center;
-  justify-content: center;
-}
-
-@utility group__join--joined {
-  background-color: var(--color-forest-soft);
-}
-
-@utility group__join-label {
-  font-family: var(--font-sans-semibold);
-  font-size: 14px;
-  line-height: 18px;
-  color: var(--color-white);
-}
-
-@utility group__join-label--joined {
-  color: var(--color-forest);
-}
-
 @utility search {
   height: 48px;
   padding-inline: var(--spacing-lg);
@@ -2051,727 +1593,15 @@
   gap: 10px;
 }
 
-/* Gyms tab and Explore: gym cards (cover, logo over its edge), badges, invitation banners */
-@utility gym-card {
-  overflow: hidden;
-  border-radius: 20px;
-  border-width: 1px;
-  border-color: var(--color-cream-line);
-  background-color: var(--color-white);
-  box-shadow: var(--shadow-card);
-}
-
-@utility gym-cover {
-  width: 100%;
-  background-color: var(--color-cream-deep);
-  align-items: center;
-  justify-content: center;
-}
-
-@utility gym-card__logo {
-  margin-top: -26px;
-  border-radius: 16px;
-  border-width: 3px;
-  border-color: var(--color-white);
-  background-color: var(--color-white);
-}
-
-@utility gym-card__logo--small {
-  margin-top: -20px;
-  align-self: flex-start;
-  border-radius: 12px;
-}
-
-@utility gym-logo {
-  background-color: var(--color-leaf);
-  align-items: center;
-  justify-content: center;
-}
-
-@utility gym-logo__initials {
-  font-family: var(--font-sans-semibold);
-  color: var(--color-white);
-}
-
-@utility gym-card__name {
-  font-family: var(--font-sans-semibold);
-  font-size: 17px;
-  line-height: 22px;
-  color: var(--color-ink);
-}
-
-@utility gym-card__meta {
+/* A line under the screen bar's title (an account's kind) */
+@utility screen-bar__subtitle {
   font-family: var(--font-sans);
   font-size: 13px;
   line-height: 17px;
   color: var(--color-muted);
 }
 
-@utility gym-card__members {
-  font-family: var(--font-sans);
-  font-size: 14px;
-  line-height: 18px;
-  color: var(--color-ink-soft);
-}
-
-@utility gym-badge {
-  height: 24px;
-  padding-inline: 10px;
-  border-radius: var(--radius-pill);
-  background-color: var(--color-cream-tab);
-  justify-content: center;
-}
-
-@utility gym-badge--member {
-  background-color: var(--color-accent-soft);
-}
-
-@utility gym-badge--staff {
-  background-color: var(--color-ink);
-}
-
-@utility gym-badge__label {
-  font-family: var(--font-sans-semibold);
-  font-size: 13px;
-  line-height: 16px;
-  color: var(--color-ink-soft);
-}
-
-@utility gym-badge__label--staff {
-  color: var(--color-white);
-}
-
-@utility gym-join {
-  height: 38px;
-  padding-inline: 18px;
-  border-radius: var(--radius-pill);
-  border-width: 1px;
-  border-color: var(--color-cream-line);
-  background-color: var(--color-white);
-  align-items: center;
-  justify-content: center;
-}
-
-@utility gym-join--filled {
-  border-color: var(--color-ink);
-  background-color: var(--color-ink);
-}
-
-@utility gym-join__label {
-  font-family: var(--font-sans-semibold);
-  font-size: 15px;
-  line-height: 19px;
-  color: var(--color-ink);
-}
-
-@utility gym-join__label--filled {
-  color: var(--color-white);
-}
-
-@utility gym-invite {
-  padding: 14px;
-  border-radius: 18px;
-  border-width: 1.5px;
-  border-color: var(--color-leaf);
-  background-color: var(--color-white);
-  flex-direction: row;
-  align-items: center;
-  gap: 12px;
-}
-
-@utility gym-invite__title {
-  font-family: var(--font-sans-semibold);
-  font-size: 16px;
-  line-height: 21px;
-  color: var(--color-ink);
-}
-
-@utility gym-invite__from {
-  font-family: var(--font-sans);
-  font-size: 14px;
-  line-height: 18px;
-  color: var(--color-muted);
-}
-
-@utility gym-invite__review {
-  height: 36px;
-  padding-inline: 16px;
-  border-radius: var(--radius-pill);
-  background-color: var(--color-ink);
-  justify-content: center;
-}
-
-@utility gym-invite__review-label {
-  font-family: var(--font-sans-semibold);
-  font-size: 15px;
-  line-height: 18px;
-  color: var(--color-white);
-}
-
-@utility gym-section__title {
-  font-family: var(--font-sans-semibold);
-  font-size: 19px;
-  line-height: 24px;
-  color: var(--color-ink);
-}
-
-@utility gym-section__join {
-  height: 36px;
-  padding-inline: 14px;
-  border-radius: var(--radius-pill);
-  background-color: var(--color-accent-soft);
-  flex-direction: row;
-  align-items: center;
-  gap: 6px;
-}
-
-@utility gym-section__join-label {
-  font-family: var(--font-sans-semibold);
-  font-size: 15px;
-  line-height: 18px;
-  color: var(--color-ink);
-}
-
-@utility gym-section__link {
-  font-family: var(--font-sans-semibold);
-  font-size: 15px;
-  line-height: 19px;
-  color: var(--color-leaf);
-}
-
-/* Join a Gym: white cards, the scan tile, a link box and the QR frame */
-@utility join-card {
-  padding: 16px;
-  border-radius: 18px;
-  border-width: 1px;
-  border-color: var(--color-cream-line);
-  background-color: var(--color-white);
-}
-
-@utility join-card__title {
-  font-family: var(--font-sans-semibold);
-  font-size: 16px;
-  line-height: 21px;
-  color: var(--color-ink);
-}
-
-@utility join-card__hint {
-  font-family: var(--font-sans);
-  font-size: 13px;
-  line-height: 17px;
-  color: var(--color-muted);
-}
-
-@utility join-card__scan {
-  width: 48px;
-  height: 48px;
-  border-radius: 14px;
-  background-color: var(--color-ink);
-  align-items: center;
-  justify-content: center;
-}
-
-@utility join-card__link {
-  padding-inline: 14px;
-  padding-block: 12px;
-  border-radius: 12px;
-  background-color: var(--color-cream-deep);
-}
-
-@utility join-card__link-text {
-  font-family: Menlo, monospace;
-  font-size: 13px;
-  line-height: 18px;
-  color: var(--color-ink-soft);
-}
-
-@utility join-card__qr {
-  padding: 18px;
-  border-radius: 18px;
-  border-width: 1px;
-  border-color: var(--color-cream-line);
-  background-color: var(--color-white);
-}
-
-/* Gym Invitation: the card over the cover, with the logo on its top edge */
-@utility invite-card {
-  margin-top: -40px;
-  padding-inline: 18px;
-  padding-bottom: 18px;
-  border-radius: 20px;
-  border-width: 1px;
-  border-color: var(--color-cream-line);
-  background-color: var(--color-white);
-  box-shadow: var(--shadow-card);
-  align-items: center;
-}
-
-@utility invite-card__logo {
-  margin-top: -34px;
-  border-radius: 18px;
-  border-width: 3px;
-  border-color: var(--color-white);
-  background-color: var(--color-white);
-}
-
-@utility invite-card__from {
-  font-family: var(--font-sans);
-  font-size: 14px;
-  line-height: 18px;
-  color: var(--color-muted);
-}
-
-@utility invite-card__name {
-  margin-top: 6px;
-  font-family: var(--font-sans-semibold);
-  font-size: 24px;
-  line-height: 30px;
-  text-align: center;
-  color: var(--color-ink);
-}
-
-@utility invite-card__tagline {
-  font-family: var(--font-sans);
-  font-size: 15px;
-  line-height: 20px;
-  text-align: center;
-  color: var(--color-muted);
-}
-
-/* Gym page: hero buttons over the cover, the logo over its edge, actions, groups, feed pieces */
-@utility gym-hero__bar {
-  position: absolute;
-  left: 16px;
-  right: 16px;
-  flex-direction: row;
-  justify-content: space-between;
-}
-
-@utility gym-hero__button {
-  width: 40px;
-  height: 40px;
-  border-radius: var(--radius-pill);
-  background-color: var(--color-white);
-  align-items: center;
-  justify-content: center;
-  box-shadow: var(--shadow-card);
-}
-
-@utility gym-hero__logo {
-  margin-top: -40px;
-  align-self: flex-start;
-  border-radius: 20px;
-  border-width: 3px;
-  border-color: var(--color-white);
-  background-color: var(--color-white);
-}
-
-@utility gym-hero__name {
-  margin-top: 10px;
-  font-family: var(--font-sans-semibold);
-  font-size: 24px;
-  line-height: 30px;
-  color: var(--color-ink);
-}
-
-@utility gym-action {
-  height: 38px;
-  padding-inline: 12px;
-  border-radius: var(--radius-pill);
-  border-width: 1px;
-  border-color: var(--color-cream-line);
-  background-color: var(--color-white);
-  flex-direction: row;
-  align-items: center;
-  gap: 6px;
-}
-
-@utility gym-action--filled {
-  border-color: var(--color-ink);
-  background-color: var(--color-ink);
-}
-
-@utility gym-action__label {
-  font-family: var(--font-sans-semibold);
-  font-size: 14px;
-  line-height: 19px;
-  color: var(--color-ink);
-}
-
-@utility gym-action__label--filled {
-  color: var(--color-white);
-}
-
-@utility gym-group__title {
-  font-family: var(--font-sans-semibold);
-  font-size: 12px;
-  line-height: 16px;
-  letter-spacing: 1.4px;
-  text-transform: uppercase;
-  color: var(--color-muted);
-}
-
-@utility gym-about__title {
-  font-family: var(--font-sans-semibold);
-  font-size: 16px;
-  line-height: 21px;
-  color: var(--color-ink);
-}
-
-@utility gym-share {
-  padding: 14px;
-  border-radius: 20px;
-  border-width: 1px;
-  border-color: var(--color-cream-line);
-  background-color: var(--color-white);
-}
-
-@utility gym-share__prompt {
-  flex: 1;
-  height: 42px;
-  padding-inline: 16px;
-  border-radius: var(--radius-pill);
-  background-color: var(--color-cream-deep);
-  justify-content: center;
-}
-
-@utility gym-share__prompt-text {
-  font-family: var(--font-sans);
-  font-size: 15px;
-  line-height: 20px;
-  color: var(--color-faint);
-}
-
-@utility gym-share__shortcut {
-  font-family: var(--font-sans-semibold);
-  font-size: 14px;
-  line-height: 18px;
-  color: var(--color-ink-soft);
-}
-
-@utility gym-note {
-  padding: 16px;
-  border-radius: 18px;
-  border-width: 1px;
-  border-left-width: 4px;
-  border-color: var(--color-cream-line);
-  border-left-color: var(--color-leaf);
-  background-color: var(--color-white);
-}
-
-@utility gym-note__kicker {
-  font-family: var(--font-sans-semibold);
-  font-size: 12px;
-  line-height: 16px;
-  letter-spacing: 1.4px;
-  text-transform: uppercase;
-  color: var(--color-ink-soft);
-}
-
-@utility gym-pending {
-  height: 26px;
-  padding-inline: 12px;
-  border-radius: var(--radius-pill);
-  background-color: var(--color-warning-soft);
-  justify-content: center;
-}
-
-@utility gym-pending__label {
-  font-family: var(--font-sans-semibold);
-  font-size: 13px;
-  line-height: 16px;
-  color: var(--color-ink);
-}
-
-/* Event cards and the event page */
-@utility event-card {
-  overflow: hidden;
-  border-radius: 18px;
-  border-width: 1px;
-  border-color: var(--color-cream-line);
-  background-color: var(--color-white);
-}
-
-@utility event-card__date {
-  width: 56px;
-  height: 60px;
-  border-radius: 14px;
-  background-color: var(--color-ink);
-  align-items: center;
-  justify-content: center;
-}
-
-@utility event-card__month {
-  font-family: var(--font-sans-semibold);
-  font-size: 11px;
-  line-height: 14px;
-  letter-spacing: 1px;
-  color: var(--color-white);
-}
-
-@utility event-card__day {
-  font-family: var(--font-sans-semibold);
-  font-size: 22px;
-  line-height: 26px;
-  color: var(--color-white);
-}
-
-@utility event-card__title {
-  font-family: var(--font-sans-semibold);
-  font-size: 16px;
-  line-height: 21px;
-  color: var(--color-ink);
-}
-
-@utility event-card__footer {
-  padding-inline: 16px;
-  padding-block: 10px;
-  border-top-width: 1px;
-  border-color: var(--color-cream-line);
-  flex-direction: row;
-  align-items: center;
-  gap: 8px;
-}
-
-@utility event-card__face {
-  border-radius: var(--radius-pill);
-  border-width: 2px;
-  border-color: var(--color-white);
-}
-
-@utility event-going {
-  height: 38px;
-  padding-inline: 16px;
-  border-radius: var(--radius-pill);
-  background-color: var(--color-accent-soft);
-  align-items: center;
-  justify-content: center;
-}
-
-@utility event-going__label {
-  font-family: var(--font-sans-semibold);
-  font-size: 15px;
-  line-height: 19px;
-  color: var(--color-leaf);
-}
-
-/* A row in a white card list (opening hours, event facts); pairs with friend-row--first / --last */
-@utility about-row {
-  min-height: 52px;
-  padding-inline: 14px;
-  padding-block: 10px;
-  border-top-width: 1px;
-  border-left-width: 1px;
-  border-right-width: 1px;
-  border-color: var(--color-cream-line);
-  background-color: var(--color-white);
-  flex-direction: row;
-  align-items: center;
-  gap: 12px;
-}
-
-@utility about-row__value {
-  font-family: var(--font-sans-semibold);
-  font-size: 15px;
-  line-height: 20px;
-  color: var(--color-ink);
-}
-
-@utility staff-card {
-  width: 140px;
-  padding: 14px;
-  border-radius: 18px;
-  border-width: 1px;
-  border-color: var(--color-cream-line);
-  background-color: var(--color-white);
-  align-items: center;
-}
-
-/* Ask the gym: chat bubbles */
-@utility ask__who {
-  font-family: var(--font-sans-semibold);
-  font-size: 13px;
-  line-height: 16px;
-  color: var(--color-muted);
-}
-
-@utility ask__bubble {
-  max-width: 86%;
-  align-self: flex-start;
-  padding-inline: 16px;
-  padding-block: 12px;
-  border-radius: 18px;
-  border-width: 1px;
-  border-color: var(--color-cream-line);
-  background-color: var(--color-white);
-}
-
-@utility ask__bubble--you {
-  align-self: flex-end;
-  border-color: var(--color-ink);
-  background-color: var(--color-ink);
-}
-
-@utility ask__bubble--failed {
-  border-color: var(--color-danger);
-}
-
-@utility ask__text {
-  font-family: var(--font-sans);
-  font-size: 15px;
-  line-height: 21px;
-  color: var(--color-ink);
-}
-
-@utility ask__text--you {
-  color: var(--color-white);
-}
-
-/* Create Event: the date strip and the time list */
-@utility date-chip {
-  width: 58px;
-  height: 74px;
-  border-radius: 16px;
-  border-width: 1px;
-  border-color: var(--color-cream-line);
-  background-color: var(--color-white);
-  align-items: center;
-  justify-content: center;
-}
-
-@utility date-chip--selected {
-  border-color: var(--color-primary);
-  background-color: var(--color-accent-soft);
-}
-
-@utility date-chip__small {
-  font-family: var(--font-sans);
-  font-size: 12px;
-  line-height: 15px;
-  color: var(--color-ink-soft);
-}
-
-@utility date-chip__day {
-  font-family: var(--font-sans-semibold);
-  font-size: 20px;
-  line-height: 25px;
-  color: var(--color-ink);
-}
-
-@utility date-chip__text--selected {
-  color: var(--color-ink);
-}
-
-@utility time-option {
-  height: 46px;
-  border-radius: 12px;
-  justify-content: center;
-  align-items: center;
-}
-
-@utility time-option--selected {
-  background-color: var(--color-accent-soft);
-}
-
-@utility time-option__label {
-  font-family: var(--font-sans-semibold);
-  font-size: 16px;
-  line-height: 20px;
-  color: var(--color-ink);
-}
-
-@utility time-option__label--selected {
-  color: var(--color-ink);
-}
-
-/* Member profile: name, bio, the stats card, friend / follow / message buttons */
-@utility profile__name {
-  margin-top: 12px;
-  font-family: var(--font-sans-semibold);
-  font-size: 24px;
-  line-height: 30px;
-  text-align: center;
-  color: var(--color-ink);
-}
-
-@utility profile__bio {
-  margin-top: 6px;
-  font-family: var(--font-sans);
-  font-size: 15px;
-  line-height: 21px;
-  text-align: center;
-  color: var(--color-ink-soft);
-}
-
-@utility profile__stats {
-  width: 100%;
-  margin-top: 18px;
-  padding-block: 14px;
-  border-radius: 18px;
-  border-width: 1px;
-  border-color: var(--color-cream-line);
-  background-color: var(--color-white);
-  flex-direction: row;
-}
-
-@utility profile__stat {
-  flex: 1;
-  align-items: center;
-}
-
-@utility profile__stat--divided {
-  border-left-width: 1px;
-  border-color: var(--color-cream-line);
-}
-
-@utility profile__stat-count {
-  font-family: var(--font-sans-semibold);
-  font-size: 20px;
-  line-height: 25px;
-  color: var(--color-ink);
-}
-
-@utility profile__button {
-  height: 44px;
-  padding-inline: 16px;
-  border-radius: var(--radius-pill);
-  border-width: 1px;
-  border-color: var(--color-cream-line);
-  background-color: var(--color-white);
-  flex-direction: row;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-}
-
-@utility profile__button--filled {
-  border-color: var(--color-ink);
-  background-color: var(--color-ink);
-}
-
-@utility profile__button-label {
-  font-family: var(--font-sans-semibold);
-  font-size: 15px;
-  line-height: 19px;
-  color: var(--color-ink);
-}
-
-@utility profile__button-label--filled {
-  color: var(--color-white);
-}
-
-@utility profile__round {
-  width: 44px;
-  height: 44px;
-  border-radius: var(--radius-pill);
-  border-width: 1px;
-  border-color: var(--color-cream-line);
-  background-color: var(--color-white);
-  align-items: center;
-  justify-content: center;
-}
-
-/* Radio circles and the info banner (Community Settings, Subscription) */
+/* Radio circles and the info banner (Subscription) */
 @utility radio {
   width: 24px;
   height: 24px;
@@ -2811,206 +1641,38 @@
   color: var(--color-ink-soft);
 }
 
-/* Messages: the preview line and the unread count */
-@utility messages__preview {
-  font-family: var(--font-sans);
-  font-size: 14px;
-  line-height: 19px;
-  color: var(--color-muted);
-}
-
-@utility messages__preview--unread {
-  font-family: var(--font-sans-semibold);
-  color: var(--color-ink);
-}
-
-@utility messages__unread {
-  min-width: 22px;
-  height: 22px;
-  padding-inline: 6px;
-  border-radius: var(--radius-pill);
-  background-color: var(--color-ink);
-  align-items: center;
-  justify-content: center;
-}
-
-/* Notifications: a row in a card list, the unread tint and dot, the small icon on an avatar */
-@utility notification {
-  padding-inline: 14px;
-  padding-block: 12px;
-  border-top-width: 1px;
-  border-left-width: 1px;
-  border-right-width: 1px;
-  border-color: var(--color-cream-line);
-  background-color: var(--color-white);
-  flex-direction: row;
-  align-items: flex-start;
-  gap: 12px;
-}
-
-@utility notification--new {
-  background-color: var(--color-accent-soft);
-}
-
-@utility notification__icon {
-  width: 44px;
-  height: 44px;
-  border-radius: var(--radius-pill);
-  background-color: var(--color-cream-deep);
-  align-items: center;
-  justify-content: center;
-}
-
-@utility notification__badge {
-  position: absolute;
-  right: -3px;
-  bottom: -3px;
-  width: 20px;
-  height: 20px;
-  border-radius: var(--radius-pill);
-  border-width: 2px;
-  border-color: var(--color-white);
-  background-color: var(--color-ink);
-  align-items: center;
-  justify-content: center;
-}
-
-@utility notification__title {
-  font-family: var(--font-sans-semibold);
-  font-size: 15px;
-  line-height: 20px;
-  color: var(--color-ink);
-}
-
-@utility notification__text {
-  margin-top: 2px;
-  font-family: var(--font-sans);
-  font-size: 14px;
-  line-height: 19px;
-  color: var(--color-ink-soft);
-}
-
-@utility notification__time {
-  margin-top: 2px;
-  font-family: var(--font-sans);
-  font-size: 12px;
-  line-height: 16px;
-  color: var(--color-faint);
-}
-
-@utility notification__dot {
-  width: 9px;
-  height: 9px;
-  margin-top: 6px;
-  border-radius: var(--radius-pill);
-  background-color: var(--color-leaf);
-}
-
-/* The Friends search box: a pill */
+/* A search box as a pill (Super Admin lists) */
 @utility search--pill {
   height: 48px;
   border-radius: var(--radius-md);
 }
 
-/* Friends filter chips: Suggested / Friends (n) / Requests sent (n) */
-@utility friend-chip {
-  height: 36px;
+/* Filter chips: All / Members / Admins, and the AI usage history filters */
+@utility filter-chip {
+  min-height: 36px;
   padding-inline: 14px;
   border-radius: var(--radius-pill);
   border-width: 1px;
   border-color: var(--color-cream-line);
-  background-color: var(--color-white);
+  background-color: var(--color-surface);
   align-items: center;
   justify-content: center;
 }
 
-@utility friend-chip--selected {
+@utility filter-chip--selected {
   border-color: var(--color-primary);
   background-color: var(--color-accent-soft);
 }
 
-@utility friend-chip__label {
+@utility filter-chip__label {
   font-family: var(--font-sans);
   font-size: 13px;
   line-height: 18px;
   color: var(--color-ink);
 }
 
-@utility friend-chip__label--selected {
+@utility filter-chip__label--selected {
   font-family: var(--font-sans-semibold);
-  color: var(--color-ink);
-}
-
-/* A member row; consecutive rows form one card (first and last round its corners) */
-@utility friend-row {
-  min-height: 72px;
-  padding-inline: 14px;
-  padding-block: 12px;
-  border-top-width: 1px;
-  border-left-width: 1px;
-  border-right-width: 1px;
-  border-color: var(--color-cream-line);
-  background-color: var(--color-white);
-  flex-direction: row;
-  align-items: center;
-  gap: 10px;
-}
-
-@utility friend-row--first {
-  border-top-left-radius: 20px;
-  border-top-right-radius: 20px;
-}
-
-@utility friend-row--last {
-  border-bottom-width: 1px;
-  border-bottom-left-radius: 20px;
-  border-bottom-right-radius: 20px;
-}
-
-@utility friend-row__name {
-  font-family: var(--font-sans-semibold);
-  font-size: 16px;
-  line-height: 21px;
-  color: var(--color-ink);
-}
-
-@utility friend-row__note {
-  font-family: var(--font-sans);
-  font-size: 13px;
-  line-height: 17px;
-  color: var(--color-muted);
-}
-
-@utility friend-row__icon {
-  width: 32px;
-  height: 32px;
-  align-items: center;
-  justify-content: center;
-}
-
-@utility friend-button {
-  height: 36px;
-  padding-inline: 14px;
-  border-radius: var(--radius-pill);
-  background-color: var(--color-ink);
-  flex-direction: row;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-}
-
-@utility friend-button--soft {
-  background-color: var(--color-cream-tab);
-}
-
-@utility friend-button__label {
-  font-family: var(--font-sans-semibold);
-  font-size: 14px;
-  line-height: 18px;
-  color: var(--color-white);
-}
-
-@utility friend-button__label--soft {
   color: var(--color-ink);
 }
 
@@ -3023,474 +1685,21 @@
   color: var(--color-ink);
 }
 
-/* Messages */
-@utility bubble {
-  max-width: 78%;
-  padding-inline: 14px;
-  padding-block: 10px;
-  border-radius: 18px;
-  background-color: var(--color-white);
-  border-width: 1px;
-  border-color: var(--color-cream-line);
-}
-
-@utility bubble--own {
-  background-color: var(--color-forest);
-  border-color: var(--color-forest);
-  align-self: flex-end;
-}
-
-@utility bubble__text {
-  font-family: var(--font-sans);
-  font-size: 15px;
-  line-height: 21px;
-  color: var(--color-ink);
-}
-
-@utility bubble__text--own {
-  color: var(--color-white);
-}
-
-@utility bubble__time {
-  font-family: var(--font-sans);
-  font-size: 11px;
-  line-height: 14px;
-  color: var(--color-faint);
-}
-
-/* Story viewer */
-@utility story__progress {
-  flex: 1;
-  height: 3px;
-  border-radius: var(--radius-pill);
-  background-color: rgba(255, 255, 255, 0.35);
-  overflow: hidden;
-}
-
-@utility story__progress-fill {
-  height: 100%;
-  background-color: var(--color-white);
-}
-
-@utility story__caption {
-  font-family: var(--font-sans-medium);
-  font-size: 16px;
-  line-height: 22px;
-  color: var(--color-white);
-  text-align: center;
-}
-
 /* Loading skeleton block */
 @utility skeleton {
   border-radius: 8px;
   background-color: var(--color-cream-tab);
 }
 
-/* Compose post: photo thumbnails with remove / reorder, upload progress, footer buttons */
-@utility compose__thumb {
-  width: 96px;
-  height: 96px;
-  border-radius: 14px;
-  overflow: hidden;
-  background-color: var(--color-cream-tab);
+/* A card-shaped loading placeholder (components/Skeleton.tsx) */
+@utility skeleton-card {
+  padding: var(--spacing-lg);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-card);
 }
 
-@utility compose__thumb-veil {
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  align-items: center;
-  justify-content: center;
-  background-color: rgba(12, 29, 25, 0.45);
-}
-
-@utility compose__thumb-remove {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  width: 24px;
-  height: 24px;
-  border-radius: var(--radius-pill);
-  align-items: center;
-  justify-content: center;
-  background-color: rgba(12, 29, 25, 0.75);
-}
-
-@utility compose__thumb-badge {
-  position: absolute;
-  left: 6px;
-  bottom: 6px;
-  height: 18px;
-  min-width: 18px;
-  padding-inline: 5px;
-  border-radius: var(--radius-pill);
-  align-items: center;
-  justify-content: center;
-  background-color: rgba(12, 29, 25, 0.75);
-}
-
-@utility compose__thumb-badge--failed {
-  background-color: var(--color-danger);
-}
-
-@utility compose__thumb-badge-label {
-  font-family: var(--font-sans-semibold);
-  font-size: 10px;
-  line-height: 12px;
-  color: var(--color-white);
-}
-
-@utility compose__thumb-move {
-  width: 30px;
-  height: 26px;
-  border-radius: 8px;
-  border-width: 1px;
-  border-color: var(--color-cream-line);
-  background-color: var(--color-cream-light);
-  align-items: center;
-  justify-content: center;
-}
-
-@utility compose__thumb-index {
-  font-family: var(--font-sans-semibold);
-  font-size: 12px;
-  line-height: 16px;
-  color: var(--color-muted);
-}
-
-@utility compose__progress {
-  height: 6px;
-  border-radius: var(--radius-pill);
-  overflow: hidden;
-  background-color: var(--color-cream-tab);
-}
-
-@utility compose__progress-fill {
-  height: 6px;
-  border-radius: var(--radius-pill);
-  background-color: var(--color-forest);
-}
-
-@utility compose__footer {
-  flex-direction: row;
-  gap: 12px;
-  padding-inline: 20px;
-  padding-block: 12px;
-  border-top-width: 1px;
-  border-color: var(--color-cream-line);
-  background-color: var(--color-cream);
-}
-
-@utility compose__author {
-  font-family: var(--font-sans-semibold);
-  font-size: 15px;
-  line-height: 20px;
-  color: var(--color-ink);
-}
-
-/* Create Post: "Posting to" card, type chips, fields, the photo tile and the options card */
-@utility compose__place {
-  min-height: 64px;
-  padding-inline: 14px;
-  padding-block: 10px;
-  border-radius: 18px;
-  border-width: 1px;
-  border-color: var(--color-cream-line);
-  background-color: var(--color-white);
-  flex-direction: row;
-  align-items: center;
-  gap: 12px;
-}
-
-@utility compose__place-kicker {
-  font-family: var(--font-sans);
-  font-size: 12px;
-  line-height: 16px;
-  color: var(--color-muted);
-}
-
-@utility compose__place-name {
-  font-family: var(--font-sans-semibold);
-  font-size: 16px;
-  line-height: 21px;
-  color: var(--color-ink);
-}
-
-@utility compose__label {
-  font-family: var(--font-sans-semibold);
-  font-size: 14px;
-  line-height: 18px;
-  color: var(--color-ink-soft);
-}
-
-@utility compose__required {
-  color: var(--color-danger);
-}
-
-@utility compose__type {
-  height: 36px;
-  padding-inline: 16px;
-  border-radius: var(--radius-pill);
-  border-width: 1px;
-  border-color: var(--color-cream-line);
-  background-color: var(--color-white);
-  align-items: center;
-  justify-content: center;
-}
-
-@utility compose__type--selected {
-  border-color: var(--color-primary);
-  background-color: var(--color-accent-soft);
-}
-
-@utility compose__type-label {
-  font-family: var(--font-sans-semibold);
-  font-size: 14px;
-  line-height: 18px;
-  color: var(--color-ink-soft);
-}
-
-@utility compose__type-label--selected {
-  color: var(--color-ink);
-}
-
-@utility compose__input {
-  min-height: 46px;
-  padding-inline: 14px;
-  border-radius: 14px;
-  border-width: 1px;
-  border-color: var(--color-cream-line);
-  background-color: var(--color-white);
-  font-family: var(--font-sans);
-  font-size: 15px;
-  line-height: 20px;
-  color: var(--color-ink);
-}
-
-@utility compose__caption {
-  min-height: 112px;
-  max-height: 220px;
-  padding-inline: 14px;
-  padding-block: 12px;
-  border-radius: 14px;
-  border-width: 1px;
-  border-color: var(--color-cream-line);
-  background-color: var(--color-white);
-  font-family: var(--font-sans);
-  font-size: 15px;
-  line-height: 21px;
-  color: var(--color-ink);
-}
-
-@utility compose__remove {
-  width: 32px;
-  height: 32px;
-  border-radius: var(--radius-pill);
-  background-color: var(--color-cream-deep);
-  align-items: center;
-  justify-content: center;
-}
-
-@utility compose__add {
-  width: 84px;
-  height: 84px;
-  border-radius: 14px;
-  border-width: 1.5px;
-  border-style: dashed;
-  border-color: var(--color-faint);
-  background-color: var(--color-white);
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-}
-
-@utility compose__add-label {
-  font-family: var(--font-sans);
-  font-size: 13px;
-  line-height: 16px;
-  color: var(--color-muted);
-}
-
-@utility compose__options {
-  border-radius: 18px;
-  border-width: 1px;
-  border-color: var(--color-cream-line);
-  background-color: var(--color-white);
-  overflow: hidden;
-}
-
-@utility compose__option {
-  min-height: 62px;
-  padding-inline: 14px;
-  padding-block: 10px;
-  flex-direction: row;
-  align-items: center;
-  gap: 14px;
-}
-
-@utility compose__option-divider {
-  height: 1px;
-  background-color: var(--color-cream-line);
-}
-
-@utility compose__option-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  background-color: var(--color-cream-deep);
-  align-items: center;
-  justify-content: center;
-}
-
-@utility compose__option-title {
-  font-family: var(--font-sans-semibold);
-  font-size: 16px;
-  line-height: 21px;
-  color: var(--color-ink);
-}
-
-@utility compose__option-hint {
-  font-family: var(--font-sans);
-  font-size: 13px;
-  line-height: 17px;
-  color: var(--color-muted);
-}
-
-@utility compose__option-input {
-  flex: 1;
-  min-width: 0;
-  height: 40px;
-  font-family: var(--font-sans);
-  font-size: 15px;
-  line-height: 20px;
-  color: var(--color-ink);
-}
-
-/* Post card: the details box a progress, meal or achievement post leads with */
-@utility post__details {
-  padding: 14px;
-  border-radius: 16px;
-  background-color: var(--color-accent-soft);
-  flex-direction: row;
-  align-items: flex-start;
-  gap: 12px;
-}
-
-@utility post__details-icon {
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
-  background-color: var(--color-white);
-  align-items: center;
-  justify-content: center;
-}
-
-@utility post__details-kicker {
-  font-family: var(--font-sans-semibold);
-  font-size: 11px;
-  line-height: 14px;
-  letter-spacing: 1.4px;
-  text-transform: uppercase;
-  color: var(--color-muted);
-}
-
-@utility post__details-title {
-  margin-top: 4px;
-  font-family: var(--font-sans-semibold);
-  font-size: 16px;
-  line-height: 21px;
-  color: var(--color-ink);
-}
-
-@utility post__details-sub {
-  font-family: var(--font-sans);
-  font-size: 14px;
-  line-height: 19px;
-  color: var(--color-ink-soft);
-}
-
-/* "with Sarah Chen" under a post */
-@utility post__with {
-  font-family: var(--font-sans);
-  font-size: 13px;
-  line-height: 18px;
-  color: var(--color-muted);
-}
-
-@utility post__with-name {
-  font-family: var(--font-sans-semibold);
-  color: var(--color-ink);
-}
-
-/* Poll options: a row per choice, filled to its share of the votes */
-@utility poll__option {
-  min-height: 44px;
-  padding-inline: 14px;
-  padding-block: 10px;
-  border-radius: 12px;
-  border-width: 1px;
-  border-color: var(--color-cream-line);
-  background-color: var(--color-white);
-  flex-direction: row;
-  align-items: center;
-  gap: 10px;
-  overflow: hidden;
-}
-
-@utility poll__option--mine {
-  border-color: var(--color-ink);
-}
-
-@utility poll__fill {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  background-color: var(--color-accent-soft);
-}
-
-@utility poll__label {
-  flex: 1;
-  font-family: var(--font-sans-semibold);
-  font-size: 15px;
-  line-height: 20px;
-  color: var(--color-ink);
-}
-
-@utility poll__share {
-  font-family: var(--font-sans-semibold);
-  font-size: 14px;
-  line-height: 18px;
-  color: var(--color-ink-soft);
-}
-
-/* Photo counter on a post with several photos */
-@utility post__media-count {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  height: 22px;
-  padding-inline: 8px;
-  border-radius: var(--radius-pill);
-  align-items: center;
-  justify-content: center;
-  background-color: rgba(12, 29, 25, 0.7);
-}
-
-@utility post__media-count-label {
-  font-family: var(--font-sans-semibold);
-  font-size: 11px;
-  line-height: 14px;
-  color: var(--color-white);
-}
-
-@utility post__tag--workout {
-  background-color: var(--color-warning-soft);
-}
-
-/* Confirmation sheet drawn over a screen (delete post) */
+/* Confirmation sheet drawn over a screen (delete a water entry) */
 @utility confirm__backdrop {
   position: absolute;
   top: 0;
@@ -3507,45 +1716,6 @@
   border-top-left-radius: var(--radius-xl);
   border-top-right-radius: var(--radius-xl);
   background-color: var(--color-surface);
-}
-
-/* Stories: a green ring for unseen Close Friends stories, audience badge and notices in the viewer */
-@utility story__ring--close {
-  border-color: var(--color-leaf);
-}
-
-@utility story__badge {
-  height: 18px;
-  padding-inline: 7px;
-  border-radius: var(--radius-pill);
-  align-items: center;
-  justify-content: center;
-  background-color: rgba(255, 255, 255, 0.25);
-}
-
-@utility story__badge--close {
-  background-color: var(--color-leaf);
-}
-
-@utility story__badge-label {
-  font-family: var(--font-sans-semibold);
-  font-size: 11px;
-  line-height: 14px;
-  color: var(--color-white);
-}
-
-@utility story__notice {
-  padding-inline: 14px;
-  padding-block: 10px;
-  border-radius: 14px;
-  background-color: rgba(255, 255, 255, 0.92);
-}
-
-@utility story__notice-label {
-  font-family: var(--font-sans-semibold);
-  font-size: 14px;
-  line-height: 19px;
-  color: var(--color-forest-ink);
 }
 
 /* Macro tab: the day hub, logging flow and meal sheets (BEM: macro__element--modifier).
@@ -3627,7 +1797,7 @@
   gap: 6px;
   padding-block: 10px;
   border-radius: var(--radius-md);
-  background-color: var(--color-white);
+  background-color: var(--color-surface);
   box-shadow: var(--shadow-card);
 }
 
@@ -3698,7 +1868,7 @@
   flex-basis: 150px;
   padding: var(--spacing-lg);
   border-radius: var(--radius-lg);
-  background-color: var(--color-white);
+  background-color: var(--color-surface);
   box-shadow: var(--shadow-card);
 }
 
@@ -3774,7 +1944,8 @@
   color: var(--color-forest-ink);
 }
 
-/* The floating "Add meal" / "Back to today" pill, bottom right above the tab bar */
+/* The floating "Add meal" / "Back to today" pill, bottom right above the tab bar: solid red
+   with a soft grey lift (the red glow made it look washed out on iOS) */
 @utility macro__fab {
   position: absolute;
   right: var(--spacing-xl);
@@ -3782,11 +1953,11 @@
   height: 52px;
   padding-inline: 20px;
   border-radius: var(--radius-pill);
-  background-color: var(--color-forest);
+  background-color: var(--color-primary);
   flex-direction: row;
   align-items: center;
   gap: 8px;
-  box-shadow: var(--shadow-glow);
+  box-shadow: var(--shadow-fab);
 }
 
 /* Add meal: two slot cards per row */
@@ -3797,7 +1968,7 @@
   border-radius: var(--radius-lg);
   border-width: 1px;
   border-color: var(--color-cream-line);
-  background-color: var(--color-white);
+  background-color: var(--color-surface);
 }
 
 @utility macro__logged {
@@ -3808,11 +1979,11 @@
 }
 
 @utility macro__pill {
-  height: 44px;
+  min-height: 44px;
   border-radius: var(--radius-pill);
   border-width: 1px;
   border-color: var(--color-cream-line);
-  background-color: var(--color-white);
+  background-color: var(--color-surface);
   flex-direction: row;
   align-items: center;
   justify-content: center;
@@ -3831,7 +2002,7 @@
   width: 150px;
   padding: var(--spacing-md);
   border-radius: var(--radius-lg);
-  background-color: var(--color-white);
+  background-color: var(--color-surface);
   box-shadow: var(--shadow-card);
 }
 
@@ -3849,7 +2020,7 @@
   width: 30px;
   height: 30px;
   border-radius: var(--radius-pill);
-  background-color: var(--color-white);
+  background-color: var(--color-surface);
   align-items: center;
   justify-content: center;
 }
@@ -3948,30 +2119,13 @@
   line-height: 16px;
 }
 
-@utility macro__timeline-card {
-  min-height: 60px;
-  padding: var(--spacing-md);
-  border-radius: var(--radius-md);
-  background-color: var(--color-white);
-  flex-direction: row;
-  align-items: center;
-  gap: var(--spacing-md);
-  box-shadow: var(--shadow-card);
-}
-
-@utility macro__timeline-card--empty {
-  border-style: dashed;
-  border-color: var(--color-sand);
-  background-color: transparent;
-}
-
 /* Calories & macros: one of the three macro tiles */
 @utility macro__tile {
   flex: 1;
   min-width: 0;
   padding: var(--spacing-md);
   border-radius: var(--radius-lg);
-  background-color: var(--color-white);
+  background-color: var(--color-surface);
   box-shadow: var(--shadow-card);
 }
 
@@ -4026,7 +2180,7 @@
   flex: 1;
   aspect-ratio: 0.8;
   border-radius: var(--radius-md);
-  background-color: var(--color-white);
+  background-color: var(--color-surface);
   align-items: center;
   justify-content: center;
   gap: 4px;
@@ -4071,14 +2225,14 @@
 /* Exercises / Muscles / About */
 @utility workout__tab {
   flex: 1;
-  height: 40px;
+  min-height: 40px;
   border-radius: var(--radius-pill);
   align-items: center;
   justify-content: center;
 }
 
 @utility workout__tab--active {
-  background-color: var(--color-ink);
+  background-color: var(--color-ink-fill);
 }
 
 /* The stats bar over the day's art */
@@ -4090,170 +2244,8 @@
   padding-block: var(--spacing-md);
 }
 
-/* Gym owner portal (app/owner): stat tiles, quick actions, the attention list, the new-members
-   chart and renewal badges. Lists reuse friend-row; filters reuse friend-chip. */
-@utility owner__subtitle {
-  font-family: var(--font-sans);
-  font-size: 14px;
-  line-height: 20px;
-  color: var(--color-muted);
-}
-
-@utility owner__header-button {
-  width: 44px;
-  height: 44px;
-  border-radius: var(--radius-pill);
-  border-width: 1px;
-  border-color: var(--color-line-strong);
-  background-color: var(--color-surface);
-  align-items: center;
-  justify-content: center;
-}
-
-@utility owner-stat {
-  flex: 1;
-  min-height: 92px;
-  padding: 14px;
-  gap: 4px;
-  border-radius: var(--radius-md);
-  background-color: var(--color-white);
-  box-shadow: var(--shadow-card);
-}
-
-@utility owner-stat--highlight {
-  border-color: var(--color-warning);
-  background-color: var(--color-warning-soft);
-}
-
-@utility owner-stat__label {
-  font-family: var(--font-sans);
-  font-size: 13px;
-  line-height: 17px;
-  color: var(--color-muted);
-}
-
-@utility owner-stat__value {
-  font-family: var(--font-sans-semibold);
-  font-size: 22px;
-  line-height: 28px;
-  color: var(--color-ink);
-}
-
-@utility owner-quick {
-  height: 40px;
-  padding-inline: 14px;
-  border-radius: var(--radius-pill);
-  border-width: 1px;
-  border-color: var(--color-cream-line);
-  background-color: var(--color-white);
-  flex-direction: row;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-}
-
-@utility owner-quick--primary {
-  border-color: var(--color-ink);
-  background-color: var(--color-ink);
-}
-
-@utility owner-quick__label {
-  font-family: var(--font-sans-semibold);
-  font-size: 14px;
-  line-height: 18px;
-  color: var(--color-ink);
-}
-
-@utility owner-quick__label--primary {
-  color: var(--color-white);
-}
-
-/* The icon square at the start of an attention row */
-@utility owner-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: var(--radius-sm);
-  background-color: var(--color-warning-soft);
-  align-items: center;
-  justify-content: center;
-}
-
-@utility owner-icon--danger {
-  background-color: var(--color-danger-soft);
-}
-
-@utility owner-icon--neutral {
-  background-color: var(--color-surface-alt);
-}
-
-@utility owner-card {
-  padding: 16px;
-  gap: 12px;
-  border-radius: var(--radius-lg);
-  background-color: var(--color-white);
-  box-shadow: var(--shadow-card);
-}
-
-@utility owner-chart__track {
-  flex: 1;
-  height: 8px;
-  border-radius: var(--radius-pill);
-  background-color: var(--color-cream-tab);
-  overflow: hidden;
-}
-
-@utility owner-chart__fill {
-  height: 100%;
-  border-radius: var(--radius-pill);
-  background-color: var(--color-leaf);
-}
-
-@utility owner-chart__label {
-  width: 36px;
-  font-family: var(--font-sans);
-  font-size: 13px;
-  line-height: 17px;
-  color: var(--color-muted);
-}
-
-@utility owner-chart__count {
-  width: 24px;
-  text-align: right;
-  font-family: var(--font-sans-semibold);
-  font-size: 13px;
-  line-height: 17px;
-  color: var(--color-ink);
-}
-
-/* Renewal and role badges: a small pill with its own label colour */
-@utility owner-badge {
-  padding-inline: 10px;
-  padding-block: 4px;
-  border-radius: var(--radius-pill);
-  background-color: var(--color-surface-alt);
-}
-
-@utility owner-badge--danger {
-  background-color: var(--color-danger-soft);
-}
-
-@utility owner-badge--warning {
-  background-color: var(--color-warning-soft);
-}
-
-@utility owner-badge--accent {
-  background-color: var(--color-accent-soft);
-}
-
-@utility owner-badge__label {
-  font-family: var(--font-sans-semibold);
-  font-size: 12px;
-  line-height: 16px;
-  color: var(--color-ink);
-}
-
 /* The tab bar's count bubble (Members, Review) */
-@utility owner-tab-badge {
+@utility tab-badge {
   position: absolute;
   top: -4px;
   right: -10px;
@@ -4266,187 +2258,11 @@
   justify-content: center;
 }
 
-@utility owner-tab-badge__label {
+@utility tab-badge__label {
   font-family: var(--font-sans-semibold);
   font-size: 11px;
   line-height: 13px;
   color: var(--color-white);
-}
-
-/* The member's own package on the gym page */
-@utility owner-plan {
-  padding: 14px;
-  gap: 2px;
-  border-radius: var(--radius-md);
-  background-color: var(--color-white);
-  box-shadow: var(--shadow-card);
-}
-
-/* The entry button on Community › Gyms */
-@utility owner-entry {
-  min-height: 56px;
-  padding-inline: 14px;
-  padding-block: 12px;
-  border-radius: var(--radius-md);
-  background-color: var(--color-ink);
-  flex-direction: row;
-  align-items: center;
-  gap: 12px;
-}
-
-@utility owner-entry__title {
-  font-family: var(--font-sans-semibold);
-  font-size: 15px;
-  line-height: 20px;
-  color: var(--color-white);
-}
-
-@utility owner-entry__note {
-  font-family: var(--font-sans);
-  font-size: 13px;
-  line-height: 17px;
-  color: var(--color-primary);
-}
-
-/* Owner portal, check-in: the scanner, the verification result, QR codes and the display */
-@utility owner-stat--accent {
-  border-color: var(--color-leaf);
-  background-color: var(--color-accent-soft);
-}
-
-@utility owner-card--warning {
-  border-color: var(--color-warning);
-  background-color: var(--color-warning-soft);
-  gap: 2px;
-}
-
-@utility owner-scan__title {
-  flex: 1;
-  text-align: center;
-  font-family: var(--font-sans-semibold);
-  font-size: 17px;
-  line-height: 22px;
-  color: var(--color-white);
-}
-
-/* The viewfinder square over the camera */
-@utility owner-scan__frame {
-  width: 220px;
-  height: 220px;
-  border-radius: var(--radius-lg);
-  border-width: 3px;
-  border-color: rgba(255, 255, 255, 0.85);
-}
-
-@utility owner-scan__hint {
-  text-align: center;
-  font-family: var(--font-sans-semibold);
-  font-size: 15px;
-  line-height: 21px;
-  color: var(--color-white);
-}
-
-@utility owner-scan__sheet {
-  padding: 16px;
-  gap: 10px;
-  flex-direction: row;
-  align-items: center;
-  border-top-left-radius: var(--radius-xl);
-  border-top-right-radius: var(--radius-xl);
-  background-color: var(--color-cream);
-}
-
-@utility owner-result {
-  width: 84px;
-  height: 84px;
-  border-radius: var(--radius-pill);
-  align-items: center;
-  justify-content: center;
-}
-
-@utility owner-result--ok {
-  background-color: var(--color-accent-soft);
-}
-
-@utility owner-result--bad {
-  background-color: var(--color-danger-soft);
-}
-
-@utility owner-result__title {
-  text-align: center;
-  font-family: var(--font-sans-semibold);
-  font-size: 24px;
-  line-height: 30px;
-  color: var(--color-ink);
-}
-
-@utility owner-qr {
-  padding: 18px;
-  border-radius: var(--radius-lg);
-  background-color: var(--color-white);
-  box-shadow: var(--shadow-card);
-}
-
-@utility owner-qr--large {
-  padding: 24px;
-  box-shadow: var(--shadow-card);
-}
-
-/* The check-out code, typed out under its QR */
-@utility owner-code {
-  font-family: monospace;
-  font-size: 15px;
-  line-height: 20px;
-  letter-spacing: 1px;
-  color: var(--color-muted);
-}
-
-@utility owner-display__title {
-  text-align: center;
-  font-family: var(--font-sans-semibold);
-  font-size: 26px;
-  line-height: 32px;
-  color: var(--color-ink);
-}
-
-/* The member's active session card on Home */
-@utility visit-card {
-  padding: 16px;
-  gap: 10px;
-  border-radius: var(--radius-lg);
-  background-color: var(--color-ink);
-}
-
-@utility visit-card__title {
-  font-family: var(--font-sans-semibold);
-  font-size: 16px;
-  line-height: 21px;
-  color: var(--color-white);
-}
-
-@utility visit-card__note {
-  font-family: var(--font-sans);
-  font-size: 13px;
-  line-height: 17px;
-  color: var(--color-primary);
-}
-
-/* Owner portal, gym assistant: a member's question, and the team's reply in the member's chat */
-@utility owner-quote {
-  padding: 12px;
-  border-radius: var(--radius-md);
-  background-color: var(--color-surface-alt);
-}
-
-@utility owner-team-reply {
-  align-self: flex-start;
-  max-width: 88%;
-  padding: 12px;
-  gap: 4px;
-  border-radius: var(--radius-lg);
-  border-width: 1px;
-  border-color: var(--color-leaf);
-  background-color: var(--color-accent-soft);
 }
 
 /* The emoji above a workout prompt ("Do it today instead?") */
@@ -4460,7 +2276,7 @@
 /* ---- Workout session player: the dark, focused screen read at arm's length (ink surface) ---- */
 @utility player {
   flex: 1;
-  background-color: var(--color-ink);
+  background-color: var(--color-immersive);
 }
 
 @utility player__column {
@@ -4487,7 +2303,7 @@
   line-height: 18px;
   letter-spacing: 1.5px;
   text-transform: uppercase;
-  color: var(--color-primary);
+  color: var(--color-leaf);
 }
 
 @utility player__name {
@@ -4611,7 +2427,7 @@
 }
 
 @utility player__button {
-  height: 52px;
+  min-height: 52px;
   border-radius: var(--radius-pill);
   align-items: center;
   justify-content: center;
@@ -4621,7 +2437,7 @@
 @utility player__button-label {
   font-family: var(--font-sans-semibold);
   font-size: 16px;
-  color: var(--color-ink);
+  color: var(--color-black);
 }
 
 /* ---- Workout preferences ---- */
@@ -4726,7 +2542,7 @@
 
 @utility recreate__stage--done {
   border-color: var(--color-leaf);
-  background-color: var(--color-leaf);
+  background-color: var(--color-forest);
 }
 
 /* The weekday badge on a reveal session row; filled when that session is today */
@@ -4740,7 +2556,7 @@
 }
 
 @utility recreate__day--today {
-  background-color: var(--color-leaf);
+  background-color: var(--color-forest);
 }
 
 /* A safety note (injury answered yes, or a plan that needs a professional's review) */
@@ -4797,7 +2613,7 @@
   color: var(--color-ink);
 }
 
-/* A card of rows (To do, Recent admin activity, user and gym lists) */
+/* A card of rows (Recent admin activity, user lists) */
 @utility admin-list {
   border-radius: var(--radius-lg);
   background-color: var(--color-surface);
@@ -4837,7 +2653,7 @@
   border-radius: var(--radius-pill);
   align-items: center;
   justify-content: center;
-  background-color: var(--color-ink);
+  background-color: var(--color-ink-fill);
   border-width: 2px;
   border-color: var(--color-surface);
 }
@@ -4849,43 +2665,26 @@
   color: var(--color-surface);
 }
 
-/* A gym's initials in a dark square (Super Admin user and gym rows) */
-@utility admin-gym-badge {
+/* Initials in a dark square (the Super Admin profile) */
+@utility admin-initials {
   width: 36px;
   height: 36px;
   border-radius: var(--radius-sm);
   align-items: center;
   justify-content: center;
-  background-color: var(--color-ink);
+  background-color: var(--color-ink-fill);
 }
 
-@utility admin-gym-badge__label {
+@utility admin-initials__label {
   font-family: var(--font-sans-semibold);
   font-size: 13px;
   color: var(--color-white);
 }
 
-/* A destructive action on an admin page (Suspend account, Suspend gym) */
-@utility admin-danger-button {
-  height: 44px;
-  flex-direction: row;
-  align-items: center;
-  justify-content: center;
-  gap: var(--spacing-sm);
-  border-radius: var(--radius-pill);
-  background-color: var(--color-danger-soft);
-}
-
-@utility admin-danger-button__label {
-  font-family: var(--font-sans-semibold);
-  font-size: 15px;
-  color: var(--color-ink);
-}
-
 /* One half of a two-way switch (Reports: Open / Resolved) */
 @utility admin-segment {
   flex: 1;
-  height: 40px;
+  min-height: 40px;
   border-radius: var(--radius-md);
   border-width: 1px;
   border-color: var(--color-line);
@@ -4913,7 +2712,7 @@
 /* One choice in a row that wraps (App Usage range, Members sort): as wide as its label. No flex
    basis on purpose: NativeWind drops `flex-basis: auto`, so a segment's `flex: 1` cannot be undone */
 @utility admin-chip {
-  height: 40px;
+  min-height: 40px;
   padding-left: 12px;
   padding-right: 12px;
   border-radius: var(--radius-md);
@@ -4965,7 +2764,7 @@
 }
 
 @utility trend__readout--live {
-  background-color: var(--color-ink);
+  background-color: var(--color-ink-fill);
 }
 
 @utility trend__readout-value {
@@ -5068,24 +2867,6 @@
   font-family: var(--font-sans-semibold);
   font-size: 20px;
   line-height: 26px;
-  color: var(--color-ink);
-}
-
-/* The reasons a piece of content was reported */
-@utility admin-flag {
-  flex-direction: row;
-  align-items: flex-start;
-  gap: var(--spacing-sm);
-  padding: var(--spacing-md);
-  border-radius: var(--radius-md);
-  background-color: var(--color-danger-soft);
-}
-
-@utility admin-flag__text {
-  flex: 1;
-  font-family: var(--font-sans);
-  font-size: 13px;
-  line-height: 18px;
   color: var(--color-ink);
 }
 
@@ -5494,7 +3275,7 @@
 
 /* The main button: a red gradient pill with the label centred and an arrow circle at the right */
 @utility coach__cta {
-  height: 60px;
+  min-height: 60px;
   border-radius: var(--radius-pill);
   background-color: var(--color-primary);
   flex-direction: row;
@@ -5563,7 +3344,7 @@
 
 /* A small choice pill (session length): like an option card, red outline on pink when picked */
 @utility coach__chip {
-  height: 44px;
+  min-height: 44px;
   padding-inline: 4px;
   border-radius: var(--radius-pill);
   border-width: 1.5px;
@@ -5576,7 +3357,7 @@
 
 /* A chip sized by its label (wrapping lists) rather than stretched across a row */
 @utility coach__chip--wrap {
-  height: 40px;
+  min-height: 40px;
   padding-inline: 16px;
 }
 
@@ -5815,7 +3596,7 @@
 }
 
 @utility coach__banner-btn {
-  height: 40px;
+  min-height: 40px;
   padding-inline: 16px;
   border-radius: var(--radius-pill);
   border-width: 1.5px;
@@ -5861,7 +3642,7 @@
 /* AI Coach tab (2026-10-30): the coach card's Change pill, the ask box with its chips, today's
    numbers, the plan's Today / Week / Insights tabs and its timeline */
 @utility coach__pill {
-  height: 34px;
+  min-height: 34px;
   padding-inline: 14px;
   border-radius: var(--radius-pill);
   background-color: var(--color-accent-soft);
@@ -5993,7 +3774,7 @@
 
 @utility coach__tab {
   flex: 1;
-  height: 32px;
+  min-height: 32px;
   border-radius: var(--radius-pill);
   align-items: center;
   justify-content: center;
@@ -6367,7 +4148,7 @@
   height: 26px;
   padding-inline: var(--spacing-md);
   border-radius: var(--radius-pill);
-  background-color: var(--color-white);
+  background-color: var(--color-surface);
   justify-content: center;
 }
 
@@ -6382,7 +4163,7 @@
   width: 30px;
   height: 30px;
   border-radius: var(--radius-pill);
-  background-color: var(--color-white);
+  background-color: var(--color-surface);
   align-items: center;
   justify-content: center;
 }
@@ -6503,4 +4284,221 @@
 }
 @utility home__play--done {
   background-color: var(--color-success);
+}
+
+/* ---- Swap Meal (2026-11-01): the options the coach offers in a meal's place ---- */
+@utility swap__card {
+  padding: var(--spacing-lg);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-card);
+  gap: 10px;
+}
+@utility swap__card--chosen {
+  background-color: var(--color-success-soft);
+}
+@utility swap__name {
+  font-family: var(--font-sans-semibold);
+  font-size: 18px;
+  line-height: 24px;
+  color: var(--color-ink);
+}
+@utility swap__desc {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--color-muted);
+}
+@utility swap__kcal {
+  font-family: var(--font-sans-semibold);
+  font-size: 15px;
+  line-height: 20px;
+  color: var(--color-primary-text);
+}
+@utility swap__ing {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--color-ink-soft);
+}
+@utility swap__replace {
+  height: 48px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-primary);
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+@utility swap__replace--done {
+  background-color: var(--color-surface);
+}
+@utility swap__replace-label {
+  font-family: var(--font-sans-semibold);
+  font-size: 15px;
+  line-height: 20px;
+  color: var(--color-white);
+}
+@utility swap__replace-label--done {
+  color: var(--color-success);
+}
+/* The grey blocks that stand in for the cards while the coach thinks */
+@utility swap__skeleton {
+  border-radius: var(--radius-md);
+  background-color: var(--color-cream-tab);
+}
+@utility swap__success {
+  padding: var(--spacing-lg);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-success-soft);
+  gap: 12px;
+}
+@utility swap__success-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-success);
+  align-items: center;
+  justify-content: center;
+}
+@utility swap__success-title {
+  font-family: var(--font-sans-semibold);
+  font-size: 16px;
+  line-height: 22px;
+  color: var(--color-ink);
+}
+@utility swap__success-text {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+@utility swap__undo {
+  height: 44px;
+  padding-inline: 18px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface);
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+@utility swap__undo-label {
+  font-family: var(--font-sans-semibold);
+  font-size: 14px;
+  line-height: 18px;
+  color: var(--color-ink);
+}
+@utility swap__done {
+  height: 44px;
+  padding-inline: 20px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-success);
+  align-items: center;
+  justify-content: center;
+}
+@utility swap__done-label {
+  font-family: var(--font-sans-semibold);
+  font-size: 14px;
+  line-height: 18px;
+  color: var(--color-white);
+}
+/* The chips that steer the next ask, and the portion steppers of an option being edited */
+@utility swap__chip {
+  min-height: 36px;
+  padding-inline: 14px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-card);
+  align-items: center;
+  justify-content: center;
+}
+@utility swap__chip--on {
+  background-color: var(--color-primary);
+}
+@utility swap__chip-label {
+  font-family: var(--font-sans-medium);
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--color-ink);
+}
+@utility swap__chip-label--on {
+  color: var(--color-white);
+}
+@utility swap__step {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-cream-tab);
+  align-items: center;
+  justify-content: center;
+}
+@utility swap__step--wide {
+  width: auto;
+  padding-inline: 12px;
+}
+@utility swap__step-label {
+  font-family: var(--font-sans-medium);
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--color-ink);
+}
+@utility swap__portion {
+  min-width: 64px;
+  text-align: center;
+  font-family: var(--font-sans-semibold);
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--color-ink);
+}
+
+/* Profile › Appearance (2026-11-01): a quiet card with an iOS-style segmented switch */
+@utility appearance {
+  margin-top: var(--spacing-lg);
+  padding: var(--spacing-lg);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-card);
+  gap: var(--spacing-md);
+}
+
+@utility appearance__title {
+  font-family: var(--font-sans-semibold);
+  font-size: 15px;
+  line-height: 22px;
+  color: var(--color-ink);
+}
+
+@utility appearance__track {
+  flex-direction: row;
+  padding: 3px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-cream-tab);
+}
+
+@utility appearance__option {
+  flex: 1;
+  min-height: 36px;
+  border-radius: var(--radius-pill);
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding-inline: 6px;
+}
+
+@utility appearance__option--on {
+  background-color: var(--color-surface);
+  box-shadow: 0 1px 4px rgba(17, 17, 17, 0.12);
+}
+
+@utility appearance__label {
+  font-family: var(--font-sans-medium);
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+@utility appearance__label--on {
+  color: var(--color-ink);
 }

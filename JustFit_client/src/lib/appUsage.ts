@@ -6,7 +6,7 @@ import { apiFetch, type ApiResult } from "@/lib/api";
 // (lib/aiUsage.ts), which is about tokens and cost.
 
 export type UsageRange = "today" | "yesterday" | "7d" | "30d" | "90d" | "this_month" | "last_month" | "custom";
-export type UsageModule = "nutrition" | "workout" | "coach" | "community" | "stories" | "attendance" | "progress";
+export type UsageModule = "nutrition" | "workout" | "coach" | "progress";
 
 export type FeatureUsage = {
   id: string;

@@ -1,8 +1,9 @@
-import { Pressable, Text, View } from "react-native";
+import { Text, View } from "react-native";
+import { PressableScale } from "@/components/PressableScale";
 
 import { IconButton } from "@/components/IconButton";
 import { SymbolView, type SymbolViewProps } from "@/components/SymbolView";
-import { colors } from "@/theme";
+import { useThemeColors } from "@/theme";
 
 type Meta = { icon: SymbolViewProps["name"]; text: string };
 
@@ -20,8 +21,9 @@ type ProgramCardProps = {
 // Peak Fitness ProgramCard: thumbnail, title, icon meta lines and the red round arrow. The whole
 // card is the button; the arrow is drawn, not a second button.
 export function ProgramCard({ title, icon, meta, badge, onPress, accessibilityLabel }: ProgramCardProps) {
+  const colors = useThemeColors();
   return (
-    <Pressable onPress={onPress} className="program-card" accessibilityRole="button" accessibilityLabel={accessibilityLabel}>
+    <PressableScale scaleTo={0.98} onPress={onPress} className="program-card" accessibilityRole="button" accessibilityLabel={accessibilityLabel}>
       <View className="program-card__thumb">
         <SymbolView name={icon} size={26} tintColor={colors.muted} />
       </View>
@@ -46,6 +48,6 @@ export function ProgramCard({ title, icon, meta, badge, onPress, accessibilityLa
         ) : null}
       </View>
       <IconButton icon={{ ios: "arrow.right", android: "arrow_forward", web: "arrow_forward" }} label="Open" variant="primary" size={44} />
-    </Pressable>
+    </PressableScale>
   );
 }

@@ -5,7 +5,7 @@
 // today can be changed; every entry belongs to the verified member and is only ever read or
 // removed by them.
 const nutrition = require("../../JustFit_client/src/lib/nutrition/index.ts");
-const { NotFoundError } = require("../community/posts");
+const { NotFoundError } = require("../errors");
 const { ValidationError } = require("../profile");
 const { isoDate, isNearToday } = require("./validate");
 

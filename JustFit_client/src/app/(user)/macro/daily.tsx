@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, View } from "react-native";
+import { ScreenSkeleton } from "@/components/Skeleton";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { SymbolView } from "@/components/SymbolView";
@@ -8,29 +9,18 @@ import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { DashedBlock } from "@/components/macro/DashedBlock";
 import { MacroHeader } from "@/components/macro/MacroHeader";
 import { MealDetailSheet } from "@/components/macro/MealDetailSheet";
+import { MealTimeline, timelineRows } from "@/components/macro/MealTimeline";
 import { Ring } from "@/components/macro/Ring";
 import { usePullToRefresh } from "@/components/PullToRefresh";
-import { clockTime, isValidIso, litres, longDate, macro, slotInfo, timeLabel, todayIso, whole, type DayView, type Meal, type Slot, type WaterDay } from "@/lib/macro";
+import { isValidIso, litres, longDate, macro, todayIso, whole, type DayView, type Meal, type WaterDay } from "@/lib/macro";
 import { useSessionToken } from "@/lib/session";
 import { useMacroStore } from "@/store/macro";
-import { colors } from "@/theme";
-
-// The timeline's slot order (snack sits between lunch and dinner)
-const timelineSlots: Slot[] = ["breakfast", "lunch", "snack", "dinner"];
-
-type TimelineRow = { slot: Slot; meal: Meal | null };
-
-// Every slot shows: each logged meal in it, or one "Not logged yet" row
-function timeline(meals: Meal[]): TimelineRow[] {
-  return timelineSlots.flatMap((slot): TimelineRow[] => {
-    const logged = meals.filter((m) => m.slot === slot);
-    return logged.length ? logged.map((meal) => ({ slot, meal })) : [{ slot, meal: null }];
-  });
-}
+import { useThemeColors } from "@/theme";
 
 // One day in full: what's left, macro progress against the targets, and the meals as a
 // timeline. Reads the day shared with the Macro tab; a `date` link param moves it.
 export default function DailyCalories() {
+  const colors = useThemeColors();
   const params = useLocalSearchParams<{ date?: string }>();
   const getToken = useSessionToken();
   const { selectedDate, jumpToDate } = useMacroStore();
@@ -73,13 +63,13 @@ export default function DailyCalories() {
 
   return (
     <View className="flex-1 bg-cream">
-      <StatusBar style="dark" />
+      <StatusBar style="auto" />
       <SafeAreaView style={{ flex: 1 }}>
         <MacroHeader title="Daily calories" subtitle={longDate(selectedDate)} />
 
         {!showing ? (
-          <View className="flex-1 items-center justify-center">
-            <ActivityIndicator color={colors.forest} />
+          <View className="px-4 pt-2">
+            <ScreenSkeleton />
           </View>
         ) : !showing.targets ? (
           <View className="px-5 pt-4">
@@ -99,17 +89,7 @@ export default function DailyCalories() {
 
               <View className="gap-3">
                 <Text className="setup__section">Meals timeline</Text>
-                <View>
-                  {timeline(showing.meals).map((row, index, rows) => (
-                    <TimelineItem
-                      key={row.meal?.id ?? row.slot}
-                      row={row}
-                      last={index === rows.length - 1}
-                      onOpen={row.meal ? () => setOpenMeal(row.meal) : undefined}
-                      onAdd={!row.meal && isToday ? () => router.push({ pathname: "/macro/add-meal", params: { slot: row.slot } }) : undefined}
-                    />
-                  ))}
-                </View>
+                <MealTimeline rows={timelineRows(showing.meals)} onOpen={setOpenMeal} onAdd={isToday ? (slot) => router.push({ pathname: "/macro/add-meal", params: { slot } }) : undefined} />
               </View>
             </ScrollView>
 
@@ -137,6 +117,7 @@ export default function DailyCalories() {
 
 // Remaining calories on the dark hero card, the share eaten on a ring, eaten and target below
 function Hero({ day }: { day: DayView }) {
+  const colors = useThemeColors();
   const target = day.targets?.kcal ?? 0;
   const eaten = day.totals.kcal;
   const remaining = Math.max(0, target - eaten);
@@ -149,7 +130,7 @@ function Hero({ day }: { day: DayView }) {
           <Text className="macro__hero-remaining">{whole(remaining).toLocaleString("en-IN")}</Text>
           <Text className="macro__hero-caption">kcal to reach your {target.toLocaleString("en-IN")} target</Text>
         </View>
-        <Ring size={100} stroke={10} progress={target > 0 ? eaten / target : 0} color={colors.primary} trackColor="rgba(255,255,255,0.14)">
+        <Ring size={100} stroke={10} progress={target > 0 ? eaten / target : 0} color={colors.leaf} trackColor="rgba(255,255,255,0.14)">
           <Text className="macro__hero-percent">{percent}%</Text>
         </Ring>
       </View>
@@ -170,6 +151,7 @@ function Hero({ day }: { day: DayView }) {
 
 // Water for the day against its estimated target; opens the Water screen
 function WaterCard({ water }: { water: WaterDay }) {
+  const colors = useThemeColors();
   const percent = Math.round(water.progress * 100);
   return (
     <Pressable onPress={() => router.push("/macro/water")} className="home__card flex-row items-center gap-3" accessibilityRole="button" accessibilityLabel={`Water: ${litres(water.consumedMl)} of ${litres(water.targetMl)} litres, ${percent}%. Open water`}>
@@ -178,7 +160,7 @@ function WaterCard({ water }: { water: WaterDay }) {
       </View>
       <View className="flex-1 gap-1.5">
         <View className="flex-row items-center justify-between">
-          <Text className="card__title">Water <Text className="post__time">{percent}%</Text></Text>
+          <Text className="card__title">Water <Text className="meta-text">{percent}%</Text></Text>
           <Text className="macro__bar-value">{litres(water.consumedMl)} / {litres(water.targetMl)} L</Text>
         </View>
         <View className="macro__track">
@@ -192,6 +174,7 @@ function WaterCard({ water }: { water: WaterDay }) {
 
 // "On track" when protein has reached 55% of its target and calories are within the target
 function MacrosCard({ day }: { day: DayView }) {
+  const colors = useThemeColors();
   const targets = day.targets!;
   const onTrack = day.totals.proteinG >= targets.proteinG * 0.55 && day.totals.kcal <= targets.kcal;
   const rows = [
@@ -226,53 +209,6 @@ function MacrosCard({ day }: { day: DayView }) {
           </View>
         </View>
       ))}
-    </View>
-  );
-}
-
-type TimelineItemProps = { row: TimelineRow; last: boolean; onOpen?: () => void; onAdd?: () => void };
-
-// A slot marker with a connector to the next row, the time, the foods and the kcal. An
-// unlogged slot is dashed; on today it opens Add meal with that slot chosen.
-function TimelineItem({ row, last, onOpen, onAdd }: TimelineItemProps) {
-  const info = slotInfo[row.slot];
-  const time = row.meal ? clockTime(row.meal.loggedAt) : timeLabel(...info.defaultTime);
-  const body = (
-    <View className={row.meal ? "macro__timeline-card" : "macro__timeline-card macro__timeline-card--empty"}>
-      <View className="flex-1 gap-0.5">
-        <Text className="macro__overline">{info.label} · {time}</Text>
-        <Text className={row.meal ? "card__title" : "post__time"} numberOfLines={2}>
-          {row.meal ? row.meal.items.map((i) => i.name).join(" · ") : "Not logged yet"}
-        </Text>
-      </View>
-      {row.meal ? (
-        <Text className="macro__kcal">{whole(row.meal.totals.kcal)} kcal</Text>
-      ) : onAdd ? (
-        <SymbolView name={{ ios: "plus.circle", android: "add_circle_outline", web: "add_circle_outline" }} size={20} tintColor={colors.faint} />
-      ) : null}
-    </View>
-  );
-  return (
-    <View className="flex-row gap-3">
-      <View className="items-center" style={{ width: 28 }}>
-        <View className="h-7 w-7 items-center justify-center rounded-pill" style={{ backgroundColor: `${info.tint}22` }}>
-          <SymbolView name={info.icon} size={14} tintColor={info.tint} />
-        </View>
-        {!last && <View className="w-0.5 flex-1" style={{ backgroundColor: colors.creamLine }} />}
-      </View>
-      <View className="flex-1 pb-3">
-        {onOpen || onAdd ? (
-          <Pressable
-            onPress={onOpen ?? onAdd}
-            accessibilityRole="button"
-            accessibilityLabel={row.meal ? `${info.label} at ${time}: ${row.meal.title}, ${whole(row.meal.totals.kcal)} kcal` : `${info.label}: not logged yet. Add ${info.label.toLowerCase()}`}
-          >
-            {body}
-          </Pressable>
-        ) : (
-          body
-        )}
-      </View>
     </View>
   );
 }

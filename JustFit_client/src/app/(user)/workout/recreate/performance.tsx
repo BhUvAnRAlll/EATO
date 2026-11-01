@@ -8,13 +8,14 @@ import { RecreateField, RecreateFrame, tap } from "@/components/workout/Recreate
 import { useRecreateDraft } from "@/components/workout/RecreateDraft";
 import { PERFORMANCE } from "@/data/recreate";
 import { performanceErrors, type Draft, type Errors, type Score } from "@/lib/recreateRules";
-import { colors } from "@/theme";
+import { useThemeColors } from "@/theme";
 
 // Rebuild my plan, step 3 of 3: what the member can do today, and whether anything needs
 // training around. A "yes" puts the plan in safety mode in the engine (beginner movements,
 // nothing high-risk) and asks for a professional's review.
 
 export default function RecreatePerformance() {
+  const colors = useThemeColors();
   const { draft, update } = useRecreateDraft();
   const [errors, setErrors] = useState<Errors>({});
   const [tried, setTried] = useState(false);
@@ -53,7 +54,7 @@ export default function RecreatePerformance() {
       ))}
 
       <RecreateField index={3} label="Serious injury" error={errors.seriousInjury}>
-        <Text className="post__time">Anything a doctor or physio has told you to train around?</Text>
+        <Text className="meta-text">Anything a doctor or physio has told you to train around?</Text>
         <View className="flex-row gap-2">
           <Chip grow label="No" selected={draft.seriousInjury === false} onPress={() => set((d) => ({ ...d, seriousInjury: false }))} />
           <Chip grow label="Yes" selected={draft.seriousInjury === true} onPress={() => set((d) => ({ ...d, seriousInjury: true }))} />

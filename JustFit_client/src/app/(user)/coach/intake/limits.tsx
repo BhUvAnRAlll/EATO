@@ -7,11 +7,12 @@ import { CoachTextArea } from "@/components/coach/CoachTextArea";
 import { IntakeFrame } from "@/components/coach/IntakeFrame";
 import { conditions, joints } from "@/data/coach";
 import { useCoachIntakeStore } from "@/store/coachIntake";
-import { colors } from "@/theme";
+import { useThemeColors } from "@/theme";
 
 // Intake 6/9: joints to protect, health conditions and notes. All optional; any condition
 // shows the "check with a doctor" note and makes the coach cautious later on.
 export default function IntakeLimits() {
+  const colors = useThemeColors();
   const { draft, update, toggle } = useCoachIntakeStore();
 
   return (

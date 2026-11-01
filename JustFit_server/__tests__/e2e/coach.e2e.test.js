@@ -407,6 +407,98 @@ describe("coach e2e: the intake, its prefill, and who may see it", () => {
     assert.equal((await api("POST", `/api/coach/plan/meals/${breakfast.id}/swap`, tokens.a, { date: "2020-01-01" })).status, 400);
   }));
 
+  it("18b. Swap Meal: five options made for the member and the day, one goes in (with edited portions), Undo puts the old meal back; nobody else can use them", run(async () => {
+    const plan = async (token = tokens.a) => (await api("GET", `/api/coach/plan?date=${today()}`, token)).json.plan;
+    const before = await plan();
+    const lunch = before.meals.find((m) => m.slot === "lunch");
+    const meal = crypto.randomUUID();
+    for (const token of [null, "not-a-jwt"]) {
+      assert.equal((await api("POST", `/api/coach/plan/meals/${meal}/options`, token, { date: today() })).status, 401);
+      assert.equal((await api("POST", `/api/coach/plan/meals/${meal}/replace`, token, { date: today(), optionId: meal })).status, 401);
+    }
+    const usageBefore = await count("SELECT COUNT(*) AS n FROM ai_usage WHERE user_id = ? AND feature = 'coach_meal' AND status = 'ok'", [ids.a]);
+
+    // The options: five dishes, cleaned (A is allergic to peanuts), scaled to the lunch, stored, one AI call
+    const offered = await api("POST", `/api/coach/plan/meals/${lunch.id}/options`, tokens.a, { date: today() });
+    assert.equal(offered.status, 200, JSON.stringify(offered.json));
+    assert.equal(offered.json.mealId, lunch.id);
+    assert.equal(offered.json.preference, null);
+    assert.deepEqual(offered.json.options.map((o) => o.name), ["Paneer tikka wrap", "Rajma chawal", "Curd rice with vegetables", "Moong dal khichdi", "Vegetable upma and sambar"]);
+    assert.deepEqual(offered.json.options[0].items.map((i) => i.name), ["Paneer tikka wrap"], "the peanut chutney never reaches A");
+    for (const o of offered.json.options) {
+      assert.ok(Math.abs(o.totals.kcal - lunch.totals.kcal) / lunch.totals.kcal <= 0.15, `${o.name} lands near the lunch (${o.totals.kcal} vs ${lunch.totals.kcal})`);
+      assert.deepEqual(Object.keys(o).sort(), ["description", "id", "items", "kind", "name", "note", "totals"]);
+    }
+    assert.deepEqual(Object.keys(offered.json.remaining).sort(), ["carbsG", "fatG", "kcal", "proteinG"]);
+    assert.equal(await count("SELECT COUNT(*) AS n FROM coach_meal_options WHERE user_id = ? AND meal_id = ? AND kind = 'suggestion'", [ids.a, lunch.id]), 5);
+    assert.equal(await count("SELECT COUNT(*) AS n FROM ai_usage WHERE user_id = ? AND feature = 'coach_meal' AND status = 'ok'", [ids.a]), usageBefore + 1, "one call for five options");
+    assert.deepEqual((await plan()).meals, before.meals, "asking for options never changes the plan");
+
+    // Steering: a chip is accepted, a made-up one is a 400 and makes no call; extra fields and bad dates are 400s
+    const lighter = await api("POST", `/api/coach/plan/meals/${lunch.id}/options`, tokens.a, { date: today(), preference: "lighter" });
+    assert.equal(lighter.status, 200, JSON.stringify(lighter.json));
+    assert.equal(lighter.json.preference, "lighter");
+    // The body is checked before anything is looked up, so these 400s are proved as C (keeping A under the minute's request limit)
+    assert.equal((await api("POST", `/api/coach/plan/meals/${lunch.id}/options`, tokens.c, { date: today(), preference: "spicy" })).status, 400);
+    assert.equal((await api("POST", `/api/coach/plan/meals/${lunch.id}/options`, tokens.c, { date: today(), mealId: lunch.id })).status, 400);
+    assert.equal((await api("POST", `/api/coach/plan/meals/${lunch.id}/options`, tokens.c, { date: "2020-01-01" })).status, 400);
+    assert.equal((await api("POST", "/api/coach/plan/meals/' OR 1=1 --/options", tokens.c, { date: today() })).status, 400);
+    assert.equal((await api("POST", `/api/coach/plan/meals/${lunch.id}/options`, tokens.b, { date: today() })).status, 404, "B can't ask about A's meal");
+    assert.equal(await count("SELECT COUNT(*) AS n FROM ai_usage WHERE user_id = ? AND feature = 'coach_meal' AND status = 'ok'", [ids.a]), usageBefore + 2);
+
+    // Replace with edited portions: two bowls of rajma, the rice left out
+    const rajma = offered.json.options[1];
+    assert.deepEqual(rajma.items.map((i) => i.name), ["Rajma", "Rice"]);
+    // Portions that don't fit the option (checked against the stored option, so as A)
+    for (const quantities of [[2], [0, 0]]) {
+      const r = await api("POST", `/api/coach/plan/meals/${lunch.id}/replace`, tokens.a, { date: today(), optionId: rajma.id, quantities });
+      assert.equal(r.status, 400, `${JSON.stringify(quantities)} → ${JSON.stringify(r.json)}`);
+    }
+    const bad = [
+      { date: today(), optionId: rajma.id, quantities: [-1, 120] },
+      { date: today(), optionId: rajma.id, quantities: ["2", 120] },
+      { date: today(), optionId: rajma.id, quantities: [2, 20001] },
+      { date: today(), optionId: rajma.id, quantities: [] },
+      { date: today(), optionId: "' OR 1=1 --" },
+      { date: today(), optionId: rajma.id, extra: 1 },
+      { date: "2020-01-01", optionId: rajma.id },
+    ];
+    for (const body of bad) {
+      const r = await api("POST", `/api/coach/plan/meals/${lunch.id}/replace`, tokens.c, body);
+      assert.equal(r.status, 400, `${JSON.stringify(body)} → ${JSON.stringify(r.json)}`);
+    }
+    assert.equal((await api("POST", `/api/coach/plan/meals/${lunch.id}/replace`, tokens.b, { date: today(), optionId: rajma.id })).status, 404, "B can't use A's option");
+    const dinner = before.meals.find((m) => m.slot === "dinner");
+    assert.equal((await api("POST", `/api/coach/plan/meals/${dinner.id}/replace`, tokens.a, { date: today(), optionId: rajma.id })).status, 404, "an option is for one meal only");
+    assert.equal((await api("POST", `/api/coach/plan/meals/${lunch.id}/replace`, tokens.a, { date: today(), optionId: crypto.randomUUID() })).status, 404);
+    assert.deepEqual((await plan()).meals, before.meals, "nothing above touched the plan");
+
+    const twoBowls = rajma.items[0].quantity * 2;
+    const replaced = await api("POST", `/api/coach/plan/meals/${lunch.id}/replace`, tokens.a, { date: today(), optionId: rajma.id, quantities: [twoBowls, 0] });
+    assert.equal(replaced.status, 200, JSON.stringify(replaced.json));
+    assert.equal(replaced.json.mealId, lunch.id);
+    assert.equal(replaced.json.name, "Rajma chawal");
+    assert.equal(replaced.json.replaced.name, lunch.name);
+    const after = replaced.json.plan;
+    const newLunch = after.meals.find((m) => m.slot === "lunch");
+    assert.deepEqual({ id: newLunch.id, name: newLunch.name, time: newLunch.time, items: newLunch.items.map((i) => [i.name, i.quantity, i.unit]) }, { id: lunch.id, name: "Rajma chawal", time: lunch.time, items: [["Rajma", twoBowls, "bowl"]] });
+    assert.ok(Math.abs(newLunch.totals.kcal - rajma.items[0].kcal * 2) <= 1, `two bowls of rajma (${newLunch.totals.kcal} vs ${rajma.items[0].kcal * 2})`);
+    assert.ok(Math.abs(after.totals.kcal - (before.totals.kcal - lunch.totals.kcal + newLunch.totals.kcal)) <= 1, `the day's totals follow (${after.totals.kcal})`);
+    assert.deepEqual(after.meals.filter((m) => m.slot !== "lunch"), before.meals.filter((m) => m.slot !== "lunch"), "the other meals are untouched");
+    assert.equal(await count("SELECT COUNT(*) AS n FROM coach_meal_options WHERE user_id = ? AND meal_id = ? AND kind = 'previous'", [ids.a, lunch.id]), 1, "the old lunch is kept for Undo");
+    assert.equal(await count("SELECT COUNT(*) AS n FROM coach_meal_options WHERE id = ? AND used_at IS NOT NULL", [rajma.id]), 1);
+    assert.equal(await count("SELECT COUNT(*) AS n FROM ai_usage WHERE user_id = ? AND feature = 'coach_meal' AND status = 'ok'", [ids.a]), usageBefore + 2, "replacing is not an AI call");
+
+    // Undo: the snapshot goes back in, as it was
+    const undone = await api("POST", `/api/coach/plan/meals/${lunch.id}/replace`, tokens.a, { date: today(), optionId: replaced.json.undoId });
+    assert.equal(undone.status, 200, JSON.stringify(undone.json));
+    assert.equal(undone.json.name, lunch.name);
+    const restored = undone.json.plan.meals.find((m) => m.slot === "lunch");
+    assert.deepEqual({ name: restored.name, note: restored.note, items: restored.items, totals: restored.totals }, { name: lunch.name, note: lunch.note, items: lunch.items, totals: lunch.totals });
+    assert.deepEqual((await plan()).meals, before.meals, "the plan is back as it was");
+    assert.equal((await api("POST", `/api/coach/plan/meals/${lunch.id}/replace`, tokens.b, { date: today(), optionId: replaced.json.undoId })).status, 404, "B can't undo A's swap");
+  }));
+
   it("19. a member may make a few plans a day (3 here): the next is a friendly 429, not a paid call", run(async () => {
     // A has made 2 plans today (tests 8 and 9)
     const third = await api("POST", "/api/coach/plan", tokens.a, { today: today() });

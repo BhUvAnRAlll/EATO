@@ -14,7 +14,7 @@ import { mergeModels } from "@/lib/aiUsageRules";
 import { dateOf } from "@/lib/macro";
 import { useSessionToken } from "@/lib/session";
 import type { Icon } from "@/types/profile";
-import { colors } from "@/theme";
+import { useThemeColors } from "@/theme";
 
 type Load = { state: "loading" } | { state: "failed"; error: string } | { state: "ready"; data: AiSummary };
 
@@ -25,6 +25,7 @@ const back = () => (router.canGoBack() ? router.back() : router.replace("/admin/
 // period (today, 7 or 30 days) with its charts, the breakdowns by feature and model, and one
 // section per AI area. Everything comes from one summary call; the history has its own screen.
 export default function AiUsageScreen() {
+  const colors = useThemeColors();
   const getToken = useSessionToken();
   const [period, setPeriod] = useState<Period>("week");
   const [load, setLoad] = useState<Load>({ state: "loading" });
@@ -50,7 +51,7 @@ export default function AiUsageScreen() {
 
   return (
     <View className="flex-1 bg-cream">
-      <StatusBar style="dark" />
+      <StatusBar style="auto" />
       <SafeAreaView style={{ flex: 1 }}>
         <View className="screen-bar">
           <Pressable onPress={back} hitSlop={12} className="screen-bar__back" accessibilityRole="button" accessibilityLabel="Back">
@@ -65,7 +66,7 @@ export default function AiUsageScreen() {
         <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40, gap: 16 }} showsVerticalScrollIndicator={false} refreshControl={refreshControl}>
           {load.state === "loading" ? (
             <View className="items-center gap-3 py-16">
-              <ActivityIndicator color={colors.forest} />
+              <ActivityIndicator color={colors.leaf} />
               <Text className="home__note">Loading</Text>
             </View>
           ) : load.state === "failed" ? (
@@ -85,6 +86,7 @@ export default function AiUsageScreen() {
 }
 
 function Ready({ data, period, onPeriod }: { data: AiSummary; period: Period; onPeriod: (p: Period) => void }) {
+  const colors = useThemeColors();
   const { allTime, today, month, current, previous, budget } = data;
   const cards: { label: string; value: string; icon: Icon }[] = [
     { label: "Total AI requests", value: allTime.requests.toLocaleString("en-US"), icon: { ios: "sparkles", android: "auto_awesome", web: "auto_awesome" } },
@@ -172,7 +174,7 @@ function Ready({ data, period, onPeriod }: { data: AiSummary; period: Period; on
       <Text className="setup__section">By feature</Text>
       <View className="admin-list px-4 py-3" style={{ gap: 10 }}>
         {data.features.length === 0 ? (
-          <Text className="post__time">No AI calls in this period.</Text>
+          <Text className="meta-text">No AI calls in this period.</Text>
         ) : (
           [...data.features].sort((a, b) => b.costInr - a.costInr).map((f) => (
             <View key={f.feature} style={{ gap: 4 }} accessibilityLabel={`${FEATURE_SHORT[f.feature]}: ${inr(f.costInr)}, ${f.requests} requests, ${inr(f.avgCostInr)} per call`}>
@@ -189,7 +191,7 @@ function Ready({ data, period, onPeriod }: { data: AiSummary; period: Period; on
       <Text className="setup__section">By model</Text>
       <View className="admin-list px-4 py-3" style={{ gap: 10 }}>
         {data.byModel.length === 0 ? (
-          <Text className="post__time">No AI calls in this period.</Text>
+          <Text className="meta-text">No AI calls in this period.</Text>
         ) : (
           data.byModel.map((m) => (
             <View key={`${m.provider}-${m.model}`} className="ai-kv" accessibilityLabel={`${m.model} (${PROVIDER_LABEL[m.provider]}): ${inr(m.costInr)}, ${compact(m.tokens)} tokens, ${m.requests} requests`}>
@@ -203,7 +205,7 @@ function Ready({ data, period, onPeriod }: { data: AiSummary; period: Period; on
       <Text className="setup__section">Top members</Text>
       <View className="admin-list px-4 py-3" style={{ gap: 10 }}>
         {data.topMembers.length === 0 ? (
-          <Text className="post__time">No member AI calls in this period.</Text>
+          <Text className="meta-text">No member AI calls in this period.</Text>
         ) : (
           data.topMembers.map((m) => (
             <View key={m.userId} className="ai-kv" accessibilityLabel={`${m.userName ?? m.userId}: ${inr(m.costInr)}, ${m.requests} requests`}>
@@ -226,7 +228,7 @@ function Ready({ data, period, onPeriod }: { data: AiSummary; period: Period; on
               <Text className="setup__section">{section.title}</Text>
             </View>
             <View className="admin-list px-4 py-3" style={{ gap: 10 }}>
-              <Text className="post__time">{section.note}</Text>
+              <Text className="meta-text">{section.note}</Text>
               <View className="ai-kv">
                 <Text className="ai-kv__key">Total requests and cost</Text>
                 <Text className="ai-kv__value">{`${requests} · ${inr(cost)}`}</Text>
@@ -284,7 +286,7 @@ function Ready({ data, period, onPeriod }: { data: AiSummary; period: Period; on
           <View className="admin-row__icon"><SymbolView name={{ ios: "list.bullet.rectangle", android: "table_rows", web: "table_rows" }} size={18} tintColor={colors.forestInk} /></View>
           <View className="min-w-0 flex-1">
             <Text className="card__title">Usage history</Text>
-            <Text className="post__time">Every call: who, feature, model, tokens, cost, status</Text>
+            <Text className="meta-text">Every call: who, feature, model, tokens, cost, status</Text>
           </View>
           <SymbolView name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }} size={14} tintColor={colors.faint} />
         </Pressable>

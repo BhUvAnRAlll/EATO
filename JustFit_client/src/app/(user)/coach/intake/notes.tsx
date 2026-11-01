@@ -8,13 +8,14 @@ import { IntakeFrame } from "@/components/coach/IntakeFrame";
 import { coachApi } from "@/lib/coach";
 import { useSessionToken } from "@/lib/session";
 import { intakeFromDraft, useCoachIntakeStore } from "@/store/coachIntake";
-import { colors } from "@/theme";
+import { useThemeColors } from "@/theme";
 
 const NOTES_MAX = 500;
 
 // Intake 9/9: anything else for the plan, the "not medical advice" tick, and the save.
 // Saving is the only write in the whole intake; it closes the flow back to the Coach tab.
 export default function IntakeNotes() {
+  const colors = useThemeColors();
   const getToken = useSessionToken();
   const { draft, update } = useCoachIntakeStore();
   const [saving, setSaving] = useState(false);
@@ -44,7 +45,7 @@ export default function IntakeNotes() {
       loading={saving}
     >
       <View className="coach__tip">
-        <SymbolView name={{ ios: "lightbulb.fill", android: "lightbulb", web: "lightbulb" }} size={14} tintColor={colors.primary} />
+        <SymbolView name={{ ios: "lightbulb.fill", android: "lightbulb", web: "lightbulb" }} size={14} tintColor={colors.leaf} />
         <Text className="coach__hint flex-shrink">Try: &quot;I walk 6k steps daily&quot; or &quot;No fish, please&quot;</Text>
       </View>
 

@@ -10,7 +10,7 @@
 const OpenAI = require("openai");
 
 const { ValidationError } = require("../profile");
-const { NotFoundError } = require("../community/posts");
+const { NotFoundError } = require("../errors");
 const diary = require("../macro/diary");
 const workoutPlans = require("../workout/plans");
 const rules = require("./planRules");
@@ -255,6 +255,119 @@ async function swapMeal(pool, userId, mealId, env = process.env) {
   });
 }
 
+// ---- Swap Meal: options for one meal, and putting one in its place ---------------------
+
+// The ids of the plan meals already logged to the diary on `date`
+async function loggedMealIds(pool, userId, date) {
+  const [logs] = await pool.query("SELECT plan_log_key FROM macro_meal_logs WHERE user_id = ? AND log_date = ? AND source = 'plan'", [userId, date]);
+  return new Set(logs.map((l) => String(l.plan_log_key).split(":")[1]).filter(Boolean));
+}
+
+// The dishes offered for this slot in the last week, newest first, so the next ask brings new ones
+async function recentOptionNames(pool, userId, slot) {
+  const [rows] = await pool.query(
+    "SELECT name FROM coach_meal_options WHERE user_id = ? AND slot = ? AND kind = 'suggestion' AND created_at >= NOW() - INTERVAL 7 DAY ORDER BY created_at DESC LIMIT ?",
+    [userId, slot, rules.limits.recentOptions],
+  );
+  const names = [];
+  for (const row of rows) if (!names.some((n) => rules.dishKey(n) === rules.dishKey(row.name))) names.push(row.name);
+  return names;
+}
+
+const optionToApi = (row) => ({
+  id: row.id,
+  kind: row.kind,
+  name: row.name,
+  description: row.description ?? null,
+  note: row.note ?? null,
+  items: row.items,
+  totals: { kcal: Number(row.kcal), proteinG: Number(row.protein_g), carbsG: Number(row.carbs_g), fatG: Number(row.fat_g) },
+});
+
+// One row of coach_meal_options from a cleaned meal; answers the row as the API shows it
+async function storeOption(conn, { userId, planId, meal, kind, option }) {
+  const totals = rules.totalsOf(option.items);
+  const [[{ id }]] = await conn.query("SELECT UUID() AS id");
+  await conn.query(
+    "INSERT INTO coach_meal_options (id, user_id, plan_id, meal_id, slot, kind, name, description, note, items, kcal, protein_g, carbs_g, fat_g) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    [id, userId, planId, meal.id, meal.slot, kind, option.name, option.description ?? null, option.note ?? null, JSON.stringify(option.items), totals.kcal, totals.proteinG, totals.carbsG, totals.fatG],
+  );
+  return optionToApi({ id, kind, name: option.name, description: option.description ?? null, note: option.note ?? null, items: option.items, kcal: totals.kcal, protein_g: totals.proteinG, carbs_g: totals.carbsG, fat_g: totals.fatG });
+}
+
+/**
+ * Five dishes the member could have instead of one meal of the active plan, from the model, made
+ * for them: their goal, diet, cuisines, allergies, dislikes, cooking time, budget and conditions,
+ * their targets and what the diary says is left of `date`, and the dishes offered for that slot
+ * in the last week (not repeated), steered by `preference` when they picked a chip. Each option
+ * is cleaned, scaled and stored, and only a stored
+ * option can go into the plan (replaceMeal). The plan itself doesn't change here. One AI call,
+ * recorded as coach_meal; a second ask for the same meal while one is running joins it.
+ */
+async function mealOptions(pool, userId, mealId, { date, preference = null }, env = process.env) {
+  const plan = await activeCoachPlan(pool, userId);
+  const meal = plan?.meals.find((m) => m.id === mealId);
+  if (!meal) throw new NotFoundError("That meal isn't in your plan.");
+  const { intake, profile, targets } = await memberFacts(pool, userId);
+  const [day, logged, recent] = await Promise.all([diary.day(pool, userId, date), loggedMealIds(pool, userId, date), recentOptionNames(pool, userId, meal.slot)]);
+  const remaining = rules.remainingFor(targets, day.totals, logged.has(meal.id) ? meal.totals : null);
+  const targetKcal = rules.optionTargetKcal(meal.totals.kcal, remaining.kcal, preference);
+  const exclude = [meal.name, ...recent];
+  await aiLimits.check(pool, { feature: "coach_meal", userId }, env);
+  return dedupe.shared.run(dedupe.requestKey("coach_meal_options", userId, mealId, date, preference, exclude), async () => {
+    const usage = aiUsage.tracker(pool, { feature: "coach_meal", userId });
+    const raw = await askStructured(
+      { feature: "coach_meal_options", instructions: rules.OPTIONS_INSTRUCTIONS, brief: rules.optionsBrief({ profile, intake, targets, remaining, meal, targetKcal, exclude: recent, preference }), schema: rules.optionsSchema, fake: rules.FAKE_OPTIONS, failure: rules.OPTIONS_FAILURE },
+      env,
+      usage,
+    );
+    const options = rules.normalizeOptions(raw, meal, profile.allergies, { targetKcal, exclude });
+    // Options older than a month are no use to anyone (undo snapshots included)
+    await pool.query("DELETE FROM coach_meal_options WHERE user_id = ? AND created_at < NOW() - INTERVAL 30 DAY", [userId]);
+    const stored = [];
+    for (const option of options) stored.push(await storeOption(pool, { userId, planId: plan.id, meal, kind: "suggestion", option }));
+    return { mealId: meal.id, remaining, targetKcal, preference, options: stored };
+  });
+}
+
+/**
+ * Puts one stored option (a suggestion for that meal, or the "previous" snapshot an earlier
+ * replacement left, which is how Undo works) in the meal's place, in one transaction with the
+ * member locked: the meal as it is now is kept as a "previous" row first, and its id comes back
+ * as `undoId`. The other meals and the workout stay. The foods are cleaned again on the way in,
+ * and with `quantities` (one per food, 0 leaves it out) the member's portions set their numbers.
+ */
+async function replaceMeal(pool, userId, mealId, optionId, quantities = null) {
+  const plan = await activeCoachPlan(pool, userId);
+  const meal = plan?.meals.find((m) => m.id === mealId);
+  if (!meal) throw new NotFoundError("That meal isn't in your plan.");
+  const [[row]] = await pool.query(
+    "SELECT id, kind, name, description, note, items FROM coach_meal_options WHERE id = ? AND user_id = ? AND meal_id = ? AND plan_id = ?",
+    [optionId, userId, mealId, plan.id],
+  );
+  if (!row) throw new NotFoundError("That option isn't available any more. Ask for options again.");
+  let items = rules.storedItems(row.items);
+  if (quantities) {
+    if (quantities.length !== items.length) throw new ValidationError("The portions don't match the option's foods. Ask for options again.");
+    items = rules.editedItems(items, quantities);
+    if (items.length === 0) throw new ValidationError("Keep at least one food in the meal.");
+  }
+  const name = String(row.name).slice(0, rules.limits.mealName);
+  const previous = await workoutPlans.withMemberLock(pool, userId, async (conn) => {
+    const kept = await storeOption(conn, { userId, planId: plan.id, meal, kind: "previous", option: { name: meal.name, note: meal.note, items: meal.items } });
+    const [result] = await conn.query("UPDATE coach_plan_meals SET name = ?, note = ? WHERE id = ? AND plan_id = ? AND user_id = ?", [name, row.note ?? null, meal.id, plan.id, userId]);
+    if (result.affectedRows === 0) throw new NotFoundError("That meal isn't in your plan.");
+    await conn.query("DELETE FROM coach_plan_meal_items WHERE meal_id = ? AND user_id = ?", [meal.id, userId]);
+    await conn.query(
+      "INSERT INTO coach_plan_meal_items (meal_id, plan_id, user_id, position, name, quantity, unit, kcal, protein_g, carbs_g, fat_g) VALUES ?",
+      [items.map((it, i) => [meal.id, plan.id, userId, i, it.name, it.quantity, it.unit, it.kcal, it.proteinG, it.carbsG, it.fatG])],
+    );
+    await conn.query("UPDATE coach_meal_options SET used_at = NOW() WHERE id = ? AND user_id = ?", [row.id, userId]);
+    return kept;
+  });
+  return { mealId: meal.id, undoId: previous.id, replaced: { name: previous.name, totals: previous.totals }, name, totals: rules.totalsOf(items) };
+}
+
 /**
  * Logs a coach meal into the Macro diary for `date` (the member's today), as it is. One log per
  * date and meal: a repeated tap returns the first log instead of a copy.
@@ -281,4 +394,4 @@ async function logMeal(pool, userId, mealId, { date }) {
   }
 }
 
-module.exports = { toIntake, makePlan, swapMeal, getPlan, logMeal };
+module.exports = { toIntake, makePlan, swapMeal, mealOptions, replaceMeal, getPlan, logMeal };

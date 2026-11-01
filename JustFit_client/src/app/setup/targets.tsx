@@ -25,7 +25,7 @@ import {
 import { useAuthStore } from "@/store/auth";
 import { useSetupStore } from "@/store/setup";
 import type { Icon } from "@/types/profile";
-import { colors } from "@/theme";
+import { useThemeColors } from "@/theme";
 
 const CALORIE_STEP = 50;
 const { kcalPerGram } = calculatorConfig;
@@ -49,6 +49,7 @@ function MacroTile({ label, value, note, color, icon }: MacroTileProps) {
 }
 
 function MacroGrid({ calories, macros }: { calories: number; macros: Macros }) {
+  const colors = useThemeColors();
   const percent = (grams: number, kcal: number) => `${Math.round(((grams * kcal) / calories) * 100)}% of kcal`;
   return (
     <View className="mt-3 gap-3">
@@ -80,6 +81,7 @@ function MacroGrid({ calories, macros }: { calories: number; macros: Macros }) {
 }
 
 export default function NutritionTargets() {
+  const colors = useThemeColors();
   const user = useAuthStore((state) => state.user);
   const getToken = useSessionToken();
   // The server rejected the session: offer the way back to sign-in instead of a dead retry
@@ -227,7 +229,7 @@ export default function NutritionTargets() {
 
       {result.status === "needs_professional_guidance" && (
         <View className="setup__info mb-4">
-          <SymbolView name={{ ios: "info.circle", android: "info", web: "info" }} size={16} tintColor={colors.forest} />
+          <SymbolView name={{ ios: "info.circle", android: "info", web: "info" }} size={16} tintColor={colors.leaf} />
           <View className="flex-1 gap-1.5">
             {result.reasons.map((reason) => (
               <Text key={reason} className="setup__card-text">
@@ -279,7 +281,7 @@ export default function NutritionTargets() {
             <SymbolView
               name={{ ios: "flame.fill", android: "local_fire_department", web: "local_fire_department" }}
               size={28}
-              tintColor={colors.forest}
+              tintColor={colors.leaf}
             />
             <View className="flex-1">
               <Text className="setup__card-text">{calorieOverride !== null ? "Your adjusted target" : "Estimated daily target"}</Text>
@@ -289,15 +291,15 @@ export default function NutritionTargets() {
             </View>
             {isEditing ? (
               <View className="flex-row items-center gap-2">
-                <Pressable onPress={() => changeCalories(-CALORIE_STEP)} className="setup__stepper">
+                <Pressable onPress={() => changeCalories(-CALORIE_STEP)} className="setup__stepper" accessibilityRole="button" accessibilityLabel={`Lower calories by ${CALORIE_STEP}`}>
                   <SymbolView name={{ ios: "minus", android: "remove", web: "remove" }} size={16} tintColor={colors.forestInk} />
                 </Pressable>
-                <Pressable onPress={() => changeCalories(CALORIE_STEP)} className="setup__stepper">
+                <Pressable onPress={() => changeCalories(CALORIE_STEP)} className="setup__stepper" accessibilityRole="button" accessibilityLabel={`Raise calories by ${CALORIE_STEP}`}>
                   <SymbolView name={{ ios: "plus", android: "add", web: "add" }} size={16} tintColor={colors.forestInk} />
                 </Pressable>
               </View>
             ) : (
-              <Pressable onPress={() => setIsEditing(true)} className="setup__chip">
+              <Pressable onPress={() => setIsEditing(true)} className="setup__chip" accessibilityRole="button" accessibilityLabel="Edit calories">
                 <Text className="setup__chip-label">Edit</Text>
               </Pressable>
             )}
@@ -312,11 +314,12 @@ export default function NutritionTargets() {
                 setIsEditing(false);
               }}
               className="setup__info mt-3 items-center"
+              accessibilityRole="button"
             >
               <SymbolView
                 name={{ ios: "arrow.uturn.backward", android: "undo", web: "undo" }}
                 size={16}
-                tintColor={colors.forest}
+                tintColor={colors.leaf}
               />
               <Text className="setup__chip-label flex-1">Reset to the estimate ({result.displayCalories.toLocaleString("en-IN")} kcal)</Text>
             </Pressable>
@@ -324,7 +327,7 @@ export default function NutritionTargets() {
 
           {result.warnings.map((warning) => (
             <View key={warning} className="setup__info mt-3">
-              <SymbolView name={{ ios: "info.circle", android: "info", web: "info" }} size={16} tintColor={colors.forest} />
+              <SymbolView name={{ ios: "info.circle", android: "info", web: "info" }} size={16} tintColor={colors.leaf} />
               <Text className="setup__card-text flex-1">{warning}</Text>
             </View>
           ))}
@@ -353,7 +356,7 @@ export default function NutritionTargets() {
         <View className="mt-3">
           <FormAlert message={error} />
           {sessionExpired && (
-            <Pressable onPress={() => returnToSignIn()} className="btn-outline mt-3">
+            <Pressable onPress={() => returnToSignIn()} className="btn-outline mt-3" accessibilityRole="button">
               <Text className="btn-outline__label">Sign in again</Text>
             </Pressable>
           )}

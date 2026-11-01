@@ -1,10 +1,11 @@
-import { Pressable, Text, View } from "react-native";
+import { Text, View } from "react-native";
+import { PressableScale } from "@/components/PressableScale";
 import { Image } from "expo-image";
 import { SymbolView } from "@/components/SymbolView";
 
 import type { Meal } from "@/data/home";
 import { resolveImage } from "@/lib/home";
-import { colors } from "@/theme";
+import { useThemeColors } from "@/theme";
 
 type PopularMealCardProps = {
   meal: Meal;
@@ -18,6 +19,7 @@ type PopularMealCardProps = {
 
 // Photo with a heart, then the name, calories and macros, and a round add button
 export function PopularMealCard({ meal, width, favorite, quantity, onToggleFavorite, onAdd }: PopularMealCardProps) {
+  const colors = useThemeColors();
   const line1 = `${meal.calories} kcal | ${Math.round(meal.proteinG)}g P`;
   const line2 = `${Math.round(meal.carbsG)}g C | ${Math.round(meal.fatG)}g F`;
   // Narrow cards (under 165pt): smaller macro text and a smaller add button
@@ -28,7 +30,7 @@ export function PopularMealCard({ meal, width, favorite, quantity, onToggleFavor
     <View className="meal__card" style={{ width }}>
       <View>
         <Image source={resolveImage(meal.imageUrl)} contentFit="cover" style={{ width, height: Math.round(width * 0.7) }} accessibilityLabel={meal.name} />
-        <Pressable
+        <PressableScale scaleTo={0.98}
           onPress={onToggleFavorite}
           className="meal__heart"
           hitSlop={6}
@@ -41,7 +43,7 @@ export function PopularMealCard({ meal, width, favorite, quantity, onToggleFavor
             size={16}
             tintColor={favorite ? colors.danger : colors.inkSoft}
           />
-        </Pressable>
+        </PressableScale>
       </View>
 
       <View className="p-3">
@@ -57,7 +59,7 @@ export function PopularMealCard({ meal, width, favorite, quantity, onToggleFavor
           </Text>
         </View>
         <View className="absolute bottom-3 right-3">
-          <Pressable
+          <PressableScale scaleTo={0.98}
             onPress={onAdd}
             className="meal__add"
             style={narrow ? { width: 34, height: 34 } : undefined}
@@ -69,7 +71,7 @@ export function PopularMealCard({ meal, width, favorite, quantity, onToggleFavor
             ) : (
               <SymbolView name={{ ios: "plus", android: "add", web: "add" }} size={18} tintColor={colors.white} />
             )}
-          </Pressable>
+          </PressableScale>
         </View>
       </View>
     </View>

@@ -4,7 +4,7 @@
 // shared handler, which answers 400 with the message and logs only safe fields.
 const express = require("express");
 
-const { ensureUser } = require("../community/members");
+const { ensureUser } = require("../auth");
 const plans = require("./plans");
 const v = require("./validate");
 

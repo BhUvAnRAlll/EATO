@@ -9,12 +9,13 @@ import { inRange, toNumberText } from "@/lib/numberInput";
 import { fetchProfile, saveProfile, type SavedData } from "@/lib/profile";
 import { measurementSave, type MeasurementSave } from "@/lib/profileScan";
 import { SESSION_EXPIRED_MESSAGE, isSessionExpired, useSessionToken } from "@/lib/session";
-import { colors } from "@/theme";
+import { useThemeColors } from "@/theme";
 import { track } from "@/lib/analytics";
 
 // Profile › Edit: change height and weight after setup. Both feed the calorie calculation, so
 // the first tap shows what changes (including the daily target) and the second saves it.
 export default function Measurements() {
+  const colors = useThemeColors();
   const getToken = useSessionToken();
   const [data, setData] = useState<SavedData | null>(null);
   const [heightCm, setHeightCm] = useState("");
@@ -89,7 +90,7 @@ export default function Measurements() {
           ))}
         </View>
       ) : data === null && !error ? (
-        <ActivityIndicator color={colors.forest} />
+        <ActivityIndicator color={colors.leaf} />
       ) : (
         <View className="gap-3">
           <SetupField

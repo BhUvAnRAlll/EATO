@@ -5,7 +5,7 @@ import { SymbolView } from "@/components/SymbolView";
 import { FormAlert } from "@/components/FormAlert";
 import { clockTime, macro, slotInfo, sourceLabel, whole, type Meal } from "@/lib/macro";
 import { useSessionToken } from "@/lib/session";
-import { colors } from "@/theme";
+import { useThemeColors } from "@/theme";
 
 type MealDetailSheetProps = {
   // The meal to show, or null when closed
@@ -26,6 +26,7 @@ export function MealDetailSheet(props: MealDetailSheetProps) {
 }
 
 function MealSheetBody({ meal, onClose, onDeleted, favorited, onToggleFavorite }: MealDetailSheetProps & { meal: Meal }) {
+  const colors = useThemeColors();
   const getToken = useSessionToken();
   const [confirming, setConfirming] = useState(false);
   const [removing, setRemoving] = useState(false);
@@ -55,7 +56,7 @@ function MealSheetBody({ meal, onClose, onDeleted, favorited, onToggleFavorite }
   return (
     <Modal visible transparent animationType="fade" onRequestClose={removing ? undefined : onClose}>
       <Pressable className="verify__backdrop" onPress={removing ? undefined : onClose} accessibilityLabel="Close">
-        <Pressable className="verify__sheet" style={{ maxHeight: "86%" }} onPress={() => {}} accessibilityViewIsModal>
+        <Pressable className="verify__sheet" style={{ maxHeight: "86%" }} onPress={() => {}} accessibilityViewIsModal accessible={false}>
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 16 }}>
             <View className="flex-row items-start gap-3">
               <View className="macro__thumb" style={{ backgroundColor: `${slot.tint}1F` }}>
@@ -63,7 +64,7 @@ function MealSheetBody({ meal, onClose, onDeleted, favorited, onToggleFavorite }
               </View>
               <View className="flex-1 gap-0.5">
                 <Text className="type-headline text-forest-ink">{meal.title}</Text>
-                <Text className="post__time">
+                <Text className="meta-text">
                   {slot.label} · {clockTime(meal.loggedAt)} · {sourceLabel[meal.source]}
                 </Text>
               </View>

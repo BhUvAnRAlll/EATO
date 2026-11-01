@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { Pressable, Text, View } from "react-native";
 import { SymbolView } from "@/components/SymbolView";
 
-import { colors } from "@/theme";
+import { useThemeColors } from "@/theme";
 
 type SectionHeaderProps = {
   title: string;
@@ -16,7 +16,9 @@ type SectionHeaderProps = {
 };
 
 // Section title with an optional badge and a right-aligned "Label →" link
-export function SectionHeader({ title, badge, actionLabel, onAction, actionColor = colors.primaryText }: SectionHeaderProps) {
+export function SectionHeader({ title, badge, actionLabel, onAction, actionColor: actionColorProp }: SectionHeaderProps) {
+  const colors = useThemeColors();
+  const actionColor = actionColorProp ?? colors.primaryText;
   return (
     <View className="flex-row items-center justify-between gap-3">
       <View className="flex-1 flex-row items-center gap-2">

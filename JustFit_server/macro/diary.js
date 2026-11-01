@@ -2,7 +2,7 @@
 // recent meals and favourite foods. Every query is scoped to the verified member: a meal
 // or favourite that belongs to someone else answers exactly like one that doesn't exist.
 // A meal's totals are always summed from its foods, never stored, so they cannot drift.
-const { NotFoundError } = require("../community/posts");
+const { NotFoundError } = require("../errors");
 const { ValidationError } = require("../profile");
 const { limits, daysBefore } = require("./validate");
 

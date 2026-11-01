@@ -9,7 +9,7 @@ import { DashedBlock } from "@/components/macro/DashedBlock";
 import { SymbolView } from "@/components/SymbolView";
 import { appUsage, cohortText, type CohortUnit, type Retention } from "@/lib/appUsage";
 import { useSessionToken } from "@/lib/session";
-import { colors } from "@/theme";
+import { useThemeColors } from "@/theme";
 
 type Load = { state: "loading" } | { state: "failed"; error: string } | { state: "ready"; data: Retention };
 
@@ -21,6 +21,7 @@ const UNIT_LABEL: Record<CohortUnit, string> = { week: "By week joined", month: 
 // each group came back on or after day 1, 7 and 30, plus how each group's activity fell away
 // week by week (or month by month). A dash means the group is too young for that day yet.
 export default function RetentionScreen() {
+  const colors = useThemeColors();
   const getToken = useSessionToken();
   const [unit, setUnit] = useState<CohortUnit>("week");
   const [load, setLoad] = useState<Load>({ state: "loading" });
@@ -47,7 +48,7 @@ export default function RetentionScreen() {
 
   return (
     <View className="flex-1 bg-cream">
-      <StatusBar style="dark" />
+      <StatusBar style="auto" />
       <SafeAreaView style={{ flex: 1 }}>
         <View className="screen-bar">
           <Pressable onPress={back} hitSlop={12} className="screen-bar__back" accessibilityRole="button" accessibilityLabel="Back">
@@ -68,7 +69,7 @@ export default function RetentionScreen() {
 
           {load.state === "loading" ? (
             <View className="items-center gap-3 py-16">
-              <ActivityIndicator color={colors.forest} />
+              <ActivityIndicator color={colors.leaf} />
               <Text className="home__note">Loading</Text>
             </View>
           ) : load.state === "failed" ? (
@@ -98,7 +99,7 @@ export default function RetentionScreen() {
 
               <Text className="setup__section">{unit === "week" ? "Week by week" : "Month by month"}</Text>
               <View className="admin-list px-4 py-3" style={{ gap: 12 }}>
-                <Text className="post__time">{`For each group, the share still active in each later ${unit}. The first bar is the ${unit} they joined.`}</Text>
+                <Text className="meta-text">{`For each group, the share still active in each later ${unit}. The first bar is the ${unit} they joined.`}</Text>
                 {load.data.cohorts.map((c) => (
                   <View key={c.cohort} style={{ gap: 4 }} accessibilityLabel={`${cohortText(c.cohort, load.data.unit)}: ${c.periods.map((p, i) => `${unit} ${i}: ${p}%`).join(", ")}`}>
                     <Text className="ai-kv__key">{cohortText(c.cohort, load.data.unit)}</Text>
@@ -109,7 +110,7 @@ export default function RetentionScreen() {
                         </View>
                       ))}
                     </View>
-                    <Text className="post__time">{c.periods.map((p) => `${p}%`).join(" · ")}</Text>
+                    <Text className="meta-text">{c.periods.map((p) => `${p}%`).join(" · ")}</Text>
                   </View>
                 ))}
               </View>

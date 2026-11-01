@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { ScreenSkeleton } from "@/components/Skeleton";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { SymbolView } from "@/components/SymbolView";
@@ -9,15 +10,15 @@ import { MacroHeader } from "@/components/macro/MacroHeader";
 import { kcalOf, macro, macrosAgree, whole, type TargetStatus } from "@/lib/macro";
 import { useSessionToken } from "@/lib/session";
 import { useHomeStore } from "@/store/home";
-import { colors } from "@/theme";
+import { useThemeColors, Palette } from "@/theme";
 import { fonts } from "@/constants/fonts";
 
-const macroFields = [
+const macroFields = (colors: Palette) => ([
   { key: "proteinG", label: "Protein", color: colors.protein },
   { key: "carbsG", label: "Carbs", color: colors.carbs },
   { key: "fatG", label: "Fat", color: colors.fat },
-] as const;
-type MacroKey = (typeof macroFields)[number]["key"];
+] as const);
+type MacroKey = (ReturnType<typeof macroFields>)[number]["key"];
 
 const numeric = (text: string) => text.replace(/[^\d]/g, "").slice(0, 5);
 const toNumber = (text: string) => (text.trim() === "" ? 0 : Number(text));
@@ -25,6 +26,7 @@ const toNumber = (text: string) => (text.trim() === "" ? 0 : Number(text));
 // Set the daily calorie and macro target by hand, or hand it back to the calculation.
 // The server applies the calculator's rules (1000–5000 kcal).
 export default function AdjustTargets() {
+  const colors = useThemeColors();
   const getToken = useSessionToken();
   const [status, setStatus] = useState<TargetStatus | null>(null);
   const [kcal, setKcal] = useState("");
@@ -66,7 +68,7 @@ export default function AdjustTargets() {
     const calories = toNumber(kcal);
     if (!(calories > 0)) return setError("Enter your daily calories.");
     const body: { kcal: number; proteinG?: number; carbsG?: number; fatG?: number } = { kcal: calories };
-    for (const field of macroFields) if (grams[field.key].trim() !== "") body[field.key] = toNumber(grams[field.key]);
+    for (const field of macroFields(colors)) if (grams[field.key].trim() !== "") body[field.key] = toNumber(grams[field.key]);
     setBusy("save");
     const result = await macro.setTargets(await getToken().catch(() => null), body);
     setBusy(null);
@@ -85,26 +87,33 @@ export default function AdjustTargets() {
   };
 
   const typedKcal = toNumber(kcal);
-  const anyMacro = macroFields.some((f) => grams[f.key].trim() !== "");
+  const anyMacro = macroFields(colors).some((f) => grams[f.key].trim() !== "");
   const macroKcal = Math.round(kcalOf({ proteinG: toNumber(grams.proteinG), carbsG: toNumber(grams.carbsG), fatG: toNumber(grams.fatG) }));
 
   return (
     <View className="flex-1 bg-cream">
-      <StatusBar style="dark" />
+      <StatusBar style="auto" />
       <SafeAreaView style={{ flex: 1 }}>
         <MacroHeader title="Adjust targets" />
 
         {status === null ? (
-          <View className="flex-1 items-center justify-center">
-            {error ? <Text className="macro__error px-5 text-center" accessibilityRole="alert">{error}</Text> : <ActivityIndicator color={colors.forest} />}
-          </View>
+          error ? (
+            <View className="flex-1 items-center justify-center">
+              <Text className="macro__error px-5 text-center" accessibilityRole="alert">{error}</Text>
+            </View>
+          ) : (
+            <View className="px-4 pt-2">
+              <ScreenSkeleton />
+            </View>
+          )
         ) : status.status === "incomplete" ? (
           <View className="flex-1 items-center justify-center px-8">
             <Text className="placeholder__text">{"Finish your profile first — there's no calculated target yet to adjust."}</Text>
           </View>
         ) : (
           <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-            <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24, gap: 16 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+            <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24, gap: 16 }} keyboardShouldPersistTaps="handled"
+            keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"} showsVerticalScrollIndicator={false}>
               <Text className="home__lead">
                 {status.isManual
                   ? "You set these by hand. justFit keeps them until you reset to the calculated target or update your profile."
@@ -123,7 +132,7 @@ export default function AdjustTargets() {
               <View className="gap-2">
                 <Text className="setup__section">Macros</Text>
                 <View className="flex-row gap-2">
-                  {macroFields.map((m) => (
+                  {macroFields(colors).map((m) => (
                     <View key={m.key} className="macro__macro-box">
                       <View className="flex-row items-center gap-1.5">
                         <View className="h-2 w-2 rounded-pill" style={{ backgroundColor: m.color }} />
@@ -165,7 +174,7 @@ export default function AdjustTargets() {
 
               {status.canReset && (
                 <Pressable onPress={reset} disabled={busy !== null} className="flex-row items-center justify-center gap-2 py-2" accessibilityRole="button" accessibilityLabel="Reset to calculated">
-                  {busy === "reset" ? <ActivityIndicator color={colors.forest} /> : <SymbolView name={{ ios: "arrow.counterclockwise", android: "restart_alt", web: "restart_alt" }} size={16} tintColor={colors.forest} />}
+                  {busy === "reset" ? <ActivityIndicator color={colors.leaf} /> : <SymbolView name={{ ios: "arrow.counterclockwise", android: "restart_alt", web: "restart_alt" }} size={16} tintColor={colors.leaf} />}
                   <Text className="auth__link">Reset to calculated{status.calculated ? ` (${status.calculated.kcal.toLocaleString("en-IN")} kcal)` : ""}</Text>
                 </Pressable>
               )}

@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import { RefreshControl } from "react-native";
 
-import { colors } from "@/theme";
+import { useThemeColors } from "@/theme";
 
 // Pull to refresh for a screen. `reload` is the screen's own loader (the same one its focus
 // effect calls, with any freshness window forced off) so a pull reads everything the screen
@@ -15,6 +15,7 @@ import { colors } from "@/theme";
 // Only the vertical list or scroll view of a screen gets it: horizontal carousels, nested
 // lists and inputs never do.
 export function usePullToRefresh(reload: () => Promise<unknown>) {
+  const colors = useThemeColors();
   const [refreshing, setRefreshing] = useState(false);
   const busy = useRef(false);
 
@@ -32,6 +33,6 @@ export function usePullToRefresh(reload: () => Promise<unknown>) {
     }
   }, [reload]);
 
-  const refreshControl = <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} colors={[colors.primary]} progressBackgroundColor={colors.surface} />;
+  const refreshControl = <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.leaf} colors={[colors.leaf]} progressBackgroundColor={colors.surface} />;
   return { refreshing, onRefresh, refreshControl };
 }

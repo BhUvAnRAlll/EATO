@@ -2,7 +2,7 @@ import { Pressable, Text, TextInput, View, type TextInputProps } from "react-nat
 import { SymbolView } from "@/components/SymbolView";
 
 import type { Icon } from "@/types/profile";
-import { colors } from "@/theme";
+import { useThemeColors } from "@/theme";
 
 type SetupFieldProps = TextInputProps & {
   label: string;
@@ -35,6 +35,7 @@ export function SetupField({
   placeholder,
   ...inputProps
 }: SetupFieldProps) {
+  const colors = useThemeColors();
   const content = (
     <View className={invalid ? "setup__field setup__field--invalid" : "setup__field"}>
       <SymbolView name={icon} size={20} tintColor={colors.inkSoft} />
@@ -69,5 +70,5 @@ export function SetupField({
     </View>
   );
 
-  return onPress ? <Pressable onPress={onPress}>{content}</Pressable> : content;
+  return onPress ? <Pressable onPress={onPress} accessibilityRole="button">{content}</Pressable> : content;
 }

@@ -11,9 +11,10 @@ import { isValidIso, todayIso } from "@/lib/macro";
 import { useSessionToken } from "@/lib/session";
 import { weekOf, workoutApi, type TrainingDay } from "@/lib/workoutApi";
 import { buildSteps, exerciseProgress, setKey, setTotals, startIndex } from "@/lib/workoutSteps";
-import { colors } from "@/theme";
+import { useThemeColors } from "@/theme";
 import { fonts } from "@/constants/fonts";
 import { track } from "@/lib/analytics";
+import { haptic } from "@/lib/haptics";
 
 // The session player: today's session set by set, on the dark ink surface so it reads at arm's
 // length with the phone propped against a rack. Every set of every exercise in plan order, with
@@ -39,6 +40,7 @@ const icon = {
 } as const;
 
 export default function SessionPlayer() {
+  const colors = useThemeColors();
   useKeepAwake();
   const params = useLocalSearchParams<{ date?: string; exercise?: string }>();
   const today = todayIso();
@@ -137,6 +139,7 @@ const MAX_REPS = 1000;
 const MAX_WEIGHT = 1000;
 
 function Player({ day, logId, completed, initialLogged, startExercise, getToken, onError, onLeave }: PlayerProps) {
+  const colors = useThemeColors();
   const steps = useMemo(() => buildSteps(day.exercises), [day]);
   const [logged, setLogged] = useState(initialLogged);
   const [index, setIndex] = useState(() => (completed ? steps.length : startIndex(steps, initialLogged, startExercise)));
@@ -174,6 +177,7 @@ function Player({ day, logId, completed, initialLogged, startExercise, getToken,
     setFinishing(false);
     if (!result.ok) return onError("Could not finish the session");
     track("workout_completed");
+    haptic.success();
     onError(null);
     setFinished(true);
   };
@@ -248,7 +252,7 @@ function Player({ day, logId, completed, initialLogged, startExercise, getToken,
         <Text className="player__overline">Last set done</Text>
         <Text className="player__name">{day.title}</Text>
         <Pressable onPress={finish} disabled={finishing} className="player__button mt-4" style={{ opacity: finishing ? 0.6 : 1 }} accessibilityRole="button" accessibilityLabel="Finish workout">
-          {finishing ? <ActivityIndicator color={colors.ink} /> : <Text className="player__button-label">Finish workout</Text>}
+          {finishing ? <ActivityIndicator color={colors.black} /> : <Text className="player__button-label">Finish workout</Text>}
         </Pressable>
       </View>
     );

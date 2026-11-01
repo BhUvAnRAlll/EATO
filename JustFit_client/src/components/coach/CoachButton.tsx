@@ -1,7 +1,8 @@
-import { ActivityIndicator, Pressable, Text, View } from "react-native";
+import { ActivityIndicator, Text, View } from "react-native";
 
+import { PressableScale } from "@/components/PressableScale";
 import { SymbolView } from "@/components/SymbolView";
-import { colors } from "@/theme";
+import { useThemeColors } from "@/theme";
 
 type CoachButtonProps = {
   label: string;
@@ -12,14 +13,17 @@ type CoachButtonProps = {
 };
 
 // The AI Coach's main button: a red gradient pill (60 pt) with the label centred and a white
-// arrow in a lighter circle at the right. Dims while pressed, shows a spinner while loading.
+// arrow in a lighter circle at the right. Eases down while held (with a light tap), shows a
+// spinner while loading.
 export function CoachButton({ label, onPress, loading = false, disabled = false }: CoachButtonProps) {
+  const colors = useThemeColors();
   return (
-    <Pressable
+    <PressableScale
       onPress={onPress}
       disabled={loading || disabled}
+      haptic="tap"
       className="coach__cta"
-      style={({ pressed }) => ({ opacity: disabled ? 0.45 : pressed ? 0.9 : 1, transform: [{ scale: pressed && !disabled ? 0.985 : 1 }] })}
+      style={{ opacity: disabled ? 0.45 : 1 }}
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ disabled: loading || disabled, busy: loading }}
@@ -34,6 +38,6 @@ export function CoachButton({ label, onPress, loading = false, disabled = false 
           </View>
         </>
       )}
-    </Pressable>
+    </PressableScale>
   );
 }

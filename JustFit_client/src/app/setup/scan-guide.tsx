@@ -7,12 +7,13 @@ import { router, useLocalSearchParams } from "expo-router";
 
 import { SetupScreen } from "@/components/setup/SetupScreen";
 import { videos } from "@/constants/videos";
-import { colors } from "@/theme";
+import { useThemeColors } from "@/theme";
 
 // The instruction video plays by itself on a loop, with no controls. On phones it plays with
 // sound; browsers block autoplay with sound, so on the web it plays muted. It stops when the
 // screen closes.
 function InstructionVideo() {
+  const colors = useThemeColors();
   // The width the card gives the video, measured, so the 9:16 box fits it exactly
   const [width, setWidth] = useState(0);
   const player = useVideoPlayer(videos.scanInstructions, (p) => {
@@ -49,6 +50,7 @@ function InstructionVideo() {
 
 // Shown after "Scan Body": the instruction video (how to stand and what to wear), then on to the scan
 export default function ScanGuide() {
+  const colors = useThemeColors();
   // ?from=profile: the same scan, opened from Profile after setup (no setup progress)
   const { from } = useLocalSearchParams<{ from?: string }>();
   const fromProfile = from === "profile";
@@ -67,7 +69,7 @@ export default function ScanGuide() {
         <InstructionVideo />
 
         <View className="setup__note">
-          <SymbolView name={{ ios: "lock.shield", android: "shield", web: "shield" }} size={22} tintColor={colors.forest} />
+          <SymbolView name={{ ios: "lock.shield", android: "shield", web: "shield" }} size={22} tintColor={colors.leaf} />
           <View className="flex-1 gap-0.5">
             <Text className="setup__note-title">Your photos stay private</Text>
             <Text className="setup__note-text">

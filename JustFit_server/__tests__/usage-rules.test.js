@@ -21,7 +21,7 @@ describe("app usage: the feature catalogue", () => {
       assert.ok(rules.MODULES.some((m) => m.id === f.module), `${f.id}: module ${f.module} exists`);
       if (f.where) assert.ok(!/[;]/.test(f.where), `${f.id}: a single condition`);
     }
-    assert.ok(rules.FEATURES.length >= 15);
+    assert.ok(rules.FEATURES.length >= 9);
   });
 
   it("AI features count only successful calls, never failed or refused ones", () => {

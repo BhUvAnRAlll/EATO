@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, Switch, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, Switch, Text, TextInput, View, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { router, useFocusEffect } from "expo-router";
@@ -9,7 +9,7 @@ import { DashedBlock } from "@/components/macro/DashedBlock";
 import { SymbolView } from "@/components/SymbolView";
 import { aiUsage, inr, type BudgetSettings, type BudgetView } from "@/lib/aiUsage";
 import { useSessionToken } from "@/lib/session";
-import { colors, switchColors } from "@/theme";
+import { useThemeColors, useSwitchColors } from "@/theme";
 
 type Load = { state: "loading" } | { state: "failed"; error: string } | { state: "ready"; data: BudgetView };
 
@@ -28,6 +28,8 @@ const switches: { key: keyof Omit<BudgetSettings, "monthlyLimitInr" | "usdToInr"
 // alerts are on, and the alerts that fired (acknowledge to clear them). Reaching the limit only
 // alerts: nothing is switched off.
 export default function AiBudgetScreen() {
+  const colors = useThemeColors();
+  const switchColors = useSwitchColors();
   const getToken = useSessionToken();
   const [load, setLoad] = useState<Load>({ state: "loading" });
   const [form, setForm] = useState<BudgetSettings | null>(null);
@@ -95,7 +97,7 @@ export default function AiBudgetScreen() {
 
   return (
     <View className="flex-1 bg-cream">
-      <StatusBar style="dark" />
+      <StatusBar style="auto" />
       <SafeAreaView style={{ flex: 1 }}>
         <View className="screen-bar">
           <Pressable onPress={back} hitSlop={12} className="screen-bar__back" accessibilityRole="button" accessibilityLabel="Back">
@@ -105,9 +107,10 @@ export default function AiBudgetScreen() {
           <View className="screen-bar__spacer" />
         </View>
 
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40, gap: 16 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" refreshControl={refreshControl}>
+        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40, gap: 16 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled"
+            keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"} refreshControl={refreshControl}>
           {load.state === "loading" ? (
-            <View className="items-center py-16"><ActivityIndicator color={colors.forest} /></View>
+            <View className="items-center py-16"><ActivityIndicator color={colors.leaf} /></View>
           ) : load.state === "failed" ? (
             <DashedBlock icon={{ ios: "exclamationmark.triangle.fill", android: "warning", web: "warning" }} title="Could not load the budget" text={`${load.error.replace(/\.$/, "")}. Tap to try again.`} onPress={() => { setLoad({ state: "loading" }); refresh(); }} />
           ) : form && (
@@ -144,7 +147,7 @@ export default function AiBudgetScreen() {
                   <View key={item.key} className="flex-row items-center gap-3">
                     <View className="min-w-0 flex-1">
                       <Text className="card__title">{item.label}</Text>
-                      <Text className="post__time">{item.note}</Text>
+                      <Text className="meta-text">{item.note}</Text>
                     </View>
                     <Switch {...switchColors} value={form[item.key]} onValueChange={(value) => setForm({ ...form, [item.key]: value })} disabled={saving} accessibilityLabel={item.label} />
                   </View>
@@ -154,7 +157,7 @@ export default function AiBudgetScreen() {
                   {saving ? <ActivityIndicator color={colors.white} /> : <Text className="btn-forest__label">Save</Text>}
                 </Pressable>
                 {load.data.settings.updatedAt && (
-                  <Text className="post__time">{`Last changed ${load.data.settings.updatedBy ? `by ${load.data.settings.updatedBy} ` : ""}on ${when(load.data.settings.updatedAt)}`}</Text>
+                  <Text className="meta-text">{`Last changed ${load.data.settings.updatedBy ? `by ${load.data.settings.updatedBy} ` : ""}on ${when(load.data.settings.updatedAt)}`}</Text>
                 )}
               </View>
 
@@ -174,7 +177,7 @@ export default function AiBudgetScreen() {
                       </View>
                       <View className="min-w-0 flex-1">
                         <Text className="type-body text-forest-ink">{alert.detail}</Text>
-                        <Text className="post__time">{alert.acknowledgedAt ? `${when(alert.at)} · acknowledged` : when(alert.at)}</Text>
+                        <Text className="meta-text">{alert.acknowledgedAt ? `${when(alert.at)} · acknowledged` : when(alert.at)}</Text>
                       </View>
                       {!alert.acknowledgedAt && (
                         <Pressable onPress={() => acknowledge(alert.id)} disabled={acking !== null} className="btn-outline px-4" accessibilityRole="button" accessibilityLabel={`Acknowledge: ${alert.detail}`}>

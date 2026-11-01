@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { PanResponder, Text, View, type LayoutChangeEvent } from "react-native";
 import Svg, { Circle, Defs, Line, LinearGradient, Path, Stop } from "react-native-svg";
 
-import { colors } from "@/theme";
+import { useThemeColors } from "@/theme";
 
 type Point = { key: string; value: number };
 
@@ -19,7 +19,6 @@ type Props = {
 };
 
 const PAD = { top: 22, right: 12, bottom: 4, left: 30 };
-const SURFACE = colors.surface;
 
 // Clean y-axis steps: 0, half and the top. Counts are whole numbers, so the top is even up to
 // 10 (its half is whole too), then 2, 5 or 10 × 10ⁿ above that.
@@ -35,6 +34,7 @@ function niceTop(max: number) {
 // rounded ticks, the peak labelled, and a finger on the plot reads any day's value. Plain SVG,
 // no chart library. The days are listed in the accessibility label and in the Daily CSV export.
 export function TrendChart({ points, format, label, describe, color, height = 160 }: Props) {
+  const colors = useThemeColors();
   const [width, setWidth] = useState(0);
   const [picked, setPicked] = useState<number | null>(null);
   const plotLeft = PAD.left;
@@ -95,12 +95,12 @@ export function TrendChart({ points, format, label, describe, color, height = 16
             {hasData && areaPath !== "" && <Path d={areaPath} fill="url(#trend-wash)" />}
             {hasData && <Path d={linePath} fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />}
             {hasData && !dense && points.map((p, i) => (
-              <Circle key={p.key} cx={xOf(i)} cy={yOf(p.value)} r={3.5} fill={color} stroke={SURFACE} strokeWidth={2} />
+              <Circle key={p.key} cx={xOf(i)} cy={yOf(p.value)} r={3.5} fill={color} stroke={colors.surface} strokeWidth={2} />
             ))}
             {shown !== null && (
               <>
                 <Line x1={xOf(shown)} x2={xOf(shown)} y1={plotTop - 4} y2={plotBottom} stroke={picked === null ? colors.lineStrong : color} strokeWidth={1} />
-                <Circle cx={xOf(shown)} cy={yOf(points[shown].value)} r={5.5} fill={color} stroke={SURFACE} strokeWidth={2} />
+                <Circle cx={xOf(shown)} cy={yOf(points[shown].value)} r={5.5} fill={color} stroke={colors.surface} strokeWidth={2} />
               </>
             )}
           </Svg>

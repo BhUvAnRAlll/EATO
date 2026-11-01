@@ -1,6 +1,5 @@
 // Super Admin › App Usage end to end: the real Express server against justfit_test. Seeds rows
-// the way the features write them (meals, water, workouts, posts, likes, stories, check-ins,
-// weigh-ins, coach plans, AI calls) for two members, a demo account and an admin, then checks
+// the way the features write them (meals, water, workouts, weigh-ins, coach plans, AI calls) for two members, a demo account and an admin, then checks
 // the counts, the distinct-member counts, the ranges and the comparison with the period
 // before, that admin and demo accounts never count, that failed AI calls never count, and the
 // attack paths: no or forged session, a member, bad ranges, SQL in a date.
@@ -58,23 +57,12 @@ describe("admin app usage e2e: counts from the features' own rows", () => {
     await connection.query(`UPDATE auth_sessions SET created_at = ${at(40)}, last_used_at = ${at(40)}`);
 
     const q = (sql, params = []) => connection.query(sql, params);
-    // a: 3 meals (one 10 days ago), water, a completed and an abandoned workout, a post with b's like, a story b viewed
+    // a: 3 meals (one 10 days ago), water, a completed and an abandoned workout
     await q(`INSERT INTO macro_meal_logs (user_id, log_date, slot, title, logged_at, created_at) VALUES (?, CURDATE(), 'lunch', 'Dal', ${at(0)}, ${at(0)}), (?, CURDATE() - INTERVAL 1 DAY, 'dinner', 'Roti', ${at(1)}, ${at(1)}), (?, CURDATE() - INTERVAL 10 DAY, 'lunch', 'Rice', ${at(10)}, ${at(10)})`, [ids.a, ids.a, ids.a]);
     await q(`INSERT INTO macro_water_logs (user_id, log_date, amount_ml, logged_at) VALUES (?, CURDATE(), 250, ${at(0)})`, [ids.a]);
     await q(`INSERT INTO workout_logs (user_id, on_date, started_at, completed_at, status) VALUES (?, CURDATE(), ${at(0)}, ${at(0)} + INTERVAL 40 MINUTE, 'completed'), (?, CURDATE() - INTERVAL 1 DAY, ${at(1)}, NULL, 'abandoned')`, [ids.a, ids.a]);
-    const postId = crypto.randomUUID();
-    await q(`INSERT INTO community_posts (id, user_id, body, created_at) VALUES (?, ?, 'Leg day', ${at(1)})`, [postId, ids.a]);
-    await q(`INSERT INTO community_post_likes (post_id, user_id, created_at) VALUES (?, ?, ${at(1)})`, [postId, ids.b]);
-    const storyId = crypto.randomUUID();
-    const mediaId = crypto.randomUUID();
-    await q("INSERT INTO community_media (id, user_id, media_type, byte_size) VALUES (?, ?, 'image/jpeg', 1024)", [mediaId, ids.a]);
-    await q(`INSERT INTO community_stories (id, user_id, media_id, created_at, expires_at) VALUES (?, ?, ?, ${at(0)}, ${at(0)} + INTERVAL 1 DAY)`, [storyId, ids.a, mediaId]);
-    await q(`INSERT INTO community_story_views (story_id, user_id, viewed_at) VALUES (?, ?, ${at(0)})`, [storyId, ids.b]);
-    // b: a weigh-in and a check-in with check-out; a coach plan 10 days ago
+    // b: a weigh-in
     await q("INSERT INTO weigh_ins (user_id, logged_on, weight_kg) VALUES (?, CURDATE(), 70.5)", [ids.b]);
-    ids.gym = crypto.randomUUID();
-    await q("INSERT INTO gyms (id, name, invite_code, visibility, member_count) VALUES (?, ?, ?, 'public', 0)", [ids.gym, `Usage Gym ${runId}`, crypto.randomBytes(4).toString("hex").toUpperCase()]);
-    await q(`INSERT INTO gym_visits (gym_id, user_id, checked_in_at, checked_out_at, checkout_method) VALUES (?, ?, ${at(0)}, ${at(0)} + INTERVAL 1 HOUR, 'qr')`, [ids.gym, ids.b]);
     // AI calls: an ok food scan for b, a failed one for a (never counts), an ok one for the demo account (never counts)
     await q(`INSERT INTO ai_usage (created_at, user_id, feature, provider, model, status) VALUES (${at(0)}, ?, 'food_scan', 'openai', 'test', 'ok'), (${at(0)}, ?, 'food_scan', 'openai', 'test', 'failed'), (${at(0)}, ?, 'food_scan', 'openai', 'test', 'ok')`, [ids.b, ids.a, ids.demo]);
     // The app's own events (phase 2): two sessions for a with screen views, one for the demo account
@@ -90,10 +78,8 @@ describe("admin app usage e2e: counts from the features' own rows", () => {
     if (connection) {
       await connection.query("DELETE FROM ai_usage");
       await connection.query("DELETE FROM weigh_ins");
-      await connection.query("DELETE FROM gym_visits");
       await connection.query("DELETE FROM analytics_events");
       await connection.query("DELETE FROM analytics_sessions");
-      if (ids.gym) await connection.query("DELETE FROM gyms WHERE id = ?", [ids.gym]).catch(() => {});
       for (const tag of ["admin", "a", "b", "c", "demo"]) if (ids[tag]) await db.deleteUsers(connection, [ids[tag]]);
       await connection.end();
     }
@@ -114,9 +100,8 @@ describe("admin app usage e2e: counts from the features' own rows", () => {
     assert.deepEqual([feature(json, "meal_log").uses, feature(json, "meal_log").members], [2, 1], "a's two meals this week; the 10-day-old one, the demo's and the admin's don't count");
     assert.deepEqual([feature(json, "water_log").uses, feature(json, "water_log").members], [1, 1]);
     assert.deepEqual([feature(json, "workout_started").uses, feature(json, "workout_completed").uses], [2, 1], "started counts both, completed only the finished one");
-    assert.deepEqual([feature(json, "post").uses, feature(json, "like").members, feature(json, "story_created").uses, feature(json, "story_viewed").members], [1, 1, 1, 1]);
     assert.deepEqual([feature(json, "weigh_in").uses, feature(json, "weigh_in").members], [1, 1]);
-    assert.deepEqual([feature(json, "check_in").uses, feature(json, "check_out").uses], [1, 1]);
+    for (const gone of ["post", "like", "comment", "message", "story_created", "story_viewed", "check_in", "check_out"]) assert.equal(feature(json, gone), undefined, `${gone} left with Community`);
     assert.deepEqual([feature(json, "food_scan").uses, feature(json, "food_scan").members], [1, 1], "only b's successful scan: a's failed one and the demo's don't count");
     assert.equal(feature(json, "coach_plan").uses, 0, "nothing this week");
     for (const f of json.features) assert.ok(Number.isInteger(f.uses) && Number.isInteger(f.members) && f.members <= f.uses, f.id);
@@ -150,7 +135,7 @@ describe("admin app usage e2e: counts from the features' own rows", () => {
     assert.equal(feature(today.json, "meal_log").uses, 1);
     const yesterday = await usage("?range=yesterday");
     assert.equal(feature(yesterday.json, "meal_log").uses, 1);
-    assert.equal(feature(yesterday.json, "post").uses, 1);
+    assert.equal(feature(yesterday.json, "workout_started").uses, 1, "the abandoned workout started yesterday");
     const month = await usage("?range=30d");
     assert.equal(feature(month.json, "meal_log").uses, 3, "the 10-day-old meal is inside 30 days");
     assert.equal(month.json.series.length, 30);

@@ -1,7 +1,7 @@
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
 
 import { FormAlert } from "@/components/FormAlert";
-import { colors } from "@/theme";
+import { useThemeColors } from "@/theme";
 
 type WorkoutSheetProps = {
   visible: boolean;
@@ -20,10 +20,11 @@ type WorkoutSheetProps = {
 // session?"), drawn over the screen like ConfirmSheet but not destructive-red. While the
 // request is in flight it can't be dismissed, so a tap outside never hides a running change.
 export function WorkoutSheet({ visible, emoji, title, text, confirmLabel, cancelLabel, busy, error, onConfirm, onCancel }: WorkoutSheetProps) {
+  const colors = useThemeColors();
   if (!visible) return null;
   return (
     <View className="confirm__backdrop" accessibilityViewIsModal>
-      <Pressable style={{ flex: 1 }} onPress={busy ? undefined : onCancel} accessibilityLabel="Close" />
+      <Pressable style={{ flex: 1 }} onPress={busy ? undefined : onCancel} accessibilityLabel="Close" accessibilityRole="button" />
       <View className="confirm__sheet">
         <Text className="workout-sheet__emoji">{emoji}</Text>
         <Text className="setup__section text-center">{title}</Text>

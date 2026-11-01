@@ -5,7 +5,8 @@ import type { BottomTabBarProps } from "expo-router/js-tabs";
 
 import { homeTabs } from "@/data/home";
 import type { Icon } from "@/types/profile";
-import { colors } from "@/theme";
+import { useThemeColors } from "@/theme";
+import { haptic } from "@/lib/haptics";
 
 // raised: drawn as a round button lifted above the bar (the member's AI Coach)
 export type TabItem = { name: string; label: string; icon: Icon; raised?: boolean };
@@ -18,9 +19,10 @@ type Props = BottomTabBarProps & {
 };
 
 // The flat iOS-style tab bar (white, hairline on top, lavender active tab) under the member's screens (app/(user)/(tabs)/_layout.tsx) and the
-// gym owner portal's (app/owner/(tabs)/_layout.tsx). It replaces the navigator's own bar, so
+// Super Admin portal's (app/admin/(tabs)/_layout.tsx). It replaces the navigator's own bar, so
 // there is never a second one behind it. A route without an entry in `tabs` isn't shown.
 export function BottomTabBar({ state, emitter, navigateToTab, tabs = homeTabs, badges = {} }: Props) {
+  const colors = useThemeColors();
   const insets = useSafeAreaInsets();
   // Narrow phones (or six tabs): the labels only fit at a smaller size
   const { width } = useWindowDimensions();
@@ -36,7 +38,10 @@ export function BottomTabBar({ state, emitter, navigateToTab, tabs = homeTabs, b
 
           const onPress = () => {
             const event = emitter.emit({ type: "tabPress", target: route.key, canPreventDefault: true });
-            if (!active && !event.defaultPrevented) navigateToTab(route.key);
+            if (!active && !event.defaultPrevented) {
+              haptic.select();
+              navigateToTab(route.key);
+            }
           };
 
           return (
@@ -50,19 +55,19 @@ export function BottomTabBar({ state, emitter, navigateToTab, tabs = homeTabs, b
             >
               <View>
                 {tab.raised ? (
-                  <View className={active ? "tabbar__raised tabbar__raised--active" : "tabbar__raised"}>
+                  <View className={active ? "tabbar__raised tabbar__raised--active" : "tabbar__raised"} style={{ backgroundColor: active ? colors.primaryPressed : colors.primary, borderColor: colors.surface }}>
                     <SymbolView name={tab.icon} size={24} tintColor={colors.white} />
                   </View>
                 ) : (
                   <SymbolView name={tab.icon} size={22} tintColor={active ? colors.leaf : colors.faint} />
                 )}
                 {badge > 0 && (
-                  <View className="owner-tab-badge">
-                    <Text className="owner-tab-badge__label">{badge > 99 ? "99+" : badge}</Text>
+                  <View className="tab-badge">
+                    <Text className="tab-badge__label" maxFontSizeMultiplier={1.2}>{badge > 99 ? "99+" : badge}</Text>
                   </View>
                 )}
               </View>
-              <Text className={active ? "tabbar__label tabbar__label--active" : "tabbar__label"} style={narrow ? { fontSize: 10, lineHeight: 12 } : undefined} numberOfLines={1}>
+              <Text className={active ? "tabbar__label tabbar__label--active" : "tabbar__label"} style={narrow ? { fontSize: 10, lineHeight: 12 } : undefined} numberOfLines={1} maxFontSizeMultiplier={1.3}>
                 {tab.label}
               </Text>
             </Pressable>

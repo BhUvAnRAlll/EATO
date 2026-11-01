@@ -12,7 +12,7 @@ import { destinations, type PromotionFields, type PromotionStatus } from "@/data
 import { formatLocalDateTime, parseLocalDateTime } from "@/lib/date";
 import { adminHome, resolveImage } from "@/lib/home";
 import { useSessionToken } from "@/lib/session";
-import { colors } from "@/theme";
+import { useThemeColors } from "@/theme";
 
 const emptyPromotion: PromotionFields = {
   title: "",
@@ -44,6 +44,7 @@ const NONE = "none";
 // Create ("new") or edit one promotion. Everything is re-checked by the server; this
 // form only keeps obvious mistakes from being sent. The preview is the real slide.
 export default function EditPromotion() {
+  const colors = useThemeColors();
   const { id } = useLocalSearchParams<{ id: string }>();
   const isNew = id === "new";
   const promotionId = Number(id);
@@ -135,7 +136,7 @@ export default function EditPromotion() {
       {invalidId ? (
         <FormAlert message="That promotion id isn't valid." />
       ) : !fields ? (
-        error ? <FormAlert message={error} /> : <ActivityIndicator color={colors.forest} className="mt-6" />
+        error ? <FormAlert message={error} /> : <ActivityIndicator color={colors.leaf} className="mt-6" />
       ) : (
         <View className="gap-5">
           {preview && (
@@ -191,7 +192,7 @@ export default function EditPromotion() {
             <AdminButton label={fields.status === "published" && !isNew ? "Save & republish" : "Publish"} variant="primary" onPress={() => save("published")} disabled={saving} />
             {!isNew && fields.status !== "disabled" && <AdminButton label="Save & disable" variant="danger" onPress={() => save("disabled")} disabled={saving} />}
           </View>
-          {saving && <ActivityIndicator color={colors.forest} />}
+          {saving && <ActivityIndicator color={colors.leaf} />}
         </View>
       )}
     </AdminScreen>

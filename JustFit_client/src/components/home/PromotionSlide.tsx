@@ -1,10 +1,11 @@
-import { Pressable, Text, View } from "react-native";
+import { Text, View } from "react-native";
+import { PressableScale } from "@/components/PressableScale";
 import { Image } from "expo-image";
 import { SymbolView } from "@/components/SymbolView";
 
 import type { PromotionFields } from "@/data/home";
 import { resolveImage } from "@/lib/home";
-import { colors } from "@/theme";
+import { lightColors, useThemeColors } from "@/theme";
 
 type PromotionSlideProps = {
   promotion: PromotionFields;
@@ -24,9 +25,13 @@ const COMPACT_WIDTH = 360;
 // One promotion: eyebrow, headline (last word in green), description and the button(s)
 // over the empty side of the food photo. Also used by the admin preview.
 export function PromotionSlide({ promotion, width, height, onPress }: PromotionSlideProps) {
+  const colors = useThemeColors();
   const imageLeft = promotion.imagePosition === "left";
   const centered = promotion.textAlign === "center";
   const textColor = promotion.textColor ?? undefined;
+  // The slide sits on a light photo in both appearances, so its default text keeps the light
+  // palette's dark ink (in dark mode the page's light ink would vanish into the photo)
+  const onPhoto = { eyebrow: { color: lightColors.muted }, headline: { color: lightColors.ink }, lead: { color: lightColors.inkSoft }, accent: { color: lightColors.leaf } };
   const compact = width < COMPACT_WIDTH;
   const textShare = compact ? 0.58 : TEXT_SHARE;
   // Narrow phones crop the photo more, so its food would reach under the text: let the
@@ -48,28 +53,28 @@ export function PromotionSlide({ promotion, width, height, onPress }: PromotionS
         style={{ width: width * textShare, alignItems: centered ? "center" : "flex-start" }}
         className={imageLeft ? "justify-center py-3 pr-5 pl-2" : "justify-center py-3 pl-5 pr-2"}
       >
-        <Text className="home__eyebrow" style={[halo, textColor ? { color: textColor, opacity: 0.8 } : undefined]}>
+        <Text className="home__eyebrow" style={[halo, textColor ? { color: textColor, opacity: 0.8 } : onPhoto.eyebrow]}>
           {promotion.eyebrow}
         </Text>
         <Text
           className="home__headline mt-2"
-          style={[halo, centered && { textAlign: "center" }, compact && { fontSize: 22, lineHeight: 26 }, textColor ? { color: textColor } : undefined]}
+          style={[halo, centered && { textAlign: "center" }, compact && { fontSize: 22, lineHeight: 26 }, textColor ? { color: textColor } : onPhoto.headline]}
           numberOfLines={3}
         >
           {words.join(" ")}
           {words.length > 0 ? " " : ""}
-          <Text className={textColor ? undefined : "home__headline-accent"}>{lastWord}</Text>
+          <Text className={textColor ? undefined : "home__headline-accent"} style={textColor ? undefined : onPhoto.accent}>{lastWord}</Text>
         </Text>
         <Text
           className="home__lead mt-2"
-          style={[halo, centered && { textAlign: "center" }, compact && { fontSize: 13, lineHeight: 18 }, textColor ? { color: textColor, opacity: 0.85 } : undefined]}
+          style={[halo, centered && { textAlign: "center" }, compact && { fontSize: 13, lineHeight: 18 }, textColor ? { color: textColor, opacity: 0.85 } : onPhoto.lead]}
           numberOfLines={3}
         >
           {promotion.description}
         </Text>
 
         <View className="mt-4 flex-row flex-wrap items-center gap-2">
-          <Pressable
+          <PressableScale scaleTo={0.98}
             onPress={() => onPress?.(promotion.ctaDestination)}
             className="home__cta"
             accessibilityRole="button"
@@ -77,15 +82,15 @@ export function PromotionSlide({ promotion, width, height, onPress }: PromotionS
           >
             <Text className="home__cta-label">{promotion.ctaLabel}</Text>
             <SymbolView name={{ ios: "arrow.right", android: "arrow_forward", web: "arrow_forward" }} size={18} tintColor={colors.white} />
-          </Pressable>
+          </PressableScale>
           {promotion.secondaryCtaLabel && promotion.secondaryCtaDestination && (
-            <Pressable
+            <PressableScale scaleTo={0.98}
               onPress={() => onPress?.(promotion.secondaryCtaDestination ?? "")}
               className="home__cta home__cta--secondary"
               accessibilityRole="button"
             >
               <Text className="home__cta-label home__cta-label--secondary">{promotion.secondaryCtaLabel}</Text>
-            </Pressable>
+            </PressableScale>
           )}
         </View>
       </View>

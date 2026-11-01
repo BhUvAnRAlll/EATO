@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Modal, Pressable, ScrollView, Text, View } from "react-native";
+import { ScreenSkeleton } from "@/components/Skeleton";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { SymbolView } from "@/components/SymbolView";
@@ -25,7 +26,7 @@ import {
   type Preferences,
 } from "@/lib/workoutApi";
 import type { Icon } from "@/types/profile";
-import { colors } from "@/theme";
+import { useThemeColors } from "@/theme";
 import { fonts } from "@/constants/fonts";
 
 // Workout preferences: goal, level, training days and split. A full-screen modal, because
@@ -57,6 +58,7 @@ const ICONS: Record<Field | "weekdays", Icon> = {
 const sameDays = (a: number[], b: number[]) => a.length === b.length && a.every((d) => b.includes(d));
 
 export default function WorkoutPreferences() {
+  const colors = useThemeColors();
   // Inside a full-screen modal the safe area may report no top inset, so it is applied by hand
   const insets = useSafeAreaInsets();
   const getToken = useSessionToken();
@@ -117,7 +119,7 @@ export default function WorkoutPreferences() {
 
   return (
     <View className="flex-1 bg-cream" style={{ paddingTop: insets.top + 8 }}>
-      <StatusBar style="dark" />
+      <StatusBar style="auto" />
       <View className="flex-row justify-end px-5">
         <Pressable onPress={close} hitSlop={8} className="h-11 w-11 items-center justify-center rounded-full bg-surface" accessibilityRole="button" accessibilityLabel="Close">
           <SymbolView name={{ ios: "xmark", android: "close", web: "close" }} size={16} tintColor={colors.forestInk} />
@@ -131,8 +133,8 @@ export default function WorkoutPreferences() {
         </View>
 
         {load.state === "loading" ? (
-          <View className="items-center py-16">
-            <ActivityIndicator color={colors.forest} />
+          <View className="pt-2">
+            <ScreenSkeleton />
           </View>
         ) : load.state === "failed" ? (
           <DashedBlock
@@ -156,7 +158,7 @@ export default function WorkoutPreferences() {
                   accessibilityLabel={`${row.label}: ${row.value}`}
                 >
                   <View className="workout-pref__icon">
-                    <SymbolView name={ICONS[row.field]} size={20} tintColor={colors.forest} />
+                    <SymbolView name={ICONS[row.field]} size={20} tintColor={colors.leaf} />
                   </View>
                   <View className="min-w-0 flex-1">
                     <Text className="type-overline text-muted">{row.label}</Text>
@@ -218,7 +220,7 @@ function OptionSheet({ field, selected, onChoose, onClose }: { field: Field | nu
   return (
     <Modal visible={field !== null} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable className="verify__backdrop" onPress={onClose} accessibilityLabel="Close">
-        <Pressable className="verify__sheet gap-2" onPress={() => {}} accessibilityViewIsModal>
+        <Pressable className="verify__sheet gap-2" onPress={() => {}} accessibilityViewIsModal accessible={false}>
           <Text className="setup__section text-center">{sheet?.title ?? ""}</Text>
           <View accessibilityRole="radiogroup">
             {field &&
@@ -235,7 +237,7 @@ function OptionSheet({ field, selected, onChoose, onClose }: { field: Field | nu
                   >
                     <View className="min-w-0 flex-1">
                       <Text className="card__title">{option.label}</Text>
-                      {option.note && <Text className="post__time">{option.note}</Text>}
+                      {option.note && <Text className="meta-text">{option.note}</Text>}
                     </View>
                     <View className={isSelected ? "radio radio--selected" : "radio"}>{isSelected && <View className="radio__dot" />}</View>
                   </Pressable>
@@ -250,12 +252,13 @@ function OptionSheet({ field, selected, onChoose, onClose }: { field: Field | nu
 
 // Reopening starts from the saved choice, so an abandoned edit never leaks into the form
 function WeekdaySheet({ days, onToggle, onDone, onClose }: { days: number[] | null; onToggle: (d: number) => void; onDone: () => void; onClose: () => void }) {
+  const colors = useThemeColors();
   const n = days?.length ?? 0;
   const enough = n >= MIN_DAYS;
   return (
     <Modal visible={days !== null} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable className="verify__backdrop" onPress={onClose} accessibilityLabel="Close">
-        <Pressable className="verify__sheet gap-3" onPress={() => {}} accessibilityViewIsModal>
+        <Pressable className="verify__sheet gap-3" onPress={() => {}} accessibilityViewIsModal accessible={false}>
           <View className="items-center gap-1">
             <Text className="setup__section">Workout days</Text>
             <Text className="home__note">{enough ? `${n} days a week` : `Pick at least ${MIN_DAYS} days (${n} chosen).`}</Text>

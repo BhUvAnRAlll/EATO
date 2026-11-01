@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { AccessibilityInfo, Animated, View } from "react-native";
 import Svg, { Circle } from "react-native-svg";
 
-import { colors } from "@/theme";
+import { useThemeColors } from "@/theme";
 
 type ProgressRingProps = {
   // 0–1 of the ring to fill (clamped)
@@ -21,7 +21,10 @@ type ProgressRingProps = {
 
 // A red ring that fills once when it appears (at once with Reduce Motion on). Used for
 // Home's progress card and the scan report's body score.
-export function ProgressRing({ progress, size = 64, stroke = 7, color = colors.leaf, trackColor = colors.creamTab, delay = 0, children }: ProgressRingProps) {
+export function ProgressRing({ progress, size = 64, stroke = 7, color: colorProp, trackColor: trackColorProp, delay = 0, children }: ProgressRingProps) {
+  const colors = useThemeColors();
+  const color = colorProp ?? colors.leaf;
+  const trackColor = trackColorProp ?? colors.creamTab;
   const [grow] = useState(() => new Animated.Value(0));
   const [shown, setShown] = useState(0);
   useEffect(() => {

@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from "react";
-import { ActivityIndicator, Animated, Pressable, ScrollView, Text, useWindowDimensions, View } from "react-native";
+import { Animated, Pressable, ScrollView, Text, useWindowDimensions, View } from "react-native";
+import { ScreenSkeleton } from "@/components/Skeleton";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { SymbolView } from "@/components/SymbolView";
@@ -7,8 +8,8 @@ import { router, useFocusEffect } from "expo-router";
 
 import { IconButton } from "@/components/IconButton";
 import { DashedBlock } from "@/components/macro/DashedBlock";
-import { IntakeCard } from "@/components/macro/IntakeCard";
-import { MealCard } from "@/components/macro/MealCard";
+import { MacroTiles, SplitCard } from "@/components/macro/MacroSplit";
+import { MealTimeline, timelineRows } from "@/components/macro/MealTimeline";
 import { MealDetailSheet } from "@/components/macro/MealDetailSheet";
 import { MonthCalendarSheet } from "@/components/macro/MonthCalendarSheet";
 import { WeekStrip } from "@/components/macro/WeekStrip";
@@ -16,7 +17,7 @@ import { usePullToRefresh } from "@/components/PullToRefresh";
 import { longDate, macro, todayIso, whole, type DayProgress, type DayView, type Meal, type WaterDay } from "@/lib/macro";
 import { useSessionToken } from "@/lib/session";
 import { useMacroStore, useMacroWeek } from "@/store/macro";
-import { colors } from "@/theme";
+import { useThemeColors } from "@/theme";
 
 // The Macro tab: the day at a glance (what was eaten against the target, the macros, water,
 // calories left), a week of day tiles, and the way into logging. The selected day is shared
@@ -25,6 +26,7 @@ import { colors } from "@/theme";
 const litres = (ml: number, unit = true) => `${(ml / 1000).toFixed(1).replace(/\.0$/, "")}${unit ? " L" : ""}`;
 
 export default function MacroHub() {
+  const colors = useThemeColors();
   const getToken = useSessionToken();
   const { width } = useWindowDimensions();
   const { selectedDate, selectDate, jumpToDate } = useMacroStore();
@@ -82,7 +84,7 @@ export default function MacroHub() {
 
   return (
     <View className="flex-1 bg-cream">
-      <StatusBar style="dark" />
+      <StatusBar style="auto" />
       <SafeAreaView style={{ flex: 1 }} edges={["top", "left", "right"]}>
         <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 140, gap: 16 }} showsVerticalScrollIndicator={false} refreshControl={refreshControl}>
           {/* Header */}
@@ -100,12 +102,21 @@ export default function MacroHub() {
           <WeekStrip week={week} selectedDate={selectedDate} today={today} progress={progress} onSelect={selectDate} width={width - 32} />
 
           {!showing ? (
-            <ActivityIndicator color={colors.forest} className="mt-10" />
+            <ScreenSkeleton hero label="Loading your day" />
           ) : (
             <Animated.View style={{ opacity: switching ? 0.55 : fade, gap: 16 }}>
               {targets ? (
                 <>
-                  <IntakeCard title={isToday ? "Today's intake" : "Intake"} totals={showing.totals} targets={targets} width={width - 32} onPress={() => router.push("/macro/daily")} />
+                  {/* The split donut and the three macro tiles, as Calories & macros draws them; the donut opens the daily view */}
+                  <SplitCard
+                    totals={showing.totals}
+                    targets={targets}
+                    size={width < 375 ? 120 : 148}
+                    stroke={width < 375 ? 13 : 16}
+                    onPress={() => router.push("/macro/daily")}
+                    accessibilityLabel={`${isToday ? "Today's intake" : "Intake"}: ${whole(eaten).toLocaleString("en-IN")} of ${targets.kcal.toLocaleString("en-IN")} kcal. Open daily calories`}
+                  />
+                  <MacroTiles totals={showing.totals} targets={targets} />
 
                   {/* Water and calories left as a matching pair of stat cards (stacked on a 320pt phone) */}
                   <View className="flex-row flex-wrap items-stretch" style={{ gap: 12 }}>
@@ -132,7 +143,7 @@ export default function MacroHub() {
                     <Pressable onPress={() => router.push("/macro/daily")} className="macro__stat-card" accessibilityRole="button" accessibilityLabel={`Calories left: ${whole(left).toLocaleString("en-IN")} kcal, ${standing.toLowerCase()}. Open daily calories`}>
                       <View className="flex-row items-center justify-between">
                         <View className="macro__icon-tile macro__icon-tile--heading" style={{ backgroundColor: colors.accentSoft }}>
-                          <SymbolView name={{ ios: "target", android: "track_changes", web: "track_changes" }} size={18} tintColor={colors.primary} />
+                          <SymbolView name={{ ios: "target", android: "track_changes", web: "track_changes" }} size={18} tintColor={colors.leaf} />
                         </View>
                         <SymbolView name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }} size={14} tintColor={colors.faint} />
                       </View>
@@ -163,20 +174,23 @@ export default function MacroHub() {
 
               <Pressable onPress={() => router.push("/macro/calories-macros")} className="home__card flex-row items-center gap-3" accessibilityRole="button" accessibilityLabel="Calories and macros: split, weekly trend and targets">
                 <View className="macro__icon-tile" style={{ backgroundColor: colors.accentSoft }}>
-                  <SymbolView name={{ ios: "chart.pie.fill", android: "pie_chart", web: "pie_chart" }} size={20} tintColor={colors.primary} />
+                  <SymbolView name={{ ios: "chart.pie.fill", android: "pie_chart", web: "pie_chart" }} size={20} tintColor={colors.leaf} />
                 </View>
                 <View className="flex-1">
                   <Text className="card__title">Calories & macros</Text>
-                  <Text className="post__time">Split, weekly trend & targets</Text>
+                  <Text className="meta-text">Split, weekly trend & targets</Text>
                 </View>
                 <SymbolView name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }} size={14} tintColor={colors.faint} />
               </Pressable>
 
               <View className="flex-row items-center justify-between">
-                <Text className="home__card-title">{isToday ? "Today's meals" : "Meals"}</Text>
+                <View className="flex-1">
+                  <Text className="home__card-title">{isToday ? "Today's meals" : "Meals"}</Text>
+                  {showing.meals.length > 0 && <Text className="home__note">{`${showing.meals.length} ${showing.meals.length === 1 ? "meal" : "meals"} · ${whole(eaten).toLocaleString("en-IN")} kcal`}</Text>}
+                </View>
                 {showing.meals.length > 0 && (
                   <Pressable onPress={() => router.push("/macro/daily")} className="flex-row items-center" style={{ gap: 2 }} hitSlop={8} accessibilityRole="button" accessibilityLabel="View all meals">
-                    <Text className="post__time">View all</Text>
+                    <Text className="meta-text">View all</Text>
                     <SymbolView name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }} size={12} tintColor={colors.faint} />
                   </Pressable>
                 )}
@@ -189,11 +203,7 @@ export default function MacroHub() {
                   onPress={isToday ? () => router.push("/macro/add-meal") : undefined}
                 />
               ) : (
-                <View className="gap-2.5">
-                  {showing.meals.map((meal) => (
-                    <MealCard key={meal.id} meal={meal} onPress={() => setOpenMeal(meal)} />
-                  ))}
-                </View>
+                <MealTimeline rows={timelineRows(showing.meals)} onOpen={setOpenMeal} onAdd={isToday ? (slot) => router.push({ pathname: "/macro/add-meal", params: { slot } }) : undefined} />
               )}
             </Animated.View>
           )}
@@ -203,6 +213,7 @@ export default function MacroHub() {
         <Pressable
           onPress={isToday ? () => router.push("/macro/add-meal") : () => jumpToDate(today)}
           className="macro__fab"
+          style={{ backgroundColor: colors.primary }}
           accessibilityRole="button"
           accessibilityLabel={isToday ? "Add meal" : "Back to today"}
         >

@@ -24,7 +24,7 @@ import { fetchProfile, saveProfile } from "@/lib/profile";
 import { bodyFatSave } from "@/lib/profileScan";
 import { SESSION_EXPIRED_MESSAGE, isSessionExpired, useSessionToken } from "@/lib/session";
 import { useSetupStore } from "@/store/setup";
-import { colors } from "@/theme";
+import { useThemeColors } from "@/theme";
 
 const kcal = (value: number) => `${value.toLocaleString("en-IN")} kcal`;
 
@@ -114,6 +114,7 @@ const scanTime = new Intl.DateTimeFormat("en-IN", {
 // changes and then saves. It is shown in the app only: there is no download or share.
 // Screenshots and screen recordings are allowed (the user asked for this on 2026-10-25).
 export default function ScanReport() {
+  const colors = useThemeColors();
   const { mode, from } = useLocalSearchParams<{
     mode?: string;
     from?: string;
@@ -402,7 +403,7 @@ export default function ScanReport() {
           </Card>
 
           <View className="setup__note">
-            <SymbolView name={{ ios: "lock.shield", android: "shield", web: "shield" }} size={22} tintColor={colors.forest} />
+            <SymbolView name={{ ios: "lock.shield", android: "shield", web: "shield" }} size={22} tintColor={colors.leaf} />
             <View className="flex-1 gap-0.5">
               <Text className="setup__note-title">Private to you</Text>
               <Text className="setup__note-text">

@@ -1,9 +1,10 @@
-import { Pressable, Text, View } from "react-native";
+import { Text, View } from "react-native";
+import { PressableScale } from "@/components/PressableScale";
 
 import { ProgressRing } from "@/components/ProgressRing";
 import { SymbolView } from "@/components/SymbolView";
 import type { NutritionToday } from "@/data/home";
-import { colors } from "@/theme";
+import { useThemeColors } from "@/theme";
 
 type TodayRingsCardProps = {
   // The admins' heading for this card ("Today's Macros")
@@ -25,10 +26,11 @@ const litres = (ml: number) => `${(ml / 1000).toFixed(1).replace(/\.0$/, "")} L`
 // "of target" under it, and how many calories are left as a soft pill. The whole card opens
 // the Macro tab. Replaces the old dark Peak Fitness card on Home (2026-10-31 design).
 export function TodayRingsCard({ heading, nutrition, water, width, onOpen }: TodayRingsCardProps) {
+  const colors = useThemeColors();
   const { consumed, targets } = nutrition;
   const left = Math.max(0, targets.calories - consumed.calories);
   const rings = [
-    { key: "calories", label: "Calories", value: kcal(consumed.calories), of: `of ${kcal(targets.calories)} kcal`, progress: share(consumed.calories, targets.calories), color: colors.primary, spoken: `Calories: ${consumed.calories} of ${targets.calories} kcal` },
+    { key: "calories", label: "Calories", value: kcal(consumed.calories), of: `of ${kcal(targets.calories)} kcal`, progress: share(consumed.calories, targets.calories), color: colors.leaf, spoken: `Calories: ${consumed.calories} of ${targets.calories} kcal` },
     { key: "protein", label: "Protein", value: `${consumed.proteinG} g`, of: `of ${targets.proteinG} g`, progress: share(consumed.proteinG, targets.proteinG), color: colors.protein, spoken: `Protein: ${consumed.proteinG} of ${targets.proteinG} g` },
     water
       ? { key: "water", label: "Water", value: litres(water.consumedMl), of: `of ${litres(water.targetMl)}`, progress: share(water.consumedMl, water.targetMl), color: colors.accentBlue, spoken: `Water: ${litres(water.consumedMl)} of ${litres(water.targetMl)}` }
@@ -38,7 +40,7 @@ export function TodayRingsCard({ heading, nutrition, water, width, onOpen }: Tod
   const size = Math.max(64, Math.min(84, Math.floor((width - 32 - 2 * 12) / 3) - 12));
 
   return (
-    <Pressable onPress={onOpen} className="home__card" accessibilityRole="button" accessibilityLabel={`${heading}: ${consumed.calories} of ${targets.calories} kcal eaten. Open Macro`}>
+    <PressableScale scaleTo={0.98} onPress={onOpen} className="home__card" accessibilityRole="button" accessibilityLabel={`${heading}: ${consumed.calories} of ${targets.calories} kcal eaten. Open Macro`}>
       {/* The pill drops under the heading when the two don't fit side by side (320pt phones) */}
       <View className="flex-row flex-wrap items-center justify-between" style={{ gap: 8 }}>
         <Text className="home__card-title" numberOfLines={1}>{heading}</Text>
@@ -69,6 +71,6 @@ export function TodayRingsCard({ heading, nutrition, water, width, onOpen }: Tod
             ? `${kcal(consumed.calories)} kcal logged today. Tap to see your meals.`
             : "Nothing logged yet today. Tap to log a meal."}
       </Text>
-    </Pressable>
+    </PressableScale>
   );
 }

@@ -65,7 +65,9 @@ describe("ui deep links: a cold load onto a protected screen waits for the sessi
     await h.settle();
     assert.equal(await page.path(), expectedPath, `still on ${expectedPath} once the app has settled`);
   };
-  const profileOf = (tag) => `/community/profile/${identities[tag].id}`;
+  // Member screens that need a session: the account's own profile and a workout setting
+  const PROFILE = "/profile";
+  const PREFERENCES = "/workout/preferences";
 
   before(async () => {
     const loaded = db.loadTestEnv();
@@ -86,14 +88,13 @@ describe("ui deep links: a cold load onto a protected screen waits for the sessi
     h = helpers(page, expo.baseUrl);
     try {
       identities.a = await testAccounts.createIdentity(runId, "a");
-      identities.b = await testAccounts.createIdentity(runId, "b");
       identities.admin = await testAccounts.createIdentity(runId, "admin", { role: "admin" });
     } catch (error) {
       throw new Error(`could not create a test identity: ${JSON.stringify(describeIdentityError(error))}`);
     }
     await testAccounts.setProfileComplete(identities.a.id, true);
-    for (const tag of ["a", "b", "admin"]) {
-      const name = { a: "Priya Sharma", b: "Rohan Mehta", admin: "Admin Tester" }[tag];
+    for (const tag of ["a", "admin"]) {
+      const name = { a: "Priya Sharma", admin: "Admin Tester" }[tag];
       await connection.query("INSERT INTO users (id, email, full_name, role) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE email = VALUES(email), full_name = VALUES(full_name), role = IF(role = 'user', VALUES(role), role)", [identities[tag].id, identities[tag].emailAddress, name, tag === "admin" ? "admin" : "user"]);
     }
   });
@@ -109,8 +110,6 @@ describe("ui deep links: a cold load onto a protected screen waits for the sessi
       if (!connection) return;
       const ids = Object.values(identities).map((i) => i.id);
       if (ids.length > 0) {
-        await connection.query("DELETE FROM community_follows WHERE follower_id IN (?) OR following_id IN (?)", [ids, ids]);
-        await connection.query("DELETE FROM community_profiles WHERE user_id IN (?)", [ids]);
         // The sign-in codes sent to these accounts' numbers (sessions go with the accounts)
         await connection.query("DELETE FROM otp_challenges WHERE phone IN (?)", [Object.values(identities).map((i) => i.phone)]);
         await db.deleteUsers(connection, ids);
@@ -123,48 +122,47 @@ describe("ui deep links: a cold load onto a protected screen waits for the sessi
     if (problems.length > 0) throw new Error(`cleanup incomplete: ${problems.join("; ")}`);
   });
 
-  it("1. a signed-out visitor opening a member's profile is sent to onboarding", run("signed-out", async () => {
-    await coldLoad(profileOf("b"), "/onboarding");
-    assert.equal(await page.hasText("Rohan Mehta"), false, "no member content was shown");
+  it("1. a signed-out visitor opening a member screen is sent to onboarding", run("signed-out", async () => {
+    await coldLoad(PROFILE, "/onboarding");
+    assert.equal(await page.hasText("Priya Sharma"), false, "no member content was shown");
   }));
 
-  it("2. a signed-in member reloading straight onto a profile stays on that profile", run("member-profile", async () => {
+  it("2. a signed-in member reloading straight onto a member screen stays there", run("member-profile", async () => {
     await signInAs(page, h, identities.a);
     await h.expectPath("/home");
-    await coldLoad(profileOf("b"), profileOf("b"));
-    await h.expectText("Rohan Mehta");
-    await page.waitFor(`!!document.querySelector('[aria-label="Profile options"]')`, NAV_TIMEOUT, "the profile screen itself");
+    await coldLoad(PROFILE, PROFILE);
+    await h.expectText("Priya Sharma");
     await snapshot("deep-link-member-profile-390");
     // A second reload of the same address keeps it too (the session is restored each time)
-    await coldLoad(profileOf("b"), profileOf("b"));
-    await h.expectText("Rohan Mehta");
-    // And another member route, their own profile
-    await coldLoad(profileOf("a"), profileOf("a"));
+    await coldLoad(PROFILE, PROFILE);
     await h.expectText("Priya Sharma");
+    // And another member route, one level down
+    await coldLoad(PREFERENCES, PREFERENCES);
+    await h.expectText("Workout preferences");
   }));
 
   it("3. a member's cold load onto an admin screen is still refused (they land on Home)", run("member-admin", async () => {
-    await coldLoad("/admin/moderation", "/home");
-    assert.equal(await page.hasText("Open reports"), false, "the moderation screen never rendered");
+    await coldLoad("/admin/app-usage", "/home");
+    assert.equal(await page.hasText("App Usage"), false, "the admin screen never rendered");
   }));
 
   it("4. a session revoked on the server is signed out on the next cold load and sent to onboarding", run("revoked", async () => {
     assert.equal(await page.evaluate(`!!localStorage.getItem("justfit.session")`), true, "the member has a browser session");
     // Revoked on the server, as "Sign out of all devices" elsewhere would do it
     await connection.query("UPDATE auth_sessions SET revoked_at = NOW() WHERE user_id = ? AND revoked_at IS NULL", [identities.a.id]);
-    await coldLoad(profileOf("b"), "/onboarding");
+    await coldLoad(PROFILE, "/onboarding");
     assert.equal(await page.evaluate(`!!localStorage.getItem("justfit.session")`), false, "no session after the revocation");
-    assert.equal(await page.hasText("Rohan Mehta"), false, "no member content was shown");
+    assert.equal(await page.hasText("Priya Sharma"), false, "no member content was shown");
   }));
 
-  it("5. an admin reloading straight onto the moderation screen stays there", run("admin", async () => {
+  it("5. an admin reloading straight onto an admin screen stays there", run("admin", async () => {
     // The shared helper waits for a member's routes; an admin lands on /admin
     try { await signInAs(page, h, identities.admin); } catch (error) { if (!/route after|sign-in outcome/.test(error.message)) throw error; }
     await page.waitFor(`location.pathname === "/admin"`, 30000, "admin dashboard");
-    await coldLoad("/admin/moderation", "/admin/moderation");
-    await h.expectText("Open reports");
-    await snapshot("deep-link-admin-moderation-390");
+    await coldLoad("/admin/app-usage", "/admin/app-usage");
+    await h.expectText("App Usage");
+    await snapshot("deep-link-admin-app-usage-390");
     // An admin is not a member: a member route still sends them back to their dashboard
-    await coldLoad(profileOf("b"), "/admin");
+    await coldLoad(PREFERENCES, "/admin");
   }));
 });

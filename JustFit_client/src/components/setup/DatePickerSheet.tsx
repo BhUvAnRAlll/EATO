@@ -3,7 +3,7 @@ import { Modal, Platform, Pressable, Text, View } from "react-native";
 import DateTimePicker, { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
 
 import { PrimaryButton } from "@/components/PrimaryButton";
-import { colors } from "@/theme";
+import { useThemeColors, Palette } from "@/theme";
 
 type DatePickerSheetProps = {
   visible: boolean;
@@ -18,7 +18,7 @@ type DatePickerSheetProps = {
 // Web only: a real HTML date input. react-native-web's TextInput drops type/min/max, so the
 // browser's own calendar and range limits only appear with the DOM element itself. Styled
 // inline to match the setup fields (NativeWind classes don't apply to a raw DOM element).
-const webDateInputStyle: CSSProperties = {
+const webDateInputStyle = (colors: Palette): CSSProperties => ({
   marginTop: 20,
   width: "100%",
   boxSizing: "border-box",
@@ -29,7 +29,7 @@ const webDateInputStyle: CSSProperties = {
   color: colors.ink,
   font: "inherit",
   fontSize: 16,
-};
+});
 
 const dateInputValue = (date: Date) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
@@ -77,6 +77,7 @@ export function DatePickerSheet(props: DatePickerSheetProps) {
 }
 
 function WebDateSheet({ title, value, minimumDate, maximumDate, onSelect, onClose }: DatePickerSheetProps) {
+  const colors = useThemeColors();
   const [draft, setDraft] = useState(dateInputValue(value));
   const selectedDate = parseDateInput(draft);
   const minimumValue = minimumDate ? dateInputValue(minimumDate) : undefined;
@@ -88,11 +89,11 @@ function WebDateSheet({ title, value, minimumDate, maximumDate, onSelect, onClos
 
   return (
     <View className="verify__backdrop">
-      <Pressable className="flex-1" onPress={onClose} />
+      <Pressable className="flex-1" onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" />
       <View className="verify__sheet">
         <View className="flex-row items-center justify-between">
           <Text className="setup__title">{title}</Text>
-          <Pressable onPress={onClose} hitSlop={12}>
+          <Pressable onPress={onClose} hitSlop={12} accessibilityRole="button">
             <Text className="auth__link">Cancel</Text>
           </Pressable>
         </View>
@@ -102,7 +103,7 @@ function WebDateSheet({ title, value, minimumDate, maximumDate, onSelect, onClos
           min={minimumValue}
           max={maximumValue}
           onChange={(event) => setDraft(event.target.value)}
-          style={webDateInputStyle}
+          style={webDateInputStyle(colors)}
         />
         {/* Only a valid date inside the allowed range can be confirmed */}
         <PrimaryButton
@@ -119,15 +120,16 @@ function WebDateSheet({ title, value, minimumDate, maximumDate, onSelect, onClos
 }
 
 function IosDateSheet({ title, value, minimumDate, maximumDate, onSelect, onClose }: DatePickerSheetProps) {
+  const colors = useThemeColors();
   const [draft, setDraft] = useState(value);
 
   return (
     <View className="verify__backdrop">
-      <Pressable className="flex-1" onPress={onClose} />
+      <Pressable className="flex-1" onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" />
       <View className="verify__sheet">
         <View className="flex-row items-center justify-between">
           <Text className="setup__title">{title}</Text>
-          <Pressable onPress={onClose} hitSlop={12}>
+          <Pressable onPress={onClose} hitSlop={12} accessibilityRole="button">
             <Text className="auth__link">Cancel</Text>
           </Pressable>
         </View>

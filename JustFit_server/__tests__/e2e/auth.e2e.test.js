@@ -322,21 +322,6 @@ describe("phone sign-in e2e: request and verify codes, sessions, roles", () => {
     assert.equal(me.email, null, "no email is invented");
   }));
 
-  it("15. email-based gym features: an owner found by email works; a phone-only account can't be named by email", run(async () => {
-    const admin = await testAccounts.createIdentity(runId, "admin", { role: "admin" });
-    const owner = await testAccounts.createIdentity(runId, "owner"); // has an email (an account that has one)
-    const adminToken = (await testAccounts.mintToken(admin.id)).token;
-    const created = await api("POST", "/api/gyms", { token: adminToken, body: { name: `Email Gym ${runId}`, ownerEmail: owner.emailAddress } });
-    assert.equal(created.status, 201, JSON.stringify(created.json));
-    const phoneOnly = await signIn();
-    const [[row]] = await connection.query("SELECT email FROM users WHERE id = ?", [phoneOnly.user.id]);
-    assert.equal(row.email, null);
-    const missing = await api("POST", "/api/gyms", { token: adminToken, body: { name: `No Email Gym ${runId}`, ownerEmail: "phone-only@example.com" } });
-    assert.equal(missing.status, 404);
-    // Email invitations unlock nothing for a phone account (no verified email)
-    assert.deepEqual((await api("GET", "/api/gyms/invitations/mine", { token: phoneOnly.token })).json, { invitations: [] });
-  }));
-
   it("16. the server's logs never hold a phone number, a code or a token", run(async () => {
     const s = await signIn();
     server.failSmsTo(s.phone);
@@ -448,7 +433,7 @@ describe("phone sign-in e2e: request and verify codes, sessions, roles", () => {
       env: {
         PATH: process.env.PATH, HOME: process.env.HOME, PORT: env.PORT,
         DB_HOST: env.DB_HOST, DB_PORT: env.DB_PORT, DB_USER: env.DB_USER, DB_PASSWORD: env.DB_PASSWORD, DB_NAME: env.DB_NAME,
-        AUTH_SECRET: crypto.randomBytes(32).toString("base64url"), SMS_PROVIDER: "off", WHATSAPP_WORKER: "off",
+        AUTH_SECRET: crypto.randomBytes(32).toString("base64url"), SMS_PROVIDER: "off",
         ...DEV, ...overrides,
       },
     });

@@ -4,7 +4,7 @@ import { ActivityIndicator, Pressable, Text, View } from "react-native";
 import { SymbolView } from "@/components/SymbolView";
 import type { CoachPlan, PlanMeal, PlanSlot } from "@/lib/coach";
 import type { DayStatus, Plan, TrainingDay } from "@/lib/workoutApi";
-import { colors } from "@/theme";
+import { useThemeColors, Palette } from "@/theme";
 import type { Icon } from "@/types/profile";
 
 // Today's workout from the workout plan, for the Workout row under the meal plan on the AI Coach tab
@@ -26,13 +26,13 @@ type Props = {
   onSwap?: (mealId: string) => void;
 };
 
-const SLOT: Record<PlanSlot, { label: string; icon: Icon; tint: string; color: string }> = {
+const SLOT = (colors: Palette): Record<PlanSlot, { label: string; icon: Icon; tint: string; color: string }> => ({
   breakfast: { label: "Breakfast", icon: { ios: "sun.max.fill", android: "wb_sunny", web: "wb_sunny" }, tint: colors.tintPeach, color: colors.iconPeach },
   morning_snack: { label: "Morning snack", icon: { ios: "leaf.fill", android: "eco", web: "eco" }, tint: colors.tintGreen, color: colors.iconGreen },
-  lunch: { label: "Lunch", icon: { ios: "fork.knife", android: "restaurant", web: "restaurant" }, tint: colors.accentSoft, color: colors.primary },
-  evening_snack: { label: "Evening snack", icon: { ios: "cup.and.saucer.fill", android: "local_cafe", web: "local_cafe" }, tint: colors.accentSoft, color: colors.primary },
-  dinner: { label: "Dinner", icon: { ios: "moon.fill", android: "dark_mode", web: "dark_mode" }, tint: colors.accentSoft, color: colors.primary },
-};
+  lunch: { label: "Lunch", icon: { ios: "fork.knife", android: "restaurant", web: "restaurant" }, tint: colors.accentSoft, color: colors.leaf },
+  evening_snack: { label: "Evening snack", icon: { ios: "cup.and.saucer.fill", android: "local_cafe", web: "local_cafe" }, tint: colors.accentSoft, color: colors.leaf },
+  dinner: { label: "Dinner", icon: { ios: "moon.fill", android: "dark_mode", web: "dark_mode" }, tint: colors.accentSoft, color: colors.leaf },
+});
 
 // "13:30" → ["01:30", "PM"]: the plan keeps 24-hour times, the timeline shows them as people read them
 function clockParts(time: string): [string, string] {
@@ -69,7 +69,8 @@ function Entry({ icon, tint, color, time, last, label, children }: { icon: Icon;
 // One meal: the slot, the dish, its ingredients, calories, macros and the Log Meal button. The
 // chevron opens the foods with their amounts and the coach's tip.
 function MealEntry({ meal, last, logging, onLog, swapping, onSwap }: { meal: PlanMeal; last: boolean; logging: string | null; onLog: (id: string) => void; swapping?: string | null; onSwap?: (id: string) => void }) {
-  const slot = SLOT[meal.slot];
+  const colors = useThemeColors();
+  const slot = SLOT(colors)[meal.slot];
   const [open, setOpen] = useState(false);
   const ingredients = meal.items.map((i) => i.name).join(", ");
   const macros: [string, number][] = [["P", meal.totals.proteinG], ["C", meal.totals.carbsG], ["F", meal.totals.fatG]];
@@ -117,11 +118,11 @@ function MealEntry({ meal, last, logging, onLog, swapping, onSwap }: { meal: Pla
               accessibilityState={{ disabled: busy }}
             >
               {swapping === meal.id ? (
-                <ActivityIndicator size="small" color={colors.primary} />
+                <ActivityIndicator size="small" color={colors.leaf} />
               ) : (
-                <SymbolView name={{ ios: "arrow.triangle.2.circlepath", android: "swap_horiz", web: "swap_horiz" }} size={14} tintColor={colors.primary} />
+                <SymbolView name={{ ios: "arrow.triangle.2.circlepath", android: "swap_horiz", web: "swap_horiz" }} size={14} tintColor={colors.leaf} />
               )}
-              <Text className="coach__macro-chip-label" style={{ color: colors.primary }}>{swapping === meal.id ? "Swapping" : "Swap"}</Text>
+              <Text className="coach__macro-chip-label" style={{ color: colors.leaf }}>{swapping === meal.id ? "Swapping" : "Swap"}</Text>
             </Pressable>
           )}
           <Pressable

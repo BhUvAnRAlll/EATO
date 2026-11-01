@@ -10,11 +10,12 @@ import { MealDetailSheet } from "@/components/macro/MealDetailSheet";
 import { usePullToRefresh } from "@/components/PullToRefresh";
 import { dayLabel, macro, slotInfo, todayIso, whole, type Meal } from "@/lib/macro";
 import { useSessionToken } from "@/lib/session";
-import { colors } from "@/theme";
+import { useThemeColors } from "@/theme";
 
 // Logging, step two: how to log. Forwards { slot, hour, minute } unchanged to the method
 // picked. Writes nothing except the heart on a recent meal.
 export default function LogFood() {
+  const colors = useThemeColors();
   const params = useLocalSearchParams<{ slot?: string; hour?: string; minute?: string }>();
   const getToken = useSessionToken();
   const [recent, setRecent] = useState<Meal[]>([]);
@@ -60,7 +61,7 @@ export default function LogFood() {
 
   return (
     <View className="flex-1 bg-cream">
-      <StatusBar style="dark" />
+      <StatusBar style="auto" />
       <SafeAreaView style={{ flex: 1 }}>
         <MacroHeader title="Log food" />
         <ScrollView contentContainerStyle={{ paddingBottom: 24, gap: 18 }} showsVerticalScrollIndicator={false} refreshControl={refreshControl}>
@@ -69,22 +70,22 @@ export default function LogFood() {
 
             <Pressable onPress={() => go("/macro/scan")} className="home__card flex-row items-center gap-3" accessibilityRole="button" accessibilityLabel="Scan food: estimate calories and macros from a photo">
               <View className="macro__thumb" style={{ backgroundColor: colors.forestSoft }}>
-                <SymbolView name={{ ios: "camera.viewfinder", android: "photo_camera", web: "photo_camera" }} size={22} tintColor={colors.forest} />
+                <SymbolView name={{ ios: "camera.viewfinder", android: "photo_camera", web: "photo_camera" }} size={22} tintColor={colors.leaf} />
               </View>
               <View className="flex-1">
                 <Text className="card__title">Scan Food</Text>
-                <Text className="post__time">Snap a photo, we estimate the macros</Text>
+                <Text className="meta-text">Snap a photo, we estimate the macros</Text>
               </View>
               <SymbolView name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }} size={16} tintColor={colors.faint} />
             </Pressable>
 
             <Pressable onPress={() => go("/macro/manual")} className="home__card flex-row items-center gap-3" accessibilityRole="button" accessibilityLabel="Manual entry: type calories and macros">
               <View className="macro__thumb" style={{ backgroundColor: colors.forestSoft }}>
-                <SymbolView name={{ ios: "square.and.pencil", android: "edit_note", web: "edit_note" }} size={22} tintColor={colors.forest} />
+                <SymbolView name={{ ios: "square.and.pencil", android: "edit_note", web: "edit_note" }} size={22} tintColor={colors.leaf} />
               </View>
               <View className="flex-1">
                 <Text className="card__title">Manual Entry</Text>
-                <Text className="post__time">Type calories & macros</Text>
+                <Text className="meta-text">Type calories & macros</Text>
               </View>
               <SymbolView name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }} size={16} tintColor={colors.faint} />
             </Pressable>
@@ -95,7 +96,7 @@ export default function LogFood() {
                 <Text className="setup__chip-label">Favourites</Text>
               </Pressable>
               <Pressable onPress={() => go("/macro/repeat-meal")} className="macro__pill flex-1" accessibilityRole="button" accessibilityLabel="Repeat meal">
-                <SymbolView name={{ ios: "arrow.clockwise", android: "refresh", web: "refresh" }} size={16} tintColor={colors.forest} />
+                <SymbolView name={{ ios: "arrow.clockwise", android: "refresh", web: "refresh" }} size={16} tintColor={colors.leaf} />
                 <Text className="setup__chip-label">Repeat meal</Text>
               </Pressable>
             </View>
@@ -116,7 +117,7 @@ export default function LogFood() {
                           <SymbolView name={{ ios: "fork.knife", android: "restaurant", web: "restaurant" }} size={26} tintColor={info.tint} />
                         </View>
                         <Text className="card__title" numberOfLines={1}>{meal.title}</Text>
-                        <Text className="post__time">{whole(meal.totals.kcal)} kcal · {dayLabel(meal.date, today)}</Text>
+                        <Text className="meta-text">{whole(meal.totals.kcal)} kcal · {dayLabel(meal.date, today)}</Text>
                       </Pressable>
                       {/* A sibling of the card, not inside it (no button inside a button) */}
                       <Pressable onPress={() => toggleHeart(meal)} hitSlop={8} className="macro__heart" accessibilityRole="button" accessibilityState={{ selected: isHearted }} accessibilityLabel={isHearted ? `Remove ${meal.title} from favourites` : `Save ${meal.title} to favourites`}>

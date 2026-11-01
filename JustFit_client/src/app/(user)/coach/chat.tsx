@@ -11,7 +11,7 @@ import { fonts } from "@/constants/fonts";
 import { CHAT_MAX_TEXT } from "@/lib/coach";
 import { useSessionToken } from "@/lib/session";
 import { useCoachChatStore } from "@/store/coachChat";
-import { colors } from "@/theme";
+import { useThemeColors } from "@/theme";
 
 // A coach reply with its main points marked **like this** → runs of Text, the marked ones semibold.
 // Only the coach's text is parsed; what the member typed is shown exactly as written.
@@ -25,6 +25,7 @@ function boldPoints(text: string) {
 // suggestion chip, as `q`, sent straight away). Each message is one paid AI call, limited per
 // member by the server; nothing is saved, so the chat lasts until the app closes or sign-out.
 export default function CoachChat() {
+  const colors = useThemeColors();
   const { q, name, coach } = useLocalSearchParams<{ q?: string; name?: string; coach?: string }>();
   const getToken = useSessionToken();
   const turns = useCoachChatStore((state) => state.turns);
@@ -55,7 +56,7 @@ export default function CoachChat() {
 
   return (
     <View className="coach__page">
-      <StatusBar style="dark" />
+      <StatusBar style="auto" />
       <SafeAreaView style={{ flex: 1 }} edges={["top", "left", "right", "bottom"]}>
         <View className="flex-row items-center gap-3 px-4 pb-3 pt-2">
           <Pressable onPress={() => router.back()} className="coach__circle-btn" accessibilityRole="button" accessibilityLabel="Back">
@@ -74,6 +75,7 @@ export default function CoachChat() {
             contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 12, gap: 12 }}
             onContentSizeChange={() => scroll.current?.scrollToEnd({ animated: true })}
             keyboardShouldPersistTaps="handled"
+            keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
           >
             <View className="coach__bubble">
               <Text className="coach__bubble-text">{`Hi! I'm ${coachName}. Ask me anything about your workouts, your food or your progress. I know your plan and what you've logged today.`}</Text>
@@ -100,14 +102,14 @@ export default function CoachChat() {
 
             {sending && (
               <View className="coach__bubble" accessibilityLabel={`${coachName} is typing`}>
-                <ActivityIndicator color={colors.primary} />
+                <ActivityIndicator color={colors.leaf} />
               </View>
             )}
           </ScrollView>
 
           <View className="px-4 pb-2 pt-2">
             <View className="coach__ask">
-              <SymbolView name={{ ios: "sparkles", android: "auto_awesome", web: "auto_awesome" }} size={18} tintColor={colors.primary} />
+              <SymbolView name={{ ios: "sparkles", android: "auto_awesome", web: "auto_awesome" }} size={18} tintColor={colors.leaf} />
               <TextInput
                 value={text}
                 onChangeText={setText}

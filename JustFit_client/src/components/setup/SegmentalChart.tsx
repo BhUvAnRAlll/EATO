@@ -7,7 +7,7 @@ import { useGrow } from "@/components/setup/ReportGraphs";
 import { images } from "@/constants/images";
 import type { BodySegment, SegmentRating, SegmentReading } from "@/lib/nutrition";
 import type { Icon } from "@/types/profile";
-import { colors } from "@/theme";
+import { useThemeColors, Palette } from "@/theme";
 
 type SegmentalChartProps = {
   title: string;
@@ -30,11 +30,11 @@ const SILHOUETTE_RATIO = 501 / 900;
 // Panel height as a share of its width
 const PANEL_RATIO = 1.02;
 
-const ratingColors: Record<SegmentRating, string> = {
+const ratingColors = (colors: Palette): Record<SegmentRating, string> => ({
   normal: "#2F9E4F",
   under: "#F08A3E",
   over: colors.danger,
-};
+});
 const ratingLabels: Record<SegmentRating, string> = { normal: "Normal", under: "Under", over: "Over" };
 const segmentLabels: Record<BodySegment, string> = { leftArm: "Left Arm", rightArm: "Right Arm", trunk: "Trunk", leftLeg: "Left Leg", rightLeg: "Right Leg" };
 
@@ -78,7 +78,8 @@ function Line({ from, to, color }: { from: Point; to: Point; color: string }) {
 }
 
 function Reading({ reading, segment, align }: { reading: SegmentReading; segment: BodySegment; align: "left" | "right" | "center" }) {
-  const color = reading.rating ? ratingColors[reading.rating] : colors.muted;
+  const colors = useThemeColors();
+  const color = reading.rating ? ratingColors(colors)[reading.rating] : colors.muted;
   const textAlign = align;
   return (
     <>
@@ -99,6 +100,7 @@ function Reading({ reading, segment, align }: { reading: SegmentReading; segment
 // One analysis (lean mass or fat): a body silhouette with a callout per region. Every
 // position is a share of the panel size, so it scales with the phone.
 export function SegmentalChart({ title, icon, tint, background, readings, delay = 0, mirrored = false }: SegmentalChartProps) {
+  const colors = useThemeColors();
   // One fade per callout (left arm, right arm, left leg, right leg), then the trunk
   const appear = [useGrow(delay), useGrow(delay + 120), useGrow(delay + 240), useGrow(delay + 360), useGrow(delay + 480)];
   const fadeIn = (grow: Animated.Value) => ({
@@ -118,7 +120,7 @@ export function SegmentalChart({ title, icon, tint, background, readings, delay 
   const labelWidth = Math.round(width * 0.26);
   // Wide enough for "Not rated" on one line even on the narrowest phones
   const trunkWidth = Math.max(100, Math.round(width * 0.3));
-  const trunkColor = readings.trunk.rating ? ratingColors[readings.trunk.rating] : colors.muted;
+  const trunkColor = readings.trunk.rating ? ratingColors(colors)[readings.trunk.rating] : colors.muted;
 
   return (
     <View className="seg__card">
@@ -145,7 +147,7 @@ export function SegmentalChart({ title, icon, tint, background, readings, delay 
             {callouts.map(({ segment: placed, side, top, dot, body }, index) => {
               const segment = mirrored ? mirror[placed] : placed;
               const reading = readings[segment];
-              const color = reading.rating ? ratingColors[reading.rating] : colors.sand;
+              const color = reading.rating ? ratingColors(colors)[reading.rating] : colors.sand;
               return (
                 <Animated.View key={segment} style={fadeIn(appear[index])} pointerEvents="none">
                   <Line from={at(dot)} to={at(body)} color={color} />

@@ -9,7 +9,7 @@ import { dashboards } from "@/data/dashboards";
 import { accountContact, firstNameOf } from "@/lib/me";
 import type { Role } from "@/lib/roles";
 import { useAuthStore } from "@/store/auth";
-import { colors } from "@/theme";
+import { useThemeColors } from "@/theme";
 
 type DashboardScreenProps = {
   role: Role;
@@ -19,13 +19,14 @@ type DashboardScreenProps = {
 
 // The landing screen for each role: greeting, the role's main areas and sign out.
 export function DashboardScreen({ role, children }: DashboardScreenProps) {
+  const colors = useThemeColors();
   const user = useAuthStore((state) => state.user);
   const firstName = firstNameOf(user?.fullName);
   const dashboard = dashboards[role];
 
   return (
     <View className="flex-1 bg-cream">
-      <StatusBar style="dark" />
+      <StatusBar style="auto" />
       <SafeAreaView style={{ flex: 1 }}>
         <ScrollView showsVerticalScrollIndicator={false}>
           {children}
@@ -48,7 +49,7 @@ export function DashboardScreen({ role, children }: DashboardScreenProps) {
                   accessibilityRole={tile.href ? "button" : undefined}
                 >
                   <View className="card__icon">
-                    <SymbolView name={tile.icon} size={20} tintColor={colors.forest} />
+                    <SymbolView name={tile.icon} size={20} tintColor={colors.leaf} />
                   </View>
                   <View className="flex-1">
                     <Text className="card__title">{tile.title}</Text>
@@ -64,7 +65,7 @@ export function DashboardScreen({ role, children }: DashboardScreenProps) {
             </View>
 
             {/* Signing out removes this screen; the start screen then opens onboarding */}
-            <Pressable onPress={() => useAuthStore.getState().signOut()} className="btn-outline">
+            <Pressable onPress={() => useAuthStore.getState().signOut()} className="btn-outline" accessibilityRole="button">
               <Text className="btn-outline__label">Sign out</Text>
             </Pressable>
           </View>

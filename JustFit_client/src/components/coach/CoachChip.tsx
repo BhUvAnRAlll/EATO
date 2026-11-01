@@ -1,4 +1,6 @@
-import { Pressable, Text } from "react-native";
+import { Text } from "react-native";
+
+import { PressableScale } from "@/components/PressableScale";
 
 type CoachChipProps = {
   label: string;
@@ -14,14 +16,16 @@ type CoachChipProps = {
 // wash when picked (like the option cards)
 export function CoachChip({ label, selected, onPress, grow = false, multi = false }: CoachChipProps) {
   return (
-    <Pressable
+    <PressableScale
       onPress={onPress}
+      scaleTo={0.95}
+      haptic="select"
       className={["coach__chip", !grow && "coach__chip--wrap", grow && "basis-2/5 flex-1", selected && "coach__chip--selected"].filter(Boolean).join(" ")}
       accessibilityRole={multi ? "checkbox" : "radio"}
       aria-checked={selected}
       accessibilityLabel={label}
     >
       <Text numberOfLines={1} className={selected ? "coach__chip-label coach__chip-label--selected" : "coach__chip-label"}>{label}</Text>
-    </Pressable>
+    </PressableScale>
   );
 }

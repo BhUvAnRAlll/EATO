@@ -17,10 +17,8 @@ Logo: the JF mark with the JUSTFIT word, red and black. What changed and what de
 - Everything users see says justFit: screen text, server messages, share texts, the app name, icon,
   adaptive icon, splash, favicon and the in-app logo (`assets/images/justfit-logo.png`, shown by
   `BrandWordmark`). Expo identity: slug `justfit`, scheme `justfit` (with `eato` still registered so
-  older invite links and QR codes open the app), iOS bundle id `com.bhuvii3.justfit`. A new
+  older links open the app), iOS bundle id `com.bhuvii3.justfit`. A new
   development build is needed.
-- Codes: member passes are `JF1.…` and gym check-out QR codes `JUSTFIT-OUT-…`; the server still
-  reads `EATO1.…` and `EATO-OUT-…` (`owner/passes.js`), so printed QR codes keep working.
 - MySQL (renamed 2026-10-30): databases `justfit` and `justfit_test`, accounts `justfit_app` and
   `justfit_test`, demo accounts at `@demo.justfit.test`; the folders are `JustFit_client` and
   `JustFit_server`. The pass-signing label is `justfit-member-pass` (part of the key).
@@ -43,8 +41,7 @@ Main areas of the app:
 - **Food**: menu, meal detail, cart, checkout, order success, live order tracking
 - **Subscribe**: plan picker, subscription builder, review, my subscription (skip days, wallet credit)
 - **Nutrition**: food diary, water and supplement tracking, add food, barcode scan, photo scan, weight log
-- **Training**: workout plans, active workout, summary, exercise library, cardio, progress charts. Since 2026-10-25 the Workout hub is `/workout` (`app/(user)/workout/index.tsx`), opened from Profile; its tab slot is the AI Coach tab (`app/(user)/(tabs)/coach.tsx`)
-- **Community**: feed, stories, posts, friends, gym communities, messages, chat (challenges and trainers were dropped)
+- **Training**: workout plans, active workout, summary, exercise library, cardio, progress charts. Since 2026-11-01 the Workout hub is the Workout tab (`app/(user)/(tabs)/workout.tsx`, route `/workout`), in the slot Community had; its day, session, preferences and rebuild screens stay under `app/(user)/workout/`
 - **AI Coach**: intake (9 steps) → the Coach tab (hero, today's overview from Macro, today's plan as a timeline of meals to log and today's workout, Week and Insights tabs) and the coach chat are built; daily follow-ups, weekly check-ins, Insights and the video coach are planned
 - **Profile**: orders, wallet, coupons, addresses, goals, achievements, notifications, settings, Pro
 
@@ -65,8 +62,8 @@ What is in use today:
   app keeps its session token in `expo-secure-store`. SMS goes through Fast2SMS (server-side,
   `JustFit_server/auth/sms.js`). Clerk was removed on 2026-10-29; see "Sign-in Rules" below
 - OpenAI, server-side only: reading body composition reports (`JustFit_server/bodyComposition/extract.js`),
-  Scan Food (`JustFit_server/macro/foodScan.js`), the AI Coach's meals and note (`JustFit_server/coach/plan.js`)
-  and the gym assistant (`JustFit_server/whatsapp/aiProvider.js`). `OPENAI_API_KEY` is a server secret in
+  Scan Food (`JustFit_server/macro/foodScan.js`) and the AI Coach's meals, note and chat (`JustFit_server/coach/`).
+  `OPENAI_API_KEY` is a server secret in
   `JustFit_server/.env` only, never in the app's `.env` or an `EXPO_PUBLIC_*` variable
 - Node.js + Express server (`JustFit_server/`) with a MySQL database (`mysql2`): every backend concern lives here
 
@@ -91,93 +88,28 @@ Do not introduce new major libraries unless there is a strong reason.
 | AI usage and cost (Admin › Profile › AI Usage, 2026-10-30): `app/admin/profile.tsx` (the admin's profile and Sign out, opened from the Overview's header) → `app/admin/ai-usage/index.tsx` (all-time cards, the monthly budget, a day / 7 days / 30 days period with charts, by-feature and by-model breakdowns, one section per AI area), `history.tsx` (every call, search, filters, sort, 25 a page) and `budget.tsx` (the limit, alerts at 50 / 75 / 90 / 100 % and on a spike, acknowledging). Labels in `data/aiUsage.ts`, calls in `lib/aiUsage.ts`, charts are plain views (`components/admin/BarChart.tsx`) | `/api/admin/portal/ai-usage/*` (`JustFit_server/admin/aiUsage.js`, pure rules in `ai/rules.js`). Every AI module records each call through `ai/usage.tracker` (`ai/usage.js`): tables `ai_usage`, `ai_model_prices`, `ai_budget`, `ai_budget_alerts` (migration `2026-11-03-ai-usage.sql`); the recorder never throws and does nothing until the migration has run. Costs are in rupees: the model's dollar price (`ai_model_prices`, as OpenAI quotes it) at the exchange rate in `ai_budget.usd_to_inr` (editable on the budget screen, default ₹84) when the call is recorded | Admin-only on the server; a row holds who, feature, model, tokens, cost and outcome, never a prompt, photo or reply. Reaching the budget alerts and, unless `AI_BUDGET_HARD_STOP=off`, pauses every AI call for the rest of the month with a friendly message (`ai/limits.js`, 2026-10-31) |
 | Profile and nutrition targets from setup | MySQL (`users`, `profiles`, `nutrition_targets`, `body_composition_reports`) via `POST /api/profile` and `GET /api/profile` on the Express server; `profiles.profile_complete` (returned by `/api/auth/me`) decides where the app opens | Server-verified identity, one transaction per save, the app's own calculator re-checks every record before it is stored |
 | App data (meals, orders, diary, weigh-ins) | MySQL via the Express server (`JustFit_server/`) | Shared, queryable data that outlives one device |
-| Friendships and the messaging rule | MySQL `community_friendships` via `/api/community/friends/*` (`JustFit_server/community/friends.js`, pure rules in `friendRules.js`). New conversations and new messages need an accepted friendship; older chats stay readable | Messaging is for friends only, checked on the server for every send |
-| Gym communities | MySQL `gyms`, `gym_members`, `gym_invitations`, `gym_announcements`, `gym_events`, `gym_event_rsvps`, and gym posts in `community_posts` (`gym_id`, `review_status`), via `/api/gyms/*` (`JustFit_server/gyms/`: `permissions.js` and `validate.js` are pure and unit-tested). Platform admins create gyms (`POST /api/gyms`) and name the owner; each gym's owner and admins run it | Every role, visibility and setting is checked on the server from `gym_members` for the verified caller; hidden gyms answer 404 to non-members |
-| Community photos (posts, stories, gym logos and covers) | Files on the Express server's disk, `JustFit_server/uploads/` (or `UPLOAD_DIR`), with a `community_media` row per file; served only to signed-in members through `GET /api/media/:id` (`JustFit_server/community/media.js`) | Current implementation, not object storage: one server, no CDN, and the folder must be persistent and backed up. A hosted bucket (for example DigitalOcean Spaces with presigned uploads) is the planned replacement and would need a new dependency and approval |
 
 Every Express route except the health check and the two sign-in routes verifies the caller's session token with `requireUser` (`JustFit_server/auth.js`) before doing anything. The sign-in routes are budgeted per IP address and per phone number instead.
-The one other exception is Meta's WhatsApp webhook (`/api/whatsapp/webhook`): Meta calls it, so
-instead of a session it checks Meta's `X-Hub-Signature-256` over the raw body with `META_APP_SECRET`,
-and it decides which gym an event belongs to only from the receiving phone-number id
-(`whatsapp_connections`), never from the message.
 
-### WhatsApp gym agent (in progress)
+### Community and gyms: removed (2026-11-01)
 
-- Server code is in `JustFit_server/whatsapp/`: `webhook.js` (signed webhook, events saved once and
-  queued), `jobs.js` + `worker.js` (a MySQL job queue polled inside the server; off in tests and with
-  `WHATSAPP_WORKER=off`; it stays off with one log line until `migrations/2026-10-24-whatsapp-agent.sql`
-  has run), `process.js` (events into contacts, conversations and messages, per gym), `send.js`
-  (replies through the gym's own number, only inside WhatsApp's 24-hour window), `metaClient.js`
-  (the only code calling Meta's Graph API), `secrets.js` (AES-256-GCM for each gym's token).
-- Every gym gets one `whatsapp_connections` row (disconnected) and one `whatsapp_agent_settings` row
-  (`testing`: the in-app assistant answers members, WhatsApp replies only once `active`) when it is created. Gym-owned WhatsApp tables use `ON DELETE RESTRICT`, so test clean-ups
-  must delete them before `gyms`.
-- Tests use a fake Meta and made-up settings; never real Meta credentials.
+The user asked for Community to go completely, gyms included, and for Workout to take its tab.
+Gone from the app, the server and (once `JustFit_server/migrations/2026-11-06-remove-community.sql`
+has run) the database: the feed, posts, comments, likes, polls, stories, friends, follows, blocks,
+direct messages, community profiles and moderation (Admin › Reports, suspensions); gyms, their
+members, invitations, announcements, events and QR codes; the gym owner portal (`app/owner/`,
+`/api/owner`), member passes and QR attendance (`/my-qr`), gym notices and the bell's gym items; the
+WhatsApp gym agent (`/api/whatsapp`, the job worker) and Admin › Gyms; the `/api/media` uploads.
+Groups, Challenges and Trainers had already gone. Do not rebuild any of it unless the user asks.
 
-### Community notes
-
-- **Groups were removed** (2026-10-17) and their data dropped (2026-10-18, migration
-  `2026-10-23-drop-groups.sql`): no Groups tab, screens, routes or tables, and `community_posts` has
-  no `group_id`. `POST /api/community/posts` refuses a `groupId`.
-- **Trainers were removed** (2026-10-29, migration `2026-11-02-remove-trainers.sql`, approved): no
-  trainer role, trainer portal, Community › Trainers, diet plans or trainer targets, and no gym
-  trainer rank. The migration gave coached members their own targets back, closed trainer-written
-  workouts and dropped the eight trainer tables. Messaging is for friends only.
-- **Gyms:** roles are owner > admin > member, and a role only counts while the membership
-  is `active`. Visibility is `public`, `private` (listed; content for members; joining needs
-  approval) or `hidden` (members and invite codes only). A gym is never hard-deleted (posts
-  reference it with `ON DELETE RESTRICT`), which keeps clear of the MySQL cascade issue.
-- **Gym codes:** each gym has an 8-character code that joins as a member without approval (admins
-  can replace it if it leaks: `POST /api/gyms/:id/code/rotate`), and staff can create 10-character
-  invitations (member role, 14 days, revocable). Platform admins list every gym, hidden ones
-  included, at `GET /api/gyms/admin/all`. justFit
-  sends no SMS or email; phone and email invitations are only recorded. The invite screen shows the
-  gym's invite link as a QR code (`react-native-qrcode-svg`); Join a gym can scan one with the camera
-  (`expo-camera`'s `CameraView`, permission text in `app.json`), or the code is typed by hand.
-  `codeFromScan` in `src/lib/gymRules.ts` reads the code from a scanned link or bare code. The camera
-  module needs a new local build on iOS and Android (`npx expo run:ios|android`); the web works as it is.
-- **Plans** on a gym are a label only. No payment exists, and the screens say so.
-
-
-### Gym owner portal
-
-- Spec and mockups: `Gym Owner Portal Screens and Workflow/` at the repo root, built in phases (1 Home,
-  Members and Renewals; 2 QR check-in; 3 Community and Notify; 4 Review; 5 Gym tab, assistant replies).
-  Colours come from the tokens, not the mockups.
-- App: `app/owner/` (its own tabs: Home, Members, Check-in, Community, Review, Gym), open to every
-  signed-in role; `lib/owner.ts`, `store/owner.ts` (open gym, summary, tab badges). Entry points: the
-  "Gym owner portal" button on Community › Gyms (gym owners and admins), and Admin › Gyms (justFit admins
-  open any gym's portal). Members see their own package in the gym's About tab (`MyGymPlan`).
-- Server: `/api/owner` (`JustFit_server/owner/`; pure rules in `rules.js`). Every gym route allows the
-  gym's active owner or admins (`gym_members`), or an justFit admin (`users.role`, read live); gym
-  members get 403, and a hidden gym looks missing (404). There is no "gym owner" role.
-- Renewals use `gym_member_plans`: +1 or +3 months from the later of the end date and today (an
-  expired package restarts today; a member without one gets the gym's first tier). Recorded only,
-  never a payment.
-- QR attendance (phase 2, migration `2026-10-26-gym-attendance.sql`): a member's pass (`/my-qr`) is
-  `EATO1.<user>.<expiry>.<HMAC>`, valid two minutes, signed with a key derived from `AUTH_SECRET`
-  (`owner/passes.js`, HKDF label `justfit-member-pass`). The front desk verifies, then checks in (`owner/attendance.js`);
-  `gym_visits.open_member` allows one open visit per member per gym, so a double tap can't check in
-  twice. Every refused scan is a `gym_scan_failures` row; another gym's member stays anonymous. Members
-  check out by scanning the gym's `EATO-OUT-<code>` QR (switchable, regenerable) from the Home card,
-  or staff end the visit. On the web the scanner takes a typed code (`QrScanner`), which the tests use.
-- Notices (phase 3, migration `2026-10-27-gym-notices.sql`): `owner/notices.js` works out each audience
-  on the server from active members only (everyone, in the gym now, renewal due, no visit in 14 days,
-  staff, chosen), saves the notice and its recipients, and rate limits each sender (30 an hour). Check-ins
-  and renewals add a note for the member; reminders go from Renewals. Members see them in the bell
-  (`community/notifications.js`, type `gym_notice`), and a tap opens its target. The Community tab's
-  counts come from `GET /api/owner/gyms/:id/community`.
-- Review (phase 4, `owner/review.js`, no schema change): held gym posts are approved (published) or
-  rejected (soft-deleted); a reported gym post is kept (its open `community_reports` become `dismissed`)
-  or removed (soft-deleted, reports `reviewed`, in one transaction), the same statuses as justFit's admin
-  queue, so handled reports leave both. Reporters stay anonymous to the gym. The switch at the top is
-  `gyms.post_moderation`.
-- Gym assistant, owner side (phase 5, migration `2026-10-29-gym-assistant-questions.sql`): when the in-app
-  assistant escalates, `whatsapp/assistant.js` calls `owner/questions.recordQuestion` (it never throws).
-  The owner portal lists open questions and replies once or dismisses; the asker sees replies in the
-  Ask chat (`MyTeamReplies`) and the bell (`gym_reply`), never who on the team wrote them. Custom answers
-  are `gym_faqs` rows edited through `/api/owner/gyms/:id/faqs` (`owner/faqs.js`); the agent reads the
-  active ones first. Tests use `AI_PROVIDER: "fake"`.
+- The Super Admin portal's tabs are Overview · Users · Content. The Overview counts users, new users
+  and the last seven days' finished workouts and logged meals; Users filters All / Members / Admins
+  and an account's page shows when they joined and how many meals, workouts and orders they have.
+- Kept as history: `admin_audit_log` rows about gyms, posts and reports; `ai_usage` rows of the
+  `gym_assistant` feature (still in the ENUM, labelled "removed" on AI Usage, no section); old
+  `analytics_events` of the community events (the server no longer accepts new ones).
+- Still installed but unused since: `expo-camera` and `react-native-qrcode-svg` (removing a package
+  needs the user's approval, and a new local build).
 
 ---
 
@@ -405,6 +337,51 @@ follow screen by screen (Home first, from the reference); each is verified at 32
 
 Avoid large inline styles unless required.
 
+### Dark mode, motion, haptics and loading (added 2026-11-01)
+
+The app follows the phone's appearance (`userInterfaceStyle: "automatic"`). Rules that keep it
+working:
+
+- **Colours come from tokens only.** `tokens.css` has a `@media (prefers-color-scheme: dark)`
+  block, and `theme/index.ts` has `lightColors` and `darkColors`. Keep all three lists in sync.
+  - In a component, read JS colours with `const colors = useThemeColors()`. Never use the
+    module-level `colors` inside a component: it doesn't re-render when the appearance changes.
+  - Module tables of colours (status maps, macro rows) use getters: `get tint() { return colors.leaf; }`.
+  - Switches use `useSwitchColors()`.
+- **Pick the token by role.**
+  - `surface`: cards, sheets and fields. Never `white`.
+  - `leaf`: red text, icons, rings and links. In dark mode it is brightened to stay readable.
+  - `forest`/`primary`: red fills that carry white text.
+  - `ink-fill`: near-black fills with white text, such as filled buttons, badges and bubbles.
+  - `immersive`: full-screen dark areas, such as the player, a story or a hero.
+  - `ink`: text, and dots or borders that should flip with the appearance.
+  - `white` and `black` never change. Use them only for text on red, QR codes (`black` on `white`),
+    and things drawn on photos.
+  - Promotion slides and other photo-backed text use `lightColors` explicitly.
+- **The logo.** `images.justfitLogoDark` is the same logo with its black parts white. `BrandWordmark` picks it by
+  appearance. Icon variants are `assets/images/icon-dark.png` and `icon-tinted.png`, and the
+  dark launch screen is `splash-icon-dark.png`. All are listed in `app.json`. Never redraw the logo.
+- **Press feedback.** Buttons and cards use `components/PressableScale.tsx`. It eases down to about 97% on the
+  UI thread, has an optional `haptic`, and holds still when reduced motion is on.
+  `PrimaryButton`, `CoachButton`, `IconButton`, the choice cards and chips already use it.
+- **Haptics.** Use only `lib/haptics.ts`:
+  - `select` for choosing an option, chip or tab.
+  - `tap` for an important button.
+  - `success` for a finished workout, a check-in, or a saved meal or water entry.
+  - `error`, which `FormAlert` plays by itself.
+
+  Calls are throttled and do nothing on the web.
+- **Loading.** Use `components/Skeleton.tsx` (`ScreenSkeleton`, `SkeletonCard`, `SkeletonPulse`) for a
+  screen's first read. Spinners stay only inside buttons.
+- **Lists.** Long vertical FlatLists spread `listPerf` from `lib/listPerf.ts`. An inverted chat
+  uses `chatListPerf`.
+- **Keyboard.** Scroll views with inputs use `keyboardShouldPersistTaps="handled"` and
+  `keyboardDismissMode` set to "interactive" on iOS and "on-drag" on Android.
+- **Text size.** Text controls use `min-height`, not `height`, so labels can grow with Dynamic
+  Type. Only the tab bar caps its labels, with `maxFontSizeMultiplier` 1.3.
+- **Verification.** `__tests__/ui/appearance.ui.test.js` opens the main screens in dark mode. It fails on a white
+  surface or on text below 4.5:1 contrast, or below 3:1 for large text.
+
 ## NativeWind Rule
 
 Use the NativeWind version already installed in this app.
@@ -620,7 +597,7 @@ Never expose secret keys in the mobile app. Only `EXPO_PUBLIC_*` variables reach
   `requestBody.js` for the upload route (it refuses an oversized body while it is still arriving).
 - `JustFit_server/.env` needs `AUTH_SECRET` (32+ random characters; keys the code hashes and the member
   passes), `SMS_PROVIDER` (`off` until Fast2SMS is verified, then `fast2sms` with `FAST2SMS_*`) and
-  `OPENAI_API_KEY` (report reading, Scan Food, the AI Coach's meals and the gym assistant). Never commit any `.env`.
+  `OPENAI_API_KEY` (report reading, Scan Food and the AI Coach). Never commit any `.env`.
 
 ---
 
@@ -725,9 +702,8 @@ Before declaring completion:
 
 - Every protected endpoint verifies the session token server-side (`requireUser`); identity
   is the session's user (`req.userId`), never a request field.
-- Enforce role and resource-level permissions server-side for `user` and `admin`, and for gym
-  roles from `gym_members`. Roles come from `users.role`, read with `getAccount` /
-  `currentRole` on every call.
+- Enforce role and resource-level permissions server-side for `user` and `admin`. Roles come
+  from `users.role`, read with `getAccount` (`requireAdmin`) on every call.
 - Prevent privilege escalation, insecure direct object references and cross-user data access:
   every query that returns or changes a user's rows is scoped to the verified user id.
 - Never grant a privileged role from client-writable metadata alone.
@@ -801,13 +777,13 @@ skipped silently. Where justFit already meets a point, keep it that way.
 |---|-------|------------------------------|
 | 1 | Proper authentication | phone OTP, hashed tokens in `auth_sessions`, `requireUser` on every protected route |
 | 2 | Hide API keys | all provider keys in `JustFit_server/.env` only; nothing secret in `EXPO_PUBLIC_*` |
-| 3 | Secure the database | `justfit_app` least privilege, every user-owned query scoped by `req.userId` / gym role |
+| 3 | Secure the database | `justfit_app` least privilege, every user-owned query scoped by `req.userId` |
 | 4 | HTTPS everywhere | Caddy on the droplet; HSTS from `httpSecurity.js` over HTTPS; `requireHttpsInRelease` in `lib/apiHost.ts` refuses a plain-HTTP server in a release build |
 | 5 | Hash all passwords | no passwords: codes HMAC-hashed (`auth/otp.js`), session tokens SHA-256 (`auth/sessions.js`) |
 | 6 | Validate forms on the server | `ValidationError` + the `*/validate.js` and `*/rules.js` modules; the app's checks are hints only |
 | 7 | Block XSS | JSON only, no HTML rendering in the app; uploads type-sniffed; `nosniff` + CSP `default-src 'none'` on every answer |
 | 8 | Log and monitor suspicious activity | `logRequestError` (safe fields) and `logSecurityEvent` (`otp.locked`, `otp.throttled`, `admin.denied`, `rate.limited`); `admin_audit_log` for admin actions |
-| 9 | Lock down admin routes | `requireAdmin` reads `users.role` on every call; owner routes check `gym_members` |
+| 9 | Lock down admin routes | `requireAdmin` reads `users.role` on every call |
 | 10 | Parameterised queries | `pool.query(sql, params)`; SQL fragments only from allowlists in code |
 | 11 | Check environment variables | startup refuses a missing DB setting or short `AUTH_SECRET`, dev login outside development; warns without `OPENAI_API_KEY` |
 | 12 | Rate limiting | `limitPerUser` on every signed-in group, `limitPerIp` + per-number limits on sign-in |
@@ -817,11 +793,11 @@ skipped silently. Where justFit already meets a point, keep it that way.
 | 16 | CSRF protection | not applicable without cookies; Meta webhook checks `X-Hub-Signature-256` |
 | 17 | Expiring reset links | codes last 5 minutes, single use, 5 attempts; sessions 30 days, revocable |
 | 18 | Restrict uploads | `checkUpload` sniffs real bytes, allowed types and byte caps; bodies capped before parsing |
-| 19 | Verify prices and payments | not applicable: no checkout; gym plan prices are owner-entered data validated in `gyms/validate.js` |
+| 19 | Verify prices and payments | not applicable: no checkout |
 | 20 | No production debug mode | `x-powered-by` off, generic 500s, `DEV_LOGIN_*` refused outside development, `NODE_ENV=production` on the droplet |
 | 21 | Update vulnerable dependencies | `npm audit` in both folders before a release; server at 0 |
 | 22 | Remove unused packages | compare `package.json` with imports before a release; native modules need a prebuild to remove |
-| 23 | No exposed files | no `express.static`; uploads only via `GET /api/media/:id` with a session; every `.env` git-ignored |
+| 23 | No exposed files | no `express.static` and no file downloads (uploaded photos and reports are read in memory, never stored); every `.env` git-ignored |
 | 24 | Scan Git history for secrets | `git log -p` grep before pushing; only test placeholders so far |
 | 25 | Revoke compromised keys | any key shown in a chat, a log or a screenshot is rotated, never reused |
 | 26 | Full security review | this section plus sections 1-7, on the whole diff |
@@ -844,9 +820,8 @@ Never expose secrets in the frontend.
 Every OpenAI call goes through the small services in `JustFit_server/ai/`, and new AI work must too:
 
 - `ai/models.js` picks the model and the output cap per feature. Defaults: gpt-4.1-mini for the
-  coach's chat, plans and meal swaps, Scan Food and report reading; gpt-4o-mini for the gym
-  assistant. `AI_MODEL_<FEATURE>` / `AI_MAX_OUTPUT_<FEATURE>` override one feature; the old
-  `OPENAI_MODEL` / `AI_MODEL` still work below them. Never hard-code a model id or `new OpenAI()`
+  coach's chat, plans and meal swaps, Scan Food and report reading. `AI_MODEL_<FEATURE>` /
+  `AI_MAX_OUTPUT_<FEATURE>` override one feature; the old `OPENAI_MODEL` still works below them. Never hard-code a model id or `new OpenAI()`
   in a feature: use `settingsFor(feature).request` and `openaiClient()`. A model needs a row in
   `ai_model_prices` (official list prices, with the cached-input price) or its calls cost ₹0 on
   the dashboard. The server logs the routing at startup.
@@ -855,12 +830,11 @@ Every OpenAI call goes through the small services in `JustFit_server/ai/`, and n
   `AI_PLAN_LIMIT_PER_DAY` (3). A refusal is a friendly 429/503 the app shows as it is.
 - `ai/dedupe.js` answers an identical in-flight request once (a double tap, two screens); the
   app also disables buttons while a call runs.
-- `ai/cache.js` reuses gym assistant answers to the same question while the gym's facts are
-  unchanged (keyed by a hash of the facts). Nothing personal to a member is cached.
+- `ai/cache.js` is a small answer cache keyed by a hash of everything an answer depends on. Its
+  only user, the gym assistant, was removed on 2026-11-01; nothing personal to a member may be cached.
 - Prompts stay small: the chat shows the model the newest 10 turns within 4,000 characters
   (`chatRules.modelHistory`), a meal swap sends the member's food facts and the one meal
-  (`POST /api/coach/plan/meals/:id/swap`, feature `coach_meal`), the gym facts are capped
-  (`agent.trimFacts`) and sent with a `prompt_cache_key` so OpenAI's prompt cache applies.
+  (`POST /api/coach/plan/meals/:id/swap`, feature `coach_meal`).
   Arithmetic (targets, scaling, totals, workouts) stays in code, never in a prompt.
 - `ai/usage.js` records every call with `cached_input_tokens` and `from_cache`; the admin's AI
   Usage screen shows cached tokens, cache hits, cost per call per feature and the top members.
@@ -889,8 +863,9 @@ It treats every member as an Indian client by default and:
   Indian examples; adapts to the member's preferences, goals, budget and lifestyle; never robotic.
 
 Where it lives: `coach/chatRules.js` (`chatInstructions`, and `memberBrief` carries cuisines,
-cooking time and budget) and `coach/planRules.js` (`INDIAN_FOOD`, shared by the day plan and the meal
-swap). Any new coach prompt uses the same text rather than its own wording, and `__tests__/coach-chat.test.js` / `coach-cost-rules.test.js` pin it. Keep these lines short: they
+cooking time and budget) and `coach/planRules.js` (`INDIAN_FOOD`, shared by the day plan, the meal
+swap and the five swap options). Any new coach prompt uses the same text rather than its own wording,
+and `__tests__/coach-chat.test.js` / `coach-cost-rules.test.js` pin it. Keep these lines short: they
 are sent on every call (see the cost rules above).
 
 ---
@@ -917,8 +892,7 @@ and `AUTH-MIGRATION-AUDIT.md` at the repo root). Keep these rules:
   real phone). The Fast2SMS key is never used for signing anything.
 - The app keeps only the token, never the role or setup state: at launch it asks `GET /api/auth/me`;
   a 401 forgets the token, any other failure keeps it and offers Try again.
-- Phone accounts have no email. Email gym invitations are recorded but unlock no banner (no email is
-  ever verified); their links and codes still work.
+- Phone accounts have no email (no email is ever verified).
 - Behind a reverse proxy set `TRUST_PROXY` (a hop count or proxy addresses, never `true`), or every
   request shares one IP budget.
 

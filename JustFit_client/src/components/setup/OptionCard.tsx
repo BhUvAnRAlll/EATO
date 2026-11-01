@@ -1,8 +1,9 @@
-import { Pressable, Text, View } from "react-native";
+import { Text, View } from "react-native";
+import { PressableScale } from "@/components/PressableScale";
 import { SymbolView } from "@/components/SymbolView";
 
 import type { Icon } from "@/types/profile";
-import { colors } from "@/theme";
+import { useThemeColors } from "@/theme";
 import { fonts } from "@/constants/fonts";
 
 type OptionCardProps = {
@@ -17,8 +18,9 @@ type OptionCardProps = {
 };
 
 export function OptionCard({ label, description, icon, selected, onPress, layout = "row" }: OptionCardProps) {
+  const colors = useThemeColors();
   const cardClass = selected ? "setup__card setup__card--selected" : "setup__card";
-  const tint = selected ? colors.forest : colors.inkSoft;
+  const tint = selected ? colors.leaf : colors.inkSoft;
   const radio = (
     <View className={selected ? "setup__radio setup__radio--selected" : "setup__radio"}>
       {selected && <View className="setup__radio-dot" />}
@@ -27,7 +29,7 @@ export function OptionCard({ label, description, icon, selected, onPress, layout
 
   if (layout === "grid") {
     return (
-      <Pressable
+      <PressableScale haptic="select"
         onPress={onPress}
         className={`${cardClass} items-center justify-center gap-3`}
         style={{ width: "48.4%", minHeight: 152 }}
@@ -43,23 +45,23 @@ export function OptionCard({ label, description, icon, selected, onPress, layout
           <Text className="setup__card-title text-center">{label}</Text>
           {description && <Text className="setup__card-text text-center">{description}</Text>}
         </View>
-      </Pressable>
+      </PressableScale>
     );
   }
 
   if (layout === "tile") {
     return (
-      <Pressable onPress={onPress} className={`${cardClass} flex-1 items-center gap-2 py-3.5`}>
+      <PressableScale haptic="select" onPress={onPress} className={`${cardClass} flex-1 items-center gap-2 py-3.5`} accessibilityRole="radio" accessibilityState={{ checked: selected }} accessibilityLabel={label}>
         {icon && <SymbolView name={icon} size={22} tintColor={tint} />}
         <Text className="setup__card-text text-center" style={{ color: tint, fontFamily: selected ? fonts.semibold : fonts.medium }}>
           {label}
         </Text>
-      </Pressable>
+      </PressableScale>
     );
   }
 
   return (
-    <Pressable onPress={onPress} className={`${cardClass} flex-row items-center gap-3.5`}>
+    <PressableScale haptic="select" onPress={onPress} className={`${cardClass} flex-row items-center gap-3.5`} accessibilityRole="radio" accessibilityState={{ checked: selected }} accessibilityLabel={description ? `${label}, ${description}` : label}>
       {icon && (
         <View className="setup__card-icon">
           <SymbolView name={icon} size={20} tintColor={tint} />
@@ -70,6 +72,6 @@ export function OptionCard({ label, description, icon, selected, onPress, layout
         {description && <Text className="setup__card-text mt-0.5">{description}</Text>}
       </View>
       {radio}
-    </Pressable>
+    </PressableScale>
   );
 }
