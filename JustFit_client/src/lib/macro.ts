@@ -70,6 +70,11 @@ export const macro = {
     const mediaType = photo.data.startsWith("iVBOR") ? "image/png" : photo.data.startsWith("UklGR") ? "image/webp" : "image/jpeg";
     return apiFetch("/api/macro/scan", { method: "POST", body: { data: photo.data, mediaType, hint: photo.hint ?? "" }, token });
   },
+  // An AI estimate of one typed food for that amount (Manual Entry, when the food isn't in the built-in list). Nothing is saved.
+  estimateFood(token: string | null, food: { name: string; quantity: number; unit: "g" | "ml" | "piece" }): Promise<ApiResult<{ estimate: { kcal: number; proteinG: number; carbsG: number; fatG: number } }>> {
+    if (!token) return signedOut();
+    return apiFetch("/api/macro/estimate", { method: "POST", body: food, token });
+  },
   deleteMeal(token: string | null, mealId: string): Promise<ApiResult<{ deleted: true }>> {
     if (!token) return signedOut();
     return apiFetch(`/api/macro/meals/${mealId}`, { method: "DELETE", token });

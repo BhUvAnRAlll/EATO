@@ -38,7 +38,7 @@ const aiUsage = require("./ai/usage");
 const aiModels = require("./ai/models");
 const aiLimits = require("./ai/limits");
 const aiDedupe = require("./ai/dedupe");
-const { FoodScanError, checkFoodPhoto, scanFood, scanLimits: foodScanLimits } = require("./macro/foodScan");
+const { FoodScanError, checkFoodPhoto, scanFood, scanLimits: foodScanLimits, checkEstimateRequest, estimateFood } = require("./macro/foodScan");
 const { workoutRouter } = require("./workout/routes");
 const { adminPortalRouter } = require("./admin/routes");
 const { recordAdminAction } = require("./admin/overview");
@@ -93,6 +93,7 @@ const homeLimiter = createRateLimiter(rateLimits.standard); // members reading t
 const adminLimiter = createRateLimiter(rateLimits.standard); // admins editing it (also caps the role lookups)
 const macroLimiter = createRateLimiter(rateLimits.frequent); // the Macro diary: day, week strip, meals, favourites
 const foodScanLimiter = createRateLimiter(rateLimits.upload); // each food photo is an OpenAI vision call
+const foodEstimateLimiter = createRateLimiter({ limit: 30, windowMs: 10 * 60 * 1000 }); // each typed food estimate is a small OpenAI call
 const coachLimiter = createRateLimiter(rateLimits.standard); // the AI Coach: the intake answers and the plan
 const workoutLimiter = createRateLimiter(rateLimits.frequent); // the Fitness tab: plan, training day, history
 const analyticsLimiter = createRateLimiter(rateLimits.frequent); // the app's usage events, in small batches
@@ -339,6 +340,24 @@ app.post("/api/macro/scan", requireUser, limitPerUser(foodScanLimiter), jsonBody
       scanFood(photo, process.env, aiUsage.tracker(pool, { feature: "food_scan", userId: req.userId })),
     );
     res.json({ scan });
+  } catch (error) {
+    if (error instanceof FoodScanError) return res.status(error.status).json({ error: error.message });
+    next(error);
+  }
+});
+
+// Estimates one typed food: { name, quantity, unit } → { estimate: { kcal, proteinG, carbsG, fatG } } for
+// Manual Entry to fill in (the member checks it and logs the meal as usual). Nothing is stored and the
+// name is never logged. Verified caller, its own budget, a small body, checks, the AI limits, then the model.
+app.post("/api/macro/estimate", requireUser, limitPerUser(foodEstimateLimiter), jsonBodyWithLimit(2048), async (req, res, next) => {
+  const food = checkEstimateRequest(req.body);
+  if (!food.ok) return res.status(food.status).json({ error: food.error });
+  try {
+    await aiLimits.check(pool, { feature: "food_scan", userId: req.userId });
+    const estimate = await aiDedupe.shared.run(aiDedupe.requestKey("food_estimate", req.userId, food.name, food.quantity, food.unit), () =>
+      estimateFood(food, process.env, aiUsage.tracker(pool, { feature: "food_scan", userId: req.userId })),
+    );
+    res.json({ estimate });
   } catch (error) {
     if (error instanceof FoodScanError) return res.status(error.status).json({ error: error.message });
     next(error);

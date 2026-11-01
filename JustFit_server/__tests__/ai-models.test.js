@@ -24,9 +24,9 @@ describe("ai models: routing", () => {
 
   it("the request carries the model and an output cap; a reasoning model gets the lowest effort", () => {
     const chat = models.settingsFor("coach_chat", {});
-    assert.deepEqual(chat.request, { model: "gpt-4.1-mini", max_output_tokens: 450 });
+    assert.deepEqual(chat.request, { model: "gpt-4.1-mini", max_output_tokens: 900 });
     assert.equal(models.settingsFor("coach_chat", { AI_MAX_OUTPUT_COACH_CHAT: "300" }).request.max_output_tokens, 300);
-    assert.equal(models.settingsFor("coach_chat", { AI_MAX_OUTPUT_COACH_CHAT: "-5" }).request.max_output_tokens, 450, "a bad cap keeps the default");
+    assert.equal(models.settingsFor("coach_chat", { AI_MAX_OUTPUT_COACH_CHAT: "-5" }).request.max_output_tokens, 900, "a bad cap keeps the default");
     assert.deepEqual(models.settingsFor("coach_plan", { AI_MODEL_COACH_PLAN: "gpt-5-mini" }).request, { model: "gpt-5-mini", max_output_tokens: 2200, reasoning: { effort: "minimal" } });
     assert.ok(models.settingsFor("coach_plan", {}).maxOutputTokens >= 2000, "a five-meal plan is never cut short");
   });

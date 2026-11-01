@@ -57,6 +57,11 @@ export type PlanState = { state: "none" | "ready"; plan: CoachPlan | null; worko
 // One line of the coach chat (POST /api/coach/chat). The server keeps no history: the app sends
 // the last CHAT_TURNS lines each time (the server shows the model the newest ten of them).
 export type ChatLine = { role: "member" | "coach"; text: string };
+// A change to the plan the coach recommended in a reply, which the member can apply from the chat.
+// A meal's `option` is stored on the server like a Swap Meal option, so applying it is replaceMeal.
+export type MealProposal = { mealId: string; slot: PlanSlot; time: string; current: { name: string; totals: Totals }; option: MealOption };
+export type WorkoutProposal = { weekdays: number[]; sessionMinutes: number; current: { weekdays: number[]; sessionMinutes: number } };
+export type ChatProposals = { meals: MealProposal[]; workout: WorkoutProposal | null };
 export const CHAT_TURNS = 12;
 export const CHAT_MAX_TEXT = 1000;
 
@@ -109,8 +114,13 @@ export const coachApi = {
     if (!token) return signedOut();
     return apiFetch(`/api/coach/plan/meals/${encodeURIComponent(mealId)}/log`, { method: "POST", body: { date }, token });
   },
-  // The coach's reply to the conversation so far (ending with the member's new message)
-  chat(token: string | null, messages: ChatLine[], date: string): Promise<ApiResult<{ reply: string }>> {
+  // A workout change from the chat: new training days and session length, a new workout from them (the meals stay)
+  changeWorkout(token: string | null, today: string, weekdays: number[], sessionMinutes: number): Promise<ApiResult<PlanState>> {
+    if (!token) return signedOut();
+    return apiFetch("/api/coach/plan/workout", { method: "POST", body: { today, weekdays, sessionMinutes }, token });
+  },
+  // The coach's reply to the conversation so far (ending with the member's new message), with any plan changes it recommends
+  chat(token: string | null, messages: ChatLine[], date: string): Promise<ApiResult<{ reply: string; proposals?: ChatProposals }>> {
     if (!token) return signedOut();
     return apiFetch("/api/coach/chat", { method: "POST", body: { date, messages: messages.slice(-CHAT_TURNS) }, token });
   },

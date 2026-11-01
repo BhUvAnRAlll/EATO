@@ -127,3 +127,55 @@ describe("coach chat: the reply", () => {
     assert.equal(cleanReply(undefined), null);
   });
 });
+
+describe("coach chat: plan changes from the reply", () => {
+  const { planChanges, mealKey, chatSchema } = require("../coach/chatRules.js");
+  const meals = [{ id: "a" }, { id: "b" }, { id: "c" }, { id: "d" }];
+  const current = { meals, weekdays: [1, 3, 5], sessionMinutes: 45 };
+  const dish = (key) => ({ mealKey: key, name: "Chole rice", note: "", items: [] });
+
+  it("keys the planned meals M1, M2, …", () => {
+    assert.equal(mealKey(0), "M1");
+    assert.equal(mealKey(3), "M4");
+  });
+
+  it("keeps meal changes only for real keys, once each, at most three", () => {
+    const { mealChanges } = planChanges({ mealChanges: [dish("m2"), dish("M2"), dish("M9"), dish("M1"), dish("M3"), dish("M4")], workoutChanges: [] }, current);
+    assert.deepEqual(mealChanges.map((c) => c.meal.id), ["b", "a", "c"]);
+  });
+
+  it("keeps a valid workout change with sorted, unique days", () => {
+    const { workoutChange } = planChanges({ mealChanges: [], workoutChanges: [{ weekdays: [6, 2, 2, 4], sessionMinutes: 30 }] }, current);
+    assert.deepEqual(workoutChange, { weekdays: [2, 4, 6], sessionMinutes: 30 });
+  });
+
+  it("drops a workout change that is invalid or no change at all", () => {
+    for (const w of [{ weekdays: [], sessionMinutes: 30 }, { weekdays: [7], sessionMinutes: 30 }, { weekdays: [1], sessionMinutes: 40 }, { weekdays: [5, 3, 1], sessionMinutes: 45 }]) {
+      assert.equal(planChanges({ mealChanges: [], workoutChanges: [w] }, current).workoutChange, null);
+    }
+  });
+
+  it("copes with a missing or malformed answer", () => {
+    assert.deepEqual(planChanges(null, current), { mealChanges: [], workoutChange: null });
+    assert.deepEqual(planChanges({ mealChanges: "x", workoutChanges: {} }, current), { mealChanges: [], workoutChange: null });
+  });
+
+  it("asks the model for a strict answer with all three fields", () => {
+    assert.deepEqual(chatSchema.required, ["reply", "mealChanges", "workoutChanges"]);
+    assert.equal(chatSchema.properties.mealChanges.items.additionalProperties, false);
+  });
+});
+
+describe("coach chat: applying a workout change", () => {
+  const { workoutChangeBody } = require("../coach/validate.js");
+
+  it("accepts today's date, valid days and an allowed length", () => {
+    assert.deepEqual(workoutChangeBody({ today: TODAY, weekdays: [5, 1, 1], sessionMinutes: 30 }, NOW), { today: TODAY, weekdays: [1, 5], sessionMinutes: 30 });
+  });
+
+  it("refuses bad days, lengths and extra fields", () => {
+    for (const bad of [{ today: TODAY, weekdays: [], sessionMinutes: 30 }, { today: TODAY, weekdays: [8], sessionMinutes: 30 }, { today: TODAY, weekdays: [1], sessionMinutes: 33 }, { today: TODAY, weekdays: [1], sessionMinutes: 30, userId: "x" }]) {
+      assert.throws(() => workoutChangeBody(bad, NOW), ValidationError);
+    }
+  });
+});

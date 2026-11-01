@@ -54,8 +54,9 @@ function toIntake(row) {
 
 // `usage` (ai/usage.tracker) records the call for the admin's AI Usage screen; never the text
 // One structured call: `feature` picks the model and caps (coach_plan: the whole day; coach_meal:
-// one meal), `schema` the answer's shape. `fake` is the test answer.
-async function askStructured({ feature, instructions, brief, schema, fake, failure }, env, usage) {
+// one meal; exercise_library: Admin › Exercises), `schema` the answer's shape, `fake` the test
+// answer, `failure` and `busy` what the caller reads when the model fails or is rate limited.
+async function askStructured({ feature, instructions, brief, schema, fake, failure, busy = "Your coach is busy right now. Please try again in a minute." }, env, usage) {
   if (models.isFake(env)) {
     await usage?.record({ provider: "openai", model: "fake", inputTokens: 10, outputTokens: 5, status: "ok" });
     return fake;
@@ -74,7 +75,7 @@ async function askStructured({ feature, instructions, brief, schema, fake, failu
   } catch (error) {
     await usage?.record({ provider: "openai", model: MODEL, status: "failed" });
     // Never log the request or the answer, only the status
-    if (error instanceof OpenAI.RateLimitError) throw new rules.CoachPlanError("Your coach is busy right now. Please try again in a minute.", 503);
+    if (error instanceof OpenAI.RateLimitError) throw new rules.CoachPlanError(busy, 503);
     if (error instanceof OpenAI.APIError) {
       console.error(`Coach ${feature} failed: OpenAI ${error.status ?? "unknown"} ${error.name}`);
       throw new rules.CoachPlanError(failure, 502);
@@ -369,6 +370,36 @@ async function replaceMeal(pool, userId, mealId, optionId, quantities = null) {
 }
 
 /**
+ * Puts a workout change the coach suggested in chat into effect: saves the new training days and
+ * session length as the member's intake answers, then, in one transaction with the member locked,
+ * makes a new workout from them the same way the plan did (equipment, joints, session length) and
+ * points the active coach plan at it. The meals stay; the old workout is kept as superseded, with
+ * its history. No AI call.
+ */
+async function changeWorkout(pool, userId, { today, weekdays, sessionMinutes }) {
+  const plan = await activeCoachPlan(pool, userId);
+  if (!plan) throw new NotFoundError("Make your coach plan first.");
+  const { intake } = await memberFacts(pool, userId);
+  const next = { ...intake, weekdays, sessionMinutes };
+  await workoutPlans.withMemberLock(pool, userId, async (conn) => {
+    await conn.query("UPDATE coach_profiles SET weekdays = ?, session_minutes = ? WHERE user_id = ?", [JSON.stringify(weekdays), sessionMinutes, userId]);
+    const { planId: workoutPlanId } = await workoutPlans
+      .planFromCoach(conn, userId, {
+        today,
+        goal: rules.engineGoalFor(next.goal),
+        level: rules.engineLevelFor(next.experience),
+        weekdays,
+        shape: { library: rules.libraryFilterFor(next), days: rules.fitDaysTo(sessionMinutes) },
+      })
+      .catch((error) => {
+        if (error?.name === "PlanInputError") throw new ValidationError("Finish your profile first, so your coach knows your targets.");
+        throw error;
+      });
+    await conn.query("UPDATE coach_plans SET workout_plan_id = ? WHERE id = ? AND user_id = ?", [workoutPlanId, plan.id, userId]);
+  });
+}
+
+/**
  * Logs a coach meal into the Macro diary for `date` (the member's today), as it is. One log per
  * date and meal: a repeated tap returns the first log instead of a copy.
  */
@@ -394,4 +425,4 @@ async function logMeal(pool, userId, mealId, { date }) {
   }
 }
 
-module.exports = { toIntake, makePlan, swapMeal, mealOptions, replaceMeal, getPlan, logMeal };
+module.exports = { askStructured, toIntake, makePlan, swapMeal, mealOptions, replaceMeal, changeWorkout, storeOption, getPlan, logMeal };

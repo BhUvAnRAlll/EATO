@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { ActivityIndicator, Modal, Pressable, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
+import { BottomSheet } from "@/components/BottomSheet";
 import { SymbolView } from "@/components/SymbolView";
 
 import { FormAlert } from "@/components/FormAlert";
@@ -19,7 +20,8 @@ type MealDetailSheetProps = {
 };
 
 // A logged meal in full: when, how it was logged, its macros and every food in it, with a
-// heart and a confirmed "Remove". The server decides who may remove it.
+// heart and a confirmed "Remove". The server decides who may remove it. Opens as a bottom
+// sheet (components/BottomSheet).
 export function MealDetailSheet(props: MealDetailSheetProps) {
   // Keyed by meal, so every meal opens a fresh sheet (no leftover confirm step or error)
   return props.meal ? <MealSheetBody key={props.meal.id} {...props} meal={props.meal} /> : null;
@@ -32,8 +34,7 @@ function MealSheetBody({ meal, onClose, onDeleted, favorited, onToggleFavorite }
   const [removing, setRemoving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const slot = slotInfo[meal.slot];
-
-  const remove = async () => {
+  const remove = async (dismiss: () => void) => {
     if (removing) return;
     setRemoving(true);
     setError(null);
@@ -44,7 +45,7 @@ function MealSheetBody({ meal, onClose, onDeleted, favorited, onToggleFavorite }
       return;
     }
     onDeleted(meal);
-    onClose();
+    dismiss();
   };
 
   const macros = [
@@ -54,9 +55,8 @@ function MealSheetBody({ meal, onClose, onDeleted, favorited, onToggleFavorite }
   ] as const;
 
   return (
-    <Modal visible transparent animationType="fade" onRequestClose={removing ? undefined : onClose}>
-      <Pressable className="verify__backdrop" onPress={removing ? undefined : onClose} accessibilityLabel="Close">
-        <Pressable className="verify__sheet" style={{ maxHeight: "86%" }} onPress={() => {}} accessibilityViewIsModal accessible={false}>
+    <BottomSheet onClose={onClose} locked={removing}>
+      {(dismiss) => (
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 16 }}>
             <View className="flex-row items-start gap-3">
               <View className="macro__thumb" style={{ backgroundColor: `${slot.tint}1F` }}>
@@ -109,7 +109,7 @@ function MealSheetBody({ meal, onClose, onDeleted, favorited, onToggleFavorite }
               <View className="gap-2">
                 <Text className="setup__section text-center">Remove this meal?</Text>
                 <Text className="home__note text-center">{meal.title} will be taken off your day.</Text>
-                <Pressable onPress={remove} disabled={removing} className="btn-forest mt-2" style={{ backgroundColor: colors.danger, opacity: removing ? 0.6 : 1 }} accessibilityRole="button" accessibilityLabel="Remove">
+                <Pressable onPress={() => remove(dismiss)} disabled={removing} className="btn-forest mt-2" style={{ backgroundColor: colors.danger, opacity: removing ? 0.6 : 1 }} accessibilityRole="button" accessibilityLabel="Remove">
                   {removing ? <ActivityIndicator color={colors.white} /> : null}
                   <Text className="btn-forest__label">{removing ? "Removing…" : "Remove"}</Text>
                 </Pressable>
@@ -122,14 +122,13 @@ function MealSheetBody({ meal, onClose, onDeleted, favorited, onToggleFavorite }
                 <Pressable onPress={() => setConfirming(true)} className="btn-outline" accessibilityRole="button" accessibilityLabel="Remove meal">
                   <Text className="btn-outline__label" style={{ color: colors.danger }}>Remove meal</Text>
                 </Pressable>
-                <Pressable onPress={onClose} className="btn-forest" accessibilityRole="button">
+                <Pressable onPress={dismiss} className="btn-forest" accessibilityRole="button">
                   <Text className="btn-forest__label">Done</Text>
                 </Pressable>
               </View>
             )}
           </ScrollView>
-        </Pressable>
-      </Pressable>
-    </Modal>
+      )}
+    </BottomSheet>
   );
 }

@@ -101,3 +101,34 @@ describe("Food scan clean-up (server)", () => {
     assert.equal(scan.items.length, 3);
   });
 });
+
+describe("food estimate (Manual Entry's Estimate with AI)", () => {
+  const { checkEstimateRequest, normalizeEstimate, estimateFood } = require("../macro/foodScan.js");
+
+  it("accepts a name, an amount and g, ml or piece; trims and cleans the name", () => {
+    assert.deepEqual(checkEstimateRequest({ name: "  Paneer\nbutter masala ", quantity: 200, unit: "g" }), { ok: true, name: "Paneer butter masala", quantity: 200, unit: "g" });
+    assert.equal(checkEstimateRequest({ name: "Roti", quantity: 2, unit: "piece" }).ok, true);
+  });
+
+  it("refuses a missing name, a bad amount or unit, extra fields and non-objects with a 400", () => {
+    for (const body of [null, [], "x", { name: "a", quantity: 1, unit: "g" }, { name: "Dal", quantity: 0, unit: "g" }, { name: "Dal", quantity: "100", unit: "g" },
+      { name: "Dal", quantity: 100, unit: "cup" }, { name: "Dal", quantity: limits.quantityMax + 1, unit: "g" }, { name: "Dal", quantity: 100, unit: "g", userId: "x" }]) {
+      const r = checkEstimateRequest(body);
+      assert.equal(r.ok, false, JSON.stringify(body));
+      assert.equal(r.status, 400);
+    }
+  });
+
+  it("caps the model's numbers and refuses an answer that isn't food (422)", () => {
+    assert.deepEqual(normalizeEstimate({ isFood: true, kcal: 250.44, proteinG: -3, carbsG: 30, fatG: 1e9 }), { kcal: 250.4, proteinG: 0, carbsG: 30, fatG: limits.macroMax });
+    assert.throws(() => normalizeEstimate({ isFood: false, kcal: 0, proteinG: 0, carbsG: 0, fatG: 0 }), (e) => e instanceof FoodScanError && e.status === 422);
+    assert.throws(() => normalizeEstimate({ isFood: true, kcal: 0, proteinG: 0, carbsG: 0, fatG: 0 }), (e) => e instanceof FoodScanError && e.status === 422);
+  });
+
+  it("answers a fixed estimate in tests and records the call", async () => {
+    const recorded = [];
+    const estimate = await estimateFood({ name: "Dal", quantity: 100, unit: "g" }, { NODE_ENV: "test", AI_PROVIDER: "fake" }, { record: async (r) => recorded.push(r) });
+    assert.deepEqual(estimate, { kcal: 240, proteinG: 8, carbsG: 30, fatG: 10 });
+    assert.equal(recorded[0].status, "ok");
+  });
+});

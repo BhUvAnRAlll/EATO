@@ -354,8 +354,9 @@ describe("coach e2e: the intake, its prefill, and who may see it", () => {
     ];
     const r = await api("POST", "/api/coach/chat", tokens.a, { date: today(), messages });
     assert.equal(r.status, 200, JSON.stringify(r.json));
-    assert.deepEqual(Object.keys(r.json), ["reply"]);
+    assert.deepEqual(Object.keys(r.json), ["reply", "proposals"]);
     assert.match(r.json.reply, /test reply/);
+    assert.deepEqual(r.json.proposals, { meals: [], workout: null }, "a plain answer proposes no plan change");
     // B (an intake, but no setup profile or targets) still gets an answer
     const b = await api("POST", "/api/coach/chat", tokens.b, say("Tips for better sleep"));
     assert.equal(b.status, 200, JSON.stringify(b.json));
@@ -497,6 +498,32 @@ describe("coach e2e: the intake, its prefill, and who may see it", () => {
     assert.deepEqual({ name: restored.name, note: restored.note, items: restored.items, totals: restored.totals }, { name: lunch.name, note: lunch.note, items: lunch.items, totals: lunch.totals });
     assert.deepEqual((await plan()).meals, before.meals, "the plan is back as it was");
     assert.equal((await api("POST", `/api/coach/plan/meals/${lunch.id}/replace`, tokens.b, { date: today(), optionId: replaced.json.undoId })).status, 404, "B can't undo A's swap");
+  }));
+
+  it("18c. a workout change from the chat: new days and session length, a new workout, the meals untouched; checked and only for the member's own plan", run(async () => {
+    const before = await api("GET", `/api/coach/plan?date=${today()}`, tokens.a);
+    const r = await api("POST", "/api/coach/plan/workout", tokens.a, { today: today(), weekdays: [2, 4, 6, 0], sessionMinutes: 45 });
+    assert.equal(r.status, 200, JSON.stringify(r.json));
+    assert.equal(r.json.workout.daysPerWeek, 4);
+    assert.deepEqual(r.json.plan.meals.map((m) => m.name), before.json.plan.meals.map((m) => m.name), "the meals stay");
+    const [[intake]] = await connection.query("SELECT weekdays, session_minutes FROM coach_profiles WHERE user_id = ?", [ids.a]);
+    assert.deepEqual({ weekdays: intake.weekdays, minutes: intake.session_minutes }, { weekdays: [0, 2, 4, 6], minutes: 45 });
+    const [[active]] = await connection.query("SELECT id FROM workout_plans WHERE user_id = ? AND status = 'active'", [ids.a]);
+    const [days] = await connection.query("SELECT weekday FROM workout_days WHERE plan_id = ? ORDER BY weekday", [active.id]);
+    assert.deepEqual(days.map((d) => d.weekday), [0, 2, 4, 6]);
+    const [[coachRow]] = await connection.query("SELECT workout_plan_id FROM coach_plans WHERE user_id = ? AND status = 'active'", [ids.a]);
+    assert.equal(coachRow.workout_plan_id, active.id);
+    assert.equal(await count("SELECT COUNT(*) AS n FROM workout_plans WHERE user_id = ? AND status = 'active'", [ids.a]), 1);
+
+    // Bad bodies are 400s before anything is read (sent as B, to keep A within the coach routes' minute budget);
+    // no session is a 401; B has no coach plan (404); A's workout is unchanged
+    for (const body of [{ today: today(), weekdays: [], sessionMinutes: 45 }, { today: today(), weekdays: [9], sessionMinutes: 45 }, { today: today(), weekdays: [1], sessionMinutes: 50 }, { today: today(), weekdays: [1], sessionMinutes: 45, userId: ids.a }]) {
+      assert.equal((await api("POST", "/api/coach/plan/workout", tokens.b, body)).status, 400, JSON.stringify(body));
+    }
+    assert.equal((await api("POST", "/api/coach/plan/workout", null, { today: today(), weekdays: [1], sessionMinutes: 45 })).status, 401);
+    assert.equal((await api("POST", "/api/coach/plan/workout", tokens.b, { today: today(), weekdays: [1], sessionMinutes: 45 })).status, 404);
+    const [[still]] = await connection.query("SELECT id FROM workout_plans WHERE user_id = ? AND status = 'active'", [ids.a]);
+    assert.equal(still.id, active.id);
   }));
 
   it("19. a member may make a few plans a day (3 here): the next is a friendly 429, not a paid call", run(async () => {

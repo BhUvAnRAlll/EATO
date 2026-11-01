@@ -6,8 +6,8 @@ const express = require("express");
 
 const { ensureUser } = require("../auth");
 const { createRateLimiter, limitPerUser } = require("../rateLimit");
-const { validateIntake, prefillFrom, planBody, planQuery, logBody, optionsBody, replaceBody, mealId, coachChoice } = require("./validate");
-const { toIntake, makePlan, swapMeal, mealOptions, replaceMeal, getPlan, logMeal } = require("./plan");
+const { validateIntake, prefillFrom, planBody, planQuery, logBody, optionsBody, replaceBody, workoutChangeBody, mealId, coachChoice } = require("./validate");
+const { toIntake, makePlan, swapMeal, mealOptions, replaceMeal, changeWorkout, getPlan, logMeal } = require("./plan");
 const { CoachPlanError } = require("./planRules");
 const { chat } = require("./chat");
 const { chatBody } = require("./chatRules");
@@ -21,6 +21,8 @@ const makePlanLimiter = createRateLimiter({ limit: 5, windowMs: 60 * 60 * 1000 }
 const chatLimiter = createRateLimiter({ limit: 30, windowMs: 60 * 60 * 1000 });
 // Swapping one meal is a small OpenAI call; a few an hour covers a day of changes
 const swapMealLimiter = createRateLimiter({ limit: 10, windowMs: 60 * 60 * 1000 });
+// Applying a workout change from the chat makes a new workout each time (no AI call)
+const workoutChangeLimiter = createRateLimiter({ limit: 10, windowMs: 60 * 60 * 1000 });
 // The last 20 turns of up to 1,000 characters each, with room for the JSON around them
 const chatBodyParser = express.json({ limit: "32kb" });
 
@@ -117,6 +119,15 @@ router.post("/plan/meals/:mealId/replace", smallBody, route(async (req, res) => 
   const { date, optionId, quantities } = replaceBody(req.body, Date.now());
   const result = await replaceMeal(pool(req), req.userId, mealId(req.params.mealId), optionId, quantities);
   res.json({ ...result, ...(await getPlan(pool(req), req.userId, { date })) });
+}));
+
+// POST /plan/workout { today, weekdays, sessionMinutes }: a workout change the coach suggested in chat goes into
+// effect (new training days and session length, a new workout from them; the meals stay). No AI call, but a
+// new workout each time, so it has its own hourly allowance. Answers the plan.
+router.post("/plan/workout", limitPerUser(workoutChangeLimiter), smallBody, route(async (req, res) => {
+  const { today, weekdays, sessionMinutes } = workoutChangeBody(req.body, Date.now());
+  await changeWorkout(pool(req), req.userId, { today, weekdays, sessionMinutes });
+  res.json(await getPlan(pool(req), req.userId, { date: today }));
 }));
 
 // POST /plan/meals/:mealId/log { date }: the meal goes into the Macro diary as it is, once a day

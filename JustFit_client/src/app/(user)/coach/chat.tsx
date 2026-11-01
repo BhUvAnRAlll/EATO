@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View, type ScrollViewInstance } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { router, useLocalSearchParams } from "expo-router";
 
 import { SymbolView } from "@/components/SymbolView";
+import { ChatProposals } from "@/components/coach/ChatProposals";
 import { CoachAvatar } from "@/components/coach/CoachAvatar";
 import { coachPrompts, coaches, type CoachId } from "@/data/coach";
 import { fonts } from "@/constants/fonts";
@@ -23,7 +24,8 @@ function boldPoints(text: string) {
 
 // Chat with the AI coach. Opened from the Coach tab's ask box (with what was typed, or a
 // suggestion chip, as `q`, sent straight away). Each message is one paid AI call, limited per
-// member by the server; nothing is saved, so the chat lasts until the app closes or sign-out.
+// member by the server; the chat isn't saved, so it lasts until the app closes or sign-out. A
+// reply that recommends a change to the plan carries Apply cards (components/coach/ChatProposals).
 export default function CoachChat() {
   const colors = useThemeColors();
   const { q, name, coach } = useLocalSearchParams<{ q?: string; name?: string; coach?: string }>();
@@ -92,12 +94,13 @@ export default function CoachChat() {
             )}
 
             {turns.map((turn) => (
-              <View
-                key={turn.id}
-                className={["coach__bubble", turn.role === "member" && "coach__bubble--me", turn.failed && "coach__bubble--failed"].filter(Boolean).join(" ")}
-              >
-                <Text className={turn.role === "member" ? "coach__bubble-text coach__bubble-text--me" : "coach__bubble-text"}>{turn.role === "member" ? turn.text : boldPoints(turn.text)}</Text>
-              </View>
+              <Fragment key={turn.id}>
+                <View className={["coach__bubble", turn.role === "member" && "coach__bubble--me", turn.failed && "coach__bubble--failed"].filter(Boolean).join(" ")}>
+                  <Text className={turn.role === "member" ? "coach__bubble-text coach__bubble-text--me" : "coach__bubble-text"}>{turn.role === "member" ? turn.text : boldPoints(turn.text)}</Text>
+                </View>
+                {/* Plan changes the reply recommends, each with an Apply button */}
+                {turn.proposals && <ChatProposals turnId={turn.id} proposals={turn.proposals} />}
+              </Fragment>
             ))}
 
             {sending && (

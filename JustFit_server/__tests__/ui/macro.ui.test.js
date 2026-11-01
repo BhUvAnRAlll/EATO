@@ -73,6 +73,12 @@ describe("ui macro: the Macro tab hub and logging a meal by hand", () => {
     const pos = await page.waitFor(`(() => { const el = [...document.querySelectorAll('[aria-label]')].filter((e) => e.getClientRects().length > 0 && e.getAttribute("aria-label").startsWith(${JSON.stringify(prefix)}))[0]; if (!el) return null; el.scrollIntoView({ block: "center" }); const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`, NAV_TIMEOUT, `element labelled ${prefix}…`);
     await page.clickAt(pos.x, pos.y);
   };
+  // Opens a meal's sheet from its card and waits until it has finished sliding up (so a click lands)
+  const openMeal = async (title) => {
+    await clickLabel(`View ${title}`);
+    await h.expectText("Remove meal");
+    await new Promise((r) => setTimeout(r, 450));
+  };
   const meals = async () => (await connection.query("SELECT id, title, slot, source FROM macro_meal_logs WHERE user_id = ?", [identities.a.id]))[0];
 
   before(async () => {
@@ -135,13 +141,11 @@ describe("ui macro: the Macro tab hub and logging a meal by hand", () => {
     await h.expectPath("/home");
     await clickTab("Macro");
     await h.expectPath("/macro");
-    // The intake card (eaten of the target) and the Calories left card: nothing eaten, 2,000 left
-    // The split donut (nothing eaten: every legend value is a dash, the target split shows) and the three macro tiles
-    await h.expectText("Target split");
-    await h.expectText("0% of 150g");
-    assert.ok(await page.evaluate(`!!document.querySelector(${JSON.stringify(`[aria-label="Today's intake: 0 of 2,000 kcal. Open daily calories"]`)})`), "the donut card opens daily calories");
-    assert.ok(await page.evaluate(`!!document.querySelector('[aria-label="Protein: 0 grams, 0% of 150 grams"]')`), "the protein tile");
-    assert.ok(await page.evaluate(`!!document.querySelector('[aria-label="Calories left: 2,000 kcal, nothing logged. Open daily calories"]')`), "the Calories left card");
+    // The calories card: the ring with what's left, eaten and target beside it, and the three macros under it
+    assert.ok(await page.evaluate(`!!document.querySelector('[aria-label="2,000 kcal left. Eaten 0 of 2,000 kcal. Open daily calories"]')`), "the calories card opens daily calories");
+    assert.ok(await page.evaluate(`!!document.querySelector('[aria-label="Protein 0 of 150 grams"]')`), "the protein bar");
+    await h.expectText("kcal left");
+    await h.expectText("0/150g");
     await h.expectText("Add your first meal to start today."); // only the Macro hub says this (Home has its own "Nothing logged yet today.")
     await h.expectText("Today's meals");
     await h.expectText("Calories & macros");
@@ -167,12 +171,12 @@ describe("ui macro: the Macro tab hub and logging a meal by hand", () => {
   it("3. Manual entry validates, warns when macros disagree, saves, and closes the flow back to the hub", run("manual", async () => {
     await clickLabel("Manual entry: type calories and macros");
     await h.expectPath("/macro/manual");
-    await h.expectText("Know the numbers?");
+    await h.expectText("Search a food and enter how much");
     // Nothing typed: the first missing thing is named
-    await clickLabel("Add food");
+    await clickLabel("Save meal");
     await h.expectText("Give the food a name.");
     await page.setInput('input[aria-label="Food name"]', "Paneer tikka bowl");
-    await clickLabel("Add food");
+    await clickLabel("Save meal");
     await h.expectText("Enter the calories.");
     assert.equal((await meals()).length, 0, "nothing saved yet");
 
@@ -187,7 +191,7 @@ describe("ui macro: the Macro tab hub and logging a meal by hand", () => {
     await h.expectText("close to your 480 entry. Looks good.");
     await snapshotAllWidths("macro-manual-entry");
 
-    await clickLabel("Add food");
+    await clickLabel("Save meal");
     await h.expectPath("/macro");
     const rows = await meals();
     assert.equal(rows.length, 1);
@@ -196,7 +200,7 @@ describe("ui macro: the Macro tab hub and logging a meal by hand", () => {
     assert.deepEqual({ ...item, quantity: Number(item.quantity), kcal: Number(item.kcal), protein_g: Number(item.protein_g), carbs_g: Number(item.carbs_g), fat_g: Number(item.fat_g) }, { quantity: 350, unit: "g", kcal: 480, protein_g: 32, carbs_g: 40, fat_g: 18 });
     // Back on the hub, the meal and the new remaining calories are there
     await h.expectText("Paneer tikka bowl");
-    await page.waitFor(`!!document.querySelector('[aria-label="Calories left: 1,520 kcal, on track. Open daily calories"]')`, NAV_TIMEOUT, "the Calories left card at 1,520 kcal");
+    await page.waitFor(`!!document.querySelector('[aria-label="1,520 kcal left. Eaten 480 of 2,000 kcal. Open daily calories"]')`, NAV_TIMEOUT, "the calories card at 1,520 kcal left");
     await snapshotAllWidths("macro-hub-with-meal");
 
     // Home's "Today's Macros" card reads the same diary, has no quick-action cards above it,
@@ -221,8 +225,8 @@ describe("ui macro: the Macro tab hub and logging a meal by hand", () => {
     await h.expectText("1,520");
   }));
 
-  it("3b. Daily calories: what's left, the macros badge, the timeline, and an empty slot opens Add meal for it", run("daily", async () => {
-    await clickLabelStarting("Calories left: 1,520");
+  it("3b. Daily calories: what's left, the macros badge, and the timeline of logged meals only", run("daily", async () => {
+    await clickLabelStarting("1,520 kcal left");
     await h.expectPath("/macro/daily");
     await h.expectText("Daily calories");
     await h.expectText("kcal to reach your 2,000 target");
@@ -230,19 +234,10 @@ describe("ui macro: the Macro tab hub and logging a meal by hand", () => {
     await h.expectText("Behind target"); // 32 g protein is under 55% of 150 g
     await h.expectText("Meals timeline");
     await h.expectText("Paneer tikka bowl");
-    assert.ok(await page.evaluate(`!!document.querySelector('[aria-label^="Lunch: Paneer tikka bowl, 480 kcal at "]')`), "the lunch row shows the meal");
-    for (const slot of ["Breakfast", "Snack", "Dinner"]) {
-      assert.ok(await page.evaluate(`!!document.querySelector('[aria-label="${slot}: not logged yet. Add ${slot.toLowerCase()}"]')`), `${slot} is an unlogged, pressable row on today`);
-    }
+    assert.ok(await page.evaluate(`!!document.querySelector('[aria-label^="Lunch at "][aria-label*="Paneer tikka bowl, 480 kcal"]')`), "the lunch card shows the meal and its time");
+    assert.ok(await page.evaluate(`!!document.querySelector('[aria-label="View Paneer tikka bowl"]')`), "the card's View meal button");
+    assert.equal(await page.hasText("Not logged yet"), false, "only logged meals are listed, no empty slots");
     await snapshotAllWidths("macro-daily");
-    // An unlogged slot opens Add meal with that slot already chosen: dinner (not the default
-    // breakfast), so its own half-hour times are offered
-    await clickLabel("Dinner: not logged yet. Add dinner");
-    await h.expectPath("/macro/add-meal");
-    await h.expectText("6:00 PM");
-    assert.equal(await page.hasText("6:00 AM"), false, "breakfast's times are not offered");
-    await page.evaluate("history.back()");
-    await h.expectPath("/macro/daily");
     await page.evaluate("history.back()");
     await h.expectPath("/macro");
   }));
@@ -371,7 +366,7 @@ describe("ui macro: the Macro tab hub and logging a meal by hand", () => {
     // Daily calories shows the same water
     await page.evaluate("history.back()");
     await h.expectPath("/macro");
-    await clickLabelStarting("Calories left: 1,520");
+    await clickLabelStarting("1,520 kcal left");
     await h.expectPath("/macro/daily");
     await page.waitFor(`!!document.querySelector('[aria-label="Water: 0.5 of 2.1 litres, 24%. Open water"]')`, NAV_TIMEOUT, "the Daily water card");
     await snapshotAllWidths("macro-daily-with-water");
@@ -393,8 +388,7 @@ describe("ui macro: the Macro tab hub and logging a meal by hand", () => {
 
     await page.evaluate("history.back()"); await page.evaluate("history.back()");
     await h.expectPath("/macro");
-    await clickLabelStarting("Lunch: Paneer tikka bowl");
-    await h.expectText("Remove meal");
+    await openMeal("Paneer tikka bowl");
     await h.expectText("350 g"); // the foods table (its headings are styled uppercase)
     await snapshotAllWidths("macro-meal-sheet");
     await clickLabel("Remove meal");
@@ -437,7 +431,7 @@ describe("ui macro: the Macro tab hub and logging a meal by hand", () => {
     await h.expectText("Paneer tikka bowl");
 
     // Clean up through the app: remove the meal, then un-heart the favourite
-    await clickLabelStarting("Dinner: Paneer tikka bowl");
+    await openMeal("Paneer tikka bowl");
     await clickLabel("Remove meal");
     await clickLabel("Remove");
     await waitFor(async () => (await meals()).length, 0, "the meal is removed");
@@ -485,7 +479,7 @@ describe("ui macro: the Macro tab hub and logging a meal by hand", () => {
       assert.deepEqual(await items(originalId), [["Oats", 230], ["Banana", 120]], "the original keeps its own foods");
 
       // Remove the repeat through the app; the original stays
-      await clickLabelStarting("Breakfast: Oats with banana");
+      await openMeal("Oats with banana");
       await clickLabel("Remove meal");
       await clickLabel("Remove");
       const deadline = Date.now() + 10000;
@@ -505,10 +499,10 @@ describe("ui macro: the Macro tab hub and logging a meal by hand", () => {
     await h.expectText("Back to today");
     await snapshotAllWidths("macro-hub-past-day");
     // Daily calories on a past day: read-only timeline, and the footer goes back to today
-    await clickLabelStarting("Calories left: 2,000");
+    await clickLabelStarting("2,000 kcal left");
     await h.expectPath("/macro/daily");
     await h.expectText("Back to today");
-    assert.equal(await page.evaluate(`document.querySelectorAll('[aria-label$="not logged yet. Add breakfast"]').length`), 0, "past slots can't be pressed");
+    await h.expectText("Nothing was logged"); // the empty day card, read-only
     await snapshotAllWidths("macro-daily-past-day");
     await page.clickText("Back to today");
     await h.expectPath("/macro");
@@ -554,5 +548,40 @@ describe("ui macro: the Macro tab hub and logging a meal by hand", () => {
     assert.equal(saved[0].source, "manual");
     const [items] = await connection.query("SELECT name, kcal FROM macro_meal_items WHERE macro_meal_id = ? ORDER BY name", [saved[0].id]);
     assert.deepEqual(items.map((i) => [i.name, Number(i.kcal)]), [["Dal tadka", 180], ["Roti", 250]]);
+  }));
+  it("7. Manual entry, several foods: picked from the food list (numbers follow the amount), one estimated by AI, saved as one named meal", run("manual-multi", async () => {
+    const before = (await meals()).length;
+    await h.goto("/macro/manual", "Search a food and enter how much");
+    // Food 1 from the list: 3 idli (a piece is about 40 g, 130 kcal per 100 g)
+    await page.setInput('input[aria-label="Food name"]', "idli");
+    await clickLabel("Pick Idli");
+    await page.setInput('input[aria-label="Quantity"]', "3");
+    await page.waitFor(`document.querySelector('input[aria-label="Calories in kcal"]')?.value === "156"`, NAV_TIMEOUT, "3 idli fill in 156 kcal");
+    await h.expectText("Calculated from our food list");
+    // Food 2 from the list by grams: 150 g sambar
+    await clickLabel("Add another food");
+    await page.setInput('input[aria-label="Food 2 name"]', "samb");
+    await clickLabel("Pick Sambar");
+    await page.setInput('input[aria-label="Food 2 Quantity"]', "150");
+    await page.waitFor(`document.querySelector('input[aria-label="Food 2 Calories in kcal"]')?.value === "98"`, NAV_TIMEOUT, "150 g sambar fill in 98 kcal");
+    // Food 3 isn't in the list: the AI estimates it (a fixed answer in tests)
+    await clickLabel("Add another food");
+    await page.setInput('input[aria-label="Food 3 name"]', "Peanut chikki");
+    await page.setInput('input[aria-label="Food 3 Quantity"]', "50");
+    await clickLabel("Estimate Peanut chikki with AI");
+    await page.waitFor(`document.querySelector('input[aria-label="Food 3 Calories in kcal"]')?.value === "240"`, NAV_TIMEOUT, "the AI estimate fills in");
+    await h.expectText("Estimated by AI for this amount");
+    await page.setInput('input[aria-label="Meal name"]', "Idli sambar");
+    await h.expectText("Meal total · 3 foods");
+    await snapshotAllWidths("macro-manual-multi");
+
+    await clickLabel("Save meal");
+    await h.expectPath("/macro");
+    const rows = await meals();
+    assert.equal(rows.length, before + 1);
+    const saved = rows.find((r) => r.title === "Idli sambar");
+    assert.ok(saved, "saved as one meal with its name");
+    const [items] = await connection.query("SELECT name, quantity, unit, kcal FROM macro_meal_items WHERE macro_meal_id = ? ORDER BY position", [saved.id]);
+    assert.deepEqual(items.map((i) => [i.name, Number(i.quantity), i.unit, Number(i.kcal)]), [["Idli", 3, "piece", 156], ["Sambar", 150, "g", 98], ["Peanut chikki", 50, "g", 240]]);
   }));
 });

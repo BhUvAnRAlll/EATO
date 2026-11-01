@@ -176,6 +176,18 @@ function replaceBody(body, now) {
   return { date: memberToday(body.date, now, "The date"), optionId: id(body.optionId, "The option"), quantities };
 }
 
+// POST /plan/workout { today, weekdays, sessionMinutes }: a workout change the coach suggested in chat
+function workoutChangeBody(body, now) {
+  onlyFields(body, ["today", "weekdays", "sessionMinutes"]);
+  const weekdays = Array.isArray(body.weekdays) && body.weekdays.every((d) => Number.isInteger(d) && d >= 0 && d <= 6) ? [...new Set(body.weekdays)].sort() : null;
+  if (!weekdays || weekdays.length === 0 || body.weekdays.length > 7) throw new ValidationError("Pick at least one training day.");
+  return {
+    today: memberToday(body.today, now, "Today"),
+    weekdays,
+    sessionMinutes: oneOf(body.sessionMinutes, options.sessionMinutes, "Choose a session length."),
+  };
+}
+
 // PUT /intake/coach { coach, coachStyle }: switching coaches without redoing the intake
 function coachChoice(body) {
   onlyFields(body, ["coach", "coachStyle"]);
@@ -185,4 +197,4 @@ function coachChoice(body) {
   };
 }
 
-module.exports = { options, equipmentBySpot, limits, validateIntake, prefillFrom, planBody, planQuery, logBody, optionsBody, replaceBody, mealId, coachChoice };
+module.exports = { options, equipmentBySpot, limits, validateIntake, prefillFrom, planBody, planQuery, logBody, optionsBody, replaceBody, workoutChangeBody, mealId, coachChoice };

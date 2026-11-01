@@ -473,4 +473,19 @@ describe("macro e2e: meals, the day view, favourites and who may see them", () =
     const huge = await api("POST", "/api/macro/scan", tokens.a, { data: Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(7 * 1024 * 1024)]).toString("base64"), mediaType: "image/jpeg" });
     assert.equal(huge.status, 413);
   }));
+
+  it("15. food estimate: session required, a typed food and amount, a fixed estimate in tests, bad input 400s, nothing stored", run(async () => {
+    for (const token of [null, "not-a-jwt"]) {
+      assert.equal((await api("POST", "/api/macro/estimate", token, { name: "Dal tadka", quantity: 150, unit: "g" })).status, 401);
+    }
+    const meals = await count("macro_meal_logs", "1 = ?", [1]);
+    const ok = await api("POST", "/api/macro/estimate", tokens.a, { name: "'; DROP TABLE macro_meal_logs; --", quantity: 150, unit: "g" });
+    assert.equal(ok.status, 200, JSON.stringify(ok.json));
+    assert.deepEqual(ok.json, { estimate: { kcal: 240, proteinG: 8, carbsG: 30, fatG: 10 } });
+    assert.equal(await count("macro_meal_logs", "1 = ?", [1]), meals, "estimating writes nothing");
+    for (const body of [{ name: "", quantity: 1, unit: "g" }, { name: "Dal", quantity: -1, unit: "g" }, { name: "Dal", quantity: 1, unit: "oz" }, { name: "Dal", quantity: 1, unit: "g", userId: ids.b }]) {
+      assert.equal((await api("POST", "/api/macro/estimate", tokens.a, body)).status, 400, JSON.stringify(body));
+    }
+    assert.equal((await api("POST", "/api/macro/estimate", tokens.a, { name: "x".repeat(5000), quantity: 1, unit: "g" })).status, 413);
+  }));
 });

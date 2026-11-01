@@ -3431,52 +3431,6 @@
 }
 
 /* The coach plan: a meal's Log button (Logged once it is in today's Macro diary) */
-/* The meal plan timeline (the Coach tab's Today): a time column (icon circle, time, red dot,
-   dashed line) beside one white card per meal with a slot pill, the dish, its ingredients,
-   calories, macro chips and the Log Meal button; then the Adjust Plan banner. */
-@utility coach__tl-col {
-  width: 56px;
-  align-items: center;
-  gap: 4px;
-}
-
-@utility coach__tl-icon {
-  width: 46px;
-  height: 46px;
-  border-radius: var(--radius-pill);
-  border-width: 1px;
-  border-color: var(--color-line);
-  align-items: center;
-  justify-content: center;
-}
-
-@utility coach__tl-time {
-  font-family: var(--font-sans-medium);
-  font-size: 13px;
-  line-height: 16px;
-  color: var(--color-forest-ink);
-}
-
-@utility coach__tl-dot {
-  width: 8px;
-  height: 8px;
-  margin-top: 4px;
-  border-radius: var(--radius-pill);
-  background-color: var(--color-primary);
-}
-
-/* 1 px wide with a dashed border on every side, which draws as a dashed vertical line on iOS,
-   Android and the web alike */
-@utility coach__tl-line {
-  flex: 1;
-  width: 1px;
-  margin-top: 4px;
-  border-width: 1px;
-  border-style: dashed;
-  border-radius: 1px;
-  border-color: var(--color-line-strong);
-}
-
 @utility coach__meal-card {
   padding: 16px;
   border-radius: var(--radius-lg);
