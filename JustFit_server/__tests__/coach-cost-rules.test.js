@@ -95,5 +95,10 @@ describe("coach plan: swapping one meal", () => {
     assert.ok(plan.normalizeMeal(plan.FAKE_MEAL, meal).items.length === 2);
     assert.deepEqual(plan.mealSchema.required, ["name", "note", "items"]);
     assert.match(plan.MEAL_INSTRUCTIONS, /Never include anything from their allergies/);
+    for (const text of [plan.DIET_INSTRUCTIONS, plan.MEAL_INSTRUCTIONS]) {
+      assert.match(text, /experienced Indian coach/, "every meal prompt plans like an Indian coach");
+      assert.match(text, /Don't default to oats, salads, smoothies or Western foods/);
+      assert.match(text, /real ingredients/);
+    }
   });
 });

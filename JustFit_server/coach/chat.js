@@ -28,7 +28,7 @@ async function memberFacts(pool, userId, date) {
   const [[intakeRow]] = await pool.query("SELECT * FROM coach_profiles WHERE user_id = ?", [userId]);
   if (!intakeRow) throw new ValidationError("Answer your coach's questions first.");
   const [[[profile]], [[targets]], day, plan] = await Promise.all([
-    pool.query("SELECT diet, dislikes, allergies FROM profiles WHERE user_id = ?", [userId]),
+    pool.query("SELECT diet, cuisines, dislikes, allergies FROM profiles WHERE user_id = ?", [userId]),
     pool.query("SELECT calories, protein_g AS proteinG, carbs_g AS carbsG, fat_g AS fatG FROM nutrition_targets WHERE user_id = ?", [userId]),
     diary.day(pool, userId, date),
     getPlan(pool, userId, { date }),
@@ -40,7 +40,8 @@ async function memberFacts(pool, userId, date) {
   const workout = plan.workout
     ? plan.workout.sessions.map((s) => `${WEEKDAY[s.weekday]} ${s.title} ${s.minutes} min`).join(", ")
     : null;
-  return { intake, profile, targets, today: day.totals, plannedMeals, workout };
+  const food = profile ? { ...profile, cuisines: (typeof profile.cuisines === "string" ? JSON.parse(profile.cuisines) : profile.cuisines) ?? [] } : null;
+  return { intake, profile: food, targets, today: day.totals, plannedMeals, workout };
 }
 
 // `usage` (ai/usage.tracker) records the call for the admin's AI Usage screen; never the text

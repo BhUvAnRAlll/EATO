@@ -196,6 +196,10 @@ const DIET_LABEL = { vegetarian: "vegetarian (no meat, fish or eggs)", eggetaria
 const COOKING = { none: "doesn't cook (ready-to-eat, simple assembly, or easily bought food)", quick: "up to 15 minutes a meal", medium: "15 to 30 minutes a meal", long: "happy to cook for over 30 minutes" };
 const BUDGET = { low: "low (about ₹100–200 a day on food)", medium: "medium (about ₹200–400 a day)", high: "flexible (₹400+ a day)" };
 
+// How an Indian coach plans food (AGENTS.md "AI Coach: Indian fitness personalisation"), shared by
+// the day plan and the meal swap so they never drift apart
+const INDIAN_FOOD = `- Plan like an experienced Indian coach: everyday Indian home food that fits the member's diet, cuisines, cooking time and budget (regional dishes such as idli, dosa, poha, upma, roti, rice, dal, sambar, rasam, curd, paneer, sabzi, eggs, chicken or fish curry as their diet allows), with affordable ingredients from a local market. Don't default to oats, salads, smoothies or Western foods unless their cuisines include them. Never include anything from their allergies, and respect the diet type strictly; assume nothing about religion or region beyond what they told you.`;
+
 /**
  * The member's facts the model plans from, as plain lines. Free text from the member (notes,
  * dislikes, allergies) is passed as data, labelled as theirs; it can't change the output shape.
@@ -222,8 +226,8 @@ const DIET_INSTRUCTIONS = `You are an AI fitness coach in an Indian fitness app,
 
 Rules:
 - Plan exactly five meals: breakfast, morning_snack, lunch, evening_snack, dinner. Give each a short name, a time as HH:MM (24-hour), and 1 to 6 foods.
-- Use everyday Indian foods and home recipes that fit the member's diet, cuisines, cooking time and budget. Never include anything from their allergies, and respect the diet type strictly.
-- Portions: quantity plus a unit from g, ml, piece, cup, bowl, tbsp, tsp. Give kcal, protein, carbs and fat in grams for that portion, using typical Indian recipes.
+${INDIAN_FOOD}
+- Portions: quantity plus a unit from g, ml, piece, cup, bowl, tbsp, tsp. Give kcal, protein, carbs and fat in grams for that portion, worked out from the dish's real ingredients as typically cooked at home (oil, ghee and coconut included).
 - The day should total close to the calorie target, and reach the protein target.
 - With diabetes, prefer whole grains, dals and vegetables and avoid sugary foods; with high BP, keep salt and pickles low; with PCOS or thyroid, keep meals balanced and whole-food based.
 - A meal's note is optional: one short practical tip (prep, swap or timing), or "".
@@ -295,8 +299,8 @@ const MEAL_INSTRUCTIONS = `You are an AI fitness coach in an Indian fitness app,
 
 Rules:
 - Write one meal with a short name and 1 to 6 foods, different from the meal being replaced.
-- Use everyday Indian foods and home recipes that fit the member's diet, cuisines, cooking time and budget. Never include anything from their allergies, and respect the diet type strictly.
-- Portions: quantity plus a unit from g, ml, piece, cup, bowl, tbsp, tsp. Give kcal, protein, carbs and fat in grams for that portion, using typical Indian recipes.
+${INDIAN_FOOD}
+- Portions: quantity plus a unit from g, ml, piece, cup, bowl, tbsp, tsp. Give kcal, protein, carbs and fat in grams for that portion, worked out from the dish's real ingredients as typically cooked at home (oil, ghee and coconut included).
 - Keep the calories within 10% of the meal being replaced and the protein at least as high.
 - With diabetes, prefer whole grains, dals and vegetables and avoid sugary foods; with high BP, keep salt and pickles low; with PCOS or thyroid, keep meals balanced and whole-food based.
 - note: one short practical tip, or "".`;
@@ -386,6 +390,7 @@ module.exports = {
   diarySlotFor, planLogKey,
   FAKE_DIET, SLOTS, limits, CoachPlanError,
   engineGoalFor, engineLevelFor, libraryFilterFor, fitDaysTo,
+  INDIAN_FOOD, COOKING, BUDGET,
   totalsOf, normalizeDiet, dietBrief, DIET_INSTRUCTIONS, dietSchema,
   mealBrief, MEAL_INSTRUCTIONS, mealSchema, normalizeMeal, FAKE_MEAL,
   allergenWords, allergenHits,
