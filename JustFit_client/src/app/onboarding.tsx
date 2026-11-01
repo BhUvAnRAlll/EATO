@@ -16,7 +16,7 @@ import { router } from "expo-router";
 
 import { BrandWordmark } from "@/components/BrandWordmark";
 import { onboardingSlides, type OnboardingSlide } from "@/data/onboarding";
-import { useScheme, useThemeColors } from "@/theme";
+import { useThemeColors } from "@/theme";
 
 // Slides advance on their own this often (ms), always moving forward
 const AUTO_ADVANCE_MS = 1800;
@@ -32,7 +32,6 @@ const loopSlides = [...onboardingSlides, { ...onboardingSlides[0], id: `${onboar
 
 export default function Onboarding() {
   const colors = useThemeColors();
-  const dark = useScheme() === "dark";
   const { width } = useWindowDimensions();
   const listRef = useRef<FlatList<OnboardingSlide>>(null);
   const [index, setIndex] = useState(0);
@@ -106,38 +105,19 @@ export default function Onboarding() {
                   {item.subtitle}
                 </Text>
               </View>
-              {dark ? (
-                // On a dark page the art's soft light edge would glow, so it sits in a rounded
-                // card, drawn a little larger than the card to crop that edge away
-                <View
-                  className="overflow-hidden"
-                  style={{
-                    width: artWidth,
-                    marginTop: 12,
-                    marginHorizontal: ART_PADDING,
-                    borderRadius: 24,
-                    ...(short
-                      ? { height: Math.max(120, Math.min(Math.round(artWidth / item.artRatio), Math.round(listHeight * 0.45))) }
-                      : { flex: 1, maxHeight: artWidth / item.artRatio }),
-                  }}
-                >
-                  <Image source={item.art} contentFit="cover" contentPosition="center" style={{ flex: 1, transform: [{ scale: 1.12 }] }} />
-                </View>
-              ) : (
-                <Image
-                  source={item.art}
-                  contentFit="contain"
-                  contentPosition="top"
-                  style={{
-                    width: artWidth,
-                    marginTop: -item.artOverlap,
-                    marginHorizontal: ART_PADDING,
-                    ...(short
-                      ? { height: Math.max(120, Math.min(Math.round(artWidth / item.artRatio), Math.round(listHeight * 0.45))) }
-                      : { flex: 1, maxHeight: artWidth / item.artRatio }),
-                  }}
-                />
-              )}
+              <Image
+                source={item.art}
+                contentFit="contain"
+                contentPosition="top"
+                style={{
+                  width: artWidth,
+                  marginTop: -item.artOverlap,
+                  marginHorizontal: ART_PADDING,
+                  ...(short
+                    ? { height: Math.max(120, Math.min(Math.round(artWidth / item.artRatio), Math.round(listHeight * 0.45))) }
+                    : { flex: 1, maxHeight: artWidth / item.artRatio }),
+                }}
+              />
             </View>
           )}
         />

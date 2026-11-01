@@ -337,30 +337,24 @@ follow screen by screen (Home first, from the reference); each is verified at 32
 
 Avoid large inline styles unless required.
 
-### Dark mode, motion, haptics and loading (added 2026-11-01)
+### Light only, motion, haptics and loading (added 2026-11-01)
 
-The app follows the phone's appearance (`userInterfaceStyle: "automatic"`). Rules that keep it
-working:
+The app is light only (`userInterfaceStyle: "light"`). Dark mode and the Profile › Appearance
+picker were removed on 2026-11-01; don't add them back unless asked.
 
-- **Colours come from tokens only.** `tokens.css` has a `@media (prefers-color-scheme: dark)`
-  block, and `theme/index.ts` has `lightColors` and `darkColors`. Keep all three lists in sync.
-  - In a component, read JS colours with `const colors = useThemeColors()`. Never use the
-    module-level `colors` inside a component: it doesn't re-render when the appearance changes.
-  - Module tables of colours (status maps, macro rows) use getters: `get tint() { return colors.leaf; }`.
+- **Colours come from tokens only.** `tokens.css` and `lightColors` in `theme/index.ts` hold the
+  same values. Keep both lists in sync.
+  - In a component, read JS colours with `const colors = useThemeColors()`.
   - Switches use `useSwitchColors()`.
 - **Pick the token by role.**
-  - `surface`: cards, sheets and fields. Never `white`.
-  - `leaf`: red text, icons, rings and links. In dark mode it is brightened to stay readable.
+  - `surface`: cards, sheets and fields.
+  - `leaf`: red text, icons, rings and links.
   - `forest`/`primary`: red fills that carry white text.
   - `ink-fill`: near-black fills with white text, such as filled buttons, badges and bubbles.
   - `immersive`: full-screen dark areas, such as the player, a story or a hero.
-  - `ink`: text, and dots or borders that should flip with the appearance.
-  - `white` and `black` never change. Use them only for text on red, QR codes (`black` on `white`),
-    and things drawn on photos.
-  - Promotion slides and other photo-backed text use `lightColors` explicitly.
-- **The logo.** `images.justfitLogoDark` is the same logo with its black parts white. `BrandWordmark` picks it by
-  appearance. Icon variants are `assets/images/icon-dark.png` and `icon-tinted.png`, and the
-  dark launch screen is `splash-icon-dark.png`. All are listed in `app.json`. Never redraw the logo.
+  - `ink`: text.
+  - `white` and `black`: text on red, QR codes (`black` on `white`), and things drawn on photos.
+- **The logo.** `images.justfitLogo` via `BrandWordmark`. Never redraw the logo.
 - **Press feedback.** Buttons and cards use `components/PressableScale.tsx`. It eases down to about 97% on the
   UI thread, has an optional `haptic`, and holds still when reduced motion is on.
   `PrimaryButton`, `CoachButton`, `IconButton`, the choice cards and chips already use it.
@@ -379,8 +373,6 @@ working:
   `keyboardDismissMode` set to "interactive" on iOS and "on-drag" on Android.
 - **Text size.** Text controls use `min-height`, not `height`, so labels can grow with Dynamic
   Type. Only the tab bar caps its labels, with `maxFontSizeMultiplier` 1.3.
-- **Verification.** `__tests__/ui/appearance.ui.test.js` opens the main screens in dark mode. It fails on a white
-  surface or on text below 4.5:1 contrast, or below 3:1 for large text.
 
 ## NativeWind Rule
 

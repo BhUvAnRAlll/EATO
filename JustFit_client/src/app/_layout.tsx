@@ -2,7 +2,7 @@ import "../global.css";
 
 import { useEffect } from "react";
 import { useFonts } from "expo-font";
-import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from "expo-router";
+import { DefaultTheme, Stack, ThemeProvider } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import * as SystemUI from "expo-system-ui";
@@ -10,9 +10,8 @@ import { ActivityIndicator, View } from "react-native";
 
 import { fontFiles } from "@/constants/fonts";
 import { useAuthStore } from "@/store/auth";
-import { useScheme, useThemeColors } from "@/theme";
+import { useThemeColors } from "@/theme";
 import { startAnalytics } from "@/lib/analytics";
-import { startAppearance } from "@/store/appearance";
 
 // Each role can only open its own dashboard. If someone opens a screen they
 // aren't allowed to (or signs out), Expo Router sends them back to the start
@@ -23,8 +22,6 @@ import { startAppearance } from "@/store/appearance";
 // server is slow, the launch screen still gives way after LAUNCH_MAX_MS (the start screen then
 // shows its own "couldn't reach" state).
 SplashScreen.preventAutoHideAsync().catch(() => {});
-// Light unless the member chose Dark or System in Profile › Appearance
-startAppearance();
 SplashScreen.setOptions({ duration: 250, fade: true });
 const LAUNCH_MAX_MS = 6000;
 
@@ -36,10 +33,9 @@ function hideLaunchScreen() {
 
 function RootStack() {
   const colors = useThemeColors();
-  const scheme = useScheme();
   // The navigator paints its own background behind and between screens; give it the app's page
   // and card colours so a push, a swipe back or a modal never shows the library's default grey
-  const base = scheme === "dark" ? DarkTheme : DefaultTheme;
+  const base = DefaultTheme;
   const navTheme = { ...base, colors: { ...base.colors, primary: colors.primary, background: colors.background, card: colors.surface, text: colors.ink, border: colors.line, notification: colors.primary } };
   const status = useAuthStore((state) => state.status);
   const role = useAuthStore((state) => (state.status === "signedIn" ? state.user?.role ?? null : null));
@@ -51,7 +47,7 @@ function RootStack() {
     return () => clearTimeout(timer);
   }, []);
 
-  // The window behind every screen matches the page colour (light or dark), so a screen
+  // The window behind every screen matches the page colour, so a screen
   // transition or the keyboard never uncovers white
   useEffect(() => {
     SystemUI.setBackgroundColorAsync(colors.background).catch(() => {});
@@ -71,7 +67,7 @@ function RootStack() {
 
   return (
     <ThemeProvider value={navTheme}>
-    <StatusBar style="auto" />
+    <StatusBar style="dark" />
     <Stack
       screenOptions={{
         headerShown: false,

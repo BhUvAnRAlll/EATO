@@ -9,7 +9,7 @@
       "justfit",
       "eato"
     ],
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "light",
     "android": {
       "package": "com.bhuvii3.justfit",
       "adaptiveIcon": {

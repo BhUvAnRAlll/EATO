@@ -6,7 +6,6 @@ import { router } from "expo-router";
 import { SymbolView } from "@/components/SymbolView";
 import { useAuthStore } from "@/store/auth";
 import { useThemeColors } from "@/theme";
-import { AppearanceCard } from "@/components/profile/AppearanceCard";
 
 const back = () => (router.canGoBack() ? router.back() : router.replace("/admin"));
 
@@ -61,7 +60,6 @@ export default function AdminProfile() {
             </Pressable>
           </View>
 
-          <AppearanceCard />
 
           <View className="admin-list">
             <Pressable onPress={() => useAuthStore.getState().signOut()} className="admin-row" accessibilityRole="button" accessibilityLabel="Sign out">

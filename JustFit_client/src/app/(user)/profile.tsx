@@ -17,7 +17,6 @@ import { useAuthStore } from "@/store/auth";
 import { useSetupStore } from "@/store/setup";
 import { useThemeColors } from "@/theme";
 import type { Icon } from "@/types/profile";
-import { AppearanceCard } from "@/components/profile/AppearanceCard";
 
 // The account's places, in the order the reference design lists them (every one is an existing screen)
 const menu: { label: string; icon: Icon; href: Href }[] = [
@@ -203,7 +202,6 @@ export default function Profile() {
             )}
           </View>
 
-          <AppearanceCard />
 
           {/* The account's places */}
           <View className="card mt-4 py-1">

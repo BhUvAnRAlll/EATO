@@ -2,7 +2,6 @@ import { Text, View } from "react-native";
 import { Image } from "expo-image";
 
 import { images } from "@/constants/images";
-import { useScheme } from "@/theme";
 
 // Width ÷ height of the justFit logo image (the JF mark above the JUSTFIT word)
 export const WORDMARK_RATIO = 600 / 481;
@@ -16,11 +15,10 @@ type BrandWordmarkProps = {
 
 // The justFit logo with the "BALANCED MEALS • STRONGER YOU" tagline
 export function BrandWordmark({ width = 96, large = false }: BrandWordmarkProps) {
-  const scheme = useScheme();
   return (
     <View>
       <Image
-        source={scheme === "dark" ? images.justfitLogoDark : images.justfitLogo}
+        source={images.justfitLogo}
         accessibilityLabel="justFit"
         contentFit="contain"
         style={{ width, height: width / WORDMARK_RATIO }}

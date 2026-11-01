@@ -1,6 +1,5 @@
 import googleLogo from "../../assets/images/google-logo.png";
 import justfitLogo from "../../assets/images/justfit-logo.png";
-import justfitLogoDark from "../../assets/images/justfit-logo-dark.png";
 import onboardingArtMeals from "../../assets/images/onboarding-art-meals.png";
 import onboardingArtNutrition from "../../assets/images/onboarding-art-nutrition.png";
 import onboardingArtProgress from "../../assets/images/onboarding-art-progress.png";
@@ -29,8 +28,6 @@ import type { CoachId } from "@/data/coach";
 export const images = {
   googleLogo,
   justfitLogo,
-  // The same logo for dark backgrounds: its black parts drawn white, the red unchanged
-  justfitLogoDark,
   onboardingArtMeals,
   onboardingArtNutrition,
   onboardingArtProgress,

@@ -13,7 +13,6 @@ import { images } from "@/constants/images";
 import { formatIndianMobile } from "@/lib/phone";
 import { usePhoneSignIn } from "@/lib/usePhoneSignIn";
 import { useAuthStore } from "@/store/auth";
-import { useScheme } from "@/theme";
 
 // The food art is 480 × 375 px in the design; it tucks ~25pt up beside the subtitle
 const ART_RATIO = 480 / 375;
@@ -21,9 +20,6 @@ const ART_OVERLAP = 25;
 
 export default function SignIn() {
   const { width } = useWindowDimensions();
-  // The photo was made to melt into a light page; on a dark page it sits as a rounded card
-  // below the text instead of tucking under it
-  const dark = useScheme() === "dark";
   const insets = useSafeAreaInsets();
   // Mobile number → a texted 6-digit code → signed in (see lib/usePhoneSignIn.ts)
   const flow = usePhoneSignIn();
@@ -58,9 +54,7 @@ export default function SignIn() {
               // Fills the space left over, so the screen fits without scrolling. The photo tucks
               // under the text by ART_OVERLAP, except on narrow phones where the cropped photo
               // would put food right behind the subtitle: there it starts just below the text.
-              style={dark
-                ? { width: width - 32, marginHorizontal: 16, borderRadius: 24, flex: 1, minHeight: 120, maxHeight: (width - 32) / ART_RATIO, marginTop: 16, marginBottom: 28 }
-                : { width, flex: 1, minHeight: 120, maxHeight: width / ART_RATIO, marginTop: width < 360 ? 0 : -ART_OVERLAP }}
+              style={{ width, flex: 1, minHeight: 120, maxHeight: width / ART_RATIO, marginTop: width < 360 ? 0 : -ART_OVERLAP }}
             />
 
             {/* Form card */}
