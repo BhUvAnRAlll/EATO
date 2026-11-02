@@ -65,9 +65,9 @@ describe("ui deep links: a cold load onto a protected screen waits for the sessi
     await h.settle();
     assert.equal(await page.path(), expectedPath, `still on ${expectedPath} once the app has settled`);
   };
-  // Member screens that need a session: the account's own profile and a workout setting
+  // Member screens that need a session: the account's own profile and Fitness search
   const PROFILE = "/profile";
-  const PREFERENCES = "/workout/preferences";
+  const FITNESS_SEARCH = "/fitness/search";
 
   before(async () => {
     const loaded = db.loadTestEnv();
@@ -137,8 +137,8 @@ describe("ui deep links: a cold load onto a protected screen waits for the sessi
     await coldLoad(PROFILE, PROFILE);
     await h.expectText("Priya Sharma");
     // And another member route, one level down
-    await coldLoad(PREFERENCES, PREFERENCES);
-    await h.expectText("Workout preferences");
+    await coldLoad(FITNESS_SEARCH, FITNESS_SEARCH);
+    await h.expectText("Try");
   }));
 
   it("3. a member's cold load onto an admin screen is still refused (they land on Home)", run("member-admin", async () => {
@@ -163,6 +163,6 @@ describe("ui deep links: a cold load onto a protected screen waits for the sessi
     await h.expectText("App Usage");
     await snapshot("deep-link-admin-app-usage-390");
     // An admin is not a member: a member route still sends them back to their dashboard
-    await coldLoad(PREFERENCES, "/admin");
+    await coldLoad(FITNESS_SEARCH, "/admin");
   }));
 });

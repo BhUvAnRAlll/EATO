@@ -73,14 +73,25 @@ describe("ui workout: the Fitness hub and a training day", () => {
     const pos = await page.waitFor(`(() => { const el = [...document.querySelectorAll('[aria-label]')].filter((e) => e.getClientRects().length > 0 && e.getAttribute("aria-label").startsWith(${JSON.stringify(prefix)}))[0]; if (!el) return null; el.scrollIntoView({ block: "center" }); const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`, NAV_TIMEOUT, `element labelled ${prefix}…`);
     await page.clickAt(pos.x, pos.y);
   };
+  // The plan, the week and the history show only AT CENTER (2026-11-02); the hub opens AT HOME.
+  // Only AT CENTER has the week strip, so its heading says which one is showing.
+  const atCenter = async () => {
+    const shown = `[...document.querySelectorAll("body *")].some((e) => e.childElementCount === 0 && e.textContent.trim() === "This week" && e.getClientRects().length > 0)`;
+    const pos = await page.waitFor(`(() => { if (${shown}) return { shown: true }; const el = [...document.querySelectorAll('[aria-label="At center"]')].filter((e) => e.getClientRects().length > 0)[0]; if (!el) return null; const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`, NAV_TIMEOUT, "the At center tab");
+    if (!pos.shown) await page.clickAt(pos.x, pos.y);
+    await page.waitFor(shown, NAV_TIMEOUT, "the plan AT CENTER");
+  };
   // The workout tab, labelled Fitness since 2026-11-02 (its route is still /workout)
   const openWorkout = async () => {
     await clickTab("Fitness");
+    await h.expectPath("/workout");
+    await atCenter();
   };
   // Back to the hub and load it fresh (the hub reloads on focus)
   const backToHub = async () => {
     await clickLabelStarting("Back");
     await h.expectPath("/workout");
+    await atCenter();
   };
 
   before(async () => {
@@ -139,8 +150,6 @@ describe("ui workout: the Fitness hub and a training day", () => {
     await openWorkout();
     await h.expectPath("/workout");
     await h.expectText("This week");
-    // The app bar's preferences button is enabled only once the plan is ready
-    await page.waitFor(`(() => { const b = document.querySelector('[aria-label="Workout preferences"]'); return !!b && b.getAttribute("aria-disabled") !== "true"; })()`, NAV_TIMEOUT, "an enabled Workout preferences button");
     const [plans] = await connection.query("SELECT id FROM workout_plans WHERE user_id = ? AND status = 'active'", [identities.a.id]);
     assert.equal(plans.length, 1, "the visit made exactly one plan");
     state.planId = plans[0].id;
@@ -255,8 +264,7 @@ describe("ui workout: the Fitness hub and a training day", () => {
     await h.goto(`/workout/day?date=${rest}`, "Rest day");
     await h.expectText("Nothing is scheduled on this day.");
     await snapshotAllWidths("workout-day-rest");
-    await clickLabelStarting("Back");
-    await h.expectPath("/workout");
+    await backToHub();
   }));
 
   it("5. a missed session moves to today, and a later day swaps with today", run("reschedule", async () => {
@@ -393,127 +401,5 @@ describe("ui workout: the Fitness hub and a training day", () => {
     await h.expectPath("/workout/day");
     await h.expectText("Completed");
     await backToHub();
-  }));
-
-  it("7. preferences: change the goal and the days, and Submit builds a new plan", run("preferences", async () => {
-    const user = identities.a.id;
-    const [[before]] = await connection.query("SELECT id, goal FROM workout_plans WHERE user_id = ? AND status = 'active'", [user]);
-    // Exact labels: the hub's week tiles ("Monday 12 October: …") stay mounted behind the modal
-    const clickExact = async (label) => {
-      const pos = await page.waitFor(`(() => { const els = [...document.querySelectorAll(${JSON.stringify(`[aria-label="${label}"]`)})].filter((e) => e.getClientRects().length > 0); const el = els[els.length - 1]; if (!el) return null; const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`, NAV_TIMEOUT, `the element labelled ${label}`);
-      await page.clickAt(pos.x, pos.y);
-    };
-    await clickLabelStarting("Workout preferences");
-    await h.expectPath("/workout/preferences");
-    await h.expectText("Review your workout preferences. You can edit anytime before submitting.");
-    await page.waitFor(`!!document.querySelector('[aria-label^="Fitness goal: "]')`, NAV_TIMEOUT, "the goal row");
-    assert.equal(await page.evaluate(`document.querySelector('[aria-label="Submit"]').getAttribute("aria-disabled")`), "true", "nothing changed yet");
-    await snapshotAllWidths("workout-preferences");
-
-    // Goal: a sheet of options; picking one closes it
-    await clickLabelStarting("Fitness goal: ");
-    await h.expectText("Lose weight");
-    await snapshotAllWidths("workout-preferences-goal");
-    await clickExact("Lose weight");
-    await page.waitFor(`!!document.querySelector('[aria-label="Fitness goal: Lose weight"]')`, NAV_TIMEOUT, "the new goal");
-
-    // Days: below three, Done is off; three or more and it saves the choice
-    const NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-    const MONDAY_FIRST = [1, 2, 3, 4, 5, 6, 0];
-    const [current] = await connection.query("SELECT weekday FROM workout_days WHERE plan_id = ?", [before.id]);
-    const chosen = current.map((d) => d.weekday);
-    assert.equal(chosen.length, 3, "the plan trains three days");
-    await clickLabelStarting("Workout days: ");
-    await h.expectText("3 days a week");
-    await clickExact(NAMES[chosen[0]]);
-    await h.expectText("Pick at least 3 days (2 chosen).");
-    assert.equal(await page.evaluate(`[...document.querySelectorAll('[aria-label="Done"]')].pop().getAttribute("aria-disabled")`), "true", "Done is off below three days");
-    await snapshotAllWidths("workout-preferences-days");
-    const added = MONDAY_FIRST.filter((d) => !chosen.includes(d)).slice(0, 2);
-    for (const d of added) await clickExact(NAMES[d]);
-    await h.expectText("4 days a week");
-    await clickExact("Done");
-    const expected = MONDAY_FIRST.filter((d) => d !== chosen[0] && (chosen.includes(d) || added.includes(d)));
-    await page.waitFor(`!!document.querySelector('[aria-label=${JSON.stringify(`Workout days: ${expected.map((d) => NAMES[d]).join(", ")}`)}]')`, NAV_TIMEOUT, "the new days");
-
-    await clickExact("Submit");
-    await h.expectPath("/workout");
-    const [[after]] = await connection.query("SELECT id, goal, source FROM workout_plans WHERE user_id = ? AND status = 'active'", [user]);
-    assert.notEqual(after.id, before.id, "a new plan is active");
-    assert.deepEqual({ goal: after.goal, source: after.source }, { goal: "lose_weight", source: "member" });
-    const [days] = await connection.query("SELECT weekday FROM workout_days WHERE plan_id = ? ORDER BY weekday", [after.id]);
-    assert.deepEqual(days.map((d) => d.weekday), [...expected].sort((a, b) => a - b));
-  }));
-
-  it("8. rebuild my plan: three steps, a review, the generating screen, and the reveal", run("recreate", async () => {
-    const user = identities.a.id;
-    const [[before]] = await connection.query("SELECT id FROM workout_plans WHERE user_id = ? AND status = 'active'", [user]);
-    const clickExact = async (label) => {
-      const pos = await page.waitFor(`(() => { const els = [...document.querySelectorAll(${JSON.stringify(`[aria-label="${label}"]`)})].filter((e) => e.getClientRects().length > 0); const el = els[els.length - 1]; if (!el) return null; const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`, NAV_TIMEOUT, `the element labelled ${label}`);
-      await page.clickAt(pos.x, pos.y);
-    };
-    // A choice inside a labelled group (the ranges repeat across questions)
-    const clickIn = async (group, text) => {
-      const pos = await page.waitFor(`(() => { const g = [...document.querySelectorAll(${JSON.stringify(`[aria-label="${group}"]`)})].filter((e) => e.getClientRects().length > 0).pop(); if (!g) return null; const el = [...g.querySelectorAll("*")].find((e) => e.childElementCount === 0 && e.textContent.trim() === ${JSON.stringify(text)}); if (!el) return null; el.scrollIntoView({ block: "center" }); const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`, NAV_TIMEOUT, `${text} in ${group}`);
-      await page.clickAt(pos.x, pos.y);
-    };
-    const clickVisibleText = async (text) => {
-      const pos = await page.waitFor(`(() => { const el = [...document.querySelectorAll("body *")].filter((e) => e.childElementCount === 0 && e.textContent.trim() === ${JSON.stringify(text)} && e.getClientRects().length > 0).pop(); if (!el) return null; el.scrollIntoView({ block: "center" }); const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`, NAV_TIMEOUT, `text ${text}`);
-      await page.clickAt(pos.x, pos.y);
-    };
-
-    await clickLabelStarting("Workout preferences");
-    await h.expectPath("/workout/preferences");
-    await clickExact("Re-create plan");
-    await h.expectPath("/workout/recreate");
-    await h.expectText("Recreate your plan");
-    await h.expectText("Your current plan won't be changed until your new plan is successfully created.");
-    // The setup profile fills the basics; body type was never asked
-    await page.waitFor(`document.querySelector('[aria-label="Weight in kg"]')?.value === "70"`, NAV_TIMEOUT, "weight from setup");
-    await snapshotAllWidths("workout-recreate-basics");
-    await clickExact("Continue");
-    await h.expectText("Pick the closest body type");
-    await clickVisibleText("Medium build");
-    await h.expectNoText("Pick the closest body type");
-    await clickExact("Continue");
-
-    await h.expectPath("/workout/recreate/goals");
-    await h.expectText("What you're training for, how often, and how fast you want to move.");
-    await clickExact("Continue");
-    await h.expectText("Pick a pace");
-    await clickVisibleText("Healthy");
-    await clickVisibleText("Training regularly");
-    await snapshotAllWidths("workout-recreate-goals");
-    await clickExact("Continue");
-
-    await h.expectPath("/workout/recreate/performance");
-    await h.expectText("Your current performance");
-    await clickIn("Bodyweight squats", "6–15");
-    await clickIn("Push-ups", "1–5");
-    await clickIn("Pull-ups", "0");
-    await clickVisibleText("Yes");
-    await h.expectText("For your safety, your new plan will use beginner-level exercises");
-    await snapshotAllWidths("workout-recreate-performance");
-    await clickVisibleText("No");
-    await h.expectNoText("For your safety, your new plan will use beginner-level exercises");
-    await clickExact("Continue");
-
-    await h.expectPath("/workout/recreate/review");
-    await h.expectText("Medium build");
-    await h.expectText("6–15");
-    await snapshotAllWidths("workout-recreate-review");
-    await clickExact("Generate my plan");
-    await h.expectText("Creating your plan");
-    await h.expectPath("/workout/recreate/reveal");
-    await h.expectText("Your plan is ready");
-    await h.expectText("Your first workout");
-    const [[after]] = await connection.query("SELECT id, source, split FROM workout_plans WHERE user_id = ? AND status = 'active'", [user]);
-    assert.notEqual(after.id, before.id, "a new plan is active");
-    assert.deepEqual({ source: after.source, split: after.split }, { source: "member", split: "auto" });
-    const [[saved]] = await connection.query("SELECT body_type, pace, fitness_base, squat_score, push_score, pull_score, serious_injury FROM workout_profiles WHERE user_id = ?", [user]);
-    assert.deepEqual({ ...saved }, { body_type: "average", pace: "standard", fitness_base: 3, squat_score: 3, push_score: 2, pull_score: 1, serious_injury: 0 });
-    await snapshotAllWidths("workout-recreate-reveal");
-    await clickExact("View plan details");
-    await h.expectPath("/workout");
   }));
 });

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 import { ScreenSkeleton } from "@/components/Skeleton";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -34,11 +34,11 @@ import {
 import { useThemeColors, Palette } from "@/theme";
 
 // The Fitness tab (the Workout tab until 2026-11-02): a fixed header (AT HOME / AT CENTER, where
-// you train, search), today's session and the training week, then the six sections of free
-// programs for the place (Popular, Categories, Build Muscle, Stay Fit, Dance, Workplace Wellness),
-// then the last seven days. The plan is written by the AI from the exercise library (the engine
-// when it can't); the first visit with no plan builds one from the profile. AT HOME / AT CENTER
-// picks the programs and, before today's session starts, which place it is set up for.
+// you train, search). AT HOME shows the six sections of free programs (Popular, Categories, Build
+// Muscle, Stay Fit, Dance, Workplace Wellness). AT CENTER shows the member's plan as the Workout tab
+// did before (asked for on 2026-11-02): today's session, the training week and the last seven days.
+// The plan is written by the AI from the exercise library (the engine when it can't); the first
+// visit with no plan builds one from the profile.
 
 type Load = { state: "loading" } | { state: "building" } | { state: "failed"; error: string } | { state: "ready"; home: Extract<WorkoutHome, { plan: object }>; history: HistoryDay[] };
 type Programs = { state: "loading" } | { state: "failed"; error: string } | { state: "ready"; list: ProgramList };
@@ -65,19 +65,14 @@ type Prompt = { kind: "move" | "swap"; date: string };
 const moon = { ios: "moon.stars.fill", android: "bedtime", web: "bedtime" } as const;
 
 export default function WorkoutHub() {
-  const colors = useThemeColors();
   const getToken = useSessionToken();
   const [load, setLoad] = useState<Load>({ state: "loading" });
   const [showAll, setShowAll] = useState(false);
   const [prompt, setPrompt] = useState<Prompt | null>(null);
   const [busy, setBusy] = useState(false);
   const [promptError, setPromptError] = useState<string | null>(null);
-  // AT HOME / AT CENTER: the programs shown, AT HOME to start. Tapping one also sets today's
-  // session up for that place when it hasn't started.
+  // AT HOME (the programs, to start) or AT CENTER (the plan)
   const [place, setPlace] = useState<Place>("home");
-  // The place today's session is being set up for, and why that failed
-  const [placing, setPlacing] = useState<Place | null>(null);
-  const [placeError, setPlaceError] = useState<string | null>(null);
   const [programs, setPrograms] = useState<Programs>({ state: "loading" });
   const [locationOpen, setLocationOpen] = useState(false);
   const latest = useRef(0);
@@ -160,87 +155,48 @@ export default function WorkoutHub() {
     await refresh();
   };
 
-  // Today's session set up for a place (adapted the first time), then the hub again
-  const adaptToday = async (next: Place) => {
-    const today = load.state === "ready" ? load.home.place : null;
-    if (placing || !today || !today.canChange || today.current === next) return;
-    setPlaceError(null);
-    setPlacing(next);
-    const result = await workoutApi.setPlace(await getToken().catch(() => null), todayIso(), next);
-    if (!result.ok) setPlaceError(`${result.error.replace(/\.$/, "")}. The programs below are for ${next === "home" ? "home" : "the center"}.`);
-    await refresh();
-    setPlacing(null);
-  };
-
-  // AT HOME / AT CENTER: the programs for that place at once, and today's session for it too
+  // AT HOME / AT CENTER: the programs or the plan
   const pickPlace = (next: Place) => {
-    if (placing) return;
     Haptics.selectionAsync().catch(() => {});
-    setPlaceError(null);
     setPrograms({ state: "loading" });
     setPlace(next);
-    adaptToday(next);
   };
-  // Today's session is set up for the other place than the header shows
-  const todayPlace = load.state === "ready" ? load.home.place : null;
-  const elsewhere = !placing && todayPlace && todayPlace.current !== place ? todayPlace : null;
 
   return (
     <View className="flex-1 bg-cream">
       <StatusBar style="auto" />
       <SafeAreaView style={{ flex: 1 }} edges={["top", "left", "right"]}>
-        <FitnessHeader place={place} switching={placing} onPlace={pickPlace} onLocation={() => setLocationOpen(true)} onSearch={() => router.push({ pathname: "/fitness/search", params: { place } })} />
+        <FitnessHeader place={place} switching={null} onPlace={pickPlace} onLocation={() => setLocationOpen(true)} onSearch={() => router.push({ pathname: "/fitness/search", params: { place } })} />
         <ScrollView contentContainerStyle={{ paddingBottom: 140, gap: 20 }} showsVerticalScrollIndicator={false} refreshControl={refreshControl}>
-          {/* Today's date and the plan's preferences (once there is a plan to change) */}
-          <View className="flex-row items-center px-4">
+          {/* AT HOME: the programs only */}
+          {place === "home" ? (
+            <ProgramSections programs={programs} onOpen={openProgram} onRetry={() => loadPrograms(place)} />
+          ) : (
+          <View className="gap-5 px-4">
+          {/* AT CENTER: the Workout screen as it was before the programs */}
+          <View className="flex-row items-center pt-2">
             <View className="flex-1">
               <Text className="home__note" numberOfLines={1}>{longDate(todayIso())}</Text>
-              <Text className="type-subhead text-forest-ink">Your plan</Text>
+              <Text className="type-title text-forest-ink">Workout</Text>
             </View>
-            <IconButton icon={{ ios: "gearshape", android: "settings", web: "settings" }} label="Workout preferences" onPress={() => router.push("/workout/preferences")} disabled={load.state !== "ready"} />
           </View>
-          {placing ? (
-            <Text className="meta-text px-4 text-center">{`Setting today's session up for ${placing === "home" ? "home" : "the center"}…`}</Text>
-          ) : placeError ? (
-            <Text className="meta-text px-4 text-center" style={{ color: colors.danger }}>{placeError}</Text>
-          ) : elsewhere ? (
-            <View className="flex-row flex-wrap items-center justify-center gap-x-2 px-4">
-              <Text className="meta-text">{`Today's session is set up for ${elsewhere.current === "home" ? "home" : "the center"}.`}</Text>
-              {elsewhere.canChange && (
-                <Pressable onPress={() => adaptToday(place)} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Do today's session ${place === "home" ? "at home" : "at the center"}`}>
-                  <Text className="home__link">{place === "home" ? "Do it at home" : "Do it at the center"}</Text>
-                </Pressable>
-              )}
-            </View>
-          ) : null}
-
           {load.state === "loading" || load.state === "building" ? (
-            <View className="gap-3 px-4 pt-2">
+            <View className="gap-3 pt-2">
               {load.state === "building" && <Text className="home__note text-center">Building your plan</Text>}
               <ScreenSkeleton cards={2} hero label={load.state === "building" ? "Building your plan" : "Loading your workout"} />
             </View>
           ) : load.state === "failed" ? (
-            <View className="px-4">
-              <DashedBlock
-                icon={{ ios: "exclamationmark.triangle.fill", android: "warning", web: "warning" }}
-                title="Could not set up your plan"
-                text={`${load.error.replace(/\.$/, "")}. Tap to try again.`}
-                onPress={retry}
-              />
-            </View>
-          ) : (
-            <Ready
-              home={load.home}
-              history={load.history}
-              showAll={showAll}
-              onToggleAll={() => setShowAll((v) => !v)}
-              openDay={openDay}
-              ask={ask}
-              programs={<ProgramSections programs={programs} onOpen={openProgram} onRetry={() => loadPrograms(place)} />}
+            <DashedBlock
+              icon={{ ios: "exclamationmark.triangle.fill", android: "warning", web: "warning" }}
+              title="Could not set up your plan"
+              text={`${load.error.replace(/\.$/, "")}. Tap to try again.`}
+              onPress={retry}
             />
+          ) : (
+            <Ready home={load.home} history={load.history} showAll={showAll} onToggleAll={() => setShowAll((v) => !v)} openDay={openDay} ask={ask} />
           )}
-          {/* The programs still show when the plan can't load */}
-          {load.state === "failed" && <ProgramSections programs={programs} onOpen={openProgram} onRetry={() => loadPrograms(place)} />}
+          </View>
+          )}
         </ScrollView>
       </SafeAreaView>
       {locationOpen && <LocationSheet onClose={() => setLocationOpen(false)} onSaved={reloadAll} />}
@@ -271,11 +227,9 @@ type ReadyProps = {
   onToggleAll: () => void;
   openDay: (date: string) => void;
   ask: (prompt: Prompt) => void;
-  // The program sections, between the week and the history
-  programs: ReactNode;
 };
 
-function Ready({ home, history, showAll, onToggleAll, openDay, ask, programs }: ReadyProps) {
+function Ready({ home, history, showAll, onToggleAll, openDay, ask }: ReadyProps) {
   const colors = useThemeColors();
   const { plan, day, status, date: today, week } = home;
   const scheduled = week.filter((d) => d.status !== "rest").length;
@@ -294,7 +248,6 @@ function Ready({ home, history, showAll, onToggleAll, openDay, ask, programs }: 
 
   return (
     <>
-      <View className="gap-5 px-4">
       {/* Today */}
       {day ? (
         <Pressable
@@ -373,12 +326,8 @@ function Ready({ home, history, showAll, onToggleAll, openDay, ask, programs }: 
         </View>
       </View>
 
-      </View>
-
-      {programs}
-
       {/* History */}
-      <View className="gap-3 px-4">
+      <View className="gap-3">
         <View className="flex-row items-baseline justify-between">
           <Text className="setup__section">History</Text>
           {history.length > 3 && (

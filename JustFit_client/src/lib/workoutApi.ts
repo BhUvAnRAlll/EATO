@@ -1,6 +1,5 @@
 import { apiFetch, type ApiResult } from "@/lib/api";
 import { addDays, dateOf } from "@/lib/macro";
-import type { Answers, Pace } from "@/lib/recreateRules";
 import type { Icon } from "@/types/profile";
 
 // The workout hub and day screen: types, the calls to /api/workout on the justFit server, and
@@ -82,23 +81,6 @@ export type SessionLog = { id: string; date: string; dayId: string; status: "in_
 export type LoggedSet = { dayExerciseId: string; setIndex: number; reps: number | null; weightKg: number | null; durationSec: number | null };
 export type SetEntry = { logId: string; dayExerciseId: string; setIndex: number; reps?: number; weightKg?: number; durationSec?: number };
 
-// The four settings of the active plan
-export type Preferences = { goal: Goal; level: Level; weekdays: number[]; split: Plan["split"] };
-export type NewPlan = { planId: string; level: Level; goal: Goal; daysPerWeek: number; requiresProfessionalReview: boolean };
-// What "Rebuild my plan" starts from: the saved answers (null where never asked)
-export type RecreateInputs = { answers: Partial<Record<keyof Answers, unknown>>; units: { weight: "kg"; height: "cm" }; hasPlan: boolean };
-// What the reveal shows, read back from the saved plan
-export type PlanOverview = {
-  goal: Goal;
-  level: Level;
-  daysPerWeek: number;
-  pace: Pace | null;
-  split: Plan["split"];
-  requiresProfessionalReview: boolean;
-  sessions: { dayId: string; weekday: number; title: string; sessionType: string | null; minutes: number; exerciseCount: number }[];
-  firstSession: { weekday: number; title: string; exercises: { id: string; name: string; sets: WorkoutSet[]; repsMin: number | null; repsMax: number | null; restSec: number }[] } | null;
-};
-
 const signedOut = <T>(): Promise<ApiResult<T>> => Promise.resolve({ ok: false, error: "Please sign in again." });
 const query = (params: Record<string, string>) => "?" + Object.entries(params).map(([key, value]) => `${key}=${encodeURIComponent(value)}`).join("&");
 
@@ -149,28 +131,6 @@ export const workoutApi = {
   abandonSession(token: string | null, logId: string): Promise<ApiResult<{ log: SessionLog }>> {
     if (!token) return signedOut();
     return apiFetch("/api/workout/session/abandon", { method: "POST", body: { logId }, token });
-  },
-  preferences(token: string | null): Promise<ApiResult<Preferences>> {
-    if (!token) return signedOut();
-    return apiFetch("/api/workout/preferences", { token });
-  },
-  // Builds a new plan from these settings; the old one is kept with its history
-  updatePreferences(token: string | null, today: string, prefs: Preferences): Promise<ApiResult<NewPlan>> {
-    if (!token) return signedOut();
-    return apiFetch("/api/workout/preferences", { method: "PUT", body: { today, ...prefs }, token });
-  },
-  recreateInputs(token: string | null, today: string): Promise<ApiResult<RecreateInputs>> {
-    if (!token) return signedOut();
-    return apiFetch(`/api/workout/recreate${query({ today })}`, { token });
-  },
-  // Saves the thirteen answers and builds the plan from them (the old one is kept)
-  recreatePlan(token: string | null, today: string, answers: Answers): Promise<ApiResult<NewPlan>> {
-    if (!token) return signedOut();
-    return apiFetch("/api/workout/recreate", { method: "POST", body: { today, ...answers }, token });
-  },
-  planOverview(token: string | null): Promise<ApiResult<PlanOverview>> {
-    if (!token) return signedOut();
-    return apiFetch("/api/workout/plan/overview", { token });
   },
   // At home / At center: today's session for that place (adapted the first time, then kept)
   setPlace(token: string | null, today: string, place: Place): Promise<ApiResult<{ date: string; place: Place; dayId: string }>> {
