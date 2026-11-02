@@ -1,15 +1,20 @@
 // Pure rules for the AI Coach chat (no database, no network), so they are unit-tested directly.
 //
-// The chat keeps no history on the server: the app sends the conversation so far (the last few
-// turns), the server adds what it knows about the member and asks the model for the coach's next
-// reply. Nothing the member writes is stored or logged.
+// The chat is saved on the server (coach/chatHistory.js) for 7 days from each message: the app
+// sends only the member's new message, and the server adds the saved conversation and what it
+// knows about the member before asking the model for the coach's next reply. The text is never logged.
 const { ValidationError } = require("../profile");
 const { isoDate, isNearToday } = require("../macro/validate");
 const { COOKING, BUDGET, mealSchema } = require("./planRules");
 
-// turns/text: what the app may send; modelTurns/modelChars: how much of it the model is shown
-// (the newest turns, within a character budget) so a long chat doesn't grow the bill each message
-const limits = { turns: 20, text: 1000, reply: 1500, modelTurns: 10, modelChars: 4000 };
+// turns: how many saved lines are read back for the coach's context; text/reply: the longest
+// message and reply; modelTurns/modelChars: how much of it the model is shown (the newest turns,
+// within a character budget) so a long chat doesn't grow the bill each message; shown: the most
+// lines the app is sent when the chat opens
+const limits = { turns: 20, text: 1000, reply: 1500, modelTurns: 10, modelChars: 4000, shown: 200 };
+
+// Each saved message is deleted this many days after it was written (not after the chat was last opened)
+const KEEP_DAYS = 7;
 
 const COACH_NAMES = { arjun: "Arjun", priya: "Priya", rohan: "Rohan", meera: "Meera", aditya: "Aditya" };
 const COACH_FOCUS = {
@@ -34,30 +39,35 @@ const SESSION_MINUTES = [15, 20, 30, 45, 60, 75];
 // At most this many meals changed by one reply
 const MAX_MEAL_CHANGES = 3;
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 /**
- * POST /chat { date, messages: [{ role: "member" | "coach", text }] }: the conversation so far,
- * oldest first, ending with the member's new message. Unexpected fields are refused.
+ * POST /chat { date, text, clientId }: the member's new message. clientId is the app's id for this
+ * send (a UUID): sending it again (a retry, a dropped connection) gets the saved answer, never a
+ * second one. The earlier conversation comes from the server, never the app. Unexpected fields are refused.
  */
 function chatBody(body, now) {
   if (!body || typeof body !== "object" || Array.isArray(body)) throw new ValidationError("Send your message as JSON.");
-  for (const key of Object.keys(body)) if (!["date", "messages"].includes(key)) throw new ValidationError(`Unexpected field: ${key}.`);
+  for (const key of Object.keys(body)) if (!["date", "text", "clientId"].includes(key)) throw new ValidationError(`Unexpected field: ${key}.`);
   const date = isoDate(body.date, "Today");
   if (!isNearToday(date, now)) throw new ValidationError("Today must be today's date.");
+  if (typeof body.text !== "string" || body.text.trim() === "") throw new ValidationError("Write a message to your coach.");
+  const text = body.text.trim();
+  if (text.length > limits.text) throw new ValidationError(`Keep each message under ${limits.text} characters.`);
+  if (typeof body.clientId !== "string" || !UUID.test(body.clientId)) throw new ValidationError("The message needs a valid id.");
+  return { date, text, clientId: body.clientId.toLowerCase() };
+}
 
-  const { messages } = body;
-  if (!Array.isArray(messages) || messages.length === 0) throw new ValidationError("Write a message to your coach.");
-  if (messages.length > limits.turns) throw new ValidationError(`Send at most the last ${limits.turns} messages.`);
-  const clean = messages.map((message) => {
-    if (!message || typeof message !== "object" || Array.isArray(message)) throw new ValidationError("Each message needs a role and text.");
-    for (const key of Object.keys(message)) if (!["role", "text"].includes(key)) throw new ValidationError(`Unexpected field: ${key}.`);
-    if (message.role !== "member" && message.role !== "coach") throw new ValidationError("A message's role is member or coach.");
-    if (typeof message.text !== "string" || message.text.trim() === "") throw new ValidationError("A message can't be empty.");
-    const text = message.text.trim();
-    if (text.length > limits.text) throw new ValidationError(`Keep each message under ${limits.text} characters.`);
-    return { role: message.role, text };
-  });
-  if (clean[clean.length - 1].role !== "member") throw new ValidationError("The last message must be yours.");
-  return { date, messages: clean };
+/** A saved message as the app gets it: its id, who wrote it, the text, a reply's plan changes, and when */
+function toMessage(row) {
+  const proposals = typeof row.proposals === "string" ? JSON.parse(row.proposals) : row.proposals;
+  return {
+    id: String(row.id),
+    role: row.role,
+    text: row.text,
+    ...(row.role === "coach" && proposals ? { proposals } : {}),
+    createdAt: new Date(row.created_at).toISOString(),
+  };
 }
 
 // The coach's standing instructions: who they are, how they talk, and what they never do
@@ -186,4 +196,4 @@ function cleanReply(text) {
   return plain.length > limits.reply ? `${plain.slice(0, limits.reply - 1).trimEnd()}…` : plain;
 }
 
-module.exports = { limits, FAKE_REPLY, COACH_NAMES, SESSION_MINUTES, chatBody, chatInstructions, memberBrief, modelHistory, cleanReply, chatSchema, mealKey, planChanges };
+module.exports = { limits, KEEP_DAYS, FAKE_REPLY, COACH_NAMES, SESSION_MINUTES, chatBody, toMessage, chatInstructions, memberBrief, modelHistory, cleanReply, chatSchema, mealKey, planChanges };

@@ -9,7 +9,7 @@ const { createRateLimiter, limitPerUser } = require("../rateLimit");
 const { validateIntake, prefillFrom, planBody, planQuery, logBody, optionsBody, replaceBody, workoutChangeBody, mealId, coachChoice } = require("./validate");
 const { toIntake, makePlan, swapMeal, mealOptions, replaceMeal, changeWorkout, getPlan, logMeal } = require("./plan");
 const { CoachPlanError } = require("./planRules");
-const { chat } = require("./chat");
+const { chat, history } = require("./chat");
 const { chatBody } = require("./chatRules");
 
 const router = express.Router();
@@ -23,8 +23,8 @@ const chatLimiter = createRateLimiter({ limit: 30, windowMs: 60 * 60 * 1000 });
 const swapMealLimiter = createRateLimiter({ limit: 10, windowMs: 60 * 60 * 1000 });
 // Applying a workout change from the chat makes a new workout each time (no AI call)
 const workoutChangeLimiter = createRateLimiter({ limit: 10, windowMs: 60 * 60 * 1000 });
-// The last 20 turns of up to 1,000 characters each, with room for the JSON around them
-const chatBodyParser = express.json({ limit: "32kb" });
+// Opening the chat reads the saved conversation (no AI call): generous, but not unlimited
+const chatHistoryLimiter = createRateLimiter({ limit: 120, windowMs: 60 * 60 * 1000 });
 
 const pool = (req) => req.app.locals.pool;
 
@@ -137,8 +137,14 @@ router.post("/plan/meals/:mealId/log", smallBody, route(async (req, res) => {
   res.json(await logMeal(pool(req), req.userId, mealId(req.params.mealId), { date }));
 }));
 
-// POST /chat { date, messages }: the coach's reply to the member's latest message. Nothing is stored.
-router.post("/chat", limitPerUser(chatLimiter), chatBodyParser, route(async (req, res) => {
+// GET /chat → { coach, messages }: who coaches the member and their current conversation, oldest first, only the last 7 days
+router.get("/chat", limitPerUser(chatHistoryLimiter), route(async (req, res) => {
+  res.json(await history(pool(req), req.userId));
+}));
+
+// POST /chat { date, text, clientId }: the coach's reply to the member's new message, saved with it
+// → { reply, proposals, messages }. The same clientId again gets the saved answer.
+router.post("/chat", limitPerUser(chatLimiter), smallBody, route(async (req, res) => {
   const body = chatBody(req.body, Date.now());
   res.json(await chat(pool(req), req.userId, body));
 }));

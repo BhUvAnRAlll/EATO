@@ -1,6 +1,7 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Pressable, ScrollView, Share, Text, useWindowDimensions, View } from "react-native";
 import { ScreenSkeleton } from "@/components/Skeleton";
+import { LoadError } from "@/components/macro/LoadError";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { SymbolView } from "@/components/SymbolView";
@@ -31,10 +32,16 @@ export default function CaloriesMacros() {
   const [period, setPeriod] = useState<Period>("today");
   const [summary, setSummary] = useState<Summary | null | undefined>(undefined); // undefined = loading
   const [notice, setNotice] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  // Only the newest period's answer is shown: switching Today → Month quickly never leaves Today's numbers under Month
+  const latest = useRef(0);
 
   const load = useCallback(async () => {
+    const request = ++latest.current;
     const result = await macro.summary(await getToken().catch(() => null), period, todayIso());
+    if (request !== latest.current) return;
     if (result.ok) setSummary(result.data.summary);
+    setLoadError(result.ok ? null : result.error);
   }, [getToken, period]);
 
   useFocusEffect(
@@ -76,7 +83,11 @@ export default function CaloriesMacros() {
           }
         />
 
-        {summary === undefined ? (
+        {summary === undefined && loadError ? (
+          <View className="px-4 pt-2">
+            <LoadError title="Couldn't load your totals" message={loadError} onRetry={load} />
+          </View>
+        ) : summary === undefined ? (
           <View className="px-4 pt-2">
             <ScreenSkeleton />
           </View>

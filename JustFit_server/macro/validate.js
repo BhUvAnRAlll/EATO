@@ -57,13 +57,21 @@ function isoDate(value, what = "The date") {
   return value;
 }
 
-const utcDay = (ms) => new Date(ms).toISOString().slice(0, 10);
-const dayNumber = (iso) => Date.parse(`${iso}T00:00:00Z`) / DAY_MS;
 
-// The member's "today" is their local day, which the server can't see. Any day within one
-// day of the server's UTC date covers every time zone (UTC−12 to UTC+14).
-function isNearToday(iso, now) {
-  return Math.abs(dayNumber(iso) - dayNumber(utcDay(now))) <= 1;
+// The app's day: justFit serves India, so "today" is the date in India (APP_TIME_ZONE, default
+// Asia/Kolkata), the same day the database (on IST) and the member's phone see. Only that day
+// is accepted, plus yesterday for the first 15 minutes after midnight (a meal saved at 23:59 that
+// reaches the server just after). It used to be any day within one of the UTC date, which let a
+// member write to yesterday all day long.
+const MIDNIGHT_GRACE_MS = 15 * 60 * 1000;
+const dayIn = (ms, timeZone) => new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(ms);
+const appTimeZone = (env = process.env) => env.APP_TIME_ZONE || "Asia/Kolkata";
+function appToday(now = Date.now(), env = process.env) {
+  return dayIn(now, appTimeZone(env));
+}
+function isNearToday(iso, now = Date.now(), env = process.env) {
+  if (iso === appToday(now, env)) return true;
+  return iso === appToday(now - MIDNIGHT_GRACE_MS, env);
 }
 
 function assertToday(iso, now, message) {
@@ -200,4 +208,4 @@ function daysBefore(iso, n) {
   return new Date(Date.parse(`${iso}T00:00:00Z`) - n * DAY_MS).toISOString().slice(0, 10);
 }
 
-module.exports = { SLOTS, limits, isoDate, isNearToday, validateMeal, validateFavoriteToggle, validateFavoriteLog, id, dateList, recentQuery, summaryQuery, daysBefore };
+module.exports = { SLOTS, limits, isoDate, isNearToday, appToday, validateMeal, validateFavoriteToggle, validateFavoriteLog, id, dateList, recentQuery, summaryQuery, daysBefore };

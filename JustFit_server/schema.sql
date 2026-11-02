@@ -608,7 +608,8 @@ CREATE TABLE workout_days (
   variant_of    CHAR(36)          NULL,             -- an adapted day (At home / At center): the plan day it adapts
   place         ENUM('home', 'center') NULL,        -- the adapted day's place; NULL for the plan's own days
   program_session_id CHAR(36)     NULL,             -- a Fitness program session done on a date (fitness/programs.js)
-  place_key     VARCHAR(36)       AS (COALESCE(place, program_session_id, 'plan')) STORED,
+  retired_at    TIMESTAMP         NULL,             -- an adapted day kept for the history after the equipment changed; never reused
+  place_key     VARCHAR(48)       AS (IF(retired_at IS NULL, COALESCE(place, program_session_id, 'plan'), CONCAT('retired:', id))) STORED,
   created_at    TIMESTAMP         NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   UNIQUE KEY uq_workout_days_plan_weekday_place (plan_id, weekday, place_key),
@@ -840,6 +841,37 @@ CREATE TABLE coach_meal_options (
   CONSTRAINT fk_coach_meal_options_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
   CONSTRAINT chk_coach_meal_options_kcal CHECK (kcal BETWEEN 0 AND 5000),
   CONSTRAINT chk_coach_meal_options_macros CHECK (protein_g BETWEEN 0 AND 2000 AND carbs_g BETWEEN 0 AND 2000 AND fat_g BETWEEN 0 AND 2000)
+) ENGINE = InnoDB;
+
+-- The coach chat: one row per conversation (a new one starts when the member changes coach) and
+-- its messages, each kept 7 days from when it was written (coach/chatHistory.js deletes older
+-- ones). A send that failed is never saved; client_id is the app's id for one send, so a retry is
+-- answered once. The chat link is not a foreign key (see the cascade note); queries filter on user_id.
+CREATE TABLE coach_chats (
+  id           CHAR(36)          NOT NULL DEFAULT (UUID()),
+  user_id      VARCHAR(64)       NOT NULL,
+  coach        ENUM('arjun', 'priya', 'rohan', 'meera', 'aditya') NOT NULL,
+  created_at   TIMESTAMP(3)      NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (id),
+  KEY idx_coach_chats_user (user_id, created_at),
+  KEY idx_coach_chats_created (created_at),
+  CONSTRAINT fk_coach_chats_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+) ENGINE = InnoDB;
+
+CREATE TABLE coach_chat_messages (
+  id           BIGINT UNSIGNED   NOT NULL AUTO_INCREMENT,
+  user_id      VARCHAR(64)       NOT NULL,
+  chat_id      CHAR(36)          NOT NULL,
+  role         ENUM('member', 'coach') NOT NULL,
+  text         VARCHAR(1500)     NOT NULL,
+  proposals    JSON              NULL,      -- the plan changes a coach reply recommended
+  client_id    CHAR(36)          NOT NULL,  -- the app's id for the send (the message and its reply share it)
+  created_at   TIMESTAMP(3)      NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_coach_chat_messages_send (user_id, client_id, role),
+  KEY idx_coach_chat_messages_chat (user_id, chat_id, id),
+  KEY idx_coach_chat_messages_created (created_at),
+  CONSTRAINT fk_coach_chat_messages_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 ) ENGINE = InnoDB;
 
 -- Phone sign-in: codes sent by SMS. No foreign key: a code can be for a number that has no account yet.

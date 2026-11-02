@@ -70,7 +70,18 @@ export function goalTarget(
     );
   }
 
-  return { targetCalories: tdee + adjustment, warnings };
+  // A target the app can't save (outside the range a typed target may have) is brought inside it,
+  // so setup can always finish: a very small, inactive body would otherwise land under 1000 kcal
+  const { min, max } = config.safety.manualTarget;
+  let targetCalories = tdee + adjustment;
+  if (targetCalories < min) {
+    targetCalories = min;
+    warnings.push(`Your target was raised to ${min} kcal, the lowest justFit sets. Check with a doctor or dietitian before eating less.`);
+  } else if (targetCalories > max) {
+    targetCalories = max;
+    warnings.push(`Your target was capped at ${max} kcal, the highest justFit sets. A sports dietitian can plan above this.`);
+  }
+  return { targetCalories, warnings };
 }
 
 export function roundToStep(value: number, step: number) {

@@ -29,7 +29,11 @@ const numeric = (text: string) => text.replace(/[^\d.]/g, "").replace(/(\..*)\./
 // The editable copy of a scanned food: numbers as typed text
 type Row = { name: string; quantity: number; unit: string } & Record<MacroKey, string>;
 const toRow = (item: MealItem): Row => ({ name: item.name, quantity: item.quantity, unit: item.unit, kcal: String(whole(item.kcal)), proteinG: String(item.proteinG), carbsG: String(item.carbsG), fatG: String(item.fatG) });
-const num = (text: string) => (text.trim() === "" ? 0 : Number(text));
+// A lone "." reads as 0, never NaN
+const num = (text: string) => {
+  const n = Number(text);
+  return text.trim() === "" || !Number.isFinite(n) ? 0 : n;
+};
 
 // Logging by photo: pick or take a photo, the server asks OpenAI for an estimate of each
 // food on the plate, the member checks the numbers, and the meal is saved like a manual one.

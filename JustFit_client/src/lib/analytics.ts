@@ -42,7 +42,7 @@ let sending = false;
 let pausedUntil = 0;
 let lastScreen: string | null = null;
 
-function newId(): string {
+export function newId(): string {
   // crypto.randomUUID exists on the web and in Hermes (RN 0.7x+); fall back to a random v4 otherwise
   const c = globalThis.crypto as { randomUUID?: () => string } | undefined;
   if (c?.randomUUID) return c.randomUUID();

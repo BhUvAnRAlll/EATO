@@ -13,8 +13,8 @@ const { startTestServer } = require("./server.js");
 const { identitiesFor, describeIdentityError } = require("./test-identities.js");
 
 const MACRO_TABLES = ["macro_meal_items", "macro_meal_logs", "macro_favorite_foods", "macro_water_logs", "macro_hydration_days", "macro_hydration_preferences", "nutrition_targets", "profiles"];
-const utcDay = (offsetDays = 0) => new Date(Date.now() + offsetDays * 86400000).toISOString().slice(0, 10);
-const TODAY = utcDay();
+const { appDay } = require("./dates.js");
+const TODAY = appDay();
 const food = (over = {}) => ({ name: "Paneer tikka bowl", quantity: 350, unit: "g", kcal: 480, proteinG: 32, carbsG: 40, fatG: 18, ...over });
 
 describe("macro e2e: meals, the day view, favourites and who may see them", () => {
@@ -137,7 +137,7 @@ describe("macro e2e: meals, the day view, favourites and who may see them", () =
   }));
 
   it("4. the week strip grades each day against the target", run(async () => {
-    const dates = [utcDay(-2), utcDay(-1), TODAY];
+    const dates = [appDay(-2), appDay(-1), TODAY];
     const res = await api("GET", `/api/macro/progress?dates=${dates.join(",")}`, tokens.a);
     assert.equal(res.status, 200, JSON.stringify(res.json));
     assert.deepEqual(res.json.days.map((d) => [d.date, d.kcal, d.status]), [[dates[0], 0, "none"], [dates[1], 0, "none"], [TODAY, 820, "low"]]);
@@ -210,10 +210,10 @@ describe("macro e2e: meals, the day view, favourites and who may see them", () =
 
   it("9. other days, bad input and SQL in any field are 400s, never 500s, and write nothing", run(async () => {
     const before = await count("macro_meal_logs", "user_id = ?", [ids.a]);
-    const refused = await logMeal(tokens.a, { date: utcDay(-3) });
+    const refused = await logMeal(tokens.a, { date: appDay(-3) });
     assert.equal(refused.status, 400);
     assert.equal(refused.json.error, "Meals can only be logged for today");
-    assert.equal((await logMeal(tokens.a, { date: utcDay(3) })).status, 400, "nor the future");
+    assert.equal((await logMeal(tokens.a, { date: appDay(3) })).status, 400, "nor the future");
     for (const bad of [
       { items: [] }, { items: Array.from({ length: 51 }, () => food()) }, { slot: "brunch" }, { title: "  " },
       { items: [food({ kcal: 99999 })] }, { items: [food({ quantity: -1 })] }, { loggedAt: "now" },
@@ -249,10 +249,10 @@ describe("macro e2e: meals, the day view, favourites and who may see them", () =
       await connection.query("INSERT INTO macro_meal_logs (id, user_id, log_date, slot, title, logged_at) VALUES (?, ?, ?, 'lunch', 'seeded', NOW(3))", [id, userId, date]);
       await connection.query("INSERT INTO macro_meal_items (macro_meal_id, user_id, position, name, quantity, unit, kcal, protein_g, carbs_g, fat_g) VALUES (?, ?, 0, 'seeded', 1, 'serving', ?, ?, ?, ?)", [id, userId, kcal, p, c, f]);
     };
-    await seed(ids.a, utcDay(-1), 1500, 100, 150, 50);
-    await seed(ids.a, utcDay(-5), 1000, 60, 120, 30);
-    await seed(ids.a, utcDay(-20), 2100, 150, 200, 70); // inside the month, outside the week
-    await seed(ids.b, utcDay(-1), 4999, 999, 999, 999); // another member's day never counts
+    await seed(ids.a, appDay(-1), 1500, 100, 150, 50);
+    await seed(ids.a, appDay(-5), 1000, 60, 120, 30);
+    await seed(ids.a, appDay(-20), 2100, 150, 200, 70); // inside the month, outside the week
+    await seed(ids.b, appDay(-1), 4999, 999, 999, 999); // another member's day never counts
 
     // What the database says A ate on each of the last 30 days
     const [rows] = await connection.query(
@@ -260,7 +260,7 @@ describe("macro e2e: meals, the day view, favourites and who may see them", () =
       [ids.a],
     );
     const eaten = new Map(rows.map((r) => [r.d, { kcal: Number(r.kcal), p: Number(r.p) }]));
-    const sumOver = (days, key) => Array.from({ length: days }, (_, i) => eaten.get(utcDay(-i))?.[key] ?? 0).reduce((a, b) => a + b, 0);
+    const sumOver = (days, key) => Array.from({ length: days }, (_, i) => eaten.get(appDay(-i))?.[key] ?? 0).reduce((a, b) => a + b, 0);
 
     for (const [period, days] of [["today", 1], ["week", 7], ["month", 30]]) {
       const res = await api("GET", `/api/macro/summary?period=${period}&today=${TODAY}`, tokens.a);
@@ -272,7 +272,7 @@ describe("macro e2e: meals, the day view, favourites and who may see them", () =
       assert.equal(summary.avg.proteinG, Math.round((sumOver(days, "p") / days) * 10) / 10, `${period}: average protein per day`);
       assert.deepEqual(summary.targets, { kcal: 2000, proteinG: 150, carbsG: 200, fatG: 60 });
       // The trend is always the last 7 days, oldest first, whatever the period
-      assert.deepEqual(summary.trend.map((d) => d.date), Array.from({ length: 7 }, (_, i) => utcDay(i - 6)));
+      assert.deepEqual(summary.trend.map((d) => d.date), Array.from({ length: 7 }, (_, i) => appDay(i - 6)));
       assert.equal(summary.trend[5].kcal, 1500, "yesterday");
       assert.equal(summary.trend[1].kcal, 1000, "five days ago");
       assert.equal(summary.trendAvg, Math.round(summary.trend.reduce((a, d) => a + d.kcal, 0) / 7));
@@ -310,7 +310,7 @@ describe("macro e2e: meals, the day view, favourites and who may see them", () =
     assert.equal(res.json.error, "Too many meals logged for one day");
   }));
 
-  it("12. targets: read, set by hand (typed macros win, the rest follow the goal), limits and reset", run(async () => {
+  it("12. targets: read, set by hand (typed macros win, the rest share what's left of the calories), limits and reset", run(async () => {
     const inputs = JSON.stringify({ age: 30, gender: "female", heightCm: 165, weightKg: 70, activityLevel: "lightly_active", fitnessGoal: "fat_loss" });
     const calculated = JSON.stringify({ rmrFormula: "mifflin_st_jeor", report: null, rmr: 1400, tdee: 1925, targetCalories: 1525, displayCalories: 1550, macros: { proteinG: 140, carbsG: 146, fatG: 43 } });
     await connection.query("UPDATE nutrition_targets SET inputs = ?, calculated = ?, calories = 2000, protein_g = 150, carbs_g = 200, fat_g = 60, source = 'calculated', reason = NULL, set_by = NULL WHERE user_id = ?", [inputs, calculated, ids.a]);
@@ -335,9 +335,14 @@ describe("macro e2e: meals, the day view, favourites and who may see them", () =
     assert.equal(set.status, 200, JSON.stringify(set.json));
     assert.deepEqual({ kcal: set.json.kcal, p: set.json.proteinG, c: set.json.carbsG, f: set.json.fatG, isManual: set.json.isManual, canReset: set.json.canReset }, { kcal: 2200, p: 138, c: 275, f: 61, isManual: true, canReset: true });
     assert.deepEqual(await row(ids.a), { calories: 2200, protein_g: 138, carbs_g: 275, fat_g: 61, source: "user_adjusted", reason: "Set on the Macro tab", set_by: ids.a });
-    // A typed macro wins; the ones left out keep the split
+    // A typed macro wins; the ones left out share the calories left after it, in the goal's
+    // proportions (1560 kcal: carbs 1100 : fat 549), so the target still adds up to 2200
     const typed = await api("PUT", "/api/macro/targets", tokens.a, { kcal: 2200, proteinG: 160.4 });
-    assert.deepEqual({ p: typed.json.proteinG, c: typed.json.carbsG, f: typed.json.fatG }, { p: 160, c: 275, f: 61 });
+    assert.deepEqual({ p: typed.json.proteinG, c: typed.json.carbsG, f: typed.json.fatG }, { p: 160, c: 260, f: 58 });
+    // Typed macros that come to far more than the calories are refused
+    const over = await api("PUT", "/api/macro/targets", tokens.a, { kcal: 2000, proteinG: 300, carbsG: 300, fatG: 100 });
+    assert.equal(over.status, 400, JSON.stringify(over.json));
+    assert.match(over.json.error, /add up to 3300 kcal, not 2000/);
 
     // Limits and bad input: 400s that change nothing
     const kept = await row(ids.a);
@@ -402,11 +407,11 @@ describe("macro e2e: meals, the day view, favourites and who may see them", () =
     // The day keeps the target it showed even when the profile changes
     await connection.query("UPDATE profiles SET weight_kg = 50 WHERE user_id = ?", [ids.a]);
     assert.equal((await day(tokens.a)).targetMl, 3200);
-    assert.equal((await day(tokens.a, utcDay(-1))).targetMl, 2300, "a day with nothing logged shows today's estimate (50 × 30 + 750 = 2.25 → 2.3 L)");
+    assert.equal((await day(tokens.a, appDay(-1))).targetMl, 2300, "a day with nothing logged shows today's estimate (50 × 30 + 750 = 2.25 → 2.3 L)");
 
     // Today only, and bad input is refused
     for (const [body, pattern] of [
-      [{ date: utcDay(-3), amountMl: 250 }, /only be logged for today/], [{ date: utcDay(3), amountMl: 250 }, /only be logged for today/],
+      [{ date: appDay(-3), amountMl: 250 }, /only be logged for today/], [{ date: appDay(3), amountMl: 250 }, /only be logged for today/],
       [{ date: TODAY }, /how much water/], [{ date: TODAY, amountMl: "250" }, /how much water/], [{ date: TODAY, amountMl: 250, source: "workout" }, /source/],
       [{ date: TODAY, amountMl: 250, userId: ids.b }, /unexpected field: userId/], [{ date: "2026-10-14' OR 1=1", amountMl: 250 }, /YYYY-MM-DD/], [{ date: TODAY, amountMl: 250, label: 5 }, /label/],
     ]) {
@@ -428,8 +433,8 @@ describe("macro e2e: meals, the day view, favourites and who may see them", () =
     assert.equal(a.consumedMl, 260);
     assert.equal((await connection.query("SELECT consumed_ml FROM macro_hydration_days WHERE user_id = ? AND log_date = ?", [ids.a, TODAY]))[0][0].consumed_ml, 260, "the cache follows removals");
     // A past day's entry can't be removed
-    await connection.query("INSERT INTO macro_water_logs (id, user_id, log_date, amount_ml) VALUES (UUID(), ?, ?, 500)", [ids.a, utcDay(-3)]);
-    const [[old]] = await connection.query("SELECT id FROM macro_water_logs WHERE user_id = ? AND log_date = ?", [ids.a, utcDay(-3)]);
+    await connection.query("INSERT INTO macro_water_logs (id, user_id, log_date, amount_ml) VALUES (UUID(), ?, ?, 500)", [ids.a, appDay(-3)]);
+    const [[old]] = await connection.query("SELECT id FROM macro_water_logs WHERE user_id = ? AND log_date = ?", [ids.a, appDay(-3)]);
     assert.equal((await api("DELETE", `/api/macro/water/${old.id}`, tokens.a)).status, 400);
     assert.equal((await day(tokens.b)).entries.length, 0, "B sees none of A's water");
 

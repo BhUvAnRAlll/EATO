@@ -167,3 +167,10 @@ describe("validateHomeContent", () => {
     rejectsContent({ ...validContent(), popularHeading: "x".repeat(41) }, /too long/);
   });
 });
+
+describe("home destinations", () => {
+  it("Community was removed, so nothing can point at it", () => {
+    const { DESTINATIONS } = require("../home.js");
+    assert.equal(DESTINATIONS.includes("community"), false);
+  });
+});

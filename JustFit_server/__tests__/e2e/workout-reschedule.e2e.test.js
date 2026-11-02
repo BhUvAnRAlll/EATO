@@ -14,9 +14,9 @@ const { startTestServer } = require("./server.js");
 const { identitiesFor, describeIdentityError } = require("./test-identities.js");
 
 const WORKOUT_TABLES = ["workout_set_logs", "workout_logs", "workout_day_overrides", "workout_day_exercises", "workout_days", "workout_plans", "workout_profiles", "profiles"];
-const utcDay = (offsetDays = 0) => new Date(Date.now() + offsetDays * 86400000).toISOString().slice(0, 10);
+const { appDay } = require("./dates.js");
 const weekdayOf = (iso) => new Date(`${iso}T00:00:00Z`).getUTCDay();
-const TODAY = utcDay();
+const TODAY = appDay();
 
 describe("workout e2e: moving a missed session to today and swapping days", () => {
   const runId = crypto.randomBytes(4).toString("hex");
@@ -111,28 +111,28 @@ describe("workout e2e: moving a missed session to today and swapping days", () =
 
   it("1. both routes need a valid session and write nothing without one", run(async () => {
     for (const token of [null, "not-a-jwt", "eyJhbGciOiJSUzI1NiJ9.e30.invalid"]) {
-      assert.equal((await move(token, { from: utcDay(-1), today: TODAY })).status, 401);
-      assert.equal((await swap(token, { a: TODAY, b: utcDay(1), today: TODAY })).status, 401);
+      assert.equal((await move(token, { from: appDay(-1), today: TODAY })).status, 401);
+      assert.equal((await swap(token, { a: TODAY, b: appDay(1), today: TODAY })).status, 401);
     }
     assert.equal(await count("workout_day_overrides", "1 = ?", [1]), 0);
   }));
 
   it("2. with no plan yet, both answer \"No active plan\"", run(async () => {
-    refused(await move(tokens.a, { from: utcDay(-1), today: TODAY }), "No active plan");
-    refused(await swap(tokens.a, { a: TODAY, b: utcDay(1), today: TODAY }), "No active plan");
+    refused(await move(tokens.a, { from: appDay(-1), today: TODAY }), "No active plan");
+    refused(await swap(tokens.a, { a: TODAY, b: appDay(1), today: TODAY }), "No active plan");
 
     // Now give both members a plan that has been running for a month
     for (const tag of ["a", "b"]) assert.ok([200, 201].includes((await ensure(tokens[tag])).status));
     const [[plan]] = await connection.query("SELECT id FROM workout_plans WHERE user_id = ? AND status = 'active'", [ids.a]);
     state.planA = plan.id;
-    await connection.query("UPDATE workout_plans SET start_date = ? WHERE user_id IN (?)", [utcDay(-30), [ids.a, ids.b]]);
+    await connection.query("UPDATE workout_plans SET start_date = ? WHERE user_id IN (?)", [appDay(-30), [ids.a, ids.b]]);
     const [days] = await connection.query("SELECT id, weekday FROM workout_days WHERE user_id = ?", [ids.a]);
     state.dayOf = (iso) => days.find((d) => d.weekday === weekdayOf(iso))?.id ?? null;
     state.anyDayA = days[0].id;
     const [[dayB]] = await connection.query("SELECT id FROM workout_days WHERE user_id = ? LIMIT 1", [ids.b]);
     state.anyDayB = dayB.id;
-    const past = Array.from({ length: 13 }, (_, i) => utcDay(-(i + 1)));
-    const future = Array.from({ length: 13 }, (_, i) => utcDay(i + 1));
+    const past = Array.from({ length: 13 }, (_, i) => appDay(-(i + 1)));
+    const future = Array.from({ length: 13 }, (_, i) => appDay(i + 1));
     state.pastScheduled = past.filter((d) => state.dayOf(d));
     state.pastRest = past.filter((d) => !state.dayOf(d));
     state.futureScheduled = future.filter((d) => state.dayOf(d));
@@ -164,9 +164,9 @@ describe("workout e2e: moving a missed session to today and swapping days", () =
   it("4. move refuses each case with the spec's words", run(async () => {
     const [missed, done] = state.pastScheduled;
     refused(await move(tokens.a, { from: TODAY, today: TODAY }), "Only a past session can be moved");
-    refused(await move(tokens.a, { from: utcDay(1), today: TODAY }), "Only a past session can be moved");
+    refused(await move(tokens.a, { from: appDay(1), today: TODAY }), "Only a past session can be moved");
     refused(await move(tokens.a, { from: state.pastRest[0], today: TODAY }), "Nothing was scheduled that day");
-    refused(await move(tokens.a, { from: utcDay(-40), today: TODAY }), "Only a session from the last month can be moved");
+    refused(await move(tokens.a, { from: appDay(-40), today: TODAY }), "Only a session from the last month can be moved");
 
     await log(ids.a, done, state.dayOf(done), "completed");
     refused(await move(tokens.a, { from: done, today: TODAY }), "That session is already done");
@@ -205,9 +205,9 @@ describe("workout e2e: moving a missed session to today and swapping days", () =
     const overridesBefore = await count("workout_day_overrides", "user_id = ?", [ids.a]);
 
     refused(await swap(tokens.a, { a: TODAY, b: TODAY, today: TODAY }), "Pick two different dates");
-    refused(await swap(tokens.a, { a: TODAY, b: utcDay(-1), today: TODAY }), "A past session cannot be swapped");
+    refused(await swap(tokens.a, { a: TODAY, b: appDay(-1), today: TODAY }), "A past session cannot be swapped");
     refused(await swap(tokens.a, { a: TODAY, b: state.futureRest[0], today: TODAY }), "Both days need a session to swap");
-    refused(await swap(tokens.a, { a: TODAY, b: utcDay(20), today: TODAY }), "Pick a date in the next two weeks");
+    refused(await swap(tokens.a, { a: TODAY, b: appDay(20), today: TODAY }), "Pick a date in the next two weeks");
 
     await log(ids.a, later, state.dayOf(later), "in_progress");
     refused(await swap(tokens.a, { a: TODAY, b: later, today: TODAY }), "A session already under way cannot be swapped");
@@ -220,7 +220,7 @@ describe("workout e2e: moving a missed session to today and swapping days", () =
 
   it("7. another member's day is never copied, and one member's change never touches another's", run(async () => {
     // A stray row under B points a past date at A's day: B can't move it onto today
-    const stray = utcDay(-2);
+    const stray = appDay(-2);
     await connection.query("INSERT INTO workout_day_overrides (user_id, on_date, day_id) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE day_id = VALUES(day_id)", [ids.b, stray, state.anyDayA]);
     refused(await move(tokens.b, { from: stray, today: TODAY }), "Nothing was scheduled that day");
     assert.equal(await overrideOf(ids.b, TODAY), null);
@@ -234,7 +234,7 @@ describe("workout e2e: moving a missed session to today and swapping days", () =
     // B's own move writes only B's rows
     const aOverrides = await count("workout_day_overrides", "user_id = ?", [ids.a]);
     const [[bPast]] = await connection.query("SELECT weekday, id FROM workout_days WHERE user_id = ? LIMIT 1", [ids.b]);
-    const bMissed = Array.from({ length: 7 }, (_, i) => utcDay(-(i + 1))).find((d) => weekdayOf(d) === bPast.weekday);
+    const bMissed = Array.from({ length: 7 }, (_, i) => appDay(-(i + 1))).find((d) => weekdayOf(d) === bPast.weekday);
     await clearDates(ids.b, [TODAY, stray, strayLater]);
     const ok = await move(tokens.b, { from: bMissed, today: TODAY });
     assert.equal(ok.status, 200, JSON.stringify(ok.json));
@@ -254,17 +254,17 @@ describe("workout e2e: moving a missed session to today and swapping days", () =
 
   it("9. bad input is refused with one friendly line and changes nothing", run(async () => {
     const before = await count("workout_day_overrides", "1 = ?", [1]);
-    refused(await move(tokens.a, { from: utcDay(-1), today: TODAY, userId: ids.b }), /Unexpected field: userId/);
-    refused(await swap(tokens.a, { a: TODAY, b: utcDay(1), today: TODAY, dayId: state.anyDayA }), /Unexpected field: dayId/);
-    refused(await move(tokens.a, [utcDay(-1)]), /\{ from, today \}/);
+    refused(await move(tokens.a, { from: appDay(-1), today: TODAY, userId: ids.b }), /Unexpected field: userId/);
+    refused(await swap(tokens.a, { a: TODAY, b: appDay(1), today: TODAY, dayId: state.anyDayA }), /Unexpected field: dayId/);
+    refused(await move(tokens.a, [appDay(-1)]), /\{ from, today \}/);
     refused(await move(tokens.a, { from: "yesterday", today: TODAY }), /YYYY-MM-DD/);
     refused(await move(tokens.a, { from: "2026-01-01' OR '1'='1", today: TODAY }), /YYYY-MM-DD/);
     refused(await swap(tokens.a, { a: TODAY, b: "1); DROP TABLE workout_day_overrides; --", today: TODAY }), /YYYY-MM-DD/);
     refused(await swap(tokens.a, { a: TODAY, b: "2026-02-30", today: TODAY }), /real day/);
-    refused(await move(tokens.a, { from: utcDay(-1), today: utcDay(-5) }), /server's date/);
-    refused(await swap(tokens.a, { a: TODAY, b: utcDay(1) }), /Today/);
+    refused(await move(tokens.a, { from: appDay(-1), today: appDay(-5) }), /server's date/);
+    refused(await swap(tokens.a, { a: TODAY, b: appDay(1) }), /Today/);
     assert.equal((await move(tokens.a, "{not json")).status, 400);
-    assert.equal((await move(tokens.a, JSON.stringify({ from: utcDay(-1), today: TODAY, pad: "x".repeat(8 * 1024) }))).status, 413, "an oversized body is refused");
+    assert.equal((await move(tokens.a, JSON.stringify({ from: appDay(-1), today: TODAY, pad: "x".repeat(8 * 1024) }))).status, 413, "an oversized body is refused");
     assert.equal(await count("workout_day_overrides", "1 = ?", [1]), before, "nothing was written and the table is intact");
   }));
 });

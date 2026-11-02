@@ -14,7 +14,9 @@ const { startTestServer } = require("./server.js");
 const { identitiesFor, describeIdentityError } = require("./test-identities.js");
 
 const WORKOUT_TABLES = ["workout_set_logs", "workout_logs", "workout_day_overrides", "workout_day_exercises", "workout_days", "workout_plans", "workout_profiles", "ai_usage", "profiles"];
-const TODAY = new Date().toISOString().slice(0, 10);
+const { appDay } = require("./dates.js");
+
+const TODAY = appDay();
 const weekdayOf = (iso) => new Date(`${iso}T00:00:00Z`).getUTCDay();
 
 describe("workout e2e: At home / At center", () => {
@@ -173,5 +175,29 @@ describe("workout e2e: At home / At center", () => {
     assert.equal(none.status, 400);
     assert.equal(none.json.error, "No active plan");
     assert.equal(await overrideOf(TODAY), state.variantId, "A's day is untouched");
+  }));
+
+  it("7. new equipment: a past date keeps its adapted day (retired, in the history), today and later adapt again", run(async () => {
+    // A past date ran the home version (a missed session that belongs in the history)
+    const [[{ past }]] = await connection.query("SELECT DATE_FORMAT(CURDATE() - INTERVAL 7 DAY, '%Y-%m-%d') AS past");
+    await connection.query("INSERT INTO workout_day_overrides (user_id, on_date, day_id) VALUES (?, ?, ?)", [ids.a, past, state.variantId]);
+    const saved = await api("PUT", "/api/fitness/equipment", tokens.a, { home: "some", center: "full_gym" });
+    assert.equal(saved.status, 200, JSON.stringify(saved.json));
+
+    assert.equal(await overrideOf(past), state.variantId, "the past date still points at the day it ran");
+    const [[kept]] = await connection.query("SELECT retired_at FROM workout_days WHERE id = ?", [state.variantId]);
+    assert.ok(kept?.retired_at, "the old home version is kept, retired");
+    assert.equal(await overrideOf(TODAY), null, "today no longer runs the old home version");
+
+    // At home again: a new version for the new equipment, never the retired one
+    const again = await setPlace(tokens.a, { today: TODAY, place: "home" });
+    assert.equal(again.status, 200, JSON.stringify(again.json));
+    assert.notEqual(again.json.dayId, state.variantId);
+    assert.equal(await count("ai_usage", "user_id = ? AND feature = 'workout_place'", [ids.a]), 2, "adapted again for the new kit");
+
+    // Unused adapted days are removed outright: change again, with no past date on the new one
+    await api("PUT", "/api/fitness/equipment", tokens.a, { home: "none", center: "full_gym" });
+    assert.equal(await count("workout_days", "id = ?", [again.json.dayId]), 0, "never used before today: removed");
+    assert.equal(await count("workout_days", "id = ?", [state.variantId]), 1, "the retired one stays for the history");
   }));
 });

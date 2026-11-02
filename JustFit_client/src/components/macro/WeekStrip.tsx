@@ -6,9 +6,9 @@ import { fonts } from "@/constants/fonts";
 import { type DayProgress, type DayStatus } from "@/lib/macro";
 import { useThemeColors, Palette } from "@/theme";
 
-export const statusColor = (colors: Palette): Record<DayStatus, string> => ({ none: colors.creamLine, complete: colors.success, partial: colors.warning, low: colors.danger });
+export const statusColor = (colors: Palette): Record<DayStatus, string> => ({ none: colors.creamLine, complete: colors.success, partial: colors.warning, low: colors.danger, over: colors.danger });
 // The picked day's number follows the day's standing
-const statusText = (colors: Palette): Record<DayStatus, string> => ({ none: colors.ink, complete: colors.success, partial: colors.warning, low: colors.danger });
+const statusText = (colors: Palette): Record<DayStatus, string> => ({ none: colors.ink, complete: colors.success, partial: colors.warning, low: colors.danger, over: colors.danger });
 
 // "Mon" from "2026-10-26"
 const weekdayShort = (date: string) => new Date(`${date}T00:00:00`).toLocaleDateString("en-US", { weekday: "short" });
@@ -48,7 +48,7 @@ export function WeekStrip({ week, selectedDate, today, progress, onSelect, width
             style={{ width: column, gap: 10, opacity: future ? 0.4 : 1 }}
             accessibilityRole="button"
             accessibilityState={{ selected }}
-            accessibilityLabel={`${date}${date === today ? ", today" : ""}${status === "none" ? ", nothing logged" : `, ${Math.round((day?.ratio ?? 0) * 100)}% of target`}`}
+            accessibilityLabel={`${date}${date === today ? ", today" : ""}${status === "none" ? ", nothing logged" : `, ${Math.round((day?.ratio ?? 0) * 100)}% of target${status === "over" ? ", over target" : ""}`}`}
           >
             <Text className="macro__weekday" style={selected ? { color: colors.ink, fontFamily: fonts.semibold } : undefined}>{weekdayShort(date)}</Text>
             <Ring size={ring} stroke={stroke} progress={status === "none" ? 0 : Math.max(0.08, day?.ratio ?? 0)} color={statusColor(colors)[status]} trackColor={selected && status === "none" ? colors.lineStrong : colors.creamLine} dashed={status === "none"}>

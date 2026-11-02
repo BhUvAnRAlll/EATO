@@ -47,6 +47,11 @@ async function pricing(pool) {
   return priceCache;
 }
 
+/** Does the admin's price table have this model? A call on an unpriced model would be counted at ₹0 */
+async function hasPrice(pool, model) {
+  return (await pricing(pool)).byModel.has(model);
+}
+
 /** What a call with these tokens costs right now, in rupees (the admin's price table and rate) */
 async function priceCall(pool, { model, inputTokens = 0, outputTokens = 0, cachedInputTokens = 0 }) {
   const { byModel, usdToInr } = await pricing(pool);
@@ -179,4 +184,4 @@ const resetPriceCache = () => {
 // The budget screen saved a new rate: new rows use it at once
 const refreshPricing = resetPriceCache;
 
-module.exports = { recordAiUsage, priceCall, tracker, checkAlerts, budgetStatus, settings, monthSpend, resetPriceCache, refreshPricing };
+module.exports = { recordAiUsage, hasPrice, priceCall, tracker, checkAlerts, budgetStatus, settings, monthSpend, resetPriceCache, refreshPricing };

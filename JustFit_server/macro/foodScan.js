@@ -168,7 +168,16 @@ async function scanFood(params, env = process.env, usage = null) {
     cachedInputTokens: models.cachedTokensOf(response), status: usable ? "ok" : "refused",
   });
   if (!usable) throw new FoodScanError("We couldn't read that photo. Try another photo or log it by hand.", 422);
-  return normalizeFoodScan(JSON.parse(response.output_text));
+  return normalizeFoodScan(parseAnswer(response.output_text, "We couldn't read that photo. Try another photo or log it by hand."));
+}
+
+// An unreadable answer is the model failing: the friendly 422, never a 500
+function parseAnswer(text, message) {
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new FoodScanError(message, 422);
+  }
 }
 
 // ---- one food from its name and amount (Manual Entry's "Estimate with AI") ----------------
@@ -254,7 +263,7 @@ async function estimateFood({ name, quantity, unit }, env = process.env, usage =
     cachedInputTokens: models.cachedTokensOf(response), status: usable ? "ok" : "refused",
   });
   if (!usable) throw new FoodScanError("We couldn't estimate that food. Type the numbers yourself.", 422);
-  return normalizeEstimate(JSON.parse(response.output_text));
+  return normalizeEstimate(parseAnswer(response.output_text, "We couldn't estimate that food. Type the numbers yourself."));
 }
 
 module.exports = { FoodScanError, scanLimits, checkFoodPhoto, normalizeFoodScan, scanFood, checkEstimateRequest, normalizeEstimate, estimateFood };

@@ -1,6 +1,6 @@
 // Input checks for the workout routes. Every problem is a ValidationError (400) with one
 // line the screen can show. Dates are the member's local day as YYYY-MM-DD; the server only
-// checks that "today" is within a day of its own UTC date (every time zone fits).
+// checks that "today" is the app's day in India (macro/validate.js isNearToday).
 const { ValidationError } = require("../profile");
 const { isoDate, isNearToday } = require("../macro/validate");
 

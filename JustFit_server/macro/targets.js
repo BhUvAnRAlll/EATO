@@ -59,6 +59,40 @@ function validateManual(body) {
   return { kcal: Math.round(body.kcal), grams };
 }
 
+// How far typed macros may add up from the calories (4 kcal a gram of protein or carbs, 9 of fat)
+const MACRO_TOLERANCE = 0.1;
+const KCAL_PER_G = { proteinG: 4, carbsG: 4, fatG: 9 };
+const kcalOf = (macros) => Object.entries(macros).reduce((sum, [key, g]) => sum + g * KCAL_PER_G[key], 0);
+
+/**
+ * The macros for `kcal` when the member typed some of them (`typed`): the typed grams stay, and
+ * the calories left over are shared by the others in the goal split's proportions (`split`, the
+ * calculator's macros for these calories). Throws a ValidationError when the typed grams alone
+ * come to more than the calories, or all three are typed and don't add up to them (10% either way).
+ */
+function rebalance(split, typed, kcal) {
+  const keys = ["proteinG", "carbsG", "fatG"];
+  const typedKcal = kcalOf(typed);
+  const open = keys.filter((key) => typed[key] === undefined);
+  if (open.length === 0) {
+    if (Math.abs(typedKcal - kcal) > kcal * MACRO_TOLERANCE) {
+      throw new ValidationError(`Your macros add up to ${Math.round(typedKcal)} kcal, not ${kcal}. Change the calories or leave one macro empty to fill itself in.`);
+    }
+    return { ...typed };
+  }
+  if (typedKcal > kcal * (1 + MACRO_TOLERANCE)) {
+    throw new ValidationError(`Those macros alone come to ${Math.round(typedKcal)} kcal, more than your ${kcal} kcal target.`);
+  }
+  const left = Math.max(0, kcal - typedKcal);
+  const share = kcalOf(Object.fromEntries(open.map((key) => [key, split[key]])));
+  const result = { ...typed };
+  for (const key of open) {
+    const part = share > 0 ? (split[key] * KCAL_PER_G[key]) / share : 1 / open.length;
+    result[key] = Math.round((left * part) / KCAL_PER_G[key]);
+  }
+  return result;
+}
+
 async function save(pool, userId, record) {
   const { calories, macros, source, reason } = record.active;
   await pool.query(
@@ -73,8 +107,8 @@ async function setManual(pool, userId, body) {
   if (!record) throw new ValidationError("Complete your profile before adjusting targets");
   const result = nutrition.applyUserAdjustment(record, kcal, REASON, userId);
   if (!result.ok) throw new ValidationError(result.error);
-  // Typed macros replace the goal split; the rest keep it
-  result.record.active.macros = { ...result.record.active.macros, ...grams };
+  // Typed macros replace the goal split; the rest share what's left of the calories
+  result.record.active.macros = rebalance(result.record.active.macros, grams, kcal);
   await save(pool, userId, result.record);
   return toStatus(result.record);
 }
@@ -88,4 +122,4 @@ async function reset(pool, userId) {
   return toStatus(result.record);
 }
 
-module.exports = { status, setManual, reset, validateManual, recordFor, save };
+module.exports = { status, setManual, reset, validateManual, rebalance, recordFor, save };

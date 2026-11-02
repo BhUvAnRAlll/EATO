@@ -124,7 +124,8 @@ describe("coach plan: Swap Meal options (five dishes for one meal, made for the 
     assert.equal(plan.optionTargetKcal(375, 1200), 375);
     assert.equal(plan.optionTargetKcal(375, 200), 200);
     assert.equal(plan.optionTargetKcal(375, 100), 188, "half the meal is the floor");
-    assert.equal(plan.optionTargetKcal(375, -50), 375, "a day already over: the meal's own size (the brief says to keep it light)");
+    assert.equal(plan.optionTargetKcal(375, -50), 281, "a day already over: a quarter lighter, never scaled up to the old meal");
+    assert.equal(plan.optionTargetKcal(375, 0), 281, "a day exactly used up is over too");
     assert.equal(plan.optionTargetKcal(375, 1200, "lighter"), 281);
     assert.equal(plan.optionTargetKcal(375, 250, "lighter"), 250);
   });
@@ -188,6 +189,6 @@ describe("coach plan: Swap Meal options (five dishes for one meal, made for the 
     assert.deepEqual(plan.editedItems(items, [0, 0]), []);
     assert.throws(() => plan.storedItems("[]"), (e) => e.status === 502);
     assert.throws(() => plan.storedItems(JSON.stringify([{ name: "", quantity: 1, unit: "g", kcal: 1, proteinG: 0, carbsG: 0, fatG: 0 }])), (e) => e.status === 502);
-    assert.deepEqual(plan.storedItems(JSON.stringify([{ name: "Rice", quantity: -5, unit: "stone", kcal: 99999, proteinG: "x", carbsG: 3, fatG: 1 }])), [{ name: "Rice", quantity: 1, unit: "piece", kcal: 5000, proteinG: 0, carbsG: 3, fatG: 1 }]);
+    assert.deepEqual(plan.storedItems(JSON.stringify([{ name: "Rice", quantity: -5, unit: "stone", kcal: 99999, proteinG: "x", carbsG: 3, fatG: 1 }])), [{ name: "Rice", quantity: 1, unit: "piece", kcal: 21, proteinG: 0, carbsG: 3, fatG: 1 }], "an impossible calorie count follows the macros");
   });
 });

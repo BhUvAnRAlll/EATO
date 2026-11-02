@@ -14,7 +14,7 @@ import { TodayRingsCard } from "@/components/home/TodayRingsCard";
 import { WeeklyActivityCard } from "@/components/home/WeeklyActivityCard";
 import { WorkoutHeroCard } from "@/components/home/WorkoutHeroCard";
 import { usePullToRefresh } from "@/components/PullToRefresh";
-import { routeFor, sampleDeliveryPincode, sampleMeals, sampleNutrition, sampleTodayOrder } from "@/data/home";
+import { routeFor, sampleNutrition, sampleTodayOrder } from "@/data/home";
 import { formatShortDate } from "@/lib/date";
 import { todayIso } from "@/lib/macro";
 import { firstNameOf } from "@/lib/me";
@@ -103,7 +103,8 @@ export default function Home() {
   // narrow phones get two per row (the row wraps, keeping the admin's order)
   const perRow = Math.min(width < 360 ? 2 : 4, Math.max(1, quickActions.length));
   const quickWidth = Math.floor((contentWidth - GAP * (perRow - 1)) / perRow);
-  const popularMeals = content.popularMeals.length > 0 ? content.popularMeals : sampleMeals;
+  // Only meals the admin picked: sample meals shown as "popular" would read as real ones
+  const popularMeals = content.popularMeals;
   const mealWidth = Math.round(Math.min(200, Math.max(150, contentWidth * 0.5)));
 
   return (
@@ -113,8 +114,9 @@ export default function Home() {
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 16 }} refreshControl={refreshControl}>
           <HomeHeader
             name={firstName}
-            pincode={sampleDeliveryPincode}
-            hasUnread
+            // No delivery address or notifications exist yet: no made-up pincode, no unread dot
+            pincode={null}
+            hasUnread={false}
             onLocationPress={() => router.push("/addresses")}
             onNotificationsPress={() => router.push("/notifications")}
             onProfilePress={() => router.push("/profile")}
@@ -152,27 +154,31 @@ export default function Home() {
             </View>
           )}
 
-          {/* Popular meals */}
-          <View className="mt-5 px-4">
-            <SectionHeader title={content.popularHeading} actionLabel={content.popularActionLabel} onAction={() => router.navigate("/meals")} />
-          </View>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: PAGE_PADDING, paddingVertical: 12, gap: 12 }}
-          >
-            {popularMeals.map((meal) => (
-              <PopularMealCard
-                key={meal.id}
-                meal={meal}
-                width={mealWidth}
-                favorite={favorites.includes(meal.id)}
-                quantity={cart.items[meal.id] ?? 0}
-                onToggleFavorite={() => toggleFavorite(meal.id)}
-                onAdd={() => cart.add(meal.id)}
-              />
-            ))}
-          </ScrollView>
+          {/* Popular meals (only when the admin has picked some) */}
+          {popularMeals.length > 0 && (
+            <>
+              <View className="mt-5 px-4">
+                <SectionHeader title={content.popularHeading} actionLabel={content.popularActionLabel} onAction={() => router.navigate("/meals")} />
+              </View>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ paddingHorizontal: PAGE_PADDING, paddingVertical: 12, gap: 12 }}
+              >
+                {popularMeals.map((meal) => (
+                  <PopularMealCard
+                    key={meal.id}
+                    meal={meal}
+                    width={mealWidth}
+                    favorite={favorites.includes(meal.id)}
+                    quantity={cart.items[meal.id] ?? 0}
+                    onToggleFavorite={() => toggleFavorite(meal.id)}
+                    onAdd={() => cart.add(meal.id)}
+                  />
+                ))}
+              </ScrollView>
+            </>
+          )}
 
           {/* Today's delivery (sample until orders exist) */}
           {content.showTodaySection && (

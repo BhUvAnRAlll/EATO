@@ -54,15 +54,16 @@ export type MealReplaced = PlanState & { mealId: string; undoId: string; replace
 export type PlanWorkout = { level: string; daysPerWeek: number; sessions: { weekday: number; title: string; minutes: number; exerciseCount: number }[] };
 export type PlanState = { state: "none" | "ready"; plan: CoachPlan | null; workout: PlanWorkout | null };
 
-// One line of the coach chat (POST /api/coach/chat). The server keeps no history: the app sends
-// the last CHAT_TURNS lines each time (the server shows the model the newest ten of them).
+// One line of the coach chat. The server saves the conversation for 7 days (GET /api/coach/chat
+// reads it back) and gives the coach its own saved copy as context: the app sends only the new message.
 export type ChatLine = { role: "member" | "coach"; text: string };
+// A saved line: the server's id, a reply's plan changes, and when it was written (ISO)
+export type ChatMessage = ChatLine & { id: string; proposals?: ChatProposals; createdAt: string };
 // A change to the plan the coach recommended in a reply, which the member can apply from the chat.
 // A meal's `option` is stored on the server like a Swap Meal option, so applying it is replaceMeal.
 export type MealProposal = { mealId: string; slot: PlanSlot; time: string; current: { name: string; totals: Totals }; option: MealOption };
 export type WorkoutProposal = { weekdays: number[]; sessionMinutes: number; current: { weekdays: number[]; sessionMinutes: number } };
 export type ChatProposals = { meals: MealProposal[]; workout: WorkoutProposal | null };
-export const CHAT_TURNS = 12;
 export const CHAT_MAX_TEXT = 1000;
 
 const signedOut = <T>(): Promise<ApiResult<T>> => Promise.resolve({ ok: false, error: "Please sign in again." });
@@ -119,9 +120,15 @@ export const coachApi = {
     if (!token) return signedOut();
     return apiFetch("/api/coach/plan/workout", { method: "POST", body: { today, weekdays, sessionMinutes }, token });
   },
-  // The coach's reply to the conversation so far (ending with the member's new message), with any plan changes it recommends
-  chat(token: string | null, messages: ChatLine[], date: string): Promise<ApiResult<{ reply: string; proposals?: ChatProposals }>> {
+  // The member's coach and their current conversation with them, oldest first (the last 7 days)
+  chatHistory(token: string | null): Promise<ApiResult<{ coach: CoachId | null; messages: ChatMessage[] }>> {
     if (!token) return signedOut();
-    return apiFetch("/api/coach/chat", { method: "POST", body: { date, messages: messages.slice(-CHAT_TURNS) }, token });
+    return apiFetch("/api/coach/chat", { token });
+  },
+  // The coach's reply to the member's new message, with any plan changes it recommends; `messages` is the
+  // message and the reply as saved. `clientId` names this send: sending it again gets the same answer.
+  chat(token: string | null, text: string, clientId: string, date: string): Promise<ApiResult<{ reply: string; proposals?: ChatProposals; messages: ChatMessage[] }>> {
+    if (!token) return signedOut();
+    return apiFetch("/api/coach/chat", { method: "POST", body: { date, text, clientId }, token });
   },
 };

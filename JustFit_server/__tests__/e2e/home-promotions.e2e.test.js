@@ -153,6 +153,8 @@ describe("home promotions e2e: admin edits → members see published content", (
     assert.ok(list.json.promotions.some((p) => p.id === promotion.id));
 
     const publish = await api("POST", `/api/admin/promotions/${promotion.id}/publish`, tokens.admin);
+    const [[published]] = await connection.query("SELECT COUNT(*) AS n FROM admin_audit_log WHERE action = 'promotion.publish' AND target_id = ?", [String(promotion.id)]);
+    assert.ok(published.n >= 1, "publishing is written to the audit log");
     assert.equal(publish.status, 200);
     assert.equal(publish.json.promotion.status, "published");
     assert.deepEqual(await activeIds(), [1, 2, 3, promotion.id]);
@@ -223,6 +225,8 @@ describe("home promotions e2e: admin edits → members see published content", (
     const reorder = await api("POST", "/api/admin/promotions/reorder", tokens.admin, { ids: [id, 3, 2, 1] });
     assert.equal(reorder.status, 200, JSON.stringify(reorder.json));
     assert.deepEqual(reorder.json.promotions.map((p) => p.id), [id, 3, 2, 1]);
+    const [[logged]] = await connection.query("SELECT COUNT(*) AS n FROM admin_audit_log WHERE action = 'promotion.reorder'");
+    assert.ok(logged.n >= 1, "a reorder is written to the audit log");
     assert.deepEqual(await activeIds(), [id, 3, 2, 1]);
     assert.equal((await api("POST", "/api/admin/promotions/reorder", tokens.admin, { ids: [1, 2] })).status, 400);
     assert.equal((await api("POST", "/api/admin/promotions/reorder", tokens.admin, { ids: [1, 1, 2, 3] })).status, 400);

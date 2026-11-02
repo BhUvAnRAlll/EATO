@@ -124,15 +124,27 @@ function totalsOf(items) {
 
 function cleanItem(item) {
   const unit = UNITS.includes(item?.unit) ? item.unit : "piece";
+  const proteinG = clamp(item?.proteinG, limits.macroMax);
+  const carbsG = clamp(item?.carbsG, limits.macroMax);
+  const fatG = clamp(item?.fatG, limits.macroMax);
   return {
     name: clean(item?.name, limits.itemName),
     quantity: roundQuantity(Number(item?.quantity) > 0 ? Number(item.quantity) : 1, unit),
     unit,
-    kcal: clamp(item?.kcal, limits.kcalMax),
-    proteinG: clamp(item?.proteinG, limits.macroMax),
-    carbsG: clamp(item?.carbsG, limits.macroMax),
-    fatG: clamp(item?.fatG, limits.macroMax),
+    kcal: consistentKcal(clamp(item?.kcal, limits.kcalMax), { proteinG, carbsG, fatG }),
+    proteinG,
+    carbsG,
+    fatG,
   };
+}
+
+// A food's calories must agree with its macros (4 kcal a gram of protein or carbs, 9 of fat). When
+// the model's number is far from them (a quarter, or 40 kcal for a small food), the macros win:
+// they are what the member's targets are counted in.
+function consistentKcal(kcal, { proteinG, carbsG, fatG }) {
+  const fromMacros = proteinG * 4 + carbsG * 4 + fatG * 9;
+  if (fromMacros <= 0) return kcal;
+  return Math.abs(kcal - fromMacros) > Math.max(fromMacros * 0.25, 40) ? clamp(fromMacros, limits.kcalMax) : kcal;
 }
 
 // One portion change: the quantity is rounded to something you can measure, and the calories
@@ -152,6 +164,8 @@ function scaleItem(item, factor) {
 
 // The day may be this far off the calorie target before portions are scaled
 const TOLERANCE = 0.08;
+// A day plan further than this from the target after scaling says so in the coach's note
+const MISS_WARNING = 0.1;
 
 // ---- the member's allergies, checked in code -------------------------------------------
 
@@ -169,6 +183,64 @@ function allergenWords(allergies) {
 // out, and this is the check that it did (a food, not a tip that says to avoid it)
 const allergenHits = (items, words) => items.filter((item) => words.some((w) => item.name.toLowerCase().includes(w)));
 
+// What an allergy also goes by on an Indian plate: "peanuts" must catch groundnut chutney and
+// moongphali chaat, "dairy" paneer and ghee, "gluten" roti and rava. `when` reads the member's
+// own word; `names` are looked for at the start of a word in each food's name (so "til" for
+// sesame never matches "lentil"). Over-blocking an allergy is the safe side.
+const ALLERGY_GROUPS = [
+  { when: /peanut|groundnut|moongphali|mungfali|(^|\s)nuts?$/, names: ["peanut", "groundnut", "moongphali", "moongfali", "mungfali", "shengdana", "singdana", "verkadalai", "kadalekai", "chikki"] },
+  { when: /tree ?nut|almond|cashew|walnut|pistachio|badam|kaju|(^|\s)nuts?$/, names: ["almond", "badam", "cashew", "kaju", "pista", "pistachio", "walnut", "akhrot", "hazelnut", "pecan", "macadamia", "chironji", "charoli", "dry fruit", "dryfruit"] },
+  { when: /dairy|milk|lactose|paneer|curd|dahi|ghee|cheese|casein|whey/, names: ["milk", "doodh", "paneer", "curd", "dahi", "yogurt", "yoghurt", "ghee", "butter", "cheese", "khoa", "khoya", "mawa", "lassi", "chaas", "chhaas", "raita", "kheer", "malai", "cream", "shrikhand", "rabri", "rabdi", "payasam", "whey", "kulfi", "basundi", "thayir", "tayir", "kalakand", "rasgulla", "rasmalai", "sandesh"] },
+  { when: /gluten|wheat|maida|atta|celiac|coeliac/, names: ["wheat", "atta", "maida", "roti", "chapati", "chapatti", "phulka", "paratha", "parotta", "naan", "kulcha", "poori", "puri", "bhatura", "suji", "sooji", "rava", "rawa", "semolina", "upma", "dalia", "daliya", "bread", "pav", "pasta", "noodle", "seviyan", "vermicelli", "barley", "jau", "rye", "biscuit", "cake", "samosa"] },
+  { when: /shellfish|seafood|prawn|shrimp|crab|lobster|crustacean|jhinga/, names: ["prawn", "shrimp", "jhinga", "chemmeen", "eral", "crab", "kekda", "nandu", "lobster", "squid", "oyster", "mussel", "clam", "kalamari", "calamari"] },
+  { when: /(^|\s)fish|seafood|machli|meen/, names: ["fish", "machli", "machhli", "machhi", "meen", "rohu", "pomfret", "surmai", "bangda", "mackerel", "sardine", "tuna", "salmon", "hilsa", "ilish", "katla", "basa", "seer", "anchovy", "netholi", "nethili", "tilapia"] },
+  { when: /(^|\s)eggs?($|\s)|anda/, names: ["egg", "anda", "omelette", "omelet"] },
+  { when: /(^|\s)soy|soya|tofu/, names: ["soy", "soya", "tofu", "edamame", "nutrela"] },
+  { when: /sesame|(^|\s)til($|\s)|gingelly/, names: ["sesame", "til", "gingelly", "ellu", "tahini"] },
+];
+
+// What each diet type leaves out, as whole words (a plural too), after the safe phrases are taken
+// out: "eggplant" isn't egg, "peanut butter" and "coconut milk" aren't dairy
+const MEAT = ["chicken", "mutton", "lamb", "goat", "beef", "pork", "bacon", "ham", "sausage", "salami", "pepperoni", "keema", "kheema", "qeema", "gosht", "murgh", "murg", "kozhi", "turkey", "duck", "meat", "liver", "kaleji", "nalli", "paya", "trotter"];
+const SEAFOOD = [...ALLERGY_GROUPS[4].names, ...ALLERGY_GROUPS[5].names];
+const EGG = ["egg", "anda", "omelette", "omelet"];
+const DAIRY = ALLERGY_GROUPS[2].names;
+const HONEY = ["honey", "shahad"];
+const DIET_EXCLUDES = {
+  vegetarian: [...MEAT, ...SEAFOOD, ...EGG],
+  eggetarian: [...MEAT, ...SEAFOOD],
+  vegan: [...MEAT, ...SEAFOOD, ...EGG, ...DAIRY, ...HONEY],
+};
+const SAFE_PHRASES = /egg ?plant|egg-?less|egg[- ]free|(peanut|nut|almond|cashew|cocoa|seed) butter|(coconut|almond|soy|soya|oat|rice|cashew|peanut) (milk|curd|yogh?urt|cream)|dairy[- ]free|(soya|mock|plant[- ]based) meat|meat[- ]?free|vegan \p{L}+|\b(veg|vegetable|soya|paneer|mushroom) keema/gu;
+
+const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const startOfWord = (names) => new RegExp(`(^|[^\\p{L}])(${names.map(escapeRe).join("|")})`, "u");
+const wholeWord = (names) => new RegExp(`(^|[^\\p{L}])(${names.map(escapeRe).join("|")})(e?s)?($|[^\\p{L}])`, "u");
+
+/**
+ * What a member may not be served: their allergy words (matched anywhere, as before), the Indian
+ * names of those allergies, and their diet type (vegetarian, eggetarian, vegan). `food` is the
+ * profile ({ allergies, diet }) or, as older callers pass it, the allergy text alone.
+ */
+function foodGuard(food) {
+  const { allergies = "", diet = null } = typeof food === "string" || food == null ? { allergies: food ?? "" } : food;
+  const words = allergenWords(allergies);
+  const synonyms = ALLERGY_GROUPS.filter((g) => words.some((w) => g.when.test(w))).flatMap((g) => g.names);
+  return {
+    words,
+    synonyms: synonyms.length ? startOfWord(synonyms) : null,
+    diet: DIET_EXCLUDES[diet] ? wholeWord(DIET_EXCLUDES[diet]) : null,
+  };
+}
+
+/** Does this food or dish name break the member's allergies or diet? */
+function forbidden(name, guard) {
+  const text = String(name ?? "").toLowerCase();
+  if (guard.words.some((w) => text.includes(w))) return true;
+  if (guard.synonyms?.test(text)) return true;
+  return Boolean(guard.diet?.test(text.replace(SAFE_PHRASES, " ")));
+}
+
 /**
  * The model's answer → { message, meals } ready to store: all five slots once each, in order,
  * with clean text, real times and at least one food. A food named after one of the member's
@@ -176,16 +248,16 @@ const allergenHits = (items, words) => items.filter((item) => words.some((w) => 
  * than 8% off the member's target, every portion is scaled by the same factor (at most halved or
  * doubled). Throws a 502 CoachPlanError when the answer is unusable.
  */
-function normalizeDiet(raw, targets, allergies = "") {
+function normalizeDiet(raw, targets, food = "") {
   const unusable = () => new CoachPlanError("Your coach couldn't put a meal plan together right now. Please try again.", 502);
   if (!raw || !Array.isArray(raw.meals)) throw unusable();
-  const allergens = allergenWords(allergies);
+  const guard = foodGuard(food);
   const bySlot = new Map();
   for (const meal of raw.meals) {
     if (!SLOTS.includes(meal?.slot) || bySlot.has(meal.slot)) continue;
+    if (forbidden(meal.name, guard)) continue; // "Chicken biryani" for a vegetarian, whatever its foods are called
     const cleaned = (Array.isArray(meal.items) ? meal.items : []).slice(0, limits.itemsPerMeal).map(cleanItem).filter((i) => i.name !== "");
-    const unsafe = allergenHits(cleaned, allergens);
-    const items = cleaned.filter((i) => !unsafe.includes(i));
+    const items = cleaned.filter((i) => !forbidden(i.name, guard));
     if (items.length === 0) continue;
     bySlot.set(meal.slot, {
       slot: meal.slot,
@@ -198,16 +270,29 @@ function normalizeDiet(raw, targets, allergies = "") {
   if (bySlot.size !== SLOTS.length) throw unusable();
 
   let meals = SLOTS.map((slot) => bySlot.get(slot));
-  const dayKcal = totalsOf(meals.flatMap((m) => m.items)).kcal;
-  if (dayKcal <= 0) throw unusable();
-  const off = targets.calories / dayKcal;
-  if (Math.abs(off - 1) > TOLERANCE) {
-    const factor = Math.min(2, Math.max(0.5, off));
+  if (totalsOf(meals.flatMap((m) => m.items)).kcal <= 0) throw unusable();
+  // Scaled at most twice: the second pass takes up what rounding each portion moved. Together the
+  // passes never more than double or halve a portion.
+  let scaled = 1;
+  for (let pass = 0; pass < 2; pass += 1) {
+    const off = targets.calories / totalsOf(meals.flatMap((m) => m.items)).kcal;
+    const factor = Math.min(2 / scaled, Math.max(0.5 / scaled, off));
+    if (Math.abs(off - 1) <= TOLERANCE || Math.abs(factor - 1) < 0.01) break;
+    scaled *= factor;
     meals = meals.map((m) => ({ ...m, items: m.items.map((i) => scaleItem(i, factor)) }));
   }
-  const message = clean(raw.message, limits.message) || "Here's your plan. Let's take it one day at a time.";
+  let message = clean(raw.message, limits.message) || "Here's your plan. Let's take it one day at a time.";
+  // Still far off (the model's day was more than twice too small or too big): said, never hidden
+  const dayKcal = Math.round(totalsOf(meals.flatMap((m) => m.items)).kcal);
+  if (Math.abs(targets.calories / dayKcal - 1) > MISS_WARNING) {
+    const note = ` These meals come to about ${dayKcal} kcal against your ${targets.calories} kcal target, so adjust the portions or ask me to change a meal.`;
+    message = (message.slice(0, Math.max(0, limits.message - note.length)) + note).trim();
+  }
   return { message, meals };
 }
+
+// How far a normalized day plan is from the calorie target, as a share (0.15 = 15% off)
+const dayMiss = (diet, targets) => Math.abs(totalsOf(diet.meals.flatMap((m) => m.items)).kcal / targets.calories - 1);
 
 // ---- what the model is told ---------------------------------------------------------
 
@@ -341,12 +426,13 @@ const mealSchema = {
  * has less room; within the same 8% tolerance, at most halved or doubled). Throws a 502
  * CoachPlanError when the answer is unusable.
  */
-function normalizeMeal(raw, replaced, allergies = "", targetKcal = replaced.totals.kcal) {
+function normalizeMeal(raw, replaced, food = "", targetKcal = replaced.totals.kcal) {
   const unusable = () => new CoachPlanError("Your coach couldn't find a swap for that meal right now. Please try again.", 502);
   if (!raw || !Array.isArray(raw.items)) throw unusable();
-  const allergens = allergenWords(allergies);
+  const guard = foodGuard(food);
+  if (forbidden(raw.name, guard)) throw unusable();
   let items = raw.items.slice(0, limits.itemsPerMeal).map(cleanItem).filter((i) => i.name !== "");
-  items = items.filter((i) => !allergenHits([i], allergens).length);
+  items = items.filter((i) => !forbidden(i.name, guard));
   if (items.length === 0) throw unusable();
   const kcal = totalsOf(items).kcal;
   if (kcal <= 0) throw unusable();
@@ -430,6 +516,9 @@ const PREFERENCES = Object.keys(PREFERENCE);
 // snack doesn't turn into a crumb)
 function optionTargetKcal(replacedKcal, remainingKcal, preference = null) {
   const base = preference === "lighter" ? Math.round(replacedKcal * 0.75) : replacedKcal;
+  // A day already at or over its calories: the options come out lighter (the brief asks for light
+  // dishes; sizing them to the old meal would scale the model's lighter answers back up)
+  if (remainingKcal <= 0) return Math.min(base, Math.round(replacedKcal * 0.75));
   if (remainingKcal > 0 && remainingKcal < base) return Math.max(Math.round(replacedKcal / 2), remainingKcal);
   return base;
 }
@@ -449,6 +538,14 @@ const GOAL_LINE = {
   strength: "strength: protein first in every meal",
   endurance: "endurance: enough carbs around training, protein at every meal",
   general_fitness: "general fitness: balanced meals",
+  // The Coach intake's own goal names (coach_profiles.goal), which is what Swap Meal passes
+  lose_weight: "fat loss: filling, high-fibre, high-protein meals that keep calories in check",
+  build_muscle: "muscle gain: protein first in every meal",
+  get_stronger: "strength: protein first in every meal",
+  stay_active: "staying active: balanced meals",
+  flexibility: "flexibility and mobility: balanced, light meals",
+  sport: "sport performance: enough carbs around training, protein at every meal",
+  comeback: "getting back into training: balanced meals with steady protein",
 };
 
 /**
@@ -522,7 +619,7 @@ const OPTIONS_FAILURE = "Your coach couldn't find options for that meal right no
  * the model had nothing new: a repeat beats an empty screen. An option that comes out unusable is
  * dropped; throws a 502 CoachPlanError when none is left.
  */
-function normalizeOptions(raw, replaced, allergies = "", { targetKcal = replaced.totals.kcal, exclude = [] } = {}) {
+function normalizeOptions(raw, replaced, food = "", { targetKcal = replaced.totals.kcal, exclude = [] } = {}) {
   if (!raw || !Array.isArray(raw.options)) throw new CoachPlanError(OPTIONS_FAILURE, 502);
   const self = dishKey(replaced.name);
   const recent = new Set(exclude.map(dishKey).filter((key) => key && key !== self));
@@ -532,7 +629,7 @@ function normalizeOptions(raw, replaced, allergies = "", { targetKcal = replaced
   for (const candidate of raw.options.slice(0, limits.options * 2)) {
     let meal;
     try {
-      meal = normalizeMeal(candidate, replaced, allergies, targetKcal);
+      meal = normalizeMeal(candidate, replaced, food, targetKcal);
     } catch (error) {
       if (error instanceof CoachPlanError) continue;
       throw error;
@@ -598,8 +695,8 @@ module.exports = {
   FAKE_DIET, SLOTS, limits, CoachPlanError,
   EQUIPMENT, engineGoalFor, engineLevelFor, libraryFilterFor, fitDaysTo, workoutExtra,
   INDIAN_FOOD, COOKING, BUDGET,
-  totalsOf, normalizeDiet, dietBrief, DIET_INSTRUCTIONS, dietSchema,
+  totalsOf, normalizeDiet, dayMiss, MISS_WARNING, dietBrief, DIET_INSTRUCTIONS, dietSchema,
   mealBrief, MEAL_INSTRUCTIONS, mealSchema, normalizeMeal, FAKE_MEAL,
-  PREFERENCES, remainingFor, optionTargetKcal, editedItems, optionsBrief, OPTIONS_INSTRUCTIONS, OPTIONS_FAILURE, optionsSchema, normalizeOptions, storedItems, FAKE_OPTIONS, dishKey,
-  allergenWords, allergenHits,
+  GOAL_LINE, PREFERENCES, remainingFor, optionTargetKcal, editedItems, optionsBrief, OPTIONS_INSTRUCTIONS, OPTIONS_FAILURE, optionsSchema, normalizeOptions, storedItems, FAKE_OPTIONS, dishKey,
+  allergenWords, allergenHits, foodGuard, forbidden,
 };

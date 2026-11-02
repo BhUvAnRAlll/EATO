@@ -25,10 +25,19 @@ async function listUsers(pool, { filter, search }) {
   const params = [];
   let where = "WHERE 1 = 1";
   if (search) {
-    // A search matches a name or an email; LIKE wildcards in the text are matched literally
+    // A search matches a name or an email; LIKE wildcards in the text are matched literally. Four
+    // or more digits also match the mobile number ("+91 98765" finds 98765…), so an account
+    // that hasn't finished setup (no name or email yet) can still be found.
     const like = `%${search.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
-    where += " AND (u.full_name LIKE ? OR u.email LIKE ?)";
-    params.push(like, like);
+    const compact = search.replace(/[\s-]/g, "");
+    const digits = compact.startsWith("+91") ? compact.slice(3) : /^91\d{10}$/.test(compact) ? compact.slice(2) : compact;
+    if (/^\d{4,10}$/.test(digits)) {
+      where += " AND (u.full_name LIKE ? OR u.email LIKE ? OR u.phone LIKE ?)";
+      params.push(like, like, `%${digits}%`);
+    } else {
+      where += " AND (u.full_name LIKE ? OR u.email LIKE ?)";
+      params.push(like, like);
+    }
   }
   if (filter !== "all") {
     where += ` AND ${KIND_SQL} = ?`;

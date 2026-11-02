@@ -223,8 +223,13 @@ export default function SwapMealScreen() {
     setRemaining(optionsResult.data.remaining);
   }, [getToken, mealId]);
 
+  // Once when the screen opens (and from Try again), not on every return to it: each load is a
+  // paid AI call that also uses up the member's swaps for the hour
+  const loadedOnce = useRef(false);
   useFocusEffect(
     useCallback(() => {
+      if (loadedOnce.current) return;
+      loadedOnce.current = true;
       load();
     }, [load]),
   );

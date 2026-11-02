@@ -94,6 +94,9 @@ const LIMIT_MESSAGES = {
   minute: "You're sending requests very quickly. Please wait a moment and try again.",
   day: (n) => `You've reached today's limit of ${n} AI requests. It resets at midnight.`,
   plans: (n) => `You've made ${n} plans today, which is the daily limit. Ask your coach to adjust a meal, or make a new plan tomorrow.`,
+  // The budget couldn't be checked (a database hiccup) or the model has no price: spending is never
+  // allowed blind, so the call waits
+  unchecked: "AI features are paused for a moment. Please try again in a few minutes. Everything else in justFit keeps working.",
 };
 
 // ---- periods ----------------------------------------------------------------------------

@@ -1,6 +1,9 @@
 import { useCallback } from "react";
 import { router } from "expo-router";
+import { create } from "zustand";
 
+import { onSessionRejected } from "@/lib/api";
+import { onAccountCleared } from "@/lib/accountScope";
 import { useAuthStore } from "@/store/auth";
 
 // The session token for API calls (store/auth.ts holds it). The same function for the life of
@@ -18,6 +21,16 @@ export const SESSION_EXPIRED_MESSAGE = "Your session has expired. Please sign in
 export function isSessionExpired(result: { ok: boolean; status?: number }): boolean {
   return !result.ok && result.status === 401;
 }
+
+// Any signed-in screen whose request the server refused (401) raises this; the member and admin
+// layouts then show SessionExpiredBanner, whose button is returnToSignIn. Nothing navigates on
+// its own, so what's on screen is never lost mid-edit. Only a refusal of the token in use counts:
+// an answer to a request from an earlier session is ignored.
+export const useSessionExpiry = create<{ expired: boolean }>(() => ({ expired: false }));
+onSessionRejected((token) => {
+  if (token === useAuthStore.getState().token) useSessionExpiry.setState({ expired: true });
+});
+onAccountCleared(() => useSessionExpiry.setState({ expired: false }));
 
 let returning = false;
 

@@ -32,6 +32,9 @@ export default function AdjustTargets() {
   const [kcal, setKcal] = useState("");
   const [grams, setGrams] = useState<Record<MacroKey, string>>({ proteinG: "", carbsG: "", fatG: "" });
   const [seeded, setSeeded] = useState(false);
+  // The macros the member typed themselves; the others are cleared when the calories change, so
+  // the server splits them from the new calories instead of keeping the old target's grams
+  const [edited, setEdited] = useState<Record<MacroKey, boolean>>({ proteinG: false, carbsG: false, fatG: false });
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<"save" | "reset" | null>(null);
 
@@ -124,7 +127,11 @@ export default function AdjustTargets() {
                 <Text className="setup__section">Daily calories</Text>
                 <View className="setup__field">
                   <SymbolView name={{ ios: "flame.fill", android: "local_fire_department", web: "local_fire_department" }} size={18} tintColor={colors.danger} />
-                  <TextInput className="setup__field-input min-w-0 flex-1" value={kcal} onChangeText={(t) => setKcal(numeric(t))} placeholder="2000" placeholderTextColor={colors.faint} keyboardType="number-pad" accessibilityLabel="Daily calories in kcal" />
+                  <TextInput className="setup__field-input min-w-0 flex-1" value={kcal} onChangeText={(t) => {
+                    const next = numeric(t);
+                    if (next !== kcal) setGrams((g) => ({ proteinG: edited.proteinG ? g.proteinG : "", carbsG: edited.carbsG ? g.carbsG : "", fatG: edited.fatG ? g.fatG : "" }));
+                    setKcal(next);
+                  }} placeholder="2000" placeholderTextColor={colors.faint} keyboardType="number-pad" accessibilityLabel="Daily calories in kcal" />
                   <Text className="setup__unit">kcal</Text>
                 </View>
               </View>
@@ -142,7 +149,10 @@ export default function AdjustTargets() {
                         <TextInput
                           className="setup__field-input min-w-0 flex-1"
                           value={grams[m.key]}
-                          onChangeText={(t) => setGrams((g) => ({ ...g, [m.key]: numeric(t) }))}
+                          onChangeText={(t) => {
+                            setEdited((e) => ({ ...e, [m.key]: true }));
+                            setGrams((g) => ({ ...g, [m.key]: numeric(t) }));
+                          }}
                           placeholder="auto"
                           placeholderTextColor={colors.faint}
                           keyboardType="number-pad"

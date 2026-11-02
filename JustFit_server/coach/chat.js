@@ -1,8 +1,9 @@
 // The AI Coach chat: the member's conversation so far plus what justFit knows about them today
 // (their answers, targets, today's diary, the plan) → the coach's next reply from the model.
 //
-// The conversation isn't stored: the app keeps it and sends the last few turns each time, and
-// neither the messages nor the reply are logged. When the reply recommends a change to the plan
+// The conversation is saved on the server for 7 days (coach/chatHistory.js): the app sends only
+// the new message, the coach reads the saved conversation, and the message and reply are saved
+// together once answered (a send that fails saves nothing). Neither is ever logged. When the reply recommends a change to the plan
 // (a different dish for one of today's meals, other training days or session length) the answer
 // also carries it as a proposal: a meal is cleaned and stored as a Swap Meal option (so Apply
 // is the same replace, with Undo), a workout change is only checked and handed back. Every query is scoped to the verified member id
@@ -10,7 +11,8 @@
 //
 // Cost: the model comes from ai/models.js (a small one), the model sees only the newest turns
 // (chatRules.modelHistory), the reply is capped, the member's limits are checked first
-// (ai/limits.js) and an identical message already being answered is not asked twice (ai/dedupe.js).
+// (ai/limits.js), a send already answered gets its saved answer, and one still being answered is
+// not asked twice (ai/dedupe.js).
 const OpenAI = require("openai");
 
 const { ValidationError } = require("../profile");
@@ -23,6 +25,7 @@ const aiUsage = require("../ai/usage");
 const models = require("../ai/models");
 const aiLimits = require("../ai/limits");
 const dedupe = require("../ai/dedupe");
+const chatHistory = require("./chatHistory");
 
 const FEATURE = "coach_chat";
 const WEEKDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -51,7 +54,8 @@ async function memberFacts(pool, userId, date) {
 async function askCoach({ instructions, messages, cacheKey }, env, usage) {
   if (models.isFake(env)) {
     await usage?.record({ provider: "openai", model: "fake", inputTokens: 10, outputTokens: 5, status: "ok" });
-    return { reply: rules.FAKE_REPLY, mealChanges: [], workoutChanges: [] };
+    // The fake reply says how many lines of conversation it was given, so tests can see the context
+    return { reply: `${rules.FAKE_REPLY} (${messages.length} lines read)`, mealChanges: [], workoutChanges: [] };
   }
   const { request, model: MODEL } = models.settingsFor(FEATURE, env);
   const client = models.openaiClient();
@@ -104,7 +108,7 @@ async function proposalsFor(pool, userId, facts, raw) {
   for (const { meal, raw: change } of facts.planId ? mealChanges : []) {
     let next;
     try {
-      next = planRules.normalizeMeal(change, meal, facts.profile?.allergies ?? "", 0);
+      next = planRules.normalizeMeal(change, meal, facts.profile ?? "", 0);
     } catch {
       continue;
     }
@@ -117,19 +121,27 @@ async function proposalsFor(pool, userId, facts, raw) {
   return { meals, workout };
 }
 
-/** The coach's reply to the member's latest message: { reply, proposals: { meals, workout } } */
-async function chat(pool, userId, { date, messages }, env = process.env) {
+/**
+ * The coach's reply to the member's new message, saved with it in their conversation:
+ * { reply, proposals: { meals, workout }, messages: [the member's message, the reply] }
+ */
+async function chat(pool, userId, { date, text, clientId }, env = process.env) {
   const facts = await memberFacts(pool, userId, date);
+  // A retry of a send that was answered (the answer was lost on the way): the saved answer, no new AI call
+  const saved = await chatHistory.savedAnswer(pool, userId, clientId);
+  if (saved) return saved;
   await aiLimits.check(pool, { feature: FEATURE, userId }, env);
-  const history = rules.modelHistory(messages);
-  // The same message sent twice at once (a double tap, a retried connection) is answered once
-  return dedupe.shared.run(dedupe.requestKey(FEATURE, userId, history), async () => {
+  // The same send arriving twice at once (a double tap, a retried connection) is answered once
+  return dedupe.shared.run(dedupe.requestKey(FEATURE, userId, clientId), async () => {
+    const earlier = await chatHistory.context(pool, userId, facts.intake.coach);
+    const history = rules.modelHistory([...earlier, { role: "member", text }]);
     const instructions = `${rules.chatInstructions(facts.intake)}\n\nFacts about the member:\n${rules.memberBrief(facts)}`;
     const answer = await askCoach({ instructions, messages: history, cacheKey: `${FEATURE}:${userId}` }, env, aiUsage.tracker(pool, { feature: FEATURE, userId }));
     const reply = rules.cleanReply(answer?.reply);
     if (!reply) throw new CoachPlanError(BUSY, 502);
-    return { reply, proposals: await proposalsFor(pool, userId, facts, answer) };
+    const proposals = await proposalsFor(pool, userId, facts, answer);
+    return chatHistory.saveAnswer(pool, userId, { clientId, text, reply, proposals });
   });
 }
 
-module.exports = { chat };
+module.exports = { chat, history: chatHistory.history };

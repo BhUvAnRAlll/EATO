@@ -63,11 +63,13 @@ async function day(pool, userId, date) {
   return { date, targets, totals: totalsOf(meals.map((m) => m.totals)), burned: 0, meals };
 }
 
-// none: nothing logged or no target; complete ≥ 90% of target; partial ≥ 50%; low otherwise
+// none: nothing logged or no target; over > 115% of target (a big over-eat is not a day on target);
+// complete ≥ 90%; partial ≥ 50%; low otherwise
+const OVER_RATIO = 1.15;
 function grade(kcal, target, hasMeals) {
   if (!hasMeals || !target) return { ratio: 0, status: "none" };
   const ratio = kcal / target;
-  return { ratio: Math.round(ratio * 1000) / 1000, status: ratio >= 0.9 ? "complete" : ratio >= 0.5 ? "partial" : "low" };
+  return { ratio: Math.round(ratio * 1000) / 1000, status: ratio > OVER_RATIO ? "over" : ratio >= 0.9 ? "complete" : ratio >= 0.5 ? "partial" : "low" };
 }
 
 // Calories eaten per day for the week strip and month calendar

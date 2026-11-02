@@ -15,9 +15,9 @@ const { startTestServer } = require("./server.js");
 const { identitiesFor, describeIdentityError } = require("./test-identities.js");
 
 const WORKOUT_TABLES = ["workout_set_logs", "workout_logs", "workout_day_overrides", "workout_day_exercises", "workout_days", "workout_plans", "workout_profiles", "profiles"];
-const utcDay = (offsetDays = 0) => new Date(Date.now() + offsetDays * 86400000).toISOString().slice(0, 10);
+const { appDay } = require("./dates.js");
 const weekdayOf = (iso) => new Date(`${iso}T00:00:00Z`).getUTCDay();
-const TODAY = utcDay();
+const TODAY = appDay();
 
 describe("workout e2e: preferences rebuild the plan from goal, level, days and split", () => {
   const runId = crypto.randomBytes(4).toString("hex");
@@ -132,8 +132,8 @@ describe("workout e2e: preferences rebuild the plan from goal, level, days and s
   it("4. saving builds a new plan from the four settings; the old one is kept with its days and logs", run(async () => {
     const [[day]] = await connection.query("SELECT id FROM workout_days WHERE plan_id = ? LIMIT 1", [state.firstPlanA]);
     // A finished session last week, a past move, and a move onto tomorrow, all on the old plan
-    await connection.query("INSERT INTO workout_logs (user_id, plan_id, day_id, on_date, status, completed_at) VALUES (?, ?, ?, ?, 'completed', NOW(3))", [ids.a, state.firstPlanA, day.id, utcDay(-3)]);
-    await connection.query("INSERT INTO workout_day_overrides (user_id, on_date, day_id) VALUES (?, ?, ?), (?, ?, ?)", [ids.a, utcDay(-2), day.id, ids.a, utcDay(1), day.id]);
+    await connection.query("INSERT INTO workout_logs (user_id, plan_id, day_id, on_date, status, completed_at) VALUES (?, ?, ?, ?, 'completed', NOW(3))", [ids.a, state.firstPlanA, day.id, appDay(-3)]);
+    await connection.query("INSERT INTO workout_day_overrides (user_id, on_date, day_id) VALUES (?, ?, ?), (?, ?, ?)", [ids.a, appDay(-2), day.id, ids.a, appDay(1), day.id]);
     const daysBefore = await count("workout_days", "plan_id = ?", [state.firstPlanA]);
 
     const saved = await putPrefs(tokens.a, prefs());
@@ -152,9 +152,9 @@ describe("workout e2e: preferences rebuild the plan from goal, level, days and s
     const [[old]] = await connection.query("SELECT status FROM workout_plans WHERE id = ?", [state.firstPlanA]);
     assert.equal(old.status, "superseded");
     assert.equal(await count("workout_days", "plan_id = ?", [state.firstPlanA]), daysBefore, "the old plan's days are kept");
-    assert.equal(await count("workout_logs", "user_id = ? AND on_date = ?", [ids.a, utcDay(-3)]), 1, "history is kept");
-    assert.equal(await count("workout_day_overrides", "user_id = ? AND on_date = ?", [ids.a, utcDay(-2)]), 1, "a past move stays");
-    assert.equal(await count("workout_day_overrides", "user_id = ? AND on_date = ?", [ids.a, utcDay(1)]), 0, "a move onto a later date is cleared");
+    assert.equal(await count("workout_logs", "user_id = ? AND on_date = ?", [ids.a, appDay(-3)]), 1, "history is kept");
+    assert.equal(await count("workout_day_overrides", "user_id = ? AND on_date = ?", [ids.a, appDay(-2)]), 1, "a past move stays");
+    assert.equal(await count("workout_day_overrides", "user_id = ? AND on_date = ?", [ids.a, appDay(1)]), 0, "a move onto a later date is cleared");
     assert.equal(await count("workout_plans", "user_id = ? AND status = 'active'", [ids.a]), 1);
 
     const [[answers]] = await connection.query("SELECT goal, experience, weekdays, split, fitness_base, squat_score FROM workout_profiles WHERE user_id = ?", [ids.a]);
@@ -193,7 +193,7 @@ describe("workout e2e: preferences rebuild the plan from goal, level, days and s
     refused(await putPrefs(tokens.a, prefs({ split: "bro_split" })), /workout split/);
     refused(await putPrefs(tokens.a, prefs({ userId: ids.b })), /Unexpected field: userId/);
     refused(await putPrefs(tokens.a, prefs({ editable: true })), /Unexpected field: editable/);
-    refused(await putPrefs(tokens.a, prefs({ today: utcDay(-5) })), /server's date/);
+    refused(await putPrefs(tokens.a, prefs({ today: appDay(-5) })), /server's date/);
     refused(await putPrefs(tokens.a, [1, 2, 3]), /Send the request as/);
     assert.equal((await putPrefs(tokens.a, "{not json")).status, 400);
     assert.equal((await putPrefs(tokens.a, JSON.stringify({ ...prefs(), pad: "x".repeat(8 * 1024) }))).status, 413, "an oversized body is refused");

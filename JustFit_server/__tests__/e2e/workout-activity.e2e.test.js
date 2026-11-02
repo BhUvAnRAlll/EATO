@@ -29,14 +29,17 @@ describe("workout activity e2e: minutes trained this week", () => {
   };
   const activity = (token, today = TODAY) => get(`/api/workout/activity?today=${encodeURIComponent(today)}`, token);
   const run = (fn) => async (t) => { if (skipReason) return t.skip(skipReason); await fn(); };
-  // A session on `date`: completed after `minutes`, or left in another status (no finish time)
-  const session = (userId, date, minutes, status = "completed") =>
-    status === "completed"
-      ? connection.query(
-        "INSERT INTO workout_logs (user_id, on_date, started_at, completed_at, status) VALUES (?, ?, CONCAT(?, ' 07:00:00'), CONCAT(?, ' 07:00:00') + INTERVAL ? MINUTE, 'completed')",
-        [userId, date, date, date, minutes],
-      )
-      : connection.query("INSERT INTO workout_logs (user_id, on_date, started_at, completed_at, status) VALUES (?, ?, CONCAT(?, ' 07:00:00'), NULL, ?)", [userId, date, date, status]);
+  // A session on `date`: completed after `minutes` with one logged set (or none, `sets: 0`), or
+  // left in another status (no finish time)
+  const session = async (userId, date, minutes, status = "completed", { sets = 1 } = {}) => {
+    if (status !== "completed") return connection.query("INSERT INTO workout_logs (user_id, on_date, started_at, completed_at, status) VALUES (?, ?, CONCAT(?, ' 07:00:00'), NULL, ?)", [userId, date, date, status]);
+    const [[{ id }]] = await connection.query("SELECT UUID() AS id");
+    await connection.query(
+      "INSERT INTO workout_logs (id, user_id, on_date, started_at, completed_at, status) VALUES (?, ?, ?, CONCAT(?, ' 07:00:00'), CONCAT(?, ' 07:00:00') + INTERVAL ? MINUTE, 'completed')",
+      [id, userId, date, date, date, minutes],
+    );
+    for (let i = 0; i < sets; i += 1) await connection.query("INSERT INTO workout_set_logs (log_id, user_id, day_exercise_id, set_index, reps) VALUES (?, ?, UUID(), ?, 10)", [id, userId, i]);
+  };
 
   before(async () => {
     const loaded = db.loadTestEnv();
@@ -68,6 +71,8 @@ describe("workout activity e2e: minutes trained this week", () => {
     await session(ids.a, WEEK[2], 20);
     await session(ids.a, WEEK[2], 0, "in_progress");
     await session(ids.a, WEEK[4], 0, "abandoned");
+    // Finished without a single logged set (skipped through): counts nothing
+    await session(ids.a, WEEK[5], 45, "completed", { sets: 0 });
     await session(ids.a, WEEK[6], 400);
     await session(ids.a, LAST_WEEK[1], 60);
     await session(ids.a, LAST_WEEK[3], 30);
@@ -94,14 +99,18 @@ describe("workout activity e2e: minutes trained this week", () => {
     assert.equal(status, 200, JSON.stringify(json));
     assert.equal(json.today, TODAY);
     assert.deepEqual(json.week.map((d) => d.date), WEEK);
-    assert.deepEqual(json.week.map((d) => d.minutes), [40, 0, 52, 0, 0, 0, 180], "Wed adds two sessions; the running and abandoned ones add nothing; Sunday is capped at 180");
+    assert.deepEqual(json.week.map((d) => d.minutes), [40, 0, 52, 0, 0, 0, 180], "Wed adds two sessions; the running, abandoned and set-less ones add nothing; Sunday is capped at 180");
     assert.equal(json.totalMinutes, 272);
   }));
 
   it("3. last week compares: its total and the change", run(async () => {
     const { json } = await activity(tokens.a);
     assert.equal(json.previousTotalMinutes, 90, "last week only: the week before that is out of the window");
-    assert.equal(json.changePercent, 202, "(272 - 90) / 90");
+    // The change compares Monday to today with the same days of last week
+    const soFar = WEEK.indexOf(TODAY) + 1;
+    const thisSoFar = [40, 0, 52, 0, 0, 0, 180].slice(0, soFar).reduce((a, b) => a + b, 0);
+    const lastSoFar = [0, 60, 0, 30, 0, 0, 0].slice(0, soFar).reduce((a, b) => a + b, 0);
+    assert.equal(json.changePercent, lastSoFar > 0 ? Math.round(((thisSoFar - lastSoFar) / lastSoFar) * 100) : null);
   }));
 
   it("4. a member with nothing last week gets no change figure, and never another member's minutes", run(async () => {

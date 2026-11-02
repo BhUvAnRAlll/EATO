@@ -3,7 +3,9 @@
 // has a workout profile. Covers the intro on the Coach tab, every intake step (prefilled answers,
 // Continue staying off until a step is answered, the doctor note), the disclaimer tick, the
 // save, the summary on the Coach tab, Edit, making the plan (the timeline, Week and Insights), logging
-// a plan meal to Macro, the coach chat (the fake AI's reply), and screenshots at 3 widths.
+// a plan meal to Macro, the coach chat (the fake AI's reply; the saved conversation after leaving
+// and after a restart; a chat that can't be loaded, and a failed send, each tried again), and
+// screenshots at 3 widths.
 //
 //   yarn test:ui      (needs JustFit_server/.env.test and Google Chrome; otherwise skipped)
 //   JUSTFIT_SCREENSHOT_DIR=<dir> saves screenshots of each screen at three widths
@@ -228,8 +230,9 @@ describe("ui coach: the AI Coach intake", () => {
     await page.clickText("Make my plan");
     await h.expectText("Logged today");
     await h.expectText("Meal plan");
-    // Today's workout, a card of its own (not on the meal plan); on a rest day (A trains Tue, Thu, Sat) the row says so
-    await h.expectText([2, 4, 6].includes(new Date().getDay()) ? "WORKOUT" : "Rest day");
+    // Today's workout, a card of its own (not on the meal plan); on a rest day the row says so. The
+    // plan follows the intake's days (Mon, Tue, Thu, saved in step 4), not the older workout profile.
+    await h.expectText([1, 2, 4].includes(new Date().getDay()) ? "Workout" : "Rest day");
     const [[plan]] = await connection.query("SELECT COUNT(*) AS n, MAX(calories) AS kcal FROM coach_plans WHERE user_id = ? AND status = 'active'", [identities.a.id]);
     assert.deepEqual({ n: plan.n, kcal: plan.kcal }, { n: 1, kcal: 1800 });
     await h.expectText("/ 1800"); // the calories column of Logged today
@@ -346,6 +349,57 @@ describe("ui coach: the AI Coach intake", () => {
     await clickLabel("Ask Priya");
     await h.expectPath("/coach/chat");
     await h.expectText("How much water should I drink?");
+  }));
+
+  it("7b. the chat is saved: there after a restart; a chat that can't load and a failed send can each be tried again", run("chat-history", async () => {
+    const chatRoute = "/coach/chat?name=Coach%20Priya&coach=priya";
+    const box = 'textarea[aria-label="Message your coach"]';
+    const block = (urls) => client.send("Network.setBlockedURLs", { urls }, page.sessionId);
+    // A restart (a fresh page load): the conversation is read back from the server, no prompt chips
+    await h.goto(chatRoute, "How much water should I drink?");
+    await h.expectText("Adjust my diet");
+    assert.equal(await page.evaluate(`!![...document.querySelectorAll('[aria-label="Ask: Adjust my diet"]')].find((e) => e.getClientRects().length > 0)`), false, "no suggestion chips over a saved chat");
+    // The server can't be reached while the chat opens: an error and Try again, nothing else
+    await block(["*/api/coach/chat*"]);
+    try {
+      await h.goto(chatRoute, "Could not reach justFit");
+      assert.equal(await page.hasText("How much water should I drink?"), false);
+      await snapshotAllWidths("coach-chat-error");
+    } finally {
+      await block([]);
+    }
+    await clickLabel("Load your chat again");
+    await h.expectText("How much water should I drink?");
+    // A send that fails stays on screen, marked; tapping it sends it again and it is saved once
+    await block(["*/api/coach/chat*"]);
+    try {
+      await page.setInput(box, "Can I train twice a day?");
+      await clickLabel("Send message");
+      await h.expectText("Not sent · Tap to try again");
+    } finally {
+      await block([]);
+    }
+    const [[unsaved]] = await connection.query("SELECT COUNT(*) AS n FROM coach_chat_messages WHERE user_id = ? AND text = 'Can I train twice a day?'", [identities.a.id]);
+    assert.equal(unsaved.n, 0, "a failed send is never saved");
+    await snapshotAllWidths("coach-chat-failed");
+    await clickLabel("Not sent. Send again: Can I train twice a day?");
+    await h.expectNoText("Not sent · Tap to try again");
+    await page.waitFor(`(document.body.innerText.match(/test reply/g) || []).length >= 3`, NAV_TIMEOUT, "the retried message's reply");
+    const [[once]] = await connection.query("SELECT COUNT(*) AS n FROM coach_chat_messages WHERE user_id = ? AND text = 'Can I train twice a day?'", [identities.a.id]);
+    assert.equal(once.n, 1);
+    // Restart again: everything once, oldest first, no failed lines
+    await h.goto(chatRoute, "Can I train twice a day?");
+    const text = await page.bodyText();
+    const at = ["Adjust my diet", "How much water should I drink?", "Can I train twice a day?"].map((line) => text.indexOf(line));
+    assert.ok(at.every((i, n) => i >= 0 && (n === 0 || i > at[n - 1])), `in order: ${at}`);
+    assert.equal(text.split("Can I train twice a day?").length, 2, "shown once");
+    assert.equal(await page.hasText("Not sent"), false);
+    // The coach read the whole conversation: the newest reply saw five lines
+    assert.match(text, /\(5 lines read\)/);
+    // Back to where test 8 starts: the chat opened from the Coach tab
+    await h.goto("/coach", "Coach Priya");
+    await clickLabel("Ask Priya");
+    await h.expectPath("/coach/chat");
   }));
 
   it("8. Change opens the coach picker; saving switches the coach and keeps the other answers", run("change-coach", async () => {

@@ -1,6 +1,7 @@
-import { Platform } from "react-native";
+import { Platform, View } from "react-native";
 import { Stack } from "expo-router";
 
+import { SessionExpiredBanner } from "@/components/SessionExpiredBanner";
 import { useThemeColors } from "@/theme";
 
 // A member's screens: the tab bar group plus the screens pushed over it
@@ -8,18 +9,21 @@ import { useThemeColors } from "@/theme";
 export default function UserLayout() {
   const colors = useThemeColors();
   return (
-    <Stack
-      screenOptions={{
-        headerShown: false,
-        contentStyle: { backgroundColor: colors.cream },
-        // iOS keeps its native push and swipe back; Android slides the same way instead of
-        // its default fade-up, so the app moves alike on both
-        animation: Platform.OS === "android" ? "slide_from_right" : "default",
-      }}
-    >
-      <Stack.Screen name="(tabs)" />
-      {/* The session player fades in: a slide under a full-screen timer reads as a glitch */}
-      <Stack.Screen name="workout/session" options={{ animation: "fade" }} />
-    </Stack>
+    <View style={{ flex: 1 }}>
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: colors.cream },
+          // iOS keeps its native push and swipe back; Android slides the same way instead of
+          // its default fade-up, so the app moves alike on both
+          animation: Platform.OS === "android" ? "slide_from_right" : "default",
+        }}
+      >
+        <Stack.Screen name="(tabs)" />
+        {/* The session player fades in: a slide under a full-screen timer reads as a glitch */}
+        <Stack.Screen name="workout/session" options={{ animation: "fade" }} />
+      </Stack>
+      <SessionExpiredBanner />
+    </View>
   );
 }

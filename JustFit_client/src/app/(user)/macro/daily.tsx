@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { ScreenSkeleton } from "@/components/Skeleton";
+import { LoadError } from "@/components/macro/LoadError";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { SymbolView } from "@/components/SymbolView";
@@ -25,6 +26,7 @@ export default function DailyCalories() {
   const getToken = useSessionToken();
   const { selectedDate, jumpToDate } = useMacroStore();
   const [day, setDay] = useState<DayView | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [water, setWater] = useState<WaterDay | null>(null);
   const [openMeal, setOpenMeal] = useState<Meal | null>(null);
   const today = todayIso();
@@ -39,6 +41,7 @@ export default function DailyCalories() {
     const token = await getToken().catch(() => null);
     const [result, waterResult] = await Promise.all([macro.day(token, selectedDate), macro.water(token, selectedDate)]);
     if (result.ok) setDay(result.data);
+    setLoadError(result.ok ? null : result.error);
     // The water card only appears once its data has loaded (nothing shifts before that)
     setWater(waterResult.ok ? waterResult.data : null);
   }, [getToken, selectedDate]);
@@ -67,7 +70,11 @@ export default function DailyCalories() {
       <SafeAreaView style={{ flex: 1 }}>
         <MacroHeader title="Daily calories" subtitle={longDate(selectedDate)} />
 
-        {!showing ? (
+        {!showing && loadError ? (
+          <View className="px-4 pt-2">
+            <LoadError title="Couldn't load this day" message={loadError} onRetry={load} />
+          </View>
+        ) : !showing ? (
           <View className="px-4 pt-2">
             <ScreenSkeleton />
           </View>
@@ -129,7 +136,8 @@ function Hero({ day }: { day: DayView }) {
   const colors = useThemeColors();
   const target = day.targets?.kcal ?? 0;
   const eaten = day.totals.kcal;
-  const remaining = Math.max(0, target - eaten);
+  // Eaten is rounded first, as on the Macro tab's card, so both screens show the same number left
+  const remaining = Math.max(0, target - whole(eaten));
   const percent = target > 0 ? Math.round((eaten / target) * 100) : 0;
   return (
     <View className="macro__hero" accessibilityLabel={`${whole(remaining)} kcal remaining of ${target}. ${percent}% eaten.`}>

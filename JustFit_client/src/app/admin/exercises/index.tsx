@@ -24,6 +24,8 @@ const VIDEO_TABS: { id: VideoFilter; label: string }[] = [
 // Super Admin › Exercises: every exercise a member can be given, so the admin can film a demo
 // video for each. Exercises without a video come first, the ones most members have in their plan
 // first. Filter by video state and muscle group, search by name; Add with AI asks for new ones.
+const PAGE = 50;
+
 export default function ExercisesScreen() {
   const colors = useThemeColors();
   const getToken = useSessionToken();
@@ -33,6 +35,11 @@ export default function ExercisesScreen() {
   const [typed, setTyped] = useState("");
   const [search, setSearch] = useState("");
   const [load, setLoad] = useState<Load>({ state: "loading" });
+  // Rows drawn so far: the library grows 20 at a time with Add with AI, so it is drawn in pages
+  // (back to the first page whenever a filter or the search changes)
+  const filterKey = `${video}|${group}|${show}|${search}`;
+  const [paging, setPaging] = useState({ key: filterKey, rows: PAGE });
+  const shown = paging.key === filterKey ? paging.rows : PAGE;
 
   // The search applies a moment after typing stops
   useEffect(() => {
@@ -120,7 +127,7 @@ export default function ExercisesScreen() {
             <>
               <Text className="home__note">{`${load.data.exercises.length} ${load.data.exercises.length === 1 ? "exercise" : "exercises"}`}</Text>
               <View className="admin-list">
-                {load.data.exercises.map((e, i) => (
+                {load.data.exercises.slice(0, shown).map((e, i) => (
                   <Pressable
                     key={e.id}
                     onPress={() => router.push({ pathname: "/admin/exercises/[id]", params: { id: e.id } })}
@@ -142,6 +149,11 @@ export default function ExercisesScreen() {
                   </Pressable>
                 ))}
               </View>
+              {load.data.exercises.length > shown && (
+                <Pressable onPress={() => setPaging({ key: filterKey, rows: shown + PAGE })} className="admin__action self-center" accessibilityRole="button">
+                  <Text className="admin__action-label">{`Show more (${load.data.exercises.length - shown} left)`}</Text>
+                </Pressable>
+              )}
             </>
           )}
 

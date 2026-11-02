@@ -14,9 +14,9 @@ const { startTestServer } = require("./server.js");
 const { identitiesFor, describeIdentityError } = require("./test-identities.js");
 
 const WORKOUT_TABLES = ["workout_logs", "workout_day_overrides", "workout_day_exercises", "workout_days", "workout_plans", "workout_profiles", "profiles"];
-const utcDay = (offsetDays = 0) => new Date(Date.now() + offsetDays * 86400000).toISOString().slice(0, 10);
+const { appDay } = require("./dates.js");
 const weekdayOf = (iso) => new Date(`${iso}T00:00:00Z`).getUTCDay();
-const TODAY = utcDay();
+const TODAY = appDay();
 
 describe("workout e2e: the first plan, the hub, the training day and who may see them", () => {
   const runId = crypto.randomBytes(4).toString("hex");
@@ -94,7 +94,7 @@ describe("workout e2e: the first plan, the hub, the training day and who may see
   it("1. every workout route needs a valid session", run(async () => {
     for (const token of [null, "not-a-jwt", "eyJhbGciOiJSUzI1NiJ9.e30.invalid"]) {
       assert.equal((await home(token, TODAY)).status, 401);
-      assert.equal((await history(token, utcDay(-6), TODAY)).status, 401);
+      assert.equal((await history(token, appDay(-6), TODAY)).status, 401);
       assert.equal((await ensure(token)).status, 401);
     }
     assert.equal(await count("workout_plans", "1 = ?", [1]), 0, "nothing was written");
@@ -104,7 +104,7 @@ describe("workout e2e: the first plan, the hub, the training day and who may see
     const h = await home(tokens.a, TODAY);
     assert.equal(h.status, 200, JSON.stringify(h.json));
     assert.deepEqual(h.json, { plan: null });
-    const past = await history(tokens.a, utcDay(-6), TODAY);
+    const past = await history(tokens.a, appDay(-6), TODAY);
     assert.equal(past.status, 200);
     assert.deepEqual(past.json, { days: [] });
   }));
@@ -136,10 +136,10 @@ describe("workout e2e: the first plan, the hub, the training day and who may see
     state.weekdaysA = new Set(plan.weekdays);
 
     // A plan made today doesn't count the days before it as missed
-    const lastWeek = Array.from({ length: 7 }, (_, i) => utcDay(-i));
+    const lastWeek = Array.from({ length: 7 }, (_, i) => appDay(-i));
     const fresh = await home(tokens.a, TODAY, lastWeek);
     assert.ok(fresh.json.week.every((w) => w.status !== "missed"), JSON.stringify(fresh.json.week));
-    assert.ok((await history(tokens.a, utcDay(-6), TODAY)).json.days.every((d) => d.status !== "missed"));
+    assert.ok((await history(tokens.a, appDay(-6), TODAY)).json.days.every((d) => d.status !== "missed"));
   }));
 
   it("4. asking for the first plan three times at once still makes one plan", run(async () => {
@@ -154,7 +154,7 @@ describe("workout e2e: the first plan, the hub, the training day and who may see
   }));
 
   it("5. a scheduled day comes in full; a rest day has no session", run(async () => {
-    const window = Array.from({ length: 7 }, (_, i) => utcDay(i));
+    const window = Array.from({ length: 7 }, (_, i) => appDay(i));
     const scheduled = window.find((d) => state.weekdaysA.has(weekdayOf(d)));
     const rest = window.find((d) => !state.weekdaysA.has(weekdayOf(d)));
     const h = await home(tokens.a, scheduled, window);
@@ -182,7 +182,7 @@ describe("workout e2e: the first plan, the hub, the training day and who may see
     assert.equal(r.json.status, "rest");
     assert.equal(r.json.day, null);
 
-    const bDates = Array.from({ length: 7 }, (_, i) => utcDay(i));
+    const bDates = Array.from({ length: 7 }, (_, i) => appDay(i));
     const [[bDay]] = await connection.query("SELECT weekday FROM workout_days WHERE user_id = ? LIMIT 1", [ids.b]);
     const bScheduled = bDates.find((d) => weekdayOf(d) === bDay.weekday);
     const b = await home(tokens.b, bScheduled, [bScheduled]);
@@ -191,8 +191,8 @@ describe("workout e2e: the first plan, the hub, the training day and who may see
 
   it("6. each date resolves log first, then override, then weekday", run(async () => {
     // The plan has been running for a month
-    await connection.query("UPDATE workout_plans SET start_date = ? WHERE id = ?", [utcDay(-30), state.planA]);
-    const past = Array.from({ length: 13 }, (_, i) => utcDay(-(i + 1)));
+    await connection.query("UPDATE workout_plans SET start_date = ? WHERE id = ?", [appDay(-30), state.planA]);
+    const past = Array.from({ length: 13 }, (_, i) => appDay(-(i + 1)));
     const scheduled = past.filter((d) => state.weekdaysA.has(weekdayOf(d)));
     const rest = past.filter((d) => !state.weekdaysA.has(weekdayOf(d)));
     assert.ok(scheduled.length >= 3 && rest.length >= 2);
@@ -209,17 +209,18 @@ describe("workout e2e: the first plan, the hub, the training day and who may see
     const h = await home(tokens.a, moved, dates);
     assert.equal(h.status, 200, JSON.stringify(h.json));
     const statusOf = Object.fromEntries(h.json.week.map((w) => [w.date, w.status]));
-    assert.deepEqual(statusOf, { [missed]: "missed", [running]: "in_progress", [done]: "completed", [moved]: "missed", [idle]: "rest" });
+    // A session left running on a day that's over reads as missed, never "in progress" for ever
+    assert.deepEqual(statusOf, { [missed]: "missed", [running]: "missed", [done]: "completed", [moved]: "missed", [idle]: "rest" });
     assert.equal(h.json.day.id, state.daysA[0].id, "the override's session is shown on the moved date");
 
-    const past14 = await history(tokens.a, utcDay(-13), TODAY);
+    const past14 = await history(tokens.a, appDay(-13), TODAY);
     assert.equal(past14.status, 200);
     const rows = past14.json.days;
     assert.ok(rows.every((r, i) => i === 0 || r.date < rows[i - 1].date), "newest first");
     assert.ok(rows.every((r) => r.status !== "rest" && r.status !== "planned"), "rest days and sessions still ahead are left out");
     const byDate = Object.fromEntries(rows.map((r) => [r.date, r]));
     assert.equal(byDate[done].status, "completed");
-    assert.equal(byDate[running].status, "in_progress");
+    assert.equal(byDate[running].status, "missed", "left running on a past day");
     assert.equal(byDate[missed].status, "missed");
     assert.equal(byDate[moved].title, state.daysA[0].title);
     assert.equal(byDate[idle], undefined);
@@ -228,16 +229,16 @@ describe("workout e2e: the first plan, the hub, the training day and who may see
 
   it("7. another member's training day never shows up, even when a row points at it", run(async () => {
     // A forged override and log under B that point at A's day: B must not see A's session
-    const target = utcDay(-20);
+    const target = appDay(-20);
     await connection.query("INSERT INTO workout_day_overrides (user_id, on_date, day_id) VALUES (?, ?, ?)", [ids.b, target, state.daysA[0].id]);
     const h = await home(tokens.b, target, [target], TODAY);
     assert.equal(h.status, 200);
     assert.equal(h.json.day, null, "A's exercises are not returned to B");
     assert.notEqual(h.json.plan.id, state.planA);
 
-    const logDate = utcDay(-21);
+    const logDate = appDay(-21);
     await connection.query("INSERT INTO workout_logs (user_id, plan_id, day_id, on_date, status, completed_at) VALUES (?, ?, ?, ?, 'completed', NOW(3))", [ids.b, state.planA, state.daysA[1].id, logDate]);
-    const past = await history(tokens.b, utcDay(-21), utcDay(-20), TODAY);
+    const past = await history(tokens.b, appDay(-21), appDay(-20), TODAY);
     for (const row of past.json.days) {
       assert.equal(row.title, null, "A's day title is not leaked");
       assert.equal(row.exerciseCount, 0);
@@ -259,15 +260,15 @@ describe("workout e2e: the first plan, the hub, the training day and who may see
     await bad(await home(tokens.a, "today"), /YYYY-MM-DD/);
     await bad(await home(tokens.a, "2026-01-01' OR '1'='1"), /YYYY-MM-DD/);
     await bad(await api("GET", `/api/workout/home${qs({ date: TODAY, today: TODAY })}`, tokens.a), /comma-separated/);
-    await bad(await home(tokens.a, TODAY, Array.from({ length: 15 }, (_, i) => utcDay(i))), /at most 14/);
+    await bad(await home(tokens.a, TODAY, Array.from({ length: 15 }, (_, i) => appDay(i))), /at most 14/);
     await bad(await home(tokens.a, TODAY, [TODAY, "1); DROP TABLE workout_plans; --"]), /YYYY-MM-DD/);
-    await bad(await home(tokens.a, TODAY, [TODAY], utcDay(-3)), /server's date/);
-    await bad(await history(tokens.a, TODAY, utcDay(-1)), /on or before/);
-    await bad(await history(tokens.a, utcDay(-31), TODAY), /at most 31/);
+    await bad(await home(tokens.a, TODAY, [TODAY], appDay(-3)), /server's date/);
+    await bad(await history(tokens.a, TODAY, appDay(-1)), /on or before/);
+    await bad(await history(tokens.a, appDay(-31), TODAY), /at most 31/);
     await bad(await history(tokens.a, "x", TODAY), /From/);
     await bad(await ensure(tokens.a, { today: TODAY, userId: ids.b }), /Unexpected field: userId/);
     await bad(await ensure(tokens.a, [TODAY]), /\{ today \}/);
-    await bad(await ensure(tokens.a, { today: utcDay(5) }), /server's date/);
+    await bad(await ensure(tokens.a, { today: appDay(5) }), /server's date/);
     await bad(await ensure(tokens.a, {}), /Today/);
     assert.equal((await ensure(tokens.a, "{not json")).status, 400);
     assert.equal((await ensure(tokens.a, JSON.stringify({ today: TODAY, pad: "x".repeat(8 * 1024) }))).status, 413, "an oversized body is refused");

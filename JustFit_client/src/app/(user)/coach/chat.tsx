@@ -23,16 +23,23 @@ function boldPoints(text: string) {
 }
 
 // Chat with the AI coach. Opened from the Coach tab's ask box (with what was typed, or a
-// suggestion chip, as `q`, sent straight away). Each message is one paid AI call, limited per
-// member by the server; the chat isn't saved, so it lasts until the app closes or sign-out. A
-// reply that recommends a change to the plan carries Apply cards (components/coach/ChatProposals).
+// suggestion chip, as `q`, sent once the saved conversation is shown). Each message is one paid AI
+// call, limited per member by the server; the server saves the conversation for 7 days, so it is
+// still here after leaving the chat or restarting the app. A failed message can be tapped to send
+// it again. A reply that recommends a change to the plan carries Apply cards (components/coach/ChatProposals).
 export default function CoachChat() {
   const colors = useThemeColors();
   const { q, name, coach } = useLocalSearchParams<{ q?: string; name?: string; coach?: string }>();
   const getToken = useSessionToken();
   const turns = useCoachChatStore((state) => state.turns);
   const sending = useCoachChatStore((state) => state.sending);
+  const status = useCoachChatStore((state) => state.status);
+  const loadError = useCoachChatStore((state) => state.loadError);
+  const load = useCoachChatStore((state) => state.load);
+  const shownCoach = useCoachChatStore((state) => state.coach);
+  const clear = useCoachChatStore((state) => state.clear);
   const send = useCoachChatStore((state) => state.send);
+  const retry = useCoachChatStore((state) => state.retry);
   const [text, setText] = useState("");
   const scroll = useRef<ScrollViewInstance>(null);
   const sentQuery = useRef(false);
@@ -41,20 +48,34 @@ export default function CoachChat() {
   // Only a known coach id draws an avatar (the param is just a hint from the Coach tab)
   const coachId = coaches.find((c) => c.id === coach)?.id as CoachId | undefined;
 
-  // A question from the Coach tab is sent once, when the screen opens
+  // The saved conversation, read the first time the chat opens in this app session
   useEffect(() => {
-    if (sentQuery.current || !q?.trim()) return;
+    if (status === "idle") load(getToken);
+  }, [status, load, getToken]);
+
+  // The coach changed since it was read (e.g. in the intake's Edit): theirs is a new conversation.
+  // Read again once at most, so a stale hint can't keep reloading it.
+  const reread = useRef(false);
+  useEffect(() => {
+    if (reread.current || status !== "ready" || !coachId || !shownCoach || shownCoach === coachId) return;
+    reread.current = true;
+    clear();
+  }, [status, coachId, shownCoach, clear]);
+
+  // A question from the Coach tab is sent once, after the conversation so far is on screen
+  useEffect(() => {
+    if (sentQuery.current || !q?.trim() || status !== "ready") return;
     sentQuery.current = true;
     send(getToken, q);
-  }, [q, send, getToken]);
+  }, [q, send, getToken, status]);
 
   const submit = (value: string) => {
-    if (!value.trim() || sending) return;
+    if (!value.trim() || sending || status !== "ready") return;
     setText("");
     send(getToken, value);
   };
 
-  const canSend = text.trim().length > 0 && !sending;
+  const canSend = text.trim().length > 0 && !sending && status === "ready";
 
   return (
     <View className="coach__page">
@@ -83,7 +104,26 @@ export default function CoachChat() {
               <Text className="coach__bubble-text">{`Hi! I'm ${coachName}. Ask me anything about your workouts, your food or your progress. I know your plan and what you've logged today.`}</Text>
             </View>
 
-            {turns.length === 0 && !q && (
+            {status === "loading" && (
+              <View className="coach__bubble" accessibilityLabel="Loading your chat">
+                <ActivityIndicator color={colors.leaf} />
+              </View>
+            )}
+
+            {status === "error" && (
+              <>
+                <View className="coach__bubble coach__bubble--failed">
+                  <Text className="coach__bubble-text">{loadError ?? "Your chat couldn't be loaded."}</Text>
+                </View>
+                <View className="flex-row flex-wrap gap-2">
+                  <Pressable onPress={() => load(getToken)} className="coach__prompt" accessibilityRole="button" accessibilityLabel="Load your chat again">
+                    <Text className="coach__prompt-label">Try again</Text>
+                  </Pressable>
+                </View>
+              </>
+            )}
+
+            {status === "ready" && turns.length === 0 && !q && (
               <View className="flex-row flex-wrap gap-2">
                 {coachPrompts.map((prompt) => (
                   <Pressable key={prompt} onPress={() => submit(prompt)} className="coach__prompt" accessibilityRole="button" accessibilityLabel={`Ask: ${prompt}`}>
@@ -95,9 +135,19 @@ export default function CoachChat() {
 
             {turns.map((turn) => (
               <Fragment key={turn.id}>
-                <View className={["coach__bubble", turn.role === "member" && "coach__bubble--me", turn.failed && "coach__bubble--failed"].filter(Boolean).join(" ")}>
-                  <Text className={turn.role === "member" ? "coach__bubble-text coach__bubble-text--me" : "coach__bubble-text"}>{turn.role === "member" ? turn.text : boldPoints(turn.text)}</Text>
-                </View>
+                {turn.role === "member" && turn.failed ? (
+                  // Not sent: tapping it sends it again
+                  <Pressable onPress={() => retry(getToken, turn.id)} disabled={sending} accessibilityRole="button" accessibilityLabel={`Not sent. Send again: ${turn.text}`}>
+                    <View className="coach__bubble coach__bubble--me coach__bubble--failed">
+                      <Text className="coach__bubble-text coach__bubble-text--me">{turn.text}</Text>
+                    </View>
+                    <Text className="coach__hint mt-1 self-end">Not sent · Tap to try again</Text>
+                  </Pressable>
+                ) : (
+                  <View className={["coach__bubble", turn.role === "member" && "coach__bubble--me", turn.failed && "coach__bubble--failed"].filter(Boolean).join(" ")}>
+                    <Text className={turn.role === "member" ? "coach__bubble-text coach__bubble-text--me" : "coach__bubble-text"}>{turn.role === "member" ? turn.text : boldPoints(turn.text)}</Text>
+                  </View>
+                )}
                 {/* Plan changes the reply recommends, each with an Apply button */}
                 {turn.proposals && <ChatProposals turnId={turn.id} proposals={turn.proposals} />}
               </Fragment>

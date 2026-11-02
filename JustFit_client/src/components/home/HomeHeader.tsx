@@ -7,8 +7,8 @@ import { useThemeColors } from "@/theme";
 type HomeHeaderProps = {
   // The member's first name ("" when the account has none yet)
   name: string;
-  // Delivery pincode shown in the location pill
-  pincode: string;
+  // Delivery pincode shown in the location pill; null hides the pill (no delivery address yet)
+  pincode: string | null;
   hasUnread: boolean;
   onLocationPress: () => void;
   onNotificationsPress: () => void;
@@ -47,11 +47,13 @@ export function HomeHeader({ name, pincode, hasUnread, onLocationPress, onNotifi
         </View>
       </View>
 
-      <Pressable onPress={onLocationPress} className="home__pill mt-3 self-start" accessibilityRole="button" accessibilityLabel={`Deliver to ${pincode}. Change delivery address`}>
-        <SymbolView name={{ ios: "mappin.and.ellipse", android: "location_on", web: "location_on" }} size={15} tintColor={colors.forestInk} />
-        <Text className="home__pill-label">{`Deliver to · ${pincode}`}</Text>
-        <SymbolView name={{ ios: "chevron.down", android: "expand_more", web: "expand_more" }} size={12} tintColor={colors.muted} />
-      </Pressable>
+      {pincode && (
+        <Pressable onPress={onLocationPress} className="home__pill mt-3 self-start" accessibilityRole="button" accessibilityLabel={`Deliver to ${pincode}. Change delivery address`}>
+          <SymbolView name={{ ios: "mappin.and.ellipse", android: "location_on", web: "location_on" }} size={15} tintColor={colors.forestInk} />
+          <Text className="home__pill-label">{`Deliver to · ${pincode}`}</Text>
+          <SymbolView name={{ ios: "chevron.down", android: "expand_more", web: "expand_more" }} size={12} tintColor={colors.muted} />
+        </Pressable>
+      )}
     </View>
   );
 }

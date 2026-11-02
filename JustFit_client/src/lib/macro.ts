@@ -7,10 +7,10 @@ import type { Icon } from "@/types/profile";
 export type Slot = "breakfast" | "lunch" | "snack" | "dinner";
 export type Totals = { kcal: number; proteinG: number; carbsG: number; fatG: number };
 export type MealItem = { name: string; quantity: number; unit: string } & Totals;
-export type MealSource = "manual" | "favorite" | "repeat";
+export type MealSource = "manual" | "favorite" | "repeat" | "plan";
 export type Meal = { id: string; date: string; slot: Slot; title: string; loggedAt: string; source: MealSource; items: MealItem[]; totals: Totals };
 export type DayView = { date: string; targets: Totals | null; totals: Totals; burned: number; meals: Meal[] };
-export type DayStatus = "none" | "complete" | "partial" | "low";
+export type DayStatus = "none" | "complete" | "partial" | "low" | "over";
 export type DayProgress = { date: string; kcal: number; target: number | null; ratio: number; status: DayStatus };
 export type Period = "today" | "week" | "month";
 export type Summary = { period: Period; days: number; avg: Totals; targets: Totals; trend: { date: string; kcal: number }[]; trendAvg: number };
@@ -203,7 +203,7 @@ export function loggedAtFor(date: string, hour?: string, minute?: string) {
   return at.getTime();
 }
 
-export const sourceLabel: Record<MealSource, string> = { manual: "Logged", favorite: "From favourites", repeat: "Repeated" };
+export const sourceLabel: Record<MealSource, string> = { manual: "Logged", favorite: "From favourites", repeat: "Repeated", plan: "From your plan" };
 
 // ---- numbers --------------------------------------------------------------------
 

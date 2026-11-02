@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
@@ -26,7 +26,11 @@ const macroFields = (colors: Palette) => ([
 
 // Digits and one decimal point only, at most 6 characters
 const numeric = (text: string) => text.replace(/[^\d.]/g, "").replace(/(\..*)\./g, "$1").slice(0, 6);
-const toNumber = (text: string) => (text.trim() === "" ? 0 : Number(text));
+// A lone "." (or anything else that isn't a number yet) reads as 0, never NaN
+const toNumber = (text: string) => {
+  const n = Number(text);
+  return text.trim() === "" || !Number.isFinite(n) ? 0 : n;
+};
 
 // Where a food's numbers came from: the built-in list (recalculated when the amount changes), an AI
 // estimate for an amount in a unit (rescaled in that unit), or typed by hand (null: left alone)
@@ -49,6 +53,11 @@ function withAmount(food: FoodDraft, quantity: string, unit: FoodUnit): FoodDraf
   const next = { ...food, quantity, unit };
   const amount = toNumber(quantity);
   const listed = findFood(food.foodId);
+  // No amount: numbers worked out for the old amount would be saved against "1 serving", so they
+  // go; typing an amount again fills them back in
+  if (!(amount > 0) && (food.basis?.source === "ai" || (food.basis?.source === "list" && listed))) {
+    return { ...next, kcal: "", grams: { protein: "", carbs: "", fat: "" } };
+  }
   if (food.basis?.source === "list" && listed) {
     const n = nutrientsFor(listed, amount, unit);
     return n ? { ...next, ...filled(n) } : next;
@@ -74,6 +83,7 @@ export default function ManualEntry() {
   const [slot, setSlot] = useState<Slot>(slots.includes(params.slot as Slot) ? (params.slot as Slot) : slotForNow());
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
 
   const update = (key: number, change: Partial<FoodDraft> | ((food: FoodDraft) => FoodDraft)) =>
     setFoods((list) => list.map((f) => (f.key === key ? (typeof change === "function" ? change(f) : { ...f, ...change }) : f)));
@@ -86,7 +96,12 @@ export default function ManualEntry() {
     const result = await macro.estimateFood(await getToken().catch(() => null), { name: food.name.trim(), quantity: amount, unit: food.unit });
     if (!result.ok) return update(food.key, { estimating: false, estimateError: result.status ? result.error : "Could not reach justFit. Check your connection and try again." });
     const n = result.data.estimate;
-    update(food.key, (f) => ({ ...f, ...filled(n), estimating: false, estimateError: null, basis: { source: "ai", nutrients: n, amount, unit: food.unit } }));
+    update(food.key, (f) => {
+      // The food changed while the AI was answering: its numbers were for another amount or food
+      const same = f.name.trim() === food.name.trim() && toNumber(f.quantity) === amount && f.unit === food.unit;
+      if (!same) return { ...f, estimating: false, estimateError: null };
+      return { ...f, ...filled(n), estimating: false, estimateError: null, basis: { source: "ai", nutrients: n, amount, unit: food.unit } };
+    });
   };
   const addFood = () => {
     if (foods.length >= MAX_FOODS) return;
@@ -102,7 +117,8 @@ export default function ManualEntry() {
   const several = foods.length > 1;
 
   const save = async () => {
-    if (saving) return;
+    // A ref, not the state: two taps in one frame both still see saving === false
+    if (savingRef.current) return;
     setError(null);
     if (selectedDate !== todayIso()) return setError("Meals can only be logged for today.");
     for (const [i, f] of foods.entries()) {
@@ -111,6 +127,7 @@ export default function ManualEntry() {
       if (!(toNumber(f.kcal) > 0)) return setError(several ? `Enter the calories for ${f.name.trim()}.` : "Enter the calories.");
     }
     const title = (several && mealName.trim()) || foods.map((f) => f.name.trim()).join(", ").slice(0, 120);
+    savingRef.current = true;
     setSaving(true);
     const result = await macro.logMeal(await getToken().catch(() => null), {
       date: selectedDate,
@@ -131,6 +148,7 @@ export default function ManualEntry() {
         };
       }),
     });
+    savingRef.current = false;
     setSaving(false);
     if (!result.ok) return setError(result.status ? result.error : "Could not save that meal.");
     track("meal_logged", { source: "manual" });

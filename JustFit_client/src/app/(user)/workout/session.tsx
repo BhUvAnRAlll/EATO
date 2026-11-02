@@ -150,6 +150,11 @@ function Player({ day, logId, completed, initialLogged, startExercise, getToken,
   const [weight, setWeight] = useState(first?.kind === "set" && first.weightKg !== null ? String(first.weightKg) : "");
   const [finished, setFinished] = useState(completed);
   const [finishing, setFinishing] = useState(false);
+  // A ref, not the state: two taps (or a tap and the last timer reaching zero) in one frame
+  // would both see finishing === false and complete the session twice
+  const finishingRef = useRef(false);
+  // Bumped each time a step is armed (also when the same step restarts), so its countdown restarts
+  const [armed, setArmed] = useState(0);
   // Set saves run one after another, and finishing waits for them, so the last set is never
   // refused because the session closed first
   const saves = useRef<Promise<void>>(Promise.resolve());
@@ -163,17 +168,20 @@ function Player({ day, logId, completed, initialLogged, startExercise, getToken,
     setIndex(i);
     setPaused(false);
     setRemaining(s?.durationSec ?? 0);
+    setArmed((n) => n + 1);
     setReps(s?.kind === "set" ? s.reps : 0);
     setWeight(s?.kind === "set" && s.weightKg !== null ? String(s.weightKg) : "");
   };
 
   const finish = async () => {
-    if (finishing) return;
+    if (finishingRef.current) return;
     if (!logId) return onError("Could not finish the session");
+    finishingRef.current = true;
     setFinishing(true);
     await saves.current;
     const token = await getToken().catch(() => null);
     const result = await workoutApi.completeSession(token, logId);
+    finishingRef.current = false;
     setFinishing(false);
     if (!result.ok) return onError("Could not finish the session");
     track("workout_completed");
@@ -220,16 +228,35 @@ function Player({ day, logId, completed, initialLogged, startExercise, getToken,
     advanceTo(index + 1);
   };
 
-  // One tick a second while a timed step runs. Zero finishes a timed set or ends a rest.
+  // What reaching zero does, for the step on screen now (finish a timed set or end a rest), and
+  // the seconds left, kept current after every render for the countdown below (declared first,
+  // so it runs before the countdown's effect)
+  const atZero = useRef(() => {});
+  const left = useRef(remaining);
   useEffect(() => {
-    if (!step || step.durationSec === null || paused || finished || remaining <= 0) return;
-    const timer = setTimeout(() => {
-      if (remaining > 1) setRemaining(remaining - 1);
-      else if (step.kind === "set") setDone();
+    atZero.current = () => {
+      if (step?.kind === "set") setDone();
       else advanceTo(index + 1);
-    }, 1000);
-    return () => clearTimeout(timer);
+    };
+    left.current = remaining;
   });
+  // The time left as a deadline, not a count of ticks: phones pause timers while the app is in
+  // the background (and a re-render would restart a tick), so the figure is read from the clock.
+  // A pause keeps what was left; resuming sets a new deadline from it.
+  const timedStep = step !== null && step.durationSec !== null;
+  useEffect(() => {
+    if (!timedStep || paused || finished || left.current <= 0) return;
+    const endsAt = Date.now() + left.current * 1000;
+    const timer = setInterval(() => {
+      const secs = Math.max(0, Math.ceil((endsAt - Date.now()) / 1000));
+      setRemaining(secs);
+      if (secs === 0) {
+        clearInterval(timer);
+        atZero.current();
+      }
+    }, 250);
+    return () => clearInterval(timer);
+  }, [timedStep, index, armed, paused, finished]);
 
   if (finished) {
     const totals = setTotals(steps, logged);

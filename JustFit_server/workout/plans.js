@@ -21,9 +21,12 @@ const SECTION_ORDER = "FIELD(e.section, 'warmup', 'workout', 'cooldown')";
 // overwritten, so an admin's edit to a built-in row survives (and an admin-made row with the
 // same name keeps its place).
 async function syncLibrary(conn) {
-  const [[{ n }]] = await conn.query("SELECT COUNT(*) AS n FROM workout_exercise_library WHERE built_in = TRUE");
-  if (n >= workout.EXERCISE_LIBRARY.length) return;
-  for (const e of workout.EXERCISE_LIBRARY) {
+  // By name, not by count: a built-in whose name an admin row already has would never be added,
+  // so a count would stay short and this would run every insert on every call
+  const [present] = await conn.query("SELECT name FROM workout_exercise_library WHERE name IN (?)", [workout.EXERCISE_LIBRARY.map((e) => e.name)]);
+  const have = new Set(present.map((r) => r.name.toLowerCase()));
+  const missing = workout.EXERCISE_LIBRARY.filter((e) => !have.has(e.name.toLowerCase()));
+  for (const e of missing) {
     await conn.query(
       `INSERT IGNORE INTO workout_exercise_library
          (name, muscle_group, equipment, pattern, difficulty, high_risk, low_impact, machine, region, timed_sec, instructions, built_in)
@@ -104,6 +107,18 @@ async function memberSources(conn, userId) {
 async function memberWeight(conn, userId) {
   const { justfit, saved } = await memberSources(conn, userId);
   return saved.weightKg ?? justfit.weightKg ?? null;
+}
+
+// Adapted days that can still be reused: a retired one (the equipment changed after a past date
+// used it, migration 2026-11-11) is kept for the history only. Before that migration there is no
+// column and nothing is retired; once the column is there, that's remembered.
+let hasRetiredAt = false;
+async function liveDaysOnly(db) {
+  if (!hasRetiredAt) {
+    const [rows] = await db.query("SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'workout_days' AND COLUMN_NAME = 'retired_at'");
+    hasRetiredAt = rows.length > 0;
+  }
+  return hasRetiredAt ? " AND retired_at IS NULL" : "";
 }
 
 // ---- plans -------------------------------------------------------------------------
@@ -268,6 +283,9 @@ async function resolveDates(conn, userId, planId, dates, today, startDate = null
   );
   const logOf = new Map();
   for (const log of logs) {
+    // A session left running on a day that's over never finished: that day reads as missed (and
+    // can be moved to today), not "in progress" for ever. startSession closes such logs.
+    if (log.status === "in_progress" && log.date < today) continue;
     const held = logOf.get(log.date);
     if (!held || (held.status !== "completed" && log.status === "completed")) logOf.set(log.date, log);
   }
@@ -378,11 +396,16 @@ async function home(pool, userId, { date, dates, today }) {
 
 // A completed session longer than this was left running by mistake: it counts as this much
 const MAX_SESSION_MINUTES = 180;
+// A session counts at most this many times its planned length (time spent away from the player
+// with the session open isn't training)
+const PLANNED_MINUTES_FACTOR = 1.5;
 
 /**
  * Active this week (Home's card): the minutes trained on each day of the week holding `today`
  * (Monday to Sunday), the week's total, and last week's total to compare with. A session's
- * minutes run from its start to its finish, capped; only completed sessions count.
+ * minutes run from its start to its finish, capped at one and a half times its planned length
+ * (and at 180); only completed sessions with at least one logged set count. The change is
+ * against the same days of last week (Monday to today), so a Monday never reads as -90%.
  */
 async function activity(pool, userId, { today }) {
   const start = new Date(`${today}T00:00:00Z`);
@@ -394,18 +417,27 @@ async function activity(pool, userId, { today }) {
     return d.toISOString().slice(0, 10);
   };
   const [rows] = await pool.query(
-    `SELECT DATE_FORMAT(on_date, '%Y-%m-%d') AS date,
-            SUM(LEAST(GREATEST(TIMESTAMPDIFF(MINUTE, started_at, completed_at), 1), ?)) AS minutes
-     FROM workout_logs
-     WHERE user_id = ? AND status = 'completed' AND completed_at IS NOT NULL AND on_date BETWEEN ? AND ?
-     GROUP BY on_date`,
-    [MAX_SESSION_MINUTES, userId, day(-7), day(6)],
+    `SELECT DATE_FORMAT(l.on_date, '%Y-%m-%d') AS date, l.day_id, GREATEST(TIMESTAMPDIFF(MINUTE, l.started_at, l.completed_at), 1) AS minutes
+     FROM workout_logs l
+     WHERE l.user_id = ? AND l.status = 'completed' AND l.completed_at IS NOT NULL AND l.on_date BETWEEN ? AND ?
+       AND EXISTS (SELECT 1 FROM workout_set_logs s WHERE s.log_id = l.id AND s.user_id = l.user_id)`,
+    [userId, day(-7), day(6)],
   );
-  const minutesOn = new Map(rows.map((r) => [r.date, Number(r.minutes)]));
+  const planned = await daySummaries(pool, userId, rows.map((r) => r.day_id));
+  const minutesOn = new Map();
+  for (const r of rows) {
+    const plannedMinutes = planned.get(r.day_id)?.minutes;
+    const cap = plannedMinutes > 0 ? Math.min(MAX_SESSION_MINUTES, Math.ceil(plannedMinutes * PLANNED_MINUTES_FACTOR)) : MAX_SESSION_MINUTES;
+    minutesOn.set(r.date, (minutesOn.get(r.date) ?? 0) + Math.min(Number(r.minutes), cap));
+  }
   const week = Array.from({ length: 7 }, (_, i) => ({ date: day(i), minutes: minutesOn.get(day(i)) ?? 0 }));
   const totalMinutes = week.reduce((sum, d) => sum + d.minutes, 0);
   const previousTotalMinutes = Array.from({ length: 7 }, (_, i) => minutesOn.get(day(i - 7)) ?? 0).reduce((sum, m) => sum + m, 0);
-  const changePercent = previousTotalMinutes > 0 ? Math.round(((totalMinutes - previousTotalMinutes) / previousTotalMinutes) * 100) : null;
+  // Monday to today this week against Monday to the same weekday last week
+  const daysSoFar = ((start.getUTCDay() + 6) % 7) + 1;
+  const thisSoFar = week.slice(0, daysSoFar).reduce((sum, d) => sum + d.minutes, 0);
+  const lastSoFar = Array.from({ length: daysSoFar }, (_, i) => minutesOn.get(day(i - 7)) ?? 0).reduce((sum, m) => sum + m, 0);
+  const changePercent = lastSoFar > 0 ? Math.round(((thisSoFar - lastSoFar) / lastSoFar) * 100) : null;
   return { today, week, totalMinutes, previousTotalMinutes, changePercent };
 }
 
@@ -535,6 +567,8 @@ async function startSession(pool, userId, { date, today }) {
     const own = await ownDayIds(conn, userId, [resolved.dayId]);
     if (!resolved.dayId || !own.has(resolved.dayId)) throw new ValidationError("Nothing is scheduled today");
     if (resolved.status === "completed") throw new ValidationError("That session is already done");
+    // Sessions left running on earlier days are ended, so none stays "in progress" for ever
+    await conn.query("UPDATE workout_logs SET status = 'abandoned' WHERE user_id = ? AND status = 'in_progress' AND on_date < ?", [userId, today]);
     const [[running]] = await conn.query(`SELECT ${LOG_COLUMNS} FROM workout_logs WHERE user_id = ? AND on_date = ? AND status = 'in_progress'`, [userId, today]);
     if (running) return { log: logToApi(running), created: false };
     const [[{ id }]] = await conn.query("SELECT UUID() AS id");
@@ -773,7 +807,7 @@ async function planOverview(pool, userId) {
 module.exports = {
   recreateInputs, recreatePlan, planOverview, draftFromCoach, planFromCoach, activePlanRow,
   preferences, updatePreferences,
-  syncLibrary, programmableLibrary, pointDate, ensurePlan, home, activity, history, resolveDates, moveSessionToToday, swapDays, withMemberLock,
+  syncLibrary, programmableLibrary, liveDaysOnly, pointDate, ensurePlan, home, activity, history, resolveDates, moveSessionToToday, swapDays, withMemberLock,
   sessionProgress, startSession, logSet, completeSession: (pool, userId, body) => closeSession(pool, userId, body, "completed"),
   abandonSession: (pool, userId, body) => closeSession(pool, userId, body, "abandoned"), SET_LOG_CAP,
 };

@@ -23,9 +23,20 @@ describe("macro: meals", () => {
     assert.deepEqual(m.items[0], food());
   });
 
-  it("logs only for today: any zone's today is fine, yesterday-but-one and the future are refused", () => {
-    for (const date of ["2026-10-13", "2026-10-14", "2026-10-15"]) assert.equal(v.validateMeal(meal({ date }), NOW).date, date);
-    for (const date of ["2026-10-12", "2026-10-16", "2025-10-14"]) rejects(() => v.validateMeal(meal({ date }), NOW), /only be logged for today/);
+  it("logs only for today in India: yesterday, tomorrow and other years are refused", () => {
+    assert.equal(v.validateMeal(meal({ date: "2026-10-14" }), NOW).date, "2026-10-14");
+    for (const date of ["2026-10-13", "2026-10-15", "2026-10-12", "2025-10-14"]) rejects(() => v.validateMeal(meal({ date }), NOW), /only be logged for today/);
+  });
+
+  it("the day turns at midnight in India, not UTC, with 15 minutes' grace for yesterday", () => {
+    const at = (iso) => Date.parse(iso);
+    assert.equal(v.appToday(at("2026-10-14T18:29:00Z")), "2026-10-14", "23:59 IST");
+    assert.equal(v.appToday(at("2026-10-14T18:31:00Z")), "2026-10-15", "00:01 IST, still the 14th in UTC");
+    assert.equal(v.isNearToday("2026-10-15", at("2026-10-14T18:31:00Z")), true);
+    assert.equal(v.isNearToday("2026-10-14", at("2026-10-14T18:40:00Z")), true, "00:10 IST: yesterday's late meal still lands");
+    assert.equal(v.isNearToday("2026-10-14", at("2026-10-14T18:50:00Z")), false, "00:20 IST: grace over");
+    assert.equal(v.isNearToday("2026-10-13", at("2026-10-14T03:00:00Z")), false, "08:30 IST: yesterday is closed");
+    assert.equal(v.appToday(at("2026-10-14T20:00:00Z"), { APP_TIME_ZONE: "UTC" }), "2026-10-14", "APP_TIME_ZONE overrides");
   });
 
   it("refuses malformed dates, slots, times and sources", () => {
@@ -104,6 +115,9 @@ describe("macro: totals and grading", () => {
 
   it("grades a day against the target: complete ≥ 90%, partial ≥ 50%, low below, none without meals or target", () => {
     assert.equal(grade(1800, 2000, true).status, "complete");
+    assert.equal(grade(2300, 2000, true).status, "complete", "up to 115% is still on target");
+    assert.equal(grade(2301, 2000, true).status, "over", "a big over-eat is not a green day");
+    assert.equal(grade(4000, 2000, true).status, "over");
     assert.equal(grade(1000, 2000, true).status, "partial");
     assert.equal(grade(999, 2000, true).status, "low");
     assert.equal(grade(0, 2000, false).status, "none");

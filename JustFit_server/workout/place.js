@@ -71,8 +71,10 @@ async function equipment(pool, userId) {
 
 /**
  * Saves the location sheet (a workout_profiles row is made when there is none). When the
- * equipment changed, the adapted days made for the old equipment and never trained are removed
- * (with the overrides pointing at them), so the next switch adapts to what the member has now.
+ * equipment changed, the adapted days made for the old equipment stop being used from today on
+ * (their overrides for today and later go), so the next switch adapts to what the member has now.
+ * One that a past date or a log still points at is retired (kept for the history, never reused);
+ * the others are removed.
  */
 async function saveEquipment(pool, userId, { home, center }) {
   const before = await placesOf(pool, userId);
@@ -82,13 +84,23 @@ async function saveEquipment(pool, userId, { home, center }) {
       [userId, home, center],
     );
     if (before.equipment.home === home && before.equipment.center === center) return;
-    const [stale] = await conn.query(
-      "SELECT d.id FROM workout_days d WHERE d.user_id = ? AND d.place IS NOT NULL AND NOT EXISTS (SELECT 1 FROM workout_logs l WHERE l.user_id = d.user_id AND l.day_id = d.id)",
-      [userId],
+    const live = await plans.liveDaysOnly(conn);
+    const [stale] = await conn.query(`SELECT id FROM workout_days WHERE user_id = ? AND place IS NOT NULL${live}`, [userId]);
+    const candidates = stale.map((d) => d.id);
+    if (candidates.length === 0) return;
+    await conn.query("DELETE FROM workout_day_overrides WHERE user_id = ? AND day_id IN (?) AND on_date >= CURDATE()", [userId, candidates]);
+    // Still used by a past date (a missed session in the history) or a log (a session trained there)
+    const [used] = await conn.query(
+      `SELECT d.id FROM workout_days d WHERE d.user_id = ? AND d.id IN (?) AND (
+         EXISTS (SELECT 1 FROM workout_day_overrides o WHERE o.user_id = d.user_id AND o.day_id = d.id)
+         OR EXISTS (SELECT 1 FROM workout_logs l WHERE l.user_id = d.user_id AND l.day_id = d.id))`,
+      [userId, candidates],
     );
-    const ids = stale.map((d) => d.id);
+    const keep = new Set(used.map((d) => d.id));
+    // Before migration 2026-11-11 nothing can be retired: a used day is left as it was
+    if (keep.size > 0 && live) await conn.query("UPDATE workout_days SET retired_at = CURRENT_TIMESTAMP WHERE user_id = ? AND id IN (?)", [userId, [...keep]]);
+    const ids = candidates.filter((id) => !keep.has(id));
     if (ids.length === 0) return;
-    await conn.query("DELETE FROM workout_day_overrides WHERE user_id = ? AND day_id IN (?)", [userId, ids]);
     await conn.query("DELETE FROM workout_day_exercises WHERE user_id = ? AND day_id IN (?)", [userId, ids]);
     await conn.query("DELETE FROM workout_days WHERE user_id = ? AND id IN (?)", [userId, ids]);
   });
@@ -238,7 +250,7 @@ async function todayPlace(pool, userId, { dayId, status }) {
 // The adapted day for `base` at `place`: the one kept from before, else a new one (the AI call
 // happens here, before any lock)
 async function variantFor(pool, userId, { plan, base, place, places }, env) {
-  const [[kept]] = await pool.query("SELECT id FROM workout_days WHERE variant_of = ? AND place = ? AND user_id = ?", [base.id, place, userId]);
+  const [[kept]] = await pool.query(`SELECT id FROM workout_days WHERE variant_of = ? AND place = ? AND user_id = ?${await plans.liveDaysOnly(pool)}`, [base.id, place, userId]);
   if (kept) return kept.id;
 
   await plans.syncLibrary(pool);
@@ -253,7 +265,7 @@ async function variantFor(pool, userId, { plan, base, place, places }, env) {
   if (!adapted) throw new ValidationError(`Today's session can't be done with the equipment at ${PLACE_LABEL[place]}.`);
 
   return plans.withMemberLock(pool, userId, async (conn) => {
-    const [[again]] = await conn.query("SELECT id FROM workout_days WHERE variant_of = ? AND place = ? AND user_id = ?", [base.id, place, userId]);
+    const [[again]] = await conn.query(`SELECT id FROM workout_days WHERE variant_of = ? AND place = ? AND user_id = ?${await plans.liveDaysOnly(conn)}`, [base.id, place, userId]);
     if (again) return again.id;
     const { idByName } = await plans.programmableLibrary(conn);
     const [[{ id }]] = await conn.query("SELECT UUID() AS id");

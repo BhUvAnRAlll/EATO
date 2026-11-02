@@ -9,8 +9,9 @@ import { ActionSheet } from "@/components/ActionSheet";
 import { DashedBlock } from "@/components/macro/DashedBlock";
 import { usePullToRefresh } from "@/components/PullToRefresh";
 import { WorkoutSheet } from "@/components/workout/WorkoutSheet";
-import { isValidIso, longDate, todayIso } from "@/lib/macro";
+import { isValidIso, longDate } from "@/lib/macro";
 import { useSessionToken } from "@/lib/session";
+import { useToday } from "@/lib/useToday";
 import {
   GOAL_FOCUS,
   GOAL_LABEL,
@@ -47,7 +48,7 @@ const SECTIONS: Section[] = ["warmup", "workout", "cooldown"];
 export default function TrainingDayScreen() {
   const colors = useThemeColors();
   const params = useLocalSearchParams<{ date?: string }>();
-  const today = todayIso();
+  const today = useToday();
   const date = isValidIso(params.date) ? params.date : today;
   const isToday = date === today;
   const insets = useSafeAreaInsets();

@@ -196,18 +196,21 @@ async function requestScan({ images, inputs }, { url = scanUrl(), fetchImpl = fe
       }),
     });
   } catch (error) {
+    clearTimeout(timer);
     await record("failed");
     console.error(`Body scan failed: Forma unreachable (${error?.name ?? "error"})`);
     throw new ScanError("We couldn't scan your photos right now. Please try again.", 502);
-  } finally {
-    clearTimeout(timer);
   }
 
+  // The timer still runs while the body arrives: Forma sending its headers and then stalling
+  // aborts here too (an unreadable body is a failed scan)
   let result = null;
   try {
     result = await response.json();
   } catch {
     result = null;
+  } finally {
+    clearTimeout(timer);
   }
   if (response.status === 400) {
     await record("refused");

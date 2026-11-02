@@ -14,7 +14,9 @@ const { startTestServer } = require("./server.js");
 const { identitiesFor, describeIdentityError } = require("./test-identities.js");
 
 const TABLES = ["workout_set_logs", "workout_logs", "workout_day_overrides", "workout_day_exercises", "workout_days", "workout_plans", "workout_profiles", "ai_usage", "profiles"];
-const TODAY = new Date().toISOString().slice(0, 10);
+const { appDay } = require("./dates.js");
+
+const TODAY = appDay();
 
 describe("fitness e2e: programs, today's session from a program, the location sheet, the admin", () => {
   const runId = crypto.randomBytes(4).toString("hex");

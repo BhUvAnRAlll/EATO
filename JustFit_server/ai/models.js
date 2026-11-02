@@ -80,16 +80,26 @@ const isFake = (env = process.env) => env.NODE_ENV === "test" && env.AI_PROVIDER
 
 // ---- the client ---------------------------------------------------------------------------
 
+// How long one OpenAI call may take, and how often it is retried. The SDK's own defaults (10
+// minutes, 2 retries) would hold a member's request, and every deduplicated retry of it, for up to
+// half an hour when OpenAI stalls. A timeout is an APIError, so callers answer their friendly 502.
+// AI_TIMEOUT_MS overrides the timeout (5–120 s).
+function clientOptions(env = process.env) {
+  const ms = Number(env.AI_TIMEOUT_MS);
+  return { timeout: Number.isFinite(ms) && ms >= 5000 && ms <= 120000 ? ms : 45000, maxRetries: 1 };
+}
+
 // One OpenAI client per distinct set of options (most features share the default one), made the
 // first time it's needed so the server starts without the key and tests never create one
 const clients = new Map();
 function openaiClient(options = {}) {
-  const key = JSON.stringify(options);
-  if (!clients.has(key)) clients.set(key, new OpenAI(options)); // reads OPENAI_API_KEY
+  const merged = { ...clientOptions(), ...options };
+  const key = JSON.stringify(merged);
+  if (!clients.has(key)) clients.set(key, new OpenAI(merged)); // reads OPENAI_API_KEY
   return clients.get(key);
 }
 
 /** The cached-prompt token count OpenAI reports on a response (0 when it reports none) */
 const cachedTokensOf = (response) => Number(response?.usage?.input_tokens_details?.cached_tokens ?? 0) || 0;
 
-module.exports = { DEFAULTS, FEATURES, modelFor, settingsFor, routingSummary, isFake, isReasoningModel, openaiClient, cachedTokensOf };
+module.exports = { DEFAULTS, FEATURES, modelFor, settingsFor, routingSummary, isFake, isReasoningModel, clientOptions, openaiClient, cachedTokensOf };

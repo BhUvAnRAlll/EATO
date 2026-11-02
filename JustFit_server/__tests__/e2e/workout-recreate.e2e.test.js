@@ -16,9 +16,9 @@ const { startTestServer } = require("./server.js");
 const { identitiesFor, describeIdentityError } = require("./test-identities.js");
 
 const WORKOUT_TABLES = ["workout_set_logs", "workout_logs", "workout_day_overrides", "workout_day_exercises", "workout_days", "workout_plans", "workout_profiles", "profiles"];
-const utcDay = (offsetDays = 0) => new Date(Date.now() + offsetDays * 86400000).toISOString().slice(0, 10);
+const { appDay } = require("./dates.js");
 const weekdayOf = (iso) => new Date(`${iso}T00:00:00Z`).getUTCDay();
-const TODAY = utcDay();
+const TODAY = appDay();
 
 describe("workout e2e: rebuild my plan from thirteen answers", () => {
   const runId = crypto.randomBytes(4).toString("hex");
@@ -199,7 +199,7 @@ describe("workout e2e: rebuild my plan from thirteen answers", () => {
       [{ goal: "lose_weight' OR '1'='1" }, "Pick a goal"],
       [{ userId: ids.b }, /Unexpected field: userId/],
       [{ split: "upper_lower" }, /Unexpected field: split/],
-      [{ today: utcDay(-5) }, /server's date/],
+      [{ today: appDay(-5) }, /server's date/],
     ];
     for (const [change, message] of cases) refused(await rebuild(tokens.a, answers(change)), message);
     assert.equal((await rebuild(tokens.a, "{not json")).status, 400);

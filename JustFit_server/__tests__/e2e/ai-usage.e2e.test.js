@@ -186,7 +186,8 @@ describe("ai usage e2e: recording, the admin summary, history and budget", () =>
     assert.equal((await q("sort=cost")).rows[0].costInr, 500);
     assert.equal((await q("sort=tokens")).rows[0].totalTokens, 15000);
     assert.equal((await q("sort=oldest")).rows[0].costInr, 500);
-    const today = new Date().toISOString().slice(0, 10);
+    // The database's today (it runs on IST): the UTC date is yesterday's between 00:00 and 05:30 IST
+    const [[{ today }]] = await connection.query("SELECT DATE_FORMAT(CURDATE(), '%Y-%m-%d') AS today");
     assert.equal((await q(`from=${today}&to=${today}`)).total, 6);
     assert.equal((await q("page=2")).rows.length, 0);
     for (const bad of ["feature=trainer", "status=deleted", "sort=u.cost_inr", "page=0", "page=abc", "from=yesterday", "from=2026-10-30&to=2026-10-01", `model=${"m".repeat(65)}`]) {

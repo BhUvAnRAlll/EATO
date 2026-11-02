@@ -146,7 +146,8 @@ describe("ui ai usage: the admin's AI Usage screens", () => {
     await h.expectText("By feature");
     await h.expectText("Coach chat");
     await h.expectText("gpt-4o-mini · OpenAI");
-    for (const section of ["AI Chatbot", "AI Coach", "Food & Nutrition AI", "Body Fat Prediction AI", "Other AI services"]) await h.expectText(section);
+    // The coach chat is part of the AI Coach section since the AI Chatbot section was merged into it
+    for (const section of ["AI Coach", "Food & Nutrition AI", "Body Fat Prediction AI", "Other AI services"]) await h.expectText(section);
     await h.expectText("Coaching messages");
     await h.expectText("Usage history");
     await snapshotAllWidths("admin-ai-usage");

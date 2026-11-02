@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { AppState } from "react-native";
 import { create } from "zustand";
 
 import { onAccountCleared } from "@/lib/accountScope";
@@ -28,6 +29,21 @@ export const useMacroStore = create<MacroState>((set) => ({
 
 // The next account starts on today
 onAccountCleared(() => useMacroStore.setState({ selectedDate: todayIso(), weekAnchor: todayIso() }));
+
+// The app left open past midnight: when it comes back, a member who was looking at "today" is
+// moved to the new today (a past day they picked on purpose stays picked)
+let lastToday = todayIso();
+AppState.addEventListener("change", (state) => {
+  if (state !== "active") return;
+  const today = todayIso();
+  if (today === lastToday) return;
+  const { selectedDate, weekAnchor } = useMacroStore.getState();
+  useMacroStore.setState({
+    ...(selectedDate === lastToday ? { selectedDate: today } : {}),
+    ...(weekAnchor === lastToday ? { weekAnchor: today } : {}),
+  });
+  lastToday = today;
+});
 
 // The visible week, oldest first (the same array until the week moves, so it is safe in
 // effect dependencies)

@@ -6,7 +6,7 @@ import { SymbolView } from "@/components/SymbolView";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 
 import { MacroHeader } from "@/components/macro/MacroHeader";
-import { macro, slotInfo, slots, slotTimes, timeLabel, todayIso, whole, type DayView, type Slot } from "@/lib/macro";
+import { macro, slotForNow, slotInfo, slots, slotTimes, timeLabel, todayIso, whole, type DayView, type Slot } from "@/lib/macro";
 import { useSessionToken } from "@/lib/session";
 import { useMacroStore } from "@/store/macro";
 import { useThemeColors } from "@/theme";
@@ -18,7 +18,7 @@ export default function AddMeal() {
   const params = useLocalSearchParams<{ slot?: string }>();
   const getToken = useSessionToken();
   const selectedDate = useMacroStore((state) => state.selectedDate);
-  const [slot, setSlot] = useState<Slot>(slots.includes(params.slot as Slot) ? (params.slot as Slot) : "breakfast");
+  const [slot, setSlot] = useState<Slot>(slots.includes(params.slot as Slot) ? (params.slot as Slot) : slotForNow());
   // null = "Now"
   const [time, setTime] = useState<[number, number] | null>(null);
   const [day, setDay] = useState<DayView | null>(null);

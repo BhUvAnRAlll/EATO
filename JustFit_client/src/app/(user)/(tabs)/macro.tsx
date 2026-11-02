@@ -12,6 +12,7 @@ import { MealTimeline, timelineRows } from "@/components/macro/MealTimeline";
 import { MealDetailSheet } from "@/components/macro/MealDetailSheet";
 import { MonthCalendarSheet } from "@/components/macro/MonthCalendarSheet";
 import { CaloriesCard } from "@/components/macro/CaloriesCard";
+import { LoadError } from "@/components/macro/LoadError";
 import { WeekStrip } from "@/components/macro/WeekStrip";
 import { usePullToRefresh } from "@/components/PullToRefresh";
 import { longDate, macro, todayIso, whole, type DayProgress, type DayView, type Meal } from "@/lib/macro";
@@ -34,6 +35,7 @@ export default function MacroHub() {
 
   const [day, setDay] = useState<DayView | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [progress, setProgress] = useState<Record<string, DayProgress>>({});
   const [openMeal, setOpenMeal] = useState<Meal | null>(null);
   const [calendarOpen, setCalendarOpen] = useState(false);
@@ -41,13 +43,15 @@ export default function MacroHub() {
   const latest = useRef(0);
 
   // The selected day and the week strip. While another day loads the previous one stays
-  // on screen, dimmed, so the screen never flashes empty. A failed read keeps loading.
+  // on screen, dimmed, so the screen never flashes empty. A failed first read says so, with Try again.
   const load = useCallback(async () => {
     const request = ++latest.current;
     setLoading(true);
     const token = await getToken().catch(() => null);
     const [dayResult, weekResult] = await Promise.all([macro.day(token, selectedDate), macro.progress(token, week)]);
     if (request !== latest.current) return;
+    setLoadError(dayResult.ok ? null : dayResult.error);
+    if (!dayResult.ok) setLoading(false);
     if (dayResult.ok) {
       setDay(dayResult.data);
       setLoading(false);
@@ -92,7 +96,11 @@ export default function MacroHub() {
 
           <WeekStrip week={week} selectedDate={selectedDate} today={today} progress={progress} onSelect={selectDate} width={width - 32} />
 
-          {!showing ? (
+          {showing && loadError && <Text className="macro__error" accessibilityRole="alert">{loadError}</Text>}
+
+          {!showing && loadError ? (
+            <LoadError title="Couldn't load your day" message={loadError} onRetry={load} />
+          ) : !showing ? (
             <ScreenSkeleton hero label="Loading your day" />
           ) : (
             <Animated.View style={{ opacity: switching ? 0.55 : fade, gap: 16 }}>

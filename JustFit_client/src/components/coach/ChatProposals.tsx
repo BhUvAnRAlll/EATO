@@ -44,7 +44,7 @@ function ApplyButton({ label, busy, onPress }: { label: string; busy: boolean; o
   );
 }
 
-function MealCard({ turnId, proposal }: { turnId: number; proposal: MealProposal }) {
+function MealCard({ turnId, proposal }: { turnId: string; proposal: MealProposal }) {
   const colors = useThemeColors();
   const getToken = useSessionToken();
   const state = useCoachChatStore((s) => s.proposals[proposalKey(turnId, proposal.mealId)]);
@@ -69,7 +69,7 @@ function MealCard({ turnId, proposal }: { turnId: number; proposal: MealProposal
   );
 }
 
-function WorkoutCard({ turnId, proposal }: { turnId: number; proposal: WorkoutProposal }) {
+function WorkoutCard({ turnId, proposal }: { turnId: string; proposal: WorkoutProposal }) {
   const colors = useThemeColors();
   const getToken = useSessionToken();
   const state = useCoachChatStore((s) => s.proposals[proposalKey(turnId, "workout")]);
@@ -103,7 +103,7 @@ function WorkoutCard({ turnId, proposal }: { turnId: number; proposal: WorkoutPr
   );
 }
 
-export function ChatProposals({ turnId, proposals }: { turnId: number; proposals: Proposals }) {
+export function ChatProposals({ turnId, proposals }: { turnId: string; proposals: Proposals }) {
   if (proposals.meals.length === 0 && !proposals.workout) return null;
   return (
     <View style={{ gap: 10, maxWidth: "92%" }}>

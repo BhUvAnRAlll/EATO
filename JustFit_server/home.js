@@ -10,7 +10,7 @@
 const { ValidationError } = require("./profile");
 
 // Screens a promotion button or quick-action card may open (resolved to routes by the app)
-const DESTINATIONS = ["home", "meals", "explore", "macro", "nutrition", "fitness", "community", "plans", "orders", "profile", "goals", "notifications", "addresses"];
+const DESTINATIONS = ["home", "meals", "explore", "macro", "nutrition", "fitness", "plans", "orders", "profile", "goals", "notifications", "addresses"];
 // Icons a quick-action card may show (resolved to platform symbols by the app)
 const QUICK_ACTION_ICONS = ["meals", "plans", "nutrition", "delivery", "flame", "heart", "calendar", "bag"];
 // Images shipped inside the app (JustFit_client/assets/images/home-*.jpg)

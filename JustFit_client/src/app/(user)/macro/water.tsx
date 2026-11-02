@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Animated, Pressable, ScrollView, Switch, Text, useWindowDimensions, View } from "react-native";
 import { ScreenSkeleton } from "@/components/Skeleton";
+import { LoadError } from "@/components/macro/LoadError";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { SymbolView } from "@/components/SymbolView";
@@ -38,6 +39,9 @@ export default function Water() {
   const isToday = selectedDate === today;
   const [day, setDay] = useState<WaterDay | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  // Entries being removed: a second tap on the same one sends nothing
+  const removing = useRef(new Set<string>());
   const [busy, setBusy] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
@@ -45,6 +49,7 @@ export default function Water() {
   const load = useCallback(async () => {
     const result = await macro.water(await getToken().catch(() => null), selectedDate);
     if (result.ok) setDay(result.data);
+    setLoadError(result.ok ? null : result.error);
   }, [getToken, selectedDate]);
 
   useFocusEffect(
@@ -70,8 +75,11 @@ export default function Water() {
   };
 
   const remove = async (entry: WaterEntry) => {
+    if (removing.current.has(entry.id)) return;
+    removing.current.add(entry.id);
     setError(null);
     const result = await macro.removeWater(await getToken().catch(() => null), entry.id);
+    removing.current.delete(entry.id);
     if (!result.ok) return setError("Could not remove entry. Please try again.");
     load();
   };
@@ -103,7 +111,11 @@ export default function Water() {
           }
         />
 
-        {!day ? (
+        {!day && loadError ? (
+          <View className="px-4 pt-2">
+            <LoadError title="Couldn't load your water" message={loadError} onRetry={load} />
+          </View>
+        ) : !day ? (
           <View className="px-4 pt-2">
             <ScreenSkeleton />
           </View>

@@ -34,6 +34,7 @@ const { ScanError, checkScanRequest, requestScan, MAX_SCAN_BODY_BYTES } = requir
 const home = require("./home");
 const { macroRouter } = require("./macro/routes");
 const { coachRouter } = require("./coach/routes");
+const coachChatHistory = require("./coach/chatHistory");
 const aiUsage = require("./ai/usage");
 const aiModels = require("./ai/models");
 const aiLimits = require("./ai/limits");
@@ -167,6 +168,7 @@ app.post("/api/body-composition/scan", requireUser, limitPerUser(scanLimiter), j
   const checked = checkScanRequest(req.body);
   if (!checked.ok) return res.status(checked.status).json({ error: checked.error });
   try {
+    await aiLimits.check(pool, { feature: "body_scan", userId: req.userId }); // the budget's pause and the member's daily AI limit cover scans too
     res.json({ estimate: await requestScan(checked, { usage: aiUsage.tracker(pool, { feature: "body_scan", userId: req.userId }) }) });
   } catch (error) {
     if (error instanceof ScanError) return res.status(error.status).json({ error: error.message });
@@ -231,7 +233,9 @@ app.post("/api/admin/promotions", ...adminOnly, adminBody, async (req, res, next
 // is never read as an id.
 app.post("/api/admin/promotions/reorder", ...adminOnly, adminBody, async (req, res, next) => {
   try {
-    res.json({ promotions: await home.reorderPromotions(pool, req.body?.ids, req.userId) });
+    const promotions = await home.reorderPromotions(pool, req.body?.ids, req.userId);
+    await recordAdminAction(pool, req, "promotion.reorder", "promotion", null, "Reordered the promotions");
+    res.json({ promotions });
   } catch (error) {
     next(error);
   }
@@ -290,6 +294,7 @@ for (const [action, status] of [["publish", "published"], ["disable", "disabled"
     try {
       const promotion = await home.setPromotionStatus(pool, home.promotionId(req.params.id), status, req.userId);
       if (!promotion) return res.status(404).json({ error: "That promotion no longer exists." });
+      await recordAdminAction(pool, req, `promotion.${action}`, "promotion", promotion.id, `${action === "publish" ? "Published" : "Disabled"} promotion “${promotion.title ?? "untitled"}”`);
       res.json({ promotion });
     } catch (error) {
       next(error);
@@ -308,7 +313,10 @@ app.get("/api/admin/home-content", ...adminOnly, async (req, res, next) => {
 app.put("/api/admin/home-content", ...adminOnly, adminBody, async (req, res, next) => {
   try {
     const values = home.validateHomeContent(req.body);
-    res.json({ content: await home.saveHomeContent(pool, values, req.userId) });
+    const content = await home.saveHomeContent(pool, values, req.userId);
+    // The log has no "home content" target (adding one needs a migration): filed under promotions, the Home screen's other content
+    await recordAdminAction(pool, req, "home_content.update", "promotion", null, "Updated the Home screen content");
+    res.json({ content });
   } catch (error) {
     next(error);
   }
@@ -415,6 +423,8 @@ app.use((error, req, res, next) => {
 
 const port = Number(process.env.PORT ?? 4000);
 // 0.0.0.0 so a phone on the same Wi-Fi can reach it, not just this computer
+// AI Coach chat messages are deleted 7 days after they were written: now, then every hour
+coachChatHistory.startCleanup(pool);
 app.listen(port, "0.0.0.0", () => {
   console.log(`justFit server listening on http://localhost:${port}`);
 });

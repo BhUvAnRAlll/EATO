@@ -160,6 +160,10 @@ describe("admin portal e2e: the Overview, users and the admin audit log", () => 
     assert.ok((await search(identities.rohan.emailAddress)).includes(ids.rohan), "search by email");
     assert.deepEqual(await search("%"), [], "a percent sign is matched literally, not as a wildcard");
     assert.deepEqual(await search("' OR '1'='1"), []);
+    // A mobile number finds the account, with or without +91 (an account without a name or email too)
+    const [[{ phone }]] = await connection.query("SELECT phone FROM users WHERE id = ?", [ids.rohan]);
+    assert.ok((await search(phone)).includes(ids.rohan), "search by mobile number");
+    assert.ok((await search(`+91 ${phone.slice(0, 5)} ${phone.slice(5)}`)).includes(ids.rohan), "with +91 and a space");
     for (const gone of ["everyone", "trainers", "owners", "suspended"]) {
       assert.equal((await api("GET", `/api/admin/portal/users?filter=${gone}`, tokens.admin)).status, 400, gone);
     }

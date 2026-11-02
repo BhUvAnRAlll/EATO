@@ -224,3 +224,21 @@ describe("Scan request to Forma (server, fake fetch)", () => {
     }
   });
 });
+
+describe("Scan request to Forma: a body that never arrives", () => {
+  it("headers then a stalled body still time out, as a failed scan (502)", async () => {
+    const fetchImpl = async (url, init) => ({
+      ok: true,
+      status: 200,
+      // Forma sent its headers; the body only ends when the request is aborted
+      json: () => new Promise((resolve, reject) => init.signal.addEventListener("abort", () => reject(new Error("aborted")))),
+    });
+    const quiet = console.error;
+    console.error = () => {};
+    try {
+      await assert.rejects(requestScan(checked, { url: "http://forma.test", fetchImpl, timeoutMs: 30 }), (error) => error instanceof ScanError && error.status === 502);
+    } finally {
+      console.error = quiet;
+    }
+  });
+});

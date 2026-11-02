@@ -83,7 +83,12 @@ async function extractReport(params, usage = null, env = process.env) {
   });
   if (!usable) throw new ExtractionError("We couldn't read this report. Please enter your details manually.", 422);
 
-  const raw = JSON.parse(response.output_text);
+  let raw;
+  try {
+    raw = JSON.parse(response.output_text);
+  } catch {
+    throw new ExtractionError("We couldn't read this report. Please enter your details manually.", 422);
+  }
   if (!raw.isBodyCompositionReport) {
     throw new ExtractionError("This doesn't look like a body composition report. Try another photo or skip.", 422);
   }

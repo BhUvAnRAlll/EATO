@@ -92,6 +92,34 @@ function draftBody(body) {
   return { request, count };
 }
 
+// ---- equipment ----------------------------------------------------------------------------
+
+// The library's equipment names. Plans match them exactly (coach/planRules.js EQUIPMENT: what a
+// home or a center allows), so an AI exercise must use one of them or it never reaches a plan.
+const EQUIPMENT_NAMES = ["Bodyweight", "Dumbbell", "Barbell", "Kettlebell", "Resistance band", "Rope", "Battle rope", "Cable", "Machine"];
+// Free text → a library name, in this order (the first match wins). Household things (a mat, a
+// chair, a wall, a towel) are bodyweight; anything unknown is treated as gym kit ("Machine"), so
+// it is never offered at a home that doesn't have it.
+const EQUIPMENT_WORDS = [
+  [/battle ?rope/, "Battle rope"],
+  [/jump ?rope|skipping|\brope/, "Rope"],
+  [/resistance|band|tube|loop/, "Resistance band"],
+  [/kettle/, "Kettlebell"],
+  [/dumb ?bell/, "Dumbbell"],
+  [/barbell|\bbar\b|ez ?bar|plate|trap ?bar/, "Barbell"],
+  [/cable|pulley/, "Cable"],
+  [/machine|smith|press station|leg press|lat pull/, "Machine"],
+  [/body ?weight|none|no equipment|\bmat\b|yoga|floor|chair|wall|towel|step|stair|bench|sofa|bed/, "Bodyweight"],
+];
+function equipmentName(text) {
+  const value = String(text ?? "").trim();
+  const exact = EQUIPMENT_NAMES.find((name) => name.toLowerCase() === value.toLowerCase());
+  if (exact) return exact;
+  if (!value) return "Bodyweight";
+  const lower = value.toLowerCase();
+  return EQUIPMENT_WORDS.find(([pattern]) => pattern.test(lower))?.[1] ?? "Machine";
+}
+
 // ---- asking the AI ------------------------------------------------------------------------
 
 const INSTRUCTIONS = [
@@ -99,7 +127,7 @@ const INSTRUCTIONS = [
   "Answer only with real, well-known, safe exercises a qualified trainer would teach. Never invent a movement, never add a brand name, a person's name or anything that isn't an exercise.",
   "Name each one the way Indian gyms and trainers commonly say it in English, in Title Case, at most 60 characters (for example \"Dumbbell Goblet Squat\", \"Surya Namaskar\", \"Cat-Cow Stretch\").",
   "Skip every exercise already in the library list, including the same exercise under a slightly different name.",
-  "For each one give: muscleGroup; pattern (how it moves: warmup and stretch for warm-ups and cool-down stretches, conditioning for cardio finishers); equipment (\"Bodyweight\" when none, else the main kit, at most 40 characters); difficulty 1-3 (1 simple and stable, 2 needs some skill or load, 3 complex, unstable or heavy: not how tiring it is); region (lower or upper for warm-ups and stretches that prepare one half, else any); highRisk (true only for heavy spinal loading or jumping/plyometrics); lowImpact (true when safe for heavier bodies and sore knees: no jumping or running); machine (true for machines and cables); timedSec (the seconds for a held or timed exercise like a plank or a stretch, else null); instructions (2 to 5 short steps, one sentence each, at most 150 characters).",
+  `For each one give: muscleGroup; pattern (how it moves: warmup and stretch for warm-ups and cool-down stretches, conditioning for cardio finishers); equipment (one of ${EQUIPMENT_NAMES.join(", ")}: "Bodyweight" when none or only household things like a mat or a chair); difficulty 1-3 (1 simple and stable, 2 needs some skill or load, 3 complex, unstable or heavy: not how tiring it is); region (lower or upper for warm-ups and stretches that prepare one half, else any); highRisk (true only for heavy spinal loading or jumping/plyometrics); lowImpact (true when safe for heavier bodies and sore knees: no jumping or running); machine (true for machines and cables); timedSec (the seconds for a held or timed exercise like a plank or a stretch, else null); instructions (2 to 5 short steps, one sentence each, at most 150 characters).`,
   "If the request is not about exercises, answer with an empty list.",
 ].join(" ");
 
@@ -111,7 +139,7 @@ const exerciseSchema = {
     name: { type: "string" },
     muscleGroup: { type: "string", enum: MUSCLE_GROUPS },
     pattern: { type: "string", enum: PATTERNS },
-    equipment: { type: "string" },
+    equipment: { type: "string", enum: EQUIPMENT_NAMES },
     difficulty: { type: "integer", enum: [1, 2, 3] },
     region: { type: "string", enum: REGIONS },
     highRisk: { type: "boolean" },
@@ -176,7 +204,7 @@ function normalizeDrafts(raw, { count, taken }) {
       name,
       muscleGroup: e.muscleGroup,
       pattern: e.pattern,
-      equipment: cleanText(e.equipment, limits.equipment) || "Bodyweight",
+      equipment: equipmentName(cleanText(e.equipment, limits.equipment)),
       difficulty: e.difficulty,
       region: e.region,
       highRisk: e.highRisk === true,
@@ -190,7 +218,7 @@ function normalizeDrafts(raw, { count, taken }) {
 }
 
 module.exports = {
-  MUSCLE_GROUPS, PATTERNS, REGIONS, limits,
+  MUSCLE_GROUPS, PATTERNS, REGIONS, EQUIPMENT_NAMES, equipmentName, limits,
   exerciseKey, listQuery, exerciseId, draftBody,
   INSTRUCTIONS, draftSchema, draftBrief, FAKE_DRAFT, normalizeDrafts,
 };

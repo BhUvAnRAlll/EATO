@@ -15,9 +15,9 @@ const { startTestServer } = require("./server.js");
 const { identitiesFor, describeIdentityError } = require("./test-identities.js");
 
 const WORKOUT_TABLES = ["workout_set_logs", "workout_logs", "workout_day_overrides", "workout_day_exercises", "workout_days", "workout_plans", "workout_profiles", "profiles"];
-const utcDay = (offsetDays = 0) => new Date(Date.now() + offsetDays * 86400000).toISOString().slice(0, 10);
+const { appDay } = require("./dates.js");
 const weekdayOf = (iso) => new Date(`${iso}T00:00:00Z`).getUTCDay();
-const TODAY = utcDay();
+const TODAY = appDay();
 
 describe("workout e2e: starting, logging and finishing a session", () => {
   const runId = crypto.randomBytes(4).toString("hex");
@@ -127,15 +127,15 @@ describe("workout e2e: starting, logging and finishing a session", () => {
     refused(await start(tokens.a), "No active plan");
     for (const tag of ["a", "b"]) assert.ok([200, 201].includes((await ensure(tokens[tag])).status));
     refused(await start(tokens.a, { date: "not-a-date", today: TODAY }), "Invalid date");
-    refused(await start(tokens.a, { date: utcDay(1), today: TODAY }), "Only today's session can be started");
-    refused(await start(tokens.a, { date: utcDay(-1), today: TODAY }), "Only today's session can be started");
+    refused(await start(tokens.a, { date: appDay(1), today: TODAY }), "Only today's session can be started");
+    refused(await start(tokens.a, { date: appDay(-1), today: TODAY }), "Only today's session can be started");
     // A plan that starts tomorrow schedules nothing today
-    await connection.query("UPDATE workout_plans SET start_date = ? WHERE user_id IN (?)", [utcDay(1), [ids.a, ids.b]]);
+    await connection.query("UPDATE workout_plans SET start_date = ? WHERE user_id IN (?)", [appDay(1), [ids.a, ids.b]]);
     refused(await start(tokens.a), "Nothing is scheduled today");
     assert.equal(await count("workout_logs", "1 = ?", [1]), 0, "no refusal wrote a log");
 
     // From here on both plans have run for a month and today has a session, whatever the weekday
-    await connection.query("UPDATE workout_plans SET start_date = ? WHERE user_id IN (?)", [utcDay(-30), [ids.a, ids.b]]);
+    await connection.query("UPDATE workout_plans SET start_date = ? WHERE user_id IN (?)", [appDay(-30), [ids.a, ids.b]]);
     for (const tag of ["a", "b"]) {
       const [[day]] = await connection.query("SELECT id FROM workout_days WHERE user_id = ? ORDER BY weekday LIMIT 1", [ids[tag]]);
       await connection.query("INSERT INTO workout_day_overrides (user_id, on_date, day_id) VALUES (?, ?, ?)", [ids[tag], TODAY, day.id]);
@@ -249,7 +249,7 @@ describe("workout e2e: starting, logging and finishing a session", () => {
     refused(await complete(tokens.b, 42), "Session not found");
     refused(await api("POST", "/api/workout/session/complete", tokens.b, { logId: state.logB, status: "completed" }), /Unexpected field: status/);
     refused(await api("GET", `/api/workout/session${qs({ date: "x", today: TODAY })}`, tokens.b), /YYYY-MM-DD/);
-    refused(await start(tokens.b, { date: TODAY, today: utcDay(-5) }), /server's date/);
+    refused(await start(tokens.b, { date: TODAY, today: appDay(-5) }), /server's date/);
     assert.equal((await logSet(tokens.b, "{not json")).status, 400);
     assert.equal((await logSet(tokens.b, JSON.stringify({ logId: state.logB, dayExerciseId: state.b.rep.id, setIndex: 0, pad: "x".repeat(8 * 1024) }))).status, 413, "an oversized body is refused");
     assert.equal(await count("workout_logs", "1 = ?", [1]), logs);

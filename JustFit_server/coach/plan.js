@@ -88,11 +88,24 @@ async function buildPlan(pool, userId, { today, intake, profile, targets }, env)
   const workoutSummary = `${intake.weekdays.length} days a week (${days}), ${intake.sessionMinutes} minutes, mainly at ${intake.mainSpot}`;
   const usage = aiUsage.tracker(pool, { feature: "coach_plan", userId });
   // The meals and the workout week are asked for at the same time (both are slow)
+  const brief = rules.dietBrief({ intake, profile, targets, coachName, workoutSummary });
   const [rawDiet, workoutDraft] = await Promise.all([
-    askForDiet(rules.dietBrief({ intake, profile, targets, coachName, workoutSummary }), env, usage),
+    askForDiet(brief, env, usage),
     draftWorkout(pool, userId, today, intake, env),
   ]);
-  const diet = rules.normalizeDiet(rawDiet, targets, profile.allergies);
+  let diet = rules.normalizeDiet(rawDiet, targets, profile);
+  // Still more than 10% from the target after scaling (the model's day was far too small or too
+  // big): one more ask, within the member's limits, and the closer day is kept. A second answer
+  // that fails, or a limit reached, keeps the first (its note already says it is off).
+  if (rules.dayMiss(diet, targets) > rules.MISS_WARNING) {
+    try {
+      await aiLimits.check(pool, { feature: "coach_plan", userId }, env);
+      const second = rules.normalizeDiet(await askForDiet(brief, env, usage), targets, profile);
+      if (rules.dayMiss(second, targets) < rules.dayMiss(diet, targets)) diet = second;
+    } catch (error) {
+      if (!(error instanceof rules.CoachPlanError) && !(error instanceof aiLimits.AiLimitError)) throw error;
+    }
+  }
 
   const planId = await workoutPlans.withMemberLock(pool, userId, async (conn) => {
     const { planId: workoutPlanId } = await workoutPlans.planFromCoach(conn, userId, { ...workoutDraft.facts, today, prepared: workoutDraft.prepared });
@@ -211,7 +224,7 @@ async function swapMeal(pool, userId, mealId, env = process.env) {
       env,
       usage,
     );
-    const next = rules.normalizeMeal(raw, meal, profile.allergies);
+    const next = rules.normalizeMeal(raw, meal, profile);
     await workoutPlans.withMemberLock(pool, userId, async (conn) => {
       const [result] = await conn.query("UPDATE coach_plan_meals SET name = ?, note = ? WHERE id = ? AND plan_id = ? AND user_id = ?", [next.name, next.note, meal.id, plan.id, userId]);
       if (result.affectedRows === 0) throw new NotFoundError("That meal isn't in your plan.");
@@ -227,10 +240,10 @@ async function swapMeal(pool, userId, mealId, env = process.env) {
 
 // ---- Swap Meal: options for one meal, and putting one in its place ---------------------
 
-// The ids of the plan meals already logged to the diary on `date`
+// The plan meals already logged to the diary on `date`: plan meal id → the diary meal's id
 async function loggedMealIds(pool, userId, date) {
-  const [logs] = await pool.query("SELECT plan_log_key FROM macro_meal_logs WHERE user_id = ? AND log_date = ? AND source = 'plan'", [userId, date]);
-  return new Set(logs.map((l) => String(l.plan_log_key).split(":")[1]).filter(Boolean));
+  const [logs] = await pool.query("SELECT id, plan_log_key FROM macro_meal_logs WHERE user_id = ? AND log_date = ? AND source = 'plan'", [userId, date]);
+  return new Map(logs.map((l) => [String(l.plan_log_key).split(":")[1], l.id]).filter(([mealId]) => Boolean(mealId)));
 }
 
 // The dishes offered for this slot in the last week, newest first, so the next ask brings new ones
@@ -280,7 +293,10 @@ async function mealOptions(pool, userId, mealId, { date, preference = null }, en
   if (!meal) throw new NotFoundError("That meal isn't in your plan.");
   const { intake, profile, targets } = await memberFacts(pool, userId);
   const [day, logged, recent] = await Promise.all([diary.day(pool, userId, date), loggedMealIds(pool, userId, date), recentOptionNames(pool, userId, meal.slot)]);
-  const remaining = rules.remainingFor(targets, day.totals, logged.has(meal.id) ? meal.totals : null);
+  // A meal already logged gives back what the diary holds for it (what was eaten), not what the
+  // plan says now: after a swap the two differ
+  const loggedEntry = logged.has(meal.id) ? day.meals.find((m) => m.id === logged.get(meal.id)) : null;
+  const remaining = rules.remainingFor(targets, day.totals, loggedEntry?.totals ?? null);
   const targetKcal = rules.optionTargetKcal(meal.totals.kcal, remaining.kcal, preference);
   const exclude = [meal.name, ...recent];
   await aiLimits.check(pool, { feature: "coach_meal", userId }, env);
@@ -291,7 +307,7 @@ async function mealOptions(pool, userId, mealId, { date, preference = null }, en
       env,
       usage,
     );
-    const options = rules.normalizeOptions(raw, meal, profile.allergies, { targetKcal, exclude });
+    const options = rules.normalizeOptions(raw, meal, profile, { targetKcal, exclude });
     // Options older than a month are no use to anyone (undo snapshots included)
     await pool.query("DELETE FROM coach_meal_options WHERE user_id = ? AND created_at < NOW() - INTERVAL 30 DAY", [userId]);
     const stored = [];

@@ -44,7 +44,11 @@ async function askStructured({ feature, instructions, brief, schema, fake, failu
     cachedInputTokens: models.cachedTokensOf(response), status: usable ? "ok" : "refused",
   });
   if (!usable) throw new CoachPlanError(failure, 502);
-  return JSON.parse(response.output_text);
+  try {
+    return JSON.parse(response.output_text);
+  } catch {
+    throw new CoachPlanError(failure, 502); // an unreadable answer is the model failing, not a 500
+  }
 }
 
 module.exports = { askStructured };
