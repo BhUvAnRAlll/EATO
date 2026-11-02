@@ -4366,3 +4366,226 @@
   padding: var(--spacing-lg);
   gap: var(--spacing-md);
 }
+
+/* ---- AI Coach › Your plan › Insights (components/coach/InsightsTab.tsx) ----
+   Bordered white cards inside the plan card, small grey tiles for the headline numbers, thin
+   bars, one soft pill per verdict. Nothing here is a chart library: bars are plain Views. */
+@utility insights__card {
+  padding: var(--spacing-lg);
+  border-radius: var(--radius-lg);
+  border-width: 1px;
+  border-color: var(--color-line);
+  background-color: var(--color-surface);
+  gap: var(--spacing-md);
+}
+
+@utility insights__title {
+  font-family: var(--font-sans-semibold);
+  font-size: 15px;
+  line-height: 20px;
+  color: var(--color-forest-ink);
+}
+
+@utility insights__label {
+  font-family: var(--font-sans-medium);
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--color-muted);
+}
+
+@utility insights__big {
+  font-family: var(--font-sans-semibold);
+  font-size: 24px;
+  line-height: 30px;
+  color: var(--color-forest-ink);
+}
+
+@utility insights__value {
+  font-family: var(--font-sans-semibold);
+  font-size: 18px;
+  line-height: 24px;
+  color: var(--color-forest-ink);
+}
+
+@utility insights__of {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+@utility insights__body {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 21px;
+  color: var(--color-ink-soft);
+}
+
+/* Two headline numbers side by side, wrapping to one per row on a narrow phone */
+@utility insights__tiles {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+@utility insights__tile {
+  flex-grow: 1;
+  flex-basis: 130px;
+  padding: 12px;
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface-alt);
+  gap: 2px;
+}
+
+/* This week / Last week */
+@utility insights__switch {
+  flex-direction: row;
+  gap: 8px;
+}
+
+@utility insights__chip {
+  min-height: 32px;
+  padding: 0 14px;
+  border-radius: var(--radius-pill);
+  border-width: 1px;
+  border-color: var(--color-line);
+  background-color: var(--color-surface);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility insights__chip--active {
+  border-color: var(--color-primary);
+  background-color: var(--color-accent-soft);
+}
+
+@utility insights__chip-label {
+  font-family: var(--font-sans-medium);
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+@utility insights__chip-label--active {
+  color: var(--color-primary-text);
+}
+
+/* Verdict pills: on track (green), low (amber), high (red) */
+@utility insights__pill {
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-success-soft);
+}
+
+@utility insights__pill--low {
+  background-color: var(--color-warning-soft);
+}
+
+@utility insights__pill--high {
+  background-color: var(--color-danger-soft);
+}
+
+@utility insights__pill-label {
+  font-family: var(--font-sans-semibold);
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--color-success);
+}
+
+@utility insights__pill-label--low {
+  color: var(--color-warning);
+}
+
+@utility insights__pill-label--high {
+  color: var(--color-danger);
+}
+
+/* The week as seven days: a letter over a mark */
+@utility insights__strip {
+  flex-direction: row;
+  justify-content: space-between;
+}
+
+@utility insights__strip-day {
+  flex: 1;
+  align-items: center;
+  gap: 6px;
+}
+
+@utility insights__strip-mark {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface-alt);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility insights__strip-mark--on {
+  background-color: var(--color-primary);
+}
+
+@utility insights__strip-mark--missed {
+  border-width: 1.5px;
+  border-color: var(--color-line-strong);
+  background-color: var(--color-surface);
+}
+
+/* Daily calories as bars, with the target as a thin line across */
+@utility insights__bars {
+  height: 72px;
+  flex-direction: row;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+@utility insights__bar {
+  flex: 1;
+  min-height: 3px;
+  border-top-left-radius: 4px;
+  border-top-right-radius: 4px;
+  background-color: var(--color-cream-tab);
+}
+
+@utility insights__target-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background-color: var(--color-line-strong);
+}
+
+@utility insights__muscle {
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface-alt);
+}
+
+@utility insights__muscle-label {
+  font-family: var(--font-sans-medium);
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--color-ink-soft);
+}
+
+/* One coach tip: a small icon, then the text */
+@utility insights__tip {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+@utility insights__tip-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-accent-soft);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility insights__note {
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface-alt);
+}

@@ -121,7 +121,7 @@ describe("profile persistence (justfit_test, failed saves rolled back)", () => {
   };
   const accountRow = async () => (await pool.query("SELECT full_name, phone, email, role FROM users WHERE id = ?", [userId]))[0][0];
   const removeAccount = async () => {
-    for (const table of ["nutrition_targets", "body_composition_reports", "profiles", "users"]) {
+    for (const table of ["weigh_ins", "nutrition_targets", "body_composition_reports", "profiles", "users"]) {
       await pool.query(`DELETE FROM \`${table}\` WHERE \`${table === "users" ? "id" : "user_id"}\` = ?`, [userId]);
     }
   };
@@ -175,6 +175,9 @@ describe("profile persistence (justfit_test, failed saves rolled back)", () => {
     await persistProfile(pool, userId, data);
     const row = await accountRow();
     assert.equal(row.phone, PHONE, "the phone proved at sign-in can't be changed from the form");
+    // The weight is also today's weigh-in; saving the same weight again adds nothing
+    await persistProfile(pool, userId, data);
+    assert.equal(await rowsForThrowawayId("weigh_ins"), 1);
     assert.equal(row.email, null);
     assert.equal(row.role, "user");
     assert.equal(row.full_name, data.user.fullName);

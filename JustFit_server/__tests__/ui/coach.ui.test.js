@@ -3,7 +3,7 @@
 // has a workout profile. Covers the intro on the Coach tab, every intake step (prefilled answers,
 // Continue staying off until a step is answered, the doctor note), the disclaimer tick, the
 // save, the summary on the Coach tab, Edit, making the plan (the timeline, Week and Insights), logging
-// a plan meal to Macro, the coach chat (the fake AI's reply; the saved conversation after leaving
+// a plan meal to Macro, the Insights dashboard from it (the week's numbers, weight, the coach's review), the coach chat (the fake AI's reply; the saved conversation after leaving
 // and after a restart; a chat that can't be loaded, and a failed send, each tried again), and
 // screenshots at 3 widths.
 //
@@ -117,7 +117,7 @@ describe("ui coach: the AI Coach intake", () => {
       if (!connection) return;
       const ids = Object.values(identities).map((i) => i.id);
       const tables = [
-        "coach_plan_meal_items", "coach_plan_meals", "coach_plans", "macro_meal_items", "macro_meal_logs", "workout_day_overrides",
+        "coach_insights", "ai_usage", "weigh_ins", "coach_plan_meal_items", "coach_plan_meals", "coach_plans", "macro_meal_items", "macro_meal_logs", "workout_day_overrides",
         "workout_day_exercises", "workout_days", "workout_plans", "nutrition_targets", "coach_profiles", "workout_profiles", "profiles",
       ];
       if (ids.length) for (const table of tables) await connection.query("DELETE FROM `" + table + "` WHERE user_id IN (?)", [ids]);
@@ -250,13 +250,14 @@ describe("ui coach: the AI Coach intake", () => {
     await snapshotAllWidths("coach-meal-plan-adjust");
     await clickLabel("Back");
     await h.expectPath("/coach");
-    // Week: the workout week and the day's calories; Insights: coming soon
+    // Week: the workout week and the day's calories; Insights: nothing logged yet, so its empty state
     await page.clickText("Week");
     await h.expectText("Mon");
     await h.expectText("Open my workouts");
     await snapshotAllWidths("coach-plan-week");
     await page.clickText("Insights");
-    await h.expectText("Insights are coming soon");
+    await h.expectText("Nothing logged this week yet");
+    await h.expectText("Log a meal");
     await page.clickText("Today");
     await h.expectText("Meal plan");
   }));
@@ -276,6 +277,47 @@ describe("ui coach: the AI Coach intake", () => {
     await page.waitFor(`(() => !![...document.querySelectorAll('[aria-label="Dal, rice and sabzi logged"]')].find((e) => e.getClientRects().length > 0))()`, NAV_TIMEOUT, "still Logged after reload");
     await clickLabel("Back");
     await h.expectPath("/coach");
+  }));
+
+  it("6a. Insights: the week from the logged meal, the weight entered, and the coach's review written once", run("insights", async () => {
+    // Two weigh-ins, as Profile › Measurements would have saved them
+    const day = (offset) => new Date(Date.now() + 5.5 * 3600000 + offset * 86400000).toISOString().slice(0, 10);
+    await connection.query("INSERT INTO weigh_ins (user_id, logged_on, weight_kg) VALUES (?, ?, 58.6), (?, ?, 58)", [identities.a.id, day(-14), identities.a.id, day(0)]);
+    await page.clickText("Insights");
+    await h.expectText("Weekly overview");
+    await h.expectText("Nutrition");
+    await h.expectText("Protein");
+    await h.expectText("Weight & progress");
+    await h.expectText("−0.6 kg");
+    // The review is asked for once, automatically, and saved
+    await h.expectText("(test review)");
+    const [[made]] = await connection.query("SELECT COUNT(*) AS n FROM ai_usage WHERE user_id = ? AND feature = 'coach_insights'", [identities.a.id]);
+    assert.equal(made.n, 1);
+    await snapshotAllWidths("coach-insights");
+    await page.evaluate(`(() => { const el = [...document.querySelectorAll("body *")].find((e) => e.childElementCount === 0 && /'s review$/.test((e.textContent || "").trim())); if (el) el.scrollIntoView({ block: "start" }); })()`);
+    await h.settle();
+    await snapshotAllWidths("coach-insights-review");
+    await page.evaluate(`(() => { const el = [...document.querySelectorAll("body *")].find((e) => e.childElementCount === 0 && (e.textContent || "").trim() === "Average a day"); if (el) el.scrollIntoView({ block: "start" }); })()`);
+    await h.settle();
+    await snapshotAllWidths("coach-insights-nutrition");
+    await page.evaluate(`(() => { const el = [...document.querySelectorAll("body *")].find((e) => e.childElementCount === 0 && (e.textContent || "").trim() === "Weight & progress"); if (el) el.scrollIntoView({ block: "center" }); })()`);
+    await h.settle();
+    await snapshotAllWidths("coach-insights-weight");
+    // Last week: no meals then, only the older weigh-in
+    await page.clickText("Last week");
+    await h.expectText("No meals were logged last week.");
+    await h.expectText("58.6 kg");
+    await page.clickText("This week");
+    await h.expectText("(test review)");
+    // Leaving and coming back serves the saved review: no second AI call
+    await h.goto("/home", "");
+    await h.goto("/coach", "Meal plan");
+    await page.clickText("Insights");
+    await h.expectText("(test review)");
+    const [[again]] = await connection.query("SELECT COUNT(*) AS n FROM ai_usage WHERE user_id = ? AND feature = 'coach_insights'", [identities.a.id]);
+    assert.equal(again.n, 1, "the saved review is served, not written again");
+    await page.clickText("Today");
+    await h.expectText("Meal plan");
   }));
 
   it("6b. Swap Meal: five options for breakfast, a chip steers the next ask, edited portions go into the plan, Undo puts the old meal back", run("swap", async () => {

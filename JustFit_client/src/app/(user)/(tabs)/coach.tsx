@@ -5,16 +5,19 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { SymbolView } from "@/components/SymbolView";
 import { router, useFocusEffect } from "expo-router";
+import Animated, { FadeIn, ReduceMotion } from "react-native-reanimated";
 
 import { ChangeCoachSheet } from "@/components/coach/ChangeCoachSheet";
 import { CoachAvatar } from "@/components/coach/CoachAvatar";
 import { CoachButton } from "@/components/coach/CoachButton";
+import { InsightsTab } from "@/components/coach/InsightsTab";
 import type { TodayWorkout } from "@/components/coach/PlanTimeline";
 import { TodayOverview } from "@/components/coach/TodayOverview";
 import { WeekPlan } from "@/components/coach/WeekPlan";
 import { usePullToRefresh } from "@/components/PullToRefresh";
 import { coachPrompts, coaches, coachStyles, labelOf, type CoachId, type CoachStyle } from "@/data/coach";
 import { coachApi, type Intake, type IntakePrefill, type PlanState } from "@/lib/coach";
+import type { Insights, InsightsWeek } from "@/lib/coachInsights";
 import { macro, todayIso, type DayView } from "@/lib/macro";
 import { useSessionToken } from "@/lib/session";
 import { LEVEL_LABEL, weekOf, workoutApi } from "@/lib/workoutApi";
@@ -100,8 +103,17 @@ export default function Coach() {
     }, [load]),
   );
 
-  // A pull reads the intake, the plan, today's numbers and the workout again
-  const { refreshControl } = usePullToRefresh(load);
+  // The Insights tab's weeks, read once a visit; a pull empties them so the open tab reads again
+  const [insights, setInsights] = useState<Partial<Record<InsightsWeek, Insights>>>({});
+  const keepInsights = useCallback((week: InsightsWeek, data: Insights) => setInsights((current) => ({ ...current, [week]: data })), []);
+
+  // A pull reads the intake, the plan, today's numbers, the workout and the insights again
+  const { refreshControl } = usePullToRefresh(
+    useCallback(async () => {
+      setInsights({});
+      await load();
+    }, [load]),
+  );
 
   const begin = () => {
     if (!loaded) return;
@@ -254,6 +266,8 @@ export default function Coach() {
                     })}
                   </View>
 
+                  {/* A short fade as the tab changes (none with Reduce Motion on) */}
+                  <Animated.View key={tab} entering={FadeIn.duration(200).reduceMotion(ReduceMotion.System)} className="gap-3">
                   {tab === "today" && (
                     <>
                       <Text className="coach__option-note" numberOfLines={3}>{plan.plan.message}</Text>
@@ -299,15 +313,8 @@ export default function Coach() {
                     </>
                   )}
 
-                  {tab === "insights" && (
-                    <View className="items-center gap-2 py-6">
-                      <View className="coach__option-icon">
-                        <SymbolView name={{ ios: "chart.bar.fill", android: "bar_chart", web: "bar_chart" }} size={22} tintColor={colors.leaf} />
-                      </View>
-                      <Text className="coach__option-title">Insights are coming soon</Text>
-                      <Text className="coach__hint text-center">{`${firstName} will show your trends here: meals logged, workouts done and how close you get to your targets.`}</Text>
-                    </View>
-                  )}
+                  {tab === "insights" && <InsightsTab coachName={firstName} cache={insights} onLoaded={keepInsights} onAsk={openChat} />}
+                  </Animated.View>
                 </View>
               )}
 

@@ -896,6 +896,22 @@ CREATE TABLE coach_chat_messages (
   CONSTRAINT fk_coach_chat_messages_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 ) ENGINE = InnoDB;
 
+-- The coach's weekly review on the Insights tab (coach/insights.js): one per member per week
+-- (Monday), written once by the AI from that week's numbers and served from here after. facts_hash
+-- is the numbers it was written from (a different hash means the week has moved on since);
+-- made_on is the member's day it was written, so a refresh is allowed once a day.
+CREATE TABLE coach_insights (
+  user_id     VARCHAR(64)   NOT NULL,
+  week_start  DATE          NOT NULL,
+  summary     VARCHAR(400)  NOT NULL,
+  tips        JSON          NOT NULL,                  -- [{ area, text }]
+  facts_hash  CHAR(32)      NOT NULL,
+  made_on     DATE          NOT NULL,
+  created_at  TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (user_id, week_start),
+  CONSTRAINT fk_coach_insights_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+) ENGINE = InnoDB;
+
 -- Phone sign-in: codes sent by SMS. No foreign key: a code can be for a number that has no account yet.
 -- The server writes the id itself (the HMAC covers it) and keeps every row; old rows only
 -- count towards the send limits.
@@ -946,7 +962,7 @@ CREATE TABLE ai_usage (
   created_at     TIMESTAMP        NOT NULL DEFAULT CURRENT_TIMESTAMP,
   user_id        VARCHAR(64)      NULL,
   gym_id         CHAR(36)         NULL,
-  feature        ENUM('gym_assistant', 'coach_plan', 'coach_workout', 'coach_meal', 'coach_chat', 'food_scan', 'body_scan', 'body_report', 'exercise_library', 'workout_place', 'fitness_program') NOT NULL,
+  feature        ENUM('gym_assistant', 'coach_plan', 'coach_workout', 'coach_meal', 'coach_chat', 'food_scan', 'body_scan', 'body_report', 'exercise_library', 'workout_place', 'fitness_program', 'coach_insights') NOT NULL,
   provider       ENUM('openai', 'forma') NOT NULL,
   model          VARCHAR(64)      NOT NULL,
   input_tokens   INT UNSIGNED     NOT NULL DEFAULT 0,

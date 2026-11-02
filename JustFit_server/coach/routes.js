@@ -11,6 +11,8 @@ const { toIntake, makePlan, swapMeal, mealOptions, replaceMeal, changeWorkout, g
 const { CoachPlanError } = require("./planRules");
 const { chat, history } = require("./chat");
 const { chatBody } = require("./chatRules");
+const insights = require("./insights");
+const { insightsQuery, reviewBody } = require("./insightsRules");
 
 const router = express.Router();
 const smallBody = express.json({ limit: "16kb" });
@@ -23,6 +25,8 @@ const chatLimiter = createRateLimiter({ limit: 30, windowMs: 60 * 60 * 1000 });
 const swapMealLimiter = createRateLimiter({ limit: 10, windowMs: 60 * 60 * 1000 });
 // Applying a workout change from the chat makes a new workout each time (no AI call)
 const workoutChangeLimiter = createRateLimiter({ limit: 10, windowMs: 60 * 60 * 1000 });
+// The weekly review is one small OpenAI call, saved for the week: a few an hour is more than enough
+const reviewLimiter = createRateLimiter({ limit: 6, windowMs: 60 * 60 * 1000 });
 // Opening the chat reads the saved conversation (no AI call): generous, but not unlimited
 const chatHistoryLimiter = createRateLimiter({ limit: 120, windowMs: 60 * 60 * 1000 });
 
@@ -147,6 +151,18 @@ router.get("/chat", limitPerUser(chatHistoryLimiter), route(async (req, res) => 
 router.post("/chat", limitPerUser(chatLimiter), smallBody, route(async (req, res) => {
   const body = chatBody(req.body, Date.now());
   res.json(await chat(pool(req), req.userId, body));
+}));
+
+// GET /insights?today=&week=this|last → the week's numbers (food, workouts, weight) and its saved
+// review, if any. No AI call.
+router.get("/insights", route(async (req, res) => {
+  res.json(await insights.insights(pool(req), req.userId, insightsQuery(req.query, Date.now())));
+}));
+
+// POST /insights/review { today, week, refresh? }: the coach's review of that week, written once and
+// saved (refresh: a new one, at most once a day). Answers the same as GET /insights.
+router.post("/insights/review", limitPerUser(reviewLimiter), smallBody, route(async (req, res) => {
+  res.json(await insights.review(pool(req), req.userId, reviewBody(req.body, Date.now())));
 }));
 
 module.exports = { coachRouter: router };

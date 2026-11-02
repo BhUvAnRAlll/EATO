@@ -251,6 +251,20 @@ async function persistProfile(pool, userId, data) {
       ],
     );
 
+    // A new weight is also a weigh-in for today (the coach's Insights show the change over time).
+    // Saving the same weight again adds nothing, so "previous" is always a real earlier value.
+    if (p.weightKg != null) {
+      const [[latest]] = await connection.query("SELECT weight_kg FROM weigh_ins WHERE user_id = ? ORDER BY logged_on DESC LIMIT 1", [userId]);
+      if (!latest || Number(latest.weight_kg) !== Number(p.weightKg)) {
+        // Required here, not at the top: macro/validate reads ValidationError from this file
+        const { appToday } = require("./macro/validate");
+        await connection.query(
+          "INSERT INTO weigh_ins (user_id, logged_on, weight_kg) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE weight_kg = VALUES(weight_kg)",
+          [userId, appToday(), p.weightKg],
+        );
+      }
+    }
+
     if (data.report) {
       const r = data.report;
       // Ownership: a report id that already belongs to someone else is never relinked
