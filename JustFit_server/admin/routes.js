@@ -13,10 +13,13 @@ const usageExport = require("./export");
 const exercises = require("./exercises");
 const exerciseRules = require("./exerciseRules");
 const fitnessPrograms = require("../fitness/programs");
+const fitnessCovers = require("../fitness/covers");
+const fitnessSections = require("../fitness/sections");
 const fitnessRules = require("../fitness/rules");
 const { CoachPlanError } = require("../coach/planRules");
 const aiRules = require("../ai/rules");
 const { NotFoundError } = require("../errors");
+const { createRateLimiter, limitPerUser } = require("../rateLimit");
 
 const router = express.Router();
 const route = (handler) => (req, res, next) => handler(req, res, next).catch(next);
@@ -124,10 +127,13 @@ router.post("/exercises/:exerciseId/restore", exerciseRoute(async (req, res) => 
 // Programs (fitness/programs.js): the Fitness tab's programs, edited, published or hidden, created
 // and rewritten with the AI. Before the 2026-11-09 migration, say so instead of a 500.
 const programBody = express.json({ limit: "8kb" });
+// A cover: at most 2 MB of photo as base64 (4/3 of its bytes) plus the JSON around it
+const coverBody = express.json({ limit: Math.ceil(fitnessCovers.coverLimits.maxBytes * (4 / 3)) + 1024 });
+const coverLimiter = createRateLimiter({ limit: 30, windowMs: 60 * 60 * 1000 });
 const programRoute = (handler) => (req, res, next) =>
   handler(req, res, next).catch((error) => {
     if (["ER_NO_SUCH_TABLE", "ER_BAD_FIELD_ERROR", "WARN_DATA_TRUNCATED", "ER_TRUNCATED_WRONG_VALUE_FOR_FIELD"].includes(error?.code)) {
-      return res.status(503).json({ error: "Programs need the 2026-11-09-fitness-programs migration on this server." });
+      return res.status(503).json({ error: "Programs need the latest fitness migrations (2026-11-09 to 2026-11-13) on this server." });
     }
     if (error instanceof CoachPlanError) return res.status(error.status).json({ error: error.message });
     next(error);
@@ -143,6 +149,43 @@ router.get("/programs/:programId", programRoute(async (req, res) => {
 }));
 router.patch("/programs/:programId", programBody, programRoute(async (req, res) => {
   res.json({ program: await fitnessPrograms.update(pool(req), req.userId, fitnessRules.id(req.params.programId), fitnessRules.programBody(req.body, { creating: false })) });
+}));
+// Categories (fitness/sections.js): the Fitness tab's sections in order. GET lists them (with how
+// many programs each has), POST creates one { title, note?, layout?, published? }, PATCH edits one,
+// POST …/move { direction } reorders, DELETE removes one the admin made while it has no programs.
+router.get("/sections", programRoute(async (req, res) => {
+  await fitnessPrograms.ensureCatalog(pool(req));
+  res.json({ sections: await fitnessSections.all(pool(req)) });
+}));
+router.post("/sections", programBody, programRoute(async (req, res) => {
+  await fitnessPrograms.ensureCatalog(pool(req));
+  res.status(201).json({ section: await fitnessSections.create(pool(req), req.userId, fitnessRules.sectionBody(req.body, { creating: true })) });
+}));
+router.patch("/sections/:slug", programBody, programRoute(async (req, res) => {
+  res.json({ section: await fitnessSections.update(pool(req), req.userId, fitnessRules.sectionSlug(req.params.slug), fitnessRules.sectionBody(req.body, { creating: false })) });
+}));
+router.post("/sections/:slug/move", programBody, programRoute(async (req, res) => {
+  res.json({ sections: await fitnessSections.move(pool(req), req.userId, fitnessRules.sectionSlug(req.params.slug), fitnessRules.moveBody(req.body)) });
+}));
+router.delete("/sections/:slug", programRoute(async (req, res) => {
+  await fitnessSections.remove(pool(req), req.userId, fitnessRules.sectionSlug(req.params.slug));
+  res.json({ sections: await fitnessSections.all(pool(req)) });
+}));
+
+// The cover photo: PUT { data: base64, mediaType } adds or replaces it (checked from its bytes:
+// JPEG, PNG or WebP, at most 2 MB), DELETE takes it off, GET reads it (hidden programs too).
+// Answers the program. Uploads have their own hourly allowance on top of the portal's.
+router.put("/programs/:programId/cover", limitPerUser(coverLimiter), coverBody, programRoute(async (req, res) => {
+  const programId = fitnessRules.id(req.params.programId);
+  const checked = fitnessCovers.checkCover(req.body);
+  if (!checked.ok) return res.status(checked.status).json({ error: checked.error });
+  res.json({ program: await fitnessPrograms.setCover(pool(req), req.userId, programId, checked) });
+}));
+router.delete("/programs/:programId/cover", programRoute(async (req, res) => {
+  res.json({ program: await fitnessPrograms.removeCover(pool(req), req.userId, fitnessRules.id(req.params.programId)) });
+}));
+router.get("/programs/:programId/cover", programRoute(async (req, res) => {
+  fitnessCovers.send(res, await fitnessPrograms.coverFile(pool(req), fitnessRules.id(req.params.programId), { admin: true }));
 }));
 router.post("/programs/:programId/redraft", programBody, programRoute(async (req, res) => {
   res.json({ program: await fitnessPrograms.redraft(pool(req), req.userId, fitnessRules.id(req.params.programId), fitnessRules.redraftBody(req.body)) });

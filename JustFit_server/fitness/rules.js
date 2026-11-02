@@ -7,14 +7,18 @@ const { EQUIPMENT } = require("../coach/planRules");
 const aiPlan = require("../workout/aiPlan");
 const catalog = require("../../JustFit_client/src/lib/fitness/catalog.ts");
 
+// The six built-in categories (fitness_sections has these and any the admin made)
 const SECTIONS = catalog.SECTION_ORDER;
+const LAYOUTS = ["poster", "tile", "wide"];
+// A category's key: lower-case letters, digits and underscores
+const SECTION_SLUG = /^[a-z0-9_]{1,40}$/;
 const PLACES = ["home", "center", "both"];
 const LEVELS = ["beginner", "intermediate", "advanced"];
 const KITS = ["none", "some", "full_gym"];
 const ICONS = ["yoga", "kids", "heart", "beginner", "boxing", "women", "strength", "split", "tone", "cardio", "foundation", "dance", "desk", "posture", "energy", "walk", "mom"];
 const PALETTES = ["lavender", "coral", "mint", "sky", "amber", "rose", "ink", "teal"];
 
-const limits = { title: 60, subtitle: 120, description: 600, search: 60, sessions: 8, minutesMin: 5, minutesMax: 120, request: 300 };
+const limits = { sectionTitle: 40, sectionNote: 120, title: 60, subtitle: 120, description: 600, search: 60, sessions: 8, minutesMin: 5, minutesMax: 120, request: 300 };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const cleanText = (value, max) => aiPlan.cleanText(value, max);
@@ -26,6 +30,41 @@ const onlyKeys = (body, allowed) => {
   const extra = Object.keys(body).find((k) => !allowed.includes(k));
   if (extra) throw new ValidationError(`"${extra.slice(0, 30)}" isn't something you can send here.`);
 };
+
+/** A category's key from the path; anything else reads as missing */
+function sectionSlug(value) {
+  if (typeof value !== "string" || !SECTION_SLUG.test(value)) throw new NotFoundError("That category doesn't exist.");
+  return value;
+}
+
+/** An admin's category fields: title (required when creating), note, card layout, shown or hidden */
+function sectionBody(body, { creating }) {
+  onlyKeys(body, ["title", "note", "layout", "published"]);
+  const out = {};
+  if (creating || body.title !== undefined) {
+    out.title = cleanText(body.title, limits.sectionTitle + 1);
+    if (out.title.length < 2 || out.title.length > limits.sectionTitle) throw new ValidationError(`Give the category a name of 2 to ${limits.sectionTitle} characters.`);
+  }
+  if (creating || body.note !== undefined) out.note = cleanText(body.note ?? "", limits.sectionNote);
+  if (creating || body.layout !== undefined) out.layout = body.layout === undefined ? "tile" : oneOf(body.layout, LAYOUTS, "Choose posters, tiles or wide cards.");
+  if (body.published !== undefined) {
+    if (typeof body.published !== "boolean") throw new ValidationError("Shown is yes or no.");
+    out.published = body.published;
+  }
+  return out;
+}
+
+/** POST …/move { direction: "up" | "down" } */
+function moveBody(body) {
+  onlyKeys(body, ["direction"]);
+  return oneOf(body.direction, ["up", "down"], "Move up or down.");
+}
+
+/** A new category's key from its name ("Yoga & Mobility" → "yoga_mobility"); "category" when nothing is left */
+function slugFor(title) {
+  const slug = String(title).toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 32).replace(/_+$/, "");
+  return slug || "category";
+}
 
 /** A program or session id from the path; anything else reads as missing */
 function id(value, what = "program") {
@@ -68,7 +107,11 @@ function programBody(body, { creating }) {
   }
   if (need("subtitle")) out.subtitle = cleanText(body.subtitle ?? "", limits.subtitle);
   if (need("description")) out.description = cleanText(body.description ?? "", limits.description);
-  if (need("section")) out.section = oneOf(body.section, SECTIONS, "Choose a section.");
+  // Only its shape here; fitness/programs.js checks the category exists
+  if (need("section")) {
+    if (typeof body.section !== "string" || !SECTION_SLUG.test(body.section)) throw new ValidationError("Choose a category.");
+    out.section = body.section;
+  }
   if (need("place")) out.place = oneOf(body.place, PLACES, "Choose home, center or both.");
   if (need("level")) out.level = oneOf(body.level, LEVELS, "Choose a level.");
   if (need("kit")) out.kit = oneOf(body.kit, KITS, "Choose the equipment.");
@@ -219,7 +262,7 @@ function fakeAnswer(sessions) {
 }
 
 module.exports = {
-  SECTIONS, PLACES, LEVELS, KITS, ICONS, PALETTES, PLACE_EQUIPMENT, limits, catalog,
+  SECTIONS, LAYOUTS, SECTION_SLUG, sectionSlug, sectionBody, moveBody, slugFor, PLACES, LEVELS, KITS, ICONS, PALETTES, PLACE_EQUIPMENT, limits, catalog,
   id, listQuery, equipmentBody, programBody, redraftBody,
   kitLibrary, buildSession, buildSessions, INSTRUCTIONS, schema, brief, normalizeSessions, fakeAnswer,
 };

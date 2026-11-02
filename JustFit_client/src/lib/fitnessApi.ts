@@ -1,5 +1,5 @@
 import { apiFetch, type ApiResult } from "@/lib/api";
-import { PROGRAMS, SECTION_NOTE, SECTION_ORDER, SECTION_TITLE, type FitnessSection, type ProgramLevel, type ProgramPlace } from "@/lib/fitness/catalog";
+import { PROGRAMS, SECTION_LAYOUT, SECTION_NOTE, SECTION_ORDER, SECTION_TITLE, type FitnessSection, type SectionLayout, type ProgramLevel, type ProgramPlace } from "@/lib/fitness/catalog";
 import type { Place, WorkoutSet } from "@/lib/workoutApi";
 
 // The Fitness tab's programs (JustFit_server/fitness/routes.js, under /api/fitness). Every
@@ -11,10 +11,14 @@ export type ProgramCardData = {
   title: string;
   subtitle: string;
   section: FitnessSection;
+  // The category's name as the admin has it (the server's; the built-in name offline)
+  sectionTitle?: string;
   place: ProgramPlace;
   level: ProgramLevel;
   icon: string;
   palette: string;
+  // The cover photo's path on the server (read with the session token), or null for the gradient
+  coverUrl?: string | null;
   sessionCount: number;
   minutes: { min: number; max: number };
   // Shown on the Fitness tab (members only ever get shown ones; the admin sees both)
@@ -23,7 +27,8 @@ export type ProgramCardData = {
   offline?: boolean;
 };
 
-export type ProgramSection = { id: FitnessSection; title: string; note: string; programs: ProgramCardData[] };
+// One category of the Fitness tab, with how its cards look (the admin chooses)
+export type ProgramSection = { id: FitnessSection; title: string; note: string; layout?: SectionLayout; programs: ProgramCardData[] };
 export type ProgramList = { place: Place; search: string; sections: ProgramSection[]; offline?: boolean };
 
 export type ProgramExercise = {
@@ -57,12 +62,12 @@ export function offlineList(place: Place, search = ""): ProgramList {
   const cards: ProgramCardData[] = PROGRAMS.filter((p) => p.place === place || p.place === "both")
     .filter((p) => !q || [p.title, p.subtitle, p.description, SECTION_TITLE[p.section]].some((t) => t.toLowerCase().includes(q)))
     .map((p) => ({
-      id: `offline:${p.slug}`, title: p.title, subtitle: p.subtitle, section: p.section, place: p.place, level: p.level, icon: p.icon, palette: p.palette,
+      id: `offline:${p.slug}`, title: p.title, subtitle: p.subtitle, section: p.section, sectionTitle: SECTION_TITLE[p.section], place: p.place, level: p.level, icon: p.icon, palette: p.palette,
       sessionCount: p.sessions.length, minutes: { min: Math.min(...p.sessions.map((s) => s.minutes)), max: Math.max(...p.sessions.map((s) => s.minutes)) }, offline: true,
     }));
   return {
     place, search, offline: true,
-    sections: SECTION_ORDER.map((id) => ({ id, title: SECTION_TITLE[id], note: SECTION_NOTE[id], programs: cards.filter((c) => c.section === id) })).filter((s) => s.programs.length > 0),
+    sections: SECTION_ORDER.map((id) => ({ id, title: SECTION_TITLE[id], note: SECTION_NOTE[id], layout: SECTION_LAYOUT[id], programs: cards.filter((c) => c.section === id) })).filter((s) => s.programs.length > 0),
   };
 }
 

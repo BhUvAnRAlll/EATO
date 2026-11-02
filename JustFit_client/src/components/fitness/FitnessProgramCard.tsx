@@ -30,7 +30,7 @@ function FitnessProgramCardBase({ program, variant, onOpen }: FitnessProgramCard
       accessibilityRole="button"
       accessibilityLabel={`${program.title}. ${program.subtitle}. ${LEVEL_TEXT[program.level]}, ${programMeta(program)}. Free. Open`}
     >
-      <ProgramArt palette={program.palette} icon={program.icon} iconSize={big ? 64 : variant === "wide" ? 52 : 40} id={`${variant}-${program.id}`} />
+      <ProgramArt palette={program.palette} icon={program.icon} iconSize={big ? 64 : variant === "wide" ? 52 : 40} id={`${variant}-${program.id}`} coverUrl={program.coverUrl} />
       <View className="fitness-card__pill">
         <Text className="workout__chip-label">{LEVEL_TEXT[program.level]}</Text>
       </View>

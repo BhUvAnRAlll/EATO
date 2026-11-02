@@ -8,10 +8,11 @@ import { AdminField } from "@/components/admin/AdminField";
 import { ProgramForm } from "@/components/admin/ProgramForm";
 import { SymbolView } from "@/components/SymbolView";
 import { DashedBlock } from "@/components/macro/DashedBlock";
-import { adminPrograms, type ProgramFields } from "@/lib/adminPrograms";
+import { adminPrograms, pickCover, type ProgramFields } from "@/lib/adminPrograms";
 import type { ProgramIcon, ProgramPalette } from "@/lib/fitness/catalog";
 import { programMeta, type ProgramDetail } from "@/lib/fitnessApi";
 import { useSessionToken } from "@/lib/session";
+import { useAdminSections } from "@/lib/useAdminSections";
 import { useSwitchColors, useThemeColors } from "@/theme";
 
 type Load = { state: "loading" } | { state: "failed"; error: string } | { state: "ready"; program: ProgramDetail };
@@ -23,17 +24,19 @@ const fieldsOf = (p: ProgramDetail): ProgramFields => ({
   icon: p.icon as ProgramIcon, palette: p.palette as ProgramPalette, published: p.published !== false,
 });
 
-// Super Admin › Programs › one program: shown to members or hidden, its fields (Save), and its
-// sessions, which the AI can rewrite from the exercise library (an optional note steers it).
+// Super Admin › Programs › one program: shown to members or hidden, its cover photo (added,
+// replaced or removed from the preview card, saved at once), its fields (Save), and its sessions,
+// which the AI can rewrite from the exercise library (an optional note steers it).
 export default function AdminProgramScreen() {
   const colors = useThemeColors();
   const switchColors = useSwitchColors();
   const getToken = useSessionToken();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const sections = useAdminSections();
   const [load, setLoad] = useState<Load>({ state: "loading" });
   const [form, setForm] = useState<ProgramFields | null>(null);
   const [note, setNote] = useState("");
-  const [busy, setBusy] = useState<"save" | "publish" | "redraft" | null>(null);
+  const [busy, setBusy] = useState<"save" | "publish" | "redraft" | "cover" | null>(null);
   const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null);
 
   const show = (program: ProgramDetail) => {
@@ -53,14 +56,27 @@ export default function AdminProgramScreen() {
     }, [refresh]),
   );
 
-  const run = async (kind: "save" | "publish" | "redraft", call: (token: string | null) => Promise<{ ok: true; data: ProgramDetail } | { ok: false; error: string }>, done: string) => {
+  const run = async (kind: "save" | "publish" | "redraft" | "cover", call: (token: string | null) => Promise<{ ok: true; data: ProgramDetail } | { ok: false; error: string }>, done: string) => {
     setBusy(kind);
     setMessage(null);
     const result = await call(await getToken().catch(() => null));
     setBusy(null);
     if (!result.ok) return setMessage({ text: result.error, error: true });
-    show(result.data);
+    // A cover change keeps any unsaved edits in the form
+    if (kind === "cover") setLoad({ state: "ready", program: result.data });
+    else show(result.data);
     setMessage({ text: done, error: false });
+  };
+
+  // The photo library, then the upload (the old cover stays until the new one is saved)
+  const changeCover = async (programId: string, replacing: boolean) => {
+    setMessage(null);
+    const picked = await pickCover();
+    if (!picked.ok) {
+      if ("error" in picked) setMessage({ text: picked.error, error: true });
+      return;
+    }
+    run("cover", (t) => adminPrograms.setCover(t, programId, picked.photo), replacing ? "Cover replaced." : "Cover added.");
   };
 
   return (
@@ -99,7 +115,18 @@ export default function AdminProgramScreen() {
 
             {message && <Text className="meta-text" style={{ color: message.error ? colors.danger : colors.success }}>{message.text}</Text>}
 
-            <ProgramForm value={form} onChange={setForm} disabled={busy !== null} />
+            <ProgramForm
+              value={form}
+              onChange={setForm}
+              disabled={busy !== null}
+              sections={sections}
+              cover={{
+                url: load.program.coverUrl ?? null,
+                busy: busy === "cover",
+                onPick: () => changeCover(load.program.id, Boolean(load.program.coverUrl)),
+                onRemove: () => run("cover", (t) => adminPrograms.removeCover(t, load.program.id), "Cover removed."),
+              }}
+            />
             <Pressable
               onPress={() => {
                 const { published: _published, ...fields } = form;

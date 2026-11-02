@@ -1,4 +1,5 @@
-// The Fitness tab's starter programs: the six sections, each program's place (home, the center
+// The Fitness tab's starter programs: the six built-in sections (categories; the admin can rename,
+// reorder or hide them and add more, so the server's fitness_sections table is the real list), each program's place (home, the center
 // or both), level and sessions. Pure data with no React Native or "@/" imports, so the Express
 // server seeds its fitness_programs table from it (fitness/programs.js) and the app shows the
 // same cards when the server can't be reached. Every program is free.
@@ -8,7 +9,11 @@
 // exercise has its steps and, once the admin adds it, its video. The admin can rewrite any
 // program's sessions with the AI (Admin › Programs) after adding exercises to the library.
 
-export type FitnessSection = 'popular' | 'categories' | 'build_muscle' | 'stay_fit' | 'dance' | 'workplace';
+export type BuiltInSection = 'popular' | 'categories' | 'build_muscle' | 'stay_fit' | 'dance' | 'workplace';
+// A category's id: a built-in one, or the slug of one the admin made
+export type FitnessSection = string;
+// How a category's cards look on the Fitness tab
+export type SectionLayout = 'poster' | 'tile' | 'wide';
 export type ProgramPlace = 'home' | 'center' | 'both';
 export type ProgramLevel = 'beginner' | 'intermediate' | 'advanced';
 // The equipment a program's sessions are built for (coach/planRules.js EQUIPMENT keys)
@@ -22,7 +27,7 @@ export type SeedProgram = {
   title: string;
   subtitle: string;
   description: string;
-  section: FitnessSection;
+  section: BuiltInSection;
   place: ProgramPlace;
   level: ProgramLevel;
   kit: ProgramKit;
@@ -31,9 +36,9 @@ export type SeedProgram = {
   sessions: SeedSession[];
 };
 
-export const SECTION_ORDER: FitnessSection[] = ['popular', 'categories', 'build_muscle', 'stay_fit', 'dance', 'workplace'];
+export const SECTION_ORDER: BuiltInSection[] = ['popular', 'categories', 'build_muscle', 'stay_fit', 'dance', 'workplace'];
 
-export const SECTION_TITLE: Record<FitnessSection, string> = {
+export const SECTION_TITLE: Record<string, string> = {
   popular: 'Popular Programs',
   categories: 'Fitness Categories',
   build_muscle: 'Build Muscle',
@@ -42,13 +47,22 @@ export const SECTION_TITLE: Record<FitnessSection, string> = {
   workplace: 'Workplace Wellness',
 };
 
-export const SECTION_NOTE: Record<FitnessSection, string> = {
+export const SECTION_NOTE: Record<string, string> = {
   popular: 'What members are doing right now',
   categories: 'Start with what you enjoy',
   build_muscle: 'Get stronger, week by week',
   stay_fit: 'Keep your fitness up all year',
   dance: 'Move to the music and burn calories',
   workplace: 'Short sessions for the workday, at your desk or with your team',
+};
+
+export const SECTION_LAYOUT: Record<string, SectionLayout> = {
+  popular: 'poster',
+  categories: 'tile',
+  build_muscle: 'tile',
+  stay_fit: 'tile',
+  dance: 'wide',
+  workplace: 'wide',
 };
 
 const S = (title: string, minutes: number, patterns: string[]): SeedSession => ({ title, minutes, patterns });

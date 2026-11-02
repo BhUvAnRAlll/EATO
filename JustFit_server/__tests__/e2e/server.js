@@ -66,6 +66,8 @@ async function startTestServer(env, { sms = "fake" } = {}) {
       ...Object.fromEntries(Object.entries(env).filter(([key]) => /^(AI_|OTP_|DEV_LOGIN_)/.test(key))),
       // The body scan test points the scan route at a local fake Forma server
       ...(env.FORMA_SCAN_URL ? { FORMA_SCAN_URL: env.FORMA_SCAN_URL } : {}),
+      // Program covers go to the test's own throwaway folder, never the repo's uploads/
+      ...(env.COVER_DIR ? { COVER_DIR: env.COVER_DIR } : {}),
     },
     stdio: ["ignore", "pipe", "pipe"],
   });

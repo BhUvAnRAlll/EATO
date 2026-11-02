@@ -9,6 +9,7 @@ import { ProgramForm } from "@/components/admin/ProgramForm";
 import { SymbolView } from "@/components/SymbolView";
 import { adminPrograms, type ProgramFields } from "@/lib/adminPrograms";
 import { useSessionToken } from "@/lib/session";
+import { useAdminSections } from "@/lib/useAdminSections";
 import { useThemeColors } from "@/theme";
 
 const back = () => (router.canGoBack() ? router.back() : router.replace("/admin/programs"));
@@ -21,6 +22,7 @@ export default function NewProgramScreen() {
   const colors = useThemeColors();
   const getToken = useSessionToken();
   const [form, setForm] = useState<ProgramFields>(BLANK);
+  const sections = useAdminSections();
   const [sessions, setSessions] = useState("3");
   const [minutes, setMinutes] = useState("30");
   const [busy, setBusy] = useState(false);
@@ -48,7 +50,7 @@ export default function NewProgramScreen() {
           <View className="screen-bar__spacer" />
         </View>
         <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 48, gap: 16 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}>
-          <ProgramForm value={form} onChange={setForm} disabled={busy} />
+          <ProgramForm value={form} onChange={setForm} disabled={busy} sections={sections} />
           <ChoiceChips label="Sessions" options={["1", "2", "3", "4", "5", "6"].map((n) => ({ value: n, label: n }))} value={sessions} onChange={setSessions} />
           <ChoiceChips label="Minutes per session" options={["10", "15", "20", "30", "45", "60"].map((n) => ({ value: n, label: `${n} min` }))} value={minutes} onChange={setMinutes} />
           {error && <Text className="meta-text" style={{ color: colors.danger }}>{error}</Text>}

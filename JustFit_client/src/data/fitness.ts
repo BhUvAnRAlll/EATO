@@ -1,4 +1,4 @@
-import type { FitnessSection, ProgramIcon } from "@/lib/fitness/catalog";
+import { SECTION_LAYOUT, type ProgramIcon } from "@/lib/fitness/catalog";
 import type { Icon } from "@/types/profile";
 
 // The Fitness tab's art: the symbol drawn on each program card (the server stores the key), and
@@ -29,14 +29,8 @@ export const programIcon = (key: string): Icon => PROGRAM_ICON[key as ProgramIco
 // Card size per section: big posters for Popular, compact tiles for the categories and the two
 // carousels, and wide cards with an Explore button for Dance and Workplace
 export type CardVariant = "poster" | "tile" | "wide";
-export const SECTION_VARIANT: Record<FitnessSection, CardVariant> = {
-  popular: "poster",
-  categories: "tile",
-  build_muscle: "tile",
-  stay_fit: "tile",
-  dance: "wide",
-  workplace: "wide",
-};
+// The built-in categories' card layouts (the server sends each category's own; this is the fallback)
+export const SECTION_VARIANT: Record<string, CardVariant> = SECTION_LAYOUT;
 
 export const CARD_SIZE: Record<CardVariant, { width: number; height: number }> = {
   poster: { width: 240, height: 300 },

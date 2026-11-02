@@ -4,6 +4,7 @@
 const express = require("express");
 
 const programs = require("./programs");
+const covers = require("./covers");
 const rules = require("./rules");
 const place = require("../workout/place");
 const v = require("../workout/validate");
@@ -25,6 +26,11 @@ const route = (handler) => (req, res, next) =>
 // The six sections for home or the center, with an optional search
 router.get("/programs", route(async (req, res) => {
   res.json(await programs.list(pool(req), rules.listQuery(req.query)));
+}));
+
+// A published program's cover photo (the program's coverUrl), read from the file its row names
+router.get("/programs/:programId/cover", route(async (req, res) => {
+  covers.send(res, await programs.coverFile(pool(req), rules.id(req.params.programId)));
 }));
 
 // One program: its description and every session with its exercises

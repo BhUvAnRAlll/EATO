@@ -784,12 +784,12 @@ skipped silently. Where justFit already meets a point, keep it that way.
 | 15 | Secure session cookies | not applicable: bearer token in `expo-secure-store` (`AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY`), never a cookie |
 | 16 | CSRF protection | not applicable without cookies; Meta webhook checks `X-Hub-Signature-256` |
 | 17 | Expiring reset links | codes last 5 minutes, single use, 5 attempts; sessions 30 days, revocable |
-| 18 | Restrict uploads | `checkUpload` sniffs real bytes, allowed types and byte caps; bodies capped before parsing |
+| 18 | Restrict uploads | `checkUpload` / `checkCover` sniff real bytes, allowed types, byte and size caps; bodies capped before parsing; program covers admin-only, 30 an hour |
 | 19 | Verify prices and payments | not applicable: no checkout |
 | 20 | No production debug mode | `x-powered-by` off, generic 500s, `DEV_LOGIN_*` refused outside development, `NODE_ENV=production` on the droplet |
 | 21 | Update vulnerable dependencies | `npm audit` in both folders before a release; server at 0 |
 | 22 | Remove unused packages | compare `package.json` with imports before a release; native modules need a prebuild to remove |
-| 23 | No exposed files | no `express.static` and no file downloads (uploaded photos and reports are read in memory, never stored); every `.env` git-ignored |
+| 23 | No exposed files | no `express.static`; member photos and reports are read in memory, never stored; the only stored files are admin program covers, served by id through signed-in routes (published only for members) from names the server made, never a path from the request; every `.env` and `uploads/` git-ignored |
 | 24 | Scan Git history for secrets | `git log -p` grep before pushing; only test placeholders so far |
 | 25 | Revoke compromised keys | any key shown in a chat, a log or a screenshot is rotated, never reused |
 | 26 | Full security review | this section plus sections 1-7, on the whole diff |
@@ -849,12 +849,29 @@ Every OpenAI call goes through the small services in `JustFit_server/ai/`, and n
 - The Fitness tab (added 2026-11-02; the Workout tab relabelled, route still `/workout`): a fixed
   `FitnessHeader` (AT HOME default / AT CENTER, location sheet, search), today's session and week,
   six sections of free programs (`FitnessCategorySection` > `ProgramCarousel` > `FitnessProgramCard`,
-  gradient `ProgramArt` until real photos exist; colours are `programGradients` tokens), then
+  gradient `ProgramArt`, or the admin's cover photo when one is set; colours are `programGradients` tokens), then
   History. Programs: `fitness_programs` / `_sessions` / `_exercises` (no cascades), seeded from
   `src/lib/fitness/catalog.ts` (also the offline fallback), served by `JustFit_server/fitness/`.
   "Do this today" makes a program session a day of the plan (`workout_days.program_session_id`
   + today's override), so the day screen and player run it. Admin › Programs edits, hides,
   creates and rewrites them with the AI (feature `fitness_program`). No premium, prices or locks.
+  Covers (2026-11-02): the edit screen's preview card has a camera button (Add cover), then a
+  pencil (Replace photo / Remove cover). `PUT|DELETE|GET /api/admin/portal/programs/:id/cover`,
+  members read `GET /api/fitness/programs/:id/cover` (published only); `coverUrl` carries `?v=`.
+  Files on the server's disk in `COVER_DIR` (default `JustFit_server/uploads/program-covers`,
+  git-ignored; back it up with the droplet), checked by `fitness/covers.js` (JPEG/PNG/WebP from the
+  bytes, max 2 MB, 320×180 to 6000 a side); a replace writes the new file first and deletes the old
+  one after the switch. Migration `2026-11-12-program-covers.sql`.
+  Categories (2026-11-02): the Fitness tab's sections are rows of `fitness_sections` (six built in,
+  seeded by `fitness/sections.js` and the migration; the admin can rename, reorder, hide them but
+  never delete them). Admin › Programs › Categories: New category (name, line, Posters / Tiles /
+  Wide cards, shown), arrows to reorder, edit, Delete only for an admin-made category with no
+  programs (the foreign key from `fitness_programs.section` refuses it too). A program's Category
+  chips come from the list (with a New category link). Members get each section's `layout` and each
+  card's `sectionTitle`; a hidden category's programs leave the tab and its search. The app's
+  built-in six (`lib/fitness/catalog.ts`) are only the offline fallback. Routes
+  `/api/admin/portal/sections` (GET, POST, PATCH/DELETE `/:slug`, POST `/:slug/move`); audit target
+  `section`. Migration `2026-11-13-fitness-categories.sql`.
   Migration `2026-11-09-fitness-programs.sql` (also adds `workout_profiles.home_equipment` /
   `center_equipment` for the location sheet).
 - `ai/usage.js` records every call with `cached_input_tokens` and `from_cache`; the admin's AI

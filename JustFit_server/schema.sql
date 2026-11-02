@@ -474,6 +474,25 @@ CREATE TABLE workout_exercise_library (
   CONSTRAINT chk_workout_library_timed CHECK (timed_sec IS NULL OR timed_sec BETWEEN 1 AND 3600)
 ) ENGINE = InnoDB;
 
+-- The Fitness tab's categories ("sections"), in the admin's order: six built in (renamed, reordered
+-- or hidden, never deleted) and any the admin creates (deleted only while they have no programs).
+-- fitness/programs.js adds the six the first time programs are read; the migration adds them too.
+CREATE TABLE fitness_sections (
+  slug         VARCHAR(40)       NOT NULL,
+  title        VARCHAR(40)       NOT NULL,
+  note         VARCHAR(120)      NOT NULL DEFAULT '',
+  layout       ENUM('poster', 'tile', 'wide') NOT NULL DEFAULT 'tile',  -- how its cards look
+  position     SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  published    BOOLEAN           NOT NULL DEFAULT TRUE,
+  built_in     BOOLEAN           NOT NULL DEFAULT FALSE,
+  created_by   VARCHAR(64)       NULL,
+  created_at   TIMESTAMP         NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at   TIMESTAMP         NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (slug),
+  KEY idx_fitness_sections_position (position),
+  CONSTRAINT fk_fitness_sections_creator FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL
+) ENGINE = InnoDB;
+
 -- The Fitness tab's free programs (migrations/2026-11-09-fitness-programs.sql): sections of
 -- programs made of sessions of library exercises. No cascades: fitness/programs.js deletes children.
 CREATE TABLE fitness_programs (
@@ -482,12 +501,14 @@ CREATE TABLE fitness_programs (
   title        VARCHAR(60)       NOT NULL,
   subtitle     VARCHAR(120)      NOT NULL DEFAULT '',
   description  VARCHAR(600)      NOT NULL DEFAULT '',
-  section      ENUM('popular', 'categories', 'build_muscle', 'stay_fit', 'dance', 'workplace') NOT NULL,
+  section      VARCHAR(40)       NOT NULL,  -- a fitness_sections slug (its category)
   place        ENUM('home', 'center', 'both') NOT NULL DEFAULT 'both',
   level        ENUM('beginner', 'intermediate', 'advanced') NOT NULL DEFAULT 'beginner',
   kit          ENUM('none', 'some', 'full_gym') NOT NULL DEFAULT 'none',
   icon         VARCHAR(20)       NOT NULL DEFAULT 'strength',
   palette      VARCHAR(20)       NOT NULL DEFAULT 'lavender',
+  cover_key    VARCHAR(64)       NULL,      -- the cover photo's file (fitness/covers.js); NULL: the palette's gradient
+  cover_updated_at TIMESTAMP(3)  NULL,      -- when the cover last changed (its URL carries it, so caches never show an old one)
   position     SMALLINT UNSIGNED NOT NULL DEFAULT 0,
   published    BOOLEAN           NOT NULL DEFAULT TRUE,
   built_in     BOOLEAN           NOT NULL DEFAULT FALSE,
@@ -498,7 +519,8 @@ CREATE TABLE fitness_programs (
   PRIMARY KEY (id),
   UNIQUE KEY uq_fitness_programs_slug (slug),
   KEY idx_fitness_programs_section (section, position),
-  CONSTRAINT fk_fitness_programs_creator FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL
+  CONSTRAINT fk_fitness_programs_creator FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL,
+  CONSTRAINT fk_fitness_programs_section FOREIGN KEY (section) REFERENCES fitness_sections (slug) ON UPDATE RESTRICT ON DELETE RESTRICT
 ) ENGINE = InnoDB;
 
 CREATE TABLE fitness_program_sessions (
@@ -708,7 +730,7 @@ CREATE TABLE admin_audit_log (
   id           CHAR(36)     NOT NULL DEFAULT (UUID()),
   admin_id     VARCHAR(64)  NULL,
   action       VARCHAR(40)  NOT NULL,                -- e.g. promotion.publish
-  target_type  ENUM('user', 'gym', 'post', 'report', 'promotion', 'exercise', 'program') NOT NULL,
+  target_type  ENUM('user', 'gym', 'post', 'report', 'promotion', 'exercise', 'program', 'section') NOT NULL,
   target_id    VARCHAR(64)  NULL,
   summary      VARCHAR(200) NOT NULL,                -- "Verified Marcus Johnson", shown as written
   created_at   TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),  -- sub-second, so actions keep their order

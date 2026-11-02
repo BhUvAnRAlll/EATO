@@ -109,7 +109,7 @@ export default function ProgramScreen() {
       ) : (
         <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 40 }} showsVerticalScrollIndicator={false}>
           <View style={{ height: 280 + insets.top }} className="overflow-hidden">
-            <ProgramArt palette={load.program.palette} icon={load.program.icon} iconSize={96} id={`detail-${load.program.id}`} />
+            <ProgramArt palette={load.program.palette} icon={load.program.icon} iconSize={96} id={`detail-${load.program.id}`} coverUrl={load.program.coverUrl} />
             <View className="absolute bottom-5 left-4 right-4 gap-1">
               <View className="flex-row gap-2">
                 <View className="fitness-card__pill" style={{ position: "relative", left: 0, top: 0 }}>

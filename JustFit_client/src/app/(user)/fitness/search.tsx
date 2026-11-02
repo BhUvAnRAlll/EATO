@@ -110,13 +110,13 @@ export default function FitnessSearchScreen() {
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
             renderItem={({ item }) => (
-              <PressableScale onPress={() => open(item)} scaleTo={0.98} className="program-card" accessibilityRole="button" accessibilityLabel={`${item.title}, ${SECTION_TITLE[item.section]}. ${programMeta(item)}. Open`}>
+              <PressableScale onPress={() => open(item)} scaleTo={0.98} className="program-card" accessibilityRole="button" accessibilityLabel={`${item.title}, ${item.sectionTitle ?? SECTION_TITLE[item.section] ?? ""}. ${programMeta(item)}. Open`}>
                 <View className="program-card__thumb overflow-hidden">
-                  <ProgramArt palette={item.palette} icon={item.icon} iconSize={22} id={`search-${item.id}`} />
+                  <ProgramArt palette={item.palette} icon={item.icon} iconSize={22} id={`search-${item.id}`} coverUrl={item.coverUrl} />
                 </View>
                 <View className="min-w-0 flex-1 gap-0.5">
                   <Text className="program-card__title" numberOfLines={1}>{item.title}</Text>
-                  <Text className="program-card__meta" numberOfLines={1}>{`${SECTION_TITLE[item.section]} · ${LEVEL_TEXT[item.level]}`}</Text>
+                  <Text className="program-card__meta" numberOfLines={1}>{`${item.sectionTitle ?? SECTION_TITLE[item.section] ?? ""} · ${LEVEL_TEXT[item.level]}`}</Text>
                   <Text className="program-card__meta" numberOfLines={1}>{programMeta(item)}</Text>
                 </View>
               </PressableScale>

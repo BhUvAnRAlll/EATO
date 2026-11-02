@@ -7,6 +7,7 @@ const { describe, it } = require("node:test");
 
 const rules = require("../fitness/rules.js");
 const { ValidationError } = require("../profile.js");
+const { NotFoundError } = require("../errors.js");
 const { EQUIPMENT } = require("../coach/planRules.js");
 const workout = require("../../JustFit_client/src/lib/workout/index.ts");
 
@@ -75,7 +76,7 @@ describe("requests", () => {
     assert.equal(made.sessions, 3);
     assert.equal(made.icon, "strength");
     assert.deepEqual(rules.programBody({ published: false }, { creating: false }), { published: false });
-    for (const body of [{ title: "x" }, { title: "Ok title", section: "vip" }, { published: "yes" }, { sessions: 4 }, { price: 99 }]) {
+    for (const body of [{ title: "x" }, { title: "Ok title", section: "VIP Members!" }, { title: "Ok title", section: "../x" }, { title: "Ok title", section: 7 }, { published: "yes" }, { sessions: 4 }, { price: 99 }]) {
       assert.throws(() => rules.programBody(body, { creating: false }), ValidationError, JSON.stringify(body));
     }
     assert.throws(() => rules.programBody({ title: "Morning", section: "stay_fit", place: "home", level: "beginner", kit: "none", sessions: 50 }, { creating: true }), ValidationError);
@@ -111,5 +112,32 @@ describe("the AI rewriting a program", () => {
     assert.match(text, /not instructions/);
     assert.ok(text.includes(allowed[0].name));
     assert.equal(rules.schema.properties.sessions.items.additionalProperties, false);
+  });
+});
+
+describe("categories (the admin's fitness_sections)", () => {
+  it("a category: a name of 2 to 40 characters, a short line, posters, tiles or wide cards, shown or hidden", () => {
+    assert.deepEqual(rules.sectionBody({ title: "  Yoga & Mobility " }, { creating: true }), { title: "Yoga & Mobility", note: "", layout: "tile" });
+    assert.doesNotMatch(rules.sectionBody({ title: "<script>Yoga</script>" }, { creating: true }).title, /[<>]/, "no markup reaches the app");
+    assert.deepEqual(rules.sectionBody({ layout: "wide", published: false }, { creating: false }), { layout: "wide", published: false });
+    for (const body of [{ title: "x" }, { title: "y".repeat(41) }, { title: "Ok", layout: "carousel" }, { title: "Ok", published: "no" }, { title: "Ok", slug: "admin" }, { title: "Ok", builtIn: true }, null, []]) {
+      assert.throws(() => rules.sectionBody(body, { creating: true }), ValidationError, JSON.stringify(body));
+    }
+  });
+
+  it("a new category's key comes from its name, safe for a URL and a SQL value", () => {
+    assert.equal(rules.slugFor("Yoga & Mobility"), "yoga_mobility");
+    assert.equal(rules.slugFor("  HIIT 2.0!! "), "hiit_2_0");
+    assert.equal(rules.slugFor("योग"), "category");
+    assert.equal(rules.slugFor("'; DROP TABLE users; --"), "drop_table_users");
+    assert.ok(rules.slugFor("x".repeat(80)).length <= 32);
+    for (const title of ["Yoga & Mobility", "योग", "a".repeat(80)]) assert.match(rules.slugFor(title), rules.SECTION_SLUG);
+  });
+
+  it("a category key from the path, and a move, are checked", () => {
+    assert.equal(rules.sectionSlug("stay_fit"), "stay_fit");
+    for (const bad of ["../programs", "Stay Fit", "", "x".repeat(41), undefined]) assert.throws(() => rules.sectionSlug(bad), NotFoundError);
+    assert.equal(rules.moveBody({ direction: "up" }), "up");
+    for (const body of [{ direction: "left" }, { direction: "up", by: 3 }, {}]) assert.throws(() => rules.moveBody(body), ValidationError);
   });
 });
