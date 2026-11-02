@@ -11,8 +11,9 @@ import { CoachAvatar } from "@/components/coach/CoachAvatar";
 import { CoachButton } from "@/components/coach/CoachButton";
 import type { TodayWorkout } from "@/components/coach/PlanTimeline";
 import { TodayOverview } from "@/components/coach/TodayOverview";
+import { WeekPlan } from "@/components/coach/WeekPlan";
 import { usePullToRefresh } from "@/components/PullToRefresh";
-import { coachPrompts, coaches, coachStyles, labelOf, weekdayChoices, type CoachId, type CoachStyle } from "@/data/coach";
+import { coachPrompts, coaches, coachStyles, labelOf, type CoachId, type CoachStyle } from "@/data/coach";
 import { coachApi, type Intake, type IntakePrefill, type PlanState } from "@/lib/coach";
 import { macro, todayIso, type DayView } from "@/lib/macro";
 import { useSessionToken } from "@/lib/session";
@@ -287,22 +288,16 @@ export default function Coach() {
                     </>
                   )}
 
-                  {tab === "week" &&
-                    (plan.workout ? (
-                      <>
-                        {plan.workout.sessions.map((session) => (
-                          <View key={session.weekday} className="flex-row justify-between gap-4">
-                            <Text className="coach__hint">{labelOf(weekdayChoices, session.weekday)}</Text>
-                            <Text className="coach__row-value flex-1 text-right">{`${session.title} · ${session.minutes} min`}</Text>
-                          </View>
-                        ))}
+                  {tab === "week" && (
+                    <>
+                      <WeekPlan plan={plan.plan} workout={plan.workout} />
+                      {plan.workout && (
                         <Pressable onPress={() => router.push("/workout")} className="coach__ghost" accessibilityRole="button">
                           <Text className="coach__ghost-label">Open my workouts</Text>
                         </Pressable>
-                      </>
-                    ) : (
-                      <Text className="coach__hint">Your workout week appears here once your plan has one.</Text>
-                    ))}
+                      )}
+                    </>
+                  )}
 
                   {tab === "insights" && (
                     <View className="items-center gap-2 py-6">

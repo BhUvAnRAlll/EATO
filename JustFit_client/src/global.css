@@ -3270,6 +3270,49 @@
   background-color: var(--color-accent-soft);
 }
 
+/* One day on the coach's Week tab: its workout and its meals, today's day outlined */
+@utility coach__weekday {
+  padding: var(--spacing-md);
+  border-radius: var(--radius-lg);
+  border-width: 1.5px;
+  border-color: var(--color-line);
+  background-color: var(--color-surface);
+  gap: 10px;
+}
+
+@utility coach__weekday--today {
+  border-color: var(--color-primary);
+}
+
+@utility coach__weekday-name {
+  font-family: var(--font-sans-semibold);
+  font-size: 16px;
+  line-height: 22px;
+  color: var(--color-forest-ink);
+}
+
+@utility coach__weekday-row {
+  min-height: 40px;
+  padding: 0 12px;
+  border-radius: var(--radius-md);
+  background-color: var(--color-accent-soft);
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+}
+
+@utility coach__weekday-meals {
+  padding-top: 2px;
+  gap: 6px;
+}
+
+@utility coach__weekday-meal {
+  font-family: var(--font-sans-medium);
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--color-forest-ink);
+}
+
 @utility coach__tag-label {
   font-family: var(--font-sans-semibold);
   font-size: 11px;
