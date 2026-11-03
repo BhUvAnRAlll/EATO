@@ -105,7 +105,7 @@ describe("ui admin: programs, their cover photos and categories", () => {
     }
     await connection.query("INSERT INTO users (id, email, full_name, role) VALUES (?, ?, 'Maya Ortiz', 'admin') ON DUPLICATE KEY UPDATE role = 'admin'", [admin.id, admin.emailAddress]);
     const list = await fetch(`${server.baseUrl}/api/admin/portal/programs`, { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json());
-    program = list.programs.find((p) => p.published && p.sessionCount > 0);
+    program = list.programs.find((p) => p.published);
   });
 
   after(async () => {

@@ -70,7 +70,7 @@ const S = (title: string, minutes: number, patterns: string[]): SeedSession => (
 export const PROGRAMS: SeedProgram[] = [
   // ---- Popular ----------------------------------------------------------------------------
   {
-    slug: 'strong-mom', title: 'Strong Mom', subtitle: 'Gentle strength for busy mothers',
+    slug: 'strong-mom', title: 'Fit Mama', subtitle: 'Gentle strength for busy mothers',
     description: 'Low-impact sessions that rebuild your core, legs and posture, in under half an hour at home. Check with your doctor first if you had a baby recently.',
     section: 'popular', place: 'home', level: 'beginner', kit: 'none', icon: 'mom', palette: 'rose',
     sessions: [S('Core and posture', 20, ['core', 'hinge', 'horizontal_pull', 'core']), S('Legs and glutes', 20, ['squat', 'lunge', 'hinge', 'calf']), S('Full body flow', 25, ['squat', 'horizontal_push', 'core', 'lunge'])],

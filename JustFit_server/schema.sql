@@ -509,6 +509,12 @@ CREATE TABLE fitness_programs (
   palette      VARCHAR(20)       NOT NULL DEFAULT 'lavender',
   cover_key    VARCHAR(64)       NULL,      -- the cover photo's file (fitness/covers.js); NULL: the palette's gradient
   cover_updated_at TIMESTAMP(3)  NULL,      -- when the cover last changed (its URL carries it, so caches never show an old one)
+  hero_key     VARCHAR(64)       NULL,      -- the program page's photo (fitness/covers.js), separate from the card's cover; NULL: the gradient
+  hero_updated_at TIMESTAMP(3)   NULL,      -- when the page photo last changed (its URL carries it, like the cover's)
+  youtube_kind ENUM('playlist', 'video') NULL, -- a YouTube playlist or one video members follow along with (fitness/rules.js youtubeLink)
+  youtube_id   VARCHAR(64)       NULL,      -- its ID; both NULL: none (never one without the other)
+  youtube_channel VARCHAR(100)   NULL,      -- the creator credited under the player (from the YouTube API)
+  videos_synced_at TIMESTAMP     NULL,      -- when the videos were last loaded; older than 30 days: not shown, then deleted
   position     SMALLINT UNSIGNED NOT NULL DEFAULT 0,
   published    BOOLEAN           NOT NULL DEFAULT TRUE,
   built_in     BOOLEAN           NOT NULL DEFAULT FALSE,
@@ -520,7 +526,34 @@ CREATE TABLE fitness_programs (
   UNIQUE KEY uq_fitness_programs_slug (slug),
   KEY idx_fitness_programs_section (section, position),
   CONSTRAINT fk_fitness_programs_creator FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL,
-  CONSTRAINT fk_fitness_programs_section FOREIGN KEY (section) REFERENCES fitness_sections (slug) ON UPDATE RESTRICT ON DELETE RESTRICT
+  CONSTRAINT fk_fitness_programs_section FOREIGN KEY (section) REFERENCES fitness_sections (slug) ON UPDATE RESTRICT ON DELETE RESTRICT,
+  CONSTRAINT chk_fitness_programs_youtube CHECK ((youtube_kind IS NULL) = (youtube_id IS NULL))
+) ENGINE = InnoDB;
+
+-- A program's YouTube videos (fitness/youtube.js), in playlist order: each one a session members
+-- play and tick off. Replaced whenever the admin saves a new link or presses Refresh videos.
+CREATE TABLE fitness_program_videos (
+  program_id  CHAR(36)          NOT NULL,
+  position    SMALLINT UNSIGNED NOT NULL,
+  video_id    VARCHAR(11)       NOT NULL,  -- YouTube's video ID
+  title       VARCHAR(200)      NOT NULL DEFAULT '',
+  seconds     INT UNSIGNED      NOT NULL DEFAULT 0,
+  PRIMARY KEY (program_id, position),
+  UNIQUE KEY uq_fitness_videos_video (program_id, video_id),
+  CONSTRAINT fk_fitness_videos_program FOREIGN KEY (program_id) REFERENCES fitness_programs (id)
+) ENGINE = InnoDB;
+
+-- The videos a member ticked done, by video (so a refreshed playlist keeps the ticks of videos
+-- still in it). Goes with the member's account.
+CREATE TABLE fitness_video_progress (
+  user_id     VARCHAR(64)       NOT NULL,
+  program_id  CHAR(36)          NOT NULL,
+  video_id    VARCHAR(11)       NOT NULL,
+  done_at     TIMESTAMP         NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (user_id, program_id, video_id),
+  KEY idx_fitness_video_progress_program (program_id),
+  CONSTRAINT fk_fitness_video_progress_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+  CONSTRAINT fk_fitness_video_progress_program FOREIGN KEY (program_id) REFERENCES fitness_programs (id)
 ) ENGINE = InnoDB;
 
 CREATE TABLE fitness_program_sessions (
@@ -529,6 +562,9 @@ CREATE TABLE fitness_program_sessions (
   position    TINYINT UNSIGNED  NOT NULL,
   title       VARCHAR(60)       NOT NULL,
   minutes     SMALLINT UNSIGNED NOT NULL DEFAULT 30,
+  youtube_id  VARCHAR(11)       NULL,      -- a YouTube video members play in the session (embedded only, never uploaded); NULL: none
+  youtube_channel VARCHAR(100)  NULL,      -- its creator, credited under the player (from the YouTube API; hidden after 30 days)
+  youtube_synced_at TIMESTAMP   NULL,      -- when the channel was last read from YouTube
   PRIMARY KEY (id),
   UNIQUE KEY uq_fitness_sessions_order (program_id, position),
   CONSTRAINT fk_fitness_sessions_program FOREIGN KEY (program_id) REFERENCES fitness_programs (id),

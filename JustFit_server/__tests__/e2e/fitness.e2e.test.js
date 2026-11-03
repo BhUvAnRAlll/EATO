@@ -101,26 +101,25 @@ describe("fitness e2e: programs, today's session from a program, the location sh
     for (const token of [null, "not-a-jwt"]) {
       assert.equal((await programs(token)).status, 401);
       assert.equal((await api("GET", `/api/fitness/programs/${someId}`, token)).status, 401);
-      assert.equal((await api("POST", `/api/fitness/programs/${someId}/sessions/${someId}/today`, token, { today: TODAY })).status, 401);
       assert.equal((await api("GET", "/api/fitness/equipment", token)).status, 401);
     }
-    for (const [method, route] of [["GET", "/api/admin/portal/programs"], ["POST", "/api/admin/portal/programs"], ["PATCH", `/api/admin/portal/programs/${someId}`], ["POST", `/api/admin/portal/programs/${someId}/redraft`]]) {
+    for (const [method, route] of [["GET", "/api/admin/portal/programs"], ["POST", "/api/admin/portal/programs"], ["PATCH", `/api/admin/portal/programs/${someId}`], ["POST", `/api/admin/portal/programs/${someId}/sessions`]]) {
       assert.equal((await api(method, route, tokens.a, method === "GET" ? undefined : {})).status, 403, route);
     }
   }));
 
-  it("2. home and the center each show all six sections of free programs with sessions", run(async () => {
+  it("2. home and the center each show all six sections of free programs, Coming soon until they have video sessions", run(async () => {
     for (const place of ["home", "center"]) {
       const r = await programs(tokens.a, `?place=${place}`);
       assert.equal(r.status, 200, JSON.stringify(r.json));
       assert.deepEqual(r.json.sections.map((s) => s.id), ["popular", "categories", "build_muscle", "stay_fit", "dance", "workplace"], place);
       const cards = r.json.sections.flatMap((s) => s.programs);
-      assert.ok(cards.every((c) => c.sessionCount > 0 && (c.place === place || c.place === "both")));
+      assert.ok(cards.every((c) => c.sessionCount === 0 && (c.place === place || c.place === "both")), "the starter programs have no sessions until the admin adds videos");
       assert.ok(!JSON.stringify(r.json).match(/premium|price|locked/i), "nothing behind a paywall");
     }
     const home = (await programs(tokens.a, "?place=home")).json.sections.flatMap((s) => s.programs).map((c) => c.title);
     const center = (await programs(tokens.a, "?place=center")).json.sections.flatMap((s) => s.programs).map((c) => c.title);
-    assert.ok(home.includes("Strong Mom") && !center.includes("Strong Mom"));
+    assert.ok(home.includes("Fit Mama") && !center.includes("Fit Mama"));
     assert.ok(center.includes("Push Pull Legs") && !home.includes("Push Pull Legs"));
     assert.ok((await count("fitness_programs", "built_in = TRUE", [])) >= 19, "the catalog was added once");
   }));
@@ -137,51 +136,23 @@ describe("fitness e2e: programs, today's session from a program, the location sh
     }
   }));
 
-  it("4. a program's detail: sessions with their exercises; unknown or malformed ids are 404", run(async () => {
+  it("4. a program's detail: only video sessions (none yet); unknown or malformed ids are 404; Do this today is gone", run(async () => {
     const card = (await programs(tokens.a, "?place=home")).json.sections.find((s) => s.id === "categories").programs.find((p) => p.title === "Workout for Beginners");
     const r = await api("GET", `/api/fitness/programs/${card.id}`, tokens.a);
     assert.equal(r.status, 200, JSON.stringify(r.json));
-    assert.equal(r.json.program.sessions.length, 3);
-    assert.ok(r.json.program.sessions.every((s) => s.exercises.length > 0 && s.exercises.every((e) => typeof e.hasVideo === "boolean")));
-    state.program = r.json.program;
+    assert.deepEqual(r.json.program.sessions, []);
     for (const bad of ["1", "x' OR '1'='1", crypto.randomUUID()]) assert.equal((await api("GET", `/api/fitness/programs/${encodeURIComponent(bad)}`, tokens.a)).status, 404, bad);
-  }));
-
-  it("5. doing a session today makes it today's workout; the plan's own days stay as they were", run(async () => {
-    const ensured = await api("POST", "/api/workout/plan/ensure", tokens.a, { today: TODAY });
-    assert.ok([200, 201].includes(ensured.status), JSON.stringify(ensured.json));
-    const before = await api("GET", "/api/workout/plan/overview", tokens.a);
-    const session = state.program.sessions[1];
-    const r = await api("POST", `/api/fitness/programs/${state.program.id}/sessions/${session.id}/today`, tokens.a, { today: TODAY });
-    assert.equal(r.status, 200, JSON.stringify(r.json));
-    const home = await api("GET", `/api/workout/home?date=${TODAY}&dates=${TODAY}&today=${TODAY}`, tokens.a);
-    assert.equal(home.json.day.id, r.json.dayId);
-    assert.equal(home.json.day.title, `Workout for Beginners · ${session.title}`);
-    assert.equal(home.json.day.exerciseCount, session.exerciseCount);
-    assert.equal(home.json.place.canChange, false, "a program session is already made for its place");
-    const after = await api("GET", "/api/workout/plan/overview", tokens.a);
-    assert.deepEqual(after.json.sessions.map((s) => s.dayId), before.json.sessions.map((s) => s.dayId));
-
-    // The same session again reuses the day; another session replaces today's
-    const again = await api("POST", `/api/fitness/programs/${state.program.id}/sessions/${session.id}/today`, tokens.a, { today: TODAY });
-    assert.equal(again.json.dayId, r.json.dayId);
-    const other = await api("POST", `/api/fitness/programs/${state.program.id}/sessions/${state.program.sessions[0].id}/today`, tokens.a, { today: TODAY });
-    assert.notEqual(other.json.dayId, r.json.dayId);
-    state.programDay = other.json.dayId;
-
-    // Once started, today's workout stays; a session of another program is a 404
-    const [[plan]] = await connection.query("SELECT id FROM workout_plans WHERE user_id = ? AND status = 'active'", [ids.a]);
-    await connection.query("INSERT INTO workout_logs (user_id, plan_id, day_id, on_date, status) VALUES (?, ?, ?, ?, 'in_progress')", [ids.a, plan.id, state.programDay, TODAY]);
-    const started = await api("POST", `/api/fitness/programs/${state.program.id}/sessions/${session.id}/today`, tokens.a, { today: TODAY });
-    assert.equal(started.status, 400);
-    assert.match(started.json.error, /Finish today's session/);
-    await connection.query("DELETE FROM workout_logs WHERE user_id = ? AND on_date = ?", [ids.a, TODAY]);
-    const otherProgram = (await programs(tokens.a, "?place=home")).json.sections[0].programs[0];
-    assert.equal((await api("POST", `/api/fitness/programs/${otherProgram.id}/sessions/${session.id}/today`, tokens.a, { today: TODAY })).status, 404);
-    // B has no plan; bad bodies are 400s
-    assert.equal((await api("POST", `/api/fitness/programs/${state.program.id}/sessions/${session.id}/today`, tokens.b, { today: TODAY })).status, 400);
-    for (const body of [{}, { today: "2001-01-01" }, { today: TODAY, userId: ids.b }]) {
-      assert.equal((await api("POST", `/api/fitness/programs/${state.program.id}/sessions/${session.id}/today`, tokens.a, body)).status, 400, JSON.stringify(body));
+    // An exercise session from before 2026-11-03 stays in the table but is never shown or played
+    const [[{ id: sessionId }]] = await connection.query("SELECT UUID() AS id");
+    await connection.query("INSERT INTO fitness_program_sessions (id, program_id, position, title, minutes) VALUES (?, ?, 0, 'Old exercise session', 20)", [sessionId, card.id]);
+    try {
+      const again = await api("GET", `/api/fitness/programs/${card.id}`, tokens.a);
+      assert.deepEqual(again.json.program.sessions, [], "an exercise session isn't shown");
+      assert.equal(again.json.program.sessionCount, 0, "nor counted");
+      assert.equal((await api("POST", `/api/fitness/programs/${card.id}/sessions/${sessionId}/today`, tokens.a, { today: TODAY })).status, 404, "Do this today is gone");
+      assert.equal((await api("PATCH", `/api/admin/portal/programs/${card.id}/sessions/${sessionId}`, tokens.admin, { minutes: 25 })).status, 404, "nor can the admin edit it");
+    } finally {
+      await connection.query("DELETE FROM fitness_program_sessions WHERE id = ?", [sessionId]);
     }
   }));
 
@@ -198,7 +169,7 @@ describe("fitness e2e: programs, today's session from a program, the location sh
     assert.deepEqual((await api("GET", "/api/fitness/equipment", tokens.b)).json.home, "none", "B's are their own");
   }));
 
-  it("7. the admin hides, edits, creates and rewrites programs with the AI; each is in the audit log", run(async () => {
+  it("7. the admin hides, edits and creates programs (no AI); each is in the audit log", run(async () => {
     const all = await api("GET", "/api/admin/portal/programs", tokens.admin);
     assert.equal(all.status, 200);
     const target = all.json.programs.find((p) => p.title === "Cardio Rush");
@@ -209,21 +180,32 @@ describe("fitness e2e: programs, today's session from a program, the location sh
     await api("PATCH", `/api/admin/portal/programs/${target.id}`, tokens.admin, { published: true, subtitle: "Stamina in 25 minutes" });
     assert.equal((await api("GET", `/api/fitness/programs/${target.id}`, tokens.a)).json.program.subtitle, "Stamina in 25 minutes");
 
-    const made = await api("POST", "/api/admin/portal/programs", tokens.admin, { title: "Morning Mobility", subtitle: "Wake up loose", description: "Easy stretches", section: "stay_fit", place: "home", level: "beginner", kit: "none", sessions: 2, minutes: 15, icon: "yoga", palette: "mint" });
+    const made = await api("POST", "/api/admin/portal/programs", tokens.admin, { title: "Morning Mobility", subtitle: "Wake up loose", description: "Easy stretches", section: "stay_fit", place: "home", level: "beginner", kit: "none", icon: "yoga", palette: "mint" });
     assert.equal(made.status, 201, JSON.stringify(made.json));
-    assert.equal(made.json.program.sessions.length, 2);
-    assert.equal(made.json.program.aiDrafted, true);
+    assert.deepEqual(made.json.program.sessions, [], "no sessions until the admin adds videos");
+    assert.equal(made.json.program.aiDrafted, false);
     assert.ok((await programs(tokens.a, "?place=home&search=mobility")).json.sections.flatMap((s) => s.programs).some((p) => p.title === "Morning Mobility"));
 
-    const redrafted = await api("POST", `/api/admin/portal/programs/${target.id}/redraft`, tokens.admin, { request: "more intervals" });
-    assert.equal(redrafted.status, 200, JSON.stringify(redrafted.json));
-    assert.equal(redrafted.json.program.aiDrafted, true);
-    assert.equal(await count("ai_usage", "user_id = ? AND feature = 'fitness_program'", [ids.admin]), 2);
-    assert.ok(await count("admin_audit_log", "admin_id = ? AND target_type = 'program'", [ids.admin]) >= 4);
+    assert.equal((await api("POST", `/api/admin/portal/programs/${target.id}/redraft`, tokens.admin, { request: "more intervals" })).status, 404, "Rewrite with AI is gone");
+    assert.equal(await count("ai_usage", "user_id = ? AND feature = 'fitness_program'", [ids.admin]), 0, "no AI call");
+    assert.ok(await count("admin_audit_log", "admin_id = ? AND target_type = 'program'", [ids.admin]) >= 3);
 
     for (const body of [{ title: "x" }, { price: 99 }, { sessions: 3 }, { section: "vip" }]) {
       assert.equal((await api("PATCH", `/api/admin/portal/programs/${target.id}`, tokens.admin, body)).status, 400, JSON.stringify(body));
     }
     assert.equal((await api("PATCH", `/api/admin/portal/programs/${crypto.randomUUID()}`, tokens.admin, { published: true })).status, 404);
+  }));
+
+  it("8. a program takes no YouTube link of its own (videos belong to sessions since 2026-11-03)", run(async () => {
+    const all = (await api("GET", "/api/admin/portal/programs", tokens.admin)).json.programs;
+    const target = all.find((p) => p.title === "Yoga for Beginners");
+    const program = (await api("GET", `/api/fitness/programs/${target.id}`, tokens.a)).json.program;
+    assert.equal(program.youtube, undefined, "no program-level video");
+    assert.ok(program.sessions.every((s) => s.video === null), "the starter sessions have no video");
+    for (const youtube of ["dQw4w9WgXcQ", "https://youtube.com/playlist?list=PLabcdefghijklmnop_-12", ""]) {
+      assert.equal((await api("PATCH", `/api/admin/portal/programs/${target.id}`, tokens.admin, { youtube })).status, 400, youtube);
+    }
+    const made = await api("POST", "/api/admin/portal/programs", tokens.admin, { title: "Follow Along", section: "stay_fit", place: "home", level: "beginner", kit: "none", sessions: 1, minutes: 15, youtube: "https://youtu.be/aBcDeFgHiJk" });
+    assert.equal(made.status, 400, "a new program can't take one either");
   }));
 });

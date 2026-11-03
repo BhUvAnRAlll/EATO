@@ -68,6 +68,8 @@ async function startTestServer(env, { sms = "fake" } = {}) {
       ...(env.FORMA_SCAN_URL ? { FORMA_SCAN_URL: env.FORMA_SCAN_URL } : {}),
       // Program covers go to the test's own throwaway folder, never the repo's uploads/
       ...(env.COVER_DIR ? { COVER_DIR: env.COVER_DIR } : {}),
+      // The YouTube test points the video loader at a local fake API with a test key
+      ...(env.YOUTUBE_API_URL ? { YOUTUBE_API_URL: env.YOUTUBE_API_URL, YOUTUBE_API_KEY: env.YOUTUBE_API_KEY } : {}),
     },
     stdio: ["ignore", "pipe", "pipe"],
   });

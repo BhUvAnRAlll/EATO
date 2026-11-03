@@ -4,8 +4,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 
-import { AdminField } from "@/components/admin/AdminField";
 import { ProgramForm } from "@/components/admin/ProgramForm";
+import { ProgramSessions } from "@/components/admin/ProgramSessions";
 import { SymbolView } from "@/components/SymbolView";
 import { DashedBlock } from "@/components/macro/DashedBlock";
 import { adminPrograms, pickCover, type ProgramFields } from "@/lib/adminPrograms";
@@ -24,9 +24,10 @@ const fieldsOf = (p: ProgramDetail): ProgramFields => ({
   icon: p.icon as ProgramIcon, palette: p.palette as ProgramPalette, published: p.published !== false,
 });
 
-// Super Admin › Programs › one program: shown to members or hidden, its cover photo (added,
-// replaced or removed from the preview card, saved at once), its fields (Save), and its sessions,
-// which the AI can rewrite from the exercise library (an optional note steers it).
+// Super Admin › Programs › one program: shown to members or hidden, its cover photo for the card
+// and its page photo for the top of the program's screen (each added, replaced or removed under the
+// preview card, saved at once), its fields (Save), and its sessions: each a YouTube video the
+// admin adds, edits, reorders or deletes (ProgramSessions).
 export default function AdminProgramScreen() {
   const colors = useThemeColors();
   const switchColors = useSwitchColors();
@@ -35,8 +36,7 @@ export default function AdminProgramScreen() {
   const sections = useAdminSections();
   const [load, setLoad] = useState<Load>({ state: "loading" });
   const [form, setForm] = useState<ProgramFields | null>(null);
-  const [note, setNote] = useState("");
-  const [busy, setBusy] = useState<"save" | "publish" | "redraft" | "cover" | null>(null);
+  const [busy, setBusy] = useState<"save" | "publish" | "cover" | "hero" | "session" | null>(null);
   const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null);
 
   const show = (program: ProgramDetail) => {
@@ -56,16 +56,17 @@ export default function AdminProgramScreen() {
     }, [refresh]),
   );
 
-  const run = async (kind: "save" | "publish" | "redraft" | "cover", call: (token: string | null) => Promise<{ ok: true; data: ProgramDetail } | { ok: false; error: string }>, done: string) => {
+  const run = async (kind: "save" | "publish" | "cover" | "hero" | "session", call: (token: string | null) => Promise<{ ok: true; data: ProgramDetail } | { ok: false; error: string }>, done: string) => {
     setBusy(kind);
     setMessage(null);
     const result = await call(await getToken().catch(() => null));
     setBusy(null);
     if (!result.ok) return setMessage({ text: result.error, error: true });
-    // A cover change keeps any unsaved edits in the form
-    if (kind === "cover") setLoad({ state: "ready", program: result.data });
+    // A photo or session change keeps any unsaved edits in the form
+    if (kind === "cover" || kind === "hero" || kind === "session") setLoad({ state: "ready", program: result.data });
     else show(result.data);
-    setMessage({ text: done, error: false });
+    // Saved, but YouTube couldn't be asked who made the video: say why (it's asked again later)
+    setMessage(result.data.videoError ? { text: `${done} YouTube didn't answer for the video: ${result.data.videoError}`, error: true } : { text: done, error: false });
   };
 
   // The photo library, then the upload (the old cover stays until the new one is saved)
@@ -77,6 +78,17 @@ export default function AdminProgramScreen() {
       return;
     }
     run("cover", (t) => adminPrograms.setCover(t, programId, picked.photo), replacing ? "Cover replaced." : "Cover added.");
+  };
+
+  // The same for the program page's photo
+  const changeHero = async (programId: string, replacing: boolean) => {
+    setMessage(null);
+    const picked = await pickCover();
+    if (!picked.ok) {
+      if ("error" in picked) setMessage({ text: picked.error, error: true });
+      return;
+    }
+    run("hero", (t) => adminPrograms.setHero(t, programId, picked.photo), replacing ? "Page photo replaced." : "Page photo added.");
   };
 
   return (
@@ -126,6 +138,12 @@ export default function AdminProgramScreen() {
                 onPick: () => changeCover(load.program.id, Boolean(load.program.coverUrl)),
                 onRemove: () => run("cover", (t) => adminPrograms.removeCover(t, load.program.id), "Cover removed."),
               }}
+              hero={{
+                url: load.program.heroUrl ?? null,
+                busy: busy === "hero",
+                onPick: () => changeHero(load.program.id, Boolean(load.program.heroUrl)),
+                onRemove: () => run("hero", (t) => adminPrograms.removeHero(t, load.program.id), "Page photo removed."),
+              }}
             />
             <Pressable
               onPress={() => {
@@ -141,18 +159,16 @@ export default function AdminProgramScreen() {
             </Pressable>
 
             <Text className="setup__section">{`Sessions · ${programMeta(load.program)}`}</Text>
-            {load.program.sessions.map((s, i) => (
-              <View key={s.id} className="fitness-session" style={{ gap: 6 }}>
-                <Text className="type-subhead text-forest-ink">{`${i + 1}. ${s.title} · ${s.minutes} min`}</Text>
-                <Text className="meta-text">{s.exercises.map((e) => e.name).join(", ")}</Text>
-              </View>
-            ))}
-            <AdminField label="Note for the AI (optional)" value={note} onChangeText={setNote} maxLength={300} placeholder="For example: more core work, shorter sessions" editable={busy === null} />
-            <Pressable onPress={() => run("redraft", (t) => adminPrograms.redraft(t, load.program.id, note.trim()), "The AI rewrote the sessions.")} disabled={busy !== null} className="btn-outline flex-row items-center justify-center" style={{ gap: 8, opacity: busy ? 0.7 : 1 }} accessibilityRole="button" accessibilityLabel="Rewrite the sessions with AI">
-              {busy === "redraft" ? <ActivityIndicator size="small" color={colors.leaf} /> : <SymbolView name={{ ios: "sparkles", android: "auto_awesome", web: "auto_awesome" }} size={16} tintColor={colors.forestInk} />}
-              <Text className="btn-outline__label">{busy === "redraft" ? "Writing sessions…" : "Rewrite sessions with AI"}</Text>
-            </Pressable>
-            <Text className="admin__hint">The AI uses exercises from Admin › Exercises. For yoga or dance programs, add those exercises there first. Members who already did a session keep their copy.</Text>
+            <ProgramSessions
+              sessions={load.program.sessions}
+              busy={busy === "session"}
+              disabled={busy !== null}
+              onAdd={(session) => run("session", (t) => adminPrograms.addSession(t, load.program.id, session), "Session added.")}
+              onEdit={(sessionId, session) => run("session", (t) => adminPrograms.editSession(t, load.program.id, sessionId, session), "Session saved.")}
+              onDelete={(sessionId) => run("session", (t) => adminPrograms.deleteSession(t, load.program.id, sessionId), "Session deleted.")}
+              onMove={(sessionId, direction) => run("session", (t) => adminPrograms.moveSession(t, load.program.id, sessionId, direction), "Session moved.")}
+            />
+            <Text className="admin__hint">{"Each session is one YouTube video, played in YouTube's own player on the program's page. Paste a video's link; playlists and uploaded files aren't used."}</Text>
           </ScrollView>
         ) : null}
       </SafeAreaView>

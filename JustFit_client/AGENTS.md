@@ -870,12 +870,19 @@ Every OpenAI call goes through the small services in `JustFit_server/ai/`, and n
 - The Fitness tab (added 2026-11-02; the Workout tab relabelled, route still `/workout`): a fixed
   `FitnessHeader` (AT HOME default / AT CENTER, location sheet, search), today's session and week,
   six sections of free programs (`FitnessCategorySection` > `ProgramCarousel` > `FitnessProgramCard`,
-  gradient `ProgramArt`, or the admin's cover photo when one is set; colours are `programGradients` tokens), then
+  gradient `ProgramArt`, or the admin's cover photo when one is set; colours are `programGradients` tokens;
+  since 2026-11-03 a card with a cover is the photo alone (covers carry their own title), others keep the
+  level pill, title and meta; each section's See All opens `app/(user)/fitness/category/[id].tsx`, a
+  two-column grid of that category. A program's page shows its own page photo (`hero_key`, Admin ›
+  Programs › Program page photo, `/hero` routes beside `/cover`; migration `2026-11-16-program-hero.sql`)
+  with nothing written on it, never the card's cover, then an info strip (sessions, minutes, place and kit)), then
   History. Programs: `fitness_programs` / `_sessions` / `_exercises` (no cascades), seeded from
   `src/lib/fitness/catalog.ts` (also the offline fallback), served by `JustFit_server/fitness/`.
-  "Do this today" makes a program session a day of the plan (`workout_days.program_session_id`
-  + today's override), so the day screen and player run it. Admin › Programs edits, hides,
-  creates and rewrites them with the AI (feature `fitness_program`). No premium, prices or locks.
+  Since 2026-11-03 a program's sessions are only the admin's YouTube video sessions (shown under
+  Follow along; "Coming soon" until it has one). The old exercise sessions stay in the table, hidden
+  (members' past `workout_days.program_session_id` point at them); Do this today, Create with AI and
+  Rewrite with AI were removed. Admin › Programs edits, hides and creates programs. No premium,
+  prices or locks.
   Covers (2026-11-02): the edit screen's preview card has a camera button (Add cover), then a
   pencil (Replace photo / Remove cover). `PUT|DELETE|GET /api/admin/portal/programs/:id/cover`,
   members read `GET /api/fitness/programs/:id/cover` (published only); `coverUrl` carries `?v=`.
@@ -964,6 +971,26 @@ Static UI content (option lists, onboarding slides, dashboard tiles) stays in ty
 Anything users create or that changes over time (meals on the menu, orders, the diary, weigh-ins)
 belongs in MySQL. The tables already exist in `JustFit_server/schema.sql`; do not change the schema or
 the database contents without asking first.
+
+### YouTube videos (added 2026-11-03)
+
+YouTube videos belong to a program's sessions (2026-11-03; the program-level link, playlists, Follow
+along and per-video ticks were dropped). In Admin › Programs › a program the admin adds sessions with a
+title, minutes and one YouTube video link, edits, reorders and deletes them (`ProgramSessions`,
+`/api/admin/portal/programs/:id/sessions`, migration `2026-11-17-session-videos.sql`). Videos are
+embedded links only: never an uploaded video file. Every session has a video and nothing else
+(`JustFit_server/fitness/youtube.js` reads each video's creator for the credit). The
+user asked for this to be done the legal way only, so these rules stand for every change near it:
+
+- Videos play only in YouTube's own embedded player, unchanged: never hide, skip or block its
+  ads, branding or controls, and never download, re-host or extract the videos or their audio.
+- Programs with YouTube videos stay free: never put them behind Pro or any payment.
+- Data from the YouTube Data API (titles, lengths, the channel) is refreshed before 25 days and is
+  never shown or kept past 30 (`fitness/youtubeRefresh.js`). Only the server holds `YOUTUBE_API_KEY`.
+- The creator is credited under the player ("Videos by … on YouTube, not made by justFit"), with
+  links to the YouTube Terms of Service and the Google Privacy Policy. Never present the videos as
+  justFit's own. The privacy policy must say the app uses YouTube API Services.
+- Ask each creator whose playlist is used for permission before launch (the user's call).
 
 ---
 

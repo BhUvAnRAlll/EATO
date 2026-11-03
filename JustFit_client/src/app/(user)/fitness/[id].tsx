@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { ActivityIndicator, ScrollView, Text, View } from "react-native";
+import { Linking, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
@@ -9,69 +9,85 @@ import { PressableScale } from "@/components/PressableScale";
 import { ScreenSkeleton } from "@/components/Skeleton";
 import { SymbolView } from "@/components/SymbolView";
 import { ProgramArt } from "@/components/fitness/ProgramArt";
+import { YouTubeEmbed } from "@/components/fitness/YouTubeEmbed";
+import { GOOGLE_PRIVACY_URL, watchUrl, YOUTUBE_TERMS_URL, type YouTubeLink } from "@/components/fitness/youtube";
 import { DashedBlock } from "@/components/macro/DashedBlock";
-import { fitnessApi, LEVEL_TEXT, programMeta, type ProgramDetail, type ProgramExercise, type ProgramSession } from "@/lib/fitnessApi";
-import { todayIso } from "@/lib/macro";
+import { fitnessApi, LEVEL_TEXT, sessionMinutes, type ProgramDetail, type ProgramSession } from "@/lib/fitnessApi";
 import { useSessionToken } from "@/lib/session";
 import { useThemeColors } from "@/theme";
+import type { Icon } from "@/types/profile";
 
 type Load = { state: "loading" } | { state: "failed"; error: string } | { state: "ready"; program: ProgramDetail };
 
 const back = () => (router.canGoBack() ? router.back() : router.replace("/workout"));
-const SECTION_LABEL = { warmup: "Warm-up", workout: "Workout", cooldown: "Cool-down" } as const;
-
-// "3 x 12", "2 x 40s"
-function setsLabel(e: ProgramExercise) {
-  const first = e.sets[0];
-  if (!first) return "";
-  if (first.durationSec !== undefined) return `${e.sets.length} x ${first.durationSec}s`;
-  const reps = e.repsMin && e.repsMax && e.repsMin !== e.repsMax ? `${e.repsMin}-${e.repsMax}` : String(first.reps ?? e.repsMax ?? "");
-  return `${e.sets.length} x ${reps}`;
-}
-
-function SessionCard({ session, index, busy, onStart }: { session: ProgramSession; index: number; busy: boolean; onStart: () => void }) {
+// One session: its YouTube video in YouTube's own player, its title, "creator · YouTube · minutes",
+// Watch on YouTube, and the creator's credit with YouTube's terms (the video is theirs, never
+// re-hosted or uploaded)
+function SessionCard({ session, index }: { session: ProgramSession; index: number }) {
   const colors = useThemeColors();
-  const sections = (["warmup", "workout", "cooldown"] as const).map((s) => ({ id: s, items: session.exercises.filter((e) => e.section === s) })).filter((s) => s.items.length > 0);
+  const link: YouTubeLink = { kind: "video", id: session.video.id };
+  const by = [session.video.channel, "YouTube", `${session.minutes} min`].filter(Boolean).join(" · ");
   return (
-    <View className="fitness-session">
-      <View className="flex-row items-start gap-3">
-        <View className="min-w-0 flex-1 gap-0.5">
-          <Text className="type-overline text-muted">{`Session ${index + 1}`}</Text>
-          <Text className="type-subhead text-forest-ink">{session.title}</Text>
-          <Text className="meta-text">{`${session.minutes} min · ${session.exerciseCount} exercises`}</Text>
+    <View className="session-video">
+      <YouTubeEmbed link={link} title={session.title} />
+      <View className="gap-3 p-4">
+        <View className="gap-0.5">
+          <Text className="type-overline text-faint">{`Session ${index + 1}`}</Text>
+          <Text className="session-video__title" numberOfLines={2}>{session.title}</Text>
+          <Text className="meta-text" numberOfLines={1}>{by}</Text>
         </View>
+        <PressableScale onPress={() => Linking.openURL(watchUrl(link)).catch(() => {})} className="btn-forest" accessibilityRole="link" accessibilityLabel={`Watch ${session.title} on YouTube`}>
+          <SymbolView name={{ ios: "arrow.up.right.square", android: "open_in_new", web: "open_in_new" }} size={16} tintColor={colors.onPrimary} />
+          <Text className="btn-forest__label">Watch on YouTube</Text>
+        </PressableScale>
+        <Text className="meta-text" style={{ fontSize: 12, lineHeight: 17 }}>
+          {session.video.channel ? `Video by ${session.video.channel} on YouTube, not made by justFit. ` : "Video on YouTube, not made by justFit. "}
+          {"Playing it means you agree to the "}
+          <Text style={{ textDecorationLine: "underline" }} onPress={() => Linking.openURL(YOUTUBE_TERMS_URL).catch(() => {})} accessibilityRole="link">YouTube Terms of Service</Text>
+          {". "}
+          <Text style={{ textDecorationLine: "underline" }} onPress={() => Linking.openURL(GOOGLE_PRIVACY_URL).catch(() => {})} accessibilityRole="link">Google Privacy Policy</Text>
+          {"."}
+        </Text>
       </View>
-      {sections.map((s) => (
-        <View key={s.id} className="gap-1.5">
-          <Text className="type-caption text-muted">{SECTION_LABEL[s.id]}</Text>
-          {s.items.map((e, i) => (
-            <View key={`${e.name}-${i}`} className="flex-row items-center gap-2">
-              <SymbolView name={e.hasVideo ? { ios: "play.circle.fill", android: "play_circle", web: "play_circle" } : { ios: "circle.fill", android: "circle", web: "circle" }} size={e.hasVideo ? 14 : 6} tintColor={e.hasVideo ? colors.leaf : colors.faint} />
-              <Text className="min-w-0 flex-1 text-forest-ink" style={{ fontSize: 14 }} numberOfLines={1}>{e.name}</Text>
-              <Text className="meta-text">{setsLabel(e)}</Text>
-            </View>
-          ))}
-        </View>
-      ))}
-      <PressableScale onPress={onStart} disabled={busy} className="btn-forest flex-row items-center justify-center" style={{ gap: 8, opacity: busy ? 0.7 : 1 }} accessibilityRole="button" accessibilityLabel={`Do ${session.title} today`} accessibilityState={{ disabled: busy }}>
-        {busy ? <ActivityIndicator size="small" color={colors.onPrimary} /> : <SymbolView name={{ ios: "play.fill", android: "play_arrow", web: "play_arrow" }} size={14} tintColor={colors.onPrimary} />}
-        <Text className="btn-forest__label">Do this today</Text>
-      </PressableScale>
     </View>
   );
 }
 
-// A Fitness program: its art, what it is, who it's for, and every session with its exercises.
-// "Do this today" makes the session today's workout and opens it on the day screen, where the
-// usual Start runs the session player. Every program is free.
+const PLACE_TEXT = { home: "At home", center: "At the center", both: "Home or center" } as const;
+const KIT_NOTE = { none: "No equipment", some: "Some equipment", full_gym: "Full gym" } as const;
+
+// Under the picture: how many sessions, how long each is, and where (with the equipment)
+function InfoStrip({ program }: { program: ProgramDetail }) {
+  const colors = useThemeColors();
+  const items: { icon: Icon; title: string; note: string }[] = [
+    { icon: { ios: "play.rectangle", android: "smart_display", web: "smart_display" }, title: `${program.sessionCount} ${program.sessionCount === 1 ? "session" : "sessions"}`, note: "free" },
+    { icon: { ios: "clock", android: "schedule", web: "schedule" }, title: sessionMinutes(program), note: "per session" },
+    { icon: program.place === "center" ? { ios: "dumbbell", android: "fitness_center", web: "fitness_center" } : { ios: "house", android: "home", web: "home" }, title: PLACE_TEXT[program.place], note: KIT_NOTE[program.kit] },
+  ];
+  return (
+    <View className="program-info">
+      {items.map((item, i) => (
+        <View key={item.note} className={i > 0 ? "program-info__item program-info__item--split" : "program-info__item"}>
+          <View className="program-info__icon">
+            <SymbolView name={item.icon} size={18} tintColor={colors.leaf} />
+          </View>
+          <Text className="program-info__title" numberOfLines={1}>{item.title}</Text>
+          <Text className="program-info__note" numberOfLines={1}>{item.note}</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+// A Fitness program: its picture at the top, nothing written on it (the admin's page photo, never
+// the card's cover; the gradient without one), the info strip, what it is, then Follow along: its
+// sessions, each a YouTube video the admin added. Every program is free.
 export default function ProgramScreen() {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
   const getToken = useSessionToken();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [load, setLoad] = useState<Load>({ state: "loading" });
-  const [starting, setStarting] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     const result = await fitnessApi.program(await getToken().catch(() => null), String(id));
@@ -83,17 +99,6 @@ export default function ProgramScreen() {
       refresh();
     }, [refresh]),
   );
-
-  const start = async (program: ProgramDetail, session: ProgramSession) => {
-    if (starting) return;
-    setStarting(session.id);
-    setError(null);
-    const today = todayIso();
-    const result = await fitnessApi.startToday(await getToken().catch(() => null), program.id, session.id, today);
-    setStarting(null);
-    if (!result.ok) return setError(result.error);
-    router.push({ pathname: "/workout/day", params: { date: today } });
-  };
 
   return (
     <View className="flex-1 bg-cream">
@@ -108,30 +113,27 @@ export default function ProgramScreen() {
         </View>
       ) : (
         <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 40 }} showsVerticalScrollIndicator={false}>
-          <View style={{ height: 280 + insets.top }} className="overflow-hidden">
-            <ProgramArt palette={load.program.palette} icon={load.program.icon} iconSize={96} id={`detail-${load.program.id}`} coverUrl={load.program.coverUrl} />
-            <View className="absolute bottom-5 left-4 right-4 gap-1">
-              <View className="flex-row gap-2">
-                <View className="fitness-card__pill" style={{ position: "relative", left: 0, top: 0 }}>
-                  <Text className="workout__chip-label">{LEVEL_TEXT[load.program.level]}</Text>
-                </View>
-                <View className="fitness-card__pill" style={{ position: "relative", left: 0, top: 0 }}>
-                  <Text className="workout__chip-label">Free</Text>
-                </View>
-              </View>
-              <Text className="fitness-card__title" style={{ fontSize: 28, lineHeight: 34 }} accessibilityRole="header">{load.program.title}</Text>
-              <Text className="fitness-card__meta" style={{ fontSize: 14, lineHeight: 20 }}>{load.program.subtitle}</Text>
-            </View>
+          {/* The top: the picture alone (the page photo carries its own design); screen readers hear the title */}
+          <View style={{ height: 280 + insets.top }} className="overflow-hidden" accessible accessibilityRole="header" accessibilityLabel={`${load.program.title}. ${load.program.subtitle}. ${LEVEL_TEXT[load.program.level]}, free.`}>
+            <ProgramArt palette={load.program.palette} icon={load.program.icon} iconSize={96} id={`detail-${load.program.id}`} coverUrl={load.program.heroUrl} shade={false} />
           </View>
 
-          <View className="gap-4 px-4 pt-5">
-            <Text className="meta-text">{programMeta(load.program)}{load.program.place === "both" ? " · Home or center" : load.program.place === "home" ? " · At home" : " · At the center"}</Text>
+          <View className="gap-5 px-4 pt-4">
+            <InfoStrip program={load.program} />
             {load.program.description ? <Text className="text-forest-ink" style={{ fontSize: 15, lineHeight: 23 }}>{load.program.description}</Text> : null}
-            {error && <Text className="meta-text" style={{ color: colors.danger }}>{error}</Text>}
-            <Text className="setup__section">Sessions</Text>
-            {load.program.sessions.map((s, i) => (
-              <SessionCard key={s.id} session={s} index={i} busy={starting === s.id} onStart={() => start(load.program, s)} />
-            ))}
+            <View className="flex-row items-center gap-3">
+              <Text className="fitness-section__title min-w-0 flex-1" accessibilityRole="header">Follow along</Text>
+              <Text className="session-video__note">{"Watch and do the\nworkout on YouTube"}</Text>
+            </View>
+            {load.program.sessions.length === 0 ? (
+              <View className="session-video items-center gap-1 p-6">
+                <SymbolView name={{ ios: "play.rectangle", android: "smart_display", web: "smart_display" }} size={28} tintColor={colors.faint} />
+                <Text className="session-video__title">Sessions are on their way</Text>
+                <Text className="meta-text text-center">The videos for this program will show here soon.</Text>
+              </View>
+            ) : (
+              load.program.sessions.map((s, i) => <SessionCard key={s.id} session={s} index={i} />)
+            )}
           </View>
         </ScrollView>
       )}

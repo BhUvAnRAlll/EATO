@@ -4283,13 +4283,79 @@
 
 /* ---- Fitness tab (2026-11-02) --------------------------------------------------------------
    A fixed header (At home / At center, location, search) over six sections of program cards.
-   The cards are gradient art (ProgramArt) with white text; sizes per section in data/fitness.ts. */
+   The cards are gradient art (ProgramArt) with white text, or the admin's cover photo alone;
+   sizes per section in data/fitness.ts. */
 @utility fitness-header {
   padding-inline: var(--spacing-lg);
   padding-top: var(--spacing-sm);
   padding-bottom: var(--spacing-md);
   gap: var(--spacing-md);
   background-color: var(--color-cream);
+}
+
+/* "Fitness" under the justFit word (display size) */
+@utility fitness-header__title {
+  font-family: var(--font-sans-semibold);
+  font-size: 28px;
+  line-height: 36px;
+  color: var(--color-forest-ink);
+}
+
+/* AT HOME / AT CENTER: a white track, the chosen place in brand red */
+@utility fitness-place {
+  flex-direction: row;
+  padding: 4px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-card);
+}
+
+@utility fitness-place__tab {
+  flex: 1;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  border-radius: var(--radius-pill);
+}
+
+@utility fitness-place__tab--on {
+  background-color: var(--color-primary);
+}
+
+@utility fitness-place__label {
+  font-family: var(--font-sans-semibold);
+  font-size: 13px;
+  line-height: 18px;
+  letter-spacing: 0.6px;
+  color: var(--color-muted);
+}
+
+@utility fitness-place__label--on {
+  color: var(--color-on-primary);
+}
+
+/* A section's heading: title, a line under it, See All on the right */
+@utility fitness-section__title {
+  font-family: var(--font-sans-semibold);
+  font-size: 20px;
+  line-height: 28px;
+  color: var(--color-forest-ink);
+}
+
+@utility fitness-section__note {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--color-muted);
+}
+
+@utility fitness-section__link {
+  font-family: var(--font-sans-medium);
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--color-primary-text);
 }
 
 @utility fitness-card {
@@ -4316,8 +4382,8 @@
 }
 
 @utility fitness-card__title--big {
-  font-size: 20px;
-  line-height: 26px;
+  font-size: 22px;
+  line-height: 28px;
 }
 
 @utility fitness-card__meta {
@@ -4336,6 +4402,13 @@
   padding-inline: 10px;
   padding-block: 4px;
   background-color: rgba(255, 255, 255, 0.2);
+}
+
+@utility fitness-card__pill-label {
+  font-family: var(--font-sans-medium);
+  font-size: 11px;
+  line-height: 15px;
+  color: var(--color-white);
 }
 
 /* "Explore": a white pill on the art */
@@ -4365,6 +4438,77 @@
   box-shadow: var(--shadow-card);
   padding: var(--spacing-lg);
   gap: var(--spacing-md);
+}
+
+/* ---- Fitness › a program's screen (app/(user)/fitness/[id].tsx) ----
+   The info strip under the picture: three items (sessions, minutes, where), split by hairlines */
+@utility program-info {
+  flex-direction: row;
+  border-radius: var(--radius-lg);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-card);
+  padding-block: 14px;
+}
+
+@utility program-info__item {
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+  gap: 2px;
+  padding-inline: 6px;
+}
+
+@utility program-info__item--split {
+  border-left-width: 1px;
+  border-left-color: var(--color-line);
+}
+
+@utility program-info__icon {
+  width: 36px;
+  height: 36px;
+  margin-bottom: 4px;
+  border-radius: var(--radius-pill);
+  align-items: center;
+  justify-content: center;
+  background-color: var(--color-accent-soft);
+}
+
+@utility program-info__title {
+  font-family: var(--font-sans-semibold);
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--color-ink);
+}
+
+@utility program-info__note {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--color-muted);
+}
+
+/* A session: YouTube's player in a white card, its title and Watch on YouTube */
+@utility session-video {
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-card);
+}
+
+@utility session-video__title {
+  font-family: var(--font-sans-semibold);
+  font-size: 16px;
+  line-height: 22px;
+  color: var(--color-ink);
+}
+
+@utility session-video__note {
+  max-width: 50%;
+  text-align: right;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 17px;
+  color: var(--color-muted);
 }
 
 /* ---- AI Coach › Your plan › Insights (components/coach/InsightsTab.tsx) ----

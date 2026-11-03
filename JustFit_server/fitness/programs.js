@@ -1,27 +1,20 @@
-// The Fitness tab's programs (asked for by the user on 2026-11-02): free programs in six sections,
-// for home, the center or both, each a few sessions of library exercises. Members browse and
-// search them and do any session today: it runs as a day of their plan (workout_days with
-// program_session_id, pointed at by today's override), so the existing day screen and session
-// player work unchanged. Admins edit them and have the AI rewrite their sessions.
+// The Fitness tab's programs (asked for by the user on 2026-11-02): free programs in sections,
+// for home, the center or both. Since 2026-11-03 a program's sessions are YouTube videos the
+// admin adds (a title, minutes and one video link, embedded in the app, never uploaded); members
+// browse and search the programs and play the videos on a program's page. No AI writes sessions.
 //
 // The starter programs come from JustFit_client/src/lib/fitness/catalog.ts, added the first time
-// the list is read, with sessions built from the library (rules.buildSessions). Nothing cascades:
-// a program's sessions and exercises are deleted here, in a transaction.
+// the list is read, with no sessions. The exercise sessions written before 2026-11-03 stay in the
+// table (members' past workout days point at them) but are never shown. Nothing cascades.
 const rules = require("./rules");
 const plans = require("../workout/plans");
-const aiPlan = require("../workout/aiPlan");
-const { askStructured } = require("../ai/structured");
-const aiUsage = require("../ai/usage");
-const aiLimits = require("../ai/limits");
-const dedupe = require("../ai/dedupe");
 const { audit } = require("../admin/overview");
 const { ValidationError } = require("../profile");
 const { NotFoundError } = require("../errors");
 const covers = require("./covers");
 const sections = require("./sections");
+const youtube = require("./youtube");
 
-const json = (value) => (typeof value === "string" ? JSON.parse(value) : value);
-const weekdayOf = (iso) => new Date(`${iso}T00:00:00Z`).getUTCDay();
 
 async function inTransaction(pool, work) {
   const conn = await pool.getConnection();
@@ -40,27 +33,12 @@ async function inTransaction(pool, work) {
 
 // ---- sessions in the database --------------------------------------------------------------
 
-// Writes a program's sessions (the caller holds the transaction and removed the old ones)
-async function writeSessions(conn, programId, sessions) {
-  const { idByName } = await plans.programmableLibrary(conn);
-  for (const [position, s] of sessions.entries()) {
-    const [[{ id: sessionId }]] = await conn.query("SELECT UUID() AS id");
-    await conn.query("INSERT INTO fitness_program_sessions (id, program_id, position, title, minutes) VALUES (?, ?, ?, ?, ?)", [sessionId, programId, position, s.title.slice(0, 60), s.minutes]);
-    for (const e of s.exercises) {
-      const exerciseId = idByName(e.name);
-      if (!exerciseId) continue;
-      await conn.query(
-        `INSERT INTO fitness_program_exercises (session_id, program_id, exercise_id, section, position, sets, rest_sec, role, reps_min, reps_max, note)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [sessionId, programId, exerciseId, e.section, e.order, JSON.stringify(e.sets), e.restSec, e.role, e.repsMin ?? null, e.repsMax ?? null, e.note ?? null],
-      );
-    }
-  }
-}
-
-async function removeSessions(conn, programId) {
-  await conn.query("DELETE FROM fitness_program_exercises WHERE program_id = ?", [programId]);
-  await conn.query("DELETE FROM fitness_program_sessions WHERE program_id = ?", [programId]);
+// Numbers a program's sessions 0, 1, 2… in their current order (through 100+ first, as the
+// position is unique per program)
+async function renumberSessions(conn, programId) {
+  const [rows] = await conn.query("SELECT id FROM fitness_program_sessions WHERE program_id = ? ORDER BY position", [programId]);
+  await conn.query("UPDATE fitness_program_sessions SET position = position + 100 WHERE program_id = ?", [programId]);
+  for (const [i, row] of rows.entries()) await conn.query("UPDATE fitness_program_sessions SET position = ? WHERE id = ?", [i, row.id]);
 }
 
 // ---- the starter catalog --------------------------------------------------------------------
@@ -68,46 +46,50 @@ async function removeSessions(conn, programId) {
 let catalogChecked = false;
 
 /**
- * Adds the catalog's programs the table doesn't have yet (by slug; an admin's edits are kept)
- * and builds sessions for any program left without them. Checked once per server start.
+ * Adds the catalog's programs the table doesn't have yet (by slug; an admin's edits are kept).
+ * They start with no sessions: the admin adds video sessions. Checked once per server start.
  */
 async function ensureCatalog(pool) {
   if (catalogChecked) return;
   await sections.ensureBuiltIn(pool);
   await plans.syncLibrary(pool);
-  const { library } = await plans.programmableLibrary(pool);
   const [existing] = await pool.query("SELECT slug FROM fitness_programs");
   const have = new Set(existing.map((r) => r.slug));
   for (const [i, seed] of rules.catalog.PROGRAMS.entries()) {
     if (have.has(seed.slug)) continue;
-    await inTransaction(pool, async (conn) => {
-      const [[{ id }]] = await conn.query("SELECT UUID() AS id");
-      const [result] = await conn.query(
-        `INSERT IGNORE INTO fitness_programs (id, slug, title, subtitle, description, section, place, level, kit, icon, palette, position, built_in)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE)`,
-        [id, seed.slug, seed.title, seed.subtitle, seed.description, seed.section, seed.place, seed.level, seed.kit, seed.icon, seed.palette, i],
-      );
-      if (result.affectedRows === 1) await writeSessions(conn, id, rules.buildSessions(seed, library));
-    });
+    await pool.query(
+      `INSERT IGNORE INTO fitness_programs (id, slug, title, subtitle, description, section, place, level, kit, icon, palette, position, built_in)
+       VALUES (UUID(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE)`,
+      [seed.slug, seed.title, seed.subtitle, seed.description, seed.section, seed.place, seed.level, seed.kit, seed.icon, seed.palette, i],
+    );
   }
   catalogChecked = true;
 }
 
 // ---- reading -----------------------------------------------------------------------------
 
-const PROGRAM_COLUMNS = `p.id, p.slug, p.title, p.subtitle, p.description, p.section, p.place, p.level, p.kit, p.icon, p.palette, p.cover_key, p.cover_updated_at, p.position, p.published, p.built_in, p.ai_drafted,
+// A program's two photos, the card's cover and the program page's photo (hero): their columns and
+// the words used in the audit log. Column names come only from here, never from a request.
+const PHOTOS = {
+  cover: { key: "cover_key", updated: "cover_updated_at", noun: "cover", missing: "That program has no cover." },
+  hero: { key: "hero_key", updated: "hero_updated_at", noun: "page photo", missing: "That program has no page photo." },
+};
+
+const PROGRAM_COLUMNS = `p.id, p.slug, p.title, p.subtitle, p.description, p.section, p.place, p.level, p.kit, p.icon, p.palette, p.cover_key, p.cover_updated_at, p.hero_key, p.hero_updated_at, p.position, p.published, p.built_in, p.ai_drafted,
   (SELECT fs.title FROM fitness_sections fs WHERE fs.slug = p.section) AS section_title,
-  (SELECT COUNT(*) FROM fitness_program_sessions s WHERE s.program_id = p.id) AS session_count,
-  (SELECT MIN(s.minutes) FROM fitness_program_sessions s WHERE s.program_id = p.id) AS min_minutes,
-  (SELECT MAX(s.minutes) FROM fitness_program_sessions s WHERE s.program_id = p.id) AS max_minutes`;
+  (SELECT COUNT(*) FROM fitness_program_sessions s WHERE s.program_id = p.id AND s.youtube_id IS NOT NULL) AS session_count,
+  (SELECT MIN(s.minutes) FROM fitness_program_sessions s WHERE s.program_id = p.id AND s.youtube_id IS NOT NULL) AS min_minutes,
+  (SELECT MAX(s.minutes) FROM fitness_program_sessions s WHERE s.program_id = p.id AND s.youtube_id IS NOT NULL) AS max_minutes`;
 
 // Where the app reads a program's cover (null: no cover, the palette's gradient). Members read
 // published programs' covers; the admin's route also serves hidden ones. `v` changes with each
 // new cover, so the long cache on the answer never shows an old one.
-const coverUrlOf = (row, admin) =>
-  row.cover_key
-    ? `${admin ? "/api/admin/portal/programs" : "/api/fitness/programs"}/${encodeURIComponent(row.id)}/cover?v=${new Date(row.cover_updated_at ?? 0).getTime()}`
+// The program page's own photo (heroUrl) works the same way at /hero.
+const photoUrlOf = (row, admin, kind) =>
+  row[PHOTOS[kind].key]
+    ? `${admin ? "/api/admin/portal/programs" : "/api/fitness/programs"}/${encodeURIComponent(row.id)}/${kind}?v=${new Date(row[PHOTOS[kind].updated] ?? 0).getTime()}`
     : null;
+const coverUrlOf = (row, admin) => photoUrlOf(row, admin, "cover");
 
 const cardOf = (row, admin = false) => ({
   id: row.id,
@@ -139,7 +121,8 @@ const matches = (row, search) => {
 async function list(pool, { place, search }) {
   await ensureCatalog(pool);
   const [rows] = await pool.query(`SELECT ${PROGRAM_COLUMNS} FROM fitness_programs p WHERE p.published = TRUE AND p.place IN (?, 'both') ORDER BY p.position, p.title`, [place]);
-  const usable = rows.filter((r) => Number(r.session_count) > 0 && matches(r, search));
+  // Programs without video sessions yet are shown too ("Coming soon" in the app)
+  const usable = rows.filter((r) => matches(r, search));
   return {
     place,
     search,
@@ -149,92 +132,37 @@ async function list(pool, { place, search }) {
   };
 }
 
-// A session's exercises with what the library knows (and whether the admin added a video)
-async function sessionExercises(db, sessionIds) {
-  if (sessionIds.length === 0) return [];
-  const [rows] = await db.query(
-    `SELECT e.session_id, e.section, e.position, e.sets, e.rest_sec, e.role, e.reps_min, e.reps_max, e.note,
-            l.id AS exercise_id, l.name, l.muscle_group, l.equipment, l.video_key
-     FROM fitness_program_exercises e JOIN workout_exercise_library l ON l.id = e.exercise_id
-     WHERE e.session_id IN (?) ORDER BY e.session_id, FIELD(e.section, 'warmup', 'workout', 'cooldown'), e.position`,
-    [sessionIds],
-  );
-  return rows;
-}
-
-const exerciseOf = (r) => ({
-  name: r.name,
-  muscleGroup: r.muscle_group,
-  equipment: r.equipment ?? "Bodyweight",
-  section: r.section,
-  sets: json(r.sets) ?? [],
-  restSec: r.rest_sec,
-  repsMin: r.reps_min,
-  repsMax: r.reps_max,
-  note: r.note,
-  hasVideo: r.video_key !== null && r.video_key !== undefined,
-});
-
-/** One program in full: its card, description and every session with its exercises */
+/**
+ * One program in full: its card, description, and its sessions, each a YouTube video (the
+ * creator's name only while YouTube's answer is under KEEP_DAYS old). Sessions without a video
+ * (the exercise sessions from before 2026-11-03) are kept in the table but never shown.
+ */
 async function detail(pool, programId, { admin = false } = {}) {
   await ensureCatalog(pool);
   const [[row]] = await pool.query(`SELECT ${PROGRAM_COLUMNS} FROM fitness_programs p WHERE p.id = ?${admin ? "" : " AND p.published = TRUE"}`, [programId]);
   if (!row) throw new NotFoundError("That program doesn't exist.");
-  const [sessions] = await pool.query("SELECT id, position, title, minutes FROM fitness_program_sessions WHERE program_id = ? ORDER BY position", [programId]);
-  const exercises = await sessionExercises(pool, sessions.map((s) => s.id));
+  const [sessions] = await pool.query(
+    `SELECT id, position, title, minutes, youtube_id, youtube_channel,
+       (youtube_synced_at IS NOT NULL AND youtube_synced_at > NOW() - INTERVAL ${youtube.KEEP_DAYS} DAY) AS channel_fresh
+     FROM fitness_program_sessions WHERE program_id = ? AND youtube_id IS NOT NULL ORDER BY position`,
+    [programId],
+  );
   return {
     ...cardOf(row, admin),
+    // The photo at the top of the program's screen (not the card's cover); null: the gradient
+    heroUrl: photoUrlOf(row, admin, "hero"),
     description: row.description,
     kit: row.kit,
     source: row.built_in ? "built_in" : "admin",
     aiDrafted: Boolean(row.ai_drafted),
-    sessions: sessions.map((s) => {
-      const mine = exercises.filter((e) => e.session_id === s.id).map(exerciseOf);
-      return { id: s.id, title: s.title, minutes: s.minutes, exerciseCount: mine.filter((e) => e.section === "workout").length, exercises: mine };
-    }),
+    // Each session is a YouTube video played on the page (the app embeds YouTube's own player)
+    sessions: sessions.map((s) => ({
+      id: s.id,
+      title: s.title,
+      minutes: s.minutes,
+      video: { id: s.youtube_id, channel: s.channel_fresh ? s.youtube_channel || null : null },
+    })),
   };
-}
-
-// ---- doing a session today -------------------------------------------------------------------
-
-/**
- * Makes a program session today's workout: a day of the member's active plan for that session
- * (made the first time, then reused), with today pointed at it. The day screen and the session
- * player then run it like any other day. Refused once today's session has started.
- */
-async function startToday(pool, userId, { programId, sessionId, today }) {
-  const program = await detail(pool, programId);
-  const session = program.sessions.find((s) => s.id === sessionId);
-  if (!session) throw new NotFoundError("That session isn't in the program.");
-  const plan = await plans.activePlanRow(pool, userId);
-  if (!plan) throw new ValidationError("Open the Fitness tab once so your plan is ready, then try again.");
-
-  return plans.withMemberLock(pool, userId, async (conn) => {
-    const [now] = await plans.resolveDates(conn, userId, plan.id, [today], today, plan.start_date);
-    if (now.status === "completed") throw new ValidationError("You've already finished a workout today. Try this one tomorrow.");
-    if (now.status === "in_progress") throw new ValidationError("Finish today's session before starting another one.");
-    const [[kept]] = await conn.query("SELECT id FROM workout_days WHERE plan_id = ? AND user_id = ? AND program_session_id = ?", [plan.id, userId, sessionId]);
-    let dayId = kept?.id;
-    if (!dayId) {
-      const [[{ id }]] = await conn.query("SELECT UUID() AS id");
-      dayId = id;
-      const title = `${program.title} · ${session.title}`.slice(0, 60);
-      await conn.query(
-        "INSERT INTO workout_days (id, plan_id, user_id, weekday, title, session_type, program_session_id) VALUES (?, ?, ?, ?, ?, 'full_body', ?)",
-        [dayId, plan.id, userId, weekdayOf(today), title, sessionId],
-      );
-      const [rows] = await conn.query("SELECT exercise_id, section, position, sets, rest_sec, role, reps_min, reps_max, note FROM fitness_program_exercises WHERE session_id = ? ORDER BY position", [sessionId]);
-      for (const r of rows) {
-        await conn.query(
-          `INSERT INTO workout_day_exercises (day_id, plan_id, user_id, exercise_id, section, position, sets, rest_sec, role, reps_min, reps_max, note)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [dayId, plan.id, userId, r.exercise_id, r.section, r.position, typeof r.sets === "string" ? r.sets : JSON.stringify(r.sets), r.rest_sec, r.role, r.reps_min, r.reps_max, r.note],
-        );
-      }
-    }
-    await plans.pointDate(conn, userId, today, dayId);
-    return { date: today, dayId };
-  });
 }
 
 // ---- the admin ---------------------------------------------------------------------------
@@ -262,126 +190,179 @@ async function update(pool, adminId, programId, fields) {
   return detail(pool, programId, { admin: true });
 }
 
-// ---- the cover photo ---------------------------------------------------------------------------
+// ---- the sessions the admin adds and edits ------------------------------------------------------
 
 /**
- * Puts a checked photo (fitness/covers.js checkCover) on the program as its cover, replacing any
- * cover it had: the new file is written first, the program then points at it, and only then is the
- * old file deleted, so members never get a missing cover. Two uploads at once each delete the
- * file they replaced (the row is locked while it changes). Answers the program as the admin sees it.
+ * Reads a session video's creator from YouTube (fitness/youtube.js) and saves it with the time,
+ * for the credit under the player → null, or why YouTube couldn't be asked (the video is saved
+ * either way; the refresh job tries again)
  */
-async function setCover(pool, adminId, programId, { bytes, mediaType }, env = process.env) {
+async function loadSessionChannel(pool, sessionId, videoId, env = process.env) {
+  try {
+    const { channel } = await youtube.fetchVideos({ kind: "video", id: videoId }, env);
+    await pool.query("UPDATE fitness_program_sessions SET youtube_channel = ?, youtube_synced_at = NOW() WHERE id = ? AND youtube_id = ?", [channel || null, sessionId, videoId]);
+    return null;
+  } catch (error) {
+    if (!(error instanceof youtube.YouTubeError)) throw error;
+    return error.message;
+  }
+}
+
+// The program row locked for a session change, and the session (when given) checked to be its own
+async function lockSession(conn, programId, sessionId) {
+  const [[program]] = await conn.query("SELECT title FROM fitness_programs WHERE id = ? FOR UPDATE", [programId]);
+  if (!program) throw new NotFoundError("That program doesn't exist.");
+  if (!sessionId) return { program };
+  const [[session]] = await conn.query("SELECT id, title, position, youtube_id FROM fitness_program_sessions WHERE id = ? AND program_id = ? AND youtube_id IS NOT NULL", [sessionId, programId]);
+  if (!session) throw new NotFoundError("That session isn't in the program.");
+  return { program, session };
+}
+
+// The program as the admin sees it, with `videoError` when the video's creator couldn't be read
+async function withVideo(pool, programId, sessionId, videoId, env) {
+  const videoError = videoId ? await loadSessionChannel(pool, sessionId, videoId, env) : null;
+  const program = await detail(pool, programId, { admin: true });
+  return videoError ? { ...program, videoError } : program;
+}
+
+/** Adds a session at the end: { title, minutes, youtubeId } (fitness/rules.js sessionBody) */
+async function addSession(pool, adminId, programId, fields, env = process.env) {
+  const sessionId = await inTransaction(pool, async (conn) => {
+    const { program } = await lockSession(conn, programId);
+    const [[{ n, next }]] = await conn.query("SELECT COUNT(youtube_id) AS n, COALESCE(MAX(position) + 1, 0) AS next FROM fitness_program_sessions WHERE program_id = ?", [programId]);
+    if (Number(n) >= rules.limits.allSessions) throw new ValidationError(`A program has at most ${rules.limits.allSessions} sessions.`);
+    const [[{ id }]] = await conn.query("SELECT UUID() AS id");
+    await conn.query("INSERT INTO fitness_program_sessions (id, program_id, position, title, minutes, youtube_id) VALUES (?, ?, ?, ?, ?, ?)", [id, programId, next, fields.title, fields.minutes, fields.youtubeId]);
+    await audit(conn, adminId, "program.session_add", "program", programId, `Added the session “${fields.title}” to “${program.title}”`);
+    return id;
+  });
+  return withVideo(pool, programId, sessionId, fields.youtubeId, env);
+}
+
+/** Edits a session's title, minutes or video (a session always keeps one) */
+async function editSession(pool, adminId, programId, sessionId, fields, env = process.env) {
+  const videoChanged = await inTransaction(pool, async (conn) => {
+    const { program, session } = await lockSession(conn, programId, sessionId);
+    const changed = fields.youtubeId !== undefined && fields.youtubeId !== session.youtube_id;
+    const sets = [];
+    const values = [];
+    if (fields.title !== undefined) { sets.push("title = ?"); values.push(fields.title); }
+    if (fields.minutes !== undefined) { sets.push("minutes = ?"); values.push(fields.minutes); }
+    if (changed) {
+      // A new video's creator is read again (the old one's credit goes)
+      sets.push("youtube_id = ?", "youtube_channel = NULL", "youtube_synced_at = NULL");
+      values.push(fields.youtubeId);
+    }
+    if (sets.length) await conn.query(`UPDATE fitness_program_sessions SET ${sets.join(", ")} WHERE id = ?`, [...values, sessionId]);
+    await audit(conn, adminId, "program.session_edit", "program", programId, `Edited the session “${fields.title ?? session.title}” of “${program.title}”`);
+    return changed;
+  });
+  return withVideo(pool, programId, sessionId, videoChanged ? fields.youtubeId : null, env);
+}
+
+/** Deletes a session; the others close up */
+async function removeSession(pool, adminId, programId, sessionId) {
+  await inTransaction(pool, async (conn) => {
+    const { program, session } = await lockSession(conn, programId, sessionId);
+    await conn.query("DELETE FROM fitness_program_sessions WHERE id = ?", [sessionId]);
+    await renumberSessions(conn, programId);
+    await audit(conn, adminId, "program.session_remove", "program", programId, `Deleted the session “${session.title}” of “${program.title}”`);
+  });
+  return detail(pool, programId, { admin: true });
+}
+
+/** Moves a session one place up or down (the first can't go up, the last can't go down) */
+async function moveSession(pool, adminId, programId, sessionId, direction) {
+  await inTransaction(pool, async (conn) => {
+    const { program, session } = await lockSession(conn, programId, sessionId);
+    const [[neighbour]] = await conn.query(
+      `SELECT id, position FROM fitness_program_sessions WHERE program_id = ? AND youtube_id IS NOT NULL AND position ${direction === "up" ? "<" : ">"} ? ORDER BY position ${direction === "up" ? "DESC" : "ASC"} LIMIT 1`,
+      [programId, session.position],
+    );
+    if (!neighbour) return;
+    await conn.query("UPDATE fitness_program_sessions SET position = 255 WHERE id = ?", [session.id]);
+    await conn.query("UPDATE fitness_program_sessions SET position = ? WHERE id = ?", [session.position, neighbour.id]);
+    await conn.query("UPDATE fitness_program_sessions SET position = ? WHERE id = ?", [neighbour.position, session.id]);
+    await audit(conn, adminId, "program.session_move", "program", programId, `Moved the session “${session.title}” of “${program.title}” ${direction}`);
+  });
+  return detail(pool, programId, { admin: true });
+}
+
+// ---- the cover photo and the page photo -------------------------------------------------------
+
+/**
+ * Puts a checked photo (fitness/covers.js checkCover) on the program as its cover (`kind` "cover")
+ * or its page photo ("hero"), replacing the one it had: the new file is written first, the program
+ * then points at it, and only then is the old file deleted, so members never get a missing photo.
+ * Two uploads at once each delete the file they replaced (the row is locked while it changes).
+ * Answers the program as the admin sees it.
+ */
+async function setPhoto(pool, adminId, programId, { bytes, mediaType }, env = process.env, kind = "cover") {
+  const photo = PHOTOS[kind];
   await detail(pool, programId, { admin: true }); // a 404 before anything is written
   const key = await covers.save(bytes, mediaType, env);
   let replaced;
   try {
     replaced = await inTransaction(pool, async (conn) => {
-      const [[row]] = await conn.query("SELECT title, cover_key FROM fitness_programs WHERE id = ? FOR UPDATE", [programId]);
+      const [[row]] = await conn.query(`SELECT title, ${photo.key} AS photo_key FROM fitness_programs WHERE id = ? FOR UPDATE`, [programId]);
       if (!row) throw new NotFoundError("That program doesn't exist.");
-      await conn.query("UPDATE fitness_programs SET cover_key = ?, cover_updated_at = NOW(3) WHERE id = ?", [key, programId]);
-      await audit(conn, adminId, row.cover_key ? "program.cover_replace" : "program.cover_add", "program", programId, `${row.cover_key ? "Replaced" : "Added"} the cover of “${row.title}”`);
-      return row.cover_key;
+      await conn.query(`UPDATE fitness_programs SET ${photo.key} = ?, ${photo.updated} = NOW(3) WHERE id = ?`, [key, programId]);
+      await audit(conn, adminId, `program.${kind}_${row.photo_key ? "replace" : "add"}`, "program", programId, `${row.photo_key ? "Replaced" : "Added"} the ${photo.noun} of “${row.title}”`);
+      return row.photo_key;
     });
   } catch (error) {
     await covers.remove(key, env).catch(() => {});
     throw error;
   }
-  if (replaced) await covers.remove(replaced, env).catch((error) => console.error(`Program cover cleanup failed: ${error?.code ?? "unknown"}`));
+  if (replaced) await covers.remove(replaced, env).catch((error) => console.error(`Program ${kind} cleanup failed: ${error?.code ?? "unknown"}`));
   return detail(pool, programId, { admin: true });
 }
 
-/** Takes the cover off (the card shows the palette's gradient again) and deletes its file */
-async function removeCover(pool, adminId, programId, env = process.env) {
+/** Takes the cover or the page photo off (the gradient shows again) and deletes its file */
+async function removePhoto(pool, adminId, programId, env = process.env, kind = "cover") {
+  const photo = PHOTOS[kind];
   await detail(pool, programId, { admin: true });
   const removed = await inTransaction(pool, async (conn) => {
-    const [[row]] = await conn.query("SELECT title, cover_key FROM fitness_programs WHERE id = ? FOR UPDATE", [programId]);
+    const [[row]] = await conn.query(`SELECT title, ${photo.key} AS photo_key FROM fitness_programs WHERE id = ? FOR UPDATE`, [programId]);
     if (!row) throw new NotFoundError("That program doesn't exist.");
-    if (!row.cover_key) return null;
-    await conn.query("UPDATE fitness_programs SET cover_key = NULL, cover_updated_at = NOW(3) WHERE id = ?", [programId]);
-    await audit(conn, adminId, "program.cover_remove", "program", programId, `Removed the cover of “${row.title}”`);
-    return row.cover_key;
+    if (!row.photo_key) return null;
+    await conn.query(`UPDATE fitness_programs SET ${photo.key} = NULL, ${photo.updated} = NOW(3) WHERE id = ?`, [programId]);
+    await audit(conn, adminId, `program.${kind}_remove`, "program", programId, `Removed the ${photo.noun} of “${row.title}”`);
+    return row.photo_key;
   });
-  if (removed) await covers.remove(removed, env).catch((error) => console.error(`Program cover cleanup failed: ${error?.code ?? "unknown"}`));
+  if (removed) await covers.remove(removed, env).catch((error) => console.error(`Program ${kind} cleanup failed: ${error?.code ?? "unknown"}`));
   return detail(pool, programId, { admin: true });
 }
 
-/** The cover file of a program (members: published ones only) → { bytes, mediaType }; 404 when there is none */
-async function coverFile(pool, programId, { admin = false } = {}, env = process.env) {
-  const [[row]] = await pool.query(`SELECT cover_key FROM fitness_programs WHERE id = ?${admin ? "" : " AND published = TRUE"}`, [programId]);
-  const file = row?.cover_key ? await covers.read(row.cover_key, env) : null;
-  if (!file) throw new NotFoundError("That program has no cover.");
+/** The cover's or page photo's file (members: published programs only) → { bytes, mediaType }; 404 when there is none */
+async function photoFile(pool, programId, { admin = false } = {}, env = process.env, kind = "cover") {
+  const photo = PHOTOS[kind];
+  const [[row]] = await pool.query(`SELECT ${photo.key} AS photo_key FROM fitness_programs WHERE id = ?${admin ? "" : " AND published = TRUE"}`, [programId]);
+  const file = row?.photo_key ? await covers.read(row.photo_key, env) : null;
+  if (!file) throw new NotFoundError(photo.missing);
   return file;
 }
 
-// Full-body sessions in turn, for a program with no catalog movements when the AI can't write it
-const FALLBACK_ROTATION = [
-  ["squat", "horizontal_push", "horizontal_pull", "core"],
-  ["hinge", "vertical_push", "lunge", "conditioning"],
-  ["squat", "horizontal_pull", "hinge", "core"],
-];
+const setCover = (pool, adminId, programId, checked, env) => setPhoto(pool, adminId, programId, checked, env, "cover");
+const removeCover = (pool, adminId, programId, env) => removePhoto(pool, adminId, programId, env, "cover");
+const coverFile = (pool, programId, options, env) => photoFile(pool, programId, options, env, "cover");
+const setHero = (pool, adminId, programId, checked, env) => setPhoto(pool, adminId, programId, checked, env, "hero");
+const removeHero = (pool, adminId, programId, env) => removePhoto(pool, adminId, programId, env, "hero");
+const heroFile = (pool, programId, options, env) => photoFile(pool, programId, options, env, "hero");
 
-// The AI's sessions for a program, or the library-built ones when the AI can't
-async function draftSessions(pool, adminId, program, { count, minutes, request }, env) {
-  const { library } = await plans.programmableLibrary(pool);
-  const allowed = rules.kitLibrary(library, program);
-  const seed = { ...program, sessions: Array.from({ length: count }, (_, i) => ({ title: `Session ${i + 1}`, minutes, patterns: FALLBACK_ROTATION[i % FALLBACK_ROTATION.length] })) };
-  const fallback = rules.buildSessions(seed, library);
-  if (!aiPlan.configured(env)) return { sessions: fallback, ai: false };
-  await aiLimits.check(pool, { feature: "fitness_program", userId: adminId }, env);
-  const raw = await dedupe.shared.run(dedupe.requestKey("fitness_program", adminId, program.id, count, minutes, request), () =>
-    askStructured(
-      {
-        feature: "fitness_program",
-        instructions: rules.INSTRUCTIONS,
-        brief: rules.brief(program, { count, minutes, request, library: allowed }),
-        schema: rules.schema,
-        fake: rules.fakeAnswer(fallback.length ? fallback : rules.buildSessions({ ...seed, kit: "none" }, library)),
-        failure: "The AI couldn't write the sessions right now. Please try again.",
-        busy: "The AI is busy right now. Please try again in a minute.",
-      },
-      env,
-      aiUsage.tracker(pool, { feature: "fitness_program", userId: adminId }),
-    ),
-  );
-  const sessions = rules.normalizeSessions(raw, { library: allowed, count });
-  if (!sessions) throw new ValidationError("The AI's sessions didn't fit the library. Add matching exercises in Admin › Exercises, then try again.");
-  return { sessions, ai: true };
-}
-
-/**
- * "Rewrite with AI": the program's sessions replaced by the AI's (as many as it has now, at their
- * usual length). Members who already did a session keep their copy of it.
- */
-async function redraft(pool, adminId, programId, { request }, env = process.env) {
-  const program = await detail(pool, programId, { admin: true });
-  const count = Math.max(1, Math.min(rules.limits.sessions, program.sessionCount || 3));
-  const minutes = program.minutes.max || 30;
-  const { sessions, ai } = await draftSessions(pool, adminId, program, { count, minutes, request }, env);
-  await inTransaction(pool, async (conn) => {
-    await removeSessions(conn, programId);
-    await writeSessions(conn, programId, sessions);
-    await conn.query("UPDATE fitness_programs SET ai_drafted = ? WHERE id = ?", [ai, programId]);
-    await audit(conn, adminId, "program.redraft", "program", programId, `Rewrote the sessions of “${program.title}”${ai ? " with AI" : ""}`);
-  });
-  return detail(pool, programId, { admin: true });
-}
-
-/** A new program from the admin, its sessions written by the AI (the library's when it can't) */
-async function create(pool, adminId, fields, env = process.env) {
+/** A new program from the admin, with no sessions yet (the admin adds video sessions next) */
+async function create(pool, adminId, fields) {
   await ensureCatalog(pool);
   await sections.mustExist(pool, fields.section);
-  const draft = { ...fields, id: null };
-  const { sessions, ai } = await draftSessions(pool, adminId, draft, { count: fields.sessions, minutes: fields.minutes, request: "" }, env);
   const programId = await inTransaction(pool, async (conn) => {
     const [[{ id }]] = await conn.query("SELECT UUID() AS id");
     const [[{ next }]] = await conn.query("SELECT COALESCE(MAX(position), 0) + 1 AS next FROM fitness_programs WHERE section = ?", [fields.section]);
     const slug = `${fields.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "program"}-${id.slice(0, 8)}`;
     await conn.query(
-      `INSERT INTO fitness_programs (id, slug, title, subtitle, description, section, place, level, kit, icon, palette, position, published, ai_drafted, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [id, slug, fields.title, fields.subtitle, fields.description, fields.section, fields.place, fields.level, fields.kit, fields.icon, fields.palette, next, fields.published ?? true, ai, adminId],
+      `INSERT INTO fitness_programs (id, slug, title, subtitle, description, section, place, level, kit, icon, palette, position, published, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [id, slug, fields.title, fields.subtitle, fields.description, fields.section, fields.place, fields.level, fields.kit, fields.icon, fields.palette, next, fields.published ?? true, adminId],
     );
-    await writeSessions(conn, id, sessions);
     await audit(conn, adminId, "program.create", "program", id, `Created program “${fields.title}”`);
     return id;
   });
@@ -391,4 +372,4 @@ async function create(pool, adminId, fields, env = process.env) {
 // Tests only: check the catalog again on the next read
 const resetCatalogCheck = () => { catalogChecked = false; };
 
-module.exports = { ensureCatalog, list, detail, startToday, adminList, update, redraft, create, setCover, removeCover, coverFile, resetCatalogCheck };
+module.exports = { ensureCatalog, list, detail, adminList, update, create, setCover, removeCover, coverFile, setHero, removeHero, heroFile, addSession, editSession, removeSession, moveSession, loadSessionChannel, resetCatalogCheck };

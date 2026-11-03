@@ -3,6 +3,7 @@
 // isolated justfit_test database, with the covers in a throwaway folder (COVER_DIR). Covers the
 // attack paths too: no or forged session, members on the admin's routes, files that aren't
 // photos, wrong labels, too big or too small, unknown programs, and a hidden program's cover.
+// The program page's own photo (hero, 2026-11-03) is checked the same way, and kept apart from the cover.
 //
 //   yarn test:e2e      (needs JustFit_server/.env.test; otherwise every test is skipped)
 const assert = require("node:assert/strict");
@@ -68,7 +69,7 @@ describe("program covers e2e: the admin's upload, replace and remove; members re
     }
     // A published home program from the starter catalog (added the first time programs are read)
     const list = await api("GET", "/api/admin/portal/programs", tokens.admin);
-    program = list.json.programs.find((p) => p.published && p.sessionCount > 0 && p.place !== "center");
+    program = list.json.programs.find((p) => p.published && p.place !== "center");
   });
 
   after(async () => {
@@ -77,7 +78,7 @@ describe("program covers e2e: the admin's upload, replace and remove; members re
       try {
         const all = Object.values(ids);
         await connection.query("DELETE FROM admin_audit_log WHERE admin_id IN (?)", [all]);
-        await connection.query("UPDATE fitness_programs SET cover_key = NULL, cover_updated_at = NULL");
+        await connection.query("UPDATE fitness_programs SET cover_key = NULL, cover_updated_at = NULL, hero_key = NULL, hero_updated_at = NULL");
         await db.deleteUsers(connection, all);
       } catch (error) { problems.push(`rows: ${error.code ?? error.message}`); }
     }
@@ -203,5 +204,85 @@ describe("program covers e2e: the admin's upload, replace and remove; members re
     assert.equal((await api("DELETE", coverRoute(), tokens.admin)).status, 200);
     assert.equal((await audits()).at(-1), "program.cover_remove");
     assert.equal((await audits()).filter((a) => a === "program.cover_remove").length, 1);
+  }));
+
+  // ---- the program page's photo (hero) ----
+  const heroRoute = (id = program.id) => `/api/admin/portal/programs/${id}/hero`;
+  const memberDetail = async (token = tokens.member) => (await api("GET", `/api/fitness/programs/${program.id}`, token)).json.program;
+
+  it("8. every page-photo route needs a session; members can't use the admin's; bad uploads are refused", run(async () => {
+    const photo = body(png(640, 360), "image/png");
+    for (const token of [null, "jfs_forged-token-that-was-never-issued"]) {
+      assert.equal((await api("PUT", heroRoute(), token, photo)).status, 401);
+      assert.equal((await api("DELETE", heroRoute(), token)).status, 401);
+      assert.equal((await api("GET", `/api/fitness/programs/${program.id}/hero`, token)).status, 401);
+    }
+    assert.equal((await api("PUT", heroRoute(), tokens.member, photo)).status, 403);
+    assert.equal((await api("DELETE", heroRoute(), tokens.member)).status, 403);
+    assert.equal((await api("GET", heroRoute(), tokens.member)).status, 403);
+    // Not a photo, a label that lies, too small, an unknown or malformed program
+    assert.equal((await api("PUT", heroRoute(), tokens.admin, body(Buffer.from("<script>alert(1)</script>"), "image/png"))).status, 415);
+    assert.equal((await api("PUT", heroRoute(), tokens.admin, body(png(640, 360), "image/jpeg"))).status, 415);
+    assert.equal((await api("PUT", heroRoute(), tokens.admin, { ...body(png(640, 360), "image/png"), path: "../../.env" })).status, 400);
+    assert.equal((await api("PUT", heroRoute(), tokens.admin, body(png(100, 60), "image/png"))).status, 400);
+    assert.equal((await api("PUT", heroRoute(crypto.randomUUID()), tokens.admin, photo)).status, 404);
+    assert.equal((await api("PUT", "/api/admin/portal/programs/1%27%20OR%201%3D1/hero", tokens.admin, photo)).status, 404);
+    assert.deepEqual(files(), [], "nothing was written");
+    assert.equal((await memberDetail()).heroUrl, null);
+    assert.equal((await api("GET", `/api/fitness/programs/${program.id}/hero`, tokens.member)).status, 404);
+  }));
+
+  it("9. the admin adds and replaces the page photo; members read it; the cover stays apart", run(async () => {
+    const first = png(800, 450, [10, 120, 60]);
+    const added = await api("PUT", heroRoute(), tokens.admin, body(first, "image/png"));
+    assert.equal(added.status, 200, JSON.stringify(added.json));
+    assert.match(added.json.program.heroUrl, new RegExp(`^/api/admin/portal/programs/${program.id}/hero\\?v=\\d+$`));
+    assert.equal(added.json.program.coverUrl, null, "the card's cover is untouched");
+    const detail = await memberDetail();
+    assert.match(detail.heroUrl, new RegExp(`^/api/fitness/programs/${program.id}/hero\\?v=\\d+$`));
+    assert.equal(detail.coverUrl, null);
+    assert.equal((await memberCard()).coverUrl, null, "the card doesn't show the page photo");
+    const got = await api("GET", detail.heroUrl, tokens.member, undefined, { raw: true });
+    assert.equal(got.status, 200);
+    assert.equal(Buffer.compare(got.bytes, first), 0);
+    assert.equal(got.headers.get("x-content-type-options"), "nosniff");
+    const [[{ hero_key: oldKey }]] = await connection.query("SELECT hero_key FROM fitness_programs WHERE id = ?", [program.id]);
+    assert.deepEqual(files(), [oldKey]);
+    // A cover beside it: two files, each its own
+    const cover = await api("PUT", coverRoute(), tokens.admin, body(png(640, 360), "image/png"));
+    assert.equal(cover.status, 200);
+    assert.equal(cover.json.program.heroUrl, added.json.program.heroUrl, "a new cover leaves the page photo as it was");
+    assert.equal(files().length, 2);
+    // Replacing the page photo deletes only its old file
+    const second = png(900, 500, [200, 40, 40]);
+    const replaced = await api("PUT", heroRoute(), tokens.admin, body(second, "image/png"));
+    assert.equal(replaced.status, 200);
+    assert.notEqual(replaced.json.program.heroUrl, added.json.program.heroUrl);
+    assert.ok(!files().includes(oldKey), "the old page photo's file is gone");
+    assert.equal(files().length, 2, "the cover's file is still there");
+    assert.equal(Buffer.compare((await api("GET", (await memberDetail()).heroUrl, tokens.member, undefined, { raw: true })).bytes, second), 0);
+    const actions = await audits();
+    assert.ok(actions.includes("program.hero_add") && actions.includes("program.hero_replace"), actions.join(", "));
+  }));
+
+  it("10. a hidden program's page photo is the admin's only; removing it deletes its file only", run(async () => {
+    const memberUrl = (await memberDetail()).heroUrl;
+    await connection.query("UPDATE fitness_programs SET published = FALSE WHERE id = ?", [program.id]);
+    try {
+      assert.equal((await api("GET", memberUrl, tokens.member)).status, 404);
+      assert.equal((await api("GET", heroRoute(), tokens.admin, undefined, { raw: true })).status, 200);
+    } finally {
+      await connection.query("UPDATE fitness_programs SET published = TRUE WHERE id = ?", [program.id]);
+    }
+    const r = await api("DELETE", heroRoute(), tokens.admin);
+    assert.equal(r.status, 200, JSON.stringify(r.json));
+    assert.equal(r.json.program.heroUrl, null);
+    assert.ok(r.json.program.coverUrl, "the cover stays");
+    assert.equal(files().length, 1, "only the cover's file is left");
+    assert.equal((await api("GET", `/api/fitness/programs/${program.id}/hero`, tokens.member)).status, 404);
+    assert.equal((await audits()).at(-1), "program.hero_remove");
+    // Tidy up the cover this test added
+    assert.equal((await api("DELETE", coverRoute(), tokens.admin)).status, 200);
+    assert.deepEqual(files(), []);
   }));
 });

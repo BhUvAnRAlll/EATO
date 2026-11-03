@@ -18,7 +18,7 @@ const KITS = ["none", "some", "full_gym"];
 const ICONS = ["yoga", "kids", "heart", "beginner", "boxing", "women", "strength", "split", "tone", "cardio", "foundation", "dance", "desk", "posture", "energy", "walk", "mom"];
 const PALETTES = ["lavender", "coral", "mint", "sky", "amber", "rose", "ink", "teal"];
 
-const limits = { sectionTitle: 40, sectionNote: 120, title: 60, subtitle: 120, description: 600, search: 60, sessions: 8, minutesMin: 5, minutesMax: 120, request: 300 };
+const limits = { sectionTitle: 40, sectionNote: 120, title: 60, subtitle: 120, description: 600, search: 60, sessions: 8, allSessions: 30, minutesMin: 5, minutesMax: 120, request: 300 };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const cleanText = (value, max) => aiPlan.cleanText(value, max);
@@ -97,7 +97,7 @@ const oneOf = (value, list, message) => {
 
 /** An admin's program fields (all required when creating, any of them when editing) */
 function programBody(body, { creating }) {
-  const keys = ["title", "subtitle", "description", "section", "place", "level", "kit", "icon", "palette", "published", "sessions", "minutes"];
+  const keys = ["title", "subtitle", "description", "section", "place", "level", "kit", "icon", "palette", "published"];
   onlyKeys(body, keys);
   const out = {};
   const need = (k) => creating || body[k] !== undefined;
@@ -121,17 +121,68 @@ function programBody(body, { creating }) {
     if (typeof body.published !== "boolean") throw new ValidationError("Published is yes or no.");
     out.published = body.published;
   }
-  // Only when creating: how many sessions the AI should write, and how long each is
-  if (creating) {
-    const sessions = body.sessions ?? 3;
-    const minutes = body.minutes ?? 30;
-    if (!Number.isInteger(sessions) || sessions < 1 || sessions > limits.sessions) throw new ValidationError(`Ask for 1 to ${limits.sessions} sessions.`);
-    if (!Number.isInteger(minutes) || minutes < limits.minutesMin || minutes > limits.minutesMax) throw new ValidationError(`Sessions last ${limits.minutesMin} to ${limits.minutesMax} minutes.`);
-    out.sessions = sessions;
-    out.minutes = minutes;
-  } else if (body.sessions !== undefined || body.minutes !== undefined) {
-    throw new ValidationError("Change the sessions with Rewrite with AI.");
+  return out;
+}
+
+// YouTube on a program: one video (playlists were dropped on 2026-11-03; members follow the one
+// video and do the program's own sessions). Only the kind and the ID are stored and the app
+// builds the player's address itself, so no other link ever reaches a member.
+const PLAYLIST_ID = /^PL[A-Za-z0-9_-]{16,64}$/;
+const VIDEO_ID = /^[A-Za-z0-9_-]{11}$/;
+const YOUTUBE_HOSTS = ["youtube.com", "www.youtube.com", "m.youtube.com", "music.youtube.com", "youtu.be"];
+
+/**
+ * What the admin pasted → { kind: "video", id }, or null to take it off ("" or null). A video link
+ * (watch?v=…, youtu.be/…, /shorts/…, /embed/…, /live/…) or a bare 11-character ID is that one
+ * video; a video opened from a playlist (watch?v=…&list=…) is just the video. A playlist link or
+ * a bare PL… ID is refused.
+ */
+function youtubeLink(value) {
+  if (value === null || value === "") return null;
+  const bad = () => new ValidationError("Paste one YouTube video's link.");
+  const playlist = () => new ValidationError("Paste one YouTube video's link. Playlists can't be added to a program.");
+  if (typeof value !== "string" || value.length > 300) throw bad();
+  const text = value.trim();
+  if (PLAYLIST_ID.test(text)) throw playlist();
+  if (VIDEO_ID.test(text)) return { kind: "video", id: text };
+  let url;
+  try {
+    url = new URL(text);
+  } catch {
+    throw bad();
   }
+  const host = url.hostname.toLowerCase();
+  if (url.protocol !== "https:" || !YOUTUBE_HOSTS.includes(host)) throw bad();
+  const path = url.pathname.split("/").filter(Boolean);
+  const list = url.searchParams.get("list") ?? "";
+  if (path[0] === "playlist") throw PLAYLIST_ID.test(list) ? playlist() : bad();
+  const video = host === "youtu.be" ? path[0] : path[0] === "watch" ? url.searchParams.get("v") : ["shorts", "embed", "live"].includes(path[0]) ? path[1] : null;
+  if (video && VIDEO_ID.test(video)) return { kind: "video", id: video };
+  throw bad();
+}
+
+/**
+ * One session the admin adds or edits: a title, its minutes and one YouTube video (a link,
+ * embedded in the app, never an uploaded file). Adding needs all three; editing any of them (a
+ * session always keeps a video). → { title?, minutes?, youtubeId? }
+ */
+function sessionBody(body, { creating }) {
+  onlyKeys(body, ["title", "minutes", "youtube"]);
+  const out = {};
+  if (creating || body.title !== undefined) {
+    out.title = cleanText(body.title, limits.title + 1);
+    if (out.title.length < 2 || out.title.length > limits.title) throw new ValidationError(`Give the session a title of 2 to ${limits.title} characters.`);
+  }
+  if (creating || body.minutes !== undefined) {
+    if (!Number.isInteger(body.minutes) || body.minutes < limits.minutesMin || body.minutes > limits.minutesMax) throw new ValidationError(`A session lasts ${limits.minutesMin} to ${limits.minutesMax} minutes.`);
+    out.minutes = body.minutes;
+  }
+  if (creating || body.youtube !== undefined) {
+    const link = youtubeLink(body.youtube ?? "");
+    if (!link) throw new ValidationError("Paste the session's YouTube video link.");
+    out.youtubeId = link.id;
+  }
+  if (Object.keys(out).length === 0) throw new ValidationError("Change the title, the minutes or the video.");
   return out;
 }
 
@@ -263,6 +314,6 @@ function fakeAnswer(sessions) {
 
 module.exports = {
   SECTIONS, LAYOUTS, SECTION_SLUG, sectionSlug, sectionBody, moveBody, slugFor, PLACES, LEVELS, KITS, ICONS, PALETTES, PLACE_EQUIPMENT, limits, catalog,
-  id, listQuery, equipmentBody, programBody, redraftBody,
+  id, listQuery, equipmentBody, programBody, redraftBody, youtubeLink, sessionBody,
   kitLibrary, buildSession, buildSessions, INSTRUCTIONS, schema, brief, normalizeSessions, fakeAnswer,
 };

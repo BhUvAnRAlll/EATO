@@ -150,6 +150,23 @@ router.get("/programs/:programId", programRoute(async (req, res) => {
 router.patch("/programs/:programId", programBody, programRoute(async (req, res) => {
   res.json({ program: await fitnessPrograms.update(pool(req), req.userId, fitnessRules.id(req.params.programId), fitnessRules.programBody(req.body, { creating: false })) });
 }));
+// A program's sessions: POST adds one { title, minutes, youtube } at the end (one YouTube video's
+// link, embedded, never an uploaded file), PATCH edits one (any of the three; youtube "" takes the
+// video off), DELETE removes one (never the last), POST …/move { direction } reorders. Each answers
+// the program; `videoError` says why the video's creator couldn't be read from YouTube.
+const sessionId = (req) => fitnessRules.id(req.params.sessionId, "session");
+router.post("/programs/:programId/sessions", programBody, programRoute(async (req, res) => {
+  res.status(201).json({ program: await fitnessPrograms.addSession(pool(req), req.userId, fitnessRules.id(req.params.programId), fitnessRules.sessionBody(req.body, { creating: true })) });
+}));
+router.patch("/programs/:programId/sessions/:sessionId", programBody, programRoute(async (req, res) => {
+  res.json({ program: await fitnessPrograms.editSession(pool(req), req.userId, fitnessRules.id(req.params.programId), sessionId(req), fitnessRules.sessionBody(req.body, { creating: false })) });
+}));
+router.delete("/programs/:programId/sessions/:sessionId", programRoute(async (req, res) => {
+  res.json({ program: await fitnessPrograms.removeSession(pool(req), req.userId, fitnessRules.id(req.params.programId), sessionId(req)) });
+}));
+router.post("/programs/:programId/sessions/:sessionId/move", programBody, programRoute(async (req, res) => {
+  res.json({ program: await fitnessPrograms.moveSession(pool(req), req.userId, fitnessRules.id(req.params.programId), sessionId(req), fitnessRules.moveBody(req.body)) });
+}));
 // Categories (fitness/sections.js): the Fitness tab's sections in order. GET lists them (with how
 // many programs each has), POST creates one { title, note?, layout?, published? }, PATCH edits one,
 // POST …/move { direction } reorders, DELETE removes one the admin made while it has no programs.
@@ -187,8 +204,18 @@ router.delete("/programs/:programId/cover", programRoute(async (req, res) => {
 router.get("/programs/:programId/cover", programRoute(async (req, res) => {
   fitnessCovers.send(res, await fitnessPrograms.coverFile(pool(req), fitnessRules.id(req.params.programId), { admin: true }));
 }));
-router.post("/programs/:programId/redraft", programBody, programRoute(async (req, res) => {
-  res.json({ program: await fitnessPrograms.redraft(pool(req), req.userId, fitnessRules.id(req.params.programId), fitnessRules.redraftBody(req.body)) });
+// The program page's photo (shown at the top of the program's screen, not on its card): the same
+// checks, limits and answers as the cover
+router.put("/programs/:programId/hero", limitPerUser(coverLimiter), coverBody, programRoute(async (req, res) => {
+  const programId = fitnessRules.id(req.params.programId);
+  const checked = fitnessCovers.checkCover(req.body);
+  if (!checked.ok) return res.status(checked.status).json({ error: checked.error });
+  res.json({ program: await fitnessPrograms.setHero(pool(req), req.userId, programId, checked) });
 }));
-
+router.delete("/programs/:programId/hero", programRoute(async (req, res) => {
+  res.json({ program: await fitnessPrograms.removeHero(pool(req), req.userId, fitnessRules.id(req.params.programId)) });
+}));
+router.get("/programs/:programId/hero", programRoute(async (req, res) => {
+  fitnessCovers.send(res, await fitnessPrograms.heroFile(pool(req), fitnessRules.id(req.params.programId), { admin: true }));
+}));
 module.exports = { adminPortalRouter: router };

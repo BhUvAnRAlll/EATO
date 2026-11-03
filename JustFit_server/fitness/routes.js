@@ -7,7 +7,6 @@ const programs = require("./programs");
 const covers = require("./covers");
 const rules = require("./rules");
 const place = require("../workout/place");
-const v = require("../workout/validate");
 const { CoachPlanError } = require("../coach/planRules");
 
 const router = express.Router();
@@ -32,16 +31,14 @@ router.get("/programs", route(async (req, res) => {
 router.get("/programs/:programId/cover", route(async (req, res) => {
   covers.send(res, await programs.coverFile(pool(req), rules.id(req.params.programId)));
 }));
-
-// One program: its description and every session with its exercises
-router.get("/programs/:programId", route(async (req, res) => {
-  res.json({ program: await programs.detail(pool(req), rules.id(req.params.programId)) });
+// A published program's page photo (its heroUrl), the same way
+router.get("/programs/:programId/hero", route(async (req, res) => {
+  covers.send(res, await programs.heroFile(pool(req), rules.id(req.params.programId)));
 }));
 
-// Do this session today: it becomes today's workout (the day screen and player run it)
-router.post("/programs/:programId/sessions/:sessionId/today", smallBody, route(async (req, res) => {
-  const { today } = v.ensureBody(req.body, Date.now());
-  res.json(await programs.startToday(pool(req), req.userId, { programId: rules.id(req.params.programId), sessionId: rules.id(req.params.sessionId, "session"), today }));
+// One program: its description and its sessions, each a YouTube video
+router.get("/programs/:programId", route(async (req, res) => {
+  res.json({ program: await programs.detail(pool(req), rules.id(req.params.programId)) });
 }));
 
 // The location sheet: what the member has at home and at their center

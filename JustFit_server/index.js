@@ -425,6 +425,8 @@ const port = Number(process.env.PORT ?? 4000);
 // 0.0.0.0 so a phone on the same Wi-Fi can reach it, not just this computer
 // AI Coach chat messages are deleted 7 days after they were written: now, then every hour
 coachChatHistory.startCleanup(pool);
+// YouTube data on session videos (their creators): refreshed before 25 days, deleted after 30 (YouTube's API terms)
+require("./fitness/youtubeRefresh").startRefresh(pool);
 app.listen(port, "0.0.0.0", () => {
   console.log(`justFit server listening on http://localhost:${port}`);
 });

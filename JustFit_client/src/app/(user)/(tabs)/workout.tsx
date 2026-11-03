@@ -15,7 +15,7 @@ import { DashedBlock } from "@/components/macro/DashedBlock";
 import { ProgramCard } from "@/components/ProgramCard";
 import { usePullToRefresh } from "@/components/PullToRefresh";
 import { WorkoutSheet } from "@/components/workout/WorkoutSheet";
-import { CENTER_KIT_LABEL, HOME_KIT_LABEL, fitnessApi, type CenterKit, type Equipment, type HomeKit, type ProgramCardData, type ProgramList } from "@/lib/fitnessApi";
+import { CENTER_KIT_LABEL, HOME_KIT_LABEL, fitnessApi, type CenterKit, type Equipment, type HomeKit, type ProgramCardData, type ProgramList, type ProgramSection } from "@/lib/fitnessApi";
 import { addDays, dateOf, longDate, todayIso } from "@/lib/macro";
 import { useSessionToken } from "@/lib/session";
 import {
@@ -131,6 +131,7 @@ export default function WorkoutHub() {
   };
   const openDay = (date: string) => router.push({ pathname: "/workout/day", params: { date } });
   const openProgram = useCallback((program: ProgramCardData) => router.push({ pathname: "/fitness/[id]", params: { id: program.id } }), []);
+  const openSection = useCallback((section: ProgramSection) => router.push({ pathname: "/fitness/category/[id]", params: { id: section.id, place, title: section.title } }), [place]);
   const ask = (next: Prompt) => {
     setPromptError(null);
     setPrompt(next);
@@ -170,7 +171,7 @@ export default function WorkoutHub() {
         <ScrollView contentContainerStyle={{ paddingBottom: 140, gap: 20 }} showsVerticalScrollIndicator={false} refreshControl={refreshControl}>
           {/* AT HOME: the programs only */}
           {place === "home" ? (
-            <ProgramSections programs={programs} onOpen={openProgram} onRetry={() => loadPrograms(place)} />
+            <ProgramSections programs={programs} onOpen={openProgram} onSeeAll={openSection} onRetry={() => loadPrograms(place)} />
           ) : (
           <View className="gap-5 px-4">
           {/* AT CENTER: the Workout screen as it was before the programs */}
@@ -367,7 +368,7 @@ function Ready({ home, history, showAll, onToggleAll, openDay, ask }: ReadyProps
 
 // The six sections of programs for the place, one carousel each; a note when the server couldn't
 // be reached (the starter catalog is shown, and opens once it's back)
-function ProgramSections({ programs, onOpen, onRetry }: { programs: Programs; onOpen: (program: ProgramCardData) => void; onRetry: () => void }) {
+function ProgramSections({ programs, onOpen, onSeeAll, onRetry }: { programs: Programs; onOpen: (program: ProgramCardData) => void; onSeeAll: (section: ProgramSection) => void; onRetry: () => void }) {
   if (programs.state === "loading") {
     return (
       <View className="px-4">
@@ -390,7 +391,7 @@ function ProgramSections({ programs, onOpen, onRetry }: { programs: Programs; on
         </Pressable>
       )}
       {programs.list.sections.map((section) => (
-        <FitnessCategorySection key={section.id} section={section} onOpen={onOpen} />
+        <FitnessCategorySection key={section.id} section={section} onOpen={onOpen} onSeeAll={onSeeAll} />
       ))}
     </>
   );

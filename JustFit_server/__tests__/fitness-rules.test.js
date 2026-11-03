@@ -70,16 +70,18 @@ describe("requests", () => {
     }
   });
 
-  it("an admin's program: required fields when creating, partial edits, sessions only through the AI", () => {
+  it("an admin's program: required fields when creating, partial edits, no sessions or video in it (they're added one by one)", () => {
     const made = rules.programBody({ title: "Morning <b>Mobility</b>", section: "stay_fit", place: "home", level: "beginner", kit: "none" }, { creating: true });
     assert.equal(made.title, "Morning b Mobility /b");
-    assert.equal(made.sessions, 3);
+    assert.equal(made.sessions, undefined);
     assert.equal(made.icon, "strength");
     assert.deepEqual(rules.programBody({ published: false }, { creating: false }), { published: false });
     for (const body of [{ title: "x" }, { title: "Ok title", section: "VIP Members!" }, { title: "Ok title", section: "../x" }, { title: "Ok title", section: 7 }, { published: "yes" }, { sessions: 4 }, { price: 99 }]) {
       assert.throws(() => rules.programBody(body, { creating: false }), ValidationError, JSON.stringify(body));
     }
-    assert.throws(() => rules.programBody({ title: "Morning", section: "stay_fit", place: "home", level: "beginner", kit: "none", sessions: 50 }, { creating: true }), ValidationError);
+    for (const extra of [{ sessions: 3 }, { minutes: 20 }, { youtube: "dQw4w9WgXcQ" }]) {
+      assert.throws(() => rules.programBody({ title: "Morning", section: "stay_fit", place: "home", level: "beginner", kit: "none", ...extra }, { creating: true }), ValidationError, JSON.stringify(extra));
+    }
   });
 });
 
@@ -139,5 +141,63 @@ describe("categories (the admin's fitness_sections)", () => {
     for (const bad of ["../programs", "Stay Fit", "", "x".repeat(41), undefined]) assert.throws(() => rules.sectionSlug(bad), NotFoundError);
     assert.equal(rules.moveBody({ direction: "up" }), "up");
     for (const body of [{ direction: "left" }, { direction: "up", by: 3 }, {}]) assert.throws(() => rules.moveBody(body), ValidationError);
+  });
+});
+
+describe("a program's YouTube link: one video, never a playlist (2026-11-03)", () => {
+  it("a video link in any of YouTube's shapes, or a bare ID, is that video", () => {
+    const id = "dQw4w9WgXcQ";
+    for (const link of [id, `https://www.youtube.com/watch?v=${id}`, `https://youtu.be/${id}`, `https://m.youtube.com/shorts/${id}`, `https://www.youtube.com/embed/${id}`, ` https://youtube.com/live/${id} `]) {
+      assert.deepEqual(rules.youtubeLink(link), { kind: "video", id }, link);
+    }
+    // A video opened from a playlist is just the video
+    assert.deepEqual(rules.youtubeLink(`https://www.youtube.com/watch?v=${id}&list=PLpa0d6IJAhbjxlK1l2-WcD5F64jNg58t0`), { kind: "video", id });
+  });
+
+  it("empty takes it off", () => {
+    assert.equal(rules.youtubeLink(""), null);
+    assert.equal(rules.youtubeLink(null), null);
+  });
+
+  it("a playlist is refused with a line that says so", () => {
+    for (const link of ["PLpa0d6IJAhbjxlK1l2-WcD5F64jNg58t0", "https://www.youtube.com/playlist?list=PLpa0d6IJAhbjxlK1l2-WcD5F64jNg58t0"]) {
+      assert.throws(() => rules.youtubeLink(link), (error) => error instanceof ValidationError && /Playlists can't be added/.test(error.message), link);
+    }
+  });
+
+  it("anything else is refused: other sites, plain http, bad IDs, scripts", () => {
+    for (const bad of ["https://vimeo.com/123", "http://www.youtube.com/watch?v=dQw4w9WgXcQ", "https://www.youtube.com/watch?v=short", "javascript:alert(1)", "https://www.youtube.com/playlist?list=x", "x".repeat(301), 42, {}]) {
+      assert.throws(() => rules.youtubeLink(bad), ValidationError, String(bad).slice(0, 40));
+    }
+  });
+});
+
+describe("a session the admin adds or edits: a title, its minutes and one YouTube video (embedded, never uploaded)", () => {
+  it("adding needs all three; the link is kept as the video's ID", () => {
+    assert.deepEqual(rules.sessionBody({ title: "  Day 1: core  ", minutes: 15, youtube: "https://youtu.be/dQw4w9WgXcQ" }, { creating: true }), { title: "Day 1: core", minutes: 15, youtubeId: "dQw4w9WgXcQ" });
+    for (const body of [{ minutes: 15, youtube: "dQw4w9WgXcQ" }, { title: "Day 1", youtube: "dQw4w9WgXcQ" }, { title: "Day 1", minutes: 15 }, { title: "Day 1", minutes: 15, youtube: "" }]) {
+      assert.throws(() => rules.sessionBody(body, { creating: true }), ValidationError, JSON.stringify(body));
+    }
+  });
+
+  it("editing takes any of them; a session always keeps a video", () => {
+    assert.throws(() => rules.sessionBody({ youtube: "" }, { creating: false }), ValidationError);
+    assert.deepEqual(rules.sessionBody({ youtube: "https://youtu.be/aBcDeFgHiJk" }, { creating: false }), { youtubeId: "aBcDeFgHiJk" });
+    assert.deepEqual(rules.sessionBody({ minutes: 20 }, { creating: false }), { minutes: 20 });
+    assert.throws(() => rules.sessionBody({}, { creating: false }), ValidationError);
+  });
+
+  it("refuses playlists, files and anything else", () => {
+    for (const body of [
+      { title: "Day 1", minutes: 15, youtube: "https://www.youtube.com/playlist?list=PLpa0d6IJAhbjxlK1l2-WcD5F64jNg58t0" },
+      { title: "Day 1", minutes: 15, youtube: "https://example.com/video.mp4" },
+      { title: "Day 1", minutes: 15, youtube: "dQw4w9WgXcQ", file: "data:video/mp4;base64,AAAA" },
+      { title: "Day 1", minutes: 4, youtube: "dQw4w9WgXcQ" },
+      { title: "Day 1", minutes: "15", youtube: "dQw4w9WgXcQ" },
+      { title: "x", minutes: 15, youtube: "dQw4w9WgXcQ" },
+      { title: "x".repeat(61), minutes: 15, youtube: "dQw4w9WgXcQ" },
+    ]) {
+      assert.throws(() => rules.sessionBody(body, { creating: true }), ValidationError, JSON.stringify(body).slice(0, 60));
+    }
   });
 });

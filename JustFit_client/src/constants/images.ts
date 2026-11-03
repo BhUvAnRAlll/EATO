@@ -1,5 +1,7 @@
 import googleLogo from "../../assets/images/google-logo.png";
 import justfitLogo from "../../assets/images/justfit-logo.png";
+// The JUSTFIT word cropped from justfit-logo.png (not redrawn), for small headers
+import justfitWordmark from "../../assets/images/justfit-wordmark.png";
 import onboardingArtMeals from "../../assets/images/onboarding-art-meals.png";
 import onboardingArtNutrition from "../../assets/images/onboarding-art-nutrition.png";
 import onboardingArtProgress from "../../assets/images/onboarding-art-progress.png";
@@ -28,6 +30,7 @@ import type { CoachId } from "@/data/coach";
 export const images = {
   googleLogo,
   justfitLogo,
+  justfitWordmark,
   onboardingArtMeals,
   onboardingArtNutrition,
   onboardingArtProgress,

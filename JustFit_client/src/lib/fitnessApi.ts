@@ -1,6 +1,6 @@
 import { apiFetch, type ApiResult } from "@/lib/api";
 import { PROGRAMS, SECTION_LAYOUT, SECTION_NOTE, SECTION_ORDER, SECTION_TITLE, type FitnessSection, type SectionLayout, type ProgramLevel, type ProgramPlace } from "@/lib/fitness/catalog";
-import type { Place, WorkoutSet } from "@/lib/workoutApi";
+import type { Place } from "@/lib/workoutApi";
 
 // The Fitness tab's programs (JustFit_server/fitness/routes.js, under /api/fitness). Every
 // program is free. When the server can't be reached the tab shows the starter catalog
@@ -31,20 +31,19 @@ export type ProgramCardData = {
 export type ProgramSection = { id: FitnessSection; title: string; note: string; layout?: SectionLayout; programs: ProgramCardData[] };
 export type ProgramList = { place: Place; search: string; sections: ProgramSection[]; offline?: boolean };
 
-export type ProgramExercise = {
-  name: string;
-  muscleGroup: string;
-  equipment: string;
-  section: "warmup" | "workout" | "cooldown";
-  sets: WorkoutSet[];
-  restSec: number;
-  repsMin: number | null;
-  repsMax: number | null;
-  note: string | null;
-  hasVideo: boolean;
+// A session: one YouTube video played on the program's page (embedded in YouTube's own player),
+// with its creator for the credit (null while YouTube hasn't been asked)
+export type ProgramSession = { id: string; title: string; minutes: number; video: { id: string; channel: string | null } };
+export type ProgramDetail = ProgramCardData & {
+  // The photo at the top of the program's screen (the admin's page photo, not the card's cover),
+  // read with the session token; null: the colour's gradient
+  heroUrl?: string | null;
+  description: string;
+  kit: "none" | "some" | "full_gym";
+  // Admin only: why a session video's creator couldn't be read from YouTube just now
+  videoError?: string;
+  sessions: ProgramSession[];
 };
-export type ProgramSession = { id: string; title: string; minutes: number; exerciseCount: number; exercises: ProgramExercise[] };
-export type ProgramDetail = ProgramCardData & { description: string; kit: "none" | "some" | "full_gym"; sessions: ProgramSession[] };
 
 export type HomeKit = "none" | "some" | "home_gym";
 export type CenterKit = "free_weights" | "basic_gym" | "full_gym";
@@ -71,10 +70,26 @@ export function offlineList(place: Place, search = ""): ProgramList {
   };
 }
 
-/** "3 sessions · 20–25 min" */
+/** "20–25 min" (each session's length; "–" without sessions) */
+export function sessionMinutes(p: Pick<ProgramCardData, "minutes">) {
+  if (p.minutes.max <= 0) return "–";
+  return p.minutes.min === p.minutes.max ? `${p.minutes.min} min` : `${p.minutes.min}–${p.minutes.max} min`;
+}
+
+/** "3 sessions · 20–25 min", or "Coming soon" before the admin adds any */
 export function programMeta(p: Pick<ProgramCardData, "sessionCount" | "minutes">) {
-  const time = p.minutes.min === p.minutes.max ? `${p.minutes.min} min` : `${p.minutes.min}–${p.minutes.max} min`;
-  return `${p.sessionCount} ${p.sessionCount === 1 ? "session" : "sessions"} · ${time}`;
+  if (p.sessionCount === 0) return "Coming soon";
+  return `${p.sessionCount} ${p.sessionCount === 1 ? "session" : "sessions"} · ${sessionMinutes(p)}`;
+}
+
+/**
+ * The program with only its video sessions. A server from before 2026-11-03 (or one whose
+ * migrations haven't run) still sends exercise sessions without a video: they're left out, so
+ * the screens never meet a session without one.
+ */
+export function withVideoSessions(program: ProgramDetail): ProgramDetail {
+  const sessions = (program.sessions ?? []).filter((s): s is ProgramSession => Boolean(s?.video?.id));
+  return sessions.length === program.sessions?.length ? program : { ...program, sessions };
 }
 
 export const fitnessApi = {
@@ -92,12 +107,7 @@ export const fitnessApi = {
     if (!token) return signedOut();
     if (id.startsWith("offline:")) return { ok: false, error: "Programs need a connection to open. Check your internet and try again." };
     const result = await apiFetch<{ program: ProgramDetail }>(`/api/fitness/programs/${encodeURIComponent(id)}`, { token });
-    return result.ok ? { ok: true, data: result.data.program } : result;
-  },
-  // Do this session today: it becomes today's workout (the day screen and player run it)
-  startToday(token: string | null, programId: string, sessionId: string, today: string): Promise<ApiResult<{ date: string; dayId: string }>> {
-    if (!token) return signedOut();
-    return apiFetch(`/api/fitness/programs/${encodeURIComponent(programId)}/sessions/${encodeURIComponent(sessionId)}/today`, { method: "POST", body: { today }, token });
+    return result.ok ? { ok: true, data: withVideoSessions(result.data.program) } : result;
   },
   equipment(token: string | null): Promise<ApiResult<Equipment>> {
     if (!token) return signedOut();
