@@ -1,0 +1,573 @@
+/* justFit hero. Every rule is scoped to the demo; the tokens are the app's own
+   (JustFit_client/src/theme/tokens.css). */
+@font-face {
+  font-family: 'JF Poppins';
+  src: url('./assets/Poppins-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-display: block;
+}
+@font-face {
+  font-family: 'JF Poppins';
+  src: url('./assets/Poppins-Medium.woff2') format('woff2');
+  font-weight: 500;
+  font-display: block;
+}
+@font-face {
+  font-family: 'JF Poppins';
+  src: url('./assets/Poppins-SemiBold.woff2') format('woff2');
+  font-weight: 600;
+  font-display: block;
+}
+
+.jf {
+  & .ss-stage {
+    --jf-primary: #d40005;
+    --jf-primary-soft: #fdeaea;
+    --jf-ink: #111111;
+    --jf-muted: #5c5c63;
+    --jf-faint: #767680;
+    --jf-line: #e8e8ea;
+    --jf-page: #f4f4f5;
+    --jf-surface: #ffffff;
+    --jf-protein: #6cc28a;
+    --jf-carbs: #a9a3f0;
+    --jf-fat: #f2c14e;
+    --jf-shadow-card: 0 2px 12px rgba(17, 17, 17, 0.05);
+    /* UIKit-quick in-app responses */
+    --jf-ui: cubic-bezier(0.3, 0.75, 0.1, 1);
+    --ss-accent: #d40005;
+    overflow: hidden;
+    background: transparent;
+  }
+
+  /* Pinned from the top, one gutter in, running off the bottom */
+  .jf-phone {
+    position: absolute;
+    top: 50px;
+    left: 50px;
+  }
+
+  & .ss-stage[data-layout='compact'] .jf-phone {
+    top: 16px;
+    left: 16px;
+  }
+
+  /* ---- Lock screen ---- */
+
+  /* Hidden at once on the tap: Expand's face takes over at the same place */
+  .jf-notif {
+    will-change: transform;
+    opacity: 0;
+    transform: translateY(16px) scale(0.96);
+  }
+
+  .jf-notif[data-show] {
+    opacity: 1;
+    transform: none;
+    transition:
+      opacity 0.5s ease,
+      transform 0.6s cubic-bezier(0.25, 0.8, 0.25, 1);
+  }
+
+  .jf-notif .ss-notification,
+  .jf-launch .ss-notification {
+    background: rgba(250, 250, 251, 0.94);
+  }
+
+  .jf-phone .ss-phone__status {
+    transition: color 0.35s ease;
+  }
+
+  .jf-notif__icon {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border-radius: inherit;
+    background: #fff;
+    object-fit: contain;
+  }
+
+  /* ---- The app layer ---- */
+
+  .jf-app {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    opacity: 0;
+    visibility: hidden;
+  }
+
+  .jf-app[data-app='on'] {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  .jf-cover {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    background: #1c1c1e;
+    will-change: transform;
+    transform: translateY(-100%);
+    visibility: hidden;
+  }
+
+  .jf-cover[data-on] {
+    transform: none;
+    visibility: visible;
+    transition: transform 0.6s cubic-bezier(0.3, 0.75, 0.1, 1);
+  }
+
+  .jf-launch {
+    position: absolute;
+    inset: 0;
+    --ss-expand-bg: var(--jf-page);
+  }
+
+  .jf-app__screen {
+    position: relative;
+    min-height: 100%;
+    padding: 64px 20px 0;
+    overflow: hidden;
+    height: 100%;
+    background: var(--jf-page);
+    color: var(--jf-ink);
+    font-family: 'JF Poppins', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ---- Header ---- */
+
+  .jf-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-top: 8px;
+  }
+
+  .jf-head__text {
+    display: grid;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .jf-note {
+    font-size: 12px;
+    line-height: 16px;
+    color: var(--jf-faint);
+  }
+
+  .jf-title {
+    font-size: 24px;
+    line-height: 32px;
+    font-weight: 600;
+  }
+
+  .jf-coach-face {
+    flex: none;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+    box-shadow: 0 0 0 2px #fff, 0 2px 10px rgba(17, 17, 17, 0.08);
+  }
+
+  .jf-stack {
+    display: grid;
+    margin-top: 16px;
+  }
+
+  .jf-card {
+    border-radius: 20px;
+    background: var(--jf-surface);
+    box-shadow: var(--jf-shadow-card);
+  }
+
+  /* ---- Calories card ---- */
+
+  .jf-calories {
+    padding: 22px 16px 20px;
+  }
+
+  .jf-calories__top {
+    display: flex;
+    align-items: center;
+    gap: 22px;
+  }
+
+  .jf-ring {
+    position: relative;
+    flex: none;
+  }
+
+  .jf-ring svg {
+    display: block;
+  }
+
+  .jf-ring__arc {
+    transition: stroke-dashoffset 0.9s cubic-bezier(0.45, 0, 0.1, 1);
+  }
+
+  .jf-ring__text {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-content: center;
+    justify-items: center;
+  }
+
+  .jf-hero-number {
+    font-size: 30px;
+    line-height: 36px;
+    font-weight: 600;
+  }
+
+  .jf-of {
+    font-size: 13px;
+    line-height: 18px;
+    font-weight: 500;
+    color: var(--jf-muted);
+  }
+
+  .jf-calories__stats {
+    display: grid;
+    gap: 14px;
+    min-width: 0;
+  }
+
+  .jf-stat {
+    display: grid;
+  }
+
+  .jf-overline {
+    font-size: 11px;
+    line-height: 14px;
+    font-weight: 600;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    color: var(--jf-muted);
+  }
+
+  .jf-stat__line {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+  }
+
+  .jf-stat__value {
+    font-size: 22px;
+    line-height: 26px;
+    font-weight: 600;
+  }
+
+  .jf-macros {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+    margin-top: 22px;
+  }
+
+  .jf-macro {
+    display: grid;
+    gap: 8px;
+  }
+
+  .jf-macro__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 4px;
+  }
+
+  .jf-macro__label {
+    font-size: 12px;
+    line-height: 16px;
+    font-weight: 500;
+  }
+
+  .jf-macro__value {
+    font-size: 12px;
+    line-height: 16px;
+    font-weight: 500;
+    color: var(--jf-muted);
+    white-space: nowrap;
+  }
+
+  .jf-track {
+    display: block;
+    height: 6px;
+    border-radius: 999px;
+    background: var(--jf-line);
+    overflow: hidden;
+  }
+
+  .jf-track__fill {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    transition: width 0.8s cubic-bezier(0.45, 0, 0.1, 1);
+  }
+
+  /* ---- Coach tip ---- */
+
+  .jf-coach-slot > * {
+    padding-top: 16px;
+  }
+
+  .jf-coach {
+    display: grid;
+    gap: 10px;
+    padding: 16px;
+  }
+
+  .jf-coach__who {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .jf-coach__face {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+  }
+
+  .jf-coach__name {
+    font-size: 15px;
+    line-height: 20px;
+    font-weight: 600;
+  }
+
+  .jf-coach__role {
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: var(--jf-primary-soft);
+    color: #c00005;
+    font-size: 13px;
+    line-height: 16px;
+    font-weight: 600;
+  }
+
+  .jf-coach__tip {
+    font-size: 15px;
+    line-height: 22px;
+    color: var(--jf-ink);
+  }
+
+  /* ---- Today's plan ---- */
+
+  .jf-plan {
+    display: grid;
+    gap: 12px;
+    padding-top: 24px;
+  }
+
+  .jf-section {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+  }
+
+  .jf-section__title {
+    font-size: 17px;
+    line-height: 22px;
+    font-weight: 600;
+  }
+
+  .jf-meta {
+    font-size: 13px;
+    line-height: 17px;
+    color: var(--jf-muted);
+  }
+
+  /* The loaded card takes the skeleton's place in one cell */
+  .jf-swap {
+    display: grid;
+  }
+
+  .jf-swap > * {
+    grid-area: 1 / 1;
+  }
+
+  .jf-skeleton {
+    transition: opacity 0.3s ease 0.1s;
+  }
+
+  .jf-real {
+    will-change: transform;
+    opacity: 0;
+    transform: translateY(6px);
+    transition:
+      opacity 0.35s ease,
+      transform 0.5s var(--jf-ui);
+  }
+
+  .jf-plan[data-ready] .jf-skeleton {
+    opacity: 0;
+  }
+
+  .jf-plan[data-ready] .jf-real {
+    opacity: 1;
+    transform: none;
+  }
+
+  .jf-meal {
+    display: grid;
+    gap: 12px;
+    padding: 16px;
+  }
+
+  .jf-meal__row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .jf-meal__when {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .jf-pill {
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: var(--jf-page);
+    color: var(--jf-muted);
+    font-size: 11px;
+    line-height: 14px;
+    font-weight: 500;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  .jf-time {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--jf-faint);
+    font-size: 12px;
+    line-height: 16px;
+  }
+
+  .jf-kcal {
+    font-size: 15px;
+    line-height: 20px;
+    font-weight: 500;
+  }
+
+  .jf-meal__body {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .jf-meal__photo,
+  .jf-skel-photo {
+    flex: none;
+    width: 72px;
+    height: 72px;
+    border-radius: 14px;
+    object-fit: cover;
+  }
+
+  .jf-skel-photo {
+    display: block;
+    background: var(--jf-page);
+  }
+
+  .jf-meal__text {
+    display: grid;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .jf-meal__name {
+    font-size: 18px;
+    line-height: 24px;
+    font-weight: 600;
+  }
+
+  .jf-chips {
+    display: flex;
+    gap: 6px;
+  }
+
+  .jf-chip {
+    padding: 5px 10px;
+    border-radius: 10px;
+    background: var(--jf-page);
+    font-size: 12px;
+    line-height: 16px;
+    font-weight: 500;
+  }
+
+  .jf-log {
+    display: inline-grid;
+    place-items: center;
+    height: 34px;
+    padding-inline: 14px;
+    border-radius: 999px;
+    background: var(--jf-primary);
+    color: #fff;
+    will-change: transform;
+    transition:
+      background-color 0.2s ease,
+      color 0.2s ease,
+      transform 0.15s ease;
+  }
+
+  .jf-log[data-pressed] {
+    transform: scale(0.96);
+  }
+
+  .jf-log[data-done] {
+    background: var(--jf-primary-soft);
+    color: var(--jf-primary);
+  }
+
+  .jf-log__label {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    min-width: 76px;
+    font-size: 13px;
+    line-height: 18px;
+    font-weight: 600;
+  }
+}
+
+/* Compact: the phone is drawn smaller, so the smallest labels step up to stay legible */
+.jf .ss-stage[data-layout='compact'] {
+  & .jf-pill,
+  & .jf-coach__role,
+  & .jf-note,
+  & .jf-overline,
+  & .jf-time,
+  & .jf-meta,
+  & .jf-chip,
+  & .jf-macro__label,
+  & .jf-macro__value {
+    font-size: 13px;
+    line-height: 17px;
+  }
+
+  /* The macro label sits over its figures, so three columns still fit */
+  & .jf-macro__head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+  }
+}
+
+/* The launch: the app's surface comes up almost at once, so the lock screen's
+   clock never shows through the growing window */
+.jf .jf-launch.ss-expand[data-launch][data-open] {
+  transition:
+    transform var(--ss-expand-ms) var(--ss-expand-ease),
+    clip-path var(--ss-expand-ms) var(--ss-expand-ease),
+    background-color 100ms ease;
+}

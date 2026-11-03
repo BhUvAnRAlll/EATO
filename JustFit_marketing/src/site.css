@@ -1,0 +1,161 @@
+/* The page around the demos. The demos style themselves (src/demos/*, src/kit);
+   page rules stay off their elements with :where(.ss-stage *) exclusions. */
+:root {
+  --jf-primary: #d40005;
+  --jf-primary-pressed: #b00004;
+  --jf-ink: #111111;
+  --jf-muted: #5c5c63;
+  --jf-page: #ffffff;
+}
+
+/* The page's reset stays out of the demos: the kit sizes its own parts */
+:where(*:not(.ss-stage, .ss-stage *)),
+:where(*:not(.ss-stage, .ss-stage *))::before,
+:where(*:not(.ss-stage, .ss-stage *))::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--jf-page);
+  color: var(--jf-ink);
+  font-family: 'JF Poppins', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.site {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 0 16px;
+}
+
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 460px);
+  align-items: center;
+  gap: 64px;
+  padding: 72px 0 0;
+}
+
+.hero__eyebrow {
+  margin: 0 0 16px;
+  color: var(--jf-primary);
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 600;
+}
+
+.hero__title {
+  margin: 0;
+  font-size: 56px;
+  line-height: 1.08;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+.hero__lede {
+  max-width: 34em;
+  margin: 24px 0 32px;
+  color: var(--jf-muted);
+  font-size: 18px;
+  line-height: 1.6;
+}
+
+.hero__cta {
+  display: inline-flex;
+  align-items: center;
+  height: 52px;
+  padding: 0 28px;
+  border-radius: 999px;
+  background: var(--jf-primary);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background-color 0.15s ease;
+}
+
+.hero__cta:hover {
+  background: var(--jf-primary-pressed);
+}
+
+.hero__cta:focus-visible {
+  outline: 3px solid var(--jf-ink);
+  outline-offset: 3px;
+}
+
+.hero__demo {
+  width: 100%;
+  min-width: 0;
+}
+
+/* A feature: the demo on the left, its copy on the right */
+.feature {
+  display: grid;
+  grid-template-columns: minmax(0, 460px) minmax(0, 1fr);
+  align-items: center;
+  gap: 64px;
+  padding: 120px 0 0;
+}
+
+.feature__demo {
+  width: 100%;
+  min-width: 0;
+}
+
+.feature__title {
+  margin: 0;
+  font-size: 40px;
+  line-height: 1.12;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+/* Tablet and phone: copy first, the demo under it at the column's width
+   (the Stage switches to its compact design below 460px) */
+@media (max-width: 960px) {
+  .hero {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 40px;
+    padding-top: 48px;
+    text-align: center;
+  }
+
+  .hero__lede {
+    margin-inline: auto;
+  }
+
+  .hero__demo,
+  .feature__demo {
+    max-width: 460px;
+    margin: 0 auto;
+  }
+
+  /* Copy first on narrow screens, as in the hero */
+  .feature {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 40px;
+    padding-top: 80px;
+    text-align: center;
+  }
+
+  .feature__copy {
+    order: -1;
+  }
+}
+
+@media (max-width: 560px) {
+  .hero__title {
+    font-size: 38px;
+  }
+
+  .feature__title {
+    font-size: 30px;
+  }
+
+  .hero__lede {
+    font-size: 16px;
+  }
+}

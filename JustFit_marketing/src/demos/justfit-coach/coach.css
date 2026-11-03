@@ -1,0 +1,361 @@
+/* justFit AI Coach chat. Every rule is scoped to the demo; the tokens are the
+   app's own (JustFit_client/src/theme/tokens.css, the coach__* utilities). */
+@font-face {
+  font-family: 'JF Poppins';
+  src: url('./assets/Poppins-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-display: block;
+}
+@font-face {
+  font-family: 'JF Poppins';
+  src: url('./assets/Poppins-Medium.woff2') format('woff2');
+  font-weight: 500;
+  font-display: block;
+}
+@font-face {
+  font-family: 'JF Poppins';
+  src: url('./assets/Poppins-SemiBold.woff2') format('woff2');
+  font-weight: 600;
+  font-display: block;
+}
+
+.jc {
+  & .ss-stage {
+    --jf-primary: #d40005;
+    --jf-primary-soft: #fdeaea;
+    --jf-ink: #111111;
+    --jf-muted: #5c5c63;
+    --jf-faint: #767680;
+    --jf-line: #e8e8ea;
+    --jf-page: #f4f4f5;
+    --jf-success: #2f8f57;
+    --jf-shadow-card: 0 2px 12px rgba(17, 17, 17, 0.05);
+    --ss-accent: #d40005;
+    overflow: hidden;
+    background: transparent;
+  }
+
+  /* Pinned from the top, one gutter in; the phone's foot (the home indicator
+     under the ask box) runs 24px off the bottom */
+  .jc-phone {
+    position: absolute;
+    top: 36px;
+    left: 50px;
+  }
+
+  & .ss-stage[data-layout='compact'] .jc-phone {
+    top: 16px;
+    left: 16px;
+  }
+
+  .jc-screen {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    padding-top: 59px;
+    background: var(--jf-page);
+    color: var(--jf-ink);
+    font-family: 'JF Poppins', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ---- Header ---- */
+
+  .jc-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 16px 12px;
+  }
+
+  .jc-back {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 2px 10px rgba(17, 17, 17, 0.08);
+  }
+
+  .jc-face {
+    flex: none;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+  }
+
+  .jc-head__text {
+    display: grid;
+    min-width: 0;
+  }
+
+  .jc-name {
+    font-size: 15px;
+    line-height: 20px;
+    font-weight: 600;
+  }
+
+  .jc-hint {
+    font-size: 13px;
+    line-height: 18px;
+    color: var(--jf-muted);
+  }
+
+  /* ---- Thread: a fresh chat reads from the top ---- */
+
+  .jc-thread {
+    --ss-thread-size: 15px;
+    --ss-me: var(--jf-primary);
+    --ss-me-text: #fff;
+    --ss-them: #fff;
+    --ss-them-text: var(--jf-ink);
+    flex: 1;
+    gap: 12px;
+    padding: 12px 16px;
+    /* Older turns scroll up under the header: they dissolve at the pane's top
+       edge instead of being sliced by it */
+    mask-image: linear-gradient(to bottom, transparent 4px, #000 56px);
+    line-height: 22px;
+    letter-spacing: 0;
+  }
+
+  .jc-thread .ss-bubble {
+    max-width: 84%;
+    padding: 12px 16px;
+    border-radius: 18px 18px 18px 6px;
+  }
+
+  .jc-thread .ss-bubble-row[data-from='me'] .ss-bubble {
+    border-radius: 18px 18px 6px 18px;
+  }
+
+  .jc-thread .ss-bubble-row[data-from='them'] .ss-bubble::before {
+    box-shadow: var(--jf-shadow-card);
+  }
+
+  .jc-thread .ss-bubble__tail {
+    display: none;
+  }
+
+  .jc-thread .ss-bubble-row + .ss-bubble-row {
+    margin-top: 0;
+  }
+
+  /* The answer's figures, semibold as the app's boldPoints sets them */
+  .jc-answer .ss-stream__w[data-mark] {
+    background: none;
+    font-weight: 600;
+  }
+
+  /* Earlier turns: placeholder lines at the text's own pitch */
+  .jc-lines {
+    display: grid;
+    gap: 14px;
+    padding: 7px 0;
+  }
+
+  /* The lock screen over the chat (a flat #1c1c1e, as in the hero) */
+  .jc-cover {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    background: #1c1c1e;
+    will-change: transform;
+    transform: translateY(-100%);
+    transition: transform 0.6s cubic-bezier(0.3, 0.75, 0.1, 1);
+  }
+
+  .jc-cover[data-on] {
+    transform: none;
+  }
+
+  /* ---- The plan-change card (ChatProposals) ---- */
+
+  .jc-card-slot {
+    padding-top: 0;
+  }
+
+  .jc-card {
+    display: grid;
+    gap: 8px;
+    padding: 16px;
+    border-radius: 20px;
+    background: #fff;
+    box-shadow: var(--jf-shadow-card);
+  }
+
+  .jc-slot {
+    font-size: 11px;
+    line-height: 14px;
+    font-weight: 500;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--jf-muted);
+  }
+
+  .jc-was {
+    font-size: 13px;
+    line-height: 18px;
+    color: var(--jf-muted);
+    text-decoration: line-through;
+  }
+
+  .jc-dish {
+    font-size: 20px;
+    line-height: 26px;
+    font-weight: 600;
+  }
+
+  .jc-action {
+    display: block;
+    margin-top: 4px;
+  }
+
+  .jc-apply {
+    display: inline-flex;
+    align-items: center;
+    height: 44px;
+    padding-inline: 20px;
+    border-radius: 999px;
+    background: var(--jf-primary);
+    color: #fff;
+    font-size: 13px;
+    line-height: 16px;
+    font-weight: 600;
+    will-change: transform;
+    transition: transform 0.15s ease;
+  }
+
+  .jc-apply[data-pressed] {
+    transform: scale(0.96);
+  }
+
+  .jc-done {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 338px;
+    height: 44px;
+  }
+
+  .jc-done__label {
+    display: inline-flex;
+    width: 210px;
+    align-items: center;
+    gap: 6px;
+    color: var(--jf-success);
+    font-size: 13px;
+    line-height: 16px;
+  }
+
+  .jc-undo {
+    color: var(--jf-primary);
+    font-size: 14px;
+    line-height: 18px;
+    font-weight: 600;
+  }
+
+  /* ---- Ask box ---- */
+
+  .jc-compose {
+    padding: 8px 16px 42px;
+  }
+
+  /* Two lines of question still sit inside the send button's height, so the
+     box keeps its size as the text wraps */
+  .jc-ask {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 58px;
+    padding: 0 6px 0 16px;
+    border: 1px solid var(--jf-line);
+    border-radius: 999px;
+    background: #fff;
+  }
+
+  .jc-ask__icon {
+    flex: none;
+    color: var(--jf-primary);
+  }
+
+  .jc-ask__field {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+    min-height: 20px;
+    font-size: 15px;
+    line-height: 20px;
+  }
+
+  .jc-ask__text {
+    position: relative;
+    color: var(--jf-ink);
+  }
+
+  .jc-ask__ph {
+    position: absolute;
+    left: 0;
+    top: 0;
+    color: var(--jf-faint);
+    transition: opacity 0.1s ease;
+  }
+
+  .jc-ask__ph[data-hide] {
+    opacity: 0;
+  }
+
+  .jc-caret {
+    display: inline-block;
+    width: 2px;
+    height: 18px;
+    margin-left: 1px;
+    vertical-align: -3px;
+    background: var(--jf-primary);
+  }
+
+  .jc-send {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    /* Disabled, the app shows the red at 40%: drawn here as that colour on
+       white, solid, so the button keeps its presence in the row */
+    background: #ee999b;
+    color: #fff;
+    transition:
+      background-color 0.2s ease,
+      transform 0.15s ease;
+  }
+
+  .jc-send[data-on] {
+    background: var(--jf-primary);
+  }
+
+  .jc-send[data-pressed] {
+    transform: scale(0.92);
+  }
+}
+
+/* Compact: the phone is drawn smaller, so the smallest labels step up */
+.jc .ss-stage[data-layout='compact'] {
+  & .jc-hint,
+  & .jc-slot,
+  & .jc-was,
+  & .jc-apply {
+    font-size: 14px;
+    line-height: 18px;
+  }
+
+  & .jc-done__label {
+    font-size: 14px;
+    line-height: 16px;
+  }
+}
