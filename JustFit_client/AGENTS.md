@@ -365,6 +365,27 @@ picker were removed on 2026-11-01; don't add them back unless asked.
   - `error`, which `FormAlert` plays by itself.
 
   Calls are throttled and do nothing on the web.
+- **Motion for changing values (added 2026-11-02).** A figure that changes in place (calories
+  left, eaten, a macro's grams) is `components/motion/AnimatedNumber.tsx`; a ring's fill or a
+  bar's width follows `lib/useTween.ts`, and `ProgressRing` eases to each new value. They open on
+  the real value and only animate later changes. All of it holds still with Reduce Motion on.
+  - Don't swap re-keyed text with Reanimated `entering`/`exiting` for a number, and don't use
+    custom `Keyframe`s for entrances: both misplace text on the web build. Use the built-in
+    `FadeInDown`/`FadeIn` with `.reduceMotion(ReduceMotion.System)`.
+  - Only what arrives while a screen is open gets an entrance (`lib/useNewKeys.ts`): a logged meal,
+    a sent message, a reply. Key a list by its day so switching days doesn't animate.
+  - A button whose label changes (Log Meal → ✓ Logged, Apply → Updated) stays one
+    `PressableScale` with `layout={LinearTransition}`, its label faded in; success plays
+    `haptic.success()`.
+  - Coach chat: typing dots (`TypingDots`) while waiting; a reply that just arrived is written in
+    word by word (`RevealText`, client-side only), and its Apply cards follow once it's whole.
+- **Coach tip (Macro tab).** `lib/coachTipRules.ts` works the tip out on the phone from today's
+  totals, targets and the plan's meals still to come: no AI call. Tapping it opens the chat with
+  the question as `draft` (in the box, not sent).
+- **Meal reminders.** `lib/mealReminders.ts`: local notifications only (expo-notifications, no push
+  server, no Expo services), off until turned on in the Meal Plan screen. Today's are rescheduled
+  whenever the plan is read or changes. A tap may open only `/coach/meal-plan` (checked, never
+  routed as given). Sign-out clears them. The web build has none.
 - **Loading.** Use `components/Skeleton.tsx` (`ScreenSkeleton`, `SkeletonCard`, `SkeletonPulse`) for a
   screen's first read. Spinners stay only inside buttons.
 - **Lists.** Long vertical FlatLists spread `listPerf` from `lib/listPerf.ts`. An inverted chat

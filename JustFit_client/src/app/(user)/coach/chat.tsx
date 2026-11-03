@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View, type ScrollViewInstance } from "react-native";
+import Animated, { FadeIn, FadeInDown, ReduceMotion } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { router, useLocalSearchParams } from "expo-router";
@@ -7,29 +8,34 @@ import { router, useLocalSearchParams } from "expo-router";
 import { SymbolView } from "@/components/SymbolView";
 import { ChatProposals } from "@/components/coach/ChatProposals";
 import { CoachAvatar } from "@/components/coach/CoachAvatar";
+import { RevealText } from "@/components/motion/RevealText";
+import { TypingDots } from "@/components/motion/TypingDots";
 import { coachPrompts, coaches, type CoachId } from "@/data/coach";
 import { fonts } from "@/constants/fonts";
 import { CHAT_MAX_TEXT } from "@/lib/coach";
 import { useSessionToken } from "@/lib/session";
+import { useNewKeys } from "@/lib/useNewKeys";
 import { useCoachChatStore } from "@/store/coachChat";
 import { useThemeColors } from "@/theme";
 
-// A coach reply with its main points marked **like this** → runs of Text, the marked ones semibold.
-// Only the coach's text is parsed; what the member typed is shown exactly as written.
-function boldPoints(text: string) {
-  const parts = text.split(/\*\*(.+?)\*\*/);
-  if (parts.length === 1) return text;
-  return parts.map((part, i) => (i % 2 ? <Text key={i} style={{ fontFamily: fonts.semibold }}>{part}</Text> : part));
-}
+// A bubble that's new on screen: the member's rises in from the ask box, the coach's fades up
+const SENT_IN = FadeInDown.duration(320).reduceMotion(ReduceMotion.System);
+const REPLY_IN = FadeInDown.duration(260).reduceMotion(ReduceMotion.System);
+const TYPING_IN = FadeIn.duration(200).reduceMotion(ReduceMotion.System);
+const CARDS_IN = FadeInDown.duration(320).reduceMotion(ReduceMotion.System);
+
+// A turn's identity on screen: a sent message keeps its clientId once it comes back saved
+const keyOf = (turn: { id: string; role: string; clientId?: string }) => (turn.role === "member" && turn.clientId ? turn.clientId : turn.id);
 
 // Chat with the AI coach. Opened from the Coach tab's ask box (with what was typed, or a
-// suggestion chip, as `q`, sent once the saved conversation is shown). Each message is one paid AI
+// suggestion chip, as `q`, sent once the saved conversation is shown), or from the Macro tab's
+// coach tip (its question as `draft`, in the box but not sent). Each message is one paid AI
 // call, limited per member by the server; the server saves the conversation for 7 days, so it is
 // still here after leaving the chat or restarting the app. A failed message can be tapped to send
 // it again. A reply that recommends a change to the plan carries Apply cards (components/coach/ChatProposals).
 export default function CoachChat() {
   const colors = useThemeColors();
-  const { q, name, coach } = useLocalSearchParams<{ q?: string; name?: string; coach?: string }>();
+  const { q, draft, name, coach } = useLocalSearchParams<{ q?: string; draft?: string; name?: string; coach?: string }>();
   const getToken = useSessionToken();
   const turns = useCoachChatStore((state) => state.turns);
   const sending = useCoachChatStore((state) => state.sending);
@@ -40,9 +46,14 @@ export default function CoachChat() {
   const clear = useCoachChatStore((state) => state.clear);
   const send = useCoachChatStore((state) => state.send);
   const retry = useCoachChatStore((state) => state.retry);
-  const [text, setText] = useState("");
+  // `draft` (the Macro tab's coach tip) puts a question in the box without sending it
+  const [text, setText] = useState(() => (draft ?? "").slice(0, CHAT_MAX_TEXT));
   const scroll = useRef<ScrollViewInstance>(null);
   const sentQuery = useRef(false);
+  // What arrived after the saved conversation was shown animates in; a reply that just came back
+  // is written in word by word, and its Apply cards follow once it's whole
+  const added = useNewKeys(turns.map(keyOf), status === "ready");
+  const [written, setWritten] = useState<Set<string>>(() => new Set());
 
   const coachName = name || "Your coach";
   // Only a known coach id draws an avatar (the param is just a hint from the Coach tab)
@@ -134,7 +145,7 @@ export default function CoachChat() {
             )}
 
             {turns.map((turn) => (
-              <Fragment key={turn.id}>
+              <Fragment key={keyOf(turn)}>
                 {turn.role === "member" && turn.failed ? (
                   // Not sent: tapping it sends it again
                   <Pressable onPress={() => retry(getToken, turn.id)} disabled={sending} accessibilityRole="button" accessibilityLabel={`Not sent. Send again: ${turn.text}`}>
@@ -144,19 +155,36 @@ export default function CoachChat() {
                     <Text className="coach__hint mt-1 self-end">Not sent · Tap to try again</Text>
                   </Pressable>
                 ) : (
-                  <View className={["coach__bubble", turn.role === "member" && "coach__bubble--me", turn.failed && "coach__bubble--failed"].filter(Boolean).join(" ")}>
-                    <Text className={turn.role === "member" ? "coach__bubble-text coach__bubble-text--me" : "coach__bubble-text"}>{turn.role === "member" ? turn.text : boldPoints(turn.text)}</Text>
-                  </View>
+                  <Animated.View
+                    entering={added.has(keyOf(turn)) ? (turn.role === "member" ? SENT_IN : REPLY_IN) : undefined}
+                    className={["coach__bubble", turn.role === "member" && "coach__bubble--me", turn.failed && "coach__bubble--failed"].filter(Boolean).join(" ")}
+                  >
+                    {turn.role === "member" ? (
+                      <Text className="coach__bubble-text coach__bubble-text--me">{turn.text}</Text>
+                    ) : (
+                      <RevealText
+                        className="coach__bubble-text"
+                        text={turn.text}
+                        animate={added.has(keyOf(turn)) && !turn.failed}
+                        onDone={() => setWritten((done) => (done.has(turn.id) ? done : new Set(done).add(turn.id)))}
+                      />
+                    )}
+                  </Animated.View>
                 )}
-                {/* Plan changes the reply recommends, each with an Apply button */}
-                {turn.proposals && <ChatProposals turnId={turn.id} proposals={turn.proposals} />}
+                {/* Plan changes the reply recommends, each with an Apply button; for a new reply
+                    they slide in once it has been written out */}
+                {turn.proposals && (!added.has(keyOf(turn)) || written.has(turn.id)) && (
+                  <Animated.View entering={added.has(keyOf(turn)) ? CARDS_IN : undefined}>
+                    <ChatProposals turnId={turn.id} proposals={turn.proposals} />
+                  </Animated.View>
+                )}
               </Fragment>
             ))}
 
             {sending && (
-              <View className="coach__bubble" accessibilityLabel={`${coachName} is typing`}>
-                <ActivityIndicator color={colors.leaf} />
-              </View>
+              <Animated.View entering={TYPING_IN} className="coach__bubble" accessibilityLabel={`${coachName} is typing`}>
+                <TypingDots />
+              </Animated.View>
             )}
           </ScrollView>
 

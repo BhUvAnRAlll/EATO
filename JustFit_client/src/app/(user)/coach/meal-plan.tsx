@@ -6,10 +6,13 @@ import { router, useFocusEffect } from "expo-router";
 
 import { SymbolView } from "@/components/SymbolView";
 import { CoachButton } from "@/components/coach/CoachButton";
+import { MealRemindersRow } from "@/components/coach/MealRemindersRow";
 import { PlanTimeline } from "@/components/coach/PlanTimeline";
 import { usePullToRefresh } from "@/components/PullToRefresh";
 import { coaches } from "@/data/coach";
 import { track } from "@/lib/analytics";
+import { haptic } from "@/lib/haptics";
+import { syncMealReminders } from "@/lib/mealReminders";
 import { coachApi, type Intake, type IntakePrefill, type PlanState } from "@/lib/coach";
 import { todayIso } from "@/lib/macro";
 import { useSessionToken } from "@/lib/session";
@@ -48,6 +51,7 @@ export default function MealPlanScreen() {
     if (!planResult.ok) return setError(planResult.status ? planResult.error : OFFLINE);
     setLoaded(intake.data);
     setPlan(planResult.data);
+    syncMealReminders(planResult.data.plan, todayIso()).catch(() => {});
   }, [getToken]);
 
   useFocusEffect(
@@ -65,10 +69,15 @@ export default function MealPlanScreen() {
     setLogging(mealId);
     const result = await coachApi.logMeal(await getToken().catch(() => null), mealId, todayIso());
     setLogging(null);
-    if (!result.ok) return setActionError(result.status ? result.error : OFFLINE);
-    setPlan((current) =>
-      current?.plan ? { ...current, plan: { ...current.plan, meals: current.plan.meals.map((m) => (m.id === mealId ? { ...m, logged: true } : m)) } } : current,
-    );
+    if (!result.ok) {
+      haptic.error();
+      return setActionError(result.status ? result.error : OFFLINE);
+    }
+    haptic.success();
+    // The logged meal's reminder is dropped (the others stay)
+    const next = plan?.plan ? { ...plan, plan: { ...plan.plan, meals: plan.plan.meals.map((m) => (m.id === mealId ? { ...m, logged: true } : m)) } } : plan;
+    setPlan(next);
+    syncMealReminders(next?.plan ?? null, todayIso()).catch(() => {});
   };
 
   // The Swap Meal screen does the swap; this screen reads the plan again when it comes back into view
@@ -86,6 +95,7 @@ export default function MealPlanScreen() {
     setMaking(false);
     if (!result.ok) return setActionError(result.status ? result.error : OFFLINE);
     setPlan(result.data);
+    syncMealReminders(result.data.plan, todayIso()).catch(() => {});
   };
 
   const editAnswers = () => {
@@ -146,6 +156,8 @@ export default function MealPlanScreen() {
           {plan?.plan && (
             <>
               <PlanTimeline plan={plan.plan} logging={logging} onLog={logMeal} onSwap={swapMeal} />
+
+              <MealRemindersRow plan={plan.plan} date={todayIso()} />
 
               <View className="coach__banner">
                 <SymbolView name={{ ios: "doc.text", android: "description", web: "description" }} size={26} tintColor={colors.leaf} />

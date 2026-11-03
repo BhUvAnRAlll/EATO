@@ -12,6 +12,7 @@ import { fontFiles } from "@/constants/fonts";
 import { useAuthStore } from "@/store/auth";
 import { useThemeColors } from "@/theme";
 import { startAnalytics } from "@/lib/analytics";
+import { useMealReminderTaps } from "@/lib/mealReminders";
 
 // Each role can only open its own dashboard. If someone opens a screen they
 // aren't allowed to (or signs out), Expo Router sends them back to the start
@@ -39,6 +40,8 @@ function RootStack() {
   const navTheme = { ...base, colors: { ...base.colors, primary: colors.primary, background: colors.background, card: colors.surface, text: colors.ink, border: colors.line, notification: colors.primary } };
   const status = useAuthStore((state) => state.status);
   const role = useAuthStore((state) => (state.status === "signedIn" ? state.user?.role ?? null : null));
+  // A tapped meal reminder opens the Meal Plan, once a member is signed in
+  useMealReminderTaps(role === "user");
 
   // Ask the server about the saved session once at launch (the store runs one check at a time)
   useEffect(() => {

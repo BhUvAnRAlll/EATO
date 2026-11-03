@@ -6,9 +6,12 @@ import { fonts } from "@/constants/fonts";
 import { type DayProgress, type DayStatus } from "@/lib/macro";
 import { useThemeColors, Palette } from "@/theme";
 
-export const statusColor = (colors: Palette): Record<DayStatus, string> => ({ none: colors.creamLine, complete: colors.success, partial: colors.warning, low: colors.danger, over: colors.danger });
+// Three standings, three colours: target reached (green), over the target (red), not complete
+// yet (amber, however far short). Nothing logged is a grey dotted ring. Shared with the month
+// calendar.
+export const statusColor = (colors: Palette): Record<DayStatus, string> => ({ none: colors.creamLine, complete: colors.success, partial: colors.warning, low: colors.warning, over: colors.danger });
 // The picked day's number follows the day's standing
-const statusText = (colors: Palette): Record<DayStatus, string> => ({ none: colors.ink, complete: colors.success, partial: colors.warning, low: colors.danger, over: colors.danger });
+const statusText = (colors: Palette): Record<DayStatus, string> => ({ none: colors.ink, complete: colors.success, partial: colors.warning, low: colors.warning, over: colors.danger });
 
 // "Mon" from "2026-10-26"
 const weekdayShort = (date: string) => new Date(`${date}T00:00:00`).toLocaleDateString("en-US", { weekday: "short" });
@@ -23,8 +26,9 @@ type WeekStripProps = {
 };
 
 // Seven days, oldest first, straight on the page (no tiles): the weekday over the date, the date
-// in a thin ring graded by how much of the target was eaten (dotted when nothing was logged; a
-// day that reached its target is a solid green disc). The picked day's weekday and number are
+// in a thin ring graded by how much of the target was eaten: amber while short of it, red once
+// over it, dotted grey when nothing was logged; a day that reached its target is a solid green
+// disc. The picked day's weekday and number are
 // bold; future days can't be picked.
 export function WeekStrip({ week, selectedDate, today, progress, onSelect, width }: WeekStripProps) {
   const colors = useThemeColors();
@@ -53,7 +57,7 @@ export function WeekStrip({ week, selectedDate, today, progress, onSelect, width
             <Text className="macro__weekday" style={selected ? { color: colors.ink, fontFamily: fonts.semibold } : undefined}>{weekdayShort(date)}</Text>
             <Ring size={ring} stroke={stroke} progress={status === "none" ? 0 : Math.max(0.08, day?.ratio ?? 0)} color={statusColor(colors)[status]} trackColor={selected && status === "none" ? colors.lineStrong : colors.creamLine} dashed={status === "none"}>
               {done && <View className="macro__day-disc" style={{ width: ring - stroke * 2, height: ring - stroke * 2 }} />}
-              <Text className="macro__ring-day" style={{ fontSize: 15, lineHeight: 19, color: done ? colors.white : selected ? statusText(colors)[status] : colors.ink, fontFamily: selected ? "Poppins_700Bold" : undefined }}>{Number(date.slice(8))}</Text>
+              <Text className="macro__ring-day" style={{ fontSize: 15, lineHeight: 19, color: done ? colors.white : selected ? statusText(colors)[status] : colors.ink, fontFamily: selected ? fonts.semibold : undefined }}>{Number(date.slice(8))}</Text>
             </Ring>
           </PressableScale>
         );

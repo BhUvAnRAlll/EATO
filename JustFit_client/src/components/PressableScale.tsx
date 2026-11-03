@@ -1,3 +1,4 @@
+import type { ComponentProps } from "react";
 import { Pressable, type GestureResponderEvent, type PressableProps, type StyleProp, type ViewStyle } from "react-native";
 import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withSpring, withTiming } from "react-native-reanimated";
 
@@ -12,6 +13,8 @@ type PressableScaleProps = Omit<PressableProps, "style"> & {
   scaleTo?: number;
   // A haptic to play on press (none by default)
   haptic?: HapticKind;
+  // A layout transition, for a button whose size changes with its label (Log Meal → Logged)
+  layout?: ComponentProps<typeof AnimatedPressable>["layout"];
 };
 
 // A Pressable that eases down to ~97% while held and springs back on release, the iOS feel

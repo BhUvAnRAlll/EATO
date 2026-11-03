@@ -104,7 +104,7 @@ export default function DailyCalories() {
                     onPress={isToday ? () => router.push("/macro/add-meal") : undefined}
                   />
                 ) : (
-                  <MealTimeline rows={timelineRows(showing.meals)} onOpen={setOpenMeal} />
+                  <MealTimeline key={showing.date} rows={timelineRows(showing.meals)} onOpen={setOpenMeal} />
                 )}
               </View>
             </ScrollView>

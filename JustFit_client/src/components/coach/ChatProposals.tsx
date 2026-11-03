@@ -1,8 +1,11 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
+import Animated, { FadeIn, LayoutAnimationConfig, ReduceMotion } from "react-native-reanimated";
 
+import { PressableScale } from "@/components/PressableScale";
 import { SymbolView } from "@/components/SymbolView";
 import type { ChatProposals as Proposals, MealProposal, PlanSlot, WorkoutProposal } from "@/lib/coach";
+import { haptic } from "@/lib/haptics";
 import { useSessionToken } from "@/lib/session";
 import { proposalKey, useCoachChatStore, type ProposalState } from "@/store/coachChat";
 import { useThemeColors } from "@/theme";
@@ -17,11 +20,25 @@ const DAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 // Monday first, as the plan reads
 const days = (weekdays: number[]) => [...weekdays].sort((a, b) => ((a + 6) % 7) - ((b + 6) % 7)).map((d) => DAY[d]).join(", ");
 
+const STATUS_IN = FadeIn.duration(220).reduceMotion(ReduceMotion.System);
+
+// A success buzz the moment a change goes into the plan (not when the chat opens on one already
+// applied), and a warning buzz if it couldn't be
+function useApplyFeedback(state?: ProposalState) {
+  const was = useRef(state?.status);
+  useEffect(() => {
+    if (was.current === "busy" && state?.status === "applied") haptic.success();
+    if (was.current === "busy" && state?.status === "failed") haptic.error();
+    was.current = state?.status;
+  }, [state?.status]);
+}
+
 function Status({ state, applied, onUndo }: { state?: ProposalState; applied: string; onUndo?: () => void }) {
   const colors = useThemeColors();
   if (state?.status !== "applied") return null;
+  // The Apply button gives way to this line: it fades in where the button was
   return (
-    <View className="flex-row items-center justify-between" style={{ gap: 8 }}>
+    <Animated.View entering={STATUS_IN} className="flex-row items-center justify-between" style={{ gap: 8 }}>
       <View className="flex-row items-center" style={{ gap: 6 }}>
         <SymbolView name={{ ios: "checkmark.circle.fill", android: "check_circle", web: "check_circle" }} size={16} tintColor={colors.success} />
         <Text className="coach__hint" style={{ color: colors.success }}>{applied}</Text>
@@ -31,16 +48,20 @@ function Status({ state, applied, onUndo }: { state?: ProposalState; applied: st
           <Text className="home__link">Undo</Text>
         </Pressable>
       )}
-    </View>
+    </Animated.View>
   );
 }
 
 function ApplyButton({ label, busy, onPress }: { label: string; busy: boolean; onPress: () => void }) {
   const colors = useThemeColors();
   return (
-    <Pressable onPress={onPress} disabled={busy} className="coach__log coach__log--meal items-center justify-center self-start" accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ busy }}>
-      {busy ? <ActivityIndicator color={colors.onPrimary} /> : <Text className="coach__log-label">{label}</Text>}
-    </Pressable>
+    <PressableScale onPress={onPress} disabled={busy} haptic="tap" className="coach__log coach__log--meal items-center justify-center self-start" accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ busy }}>
+      <LayoutAnimationConfig skipEntering>
+        <Animated.View key={busy ? "busy" : "label"} entering={STATUS_IN}>
+          {busy ? <ActivityIndicator color={colors.onPrimary} /> : <Text className="coach__log-label">{label}</Text>}
+        </Animated.View>
+      </LayoutAnimationConfig>
+    </PressableScale>
   );
 }
 
@@ -48,6 +69,7 @@ function MealCard({ turnId, proposal }: { turnId: string; proposal: MealProposal
   const colors = useThemeColors();
   const getToken = useSessionToken();
   const state = useCoachChatStore((s) => s.proposals[proposalKey(turnId, proposal.mealId)]);
+  useApplyFeedback(state);
   const applyMeal = useCoachChatStore((s) => s.applyMeal);
   const undoMeal = useCoachChatStore((s) => s.undoMeal);
   const { option } = proposal;
@@ -73,6 +95,7 @@ function WorkoutCard({ turnId, proposal }: { turnId: string; proposal: WorkoutPr
   const colors = useThemeColors();
   const getToken = useSessionToken();
   const state = useCoachChatStore((s) => s.proposals[proposalKey(turnId, "workout")]);
+  useApplyFeedback(state);
   const applyWorkout = useCoachChatStore((s) => s.applyWorkout);
   const [confirming, setConfirming] = useState(false);
   return (

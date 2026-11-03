@@ -1,7 +1,9 @@
 import { Text, View } from "react-native";
 
+import { AnimatedNumber } from "@/components/motion/AnimatedNumber";
 import type { Totals } from "@/lib/macro";
 import { dateOf } from "@/lib/macro";
+import { useTween } from "@/lib/useTween";
 import { Palette, useThemeColors } from "@/theme";
 
 type Props = {
@@ -34,24 +36,25 @@ export function TodayOverview({ date, totals, targets }: Props) {
         {columns(colors).map((column) => {
           const value = Math.round(totals[column.key]);
           const target = targets ? Math.round(targets[column.key]) : null;
-          const percent = target ? Math.min(Math.round((value / target) * 100), 100) : 0;
-          return (
-            <View
-              key={column.key}
-              className="coach__stat"
-              accessibilityLabel={target ? `${column.label}: ${value} of ${target} ${column.unit}` : `${column.label}: ${value} ${column.unit}`}
-            >
-              <Text className="coach__stat-label" numberOfLines={1}>{column.label}</Text>
-              <Text numberOfLines={1}>
-                <Text className="coach__stat-value">{value}</Text>
-                {target !== null && <Text className="coach__stat-of">{` / ${target}`}</Text>}
-              </Text>
-              <View className="coach__bar">
-                <View className="coach__bar-fill" style={{ width: `${percent}%`, backgroundColor: column.color }} />
-              </View>
-            </View>
-          );
+          return <StatColumn key={column.key} label={column.label} unit={column.unit} color={column.color} value={value} target={target} />;
         })}
+      </View>
+    </View>
+  );
+}
+
+// One column: the figure rolls and the bar eases when a meal is logged
+function StatColumn({ label, unit, color, value, target }: { label: string; unit: string; color: string; value: number; target: number | null }) {
+  const percent = useTween(target ? Math.min((value / target) * 100, 100) : 0);
+  return (
+    <View className="coach__stat" accessibilityLabel={target ? `${label}: ${value} of ${target} ${unit}` : `${label}: ${value} ${unit}`}>
+      <Text className="coach__stat-label" numberOfLines={1}>{label}</Text>
+      <View className="flex-row items-baseline">
+        <AnimatedNumber className="coach__stat-value" numberOfLines={1}>{String(value)}</AnimatedNumber>
+        {target !== null && <Text className="coach__stat-of" numberOfLines={1}>{` / ${target}`}</Text>}
+      </View>
+      <View className="coach__bar">
+        <View className="coach__bar-fill" style={{ width: `${percent}%`, backgroundColor: color }} />
       </View>
     </View>
   );

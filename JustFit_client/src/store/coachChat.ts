@@ -81,8 +81,10 @@ export const useCoachChatStore = create<CoachChatState>((set, get) => {
       if (!stillCurrent() || get().status !== "ready") return;
       if (result.ok) {
         track("ai_chat_sent");
-        // The message and the reply as saved take the place of the one shown while sending
-        const saved = result.data.messages.map(toTurn);
+        // The message and the reply as saved take the place of the one shown while sending. The
+        // saved message keeps the clientId it was shown under, so the screen keeps it as the
+        // same bubble (it doesn't animate in a second time)
+        const saved = result.data.messages.map(toTurn).map((turn) => (turn.role === "member" ? { ...turn, clientId } : turn));
         const savedIds = new Set(saved.map((turn) => turn.id));
         const shown = get().turns.filter((turn) => turn.id !== asked.id && !savedIds.has(turn.id));
         set({ turns: [...shown, ...saved], sending: false });

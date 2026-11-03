@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 import { Animated, Pressable, ScrollView, Text, useWindowDimensions, View } from "react-native";
+import Reanimated, { FadeInDown, ReduceMotion } from "react-native-reanimated";
 import { ScreenSkeleton } from "@/components/Skeleton";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
@@ -12,9 +13,14 @@ import { MealTimeline, timelineRows } from "@/components/macro/MealTimeline";
 import { MealDetailSheet } from "@/components/macro/MealDetailSheet";
 import { MonthCalendarSheet } from "@/components/macro/MonthCalendarSheet";
 import { CaloriesCard } from "@/components/macro/CaloriesCard";
+import { CoachTipCard } from "@/components/macro/CoachTipCard";
 import { LoadError } from "@/components/macro/LoadError";
 import { WeekStrip } from "@/components/macro/WeekStrip";
 import { usePullToRefresh } from "@/components/PullToRefresh";
+import { coaches } from "@/data/coach";
+import { coachApi, type PlanState } from "@/lib/coach";
+import { coachTip, plannedStill } from "@/lib/coachTipRules";
+import { syncMealReminders } from "@/lib/mealReminders";
 import { longDate, macro, todayIso, whole, type DayProgress, type DayView, type Meal } from "@/lib/macro";
 import { useSessionToken } from "@/lib/session";
 import { useMacroStore, useMacroWeek } from "@/store/macro";
@@ -23,6 +29,8 @@ import { useThemeColors } from "@/theme";
 // The Macro tab: a week of days, the day at a glance (calories left in a ring, eaten and
 // target, the macros), the day's logged meals, and the way into logging (water is in the header). The selected day is shared
 // with the Macro screens.
+
+const TIP_IN = FadeInDown.duration(320).reduceMotion(ReduceMotion.System);
 
 export default function MacroHub() {
   const colors = useThemeColors();
@@ -40,6 +48,8 @@ export default function MacroHub() {
   const [openMeal, setOpenMeal] = useState<Meal | null>(null);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [fade] = useState(() => new Animated.Value(1));
+  // Today's coach plan, for the coach's tip (the meals still to come); none on another day
+  const [plan, setPlan] = useState<PlanState | null>(null);
   const latest = useRef(0);
 
   // The selected day and the week strip. While another day loads the previous one stays
@@ -48,8 +58,15 @@ export default function MacroHub() {
     const request = ++latest.current;
     setLoading(true);
     const token = await getToken().catch(() => null);
-    const [dayResult, weekResult] = await Promise.all([macro.day(token, selectedDate), macro.progress(token, week)]);
+    const [dayResult, weekResult, planResult] = await Promise.all([
+      macro.day(token, selectedDate),
+      macro.progress(token, week),
+      selectedDate === today ? coachApi.plan(token, today) : Promise.resolve(null),
+    ]);
     if (request !== latest.current) return;
+    // The tip is a nicety: a plan that can't be read just means no tip
+    setPlan(planResult?.ok ? planResult.data : null);
+    if (planResult?.ok) syncMealReminders(planResult.data.plan, today).catch(() => {});
     setLoadError(dayResult.ok ? null : dayResult.error);
     if (!dayResult.ok) setLoading(false);
     if (dayResult.ok) {
@@ -59,7 +76,7 @@ export default function MacroHub() {
       Animated.timing(fade, { toValue: 1, duration: 200, useNativeDriver: true }).start();
     }
     if (weekResult.ok) setProgress(Object.fromEntries(weekResult.data.days.map((d) => [d.date, d])));
-  }, [getToken, selectedDate, week, fade]);
+  }, [getToken, selectedDate, week, fade, today]);
 
   // Loads when the tab comes into view (so a meal saved in the logging flow is there on
   // return) and again whenever the day or the week moves
@@ -73,6 +90,21 @@ export default function MacroHub() {
   const { refreshControl } = usePullToRefresh(load);
 
   const showing = day;
+  // The coach's word on today: only on today, with a plan (it names the member's coach)
+  const coachPlan = isToday && showing?.date === today ? plan?.plan ?? null : null;
+  const tip =
+    coachPlan && showing
+      ? coachTip(
+          { kcal: showing.totals.kcal, proteinG: showing.totals.proteinG },
+          showing.targets ? { kcal: showing.targets.kcal, proteinG: showing.targets.proteinG } : null,
+          plannedStill(coachPlan.meals, showing.meals.map((meal) => meal.slot)),
+        )
+      : null;
+  const askCoach = () => {
+    if (!coachPlan || !tip) return;
+    const name = coaches.find((c) => c.id === coachPlan.coach)?.name ?? "Your coach";
+    router.push({ pathname: "/coach/chat", params: { draft: tip.ask, name, coach: coachPlan.coach } });
+  };
   const switching = loading && day !== null;
   const targets = showing?.targets ?? null;
   const eaten = showing?.totals.kcal ?? 0;
@@ -116,6 +148,13 @@ export default function MacroHub() {
                 />
               )}
 
+              {/* The coach's tip on today, worked out on the phone (no AI call); slides in when it appears */}
+              {coachPlan && tip && (
+                <Reanimated.View entering={TIP_IN}>
+                  <CoachTipCard tip={tip} coach={coachPlan.coach} onAsk={askCoach} />
+                </Reanimated.View>
+              )}
+
               <Pressable onPress={() => router.push("/macro/calories-macros")} className="home__card flex-row items-center gap-3" accessibilityRole="button" accessibilityLabel="Calories and macros: split, weekly trend and targets">
                 <View className="macro__icon-tile" style={{ backgroundColor: colors.surfaceAlt }}>
                   <SymbolView name={{ ios: "chart.pie", android: "pie_chart", web: "pie_chart" }} size={20} tintColor={colors.ink} />
@@ -147,7 +186,7 @@ export default function MacroHub() {
                   onPress={isToday ? () => router.push("/macro/add-meal") : undefined}
                 />
               ) : (
-                <MealTimeline rows={timelineRows(showing.meals)} onOpen={setOpenMeal} />
+                <MealTimeline key={showing.date} rows={timelineRows(showing.meals)} onOpen={setOpenMeal} />
               )}
             </Animated.View>
           )}

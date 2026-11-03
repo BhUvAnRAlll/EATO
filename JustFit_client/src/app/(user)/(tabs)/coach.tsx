@@ -26,6 +26,7 @@ import { useCoachIntakeStore } from "@/store/coachIntake";
 import type { Icon } from "@/types/profile";
 import { useThemeColors } from "@/theme";
 import { track } from "@/lib/analytics";
+import { syncMealReminders } from "@/lib/mealReminders";
 
 // What the coach will do, shown before the intake
 const promises: { icon: Icon; title: string; text: string }[] = [
@@ -92,6 +93,7 @@ export default function Coach() {
       const [planResult, dayResult] = await Promise.all([coachApi.plan(token, today), macro.day(token, today), loadWorkout(token, today)]);
       if (!planResult.ok) return setError(planResult.status ? planResult.error : OFFLINE);
       setPlan(planResult.data);
+      syncMealReminders(planResult.data.plan, today).catch(() => {});
       setDay(dayResult.ok ? dayResult.data : null);
     }
     setLoaded(result.data);
@@ -131,6 +133,7 @@ export default function Coach() {
     setMaking(false);
     if (!result.ok) return setPlanError(result.status ? result.error : OFFLINE);
     setPlan(result.data);
+    syncMealReminders(result.data.plan, todayIso()).catch(() => {});
     loadWorkout(token, todayIso());
   };
 

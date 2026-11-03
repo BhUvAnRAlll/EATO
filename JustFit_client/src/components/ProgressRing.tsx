@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { AccessibilityInfo, Animated, View } from "react-native";
 import Svg, { Circle } from "react-native-svg";
 
+import { useTween } from "@/lib/useTween";
 import { useThemeColors } from "@/theme";
 
 type ProgressRingProps = {
@@ -19,8 +20,9 @@ type ProgressRingProps = {
   children?: (animated: number) => ReactNode;
 };
 
-// A red ring that fills once when it appears (at once with Reduce Motion on). Used for
-// Home's progress card and the scan report's body score.
+// A red ring that fills once when it appears, then eases to each new value (a meal logged, water
+// added); all at once with Reduce Motion on. Used for Home's progress card and the scan
+// report's body score.
 export function ProgressRing({ progress, size = 64, stroke = 7, color: colorProp, trackColor: trackColorProp, delay = 0, children }: ProgressRingProps) {
   const colors = useThemeColors();
   const color = colorProp ?? colors.leaf;
@@ -45,7 +47,8 @@ export function ProgressRing({ progress, size = 64, stroke = 7, color: colorProp
 
   const radius = (size - stroke) / 2;
   const circumference = 2 * Math.PI * radius;
-  const filled = circumference * Math.min(1, Math.max(0, progress)) * shown;
+  const eased = useTween(Math.min(1, Math.max(0, progress)));
+  const filled = circumference * eased * shown;
   return (
     <View style={{ width: size, height: size }}>
       <Svg width={size} height={size}>

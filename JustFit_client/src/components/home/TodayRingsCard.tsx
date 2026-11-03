@@ -4,6 +4,7 @@ import { PressableScale } from "@/components/PressableScale";
 import { ProgressRing } from "@/components/ProgressRing";
 import { SymbolView } from "@/components/SymbolView";
 import type { NutritionToday } from "@/data/home";
+import { AnimatedNumber } from "@/components/motion/AnimatedNumber";
 import { useThemeColors } from "@/theme";
 
 type TodayRingsCardProps = {
@@ -46,7 +47,7 @@ export function TodayRingsCard({ heading, nutrition, water, width, onOpen }: Tod
         <Text className="home__card-title" numberOfLines={1}>{heading}</Text>
         <View className="home__pill-soft">
           <SymbolView name={{ ios: "flame.fill", android: "local_fire_department", web: "local_fire_department" }} size={13} tintColor={colors.primaryText} />
-          <Text className="home__pill-soft-label">{`${kcal(left)} kcal left`}</Text>
+          <AnimatedNumber className="home__pill-soft-label">{`${kcal(left)} kcal left`}</AnimatedNumber>
         </View>
       </View>
 
@@ -54,7 +55,7 @@ export function TodayRingsCard({ heading, nutrition, water, width, onOpen }: Tod
         {rings.map((ring, index) => (
           <View key={ring.key} className="flex-1 items-center" style={{ gap: 8 }} accessibilityLabel={ring.spoken}>
             <ProgressRing progress={ring.progress} size={size} stroke={7} color={ring.color} delay={index * 120}>
-              {() => <Text className="home__ring-value" numberOfLines={1} adjustsFontSizeToFit>{ring.value}</Text>}
+              {() => <AnimatedNumber className="home__ring-value" numberOfLines={1} adjustsFontSizeToFit>{ring.value}</AnimatedNumber>}
             </ProgressRing>
             <View className="items-center">
               <Text className="home__ring-label">{ring.label}</Text>

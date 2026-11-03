@@ -279,6 +279,27 @@ describe("ui coach: the AI Coach intake", () => {
     await h.expectPath("/coach");
   }));
 
+  it("6. (tip) the Macro tab shows the coach's tip from today's numbers; Ask puts its question in the chat box without sending it", run("tip", async () => {
+    const [[before]] = await connection.query("SELECT COUNT(*) AS n FROM coach_chat_messages WHERE user_id = ?", [identities.a.id]);
+    await h.goto("/macro", "Ask Priya");
+    // Worked out on the phone from the logged lunch, the targets and the plan's meals still to come
+    assert.match(await page.bodyText(), /g protein|kcal over/, "the tip states today's numbers");
+    await snapshotAllWidths("macro-coach-tip");
+    await page.clickText("Ask Priya");
+    await h.expectPath("/coach/chat");
+    const box = await page.waitFor(`(() => { const el = document.querySelector('textarea[aria-label="Message your coach"]'); return el && el.value ? el.value : null; })()`, NAV_TIMEOUT, "the tip's question in the box");
+    assert.match(box, /protein goal today|for the rest of today|over my calories/);
+    // Nothing was sent: no AI call until the member sends it
+    await h.settle();
+    const [[after]] = await connection.query("SELECT COUNT(*) AS n FROM coach_chat_messages WHERE user_id = ?", [identities.a.id]);
+    assert.equal(after.n, before.n, "opening the chat from the tip sends nothing");
+    await page.setInput('textarea[aria-label="Message your coach"]', "");
+    await clickLabel("Back");
+    await h.expectPath("/macro");
+    // The next steps start on the Coach tab
+    await h.goto("/coach", "Meal plan");
+  }));
+
   it("6a. Insights: the week from the logged meal, the weight entered, and the coach's review written once", run("insights", async () => {
     // Two weigh-ins, as Profile › Measurements would have saved them
     const day = (offset) => new Date(Date.now() + 5.5 * 3600000 + offset * 86400000).toISOString().slice(0, 10);

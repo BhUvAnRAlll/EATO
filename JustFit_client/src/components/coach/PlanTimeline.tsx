@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
+import Animated, { FadeIn, LayoutAnimationConfig, LinearTransition, ReduceMotion } from "react-native-reanimated";
 
 import { BottomSheet } from "@/components/BottomSheet";
 import { MealCard } from "@/components/MealCard";
+import { PressableScale } from "@/components/PressableScale";
 import { SymbolView } from "@/components/SymbolView";
 import { timeLabel } from "@/lib/macro";
 import type { CoachPlan, PlanMeal, PlanSlot } from "@/lib/coach";
@@ -35,6 +37,9 @@ function planTime(time: string) {
   const [h, m] = time.split(":").map(Number);
   return Number.isFinite(h) && Number.isFinite(m) ? timeLabel(h, m) : time;
 }
+
+const BUTTON_MORPH = LinearTransition.duration(220).reduceMotion(ReduceMotion.System);
+const LABEL_IN = FadeIn.duration(180).reduceMotion(ReduceMotion.System);
 
 // One plan meal on the shared meal card: Swap (before it's logged) and Log Meal as its buttons,
 // View meal opening the foods with their amounts and the coach's tip from the bottom
@@ -72,24 +77,31 @@ function MealEntry({ meal, logging, onLog, swapping, onSwap, onDetails }: { meal
         ) : null
       }
       after={
-        <Pressable
+        // Log Meal → a spinner → ✓ Logged, one button morphing: its width eases between the
+        // labels and each label fades in (the screen opens on the state as it is)
+        <PressableScale
           onPress={() => onLog(meal.id)}
           disabled={meal.logged || busy}
+          layout={BUTTON_MORPH}
           className={meal.logged ? "coach__log coach__log--meal coach__log--done" : "coach__log coach__log--meal"}
           accessibilityRole="button"
           accessibilityLabel={meal.logged ? `${meal.name} logged` : `Log ${meal.name}`}
         >
-          {logging === meal.id ? (
-            <ActivityIndicator size="small" color={colors.onPrimary} />
-          ) : meal.logged ? (
-            <>
-              <SymbolView name={{ ios: "checkmark", android: "check", web: "check" }} size={12} tintColor={colors.leaf} />
-              <Text className="coach__log-label coach__log-label--done">Logged</Text>
-            </>
-          ) : (
-            <Text className="coach__log-label">Log Meal</Text>
-          )}
-        </Pressable>
+          <LayoutAnimationConfig skipEntering>
+            <Animated.View key={logging === meal.id ? "busy" : meal.logged ? "done" : "log"} entering={LABEL_IN} className="flex-row items-center" style={{ gap: 4 }}>
+              {logging === meal.id ? (
+                <ActivityIndicator size="small" color={colors.onPrimary} />
+              ) : meal.logged ? (
+                <>
+                  <SymbolView name={{ ios: "checkmark", android: "check", web: "check" }} size={12} tintColor={colors.leaf} />
+                  <Text className="coach__log-label coach__log-label--done">Logged</Text>
+                </>
+              ) : (
+                <Text className="coach__log-label">Log Meal</Text>
+              )}
+            </Animated.View>
+          </LayoutAnimationConfig>
+        </PressableScale>
       }
     />
   );
