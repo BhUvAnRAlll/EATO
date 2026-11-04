@@ -106,6 +106,31 @@
      card, filled buttons, the + buttons, selected chips and tabs, the badge and pills (white text
      passes AA across it) */
   --color-gym-grad-from: #4f46e5;
+  /* Home's count tiles (the user's design): a soft ground, its outline, the icon's square and the icon */
+  --color-gym-tile-violet: #f2f0ff;
+  --color-gym-tile-violet-line: #e2ddfb;
+  --color-gym-tile-violet-box: #e6e2ff;
+  --color-gym-tile-violet-icon: #4f46e5;
+  --color-gym-tile-orange: #fff6ec;
+  --color-gym-tile-orange-line: #fbe3c8;
+  --color-gym-tile-orange-box: #fdebd5;
+  --color-gym-tile-orange-icon: #ea7a12;
+  --color-gym-tile-blue: #eef5ff;
+  --color-gym-tile-blue-line: #d6e6fb;
+  --color-gym-tile-blue-box: #ddebfd;
+  --color-gym-tile-blue-icon: #3b6fe0;
+  --color-gym-tile-green: #ecfbf2;
+  --color-gym-tile-green-line: #cdefd9;
+  --color-gym-tile-green-box: #d7f4e2;
+  --color-gym-tile-green-icon: #16a34a;
+  --color-gym-tile-pink: #fff0f2;
+  --color-gym-tile-pink-line: #f8d4da;
+  --color-gym-tile-pink-box: #fddde2;
+  --color-gym-tile-pink-icon: #e11d48;
+  --color-gym-tile-purple: #f4f0ff;
+  --color-gym-tile-purple-line: #e3dafb;
+  --color-gym-tile-purple-box: #e9e1ff;
+  --color-gym-tile-purple-icon: #7c3aed;
   --color-gym-grad-to: #7c3aed;
   --color-gym-primary-line: #b4bcf5;
   --color-gym-page: #ffffff;

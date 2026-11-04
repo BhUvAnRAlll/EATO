@@ -62,14 +62,21 @@ export default function GymHome() {
   const tileLabel = narrow ? { fontSize: 11 } : undefined;
   const data = result.state === "ready" ? result.data : null;
 
-  const stats: { id: string; value: number; label: string; tone: Tone; href: Href }[] = data
+  // Each count tile has its own soft colour and icon (the user's design)
+  const tile = (k: "Violet" | "Orange" | "Blue" | "Green" | "Pink" | "Purple") => ({
+    bg: colors[`gymTile${k}`],
+    line: colors[`gymTile${k}Line`],
+    box: colors[`gymTile${k}Box`],
+    icon: colors[`gymTile${k}Icon`],
+  });
+  const stats: { id: string; value: number; label: string; color: ReturnType<typeof tile>; icon: Icon; href: Href }[] = data
     ? [
-        { id: "admission", value: data.stats.admission, label: "Admission", tone: "primary", href: "/gym/transactions?kind=admission&today=1" },
-        { id: "renewal", value: data.stats.renewal, label: "Renewal", tone: "ink", href: "/gym/transactions?kind=renewal&today=1" },
-        { id: "enquiry", value: data.stats.enquiry, label: "Enquiry", tone: "primary", href: "/gym/enquiries" },
-        { id: "due-paid", value: data.stats.duePaid, label: "Due Paid", tone: "success", href: "/gym/transactions?kind=due&today=1" },
-        { id: "pt", value: data.stats.pt, label: "PT", tone: "primary", href: "/gym/transactions?kind=pt&today=1" },
-        { id: "product", value: data.stats.product, label: "Product", tone: "ink", href: "/gym/transactions?kind=sale&today=1" },
+        { id: "admission", value: data.stats.admission, label: "Admission", color: tile("Violet"), icon: { ios: "person.2", android: "group", web: "group" }, href: "/gym/transactions?kind=admission&today=1" },
+        { id: "renewal", value: data.stats.renewal, label: "Renewal", color: tile("Orange"), icon: { ios: "arrow.triangle.2.circlepath", android: "sync", web: "sync" }, href: "/gym/transactions?kind=renewal&today=1" },
+        { id: "enquiry", value: data.stats.enquiry, label: "Enquiry", color: tile("Blue"), icon: { ios: "doc.text", android: "description", web: "description" }, href: "/gym/enquiries" },
+        { id: "due-paid", value: data.stats.duePaid, label: "Due Paid", color: tile("Green"), icon: { ios: "indianrupeesign", android: "currency_rupee", web: "currency_rupee" }, href: "/gym/transactions?kind=due&today=1" },
+        { id: "pt", value: data.stats.pt, label: "PT", color: tile("Pink"), icon: { ios: "dumbbell", android: "fitness_center", web: "fitness_center" }, href: "/gym/transactions?kind=pt&today=1" },
+        { id: "product", value: data.stats.product, label: "Product", color: tile("Purple"), icon: { ios: "shippingbox", android: "deployed_code", web: "deployed_code" }, href: "/gym/transactions?kind=sale&today=1" },
       ]
     : [];
   const alerts: { id: string; value: number; label: string; tag: string; tone: Tone; icon: Icon; href: Href }[] = data
@@ -146,9 +153,14 @@ export default function GymHome() {
 
               <View className="flex-row flex-wrap" style={{ gap: 8 }}>
                 {stats.map((stat) => (
-                  <PressableScale key={stat.id} onPress={() => router.push(stat.href)} className="gym-card gym-stat" style={{ flexBasis: "30%", flexGrow: 1 }} accessibilityRole="button" accessibilityLabel={`${stat.value} ${stat.label}`}>
-                    <Text className="gym-stat__value" style={{ color: toneColors(colors, stat.tone).text }}>{stat.value}</Text>
-                    <Text className="gym-stat__label" style={tileLabel} numberOfLines={1} adjustsFontSizeToFit>{stat.label}</Text>
+                  <PressableScale key={stat.id} onPress={() => router.push(stat.href)} className="gym-tile" style={[{ flexBasis: "30%", flexGrow: 1, backgroundColor: stat.color.bg, borderColor: stat.color.line }, narrow ? { flexDirection: "column", alignItems: "flex-start", gap: 6 } : null]} accessibilityRole="button" accessibilityLabel={`${stat.value} ${stat.label}`}>
+                    <View className="gym-tile__icon" style={{ backgroundColor: stat.color.box }}>
+                      <SymbolView name={stat.icon} size={17} tintColor={stat.color.icon} />
+                    </View>
+                    <View className="min-w-0 flex-1">
+                      <Text className="gym-stat__value" style={{ color: colors.gymInk }}>{stat.value}</Text>
+                      <Text className="gym-tile__label" numberOfLines={1} adjustsFontSizeToFit>{stat.label}</Text>
+                    </View>
                   </PressableScale>
                 ))}
               </View>

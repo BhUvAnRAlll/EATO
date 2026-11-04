@@ -5727,3 +5727,31 @@
   align-items: center;
   justify-content: center;
 }
+
+/* Home's count tiles (the user's design): soft colour, outline, icon square, number and label */
+@utility gym-tile {
+  flex-direction: row;
+  align-items: center;
+  gap: 7px;
+  min-height: 64px;
+  border-radius: 16px;
+  border-width: 1px;
+  padding-inline: 8px;
+  padding-block: 10px;
+}
+
+@utility gym-tile__icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  align-items: center;
+  justify-content: center;
+}
+
+@utility gym-tile__label {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  line-height: 15px;
+  letter-spacing: -0.1px;
+  color: var(--color-gym-muted);
+}
