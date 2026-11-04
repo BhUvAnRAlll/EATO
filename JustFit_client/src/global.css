@@ -4766,14 +4766,6 @@
   flex-shrink: 1;
 }
 
-@utility gym-header__place {
-  font-family: var(--font-sans);
-  font-size: 13px;
-  line-height: 18px;
-  color: var(--color-gym-muted);
-  flex-shrink: 1;
-}
-
 @utility gym-role-pill {
   border-radius: 6px;
   background-color: var(--color-gym-primary);
@@ -4787,30 +4779,6 @@
   line-height: 15px;
   letter-spacing: 1px;
   color: var(--color-white);
-}
-
-@utility gym-online-dot {
-  position: absolute;
-  top: -2px;
-  right: -2px;
-  width: 11px;
-  height: 11px;
-  border-radius: var(--radius-pill);
-  border-width: 2px;
-  border-color: var(--color-gym-page);
-  background-color: var(--color-gym-success);
-}
-
-@utility gym-subbar {
-  flex-direction: row;
-  align-items: center;
-  gap: 10px;
-  padding-inline: 16px;
-  min-height: 44px;
-  padding-block: 7px;
-  background-color: var(--color-gym-bar);
-  border-bottom-width: 1px;
-  border-color: var(--color-gym-line);
 }
 
 @utility gym-brand-badge {
@@ -4829,59 +4797,12 @@
   color: var(--color-white);
 }
 
-@utility gym-subbar__title {
-  font-family: var(--font-sans-semibold);
-  font-size: 15px;
-  line-height: 20px;
-  color: var(--color-gym-ink);
-}
-
-@utility gym-subbar__title-light {
-  font-family: var(--font-sans);
-  color: var(--color-gym-muted);
-}
-
-@utility gym-live {
-  flex-direction: row;
-  align-items: center;
-  gap: 6px;
-  border-radius: var(--radius-pill);
-  border-width: 1px;
-  border-color: var(--color-gym-success-line);
-  background-color: var(--color-gym-success-soft);
-  padding-inline: 10px;
-  padding-block: 3px;
-}
-
-@utility gym-live__dot {
-  width: 7px;
-  height: 7px;
-  border-radius: var(--radius-pill);
-  background-color: var(--color-gym-success);
-}
-
-@utility gym-live__label {
-  font-family: var(--font-sans-medium);
-  font-size: 12px;
-  line-height: 17px;
-  color: var(--color-gym-success);
-}
-
 @utility gym-hero {
   border-radius: 22px;
   overflow: hidden;
   padding: 20px;
   gap: 14px;
   box-shadow: var(--shadow-gym-hero);
-}
-
-@utility gym-hero__icon {
-  width: 30px;
-  height: 30px;
-  border-radius: 9px;
-  background-color: rgba(255, 255, 255, 0.14);
-  align-items: center;
-  justify-content: center;
 }
 
 @utility gym-hero__label {
@@ -4899,32 +4820,6 @@
   font-size: 34px;
   line-height: 42px;
   color: var(--color-white);
-}
-
-@utility gym-hero__chip {
-  flex: 1;
-  flex-direction: row;
-  align-items: center;
-  gap: 8px;
-  border-radius: 14px;
-  background-color: var(--color-white);
-  padding-inline: 12px;
-  min-height: 46px;
-  padding-block: 8px;
-}
-
-@utility gym-hero__chip-label {
-  flex-shrink: 1;
-  font-family: var(--font-sans-medium);
-  font-size: 13px;
-  line-height: 18px;
-  color: var(--color-gym-ink-soft);
-}
-
-@utility gym-hero__chip-value {
-  font-family: var(--font-sans-semibold);
-  font-size: 13px;
-  line-height: 18px;
 }
 
 @utility gym-dot {
@@ -4949,28 +4844,11 @@
   padding-inline: 4px;
 }
 
-@utility gym-stat__value {
-  font-family: var(--font-sans-semibold);
-  font-size: 21px;
-  line-height: 28px;
-}
-
 @utility gym-stat__label {
   font-family: var(--font-sans);
   font-size: 12px;
   line-height: 17px;
   color: var(--color-gym-muted);
-}
-
-@utility gym-sms {
-  flex-direction: row;
-  align-items: center;
-  gap: 14px;
-  border-radius: 18px;
-  border-width: 1.5px;
-  border-color: var(--color-gym-primary-line);
-  background-color: var(--color-gym-page);
-  padding: 16px;
 }
 
 @utility gym-sms__icon {
@@ -4980,46 +4858,6 @@
   border-width: 1px;
   border-color: var(--color-gym-line);
   background-color: var(--color-gym-primary-soft);
-  align-items: center;
-  justify-content: center;
-}
-
-@utility gym-sms__title {
-  font-family: var(--font-sans-semibold);
-  font-size: 15px;
-  line-height: 21px;
-  color: var(--color-gym-primary-text);
-}
-
-@utility gym-sms__text {
-  font-family: var(--font-sans);
-  font-size: 12px;
-  line-height: 18px;
-  color: var(--color-gym-muted);
-}
-
-@utility gym-chevron-btn {
-  width: 30px;
-  height: 30px;
-  border-radius: 9px;
-  border-width: 1px;
-  border-color: var(--color-gym-line);
-  background-color: var(--color-gym-page);
-  align-items: center;
-  justify-content: center;
-}
-
-@utility gym-alert {
-  flex: 1;
-  gap: 8px;
-  padding: 12px;
-}
-
-@utility gym-alert__icon {
-  width: 30px;
-  height: 30px;
-  border-radius: 9px;
-  border-width: 1px;
   align-items: center;
   justify-content: center;
 }
@@ -5034,20 +4872,6 @@
   font-family: var(--font-sans-medium);
   font-size: 11px;
   line-height: 15px;
-}
-
-@utility gym-alert__value {
-  font-family: var(--font-sans-semibold);
-  font-size: 22px;
-  line-height: 28px;
-  color: var(--color-gym-ink);
-}
-
-@utility gym-alert__label {
-  font-family: var(--font-sans);
-  font-size: 12px;
-  line-height: 17px;
-  color: var(--color-gym-muted);
 }
 
 @utility gym-section-title {
@@ -5269,19 +5093,6 @@
   background-color: var(--color-gym-bar);
   padding: 14px;
   gap: 6px;
-}
-
-@utility gym-live--off {
-  border-color: var(--color-gym-line);
-  background-color: var(--color-gym-bar);
-}
-
-@utility gym-live__dot--off {
-  background-color: var(--color-gym-faint);
-}
-
-@utility gym-live__label--off {
-  color: var(--color-gym-muted);
 }
 
 @utility gym-branch--current {
@@ -5728,34 +5539,6 @@
   justify-content: center;
 }
 
-/* Home's count tiles (the user's design): soft colour, outline, icon square, number and label */
-@utility gym-tile {
-  flex-direction: row;
-  align-items: center;
-  gap: 7px;
-  min-height: 64px;
-  border-radius: 16px;
-  border-width: 1px;
-  padding-inline: 8px;
-  padding-block: 10px;
-}
-
-@utility gym-tile__icon {
-  width: 32px;
-  height: 32px;
-  border-radius: 10px;
-  align-items: center;
-  justify-content: center;
-}
-
-@utility gym-tile__label {
-  font-family: var(--font-sans);
-  font-size: 11px;
-  line-height: 15px;
-  letter-spacing: -0.1px;
-  color: var(--color-gym-muted);
-}
-
 /* Manage › Member (the user's "Reminders from the list" design): the Member dropdown, the plain
    sort and search buttons, and the member cards with their reminder buttons */
 @utility gym-dropdown__caption {
@@ -5982,3 +5765,223 @@
   color: var(--color-gym-muted);
 }
 
+
+/* Gym portal Home (redesign 2026-11-04): a soft canvas, white cards with a hairline and a low
+   lift, one gradient hero, sentence-case section titles. Content tops out at 760 px wide. */
+@utility gym-dash {
+  width: 100%;
+  max-width: 760px;
+  align-self: center;
+  padding-inline: 16px;
+  gap: 22px;
+}
+
+@utility gym-dash-header {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  padding-inline: 16px;
+  padding-block: 10px;
+  background-color: var(--color-gym-canvas);
+}
+
+@utility gym-dash-header__eyebrow {
+  font-family: var(--font-sans-semibold);
+  font-size: 11px;
+  line-height: 14px;
+  letter-spacing: 1.2px;
+  color: var(--color-gym-faint);
+}
+
+@utility gym-dash-header__branch {
+  font-family: var(--font-sans-semibold);
+  font-size: 15px;
+  line-height: 21px;
+  color: var(--color-gym-ink);
+  flex-shrink: 1;
+}
+
+@utility gym-dash-icon-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  border-width: 1px;
+  border-color: var(--color-gym-hairline);
+  background-color: var(--color-gym-page);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility gym-dash-greeting {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--color-gym-muted);
+}
+
+@utility gym-dash-name {
+  font-family: var(--font-sans-semibold);
+  font-size: 24px;
+  line-height: 32px;
+  letter-spacing: -0.3px;
+  color: var(--color-gym-ink);
+  flex-shrink: 1;
+}
+
+@utility gym-dash-card {
+  border-radius: 18px;
+  border-width: 1px;
+  border-color: var(--color-gym-hairline);
+  background-color: var(--color-gym-page);
+  box-shadow: var(--shadow-gym-card);
+  overflow: hidden;
+}
+
+@utility gym-dash-section {
+  gap: 10px;
+}
+
+@utility gym-dash-section__title {
+  flex: 1;
+  font-family: var(--font-sans-semibold);
+  font-size: 16px;
+  line-height: 22px;
+  color: var(--color-gym-ink);
+}
+
+@utility gym-dash-section__note {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--color-gym-faint);
+}
+
+@utility gym-dash-hero__amount {
+  font-family: var(--font-sans-semibold);
+  font-size: 36px;
+  line-height: 44px;
+  letter-spacing: -0.6px;
+  color: var(--color-white);
+}
+
+@utility gym-dash-hero__link {
+  flex-direction: row;
+  align-items: center;
+  gap: 2px;
+  border-radius: var(--radius-pill);
+  background-color: rgba(255, 255, 255, 0.16);
+  padding-left: 12px;
+  padding-right: 8px;
+  min-height: 28px;
+}
+
+@utility gym-dash-hero__link-label {
+  font-family: var(--font-sans-medium);
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--color-white);
+}
+
+@utility gym-dash-split {
+  flex-direction: row;
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background-color: rgba(255, 255, 255, 0.22);
+  overflow: hidden;
+}
+
+@utility gym-dash-split__fill {
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-white);
+}
+
+@utility gym-dash-legend__label {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--color-white);
+  opacity: 0.8;
+}
+
+@utility gym-dash-legend__value {
+  font-family: var(--font-sans-semibold);
+  font-size: 15px;
+  line-height: 21px;
+  color: var(--color-white);
+}
+
+@utility gym-dash-stat {
+  gap: 10px;
+  padding: 14px;
+  border-color: var(--color-gym-hairline);
+}
+
+@utility gym-dash-stat__icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  align-items: center;
+  justify-content: center;
+}
+
+@utility gym-dash-stat__value {
+  font-family: var(--font-sans-semibold);
+  font-size: 22px;
+  line-height: 28px;
+  letter-spacing: -0.3px;
+  color: var(--color-gym-ink);
+}
+
+@utility gym-dash-stat__label {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--color-gym-muted);
+}
+
+@utility gym-dash-row {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  padding-inline: 14px;
+  min-height: 64px;
+  padding-block: 10px;
+  border-color: var(--color-gym-hairline);
+}
+
+@utility gym-dash-row__icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  align-items: center;
+  justify-content: center;
+}
+
+@utility gym-dash-row__title {
+  font-family: var(--font-sans-medium);
+  font-size: 15px;
+  line-height: 21px;
+  color: var(--color-gym-ink);
+}
+
+@utility gym-dash-row__text {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 17px;
+  color: var(--color-gym-muted);
+}
+
+@utility gym-dash-count {
+  min-width: 32px;
+  border-radius: var(--radius-pill);
+  padding-inline: 9px;
+  padding-block: 2px;
+  align-items: center;
+}
+
+@utility gym-dash-count__label {
+  font-family: var(--font-sans-semibold);
+  font-size: 14px;
+  line-height: 20px;
+}

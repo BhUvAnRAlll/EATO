@@ -134,6 +134,8 @@
   --color-gym-grad-to: #7c3aed;
   --color-gym-primary-line: #b4bcf5;
   --color-gym-page: #ffffff;
+  --color-gym-canvas: #f5f6fa; /* Home's page behind its white cards */
+  --color-gym-hairline: #eceef3; /* dividers inside a card */
   --color-gym-bar: #f8fafc;
   --color-gym-line: #e5e7eb;
   --color-gym-ink: #111827;
@@ -224,4 +226,5 @@
   /* Gym admin portal: the revenue card and the floating + button */
   --shadow-gym-hero: 0 10px 24px rgba(91, 33, 182, 0.3);
   --shadow-gym-fab: 0 6px 16px rgba(79, 70, 229, 0.35);
+  --shadow-gym-card: 0 1px 2px rgba(16, 24, 40, 0.04), 0 6px 18px rgba(16, 24, 40, 0.05);
 }

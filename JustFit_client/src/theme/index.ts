@@ -104,6 +104,8 @@ export const lightColors = {
   gymGradTo: "#7C3AED",
   gymPrimaryLine: "#B4BCF5",
   gymPage: "#FFFFFF",
+  gymCanvas: "#F5F6FA",
+  gymHairline: "#ECEEF3",
   gymBar: "#F8FAFC",
   gymLine: "#E5E7EB",
   gymInk: "#111827",

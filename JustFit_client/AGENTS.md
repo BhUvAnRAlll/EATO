@@ -165,9 +165,14 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
   billing in justFit yet).
   Money in whole rupees; "today" is India's date (`rules.todayInIndia`); gyms are never deleted
   and nothing cascades except `gym_staff` from users.
-- **App:** Home (live dashboard from the user's indigo design: six count tiles Admission, Renewal,
-  Enquiry, Due Paid, PT, Product; five cards Due, Expiring today, Attendance, Expiring in 1-3
-  days, Birthdays today), + (`/gym/add`: admission, renewal, due payment, PT, product, enquiry), Members (search, filters, pick mode), a member's page (check in
+- **App:** Home (live dashboard, redesigned 2026-11-04: on the `gym-canvas` page with white
+  `gym-dash-card`s, a header (menu, gym name and branch switcher, search, account), the greeting
+  with India's date and Live Sync, the gradient revenue card (total, an online/cash split bar,
+  both shares), Today: one card of six counts Admission, Renewal, Enquiry, Due Paid, PT, Product
+  (3 a row, 6 from 700 px), Needs attention: one list of Due, Expiring today, Attendance,
+  Expiring in 1-3 days, Birthdays today, then Send Bulk SMS and Recent Transactions; content
+  max 760 px; sections fade up once when the numbers first arrive, counts change with
+  `AnimatedNumber`), + (`/gym/add`: admission, renewal, due payment, PT, product, enquiry), Members (search, filters, pick mode), a member's page (check in
   once a day, renew, collect due, edit), Transactions (View All, 50 a page), Enquiries, Wallet tab
   (today, this month, owed). Admin: the Gyms tab, a gym's page,
   New gym. Calls in `lib/gymApi.ts`, loading in `lib/useGymData.ts`, saves in `lib/gymForm.ts`.

@@ -56,7 +56,7 @@ export default function GymWalletTab() {
           {result.state === "failed" && <GymError error={result.error} onRetry={retry} />}
           {result.state === "ready" && (
             <>
-              <RevenueCard online={result.data.today.online} cash={result.data.today.cash} onMenu={() => router.push("/gym/transactions?today=1")} />
+              <RevenueCard online={result.data.today.online} cash={result.data.today.cash} action={{ label: "Today's payments", onPress: () => router.push("/gym/transactions?today=1") }} />
               <PeriodCard title="This month" sums={result.data.month} />
               <PressableScale onPress={() => router.push("/gym/members?filter=due")} className="gym-card gym-tx" accessibilityRole="button" accessibilityLabel={`Owed by members: ${rupees(result.data.owed.total)}, ${result.data.owed.members} members`}>
                 <View className="min-w-0 flex-1">

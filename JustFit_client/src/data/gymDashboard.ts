@@ -8,6 +8,12 @@ import type { CatalogKind, Gender, MemberFilter, MemberStatus, PaymentKind, PayM
 export const rupees = (amount: number) => `₹${amount.toLocaleString("en-IN")}`;
 
 // 15 Oct 2026
+// Home's greeting, by India's clock (UTC+5:30) whatever the phone's zone
+const indiaNow = (now: Date) => new Date(now.getTime() + 330 * 60_000);
+export const greetingFor = (now: Date) => {
+  const hour = indiaNow(now).getUTCHours();
+  return hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+};
 export const shortDate = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 
 // "+919123456789" → "+91 91234 56789"
