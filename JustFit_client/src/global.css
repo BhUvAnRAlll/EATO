@@ -5446,6 +5446,7 @@
 
 /* The outlined field with an icon inside (the Add Plan design) */
 @utility gym-field--icon {
+  min-width: 0;
   min-height: 54px;
   flex-direction: row;
   align-items: center;
@@ -5459,6 +5460,7 @@
 
 @utility gym-field__icon-input {
   flex: 1;
+  min-width: 0; /* a text box can shrink in a two-column row (the web gives it a natural width) */
   min-height: 52px;
   font-family: var(--font-sans);
   font-size: 15px;
@@ -5568,4 +5570,160 @@
   font-size: 15px;
   line-height: 20px;
   color: var(--color-gym-primary-text);
+}
+
+/* Home's + sheet rows and the Add New Member photo spot */
+@utility gym-addrow {
+  min-height: 56px;
+  flex-direction: row;
+  align-items: center;
+  gap: 14px;
+}
+
+@utility gym-addrow__icon {
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-gym-primary-soft);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility gym-member-photo {
+  width: 84px;
+  height: 84px;
+  border-radius: 12px;
+  background-color: var(--color-gym-faint);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility gym-member-photo__initials {
+  font-family: var(--font-sans-semibold);
+  font-size: 28px;
+  line-height: 34px;
+  color: var(--color-white);
+}
+
+/* Add New Member's amount boxes and the Send Invoice tick */
+@utility gym-amount-box {
+  align-self: stretch;
+  min-height: 56px;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-pill);
+  border-width: 1.5px;
+  border-color: var(--color-gym-primary-line);
+}
+
+@utility gym-amount-box__value {
+  font-family: var(--font-sans-semibold);
+  font-size: 20px;
+  line-height: 26px;
+  color: var(--color-gym-ink);
+}
+
+@utility gym-check {
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  border-width: 1.5px;
+  border-color: var(--color-gym-primary-line);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility gym-check--on {
+  border-color: var(--color-gym-primary);
+}
+
+/* A member's card in their options sheet (on the portal's gradient) and the due members list */
+@utility gym-member-hero {
+  gap: 14px;
+  border-radius: 24px;
+  padding: 18px;
+  overflow: hidden;
+  box-shadow: var(--shadow-gym-hero);
+}
+
+@utility gym-member-hero__avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-pill);
+  background-color: rgba(255, 255, 255, 0.22);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility gym-member-hero__name {
+  font-family: var(--font-sans-semibold);
+  font-size: 19px;
+  line-height: 26px;
+  color: var(--color-white);
+}
+
+@utility gym-member-hero__line {
+  height: 1px;
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+@utility gym-hero-btn {
+  flex: 1;
+  height: 42px;
+  border-radius: 12px;
+  background-color: rgba(255, 255, 255, 0.16);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility gym-hero__plan {
+  flex-shrink: 1;
+  font-family: var(--font-sans-semibold);
+  font-size: 15px;
+  line-height: 21px;
+  color: var(--color-white);
+}
+
+@utility gym-hero__note {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 17px;
+  color: var(--color-white);
+  opacity: 0.8;
+}
+
+@utility gym-hero-date {
+  border-radius: 8px;
+  background-color: rgba(255, 255, 255, 0.16);
+  padding-inline: 7px;
+  padding-block: 4px;
+}
+
+@utility gym-hero-date__label {
+  font-family: var(--font-sans-medium);
+  font-size: 11px;
+  line-height: 15px;
+  color: var(--color-white);
+}
+
+@utility gym-hero-tag {
+  border-radius: 5px;
+  background-color: rgba(255, 255, 255, 0.24);
+  padding-inline: 5px;
+}
+
+@utility gym-hero-tag__label {
+  font-family: var(--font-sans-semibold);
+  font-size: 10px;
+  line-height: 16px;
+  color: var(--color-white);
+}
+
+@utility gym-due-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-gym-faint);
+  align-items: center;
+  justify-content: center;
 }

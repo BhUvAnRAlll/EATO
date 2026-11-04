@@ -121,7 +121,7 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
     const second = await apiAs("admin", "POST", `/api/admin/portal/gyms/${state.gym}/branches`, { branch: "Kunigal", area: "Main Road", city: "Kunigal" });
     state.branch2 = second.json.gym.id;
     assert.equal((await apiAs("admin", "POST", `/api/admin/portal/gyms/${state.branch2}/staff`, { phone: identities.gym.phone })).status, 201);
-    const asif = await apiAs("gym", "POST", "/api/gym/members", { name: "Mohammed Asif", phone: "9876543210", unit: "months", duration: 3, fee: 6000, paid: 4500, method: "online" });
+    const asif = await apiAs("gym", "POST", "/api/gym/members", { name: "Mohammed Asif", phone: "9876543210", unit: "months", duration: 3, fee: 6000, paid: 4500, method: "online", dueBy: new Date(Date.now() + 8 * 86400000 + 19800000).toISOString().slice(0, 10) });
     assert.equal(asif.status, 201, JSON.stringify(asif.json));
     state.asif = asif.json.member.id;
     assert.equal((await apiAs("gym", "POST", "/api/gym/sales", { item: "Whey Protein 1kg", category: "supplement", amount: 3200, method: "cash" })).status, 201);
@@ -179,23 +179,53 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
     await snapshotAllWidths("gym-home");
   }));
 
-  it("2. + › New admission saves the member and their payment, then opens them", run("gym-admission", async () => {
-    await clickLabel("Add an admission, renewal, payment, sale or enquiry");
-    await h.expectPath("/gym/add");
+  it("2. + › Add Member: the profile with its automatic Member ID, then the plan, confirm, saved", run("gym-admission", async () => {
+    await clickLabel("Add a member, plan, enquiry or payment");
+    await h.expectText("Add Staff / Admin Login");
+    await h.expectText("Biometric Attendance");
     await snapshotAllWidths("gym-add");
-    await clickLabel("New admission. A new member and their first payment");
-    await h.expectPath("/gym/admission");
-    await page.setInput(h.input("For example: Mohammed Asif"), "Ravi Shankar");
-    await page.setInput(h.input("98765 43210"), "9123456789");
+    await h.settle();
+    await clickLabel("Add Member");
+    await h.expectText("Add member profile.");
+    await h.settle();
+    await page.waitFor(`[...document.querySelectorAll("input")].some((i) => i.value === "FOR-TUM-0002")`, NAV_TIMEOUT, "the next Member ID, FOR-TUM-0002");
+    await h.expectText("Member ID assigned automatically");
+    await page.setInput(h.input("Name"), "Ravi Shankar");
+    await page.setInput(h.input("Mobile Number"), "9123456789");
+    await clickLabel("Male");
+    await snapshotAllWidths("gym-add-member");
+    await clickLabel("Proceed");
+    await h.expectText("Optional fields");
+    await page.setInput(h.input("Height (cm)"), "172");
+    await page.setInput(h.input("Weight (kg)"), "70");
+    await page.setInput(h.input("Notes"), "Knee injury");
+    await snapshotAllWidths("gym-add-member-optional");
+    await clickLabel("Proceed");
+    await h.expectText("Joining Date");
+    await h.expectText("Available Plans (0)");
+    await clickLabel("Custom plan");
     await page.setInput(h.input("Duration (Eg. 6)"), "3");
-    await page.setInput(h.input("4500"), "4500");
-    await page.setInput(h.input("3000"), "4000");
-    await clickLabel("Cash");
-    await h.expectText("₹500 will be owed");
+    await page.setInput(h.input("Plan Fee (Eg. 1500)"), "4500");
+    await page.setInput(h.input("Admission Amount"), "500");
+    await page.setInput(h.input("Discount Amount"), "500");
+    await clickLabel("CASH");
+    await page.setInput(h.input("Amount Collected"), "4000");
+    await page.waitFor(`!!document.querySelector('[aria-label="Due amount ₹500"]')`, NAV_TIMEOUT, "4500 + 500 − 500 payable, 4000 collected: ₹500 due");
+    assert.ok(await page.evaluate(`!!document.querySelector('[aria-label="Amount payable ₹4,500"]')`));
+    await h.expectText("Pay the rest by");
     await snapshotAllWidths("gym-admission");
-    await clickLabel("Save admission");
+    // The button is at the bottom of a scrolling sheet: bring it into view and let it settle first
+    await page.evaluate(`document.querySelector('[aria-label="Add Member"]').scrollIntoView({ block: "center" })`);
+    await h.settle();
+    await clickLabel("Add Member");
+    await h.expectText("Please confirm the details");
+    await clickLabel("Confirm");
     await page.waitFor(`location.pathname.startsWith("/gym/members/")`, NAV_TIMEOUT, "the new member's page");
     await h.expectText("Owes ₹500");
+    await h.expectText("FOR-TUM-0002");
+    await h.expectText("Male");
+    await h.expectText("172 cm · 70 kg");
+    await h.expectText("Note: Knee injury");
     const [[row]] = await connection.query("SELECT COUNT(*) AS n FROM gym_payments WHERE gym_id = ? AND kind = 'admission' AND amount = 4000 AND method = 'cash'", [state.gym]);
     assert.equal(row.n, 1, "the payment was saved");
   }));
@@ -211,10 +241,29 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
   }));
 
   it("4. Members, Transactions, Wallet and the ☰ menu", run("gym-lists", async () => {
+    // Due Members opens the Payment Due Members sheet; a member's ⋯ opens their options; Collect Due
     await clickLabel("2 Due Members, Action");
-    await h.expectPath("/gym/members");
+    await h.expectText("Payment Due Members");
+    await h.expectText("₹1,500 payment due");
+    await h.expectText("₹500 payment due");
+    await snapshotAllWidths("gym-due-members");
+    await h.settle();
+    await clickLabel("Ravi Shankar: options");
+    await h.expectText("Send Due Reminder");
+    await h.expectText("Collect Payment Due : ₹500");
+    await h.expectText("Transaction History");
+    await snapshotAllWidths("gym-member-options");
+    await h.settle();
+    await clickLabel("Collect Payment Due : ₹500");
+    await h.expectText("Partial due amount collection is also supported");
+    await h.settle();
+    await snapshotAllWidths("gym-collect-due");
+    await clickLabel("Collect Due");
+    await page.waitFor(`!(document.body.innerText || "").includes("Partial due amount collection is also supported")`, NAV_TIMEOUT, "the Collect Due sheet closes");
+    const [[ravi]] = await connection.query("SELECT due_amount, due_by FROM gym_members WHERE gym_id = ? AND full_name = 'Ravi Shankar'", [state.gym]);
+    assert.deepEqual([ravi.due_amount, ravi.due_by], [0, null], "Ravi paid in full");
+    await page.navigate(`${expo.baseUrl}/gym/members?filter=due`);
     await h.expectText("Mohammed Asif");
-    await h.expectText("Ravi Shankar");
     await h.expectText("Owes ₹1,500");
     await snapshotAllWidths("gym-members");
     await page.navigate(`${expo.baseUrl}/gym/transactions`);
@@ -225,7 +274,7 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
     await clickTab("Wallet");
     await h.expectPath("/gym/wallet");
     await h.expectText("Owed by members");
-    await h.expectText("₹11,700");
+    await h.expectText("₹12,200");
     await snapshotAllWidths("gym-wallet");
     await clickTab("Home");
     await clickLabel("Menu");
@@ -253,9 +302,17 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
     await clickLabel("Confirm");
     await page.waitFor(`!!document.querySelector('[aria-label="3 Months, 3 Months, ₹4,000. Edit"]')`, NAV_TIMEOUT, "the new plan card");
     await snapshotAllWidths("gym-catalog");
-    await page.navigate(`${expo.baseUrl}/gym/admission`);
+    await page.navigate(`${expo.baseUrl}/gym/members`);
+    await clickLabel("Add member");
+    await h.expectText("Add member profile.");
+    await h.settle();
+    await page.setInput(h.input("Name"), "Plan Picker");
+    await clickLabel("Proceed");
+    await h.expectText("Optional fields");
+    await clickLabel("Proceed");
+    await h.expectText("Available Plans (1)");
     await clickLabel("3 Months, ₹4,000");
-    assert.equal(await page.inputValue(h.input("4500")), "4000", "the fee filled in from the plan");
+    await page.waitFor(`!!document.querySelector('[aria-label="Amount payable ₹4,000"]')`, NAV_TIMEOUT, "the plan's price is payable");
   }));
 
   it("4b. the branch switcher opens Kunigal's own numbers, then back to Tumkur", run("gym-branches", async () => {
@@ -286,9 +343,9 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
     await clickTab("Gyms");
     await h.expectPath("/admin/gyms");
     await h.expectText("Tumkur branch · SIT Road, Tumakuru");
-    await h.expectText("₹11,700 today");
+    await h.expectText("₹12,200 today");
     await snapshotAllWidths("admin-gyms");
-    await clickLabel("Forma, Tumkur branch, SIT Road, Tumakuru. ₹11,700 today, 2 members, 1 in today");
+    await clickLabel("Forma, Tumkur branch, SIT Road, Tumakuru. ₹12,200 today, 2 members, 1 in today");
     await page.waitFor(`location.pathname.startsWith("/admin/gyms/")`, NAV_TIMEOUT, "the gym's page");
     await h.expectText("Arjun Kumar");
     await h.expectText("Ravi Shankar");

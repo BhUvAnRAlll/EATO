@@ -50,7 +50,7 @@ export function MemberList({ pick = null, initialFilter = "all", focusSearch = f
         <TextInput
           value={typed}
           onChangeText={setTyped}
-          placeholder="Search by name or phone"
+          placeholder="Search by name, phone or ID"
           placeholderTextColor={colors.gymFaint}
           autoFocus={focusSearch}
           autoCorrect={false}
@@ -86,19 +86,19 @@ export function MemberList({ pick = null, initialFilter = "all", focusSearch = f
             onPress={() => open(item)}
             className="gym-card gym-tx"
             accessibilityRole="button"
-            accessibilityLabel={`${item.name}, ${STATUS_LABEL[item.status]}, until ${shortDate(item.expiresOn)}${item.due > 0 ? `, owes ${rupees(item.due)}` : ""}${item.inToday ? ", in today" : ""}${item.birthdayToday ? ", birthday today" : ""}`}
+            accessibilityLabel={`${item.name}, ${item.code}, ${STATUS_LABEL[item.status]}, until ${shortDate(item.expiresOn)}${item.due > 0 ? `, owes ${rupees(item.due)}${item.overdue ? ", overdue" : item.dueBy ? `, due ${shortDate(item.dueBy)}` : ""}` : ""}${item.inToday ? ", in today" : ""}${item.birthdayToday ? ", birthday today" : ""}`}
           >
             <View className="gym-avatar">
               <Text className="gym-avatar__label">{initialsOf(item.name)}</Text>
             </View>
             <View className="min-w-0 flex-1" style={{ gap: 3 }}>
               <Text className="gym-tx__name" numberOfLines={1}>{item.name}</Text>
-              <Text className="gym-tx__meta" numberOfLines={1}>{`${STATUS_LABEL[item.status]} · until ${shortDate(item.expiresOn)}`}</Text>
+              <Text className="gym-tx__meta" numberOfLines={1}>{`${item.code} · ${STATUS_LABEL[item.status]} · until ${shortDate(item.expiresOn)}`}</Text>
             </View>
             <View className="items-end" style={{ gap: 4 }}>
               {item.due > 0 && (
                 <View className="gym-tag" style={{ backgroundColor: colors.gymDangerSoft }}>
-                  <Text className="gym-tag__label" style={{ color: colors.gymDanger }}>{`Owes ${rupees(item.due)}`}</Text>
+                  <Text className="gym-tag__label" style={{ color: colors.gymDanger }}>{item.overdue ? `Overdue ${rupees(item.due)}` : `Owes ${rupees(item.due)}`}</Text>
                 </View>
               )}
               {item.birthdayToday && (

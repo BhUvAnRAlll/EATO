@@ -3,6 +3,7 @@ import { Modal, Platform, Pressable, Text, View } from "react-native";
 import DateTimePicker, { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
 
 import { PrimaryButton } from "@/components/PrimaryButton";
+import { GymPrimaryButton } from "@/components/gym/GymPrimaryButton";
 import { useThemeColors, Palette } from "@/theme";
 
 type DatePickerSheetProps = {
@@ -13,6 +14,8 @@ type DatePickerSheetProps = {
   maximumDate?: Date;
   onSelect: (date: Date) => void;
   onClose: () => void;
+  // "gym": the gym portal's look (the gradient Done button) instead of the member app's red
+  variant?: "app" | "gym";
 };
 
 // Web only: a real HTML date input. react-native-web's TextInput drops type/min/max, so the
@@ -76,7 +79,13 @@ export function DatePickerSheet(props: DatePickerSheetProps) {
   );
 }
 
-function WebDateSheet({ title, value, minimumDate, maximumDate, onSelect, onClose }: DatePickerSheetProps) {
+// Done: the member app's red button, or the gym portal's gradient one
+function DoneButton({ variant, disabled, onPress }: { variant?: "app" | "gym"; disabled?: boolean; onPress: () => void }) {
+  if (variant === "gym") return <GymPrimaryButton label="Done" ready={!disabled} onPress={onPress} />;
+  return <PrimaryButton label="Done" disabled={disabled} onPress={onPress} />;
+}
+
+function WebDateSheet({ title, value, minimumDate, maximumDate, onSelect, onClose, variant }: DatePickerSheetProps) {
   const colors = useThemeColors();
   const [draft, setDraft] = useState(dateInputValue(value));
   const selectedDate = parseDateInput(draft);
@@ -106,8 +115,8 @@ function WebDateSheet({ title, value, minimumDate, maximumDate, onSelect, onClos
           style={webDateInputStyle(colors)}
         />
         {/* Only a valid date inside the allowed range can be confirmed */}
-        <PrimaryButton
-          label="Done"
+        <DoneButton
+          variant={variant}
           disabled={!isInRange}
           onPress={() => {
             if (isInRange && selectedDate) onSelect(selectedDate);
@@ -119,7 +128,7 @@ function WebDateSheet({ title, value, minimumDate, maximumDate, onSelect, onClos
   );
 }
 
-function IosDateSheet({ title, value, minimumDate, maximumDate, onSelect, onClose }: DatePickerSheetProps) {
+function IosDateSheet({ title, value, minimumDate, maximumDate, onSelect, onClose, variant }: DatePickerSheetProps) {
   const colors = useThemeColors();
   const [draft, setDraft] = useState(value);
 
@@ -140,14 +149,14 @@ function IosDateSheet({ title, value, minimumDate, maximumDate, onSelect, onClos
           display="spinner"
           themeVariant="light"
           textColor={colors.forestInk}
-          accentColor={colors.forest}
+          accentColor={variant === "gym" ? colors.gymPrimary : colors.forest}
           minimumDate={minimumDate}
           maximumDate={maximumDate}
           onChange={(_, date) => date && setDraft(date)}
         />
 
-        <PrimaryButton
-          label="Done"
+        <DoneButton
+          variant={variant}
           onPress={() => {
             onSelect(draft);
             onClose();

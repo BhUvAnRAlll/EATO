@@ -6,12 +6,15 @@ import { useState } from "react";
 
 import { PressableScale } from "@/components/PressableScale";
 import { SymbolView } from "@/components/SymbolView";
+import { AddMemberSheet } from "@/components/gym/AddMemberSheet";
+import { AddSheet } from "@/components/gym/AddSheet";
+import { DueMembersSheet } from "@/components/gym/DueMembersSheet";
 import { GymMenu } from "@/components/gym/GymMenu";
 import { GradientFill } from "@/components/gym/GradientFill";
 import { PaymentRow } from "@/components/gym/PaymentRow";
 import { RevenueCard } from "@/components/gym/RevenueCard";
 import { GymEmpty, GymError, GymLoading } from "@/components/gym/GymStates";
-import { initialsOf } from "@/data/gymDashboard";
+import { initialsOf, type AddAction } from "@/data/gymDashboard";
 import { comingSoon } from "@/lib/gymPortal";
 import { gymApi } from "@/lib/gymApi";
 import { useGymData } from "@/lib/useGymData";
@@ -40,6 +43,20 @@ export default function GymHome() {
   const { result, reload, retry, stale } = useGymData(gymApi.dashboard);
   const [refreshing, setRefreshing] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  // The + sheet, or Add New Member opened from it
+  const [sheet, setSheet] = useState<"add" | "member" | "due" | null>(null);
+  const pick = (action: AddAction) => {
+    setSheet(action === "member" ? "member" : null);
+    if (action === "member") return;
+    const go: Partial<Record<AddAction, () => void>> = {
+      plan: () => router.push("/gym/manage?tab=catalog"),
+      enquiry: () => router.push("/gym/enquiry"),
+      outlet: () => router.push("/gym/branches"),
+    };
+    const label = { expense: "Add Expense", staff: "Add Staff / Admin Login", sms: "Send Bulk SMS", biometric: "Biometric Attendance" } as Partial<Record<AddAction, string>>;
+    if (go[action]) go[action]!();
+    else setTimeout(() => comingSoon(label[action] ?? "This"), 250);
+  };
   // Narrow phones: the tiles' labels a size smaller, so "Admission" fits
   const narrow = useWindowDimensions().width < 360;
   const tileLabel = narrow ? { fontSize: 11 } : undefined;
@@ -153,7 +170,7 @@ export default function GymHome() {
                 {alerts.map((alert) => {
                   const tone = toneColors(colors, alert.tone);
                   return (
-                    <PressableScale key={alert.id} onPress={() => router.push(alert.href)} className="gym-card gym-alert" style={{ flexBasis: "30%", flexGrow: 1 }} accessibilityRole="button" accessibilityLabel={`${alert.value} ${alert.label}, ${alert.tag}`}>
+                    <PressableScale key={alert.id} onPress={() => (alert.id === "due" ? setSheet("due") : router.push(alert.href))} className="gym-card gym-alert" style={{ flexBasis: "30%", flexGrow: 1 }} accessibilityRole="button" accessibilityLabel={`${alert.value} ${alert.label}, ${alert.tag}`}>
                       <View className="flex-row items-center justify-between" style={{ gap: 4 }}>
                         <View className="gym-alert__icon" style={{ backgroundColor: tone.soft, borderColor: tone.line }}>
                           <SymbolView name={alert.icon} size={15} tintColor={tone.icon} />
@@ -192,12 +209,24 @@ export default function GymHome() {
         </ScrollView>
 
         <View className="absolute" style={{ right: 16, bottom: 16 }}>
-          <PressableScale onPress={() => router.push("/gym/add")} haptic="tap" className="gym-fab" accessibilityRole="button" accessibilityLabel="Add an admission, renewal, payment, sale or enquiry">
+          <PressableScale onPress={() => setSheet("add")} haptic="tap" className="gym-fab" accessibilityRole="button" accessibilityLabel="Add a member, plan, enquiry or payment">
             <GradientFill radius={18} />
             <SymbolView name={{ ios: "plus", android: "add", web: "add" }} size={24} tintColor={colors.white} />
           </PressableScale>
         </View>
       </SafeAreaView>
+      {sheet === "add" && <AddSheet onClose={() => setSheet(null)} onPick={pick} />}
+      {sheet === "due" && data && <DueMembersSheet gym={data.gym} onClose={() => setSheet(null)} onChanged={reload} />}
+      {sheet === "member" && (
+        <AddMemberSheet
+          onClose={() => setSheet(null)}
+          onSaved={(detail) => {
+            setSheet(null);
+            reload();
+            router.push({ pathname: "/gym/members/[id]", params: { id: String(detail.member.id) } });
+          }}
+        />
+      )}
       <GymMenu open={menuOpen} onClose={() => setMenuOpen(false)} gymLine={data ? `${data.gym.name} · ${data.gym.branch} branch` : null} />
     </View>
   );

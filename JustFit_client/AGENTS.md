@@ -114,6 +114,36 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
   name, Duration Type Months/Days and Duration for plans, amount), then "Please confirm the
   details" (Edit / Confirm). Plan lengths are 1-24 months or 1-365 days everywhere (catalogue,
   admission, renewal; `gym_members.plan_days` beside `plan_months`).
+- **Member IDs (2026-11-04):** every member has `member_code`, made by the server on save from three
+  letters of the gym and of the branch and the branch's running number (`FOR-TUM-0001`;
+  `gyms.next_member_no`, locked in the admission's transaction; `rules.memberCode`). Never typed,
+  never repeated, kept when a name changes; searchable. Members also have an optional `gender`
+  (there is no batch: removed at the user's request). Migration `2026-11-22-member-codes.sql`.
+- **Home's +** opens the + sheet (`AddSheet`: Add Member, Add Plan, Add Enquiry, Add Expense, Add
+  Outlet, Add Staff / Admin Login, Send Bulk SMS, Biometric Attendance; Record a payment was
+  removed at the user's request: Renewal, Due and PT are on a member's page).
+  Add Member is a three-step sheet (`AddMemberSheet`, the user's designs): 1 the profile (the
+  previewed Member ID `GET /api/gym/members/next-code`, name, mobile kept to 10 digits, gender);
+  2 optional fields (email, height, weight, address, notes, date of birth; Attachment is "coming
+  soon": storing files needs approval); 3 Joining Date and Payment Date, Available Plans from the
+  catalogue (or Custom, or Add New Plan in a CatalogSheet), Admission and Discount amounts, Mode,
+  Amount Payable (plan + admission − discount) and Due Amount, Amount Collected, the due date when
+  something is owed (`DueByField`: quick picks or `DateSelect`), Send Invoice (opens the phone's
+  share sheet with a receipt; justFit sends no SMS); then the confirm dialog. The plan starts on the
+  joining date; the payment is dated the payment date. Owed amounts carry `due_by`; past it a
+  member is overdue (Members › Overdue). Migration `2026-11-23-member-details.sql` (also the PT period).
+- **Due members (2026-11-04, the user's designs):** Home's Due Members card opens `DueMembersSheet`
+  (Payment Due Members: ID, PT tag, days left, amount due; a WhatsApp due reminder, an SMS, ⋯).
+  ⋯ (and the ⋯ on a member's page) opens `MemberActionsSheet`: the member's card on the gradient
+  (Call, SMS, WhatsApp, Email; plan and PT with their dates), Biometric (coming soon), Reminders
+  (due, expired, invoice), Membership (Collect Payment Due → `CollectDueSheet` with a collected date,
+  part payments and Send Invoice; Renew Member; Edit Membership; Pause Membership coming soon;
+  Transaction History) and Sales (Renew PT). Messages open the phone's own apps with the text
+  written (`lib/gymContact.ts`: `tel:`, `sms:`, `wa.me`, `mailto:`): justFit sends nothing and pays
+  for nothing. A PT payment records its period (`pt_label`, `pt_from`, `pt_until`; a renewal follows
+  on from a running one). Sheets share
+  `GymSheet`; confirm dialogs `ConfirmDialog`; the main sheet button `GymPrimaryButton`. No member
+  photo upload yet (storing photos needs approval): the photo spot shows the initials.
 - **Theme (2026-11-04):** the portal's main theme is an indigo-to-violet gradient (`gym-grad-from`
   `#4F46E5` → `gym-grad-to` `#7C3AED`, drawn by `components/gym/GradientFill.tsx` with
   react-native-svg): the revenue card, filled buttons, the + buttons, selected chips, the active

@@ -8,7 +8,8 @@ import { GymChips, GymField, amountInput, rupeesFromText } from "@/components/gy
 import { GymError, GymLoading } from "@/components/gym/GymStates";
 import { GymScreen } from "@/components/gym/GymScreen";
 import { SaveButton } from "@/components/gym/SaveButton";
-import { METHOD_LABEL, planLabel, rupees, shortDate } from "@/data/gymDashboard";
+import { METHOD_LABEL, daysFromToday, planLabel, rupees, shortDate } from "@/data/gymDashboard";
+import { DueByField } from "@/components/gym/DueByField";
 import { PlanLengthFields, durationValue } from "@/components/gym/PlanLengthFields";
 import { gymApi, type PayMethod, type PlanUnit } from "@/lib/gymApi";
 import { useGymSave } from "@/lib/gymForm";
@@ -26,11 +27,14 @@ export default function GymRenew() {
   const [fee, setFee] = useState("");
   const [paid, setPaid] = useState("");
   const [method, setMethod] = useState<PayMethod>("online");
+  const [dueBy, setDueBy] = useState<string | null>(() => daysFromToday(7));
   const { busy, error, save } = useGymSave(() => router.replace({ pathname: "/gym/members/[id]", params: { id: String(memberId) } }));
   const feeValue = rupeesFromText(fee);
   const paidValue = rupeesFromText(paid);
   const length = durationValue(duration, unit);
-  const ready = length !== null && feeValue >= 1 && paidValue >= 1 && paidValue <= feeValue;
+  const leftOwed = feeValue >= 1 && paidValue >= 1 && paidValue < feeValue;
+  const dueByIso = dueBy;
+  const ready = (!leftOwed || dueByIso !== null) && length !== null && feeValue >= 1 && paidValue >= 1 && paidValue <= feeValue;
 
   return (
     <GymScreen title="Renewal">
@@ -47,10 +51,11 @@ export default function GymRenew() {
           <GymField label="Plan fee (₹)" value={fee} onChangeText={(t) => setFee(amountInput(t))} keyboardType="number-pad" placeholder="4500" />
           <GymField label="Paid now (₹)" value={paid} onChangeText={(t) => setPaid(amountInput(t))} keyboardType="number-pad" placeholder="3000" />
           <GymChips label="Paid by" options={(["online", "cash"] as const).map((m) => ({ value: m, label: METHOD_LABEL[m] }))} value={method} onChange={setMethod} />
-          {ready && feeValue > paidValue && <Text className="gym-tx__meta">{`${rupees(feeValue - paidValue)} will be added to what they owe.`}</Text>}
+          {leftOwed && <DueByField value={dueBy} onChange={setDueBy} />}
+          {ready && feeValue > paidValue && <Text className="gym-tx__meta">{`${rupees(feeValue - paidValue)} will be added to what they owe${dueByIso ? `, due ${shortDate(dueByIso)}` : ""}.`}</Text>}
           {paidValue > feeValue && <Text className="gym-tx__meta">{"The amount paid can't be more than the plan fee."}</Text>}
           {error ? <FormAlert message={error} /> : null}
-          <SaveButton label="Save renewal" ready={ready} busy={busy} onPress={() => save((token) => gymApi.renew(token, memberId, { unit, duration: length ?? 1, fee: feeValue, paid: paidValue, method }))} />
+          <SaveButton label="Save renewal" ready={ready} busy={busy} onPress={() => save((token) => gymApi.renew(token, memberId, { unit, duration: length ?? 1, fee: feeValue, paid: paidValue, method, dueBy: leftOwed && dueByIso ? dueByIso : "" }))} />
         </>
       )}
     </GymScreen>

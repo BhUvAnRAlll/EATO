@@ -17,7 +17,7 @@ const limits = {
 const PLAN_UNITS = { months: 24, days: 365 };
 const METHODS = ["online", "cash"];
 const SALE_KINDS = { supplement: "Supplement", merchandise: "Merchandise", other: "Product" };
-const MEMBER_FILTERS = ["all", "due", "expiring", "expiring_soon", "expired", "in_today", "birthday"];
+const MEMBER_FILTERS = ["all", "due", "overdue", "expiring", "expiring_soon", "expired", "in_today", "birthday"];
 const PAYMENT_KINDS = ["admission", "renewal", "due", "pt", "service", "sale"];
 
 const isPlainObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
@@ -83,36 +83,142 @@ function id(value, what = "member") {
   return Number(value);
 }
 
-// A fee and what was paid now; the rest is owed
+// The date an amount owed should be paid by: a real YYYY-MM-DD from today to a year ahead
+function dueByDate(value, today = todayInIndia()) {
+  const bad = () => new ValidationError("Pick the date the rest should be paid by: from today to a year ahead.");
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) throw bad();
+  const date = new Date(`${value}T00:00:00Z`);
+  if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value) throw bad();
+  if (value < today || value > addDays(today, 365)) throw bad();
+  return value;
+}
+
+// A fee and what was paid now; the rest is owed, by the date given (needed only when something is
+// owed; ignored when it's paid in full)
 function feeAndPaid(body) {
   const fee = rupees(body.fee, "plan fee");
   const paid = rupees(body.paid, "amount paid");
   if (paid > fee) throw new ValidationError("The amount paid can't be more than the plan fee.");
-  return { fee, paid, due: fee - paid };
+  const due = fee - paid;
+  if (due > 0 && (body.dueBy === undefined || body.dueBy === null || body.dueBy === "")) throw new ValidationError("Pick the date the rest should be paid by.");
+  return { fee, paid, due, dueBy: due > 0 ? dueByDate(body.dueBy) : null };
 }
 
-// A new member and what they paid
-function admissionBody(body) {
-  onlyKeys(body, ["name", "phone", "dob", "unit", "duration", "fee", "paid", "method"]);
-  return { name: requiredText(body.name, "member's name", limits.name), phone: optionalPhone(body.phone), dob: optionalDob(body.dob), ...planLength(body), ...feeAndPaid(body), method: method(body.method) };
+const GENDERS = ["male", "female", "other"];
+// "" or missing → null; otherwise one of the allowed values
+function optionalChoice(value, allowed, message) {
+  if (value === undefined || value === null || value === "") return null;
+  if (!allowed.includes(value)) throw new ValidationError(message);
+  return value;
+}
+const gender = (value) => optionalChoice(value, GENDERS, "Pick male, female or other.");
+
+const EMAIL = /^[^\s@]{1,64}@[^\s@]{1,100}\.[A-Za-z]{2,}$/;
+const blank = (value) => value === undefined || value === null || value === "";
+
+// The optional details from Add New Member: email, height, weight, address, notes. Missing or ""
+// is null. Only the keys sent are returned (so an edit changes only those).
+function memberDetails(body) {
+  const out = {};
+  if (body.email !== undefined) {
+    if (blank(body.email)) out.email = null;
+    else if (typeof body.email !== "string" || body.email.length > 120 || !EMAIL.test(body.email.trim())) throw new ValidationError("Enter a valid email address.");
+    else out.email = body.email.trim().toLowerCase();
+  }
+  if (body.heightCm !== undefined) {
+    if (blank(body.heightCm)) out.heightCm = null;
+    else if (!Number.isInteger(body.heightCm) || body.heightCm < 50 || body.heightCm > 250) throw new ValidationError("Enter the height in cm, from 50 to 250.");
+    else out.heightCm = body.heightCm;
+  }
+  if (body.weightKg !== undefined) {
+    if (blank(body.weightKg)) out.weightKg = null;
+    else if (typeof body.weightKg !== "number" || !Number.isFinite(body.weightKg) || body.weightKg < 10 || body.weightKg > 300) throw new ValidationError("Enter the weight in kg, from 10 to 300.");
+    else out.weightKg = Math.round(body.weightKg * 10) / 10;
+  }
+  for (const [key, max, label] of [["address", 200, "address"], ["notes", 300, "notes"]]) {
+    if (body[key] === undefined) continue;
+    if (blank(body[key])) { out[key] = null; continue; }
+    if (typeof body[key] !== "string" || body[key].length > max * 2) throw new ValidationError(`Keep the ${label} to ${max} characters.`);
+    out[key] = cleanText(body[key], max) || null;
+  }
+  return out;
+}
+
+// A YYYY-MM-DD within [from, to], or the fallback when it's missing
+function dateIn(value, { from, to, fallback, message }) {
+  if (blank(value)) return fallback;
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) throw new ValidationError(message);
+  const date = new Date(`${value}T00:00:00Z`);
+  if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value || value < from || value > to) throw new ValidationError(message);
+  return value;
+}
+
+// A new member (their ID is made by the server) and their first payment: the plan's fee, an
+// optional one-time admission amount and a discount make the amount payable; what's collected now
+// is paid on the payment date, the rest is owed by the due date. The plan starts on the joining date.
+function admissionBody(body, today = todayInIndia()) {
+  onlyKeys(body, ["name", "phone", "dob", "gender", "email", "heightCm", "weightKg", "address", "notes", "unit", "duration", "fee", "admissionFee", "discount", "paid", "method", "dueBy", "joinedOn", "paidOn"]);
+  const plan = rupees(body.fee, "plan fee");
+  const admissionFee = blank(body.admissionFee) ? 0 : rupees(body.admissionFee, "admission amount", { min: 0 });
+  const discount = blank(body.discount) ? 0 : rupees(body.discount, "discount", { min: 0 });
+  if (discount > plan + admissionFee) throw new ValidationError("The discount can't be more than the plan and admission amounts.");
+  const payable = plan + admissionFee - discount;
+  if (payable < 1) throw new ValidationError("The amount payable must be at least ₹1.");
+  const paid = rupees(body.paid, "amount collected");
+  if (paid > payable) throw new ValidationError("The amount collected can't be more than the amount payable.");
+  const due = payable - paid;
+  if (due > 0 && blank(body.dueBy)) throw new ValidationError("Pick the date the rest should be paid by.");
+  return {
+    name: requiredText(body.name, "member's name", limits.name),
+    phone: optionalPhone(body.phone),
+    dob: optionalDob(body.dob),
+    gender: gender(body.gender),
+    email: null, heightCm: null, weightKg: null, address: null, notes: null,
+    ...memberDetails(body),
+    ...planLength(body),
+    fee: plan,
+    admissionFee,
+    discount,
+    payable,
+    paid,
+    due,
+    dueBy: due > 0 ? dueByDate(body.dueBy, today) : null,
+    method: method(body.method),
+    joinedOn: dateIn(body.joinedOn, { from: addDays(today, -365), to: addDays(today, 60), fallback: today, message: "Pick a joining date from a year ago to two months ahead." }),
+    paidOn: dateIn(body.paidOn, { from: addDays(today, -365), to: today, fallback: today, message: "Pick a payment date from a year ago to today." }),
+  };
+}
+
+// Member IDs: three letters of the gym's name, three of the branch's, and the branch's running
+// number, e.g. FOR-TUM-0001. Letters only, upper case; GYM / BR when a name has no letters.
+function memberCode(gymName, branchName, number) {
+  const part = (name, fallback) => (String(name).replace(/[^A-Za-z]/g, "").slice(0, 3).toUpperCase() || fallback);
+  return `${part(gymName, "GYM")}-${part(branchName, "BR")}-${String(number).padStart(4, "0")}`;
 }
 
 // A member renewing their plan
 function renewalBody(body) {
-  onlyKeys(body, ["unit", "duration", "fee", "paid", "method"]);
+  onlyKeys(body, ["unit", "duration", "fee", "paid", "method", "dueBy"]);
   return { ...planLength(body), ...feeAndPaid(body), method: method(body.method) };
 }
 
-// Part or all of what a member owes
-function duePaymentBody(body) {
-  onlyKeys(body, ["amount", "method"]);
-  return { amount: rupees(body.amount, "amount"), method: method(body.method) };
+// Part or all of what a member owes; with part, optionally a new date for the rest
+function duePaymentBody(body, today = todayInIndia()) {
+  onlyKeys(body, ["amount", "method", "dueBy", "paidOn"]);
+  const out = {
+    amount: rupees(body.amount, "amount"),
+    method: method(body.method),
+    paidOn: dateIn(body.paidOn, { from: addDays(today, -365), to: today, fallback: today, message: "Pick a collected date from a year ago to today." }),
+  };
+  if (body.dueBy !== undefined && body.dueBy !== null && body.dueBy !== "") out.dueBy = dueByDate(body.dueBy);
+  return out;
 }
 
-// Personal training a member paid for: the package ("12 sessions", "1 month with Ravi")
+// Personal training a member paid for: the package ("12 sessions", "1 month with Ravi") and the
+// period it covers (months or days, following on from a PT period still running)
 function ptBody(body) {
-  onlyKeys(body, ["package", "amount", "method"]);
-  return { package: requiredText(body.package, "PT package", 60), amount: rupees(body.amount, "amount"), method: method(body.method) };
+  onlyKeys(body, ["package", "amount", "method", "unit", "duration"]);
+  return { package: requiredText(body.package, "PT package", 60), amount: rupees(body.amount, "amount"), method: method(body.method), ...planLength(body) };
 }
 
 // A service sold (a steam bath, a diet plan, a body scan)
@@ -136,18 +242,19 @@ function enquiryBody(body) {
 
 // A member's name and phone, corrected
 function memberEditBody(body) {
-  onlyKeys(body, ["name", "phone", "dob"]);
-  const out = {};
+  onlyKeys(body, ["name", "phone", "dob", "gender", "email", "heightCm", "weightKg", "address", "notes"]);
+  const out = { ...memberDetails(body) };
+  if (body.gender !== undefined) out.gender = gender(body.gender);
   if (body.name !== undefined) out.name = requiredText(body.name, "member's name", limits.name);
   if (body.phone !== undefined) out.phone = optionalPhone(body.phone);
   if (body.dob !== undefined) out.dob = optionalDob(body.dob);
-  if (Object.keys(out).length === 0) throw new ValidationError("Change the name, the phone number or the date of birth.");
+  if (Object.keys(out).length === 0) throw new ValidationError("Change the name, the phone number, the date of birth, the gender or the details.");
   return out;
 }
 
 function membersQuery(query = {}) {
   const filter = query.filter === undefined || query.filter === "" ? "all" : query.filter;
-  if (!MEMBER_FILTERS.includes(filter)) throw new ValidationError("Pick a filter: all, due, expiring, expiring soon, expired, in today or birthdays.");
+  if (!MEMBER_FILTERS.includes(filter)) throw new ValidationError("Pick a filter: all, due, overdue, expiring, expiring soon, expired, in today or birthdays.");
   const search = typeof query.search === "string" ? query.search.trim() : "";
   if (search.length > limits.search) throw new ValidationError(`Search for at most ${limits.search} characters.`);
   return { filter, search };
@@ -264,6 +371,8 @@ module.exports = {
   planLength,
   id,
   admissionBody,
+  memberCode,
+  memberDetails,
   renewalBody,
   duePaymentBody,
   ptBody,
@@ -272,6 +381,7 @@ module.exports = {
   enquiryBody,
   memberEditBody,
   optionalDob,
+  dueByDate,
   membersQuery,
   paymentsQuery,
   gymBody,

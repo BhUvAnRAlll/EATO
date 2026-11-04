@@ -67,7 +67,11 @@ router.get("/members", route(async (req, res) => {
   res.json(await service.members(pool(req), req.gym.id, rules.membersQuery(req.query), today()));
 }));
 router.post("/members", smallBody, route(async (req, res) => {
-  res.status(201).json(await service.admit(pool(req), req.gym.id, req.userId, rules.admissionBody(req.body), today()));
+  res.status(201).json(await service.admit(pool(req), req.gym, req.userId, rules.admissionBody(req.body), today()));
+}));
+// The ID the next new member will get, shown on Add New Member before saving
+router.get("/members/next-code", route(async (req, res) => {
+  res.json(await service.nextMemberCode(pool(req), req.gym));
 }));
 router.get("/members/:memberId", route(async (req, res) => {
   res.json(await service.member(pool(req), req.gym.id, rules.id(req.params.memberId), today()));

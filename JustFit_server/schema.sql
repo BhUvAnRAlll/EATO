@@ -1125,7 +1125,7 @@ CREATE TABLE analytics_sessions (
 ) ENGINE = InnoDB;
 
 -- ---------------------------------------------------------------------------
--- Gym admin portal (2026-11-04, migrations 2026-11-19-gym-portal.sql and 2026-11-20-gym-branches.sql).
+-- Gym admin portal (2026-11-04, migrations 2026-11-19-gym-portal.sql to 2026-11-23-member-details.sql).
 -- A justFit admin creates a gym brand (gym_brands, e.g. Forma) and its branches (gyms, one row
 -- per branch, e.g. Tumkur), and links gym_admin accounts to branches of one brand (gym_staff;
 -- the account switches between them, selected_at remembers the last). Everything
@@ -1151,6 +1151,7 @@ CREATE TABLE gyms (                               -- one branch of a gym brand
   name        VARCHAR(80)  NOT NULL,              -- the branch's name, e.g. Tumkur
   area        VARCHAR(80)  NOT NULL,
   city        VARCHAR(60)  NOT NULL,
+  next_member_no INT UNSIGNED NOT NULL DEFAULT 1,  -- the branch's next member ID number
   created_by  VARCHAR(64)  NULL,
   created_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -1174,20 +1175,33 @@ CREATE TABLE gym_staff (
 CREATE TABLE gym_members (
   id           INT UNSIGNED NOT NULL AUTO_INCREMENT,
   gym_id       INT UNSIGNED NOT NULL,
+  member_code  VARCHAR(16)  NOT NULL,            -- FOR-TUM-0001: gym, branch, number (server-made)
   full_name    VARCHAR(80)  NOT NULL,
   phone        CHAR(10)     NULL,                -- 10 digits, +91 implied
   dob          DATE         NULL,                -- optional, for birthdays
+  gender       ENUM('male', 'female', 'other') NULL,
+  email        VARCHAR(120) NULL,                -- optional details from Add New Member
+  height_cm    SMALLINT UNSIGNED NULL,
+  weight_kg    DECIMAL(5,1) NULL,
+  address      VARCHAR(200) NULL,
+  notes        VARCHAR(300) NULL,
   plan_months  TINYINT UNSIGNED NULL,            -- the latest plan bought: its months,
   plan_days    SMALLINT UNSIGNED NULL,           -- or its days (exactly one is set)
   joined_on    DATE         NOT NULL,
   expires_on   DATE         NOT NULL,            -- the last day the membership covers
   due_amount   INT UNSIGNED NOT NULL DEFAULT 0,  -- rupees still owed
+  due_by       DATE         NULL,                -- the date it should be paid by (NULL when nothing is owed)
+  pt_label     VARCHAR(60)  NULL,                -- the latest PT package ("12 sessions") and its period
+  pt_from      DATE         NULL,
+  pt_until     DATE         NULL,
   created_by   VARCHAR(64)  NULL,
   created_at   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   UNIQUE KEY uq_gym_members_phone (gym_id, phone),
+  UNIQUE KEY uq_gym_members_code (gym_id, member_code),
   KEY idx_gym_members_expiry (gym_id, expires_on),
+  KEY idx_gym_members_due_by (gym_id, due_by),
   KEY idx_gym_members_name (gym_id, full_name),
   CONSTRAINT fk_gym_members_gym FOREIGN KEY (gym_id) REFERENCES gyms (id),
   CONSTRAINT fk_gym_members_created_by FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL,
@@ -1195,7 +1209,9 @@ CREATE TABLE gym_members (
   CONSTRAINT chk_gym_members_plan CHECK (plan_months BETWEEN 1 AND 24),
   CONSTRAINT chk_gym_members_plan_days CHECK (plan_days BETWEEN 1 AND 365),
   CONSTRAINT chk_gym_members_plan_one CHECK ((plan_months IS NULL) <> (plan_days IS NULL)),
-  CONSTRAINT chk_gym_members_due CHECK (due_amount <= 1000000)
+  CONSTRAINT chk_gym_members_due CHECK (due_amount <= 1000000),
+  CONSTRAINT chk_gym_members_height CHECK (height_cm IS NULL OR height_cm BETWEEN 50 AND 250),
+  CONSTRAINT chk_gym_members_weight CHECK (weight_kg IS NULL OR weight_kg BETWEEN 10 AND 300)
 ) ENGINE = InnoDB;
 
 CREATE TABLE gym_payments (

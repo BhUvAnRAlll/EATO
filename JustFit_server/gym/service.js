@@ -56,6 +56,13 @@ const PAYMENT_COLUMNS = `id, kind, title, detail, method, amount, ${DAY("paid_on
 
 const memberOf = (r, today) => ({
   id: r.id,
+  code: r.member_code,
+  gender: r.gender ?? null,
+  email: r.email ?? null,
+  heightCm: r.height_cm ?? null,
+  weightKg: r.weight_kg === null || r.weight_kg === undefined ? null : Number(r.weight_kg),
+  address: r.address ?? null,
+  notes: r.notes ?? null,
   name: r.full_name,
   phone: toE164(r.phone),
   dob: r.dob ?? null,
@@ -64,10 +71,15 @@ const memberOf = (r, today) => ({
   joinedOn: r.joined_on,
   expiresOn: r.expires_on,
   due: r.due_amount,
+  dueBy: r.due_amount > 0 ? r.due_by ?? null : null,
+  // Days left on the plan: 0 on its last day, negative once it has ended
+  daysLeft: Math.round((Date.parse(`${r.expires_on}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86400000),
+  pt: r.pt_until ? { label: r.pt_label, from: r.pt_from, until: r.pt_until, active: r.pt_until >= today } : null,
+  overdue: r.due_amount > 0 && Boolean(r.due_by) && r.due_by < today,
   status: r.expires_on < today ? "expired" : r.expires_on === today ? "expiring" : "active",
   inToday: Boolean(r.in_today),
 });
-const MEMBER_COLUMNS = `m.id, m.full_name, m.phone, ${DAY("m.dob")} AS dob, m.plan_months, m.plan_days, ${DAY("m.joined_on")} AS joined_on, ${DAY("m.expires_on")} AS expires_on, m.due_amount,
+const MEMBER_COLUMNS = `m.id, m.member_code, m.gender, m.email, m.height_cm, m.weight_kg, m.address, m.notes, m.full_name, m.phone, ${DAY("m.dob")} AS dob, m.plan_months, m.plan_days, ${DAY("m.joined_on")} AS joined_on, ${DAY("m.expires_on")} AS expires_on, m.due_amount, ${DAY("m.due_by")} AS due_by, m.pt_label, ${DAY("m.pt_from")} AS pt_from, ${DAY("m.pt_until")} AS pt_until,
   EXISTS (SELECT 1 FROM gym_attendance a WHERE a.member_id = m.id AND a.on_date = ?) AS in_today`;
 
 // Home: today's revenue by method, today's counts, what needs attention, the latest payments
@@ -112,14 +124,15 @@ async function members(pool, gymId, { filter, search }, today) {
     const like = `%${search.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
     const digits = search.replace(/[\s+-]/g, "");
     if (/^\d{3,12}$/.test(digits)) {
-      where += " AND (m.full_name LIKE ? OR m.phone LIKE ?)";
-      params.push(like, `%${digits.slice(-10)}%`);
+      where += " AND (m.full_name LIKE ? OR m.phone LIKE ? OR m.member_code LIKE ?)";
+      params.push(like, `%${digits.slice(-10)}%`, `%${digits}`);
     } else {
-      where += " AND m.full_name LIKE ?";
-      params.push(like);
+      where += " AND (m.full_name LIKE ? OR m.member_code LIKE ?)";
+      params.push(like, like);
     }
   }
   if (filter === "due") where += " AND m.due_amount > 0";
+  if (filter === "overdue") { where += " AND m.due_amount > 0 AND m.due_by < ?"; params.push(today); }
   if (filter === "expiring") { where += " AND m.expires_on = ?"; params.push(today); }
   if (filter === "expiring_soon") { where += " AND m.expires_on BETWEEN ? AND ?"; params.push(rules.addDays(today, 1), rules.addDays(today, 3)); }
   if (filter === "birthday") { where += " AND DATE_FORMAT(m.dob, '%m-%d') = ?"; params.push(today.slice(5)); }
@@ -177,15 +190,26 @@ const planText = ({ duration, unit }) => `${duration} ${unit === "days" ? (durat
 // The members row's two length columns: one is set, the other NULL
 const planColumns = ({ duration, unit }) => (unit === "days" ? [null, duration] : [duration, null]);
 
-// A new member: their plan starts today; what they didn't pay is owed
-async function admit(pool, gymId, userId, body, today) {
+// The ID the next new member at this branch will get (a preview: the save makes the real one)
+async function nextMemberCode(pool, gym) {
+  const [[row]] = await pool.query("SELECT next_member_no FROM gyms WHERE id = ?", [gym.id]);
+  return { code: rules.memberCode(gym.brand, gym.branch, row.next_member_no) };
+}
+
+// A new member: the branch's next ID (its counter locked, so two saves never share one), their
+// plan from today; what they didn't pay is owed
+async function admit(pool, gym, userId, body, today) {
+  const gymId = gym.id;
   try {
     const memberId = await inTransaction(pool, async (db) => {
+      const [[counter]] = await db.query("SELECT next_member_no FROM gyms WHERE id = ? FOR UPDATE", [gymId]);
+      const code = rules.memberCode(gym.brand, gym.branch, counter.next_member_no);
+      await db.query("UPDATE gyms SET next_member_no = next_member_no + 1 WHERE id = ?", [gymId]);
       const [result] = await db.query(
-        "INSERT INTO gym_members (gym_id, full_name, phone, dob, plan_months, plan_days, joined_on, expires_on, due_amount, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        [gymId, body.name, body.phone, body.dob, ...planColumns(body), today, rules.planEnd(today, body.duration, body.unit), body.due, userId],
+        "INSERT INTO gym_members (gym_id, member_code, full_name, phone, dob, gender, email, height_cm, weight_kg, address, notes, plan_months, plan_days, joined_on, expires_on, due_amount, due_by, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        [gymId, code, body.name, body.phone, body.dob, body.gender, body.email, body.heightCm, body.weightKg, body.address, body.notes, ...planColumns(body), body.joinedOn, rules.planEnd(body.joinedOn, body.duration, body.unit), body.due, body.dueBy, userId],
       );
-      await addPayment(db, gymId, userId, { memberId: result.insertId, kind: "admission", title: body.name, detail: planText(body), method: body.method, amount: body.paid }, today);
+      await addPayment(db, gymId, userId, { memberId: result.insertId, kind: "admission", title: body.name, detail: planText(body), method: body.method, amount: body.paid }, body.paidOn);
       return result.insertId;
     });
     return member(pool, gymId, memberId, today);
@@ -201,7 +225,9 @@ async function renew(pool, gymId, userId, memberId, body, today) {
     const row = await memberRow(db, gymId, memberId, today, { lock: true });
     const due = row.due_amount + body.due;
     if (due > rules.limits.amount) throw new ValidationError("That would make the amount owed more than ₹10,00,000.");
-    await db.query("UPDATE gym_members SET plan_months = ?, plan_days = ?, expires_on = ?, due_amount = ? WHERE id = ? AND gym_id = ?", [...planColumns(body), rules.renewedUntil(row.expires_on, today, body.duration, body.unit), due, memberId, gymId]);
+    // A new amount owed takes the date given; otherwise an earlier one stays
+    const dueBy = body.due > 0 ? body.dueBy : due > 0 ? row.due_by : null;
+    await db.query("UPDATE gym_members SET plan_months = ?, plan_days = ?, expires_on = ?, due_amount = ?, due_by = ? WHERE id = ? AND gym_id = ?", [...planColumns(body), rules.renewedUntil(row.expires_on, today, body.duration, body.unit), due, dueBy, memberId, gymId]);
     await addPayment(db, gymId, userId, { memberId, kind: "renewal", title: row.full_name, detail: planText(body), method: body.method, amount: body.paid }, today);
   });
   return member(pool, gymId, memberId, today);
@@ -213,16 +239,25 @@ async function collectDue(pool, gymId, userId, memberId, body, today) {
     const row = await memberRow(db, gymId, memberId, today, { lock: true });
     if (row.due_amount === 0) throw new ValidationError("This member doesn't owe anything.");
     if (body.amount > row.due_amount) throw new ValidationError(`That's more than they owe (₹${row.due_amount.toLocaleString("en-IN")}).`);
-    await db.query("UPDATE gym_members SET due_amount = due_amount - ? WHERE id = ? AND gym_id = ?", [body.amount, memberId, gymId]);
-    await addPayment(db, gymId, userId, { memberId, kind: "due", title: row.full_name, detail: "Due payment", method: body.method, amount: body.amount }, today);
+    // Paid in full: no date any more; part: the new date if one was given, else the old one
+    const left = row.due_amount - body.amount;
+    const dueBy = left === 0 ? null : body.dueBy ?? row.due_by;
+    await db.query("UPDATE gym_members SET due_amount = ?, due_by = ? WHERE id = ? AND gym_id = ?", [left, dueBy, memberId, gymId]);
+    await addPayment(db, gymId, userId, { memberId, kind: "due", title: row.full_name, detail: "Due payment", method: body.method, amount: body.amount }, body.paidOn ?? today);
   });
   return member(pool, gymId, memberId, today);
 }
 
 // Personal training a member paid for
 async function personalTraining(pool, gymId, userId, memberId, body, today) {
-  const row = await memberRow(pool, gymId, memberId, today);
-  await addPayment(pool, gymId, userId, { memberId, kind: "pt", title: row.full_name, detail: `PT · ${body.package}`, method: body.method, amount: body.amount }, today);
+  await inTransaction(pool, async (db) => {
+    const row = await memberRow(db, gymId, memberId, today, { lock: true });
+    // A new PT period starts the day after a running one ends, or today
+    const from = row.pt_until && row.pt_until >= today ? rules.addDays(row.pt_until, 1) : today;
+    const until = rules.planEnd(from, body.duration, body.unit);
+    await db.query("UPDATE gym_members SET pt_label = ?, pt_from = ?, pt_until = ? WHERE id = ? AND gym_id = ?", [body.package, from, until, memberId, gymId]);
+    await addPayment(db, gymId, userId, { memberId, kind: "pt", title: row.full_name, detail: `PT · ${body.package}`, method: body.method, amount: body.amount }, today);
+  });
   return member(pool, gymId, memberId, today);
 }
 
@@ -246,6 +281,11 @@ async function editMember(pool, gymId, memberId, body, today) {
   if (body.name !== undefined) { sets.push("full_name = ?"); params.push(body.name); }
   if (body.phone !== undefined) { sets.push("phone = ?"); params.push(body.phone); }
   if (body.dob !== undefined) { sets.push("dob = ?"); params.push(body.dob); }
+  if (body.gender !== undefined) { sets.push("gender = ?"); params.push(body.gender); }
+  // The optional details: column names only from this list
+  for (const [key, column] of [["email", "email"], ["heightCm", "height_cm"], ["weightKg", "weight_kg"], ["address", "address"], ["notes", "notes"]]) {
+    if (body[key] !== undefined) { sets.push(`${column} = ?`); params.push(body[key]); }
+  }
   try {
     await pool.query(`UPDATE gym_members SET ${sets.join(", ")} WHERE id = ? AND gym_id = ?`, [...params, memberId, gymId]);
   } catch (error) {
@@ -377,6 +417,7 @@ module.exports = {
   editItem,
   deleteItem,
   staffGym,
+  nextMemberCode,
   branches,
   switchBranch,
   dashboard,

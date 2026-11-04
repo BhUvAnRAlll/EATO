@@ -29,15 +29,36 @@ export type GymDashboard = {
 };
 
 export type MemberStatus = "active" | "expiring" | "expired";
-export type GymMember = { id: number; name: string; phone: string | null; dob: string | null; birthdayToday: boolean; planLength: PlanLength; joinedOn: string; expiresOn: string; due: number; status: MemberStatus; inToday: boolean };
+export type Gender = "male" | "female" | "other";
+// code: the member ID the server made (FOR-TUM-0001: gym, branch, number)
+// dueBy: the date what they owe should be paid by; overdue once it has passed
+export type MemberDetails = { email: string | null; heightCm: number | null; weightKg: number | null; address: string | null; notes: string | null };
+// daysLeft: on the plan (0 on its last day, negative once ended); pt: the latest PT period
+export type MemberPt = { label: string; from: string; until: string; active: boolean };
+export type GymMember = MemberDetails & { id: number; code: string; dueBy: string | null; overdue: boolean; daysLeft: number; pt: MemberPt | null; gender: Gender | null; name: string; phone: string | null; dob: string | null; birthdayToday: boolean; planLength: PlanLength; joinedOn: string; expiresOn: string; due: number; status: MemberStatus; inToday: boolean };
 export type GymMemberDetail = { member: GymMember & { visitsThisMonth: number; lastVisit: string | null }; payments: GymPayment[]; alreadyIn?: boolean };
-export type MemberFilter = "all" | "due" | "expiring" | "expiring_soon" | "expired" | "in_today" | "birthday";
+export type MemberFilter = "all" | "due" | "overdue" | "expiring" | "expiring_soon" | "expired" | "in_today" | "birthday";
 export type GymEnquiry = { id: number; name: string; phone: string | null; note: string | null; enquiredOn: string };
 type Sums = { online: number; cash: number; total: number; byKind: Record<PaymentKind, number> };
 export type GymWallet = { today: Sums; month: Sums; owed: { total: number; members: number } };
 
-export type AdmissionFields = PlanLength & { name: string; phone: string; dob: string; fee: number; paid: number; method: PayMethod };
-export type RenewalFields = PlanLength & { fee: number; paid: number; method: PayMethod };
+// fee: the plan's price; admissionFee and discount change what's payable; paid is collected now
+export type AdmissionFields = PlanLength &
+  Partial<{ [K in keyof MemberDetails]: MemberDetails[K] | "" }> & {
+    name: string;
+    phone: string;
+    dob: string;
+    gender: Gender | "";
+    fee: number;
+    admissionFee: number;
+    discount: number;
+    paid: number;
+    method: PayMethod;
+    dueBy: string;
+    joinedOn: string;
+    paidOn: string;
+  };
+export type RenewalFields = PlanLength & { fee: number; paid: number; method: PayMethod; dueBy: string };
 export type SaleCategory = "supplement" | "merchandise" | "other";
 
 const signedOut = <T>(): Promise<ApiResult<T>> => Promise.resolve({ ok: false, error: "Please sign in again." });
@@ -48,12 +69,13 @@ export const gymApi = {
   dashboard: (token: string | null) => call<GymDashboard>(token, "/api/gym/dashboard"),
   members: (token: string | null, filter: MemberFilter, search: string) =>
     call<{ members: GymMember[] }>(token, `/api/gym/members?filter=${filter}&search=${encodeURIComponent(search)}`),
+  nextCode: (token: string | null) => call<{ code: string }>(token, "/api/gym/members/next-code"),
   member: (token: string | null, id: number) => call<GymMemberDetail>(token, `/api/gym/members/${id}`),
   admit: (token: string | null, fields: AdmissionFields) => call<GymMemberDetail>(token, "/api/gym/members", "POST", fields),
-  editMember: (token: string | null, id: number, fields: { name?: string; phone?: string; dob?: string }) => call<GymMemberDetail>(token, `/api/gym/members/${id}`, "PATCH", fields),
+  editMember: (token: string | null, id: number, fields: { name?: string; phone?: string; dob?: string; gender?: Gender | "" } & Partial<{ [K in keyof MemberDetails]: MemberDetails[K] | "" }>) => call<GymMemberDetail>(token, `/api/gym/members/${id}`, "PATCH", fields),
   renew: (token: string | null, id: number, fields: RenewalFields) => call<GymMemberDetail>(token, `/api/gym/members/${id}/renew`, "POST", fields),
-  collectDue: (token: string | null, id: number, fields: { amount: number; method: PayMethod }) => call<GymMemberDetail>(token, `/api/gym/members/${id}/due`, "POST", fields),
-  personalTraining: (token: string | null, id: number, fields: { package: string; amount: number; method: PayMethod }) => call<GymMemberDetail>(token, `/api/gym/members/${id}/pt`, "POST", fields),
+  collectDue: (token: string | null, id: number, fields: { amount: number; method: PayMethod; dueBy?: string; paidOn?: string }) => call<GymMemberDetail>(token, `/api/gym/members/${id}/due`, "POST", fields),
+  personalTraining: (token: string | null, id: number, fields: { package: string; amount: number; method: PayMethod; unit: PlanUnit; duration: number }) => call<GymMemberDetail>(token, `/api/gym/members/${id}/pt`, "POST", fields),
   checkIn: (token: string | null, id: number) => call<GymMemberDetail>(token, `/api/gym/members/${id}/check-in`, "POST"),
   payments: (token: string | null, query: { kind?: PaymentKind | null; before?: number | null; today?: boolean }) => {
     const params = [query.kind ? `kind=${query.kind}` : "", query.before ? `before=${query.before}` : "", query.today ? "today=1" : ""].filter(Boolean).join("&");

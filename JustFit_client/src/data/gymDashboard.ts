@@ -1,5 +1,5 @@
 import type { Icon } from "@/types/profile";
-import type { CatalogKind, MemberFilter, MemberStatus, PaymentKind, PayMethod, PlanUnit, SaleCategory } from "@/lib/gymApi";
+import type { CatalogKind, Gender, MemberFilter, MemberStatus, PaymentKind, PayMethod, PlanUnit, SaleCategory } from "@/lib/gymApi";
 
 // The gym admin portal's fixed words and small formatters. The numbers themselves come from the
 // server (lib/gymApi.ts).
@@ -12,6 +12,15 @@ export const shortDate = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleDa
 
 // "+919123456789" → "+91 91234 56789"
 export const phoneText = (e164: string | null) => (e164 && /^\+91\d{10}$/.test(e164) ? `+91 ${e164.slice(3, 8)} ${e164.slice(8)}` : e164 ?? "");
+
+// What someone types or pastes into a mobile number field, kept to the 10 digits: "+91 98765 43210",
+// "098765 43210" and "9876543210" all become "9876543210"; it never grows past 10
+export function phoneInput(text: string) {
+  let d = text.replace(/\D/g, "");
+  if (d.length > 10 && d.startsWith("91")) d = d.slice(2);
+  else if (d.length > 10 && d.startsWith("0")) d = d.slice(1);
+  return d.slice(0, 10);
+}
 
 // "Mohammed Asif" → "MA"
 export const initialsOf = (name: string) =>
@@ -27,6 +36,24 @@ export function dobFromText(text: string): string | null {
   const m = /^(\d{2})-(\d{2})-(\d{4})$/.exec(text.trim());
   return m ? `${m[3]}-${m[2]}-${m[1]}` : null;
 }
+// Today on this phone, and a day some days from it, as YYYY-MM-DD
+export function todayIso(now = new Date()) {
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${now.getFullYear()}-${p(now.getMonth() + 1)}-${p(now.getDate())}`;
+}
+export const daysFromToday = (days: number, now = new Date()) => todayIso(new Date(now.getFullYear(), now.getMonth(), now.getDate() + days));
+
+// The first day of a plan that ends on `expiresOn` (the day after the same date a plan-length back)
+export function planStart(expiresOn: string, duration: number, unit: PlanUnit) {
+  const [y, m, d] = expiresOn.split("-").map(Number);
+  const next = new Date(Date.UTC(y, m - 1, d + 1));
+  if (unit === "days") return new Date(Date.UTC(y, m - 1, d - duration + 1)).toISOString().slice(0, 10);
+  const back = new Date(Date.UTC(next.getUTCFullYear(), next.getUTCMonth() - duration, 1));
+  const last = new Date(Date.UTC(back.getUTCFullYear(), back.getUTCMonth() + 1, 0)).getUTCDate();
+  back.setUTCDate(Math.min(next.getUTCDate(), last));
+  return back.toISOString().slice(0, 10);
+}
+
 // "1995-08-15" → "15-08-1995"
 export const dobText = (iso: string | null) => (iso ? `${iso.slice(8, 10)}-${iso.slice(5, 7)}-${iso.slice(0, 4)}` : "");
 // Keeps digits and inserts the dashes as someone types a date: "15081995" → "15-08-1995"
@@ -57,6 +84,7 @@ export const SALE_CATEGORIES: { id: SaleCategory; label: string }[] = [
 export const MEMBER_FILTERS: { id: MemberFilter; label: string }[] = [
   { id: "all", label: "All" },
   { id: "due", label: "Due" },
+  { id: "overdue", label: "Overdue" },
   { id: "expiring", label: "Expiring today" },
   { id: "expiring_soon", label: "Expiring in 1-3 days" },
   { id: "expired", label: "Expired" },
@@ -64,16 +92,21 @@ export const MEMBER_FILTERS: { id: MemberFilter; label: string }[] = [
   { id: "birthday", label: "Birthdays today" },
 ];
 
-// What + offers
-export const ADD_ACTIONS: { id: "admission" | "renewal" | "due" | "pt" | "service" | "sale" | "enquiry"; label: string; note: string; icon: Icon }[] = [
-  { id: "admission", label: "New admission", note: "A new member and their first payment", icon: { ios: "person.badge.plus", android: "person_add", web: "person_add" } },
-  { id: "renewal", label: "Renewal", note: "A member renewing their plan", icon: { ios: "arrow.clockwise", android: "autorenew", web: "autorenew" } },
-  { id: "due", label: "Due payment", note: "Money a member still owes", icon: { ios: "indianrupeesign.circle", android: "currency_rupee", web: "currency_rupee" } },
-  { id: "pt", label: "PT", note: "Personal training a member paid for", icon: { ios: "figure.strengthtraining.traditional", android: "fitness_center", web: "fitness_center" } },
-  { id: "service", label: "Service", note: "A steam bath, a diet plan, a body scan", icon: { ios: "sparkles", android: "spa", web: "spa" } },
-  { id: "sale", label: "Product", note: "Supplements and merchandise sold", icon: { ios: "bag", android: "shopping_bag", web: "shopping_bag" } },
-  { id: "enquiry", label: "Enquiry", note: "Someone asking about joining", icon: { ios: "questionmark.bubble", android: "contact_support", web: "contact_support" } },
+export const GENDER_LABEL: Record<Gender, string> = { male: "Male", female: "Female", other: "Other" };
+
+// The + sheet on Home (the user's design)
+export type AddAction = "member" | "plan" | "enquiry" | "expense" | "outlet" | "staff" | "sms" | "biometric";
+export const ADD_SHEET: { id: AddAction; label: string; icon: Icon }[] = [
+  { id: "member", label: "Add Member", icon: { ios: "person.badge.plus", android: "person_add", web: "person_add" } },
+  { id: "plan", label: "Add Plan", icon: { ios: "list.bullet.rectangle", android: "account_tree", web: "account_tree" } },
+  { id: "enquiry", label: "Add Enquiry", icon: { ios: "questionmark.circle.fill", android: "help", web: "help" } },
+  { id: "expense", label: "Add Expense", icon: { ios: "creditcard", android: "credit_card", web: "credit_card" } },
+  { id: "outlet", label: "Add Outlet", icon: { ios: "list.bullet", android: "view_list", web: "view_list" } },
+  { id: "staff", label: "Add Staff / Admin Login", icon: { ios: "person.badge.plus", android: "person_add", web: "person_add" } },
+  { id: "sms", label: "Send Bulk SMS", icon: { ios: "ellipsis.message.fill", android: "sms", web: "sms" } },
+  { id: "biometric", label: "Biometric Attendance", icon: { ios: "touchid", android: "fingerprint", web: "fingerprint" } },
 ];
+
 
 // The portal's tabs, in order
 export const gymTabs: { name: string; label: string; icon: Icon }[] = [
