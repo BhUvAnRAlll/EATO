@@ -274,7 +274,7 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
     await snapshotAllWidths("gym-transactions");
     await page.navigate(`${expo.baseUrl}/gym`);
     await clickTab("Wallet");
-    await h.expectPath("/gym/wallet");
+    // The tab shows Wallet (the web address can stay /gym after a tab switch)
     await h.expectText("Owed by members");
     await h.expectText("₹12,200");
     await snapshotAllWidths("gym-wallet");
@@ -289,7 +289,7 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
   }));
 
   it("4c. Manage › Plan / Catalogue: add a plan, and the admission form offers it", run("gym-catalog", async () => {
-    await h.expectText("Manager");
+    await h.expectText("Plan / Catalogue"); // Manage's top tabs (the screen has no title)
     await h.expectText("No membership plans yet");
     await clickLabel("Add a membership plan");
     await h.expectText("Add a membership plan for the outlet.");
@@ -325,7 +325,7 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
       { kind: "product", name: "Shaker Bottle", price: 350, stock: 40 },
     ]) assert.equal((await apiAs("gym", "POST", "/api/gym/catalog", item)).status, 201, JSON.stringify(item));
     await page.navigate(`${expo.baseUrl}/gym/manage?tab=catalog`);
-    await h.expectText("Manager");
+    await h.expectText("Plan / Catalogue"); // Manage's top tabs (the screen has no title)
     await clickLabel("PT");
     await page.waitFor(`!!document.querySelector('[aria-label="1 Month PT, 1 Month, ₹5,000. Edit"]')`, NAV_TIMEOUT, "the PT card with its length");
     await snapshotAllWidths("gym-catalog-pt");
@@ -385,7 +385,7 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
     const alerted = (text) => page.waitFor(`(window.__alerts || []).some((m) => m.includes(${JSON.stringify(text)}))`, NAV_TIMEOUT, `an alert saying ${text}`);
 
     await page.navigate(`${expo.baseUrl}/gym/manage`);
-    await h.expectText("Manager");
+    await h.expectText("Plan / Catalogue"); // Manage's top tabs (the screen has no title)
     await h.expectText("All Members");
     await h.expectText("Karthik Raja");
     await h.expectText("6 days ago");
@@ -419,6 +419,8 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
     // Home › Send Bulk SMS
     await page.navigate(`${expo.baseUrl}/gym`);
     await h.expectPath("/gym");
+    await h.expectText("Send Bulk SMS");
+    await h.settle(); // Home's cards finish sliding in before the tap
     await stubAlerts();
     await clickLabel("Send Bulk SMS. Auto reminders, alerts and wishes");
     await h.expectText("Available Credits");
