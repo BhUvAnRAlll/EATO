@@ -20,7 +20,7 @@ const TABS: { id: Tab; label: string }[] = [
 ];
 const isTab = (v: unknown): v is Tab => typeof v === "string" && TABS.some((t) => t.id === v);
 
-// Gym admin › Manage ("Manager"): Member, Plan / Catalogue, Enquiry and Expense under one tab. The ☰
+// Gym admin › Manage (no title, at the user's request): Member, Plan / Catalogue, Enquiry and Expense under one tab. The ☰
 // menu opens it on a section (?tab=).
 export default function GymManage() {
   const params = useLocalSearchParams<{ tab?: string }>();
@@ -34,7 +34,6 @@ export default function GymManage() {
     <View className="flex-1 bg-gym-page">
       <StatusBar style="dark" />
       <SafeAreaView edges={["top"]} style={{ flex: 1 }}>
-        <Text className="gym-manage__title" accessibilityRole="header">Manager</Text>
         <View className="gym-toptabs">
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 12 }} accessibilityRole="tablist">
             {TABS.map((t) => {
