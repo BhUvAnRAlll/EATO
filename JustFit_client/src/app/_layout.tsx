@@ -83,6 +83,9 @@ function RootStack() {
       <Stack.Protected guard={role === "admin"}>
         <Stack.Screen name="admin" />
       </Stack.Protected>
+      <Stack.Protected guard={role === "gym_admin"}>
+        <Stack.Screen name="gym" />
+      </Stack.Protected>
     </Stack>
     </ThemeProvider>
   );

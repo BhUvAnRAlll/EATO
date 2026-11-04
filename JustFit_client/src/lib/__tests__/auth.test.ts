@@ -95,6 +95,7 @@ describe("the saved session at launch", () => {
 describe("where an account opens", () => {
   it("by the server's role and setup state", () => {
     assert.equal(homeRouteFor({ role: "admin", profileComplete: false }), "/admin");
+    assert.equal(homeRouteFor({ role: "gym_admin", profileComplete: false }), "/gym", "a gym admin never goes through member setup");
     assert.equal(homeRouteFor({ role: "user", profileComplete: false }), "/setup/personal");
     assert.equal(homeRouteFor({ role: "user", profileComplete: true }), "/home");
   });

@@ -8,6 +8,7 @@ import { router, useFocusEffect, type Href } from "expo-router";
 
 import { usePullToRefresh } from "@/components/PullToRefresh";
 import { DashedBlock } from "@/components/macro/DashedBlock";
+import { rupees } from "@/data/gymDashboard";
 import { adminPortal, ago, type AdminOverview } from "@/lib/adminPortal";
 import { useSessionToken } from "@/lib/session";
 import type { Icon } from "@/types/profile";
@@ -24,6 +25,8 @@ const icons = {
   workouts: { ios: "dumbbell", android: "fitness_center", web: "fitness_center" },
   meals: { ios: "fork.knife", android: "restaurant", web: "restaurant" },
   history: { ios: "clock.arrow.circlepath", android: "history", web: "history" },
+  gyms: { ios: "building.2", android: "apartment", web: "apartment" },
+  takings: { ios: "indianrupeesign.circle", android: "currency_rupee", web: "currency_rupee" },
 } satisfies Record<string, Icon>;
 
 export default function AdminOverviewScreen() {
@@ -76,12 +79,18 @@ export default function AdminOverviewScreen() {
 function Ready({ data, now }: { data: AdminOverview; now: number }) {
   const colors = useThemeColors();
   const { counts, activity } = data;
-  const stats: { label: string; value: number; icon: Icon; href?: Href }[] = [
+  const stats: { label: string; value: number | string; icon: Icon; href?: Href }[] = [
     { label: "Users", value: counts.users, icon: icons.users, href: "/admin/users" },
     { label: "New this week", value: counts.newUsers, icon: icons.newUsers, href: "/admin/users" },
     { label: "Workouts this week", value: counts.workouts, icon: icons.workouts, href: "/admin/app-usage" },
     { label: "Meals this week", value: counts.meals, icon: icons.meals, href: "/admin/app-usage" },
   ];
+  if (data.gyms && data.gyms.gyms !== null) {
+    stats.push(
+      { label: "Gyms", value: data.gyms.gyms, icon: icons.gyms, href: "/admin/gyms" },
+      { label: "Gym takings today", value: rupees(data.gyms.gymRevenueToday ?? 0), icon: icons.takings, href: "/admin/gyms" },
+    );
+  }
 
   return (
     <>

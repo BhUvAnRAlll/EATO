@@ -6,10 +6,12 @@ import { apiFetch, type ApiResult } from "@/lib/api";
 export type AdminOverview = {
   // users: every account; the rest are the last seven days
   counts: { users: number; newUsers: number; workouts: number; meals: number };
+  // Gyms on justFit and their takings today (null before the gym portal migration)
+  gyms?: { gyms: number | null; gymRevenueToday: number | null };
   activity: { id: string; action: string; targetType: string; targetId: string | null; summary: string; by: string; at: string | null }[];
 };
 
-export type UserKind = "member" | "admin";
+export type UserKind = "member" | "admin" | "gym_admin";
 export type UserFilter = "all" | "members" | "admins";
 export type AdminUserRow = { id: string; name: string; kind: UserKind };
 export type AdminUser = {
@@ -20,7 +22,7 @@ export type AdminUser = {
   counts: { meals: number; workouts: number; orders: number };
 };
 
-export const KIND_LABEL: Record<UserKind, string> = { member: "Member", admin: "Admin" };
+export const KIND_LABEL: Record<UserKind, string> = { member: "Member", admin: "Admin", gym_admin: "Gym admin" };
 
 const signedOut = <T>(): Promise<ApiResult<T>> => Promise.resolve({ ok: false, error: "Please sign in again." });
 

@@ -1,6 +1,7 @@
-// Gives an account a role ("user" or "admin"). The only way to make an admin: the app can't change its own role, and new accounts are always "user".
+// Gives an account a role ("user", "admin" or "gym_admin"). The only way to make an admin or a
+// gym admin: the app can't change its own role, and new accounts are always "user".
 //
-//   npm run set-role -- <phone> <user|admin>
+//   npm run set-role -- <phone> <user|admin|gym_admin>
 //
 // The person signs in with that phone number first (that creates the account); the new role
 // counts on their next request, because roles are read from the database every time.

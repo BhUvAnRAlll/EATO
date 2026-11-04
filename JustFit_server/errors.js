@@ -14,4 +14,12 @@ class ForbiddenError extends Error {
   }
 }
 
-module.exports = { NotFoundError, ForbiddenError };
+class ConflictError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "ConflictError";
+    this.status = 409;
+  }
+}
+
+module.exports = { NotFoundError, ForbiddenError, ConflictError };

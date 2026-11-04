@@ -1,7 +1,7 @@
 // The Super Admin portal end to end: test accounts in justfit_test against the real Express
 // server and the isolated justfit_test database. Covers the Overview's counts and the audit log
 // that admin actions write (publish and delete a promotion), Users (list, filters, search,
-// detail), the removed trainer, Community, gym, owner and WhatsApp routes staying gone, and the
+// detail), the removed trainer, Community, gym owner and WhatsApp routes staying gone, and the
 // attack paths: no or forged session, members calling admin routes, malformed ids, SQL and
 // wildcards in a search, and a failed action leaving no log line.
 //
@@ -58,12 +58,14 @@ describe("admin portal e2e: the Overview, users and the admin audit log", () => 
       await newIdentity("marcus");
       await newIdentity("member");
       await newIdentity("rohan");
+      // A gym admin: their own portal in the app, never the Super Admin's
+      await newIdentity("gymadmin");
     } catch (error) {
       throw new Error(`could not create a test identity or session: ${JSON.stringify(describeIdentityError(error))}`);
     }
-    const names = { admin: "Maya Ortiz", moderator: "Sam Rivera", marcus: "Marcus Johnson", member: "Priya Patel", rohan: "Rohan Verma" };
+    const names = { admin: "Maya Ortiz", moderator: "Sam Rivera", marcus: "Marcus Johnson", member: "Priya Patel", rohan: "Rohan Verma", gymadmin: "Arjun Kumar" };
     for (const tag of Object.keys(names)) {
-      await connection.query("INSERT INTO users (id, email, full_name, role) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE email = VALUES(email), full_name = VALUES(full_name), role = IF(role = 'user', VALUES(role), role)", [ids[tag], identities[tag].emailAddress, names[tag], tag === "admin" || tag === "moderator" ? "admin" : "user"]);
+      await connection.query("INSERT INTO users (id, email, full_name, role) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE email = VALUES(email), full_name = VALUES(full_name), role = IF(role = 'user', VALUES(role), role)", [ids[tag], identities[tag].emailAddress, names[tag], tag === "admin" || tag === "moderator" ? "admin" : tag === "gymadmin" ? "gym_admin" : "user"]);
     }
   });
 
@@ -138,7 +140,7 @@ describe("admin portal e2e: the Overview, users and the admin audit log", () => 
 
   it("5. users: every route needs the admin role", run(async () => {
     for (const token of [null, "not-a-jwt"]) assert.equal((await api("GET", "/api/admin/portal/users", token)).status, 401);
-    for (const tag of ["member", "marcus"]) {
+    for (const tag of ["member", "marcus", "gymadmin"]) {
       assert.equal((await api("GET", "/api/admin/portal/users", tokens[tag])).status, 403);
       assert.equal((await api("GET", `/api/admin/portal/users/${ids.member}`, tokens[tag])).status, 403);
     }
@@ -150,11 +152,17 @@ describe("admin portal e2e: the Overview, users and the admin audit log", () => 
     const byId = Object.fromEntries(all.json.users.map((u) => [u.id, u]));
     assert.equal(byId[ids.admin].kind, "admin");
     assert.equal(byId[ids.marcus].kind, "member");
+    assert.equal(byId[ids.gymadmin].kind, "gym_admin");
     assert.deepEqual(Object.keys(byId[ids.rohan]).sort(), ["id", "kind", "name"], "no suspension flag any more");
     const kinds = async (filter) => (await api("GET", `/api/admin/portal/users?filter=${filter}`, tokens.admin)).json.users.map((u) => u.id);
     assert.deepEqual((await kinds("admins")).filter((id) => Object.values(ids).includes(id)).sort(), [ids.admin, ids.moderator].sort());
     assert.ok((await kinds("members")).includes(ids.rohan));
     assert.ok(!(await kinds("members")).includes(ids.admin));
+    assert.ok(!(await kinds("members")).includes(ids.gymadmin), "a gym admin is not a member");
+    // The gym admin's own account check says gym_admin, so the app opens the gym portal
+    const me = await api("GET", "/api/auth/me", tokens.gymadmin);
+    assert.equal(me.status, 200);
+    assert.equal(me.json.user.role, "gym_admin");
     const search = async (text) => (await api("GET", `/api/admin/portal/users?search=${encodeURIComponent(text)}`, tokens.admin)).json.users.map((u) => u.id);
     assert.deepEqual(await search("Rohan Ver"), [ids.rohan]);
     assert.ok((await search(identities.rohan.emailAddress)).includes(ids.rohan), "search by email");
@@ -181,10 +189,12 @@ describe("admin portal e2e: the Overview, users and the admin audit log", () => 
     assert.equal((await api("GET", `/api/admin/portal/users/${encodeURIComponent("x' OR '1'='1")}`, tokens.admin)).status, 404);
   }));
 
-  it("8. the removed Community, gym, owner and WhatsApp routes are gone, and asking writes nothing", run(async () => {
+  // Super Admin › Gyms came back with the gym admin portal (2026-11-04, admin/gyms.js and
+  // gym-portal.e2e.test.js); the old gym owner portal's routes stay gone
+  it("8. the removed Community, gym owner and WhatsApp routes are gone, and asking writes nothing", run(async () => {
     const before = await count("admin_audit_log", "1 = ?", [1]);
     for (const [method, route] of [
-      ["GET", "/api/admin/portal/gyms"], ["POST", "/api/admin/portal/gyms"], ["GET", "/api/admin/portal/reports"], ["POST", "/api/admin/portal/reports/resolve"],
+      ["GET", "/api/admin/portal/reports"], ["POST", "/api/admin/portal/reports/resolve"],
       ["PUT", `/api/admin/portal/users/${ids.marcus}/verified`], ["POST", `/api/community/admin/members/${ids.rohan}/suspend`],
       ["GET", "/api/community/feed"], ["GET", "/api/gyms"], ["GET", "/api/owner/gyms"], ["GET", "/api/media/00000000-0000-0000-0000-000000000000"],
     ]) {

@@ -7,9 +7,9 @@ const { NotFoundError } = require("../errors");
 const LIST_LIMIT = 200;
 const FILTERS = ["all", "members", "admins"];
 
-// What kind of account this is, for the list's label and filters: admins by their role,
-// everyone else a member
-const KIND_SQL = "IF(u.role = 'admin', 'admin', 'member')";
+// What kind of account this is, for the list's label and filters: admins and gym admins by their
+// role, everyone else a member
+const KIND_SQL = "CASE u.role WHEN 'admin' THEN 'admin' WHEN 'gym_admin' THEN 'gym_admin' ELSE 'member' END";
 
 const nameOf = (row) => (row.full_name && row.full_name.trim()) || "justFit member";
 

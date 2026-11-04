@@ -1,5 +1,6 @@
 import { apiFetch, type ApiResult } from "@/lib/api";
 import type { TargetRecord } from "@/lib/nutrition";
+import type { Role } from "@/lib/roles";
 import type {
   ActivityLevel,
   DietId,
@@ -19,7 +20,7 @@ export type SavedProfile = {
   fullName: string;
   email: string; // the account's email (empty for phone accounts)
   phone: string;
-  role: "user" | "admin";
+  role: Role;
   dob: string; // YYYY-MM-DD
   gender: Gender | null;
   goal: FitnessGoal | null;

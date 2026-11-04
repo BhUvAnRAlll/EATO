@@ -1,0 +1,48 @@
+import { useState } from "react";
+import { ActivityIndicator, Pressable, ScrollView, Text, View, Platform } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { StatusBar } from "expo-status-bar";
+import { router } from "expo-router";
+
+import { FormAlert } from "@/components/FormAlert";
+import { SymbolView } from "@/components/SymbolView";
+import { AdminField } from "@/components/admin/AdminField";
+import { adminGyms } from "@/lib/gymApi";
+import { useGymSave } from "@/lib/gymForm";
+import { useThemeColors } from "@/theme";
+
+const back = () => (router.canGoBack() ? router.back() : router.replace("/admin/gyms"));
+
+// Super Admin › Gyms › New gym: its name and where it is. Its gym admin is linked on the gym's page.
+export default function AdminNewGym() {
+  const colors = useThemeColors();
+  const [name, setName] = useState("");
+  const [area, setArea] = useState("");
+  const [city, setCity] = useState("");
+  const { busy, error, save } = useGymSave((data: { gym: { id: number } }) => router.replace({ pathname: "/admin/gyms/[id]", params: { id: String(data.gym.id) } }));
+  const ready = name.trim().length >= 2 && area.trim().length >= 2 && city.trim().length >= 2;
+  return (
+    <View className="flex-1 bg-cream">
+      <StatusBar style="auto" />
+      <SafeAreaView style={{ flex: 1 }}>
+        <View className="screen-bar">
+          <Pressable onPress={back} hitSlop={12} className="screen-bar__back" accessibilityRole="button" accessibilityLabel="Back">
+            <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={20} tintColor={colors.ink} />
+          </Pressable>
+          <Text className="screen-bar__title" accessibilityRole="header">New gym</Text>
+          <View className="screen-bar__spacer" />
+        </View>
+        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40, gap: 16 }} keyboardShouldPersistTaps="handled" keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}>
+          <AdminField label="Gym name" value={name} onChangeText={setName} maxLength={80} placeholder="For example: Just Fit Anna Nagar" />
+          <AdminField label="Area" value={area} onChangeText={setArea} maxLength={80} placeholder="Anna Nagar" />
+          <AdminField label="City" value={city} onChangeText={setCity} maxLength={60} placeholder="Chennai" />
+          {error ? <FormAlert message={error} /> : null}
+          <Pressable onPress={() => save((token) => adminGyms.create(token, { name: name.trim(), area: area.trim(), city: city.trim() }))} disabled={!ready || busy} className="btn-forest" style={{ opacity: ready && !busy ? 1 : 0.5 }} accessibilityRole="button" accessibilityLabel="Create gym">
+            {busy && <ActivityIndicator size="small" color={colors.onPrimary} />}
+            <Text className="btn-forest__label">Create gym</Text>
+          </Pressable>
+        </ScrollView>
+      </SafeAreaView>
+    </View>
+  );
+}

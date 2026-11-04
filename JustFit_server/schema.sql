@@ -20,7 +20,8 @@ USE justfit;
 -- ---------------------------------------------------------------------------
 
 -- One row per account (signed in with a phone and a code since 2026-11-01). The role decides
--- which dashboard opens after login.
+-- which dashboard opens after login: user (member), admin (Super Admin), gym_admin (the gym
+-- admin portal, 2026-11-04).
 CREATE TABLE users (
   id                 VARCHAR(64)  NOT NULL,          -- user_ + random base62 (Clerk ids before 2026-11-01 keep theirs)
   email              VARCHAR(255) NULL,              -- optional: phone sign-in needs none
@@ -28,7 +29,7 @@ CREATE TABLE users (
   phone              CHAR(10)     NULL,              -- 10 digits, +91 implied
   phone_verified_at  DATETIME     NULL,              -- set when a sign-in code proved the phone
   verified_phone     CHAR(10)     AS (IF(phone_verified_at IS NULL, NULL, phone)) VIRTUAL,  -- the login
-  role               ENUM('user', 'admin') NOT NULL DEFAULT 'user',
+  role               ENUM('user', 'admin', 'gym_admin') NOT NULL DEFAULT 'user',
   created_at         TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at         TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
@@ -1121,4 +1122,110 @@ CREATE TABLE analytics_sessions (
   KEY idx_analytics_sessions_time (started_at),
   CONSTRAINT fk_analytics_sessions_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE SET NULL,
   CONSTRAINT chk_analytics_sessions_order CHECK (last_event_at >= started_at)
+) ENGINE = InnoDB;
+
+-- ---------------------------------------------------------------------------
+-- Gym admin portal (2026-11-04, migration 2026-11-19-gym-portal.sql). A gym is created by a
+-- justFit admin, who links gym_admin accounts to it (gym_staff, one gym per account). Everything
+-- else belongs to one gym and is written only by its staff: the gym's own members (people at the
+-- gym, not app accounts), payments, enquiries and daily check-ins. Money is in whole rupees;
+-- days are India's calendar days (the server works them out). Nothing cascades from a gym: gyms
+-- are never deleted. Only users cascade (gym_staff), the rest keep their rows with created_by NULL.
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE gyms (
+  id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  name        VARCHAR(80)  NOT NULL,
+  area        VARCHAR(80)  NOT NULL,
+  city        VARCHAR(60)  NOT NULL,
+  created_by  VARCHAR(64)  NULL,
+  created_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  CONSTRAINT fk_gyms_created_by FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL
+) ENGINE = InnoDB;
+
+CREATE TABLE gym_staff (
+  user_id   VARCHAR(64)  NOT NULL,              -- a gym_admin account: one gym each
+  gym_id    INT UNSIGNED NOT NULL,
+  added_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (user_id),
+  KEY idx_gym_staff_gym (gym_id),
+  CONSTRAINT fk_gym_staff_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+  CONSTRAINT fk_gym_staff_gym FOREIGN KEY (gym_id) REFERENCES gyms (id)
+) ENGINE = InnoDB;
+
+CREATE TABLE gym_members (
+  id           INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  gym_id       INT UNSIGNED NOT NULL,
+  full_name    VARCHAR(80)  NOT NULL,
+  phone        CHAR(10)     NULL,                -- 10 digits, +91 implied
+  plan_months  TINYINT UNSIGNED NOT NULL,        -- the latest plan bought
+  joined_on    DATE         NOT NULL,
+  expires_on   DATE         NOT NULL,            -- the last day the membership covers
+  due_amount   INT UNSIGNED NOT NULL DEFAULT 0,  -- rupees still owed
+  created_by   VARCHAR(64)  NULL,
+  created_at   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_gym_members_phone (gym_id, phone),
+  KEY idx_gym_members_expiry (gym_id, expires_on),
+  KEY idx_gym_members_name (gym_id, full_name),
+  CONSTRAINT fk_gym_members_gym FOREIGN KEY (gym_id) REFERENCES gyms (id),
+  CONSTRAINT fk_gym_members_created_by FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL,
+  CONSTRAINT chk_gym_members_phone CHECK (phone IS NULL OR phone REGEXP '^[6-9][0-9]{9}$'),
+  CONSTRAINT chk_gym_members_plan CHECK (plan_months BETWEEN 1 AND 24),
+  CONSTRAINT chk_gym_members_due CHECK (due_amount <= 1000000)
+) ENGINE = InnoDB;
+
+CREATE TABLE gym_payments (
+  id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  gym_id      INT UNSIGNED NOT NULL,
+  member_id   INT UNSIGNED NULL,                 -- NULL for a shop sale
+  kind        ENUM('admission', 'renewal', 'due', 'sale') NOT NULL,
+  title       VARCHAR(80)  NOT NULL,             -- the member's name, or the item sold
+  detail      VARCHAR(80)  NOT NULL,             -- "3 Months", "Due payment", "Supplement Sale"
+  method      ENUM('online', 'cash') NOT NULL,
+  amount      INT UNSIGNED NOT NULL,             -- rupees
+  paid_on     DATE         NOT NULL,
+  created_by  VARCHAR(64)  NULL,
+  created_at  TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (id),
+  KEY idx_gym_payments_day (gym_id, paid_on),
+  KEY idx_gym_payments_member (member_id),
+  CONSTRAINT fk_gym_payments_gym FOREIGN KEY (gym_id) REFERENCES gyms (id),
+  CONSTRAINT fk_gym_payments_member FOREIGN KEY (member_id) REFERENCES gym_members (id),
+  CONSTRAINT fk_gym_payments_created_by FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL,
+  CONSTRAINT chk_gym_payments_amount CHECK (amount BETWEEN 1 AND 1000000)
+) ENGINE = InnoDB;
+
+CREATE TABLE gym_enquiries (
+  id           INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  gym_id       INT UNSIGNED NOT NULL,
+  full_name    VARCHAR(80)  NOT NULL,
+  phone        CHAR(10)     NULL,
+  note         VARCHAR(200) NULL,
+  enquired_on  DATE         NOT NULL,
+  created_by   VARCHAR(64)  NULL,
+  created_at   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_gym_enquiries_day (gym_id, enquired_on),
+  CONSTRAINT fk_gym_enquiries_gym FOREIGN KEY (gym_id) REFERENCES gyms (id),
+  CONSTRAINT fk_gym_enquiries_created_by FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL,
+  CONSTRAINT chk_gym_enquiries_phone CHECK (phone IS NULL OR phone REGEXP '^[6-9][0-9]{9}$')
+) ENGINE = InnoDB;
+
+CREATE TABLE gym_attendance (
+  id             INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  gym_id         INT UNSIGNED NOT NULL,
+  member_id      INT UNSIGNED NOT NULL,
+  on_date        DATE         NOT NULL,
+  checked_in_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_by     VARCHAR(64)  NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_gym_attendance_day (member_id, on_date),  -- one check-in a day
+  KEY idx_gym_attendance_day (gym_id, on_date),
+  CONSTRAINT fk_gym_attendance_gym FOREIGN KEY (gym_id) REFERENCES gyms (id),
+  CONSTRAINT fk_gym_attendance_member FOREIGN KEY (member_id) REFERENCES gym_members (id),
+  CONSTRAINT fk_gym_attendance_created_by FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL
 ) ENGINE = InnoDB;

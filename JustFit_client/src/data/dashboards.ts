@@ -82,4 +82,10 @@ export const dashboards: Record<Role, Dashboard> = {
       },
     ],
   },
+  // The gym admin portal has its own screens (app/gym/); no tiles here
+  gym_admin: {
+    label: "Gym admin",
+    subtitle: "Your gym's members, payments and attendance.",
+    tiles: [],
+  },
 };

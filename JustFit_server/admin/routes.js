@@ -6,6 +6,8 @@ const express = require("express");
 
 const { overview } = require("./overview");
 const users = require("./users");
+const gyms = require("./gyms");
+const gymRules = require("../gym/rules");
 const aiUsage = require("./aiUsage");
 const usage = require("./usage");
 const retention = require("./retention");
@@ -27,7 +29,8 @@ const pool = (req) => req.app.locals.pool;
 
 // Overview: platform counts, the to-do list and recent admin activity
 router.get("/overview", route(async (req, res) => {
-  res.json(await overview(pool(req)));
+  const summary = await overview(pool(req));
+  res.json({ ...summary, gyms: await gyms.overviewCounts(pool(req), gymRules.todayInIndia()) });
 }));
 
 // An account id from the path: ids are letters, digits and underscores. Anything else
@@ -47,6 +50,40 @@ router.get("/users", route(async (req, res) => {
 // One account: name, kind and when they joined
 router.get("/users/:userId", route(async (req, res) => {
   res.json({ user: await users.userDetail(pool(req), userId(req)) });
+}));
+
+// Gyms (admin/gyms.js): every gym with today's numbers, one gym in detail, creating and editing a
+// gym, and linking its gym_admin accounts. Before migrations/2026-11-19-gym-portal.sql, a 503.
+const gymRoute = (handler) => (req, res, next) =>
+  handler(req, res, next).catch((error) => {
+    if (["ER_NO_SUCH_TABLE", "ER_BAD_FIELD_ERROR"].includes(error?.code)) return res.status(503).json({ error: "Gyms need the 2026-11-19-gym-portal migration on this server." });
+    next(error);
+  });
+const gymId = (req) => gymRules.id(req.params.gymId, "gym");
+router.get("/gyms", gymRoute(async (req, res) => {
+  res.json(await gyms.list(pool(req), gymRules.todayInIndia()));
+}));
+router.post("/gyms", smallBody, gymRoute(async (req, res) => {
+  const id = await gyms.create(pool(req), req.userId, gymRules.gymBody(req.body, { creating: true }));
+  res.status(201).json(await gyms.detail(pool(req), id, gymRules.todayInIndia()));
+}));
+router.get("/gyms/:gymId", gymRoute(async (req, res) => {
+  res.json(await gyms.detail(pool(req), gymId(req), gymRules.todayInIndia()));
+}));
+router.patch("/gyms/:gymId", smallBody, gymRoute(async (req, res) => {
+  const id = gymId(req);
+  await gyms.update(pool(req), req.userId, id, gymRules.gymBody(req.body, { creating: false }));
+  res.json(await gyms.detail(pool(req), id, gymRules.todayInIndia()));
+}));
+router.post("/gyms/:gymId/staff", smallBody, gymRoute(async (req, res) => {
+  const id = gymId(req);
+  await gyms.linkStaff(pool(req), req.userId, id, gymRules.staffBody(req.body).phone);
+  res.status(201).json(await gyms.detail(pool(req), id, gymRules.todayInIndia()));
+}));
+router.delete("/gyms/:gymId/staff/:userId", gymRoute(async (req, res) => {
+  const id = gymId(req);
+  await gyms.unlinkStaff(pool(req), req.userId, id, userId(req));
+  res.json(await gyms.detail(pool(req), id, gymRules.todayInIndia()));
 }));
 
 // AI usage and cost (admin/aiUsage.js): the summary for a period, the call history, the budget.

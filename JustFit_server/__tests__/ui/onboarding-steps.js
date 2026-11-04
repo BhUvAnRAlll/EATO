@@ -89,7 +89,7 @@ async function signInAs(page, h, identity) {
   );
   if (outcome.startsWith("error:")) throw new Error(`sign-in screen showed an error: ${outcome.slice(6)}`);
   await page.setInput('input[maxlength="6"]', await codeFor(identity.phone, before));
-  await page.waitFor(`["/home", "/admin"].includes(location.pathname) || location.pathname.startsWith("/setup")`, 60000, "route after the code");
+  await page.waitFor(`["/home", "/admin", "/gym"].includes(location.pathname) || location.pathname.startsWith("/setup")`, 60000, "route after the code");
   await h.settle();
 }
 

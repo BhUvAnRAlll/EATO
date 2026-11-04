@@ -42,6 +42,7 @@ const aiDedupe = require("./ai/dedupe");
 const { FoodScanError, checkFoodPhoto, scanFood, scanLimits: foodScanLimits, checkEstimateRequest, estimateFood } = require("./macro/foodScan");
 const { workoutRouter } = require("./workout/routes");
 const { fitnessRouter } = require("./fitness/routes");
+const { gymRouter } = require("./gym/routes");
 const { adminPortalRouter } = require("./admin/routes");
 const { recordAdminAction } = require("./admin/overview");
 
@@ -99,6 +100,7 @@ const foodEstimateLimiter = createRateLimiter({ limit: 30, windowMs: 10 * 60 * 1
 const coachLimiter = createRateLimiter(rateLimits.standard); // the AI Coach: the intake answers and the plan
 const workoutLimiter = createRateLimiter(rateLimits.frequent); // the Fitness tab: plan, training day, history
 const analyticsLimiter = createRateLimiter(rateLimits.frequent); // the app's usage events, in small batches
+const gymLimiter = createRateLimiter(rateLimits.frequent); // the gym admin portal: dashboard, members, payments
 
 // Phone sign-in (auth/routes.js): request and check a code, who am I, logout. The two sign-in
 // routes and the health check are the only ones without a session;
@@ -389,6 +391,9 @@ app.use("/api/workout", requireUser, limitPerUser(workoutLimiter), workoutRouter
 // The Fitness tab's programs and location sheet (fitness/routes.js), on the same budget as the workout routes
 app.use("/api/fitness", requireUser, limitPerUser(workoutLimiter), fitnessRouter);
 
+// The gym admin portal (gym/routes.js): gym admins only, each on their own gym's data
+app.use("/api/gym", requireUser, limitPerUser(gymLimiter), gymRouter);
+
 // No route matched: answer in JSON like every other response, not Express's HTML page
 app.use((req, res) => {
   res.status(404).json({ error: "Not found." });
@@ -406,8 +411,8 @@ const clientErrorMessages = {
 };
 
 app.use((error, req, res, next) => {
-  // Our own errors carry a safe message and their status (400 validation, 403, 404, 413, 415, 401 or 503 account checks)
-  if (error instanceof ValidationError || ["NotFoundError", "ForbiddenError", "AccountUnavailableError"].includes(error?.name)) {
+  // Our own errors carry a safe message and their status (400 validation, 403, 404, 409, 413, 415, 401 or 503 account checks)
+  if (error instanceof ValidationError || ["NotFoundError", "ForbiddenError", "ConflictError", "AccountUnavailableError"].includes(error?.name)) {
     return res.status(Number.isInteger(error.status) ? error.status : 400).json({ error: error.message });
   }
   if (error?.code === "ER_CHECK_CONSTRAINT_VIOLATED") {

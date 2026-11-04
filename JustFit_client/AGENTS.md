@@ -79,7 +79,7 @@ Do not introduce new major libraries unless there is a strong reason.
 | Concern | Where | Why |
 | --- | --- | --- |
 | Sign in / out (one flow for new and returning members: mobile number → texted code) | `POST /api/auth/request-otp`, `POST /api/auth/verify-otp`, `GET /api/auth/me`, `POST /api/auth/logout`, `POST /api/auth/logout-all` on the Express server (`JustFit_server/auth/`); the app's screens are `app/(auth)/sign-in.tsx` and `sign-up.tsx`, its session `store/auth.ts` | No passwords exist; codes and session tokens are stored only as hashes; the SMS key never leaves the server |
-| Roles (`user`, `admin`) | MySQL `users.role`, read on every request; new accounts are always `user`; only `npm run set-role -- <phone> <role>` in `JustFit_server` changes it | The app can't promote itself |
+| Roles (`user`, `admin`, `gym_admin`) | MySQL `users.role`, read on every request; new accounts are always `user`; only `npm run set-role -- <phone> <role>` in `JustFit_server` changes it (`gym_admin` needs migration `2026-11-18-gym-admin-role.sql`) | The app can't promote itself; `requireAdmin` admits only `admin` |
 | Reading an uploaded body composition report (removed from the app's setup on 2026-10-25; the server route is still there, unused) | `POST /api/body-composition` on the Express server → OpenAI (`JustFit_server/bodyComposition/`) | Keeps `OPENAI_API_KEY` off the device; the file is never stored |
 | Estimating body fat % from a front and a side photo (optional Body composition step `setup/body-composition.tsx`: Scan Body → `setup/scan-guide.tsx`: the instruction video only (`assets/videos/scan-instructions.mp4` via `constants/videos.ts`, played with `expo-video`, added 2026-10-25; autoplays on a loop with no controls, with sound on phones and muted on the web) and the privacy note. The written tips and pose drawings were removed at the user's request → `setup/body-scan.tsx` → the body composition report `setup/scan-report.tsx` (animated graphs in `components/setup/ReportGraphs.tsx` and `SegmentalChart.tsx`; graph ranges in `lib/bodyScanRules.ts`). The report lives in the setup store only (not saved yet), shows no model or technical wording, offers no download, and allows screenshots and screen recordings (the block added earlier on 2026-10-25 was removed at the user's request the same day; `lib/screenProtection.ts` and `expo-screen-capture` stay for reuse, unused. On iOS that block moves the whole app window into a secure layer, so never switch it on over the photo picker or mid-transition). There is no typed body fat field. After setup, Profile › Body composition › Scan Body runs the same screens with `?from=profile` (`lib/profileScan.ts`, pure and unit-tested): the report's Save to my profile shows the change, then on confirm saves through `POST /api/profile` with the targets recalculated; a user-entered target is kept) | `POST /api/body-composition/scan` on the Express server → the Forma scan server at `FORMA_SCAN_URL` (`JustFit_server/bodyComposition/scan.js`; a separate process, `Forma_BodyFat/forma_server.py`) | Photos pass through in memory and are never stored or logged; the answer is an estimate the user accepts as their body fat % (saved like a typed value, no `'scan'` report source yet). Forma's model is not validated against DEXA or InBody and the screen says so |
 | Scan food in the Macro tab (Log food › Scan Food, `app/(user)/macro/scan.tsx`, added 2026-10-25): one photo plus an optional note → an editable estimate per food (kcal, protein, carbs, fat) → logged through `POST /api/macro/meals` as a `manual` meal (the `source` ENUM has no `scan` value) | `POST /api/macro/scan` on the Express server → OpenAI (`JustFit_server/macro/foodScan.js`, model from `ai/models.js` (`AI_MODEL_FOOD_SCAN`, default gpt-4.1-mini); photos only, upload rate budget; tests use `AI_PROVIDER=fake`) | Keeps `OPENAI_API_KEY` off the device; the photo is never stored or logged and scanning writes nothing |
@@ -90,6 +90,31 @@ Do not introduce new major libraries unless there is a strong reason.
 | App data (meals, orders, diary, weigh-ins) | MySQL via the Express server (`JustFit_server/`) | Shared, queryable data that outlives one device |
 
 Every Express route except the health check and the two sign-in routes verifies the caller's session token with `requireUser` (`JustFit_server/auth.js`) before doing anything. The sign-in routes are budgeted per IP address and per phone number instead.
+
+### Gym admin portal (2026-11-04)
+
+A portal for gym staff, separate from the removed gym owner portal and from the Super Admin.
+
+- **Who:** role `gym_admin` (only `npm run set-role`), linked to one gym by a justFit admin
+  (Super Admin › Gyms › a gym › Link a gym admin, by sign-in number; linking never changes a
+  role). The app opens `app/gym/` (guarded in the root layout; `homeRouteFor` → `/gym`).
+- **Server:** `/api/gym/*` (`JustFit_server/gym/`: `rules.js` pure and unit-tested, `service.js`,
+  `routes.js`). `requireGymStaff` reads the role and the gym from the database on every request;
+  every query is scoped to that gym. Admin side `/api/admin/portal/gyms*` (`admin/gyms.js`,
+  audited as `gym.create`, `gym.edit`, `gym.staff_add`, `gym.staff_remove`); the Overview adds
+  gym counts. Tables `gyms`, `gym_staff`, `gym_members`, `gym_payments`, `gym_enquiries`,
+  `gym_attendance` (migrations `2026-11-18-gym-admin-role.sql`, `2026-11-19-gym-portal.sql`).
+  Money in whole rupees; "today" is India's date (`rules.todayInIndia`); gyms are never deleted
+  and nothing cascades except `gym_staff` from users.
+- **App:** Home (live dashboard from the user's indigo design), + (`/gym/add`: admission, renewal,
+  due payment, shop sale, enquiry), Members (search, filters, pick mode), a member's page (check in
+  once a day, renew, collect due, edit), Transactions (View All, 50 a page), Enquiries, Wallet tab
+  (today, this month, owed), Settings tab (the gym, Sign out). Admin: the Gyms tab, a gym's page,
+  New gym. Calls in `lib/gymApi.ts`, loading in `lib/useGymData.ts`, saves in `lib/gymForm.ts`.
+- **Look:** `gym-*` tokens (indigo, this portal only) and `gym-*` utilities; the member app and the
+  Super Admin stay red. No AI button (removed at the user's request). Send Bulk SMS says "coming
+  soon" (real SMS costs money; not built).
+- **Tests:** `__tests__/gym-rules.test.js`, `e2e/gym-portal.e2e.test.js`, `ui/gym-portal.ui.test.js`.
 
 ### Community and gyms: removed (2026-11-01)
 

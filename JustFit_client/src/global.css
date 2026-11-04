@@ -4733,3 +4733,546 @@
   border-radius: var(--radius-md);
   background-color: var(--color-surface-alt);
 }
+
+/* Gym admin portal (app/gym/, 2026-11-04): the indigo dashboard from the user's design. White
+   page, hairline-bordered cards, one indigo accent; tokens are the gym-* ones in tokens.css. */
+@utility gym-header {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  padding-inline: 16px;
+  padding-block: 12px;
+  background-color: var(--color-gym-page);
+  border-bottom-width: 1px;
+  border-color: var(--color-gym-line);
+}
+
+@utility gym-icon-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  border-width: 1px;
+  border-color: var(--color-gym-line);
+  background-color: var(--color-gym-bar);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility gym-header__name {
+  font-family: var(--font-sans-semibold);
+  font-size: 16px;
+  line-height: 22px;
+  color: var(--color-gym-ink);
+  flex-shrink: 1;
+}
+
+@utility gym-header__place {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--color-gym-muted);
+  flex-shrink: 1;
+}
+
+@utility gym-role-pill {
+  border-radius: 6px;
+  border-width: 1px;
+  border-color: var(--color-gym-primary-line);
+  background-color: var(--color-gym-primary-soft);
+  padding-inline: 7px;
+  padding-block: 1px;
+}
+
+@utility gym-role-pill__label {
+  font-family: var(--font-sans-semibold);
+  font-size: 10px;
+  line-height: 15px;
+  letter-spacing: 1px;
+  color: var(--color-gym-primary-text);
+}
+
+@utility gym-online-dot {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 11px;
+  height: 11px;
+  border-radius: var(--radius-pill);
+  border-width: 2px;
+  border-color: var(--color-gym-page);
+  background-color: var(--color-gym-success);
+}
+
+@utility gym-subbar {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  padding-inline: 16px;
+  min-height: 44px;
+  padding-block: 7px;
+  background-color: var(--color-gym-bar);
+  border-bottom-width: 1px;
+  border-color: var(--color-gym-line);
+}
+
+@utility gym-brand-badge {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background-color: var(--color-gym-primary);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility gym-brand-badge__label {
+  font-family: var(--font-sans-semibold);
+  font-size: 13px;
+  line-height: 16px;
+  color: var(--color-white);
+}
+
+@utility gym-subbar__title {
+  font-family: var(--font-sans-semibold);
+  font-size: 15px;
+  line-height: 20px;
+  color: var(--color-gym-ink);
+}
+
+@utility gym-subbar__title-light {
+  font-family: var(--font-sans);
+  color: var(--color-gym-muted);
+}
+
+@utility gym-live {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  border-radius: var(--radius-pill);
+  border-width: 1px;
+  border-color: var(--color-gym-success-line);
+  background-color: var(--color-gym-success-soft);
+  padding-inline: 10px;
+  padding-block: 3px;
+}
+
+@utility gym-live__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-gym-success);
+}
+
+@utility gym-live__label {
+  font-family: var(--font-sans-medium);
+  font-size: 12px;
+  line-height: 17px;
+  color: var(--color-gym-success);
+}
+
+@utility gym-hero {
+  border-radius: 22px;
+  overflow: hidden;
+  padding: 20px;
+  gap: 14px;
+  box-shadow: var(--shadow-gym-hero);
+}
+
+@utility gym-hero__icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background-color: rgba(255, 255, 255, 0.14);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility gym-hero__label {
+  font-family: var(--font-sans-medium);
+  font-size: 12px;
+  line-height: 16px;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: var(--color-white);
+  opacity: 0.88;
+}
+
+@utility gym-hero__amount {
+  font-family: var(--font-sans-semibold);
+  font-size: 34px;
+  line-height: 42px;
+  color: var(--color-white);
+}
+
+@utility gym-hero__chip {
+  flex: 1;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  border-radius: 14px;
+  background-color: var(--color-white);
+  padding-inline: 12px;
+  min-height: 46px;
+  padding-block: 8px;
+}
+
+@utility gym-hero__chip-label {
+  flex-shrink: 1;
+  font-family: var(--font-sans-medium);
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--color-gym-ink-soft);
+}
+
+@utility gym-hero__chip-value {
+  font-family: var(--font-sans-semibold);
+  font-size: 13px;
+  line-height: 18px;
+}
+
+@utility gym-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-pill);
+}
+
+@utility gym-card {
+  border-radius: 16px;
+  border-width: 1px;
+  border-color: var(--color-gym-line);
+  background-color: var(--color-gym-page);
+}
+
+@utility gym-stat {
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding-block: 12px;
+  padding-inline: 4px;
+}
+
+@utility gym-stat__value {
+  font-family: var(--font-sans-semibold);
+  font-size: 21px;
+  line-height: 28px;
+}
+
+@utility gym-stat__label {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 17px;
+  color: var(--color-gym-muted);
+}
+
+@utility gym-sms {
+  flex-direction: row;
+  align-items: center;
+  gap: 14px;
+  border-radius: 18px;
+  border-width: 1.5px;
+  border-color: var(--color-gym-primary-line);
+  background-color: var(--color-gym-page);
+  padding: 16px;
+}
+
+@utility gym-sms__icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  border-width: 1px;
+  border-color: var(--color-gym-line);
+  background-color: var(--color-gym-primary-soft);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility gym-sms__title {
+  font-family: var(--font-sans-semibold);
+  font-size: 15px;
+  line-height: 21px;
+  color: var(--color-gym-primary-text);
+}
+
+@utility gym-sms__text {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-gym-muted);
+}
+
+@utility gym-chevron-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  border-width: 1px;
+  border-color: var(--color-gym-line);
+  background-color: var(--color-gym-page);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility gym-alert {
+  flex: 1;
+  gap: 8px;
+  padding: 12px;
+}
+
+@utility gym-alert__icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  border-width: 1px;
+  align-items: center;
+  justify-content: center;
+}
+
+@utility gym-tag {
+  border-radius: 6px;
+  padding-inline: 6px;
+  padding-block: 2px;
+}
+
+@utility gym-tag__label {
+  font-family: var(--font-sans-medium);
+  font-size: 11px;
+  line-height: 15px;
+}
+
+@utility gym-alert__value {
+  font-family: var(--font-sans-semibold);
+  font-size: 22px;
+  line-height: 28px;
+  color: var(--color-gym-ink);
+}
+
+@utility gym-alert__label {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 17px;
+  color: var(--color-gym-muted);
+}
+
+@utility gym-section-title {
+  flex: 1;
+  font-family: var(--font-sans-medium);
+  font-size: 13px;
+  line-height: 18px;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: var(--color-gym-muted);
+}
+
+@utility gym-link {
+  font-family: var(--font-sans-medium);
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--color-gym-primary-text);
+}
+
+@utility gym-tx {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  padding-inline: 14px;
+  padding-block: 12px;
+}
+
+@utility gym-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-pill);
+  border-width: 1px;
+  border-color: var(--color-gym-line);
+  background-color: var(--color-gym-bar);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility gym-avatar--item {
+  border-radius: 14px;
+  border-color: var(--color-gym-success-line);
+  background-color: var(--color-gym-success-soft);
+}
+
+@utility gym-avatar__label {
+  font-family: var(--font-sans-semibold);
+  font-size: 15px;
+  line-height: 20px;
+  color: var(--color-gym-ink-soft);
+}
+
+@utility gym-tx__name {
+  font-family: var(--font-sans-semibold);
+  font-size: 15px;
+  line-height: 21px;
+  color: var(--color-gym-ink);
+}
+
+@utility gym-tx__meta {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-gym-muted);
+}
+
+@utility gym-tx__amount {
+  font-family: var(--font-sans-semibold);
+  font-size: 15px;
+  line-height: 21px;
+  color: var(--color-gym-success);
+}
+
+@utility gym-tx__date {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--color-gym-faint);
+}
+
+@utility gym-chip {
+  border-radius: 6px;
+  border-width: 1px;
+  padding-inline: 6px;
+}
+
+@utility gym-chip__label {
+  font-family: var(--font-sans-medium);
+  font-size: 11px;
+  line-height: 17px;
+}
+
+@utility gym-fab {
+  width: 56px;
+  height: 56px;
+  border-radius: 18px;
+  border-width: 3px;
+  border-color: var(--color-gym-page);
+  background-color: var(--color-gym-primary);
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-gym-fab);
+}
+
+@utility gym-tabbar {
+  flex-direction: row;
+  padding-top: 10px;
+  padding-inline: 8px;
+  border-top-width: 1px;
+  border-color: var(--color-gym-line);
+  background-color: var(--color-gym-page);
+}
+
+@utility gym-tabbar__item {
+  flex: 1;
+  min-height: 58px;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+@utility gym-tabbar__icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  align-items: center;
+  justify-content: center;
+}
+
+@utility gym-tabbar__icon--active {
+  border-width: 1px;
+  border-color: var(--color-gym-primary-line);
+  background-color: var(--color-gym-primary-soft);
+}
+
+@utility gym-tabbar__label {
+  font-family: var(--font-sans-medium);
+  font-size: 11px;
+  line-height: 15px;
+  color: var(--color-gym-faint);
+}
+
+@utility gym-tabbar__label--active {
+  font-family: var(--font-sans-semibold);
+  color: var(--color-gym-primary-text);
+}
+
+@utility gym-field__label {
+  font-family: var(--font-sans-medium);
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--color-gym-ink-soft);
+}
+
+@utility gym-field__input {
+  min-height: 48px;
+  border-radius: 12px;
+  border-width: 1px;
+  border-color: var(--color-gym-line);
+  background-color: var(--color-gym-bar);
+  padding-inline: 14px;
+  padding-block: 10px;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  color: var(--color-gym-ink);
+}
+
+@utility gym-choice {
+  min-height: 38px;
+  justify-content: center;
+  border-radius: var(--radius-pill);
+  border-width: 1px;
+  border-color: var(--color-gym-line);
+  background-color: var(--color-gym-page);
+  padding-inline: 14px;
+}
+
+@utility gym-choice--selected {
+  border-color: var(--color-gym-primary);
+  background-color: var(--color-gym-primary-soft);
+}
+
+@utility gym-choice__label {
+  font-family: var(--font-sans-medium);
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--color-gym-ink-soft);
+}
+
+@utility gym-choice__label--selected {
+  color: var(--color-gym-primary-text);
+}
+
+@utility gym-btn {
+  min-height: 50px;
+  flex-direction: row;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  background-color: var(--color-gym-primary);
+  padding-inline: 18px;
+}
+
+@utility gym-btn__label {
+  font-family: var(--font-sans-semibold);
+  font-size: 15px;
+  line-height: 20px;
+  color: var(--color-white);
+}
+
+@utility gym-btn--outline {
+  border-width: 1px;
+  border-color: var(--color-gym-primary-line);
+  background-color: var(--color-gym-page);
+}
+
+@utility gym-btn__label--outline {
+  color: var(--color-gym-primary-text);
+}
+
+@utility gym-summary {
+  border-radius: 14px;
+  background-color: var(--color-gym-bar);
+  padding: 14px;
+  gap: 6px;
+}
