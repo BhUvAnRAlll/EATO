@@ -70,7 +70,7 @@ export const PLAN_LIMIT: Record<PlanUnit, number> = { months: 24, days: 365 };
 export const KIND_LABEL: Record<PaymentKind, string> = { admission: "Admission", renewal: "Renewal", due: "Due Paid", pt: "PT", service: "Service", sale: "Product" };
 export const CATALOG_KINDS: { id: CatalogKind; label: string; noun: string; example: string }[] = [
   { id: "plan", label: "Membership", noun: "membership plan", example: "3 Months" },
-  { id: "pt", label: "PT", noun: "PT package", example: "12 sessions" },
+  { id: "pt", label: "PT", noun: "PT package", example: "1 Month PT" },
   { id: "service", label: "Service", noun: "service", example: "Steam bath" },
   { id: "product", label: "Product", noun: "product", example: "Whey Protein 1kg" },
 ];

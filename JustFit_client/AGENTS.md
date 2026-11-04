@@ -113,7 +113,15 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
   payment kind `service` added. Adding or editing is the Add Plan bottom sheet (`CatalogSheet`:
   name, Duration Type Months/Days and Duration for plans, amount), then "Please confirm the
   details" (Edit / Confirm). Plan lengths are 1-24 months or 1-365 days everywhere (catalogue,
-  admission, renewal; `gym_members.plan_days` beside `plan_months`).
+  admission, renewal; `gym_members.plan_days` beside `plan_months`). Since migration
+  `2026-11-24-catalog-stock.sql`, PT packages have a length too (cards show "1 Month"; picking one
+  fills the PT period) and products an optional `stock` ("18 in stock"; empty = not counted).
+  A member's ⋯ › Sales › Add Service / Sell Product (`MemberSaleSheet`, the GymOps designs):
+  payment date, the catalogue's chips, quantity beside In Stock, discount, mode, Amount Payable,
+  Due Amount, Amount Collected, Send Invoice. `POST /api/gym/members/:id/sales|services` take only
+  the item id: the price is the catalogue's, the member and item are locked in one transaction,
+  counted stock is checked (409 when short) and decremented, and what isn't collected is added to
+  the member's due (with a due date). + › Product (counter sales) doesn't touch stock.
 - **Member IDs (2026-11-04):** every member has `member_code`, made by the server on save from three
   letters of the gym and of the branch and the branch's running number (`FOR-TUM-0001`;
   `gyms.next_member_no`, locked in the admission's transaction; `rules.memberCode`). Never typed,

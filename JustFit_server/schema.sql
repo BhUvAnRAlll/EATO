@@ -1217,7 +1217,7 @@ CREATE TABLE gym_members (
 CREATE TABLE gym_payments (
   id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
   gym_id      INT UNSIGNED NOT NULL,
-  member_id   INT UNSIGNED NULL,                 -- NULL for a product sale
+  member_id   INT UNSIGNED NULL,                 -- NULL for a product or service sold at the counter
   kind        ENUM('admission', 'renewal', 'due', 'sale', 'pt', 'service') NOT NULL,  -- sale: a product; pt: personal training
   title       VARCHAR(80)  NOT NULL,             -- the member's name, or the item sold
   detail      VARCHAR(80)  NOT NULL,             -- "3 Months", "Due payment", "Supplement", "PT · 12 sessions"
@@ -1274,9 +1274,10 @@ CREATE TABLE gym_catalog_items (
   gym_id      INT UNSIGNED NOT NULL,                -- the branch whose price list it is
   kind        ENUM('plan', 'pt', 'service', 'product') NOT NULL,
   name        VARCHAR(80)  NOT NULL,                -- "3 Months", "12 sessions", "Steam bath", "Whey Protein 1kg"
-  duration       SMALLINT UNSIGNED NULL,            -- plans only: how long
-  duration_unit  ENUM('months', 'days') NULL,       -- plans only: 1-24 months or 1-365 days
+  duration       SMALLINT UNSIGNED NULL,            -- how long: plans always, PT packages optionally
+  duration_unit  ENUM('months', 'days') NULL,       -- 1-24 months or 1-365 days
   price       INT UNSIGNED NOT NULL,                -- rupees
+  stock       INT UNSIGNED NULL,                    -- products only: how many are left (NULL = not counted)
   created_by  VARCHAR(64)  NULL,
   created_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -1285,7 +1286,8 @@ CREATE TABLE gym_catalog_items (
   CONSTRAINT fk_gym_catalog_gym FOREIGN KEY (gym_id) REFERENCES gyms (id),
   CONSTRAINT fk_gym_catalog_created_by FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL,
   CONSTRAINT chk_gym_catalog_price CHECK (price BETWEEN 1 AND 1000000),
-  CONSTRAINT chk_gym_catalog_length CHECK (
-    (kind = 'plan' AND ((duration_unit = 'months' AND duration BETWEEN 1 AND 24) OR (duration_unit = 'days' AND duration BETWEEN 1 AND 365)))
+  CONSTRAINT chk_gym_catalog_stock CHECK (stock IS NULL OR (kind = 'product' AND stock <= 100000)),
+  CONSTRAINT chk_gym_catalog_lengths CHECK (
+    (kind IN ('plan', 'pt') AND ((duration_unit = 'months' AND duration BETWEEN 1 AND 24) OR (duration_unit = 'days' AND duration BETWEEN 1 AND 365)))
     OR (kind <> 'plan' AND duration IS NULL AND duration_unit IS NULL))
 ) ENGINE = InnoDB;

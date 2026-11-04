@@ -150,6 +150,38 @@ describe("gym rules: member IDs and gender", () => {
   });
 });
 
+describe("gym rules: catalogue stock and selling to a member", () => {
+  it("catalogue items: plans and PT have a length, products may have stock", () => {
+    assert.deepEqual(rules.catalogBody({ kind: "pt", name: "1 Month PT", unit: "months", duration: 1, price: 5000 }, { creating: true }), { kind: "pt", name: "1 Month PT", unit: "months", duration: 1, price: 5000 });
+    assert.deepEqual(rules.catalogBody({ kind: "product", name: "Whey Protein 1kg", price: 3200, stock: 18 }, { creating: true }), { kind: "product", name: "Whey Protein 1kg", price: 3200, stock: 18 });
+    assert.equal(rules.catalogBody({ kind: "product", name: "Shaker Bottle", price: 350 }, { creating: true }).stock, undefined, "stock is optional");
+    assert.deepEqual(rules.catalogBody({ stock: "" }, { creating: false }), { stock: null }, "cleared: no longer counted");
+    assert.deepEqual(rules.catalogBody({ stock: 0 }, { creating: false }), { stock: 0 });
+    refuses(() => rules.catalogBody({ kind: "pt", name: "PT", price: 100 }, { creating: true }), /PT package's duration/);
+    refuses(() => rules.catalogBody({ kind: "service", name: "Diet", unit: "months", duration: 1, price: 100 }, { creating: true }), /Only plans and PT/);
+    refuses(() => rules.catalogBody({ kind: "service", name: "Diet", price: 100, stock: 5 }, { creating: true }), /Only products have stock/);
+    for (const stock of [-1, 1.5, "18", 100001]) refuses(() => rules.catalogBody({ stock }, { creating: false }), /stock as a whole number/);
+  });
+
+  it("a member sale: the item, quantity, discount, collected now, the date; never a price", () => {
+    const ok = { itemId: 7, quantity: 2, discount: 100, paid: 3000, method: "online" };
+    assert.deepEqual(rules.memberSaleBody(ok, { product: true }, "2026-11-04"), { itemId: 7, quantity: 2, discount: 100, paid: 3000, method: "online", paidOn: "2026-11-04", dueBy: null });
+    assert.equal(rules.memberSaleBody({ itemId: 7, paid: 1000, method: "cash" }, { product: false }).quantity, 1, "a service is one");
+    assert.equal(rules.memberSaleBody({ ...ok, discount: "" }, { product: true }).discount, 0);
+    assert.equal(rules.memberSaleBody({ ...ok, dueBy: "2026-11-10" }, { product: true }, "2026-11-04").dueBy, "2026-11-10");
+    refuses(() => rules.memberSaleBody({ ...ok, price: 1 }, { product: true }), /fields/, "the price is the catalogue's");
+    refuses(() => rules.memberSaleBody({ ...ok, gymId: 2 }, { product: true }), /fields/);
+    refuses(() => rules.memberSaleBody(ok, { product: false }), /fields/, "a service has no quantity");
+    for (const quantity of [0, 101, 1.5, "2"]) refuses(() => rules.memberSaleBody({ ...ok, quantity }, { product: true }), /quantity/);
+    for (const itemId of [0, "7", "7 OR 1=1", null]) refuses(() => rules.memberSaleBody({ ...ok, itemId }, { product: true }), /Pick the product/);
+    refuses(() => rules.memberSaleBody({ ...ok, paid: 0 }, { product: true }), /amount collected/);
+    refuses(() => rules.memberSaleBody({ ...ok, discount: -5 }, { product: true }), /discount/);
+    refuses(() => rules.memberSaleBody({ ...ok, method: "card" }, { product: true }), /online or cash/);
+    refuses(() => rules.memberSaleBody({ ...ok, paidOn: "2026-11-05" }, { product: true }, "2026-11-04"), /payment date/, "not in the future");
+    refuses(() => rules.memberSaleBody({ ...ok, dueBy: "2026-11-01" }, { product: true }, "2026-11-04"), /paid by/);
+  });
+});
+
 describe("gym rules: India's calendar", () => {
   it("today in India, whatever the server's zone", () => {
     assert.equal(rules.todayInIndia(Date.parse("2026-11-03T18:29:00Z")), "2026-11-03");

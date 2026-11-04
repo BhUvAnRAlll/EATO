@@ -364,19 +364,22 @@ describe("gym portal e2e: gyms, staff, members, money and attendance", () => {
     for (const item of [
       { kind: "plan", name: "12 Months", unit: "months", duration: 12, price: 12000 },
       { kind: "plan", name: "1 Month", unit: "months", duration: 1, price: 1500 },
-      { kind: "pt", name: "12 sessions", price: 6000 },
+      { kind: "pt", name: "12 sessions", unit: "months", duration: 1, price: 6000 },
       { kind: "service", name: "Steam bath", price: 300 },
       { kind: "product", name: "Whey Protein 1kg", price: 3200 },
     ]) assert.equal((await gym.post("/api/gym/catalog", item)).status, 201, JSON.stringify(item));
     const items = (await gym.get("/api/gym/catalog")).json.items;
     assert.deepEqual(items.map((i) => [i.kind, i.name]), [["plan", "1 Month"], ["plan", "12 Months"], ["pt", "12 sessions"], ["service", "Steam bath"], ["product", "Whey Protein 1kg"]], "plans by length, then PT, services, products");
-    for (const bad of [{ kind: "plan", name: "No months", price: 100 }, { kind: "pt", name: "PT", unit: "months", duration: 3, price: 100 }, { kind: "gift", name: "X item", price: 1 }, { kind: "product", name: "Free", price: 0 }, { kind: "product", name: "Mine", price: 10, gymId: state.gymB }]) {
+    for (const bad of [{ kind: "plan", name: "No months", price: 100 }, { kind: "pt", name: "No length PT", price: 100 }, { kind: "service", name: "Long service", unit: "months", duration: 3, price: 100 }, { kind: "plan", name: "Stocked plan", unit: "months", duration: 1, price: 100, stock: 5 }, { kind: "gift", name: "X item", price: 1 }, { kind: "product", name: "Free", price: 0 }, { kind: "product", name: "Mine", price: 10, gymId: state.gymB }]) {
       assert.equal((await gym.post("/api/gym/catalog", bad)).status, 400, JSON.stringify(bad));
     }
     const plan = items[0];
     const edited = await gym.patch(`/api/gym/catalog/${plan.id}`, { price: 1800, name: "Monthly" });
     assert.deepEqual([edited.json.items[0].name, edited.json.items[0].price], ["Monthly", 1800]);
-    assert.equal((await gym.patch(`/api/gym/catalog/${items[2].id}`, { unit: "months", duration: 3 })).status, 400, "only plans have a duration");
+    assert.equal((await gym.patch(`/api/gym/catalog/${items[3].id}`, { unit: "months", duration: 3 })).status, 400, "a service has no duration");
+    assert.equal((await gym.patch(`/api/gym/catalog/${items[3].id}`, { stock: 4 })).status, 400, "only products have stock");
+    const pt = await gym.patch(`/api/gym/catalog/${items[2].id}`, { unit: "months", duration: 3 });
+    assert.deepEqual(pt.json.items.find((i) => i.id === items[2].id).duration, 3, "a PT package's length can change");
     // A day pass: plans in days sort first, and an admission on it ends after that many days
     assert.equal((await gym.post("/api/gym/catalog", { kind: "plan", name: "15-day pass", unit: "days", duration: 15, price: 900 })).status, 201);
     assert.equal((await gym.get("/api/gym/catalog")).json.items[0].name, "15-day pass");
@@ -423,6 +426,77 @@ describe("gym portal e2e: gyms, staff, members, money and attendance", () => {
     assert.equal((await gym.patch(`/api/gym/members/${m.id}`, { heightCm: 400 })).status, 400);
     await connection.query("DELETE FROM gym_payments WHERE member_id = ?", [m.id]);
     await connection.query("DELETE FROM gym_members WHERE id = ?", [m.id]);
+  }));
+
+  it("13. selling to a member: priced from the catalogue, out of stock, what's not collected is owed", run(async () => {
+    const gym = as("gymA");
+    for (const item of [{ kind: "product", name: "Shaker Bottle", price: 350, stock: 3 }, { kind: "service", name: "Diet Consultation", price: 1000 }]) {
+      assert.equal((await gym.post("/api/gym/catalog", item)).status, 201, JSON.stringify(item));
+    }
+    const items = (await gym.get("/api/gym/catalog")).json.items;
+    const shaker = items.find((i) => i.name === "Shaker Bottle");
+    const whey = items.find((i) => i.name === "Whey Protein 1kg");
+    const diet = items.find((i) => i.name === "Diet Consultation");
+    assert.deepEqual([shaker.stock, whey.stock, diet.stock], [3, null, null], "stock only where it's counted");
+    const rahul = (await gym.post("/api/gym/members", { name: "Rahul Verma", unit: "months", duration: 6, fee: 9000, paid: 9000, method: "cash" })).json.member;
+    const sales = `/api/gym/members/${rahul.id}/sales`;
+    const paymentsOf = () => count("gym_payments", "member_id = ?", [rahul.id]);
+    const stockOf = async (id) => (await connection.query("SELECT stock FROM gym_catalog_items WHERE id = ?", [id]))[0][0].stock;
+
+    // Two shakers, ₹100 off, all collected: 700 − 100 = 600 paid, two out of stock
+    const sold = await gym.post(sales, { itemId: shaker.id, quantity: 2, discount: 100, paid: 600, method: "online" });
+    assert.equal(sold.status, 201, JSON.stringify(sold.json));
+    assert.deepEqual([sold.json.payments[0].kind, sold.json.payments[0].title, sold.json.payments[0].detail, sold.json.payments[0].amount, sold.json.payments[0].memberId], ["sale", "Rahul Verma", "Shaker Bottle × 2", 600, rahul.id]);
+    assert.equal(sold.json.member.due, 0);
+    assert.equal(await stockOf(shaker.id), 1);
+
+    // Refused ones change nothing: more than in stock, the rest owed with no date, a price sent,
+    // too big a discount, more collected than payable
+    const before = await paymentsOf();
+    const short = await gym.post(sales, { itemId: shaker.id, quantity: 2, paid: 700, method: "cash" });
+    assert.deepEqual([short.status, short.json.error], [409, "Only 1 of Shaker Bottle left in stock."]);
+    for (const bad of [
+      { itemId: shaker.id, quantity: 1, paid: 100, method: "cash" },
+      { itemId: shaker.id, quantity: 1, paid: 1, method: "cash", price: 1 },
+      { itemId: shaker.id, quantity: 1, discount: 350, paid: 1, method: "cash" },
+      { itemId: shaker.id, quantity: 1, paid: 351, method: "cash" },
+    ]) assert.equal((await gym.post(sales, bad)).status, 400, JSON.stringify(bad));
+    assert.deepEqual([await paymentsOf(), await stockOf(shaker.id), (await gym.get(`/api/gym/members/${rahul.id}`)).json.member.due], [before, 1, 0], "nothing written");
+
+    // Part paid: the rest is owed by the date given; the last one leaves it out of stock
+    const part = await gym.post(sales, { itemId: shaker.id, quantity: 1, paid: 100, method: "cash", dueBy: rules.addDays(today, 5), paidOn: rules.addDays(today, -1) });
+    assert.equal(part.status, 201, JSON.stringify(part.json));
+    assert.deepEqual([part.json.member.due, part.json.member.dueBy, part.json.payments[0].paidOn, part.json.payments[0].detail], [250, rules.addDays(today, 5), rules.addDays(today, -1), "Shaker Bottle"]);
+    assert.equal(await stockOf(shaker.id), 0);
+    const out = await gym.post(sales, { itemId: shaker.id, quantity: 1, paid: 350, method: "cash" });
+    assert.deepEqual([out.status, out.json.error], [409, "Shaker Bottle is out of stock."]);
+    assert.equal((await gym.get("/api/gym/catalog")).json.items.find((i) => i.id === shaker.id).stock, 0);
+
+    // A product that isn't counted sells any number; restocking is an edit
+    assert.equal((await gym.post(sales, { itemId: whey.id, quantity: 5, paid: 16000, method: "online" })).status, 201);
+    assert.equal(await stockOf(whey.id), null);
+    assert.equal((await gym.patch(`/api/gym/catalog/${shaker.id}`, { stock: 40 })).json.items.find((i) => i.id === shaker.id).stock, 40);
+
+    // A service: one, priced from the catalogue; each kind only on its own route
+    const service = await gym.post(`/api/gym/members/${rahul.id}/services`, { itemId: diet.id, paid: 1000, method: "cash" });
+    assert.equal(service.status, 201, JSON.stringify(service.json));
+    assert.deepEqual([service.json.payments[0].kind, service.json.payments[0].detail, service.json.payments[0].amount], ["service", "Diet Consultation", 1000]);
+    assert.equal((await gym.post(`/api/gym/members/${rahul.id}/services`, { itemId: shaker.id, paid: 350, method: "cash" })).status, 404, "a product isn't a service");
+    assert.equal((await gym.post(sales, { itemId: diet.id, quantity: 1, paid: 1000, method: "cash" })).status, 404, "a service isn't a product");
+    assert.equal((await gym.post(`/api/gym/members/${rahul.id}/services`, { itemId: diet.id, quantity: 1, paid: 1000, method: "cash" })).status, 400);
+
+    // Nobody else: no session, a member account, another gym's admin (its member or its item)
+    assert.equal((await api("POST", sales, null, { itemId: shaker.id, quantity: 1, paid: 350, method: "cash" })).status, 401);
+    assert.equal((await as("member").post(sales, { itemId: shaker.id, quantity: 1, paid: 350, method: "cash" })).status, 403);
+    assert.equal((await as("gymB").post(sales, { itemId: shaker.id, quantity: 1, paid: 350, method: "cash" })).status, 404, "another gym's member");
+    const theirs = (await as("gymB").post("/api/gym/catalog", { kind: "product", name: "Their Shaker", price: 300, stock: 5 })).json.items.find((i) => i.name === "Their Shaker");
+    assert.equal((await gym.post(sales, { itemId: theirs.id, quantity: 1, paid: 300, method: "cash" })).status, 404, "another gym's product");
+    assert.equal(await stockOf(theirs.id), 5);
+    assert.equal((await gym.post("/api/gym/members/1%20OR%201=1/sales", { itemId: shaker.id, quantity: 1, paid: 350, method: "cash" })).status, 400);
+
+    // Home counts each sale, the wallet adds what was collected
+    const wallet = (await gym.get("/api/gym/wallet")).json.today.byKind;
+    assert.ok(wallet.sale >= 600 + 16000, JSON.stringify(wallet));
   }));
 
   it("8. a demoted gym admin loses the portal at once", run(async () => {

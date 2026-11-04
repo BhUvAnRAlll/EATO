@@ -315,6 +315,59 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
     await page.waitFor(`!!document.querySelector('[aria-label="Amount payable ₹4,000"]')`, NAV_TIMEOUT, "the plan's price is payable");
   }));
 
+  it("4d. PT, Service and Product cards, then a member's ⋯ › Sell Product takes one out of stock", run("gym-sell", async () => {
+    for (const item of [
+      { kind: "pt", name: "1 Month PT", unit: "months", duration: 1, price: 5000 },
+      { kind: "service", name: "Diet Consultation", price: 1000 },
+      { kind: "product", name: "Whey Protein 1kg", price: 3200, stock: 18 },
+      { kind: "product", name: "Shaker Bottle", price: 350, stock: 40 },
+    ]) assert.equal((await apiAs("gym", "POST", "/api/gym/catalog", item)).status, 201, JSON.stringify(item));
+    await page.navigate(`${expo.baseUrl}/gym/manage?tab=catalog`);
+    await h.expectText("Manager");
+    await clickLabel("PT");
+    await page.waitFor(`!!document.querySelector('[aria-label="1 Month PT, 1 Month, ₹5,000. Edit"]')`, NAV_TIMEOUT, "the PT card with its length");
+    await snapshotAllWidths("gym-catalog-pt");
+    await clickLabel("Service");
+    await page.waitFor(`!!document.querySelector('[aria-label="Diet Consultation, ₹1,000. Edit"]')`, NAV_TIMEOUT, "the service card, no pill");
+    await snapshotAllWidths("gym-catalog-service");
+    await clickLabel("Product");
+    await page.waitFor(`!!document.querySelector('[aria-label="Whey Protein 1kg, 18 in stock, ₹3,200. Edit"]')`, NAV_TIMEOUT, "the product card with its stock");
+    await h.expectText("40 in stock");
+    await snapshotAllWidths("gym-catalog-product");
+
+    // The member's ⋯ › Sales › Sell Product
+    await page.navigate(`${expo.baseUrl}/gym/members/${state.asif}`);
+    await clickLabel("Mohammed Asif: options");
+    await h.expectText("Add Service");
+    await h.settle();
+    await snapshotAllWidths("gym-member-sales");
+    await h.settle();
+    await clickLabel("Sell Product");
+    await h.expectText("Sell a product to this member");
+    await h.expectText("Available Products (2)");
+    await h.settle();
+    await snapshotAllWidths("gym-sell-product");
+    await clickLabel("Whey Protein 1kg, ₹3,200");
+    await page.waitFor(`[...document.querySelectorAll("input")].some((i) => i.value === "18")`, NAV_TIMEOUT, "18 in stock shown");
+    await page.waitFor(`!!document.querySelector('[aria-label="Amount payable ₹3,200"]') && !!document.querySelector('[aria-label="Due amount ₹3,200"]')`, NAV_TIMEOUT, "the product's price is payable and due");
+    await snapshotAllWidths("gym-sell-product-picked");
+    await page.setInput(h.input("Quantity"), "2");
+    await page.setInput(h.input("Discount Amount"), "400");
+    await clickLabel("CASH");
+    await page.setInput(h.input("Amount Collected"), "6000");
+    await page.waitFor(`!!document.querySelector('[aria-label="Amount payable ₹6,000"]') && !!document.querySelector('[aria-label="Due amount ₹0"]')`, NAV_TIMEOUT, "2 × 3200 − 400 = 6000, all collected");
+    // The sheet's button shares its words with the row beneath: press the last one (the sheet on top)
+    const pos = await page.evaluate(`(() => { const el = [...document.querySelectorAll('[aria-label="Sell Product"]')].filter((e) => e.getClientRects().length > 0).pop(); el.scrollIntoView({ block: "center" }); const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
+    await h.settle();
+    await page.clickAt(pos.x, pos.y);
+    await page.waitFor(`!(document.body.innerText || "").includes("Sell a product to this member")`, NAV_TIMEOUT, "the Sell Product sheet closes");
+    const [[sale]] = await connection.query("SELECT kind, title, detail, method, amount FROM gym_payments WHERE gym_id = ? AND member_id = ? AND kind = 'sale'", [state.gym, state.asif]);
+    assert.deepEqual({ ...sale }, { kind: "sale", title: "Mohammed Asif", detail: "Whey Protein 1kg × 2", method: "cash", amount: 6000 });
+    const [[whey]] = await connection.query("SELECT stock FROM gym_catalog_items WHERE gym_id = ? AND name = 'Whey Protein 1kg'", [state.gym]);
+    assert.equal(whey.stock, 16, "two taken out of stock");
+    await h.expectText("Whey Protein 1kg × 2");
+  }));
+
   it("4b. the branch switcher opens Kunigal's own numbers, then back to Tumkur", run("gym-branches", async () => {
     await page.navigate(`${expo.baseUrl}/gym`);
     await clickLabel("Tumkur branch, SIT Road, Tumakuru. Switch or edit branch");
@@ -343,9 +396,9 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
     await clickTab("Gyms");
     await h.expectPath("/admin/gyms");
     await h.expectText("Tumkur branch · SIT Road, Tumakuru");
-    await h.expectText("₹12,200 today");
+    await h.expectText("₹18,200 today"); // with 4d's ₹6,000 product sale
     await snapshotAllWidths("admin-gyms");
-    await clickLabel("Forma, Tumkur branch, SIT Road, Tumakuru. ₹12,200 today, 2 members, 1 in today");
+    await clickLabel("Forma, Tumkur branch, SIT Road, Tumakuru. ₹18,200 today, 2 members, 1 in today");
     await page.waitFor(`location.pathname.startsWith("/admin/gyms/")`, NAV_TIMEOUT, "the gym's page");
     await h.expectText("Arjun Kumar");
     await h.expectText("Ravi Shankar");

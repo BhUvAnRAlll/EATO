@@ -304,11 +304,14 @@ function gymDetailsBody(body) {
   return out;
 }
 
-// A catalogue item: a membership plan (with its length in months or days), a PT package, a service
-// or a product, and its price
+// A catalogue item: a membership plan (with its length in months or days), a PT package (with a
+// length too, so picking it fills the PT period), a service or a product (with how many are in
+// stock, or none to not count them), and its price
 const CATALOG_KINDS = ["plan", "pt", "service", "product"];
+const MAX_STOCK = 100_000;
+const HAS_LENGTH = ["plan", "pt"];
 function catalogBody(body, { creating }) {
-  onlyKeys(body, creating ? ["kind", "name", "unit", "duration", "price"] : ["name", "unit", "duration", "price"]);
+  onlyKeys(body, creating ? ["kind", "name", "unit", "duration", "price", "stock"] : ["name", "unit", "duration", "price", "stock"]);
   const out = {};
   if (creating) {
     if (!CATALOG_KINDS.includes(body.kind)) throw new ValidationError("Pick what it is: a plan, PT, a service or a product.");
@@ -318,10 +321,37 @@ function catalogBody(body, { creating }) {
   const hasLength = body.unit !== undefined || body.duration !== undefined;
   if (hasLength) Object.assign(out, planLength(body));
   if (creating || body.price !== undefined) out.price = rupees(body.price, "price");
-  if (creating && out.kind === "plan" && !hasLength) throw new ValidationError("Enter the plan's duration.");
-  if (creating && out.kind !== "plan" && hasLength) throw new ValidationError("Only plans have a duration.");
-  if (Object.keys(out).length === 0) throw new ValidationError("Change the name, the duration or the price.");
+  if (body.stock !== undefined) {
+    if (blank(body.stock)) out.stock = null;
+    else if (!Number.isInteger(body.stock) || body.stock < 0 || body.stock > MAX_STOCK) throw new ValidationError(`Enter the stock as a whole number from 0 to ${MAX_STOCK.toLocaleString("en-IN")}.`);
+    else out.stock = body.stock;
+  }
+  if (creating && HAS_LENGTH.includes(out.kind) && !hasLength) throw new ValidationError(`Enter the ${out.kind === "pt" ? "PT package's" : "plan's"} duration.`);
+  if (creating && !HAS_LENGTH.includes(out.kind) && hasLength) throw new ValidationError("Only plans and PT packages have a duration.");
+  if (creating && out.kind !== "product" && body.stock !== undefined) throw new ValidationError("Only products have stock.");
+  if (Object.keys(out).length === 0) throw new ValidationError("Change the name, the duration, the price or the stock.");
   return out;
+}
+
+// A product sold or a service added to a member from their ⋯ (the GymOps designs): the catalogue
+// item (its price is read on the server, never sent), how many (products only), a discount, what
+// was collected now, how and when; the rest is owed by `dueBy` (checked once the price is known)
+function memberSaleBody(body, { product }, today = todayInIndia()) {
+  onlyKeys(body, product ? ["itemId", "quantity", "discount", "paid", "method", "paidOn", "dueBy"] : ["itemId", "discount", "paid", "method", "paidOn", "dueBy"]);
+  const what = product ? "product" : "service";
+  if (!Number.isInteger(body.itemId) || body.itemId < 1) throw new ValidationError(`Pick the ${what}.`);
+  let quantity = 1;
+  if (product && !(Number.isInteger(body.quantity) && body.quantity >= 1 && body.quantity <= 100)) throw new ValidationError("Enter a quantity from 1 to 100.");
+  if (product) quantity = body.quantity;
+  return {
+    itemId: body.itemId,
+    quantity,
+    discount: blank(body.discount) ? 0 : rupees(body.discount, "discount", { min: 0 }),
+    paid: rupees(body.paid, "amount collected"),
+    method: method(body.method),
+    paidOn: dateIn(body.paidOn, { from: addDays(today, -365), to: today, fallback: today, message: "Pick a payment date from a year ago to today." }),
+    dueBy: blank(body.dueBy) ? null : dueByDate(body.dueBy, today),
+  };
 }
 
 // The branch a gym admin switches to
@@ -389,6 +419,7 @@ module.exports = {
   gymDetailsBody,
   switchBody,
   catalogBody,
+  memberSaleBody,
   staffBody,
   todayInIndia,
   addMonths,

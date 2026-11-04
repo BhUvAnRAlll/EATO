@@ -9,9 +9,10 @@ export type PaymentKind = "admission" | "renewal" | "due" | "pt" | "service" | "
 // How long a plan lasts: 1-24 months or 1-365 days
 export type PlanUnit = "months" | "days";
 export type PlanLength = { duration: number; unit: PlanUnit };
-// Plans / Catalogue: the branch's price list (plans have a duration and unit)
+// Plans / Catalogue: the branch's price list (plans and PT packages have a duration and unit;
+// products may have a stock count, null when it isn't counted)
 export type CatalogKind = "plan" | "pt" | "service" | "product";
-export type CatalogItem = { id: number; kind: CatalogKind; name: string; duration: number | null; unit: PlanUnit | null; price: number };
+export type CatalogItem = { id: number; kind: CatalogKind; name: string; duration: number | null; unit: PlanUnit | null; price: number; stock: number | null };
 export type PayMethod = "online" | "cash";
 export type GymPayment = { id: number; kind: PaymentKind; title: string; detail: string; method: PayMethod; amount: number; paidOn: string; memberId: number | null };
 // name: the gym (brand, e.g. Forma); branch: this branch (e.g. Tumkur), where the numbers come from
@@ -60,6 +61,8 @@ export type AdmissionFields = PlanLength &
   };
 export type RenewalFields = PlanLength & { fee: number; paid: number; method: PayMethod; dueBy: string };
 export type SaleCategory = "supplement" | "merchandise" | "other";
+// Sell Product / Add Service from a member's ⋯: the server reads the price from the catalogue
+export type MemberSaleFields = { itemId: number; quantity?: number; discount: number; paid: number; method: PayMethod; paidOn: string; dueBy?: string };
 
 const signedOut = <T>(): Promise<ApiResult<T>> => Promise.resolve({ ok: false, error: "Please sign in again." });
 const call = <T>(token: string | null, path: string, method: "GET" | "POST" | "PATCH" | "DELETE" = "GET", body?: unknown): Promise<ApiResult<T>> =>
@@ -76,6 +79,8 @@ export const gymApi = {
   renew: (token: string | null, id: number, fields: RenewalFields) => call<GymMemberDetail>(token, `/api/gym/members/${id}/renew`, "POST", fields),
   collectDue: (token: string | null, id: number, fields: { amount: number; method: PayMethod; dueBy?: string; paidOn?: string }) => call<GymMemberDetail>(token, `/api/gym/members/${id}/due`, "POST", fields),
   personalTraining: (token: string | null, id: number, fields: { package: string; amount: number; method: PayMethod; unit: PlanUnit; duration: number }) => call<GymMemberDetail>(token, `/api/gym/members/${id}/pt`, "POST", fields),
+  sellToMember: (token: string | null, id: number, kind: "product" | "service", fields: MemberSaleFields) =>
+    call<GymMemberDetail>(token, `/api/gym/members/${id}/${kind === "product" ? "sales" : "services"}`, "POST", fields),
   checkIn: (token: string | null, id: number) => call<GymMemberDetail>(token, `/api/gym/members/${id}/check-in`, "POST"),
   payments: (token: string | null, query: { kind?: PaymentKind | null; before?: number | null; today?: boolean }) => {
     const params = [query.kind ? `kind=${query.kind}` : "", query.before ? `before=${query.before}` : "", query.today ? "today=1" : ""].filter(Boolean).join("&");
@@ -83,8 +88,8 @@ export const gymApi = {
   },
   service: (token: string | null, fields: { item: string; amount: number; method: PayMethod }) => call<{ payment: GymPayment }>(token, "/api/gym/services", "POST", fields),
   catalog: (token: string | null) => call<{ items: CatalogItem[] }>(token, "/api/gym/catalog"),
-  addItem: (token: string | null, item: { kind: CatalogKind; name: string; duration?: number; unit?: PlanUnit; price: number }) => call<{ items: CatalogItem[] }>(token, "/api/gym/catalog", "POST", item),
-  editItem: (token: string | null, id: number, fields: { name?: string; duration?: number; unit?: PlanUnit; price?: number }) => call<{ items: CatalogItem[] }>(token, `/api/gym/catalog/${id}`, "PATCH", fields),
+  addItem: (token: string | null, item: { kind: CatalogKind; name: string; duration?: number; unit?: PlanUnit; price: number; stock?: number | "" }) => call<{ items: CatalogItem[] }>(token, "/api/gym/catalog", "POST", item),
+  editItem: (token: string | null, id: number, fields: { name?: string; duration?: number; unit?: PlanUnit; price?: number; stock?: number | "" }) => call<{ items: CatalogItem[] }>(token, `/api/gym/catalog/${id}`, "PATCH", fields),
   deleteItem: (token: string | null, id: number) => call<{ items: CatalogItem[] }>(token, `/api/gym/catalog/${id}`, "DELETE"),
   sale: (token: string | null, fields: { item: string; category: SaleCategory; amount: number; method: PayMethod }) => call<{ payment: GymPayment }>(token, "/api/gym/sales", "POST", fields),
   enquiries: (token: string | null) => call<{ enquiries: GymEnquiry[] }>(token, "/api/gym/enquiries"),

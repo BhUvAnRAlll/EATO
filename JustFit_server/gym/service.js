@@ -274,6 +274,36 @@ async function sale(pool, gymId, userId, body, today) {
   return { payment: paymentOf(row) };
 }
 
+// A product sold or a service added to a member (their ⋯ › Sell Product / Add Service), in one
+// transaction: the member and the catalogue item are locked; the price comes from the catalogue;
+// a counted product must have enough in stock and is taken out of it; what isn't collected now is
+// added to what the member owes. The payment is the amount collected, on the payment date.
+async function sellToMember(pool, gymId, userId, memberId, kind, body, today) {
+  const product = kind === "product";
+  await inTransaction(pool, async (db) => {
+    const row = await memberRow(db, gymId, memberId, today, { lock: true });
+    const [[item]] = await db.query("SELECT id, name, price, stock FROM gym_catalog_items WHERE id = ? AND gym_id = ? AND kind = ? FOR UPDATE", [body.itemId, gymId, kind]);
+    if (!item) throw new NotFoundError(`That ${product ? "product" : "service"} isn't in your catalogue.`);
+    if (product && item.stock !== null && item.stock < body.quantity) {
+      throw new ConflictError(item.stock === 0 ? `${item.name} is out of stock.` : `Only ${item.stock} of ${item.name} left in stock.`);
+    }
+    const total = item.price * body.quantity;
+    if (total > rules.limits.amount) throw new ValidationError("That comes to more than ₹10,00,000. Sell fewer at a time.");
+    if (body.discount >= total) throw new ValidationError("The discount must be less than the amount.");
+    const payable = total - body.discount;
+    if (body.paid > payable) throw new ValidationError("The amount collected can't be more than the amount payable.");
+    const due = payable - body.paid;
+    if (due > 0 && !body.dueBy) throw new ValidationError("Pick the date the rest should be paid by.");
+    const owed = row.due_amount + due;
+    if (owed > rules.limits.amount) throw new ValidationError("That would make the amount owed more than ₹10,00,000.");
+    if (product && item.stock !== null) await db.query("UPDATE gym_catalog_items SET stock = stock - ? WHERE id = ? AND gym_id = ?", [body.quantity, item.id, gymId]);
+    if (due > 0) await db.query("UPDATE gym_members SET due_amount = ?, due_by = ? WHERE id = ? AND gym_id = ?", [owed, body.dueBy, memberId, gymId]);
+    const detail = product && body.quantity > 1 ? `${item.name} × ${body.quantity}` : item.name;
+    await addPayment(db, gymId, userId, { memberId, kind: product ? "sale" : "service", title: row.full_name, detail: detail.slice(0, 80), method: body.method, amount: body.paid }, body.paidOn);
+  });
+  return member(pool, gymId, memberId, today);
+}
+
 async function editMember(pool, gymId, memberId, body, today) {
   await memberRow(pool, gymId, memberId, today);
   const sets = [];
@@ -380,26 +410,28 @@ async function wallet(pool, gymId, today) {
 
 // ---- Plans / Catalogue: the branch's price list ------------------------------------------
 
-const itemOf = (r) => ({ id: r.id, kind: r.kind, name: r.name, duration: r.duration ?? null, unit: r.duration_unit ?? null, price: r.price });
+const itemOf = (r) => ({ id: r.id, kind: r.kind, name: r.name, duration: r.duration ?? null, unit: r.duration_unit ?? null, price: r.price, stock: r.stock ?? null });
 const KIND_ORDER = "FIELD(kind, 'plan', 'pt', 'service', 'product'), duration_unit = 'months', IF(duration_unit = 'months', duration * 30, duration), price, name, id";
 
 async function catalog(pool, gymId) {
-  const [rows] = await pool.query(`SELECT id, kind, name, duration, duration_unit, price FROM gym_catalog_items WHERE gym_id = ? ORDER BY ${KIND_ORDER}`, [gymId]);
+  const [rows] = await pool.query(`SELECT id, kind, name, duration, duration_unit, price, stock FROM gym_catalog_items WHERE gym_id = ? ORDER BY ${KIND_ORDER}`, [gymId]);
   return { items: rows.map(itemOf) };
 }
 
 async function addItem(pool, gymId, userId, item) {
   const [[{ n }]] = await pool.query("SELECT COUNT(*) AS n FROM gym_catalog_items WHERE gym_id = ?", [gymId]);
   if (n >= rules.limits.catalog) throw new ValidationError(`A branch can keep up to ${rules.limits.catalog} items. Delete one first.`);
-  await pool.query("INSERT INTO gym_catalog_items (gym_id, kind, name, duration, duration_unit, price, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)", [gymId, item.kind, item.name, item.duration ?? null, item.unit ?? null, item.price, userId]);
+  await pool.query("INSERT INTO gym_catalog_items (gym_id, kind, name, duration, duration_unit, price, stock, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", [gymId, item.kind, item.name, item.duration ?? null, item.unit ?? null, item.price, item.stock ?? null, userId]);
   return catalog(pool, gymId);
 }
 
 async function editItem(pool, gymId, itemId, fields) {
   const [[row]] = await pool.query("SELECT kind FROM gym_catalog_items WHERE id = ? AND gym_id = ?", [itemId, gymId]);
   if (!row) throw new NotFoundError("That item isn't in your catalogue.");
-  if (fields.unit !== undefined && row.kind !== "plan") throw new ValidationError("Only plans have a duration.");
-  const columns = { name: "name", duration: "duration", unit: "duration_unit", price: "price" };
+  if (fields.unit !== undefined && !["plan", "pt"].includes(row.kind)) throw new ValidationError("Only plans and PT packages have a duration.");
+  if (fields.stock !== undefined && row.kind !== "product") throw new ValidationError("Only products have stock.");
+  // Column names only from this list
+  const columns = { name: "name", duration: "duration", unit: "duration_unit", price: "price", stock: "stock" };
   const keys = Object.keys(fields);
   await pool.query(`UPDATE gym_catalog_items SET ${keys.map((k) => `${columns[k]} = ?`).join(", ")} WHERE id = ? AND gym_id = ?`, [...keys.map((k) => fields[k]), itemId, gymId]);
   return catalog(pool, gymId);
@@ -429,6 +461,7 @@ module.exports = {
   personalTraining,
   service,
   sale,
+  sellToMember,
   editMember,
   checkIn,
   addEnquiry,

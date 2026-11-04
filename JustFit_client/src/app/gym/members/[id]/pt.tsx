@@ -42,7 +42,12 @@ export default function GymPersonalTraining() {
             <Text className="gym-tx__name">{result.data.member.name}</Text>
             <Text className="gym-tx__meta">Personal training payment</Text>
           </View>
-          <CatalogPicks kind="pt" label="From your PT packages" onPick={(item) => { setPack(item.name); setAmount(String(item.price)); }} />
+          <CatalogPicks kind="pt" label="From your PT packages" onPick={(item) => {
+              setPack(item.name);
+              setAmount(String(item.price));
+              // A package with a length fills the period too
+              if (item.duration && item.unit) { setUnit(item.unit); setDuration(String(item.duration)); }
+            }} />
           <GymField label="Package" value={pack} onChangeText={setPack} maxLength={60} placeholder="For example: 12 sessions" />
           <PlanLengthFields unit={unit} onUnit={setUnit} duration={duration} onDuration={setDuration} />
           {result.data.member.pt?.active && <Text className="gym-tx__meta">{`Follows on from their current PT, which runs until ${shortDate(result.data.member.pt.until)}.`}</Text>}

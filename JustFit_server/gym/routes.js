@@ -88,6 +88,13 @@ router.post("/members/:memberId/due", smallBody, route(async (req, res) => {
 router.post("/members/:memberId/pt", smallBody, route(async (req, res) => {
   res.json(await service.personalTraining(pool(req), req.gym.id, req.userId, rules.id(req.params.memberId), rules.ptBody(req.body), today()));
 }));
+// From a member's ⋯: Sell Product (taken out of stock) and Add Service, priced from the catalogue
+router.post("/members/:memberId/sales", smallBody, route(async (req, res) => {
+  res.status(201).json(await service.sellToMember(pool(req), req.gym.id, req.userId, rules.id(req.params.memberId), "product", rules.memberSaleBody(req.body, { product: true }), today()));
+}));
+router.post("/members/:memberId/services", smallBody, route(async (req, res) => {
+  res.status(201).json(await service.sellToMember(pool(req), req.gym.id, req.userId, rules.id(req.params.memberId), "service", rules.memberSaleBody(req.body, { product: false }), today()));
+}));
 router.post("/members/:memberId/check-in", route(async (req, res) => {
   res.json(await service.checkIn(pool(req), req.gym.id, req.userId, rules.id(req.params.memberId), today()));
 }));

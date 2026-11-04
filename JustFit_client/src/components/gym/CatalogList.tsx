@@ -11,10 +11,21 @@ import { CatalogSheet } from "@/components/gym/CatalogSheet";
 import { haptic } from "@/lib/haptics";
 import { useGymData } from "@/lib/useGymData";
 import { useThemeColors } from "@/theme";
+import type { Icon } from "@/types/profile";
 
 // Manage › Plan / Catalogue: the branch's price list by kind (Membership, PT, Service, Product).
-// Each card shows the name, a small pill (the plan's length, or the kind) and the price; tapping
-// it opens the Edit sheet; the + opens Add (CatalogSheet) for the kind shown.
+// Each card (the GymOps designs) shows the name, a small pill (a plan's or PT package's length with
+// a clock, a product's stock with a box; services have none) and the price; tapping it opens the
+// Edit sheet; the + opens Add (CatalogSheet) for the kind shown.
+type Pill = { icon: Icon; label: string; empty?: boolean };
+function pillOf(item: CatalogItem): Pill | null {
+  if (item.duration && item.unit) return { icon: { ios: "clock", android: "schedule", web: "schedule" }, label: planLabel(item.duration, item.unit) };
+  if (item.kind === "product" && item.stock !== null) {
+    return { icon: { ios: "archivebox", android: "inventory_2", web: "inventory_2" }, label: item.stock === 0 ? "Out of stock" : `${item.stock} in stock`, empty: item.stock === 0 };
+  }
+  return null;
+}
+
 export function CatalogList() {
   const colors = useThemeColors();
   const [kind, setKind] = useState<CatalogKind>("plan");
@@ -52,27 +63,34 @@ export function CatalogList() {
           (items.length === 0 ? (
             <GymEmpty icon={{ ios: "list.bullet.rectangle", android: "list_alt", web: "list_alt" }} title={`No ${meta.noun}s yet`} text={`Tap + to add one, for example "${meta.example}". Its price fills in when you record a payment.`} />
           ) : (
-            items.map((item) => (
-              <PressableScale
-                key={item.id}
-                onPress={() => setSheet({ item })}
-                className="gym-plan"
-                accessibilityRole="button"
-                accessibilityLabel={`${item.name}, ${item.duration && item.unit ? planLabel(item.duration, item.unit) : meta.label}, ${rupees(item.price)}. Edit`}
-              >
-                <View className="flex-row items-center justify-between">
-                  <Text className="gym-plan__name" numberOfLines={1}>{item.name}</Text>
-                  <SymbolView name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }} size={13} tintColor={colors.gymInk} />
-                </View>
-                <View className="flex-row items-center justify-between">
-                  <View className="gym-plan__pill">
-                    <SymbolView name={item.duration ? { ios: "clock", android: "schedule", web: "schedule" } : { ios: "tag", android: "sell", web: "sell" }} size={12} tintColor={colors.gymMuted} />
-                    <Text className="gym-plan__pill-label">{item.duration && item.unit ? planLabel(item.duration, item.unit) : meta.label}</Text>
+            items.map((item) => {
+              const pill = pillOf(item);
+              return (
+                <PressableScale
+                  key={item.id}
+                  onPress={() => setSheet({ item })}
+                  className="gym-plan"
+                  accessibilityRole="button"
+                  accessibilityLabel={`${item.name}, ${pill ? `${pill.label}, ` : ""}${rupees(item.price)}. Edit`}
+                >
+                  <View className="flex-row items-center justify-between">
+                    <Text className="gym-plan__name" numberOfLines={1}>{item.name}</Text>
+                    <SymbolView name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }} size={13} tintColor={colors.gymInk} />
                   </View>
-                  <Text className="gym-plan__price">{rupees(item.price)}</Text>
-                </View>
-              </PressableScale>
-            ))
+                  <View className="flex-row items-center justify-between">
+                    {pill ? (
+                      <View className="gym-plan__pill" style={pill.empty ? { backgroundColor: colors.gymDangerSoft } : undefined}>
+                        <SymbolView name={pill.icon} size={12} tintColor={pill.empty ? colors.gymDanger : colors.gymMuted} />
+                        <Text className="gym-plan__pill-label" style={pill.empty ? { color: colors.gymDanger } : undefined}>{pill.label}</Text>
+                      </View>
+                    ) : (
+                      <View />
+                    )}
+                    <Text className="gym-plan__price">{rupees(item.price)}</Text>
+                  </View>
+                </PressableScale>
+              );
+            })
           ))}
       </View>
       <View className="absolute" style={{ right: 16, bottom: 16 }}>

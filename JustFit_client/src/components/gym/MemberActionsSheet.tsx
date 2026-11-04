@@ -7,6 +7,7 @@ import { SymbolView } from "@/components/SymbolView";
 import { CollectDueSheet } from "@/components/gym/CollectDueSheet";
 import { GradientFill } from "@/components/gym/GradientFill";
 import { GymSheet } from "@/components/gym/GymSheet";
+import { MemberSaleSheet } from "@/components/gym/MemberSaleSheet";
 import { initialsOf, planLabel, planStart, rupees, shortDate } from "@/data/gymDashboard";
 import { comingSoon } from "@/lib/gymPortal";
 import { call, daysLeftText, dueReminder, email, expiredReminder, invoice, sms, whatsapp } from "@/lib/gymContact";
@@ -19,10 +20,11 @@ type Row = { label: string; icon: Icon; tone?: "danger"; onPress: () => void };
 // A member's options (the user's designs): their card on the portal's gradient (Call, SMS,
 // WhatsApp, Email; the plan and PT with their dates), Biometric, Reminders (due, expired, invoice:
 // WhatsApp with the message written), Membership (Collect Payment Due, Renew Member, Edit
-// Membership, Pause Membership, Transaction History) and Sales (Renew PT)
+// Membership, Pause Membership, Transaction History) and Sales (Renew PT, Add Service, Sell Product)
 export function MemberActionsSheet({ member, payments, gym, onClose, onChanged }: { member: GymMember; payments?: GymPayment[]; gym: GymInfo; onClose: () => void; onChanged: (detail: GymMemberDetail) => void }) {
   const colors = useThemeColors();
   const [collecting, setCollecting] = useState(false);
+  const [selling, setSelling] = useState<"product" | "service" | null>(null);
   const go = (href: Href) => { onClose(); router.push(href); };
   const id = String(member.id);
   const start = planStart(member.expiresOn, member.planLength.duration, member.planLength.unit);
@@ -39,7 +41,10 @@ export function MemberActionsSheet({ member, payments, gym, onClose, onChanged }
     { label: "Pause Membership", icon: { ios: "pause.circle", android: "pause_circle", web: "pause_circle" }, onPress: () => comingSoon("Pause Membership") },
     { label: "Transaction History", icon: { ios: "clock.arrow.circlepath", android: "history", web: "history" }, onPress: () => go({ pathname: "/gym/members/[id]", params: { id } }) },
   ];
-  const sales: Row[] = [{ label: member.pt ? "Renew PT" : "Add PT", icon: { ios: "arrow.triangle.2.circlepath", android: "sync", web: "sync" }, onPress: () => go({ pathname: "/gym/members/[id]/pt", params: { id } }) }];
+  const sales: Row[] = [{ label: member.pt ? "Renew PT" : "Add PT", icon: { ios: "arrow.triangle.2.circlepath", android: "sync", web: "sync" }, onPress: () => go({ pathname: "/gym/members/[id]/pt", params: { id } }) },
+    { label: "Add Service", icon: { ios: "plus", android: "add", web: "add" }, onPress: () => setSelling("service") },
+    { label: "Sell Product", icon: { ios: "plus", android: "add", web: "add" }, onPress: () => setSelling("product") },
+  ];
 
   const section = (title: string, rows: Row[]) => (
     <View>
@@ -115,6 +120,7 @@ export function MemberActionsSheet({ member, payments, gym, onClose, onChanged }
         {section("Membership", membership)}
         {section("Sales", sales)}
       </GymSheet>
+      {selling && <MemberSaleSheet kind={selling} member={member} gym={gym} onClose={() => setSelling(null)} onSaved={(detail) => { setSelling(null); onChanged(detail); }} />}
       {collecting && <CollectDueSheet member={member} gym={gym} onClose={() => setCollecting(false)} onSaved={(detail) => { setCollecting(false); onChanged(detail); }} />}
     </>
   );
