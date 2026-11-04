@@ -58,63 +58,77 @@ function imageSize(bytes, mediaType) {
 /**
  * PUT …/cover { data: base64, mediaType } → { ok, bytes, mediaType } or { ok: false, status, error }.
  * The real type comes from the bytes (JPEG, PNG or WebP only) and must match the label; at most
- * 2 MB; at least 320 × 180 and at most 6000 on a side.
+ * `limits.maxBytes`; at least `limits.minWidth` × `limits.minHeight` and at most `limits.maxSide`
+ * on a side. Program covers use coverLimits; gym member photos (gym/photos.js) their own.
  */
-function checkCover(body) {
-  if (!body || typeof body !== "object" || Array.isArray(body)) return { ok: false, status: 400, error: "Send the cover as { data, mediaType }." };
+function checkPhoto(body, limits) {
+  if (!body || typeof body !== "object" || Array.isArray(body)) return { ok: false, status: 400, error: "Send the photo as { data, mediaType }." };
   for (const key of Object.keys(body)) if (!["data", "mediaType"].includes(key)) return { ok: false, status: 400, error: `Unexpected field: ${key}.` };
   const { data, mediaType } = body;
-  if (typeof data !== "string" || typeof mediaType !== "string") return { ok: false, status: 400, error: "Send the cover as { data, mediaType }." };
+  if (typeof data !== "string" || typeof mediaType !== "string") return { ok: false, status: 400, error: "Send the photo as { data, mediaType }." };
   const bytes = decodeBase64(data);
   if (!bytes) return { ok: false, status: 400, error: "The photo couldn't be read." };
   const actual = sniffMediaType(bytes);
   if (!EXTENSION[actual]) return { ok: false, status: 415, error: "Upload a photo (JPEG, PNG or WebP)." };
   if (actual !== mediaType) return { ok: false, status: 415, error: "The file type doesn't match its contents." };
-  if (bytes.length > coverLimits.maxBytes) return { ok: false, status: 413, error: "The photo is too large (max 2 MB)." };
+  if (bytes.length > limits.maxBytes) return { ok: false, status: 413, error: `The photo is too large (max ${limits.maxBytes / (1024 * 1024)} MB).` };
   const size = imageSize(bytes, actual);
   if (!size || size.width < 1 || size.height < 1) return { ok: false, status: 415, error: "The photo couldn't be read." };
-  if (size.width < coverLimits.minWidth || size.height < coverLimits.minHeight) {
-    return { ok: false, status: 400, error: `The photo is too small (at least ${coverLimits.minWidth} × ${coverLimits.minHeight}).` };
+  if (size.width < limits.minWidth || size.height < limits.minHeight) {
+    return { ok: false, status: 400, error: `The photo is too small (at least ${limits.minWidth} × ${limits.minHeight}).` };
   }
-  if (size.width > coverLimits.maxSide || size.height > coverLimits.maxSide) {
-    return { ok: false, status: 400, error: `The photo is too big (at most ${coverLimits.maxSide} on a side).` };
+  if (size.width > limits.maxSide || size.height > limits.maxSide) {
+    return { ok: false, status: 400, error: `The photo is too big (at most ${limits.maxSide} on a side).` };
   }
   return { ok: true, bytes, mediaType: actual };
 }
+
+const checkCover = (body) => checkPhoto(body, coverLimits);
 
 const coverDir = (env = process.env) => env.COVER_DIR || path.join(__dirname, "..", "uploads", "program-covers");
 const isKey = (key) => typeof key === "string" && KEY.test(key);
 const mediaTypeOf = (key) => MEDIA_TYPE[key.split(".").pop()];
 
-/** Writes a checked cover under a new name (written in full, then renamed into place) → its key */
-async function save(bytes, mediaType, env = process.env) {
-  const dir = coverDir(env);
-  await fs.mkdir(dir, { recursive: true, mode: 0o700 });
-  const key = `${crypto.randomUUID()}.${EXTENSION[mediaType]}`;
-  const temp = path.join(dir, `${key}.part`);
-  await fs.writeFile(temp, bytes, { flag: "wx", mode: 0o600 });
-  await fs.rename(temp, path.join(dir, key));
-  return key;
-}
-
-/** A cover's bytes and type, or null when the key isn't a cover name or the file is gone */
-async function read(key, env = process.env) {
-  if (!isKey(key)) return null;
-  try {
-    return { bytes: await fs.readFile(path.join(coverDir(env), key)), mediaType: mediaTypeOf(key) };
-  } catch (error) {
-    if (error?.code === "ENOENT") return null;
-    throw error;
+/**
+ * Photo files in one folder (`dirOf(env)`): program covers here, gym member photos in gym/photos.js.
+ * Each file has a new random name, so a replaced photo is a new file; only names that pass isKey
+ * are ever read or deleted, never a path from a request.
+ */
+function fileStore(dirOf) {
+  /** Writes a checked photo under a new name (written in full, then renamed into place) → its key */
+  async function save(bytes, mediaType, env = process.env) {
+    const dir = dirOf(env);
+    await fs.mkdir(dir, { recursive: true, mode: 0o700 });
+    const key = `${crypto.randomUUID()}.${EXTENSION[mediaType]}`;
+    const temp = path.join(dir, `${key}.part`);
+    await fs.writeFile(temp, bytes, { flag: "wx", mode: 0o600 });
+    await fs.rename(temp, path.join(dir, key));
+    return key;
   }
+
+  /** A photo's bytes and type, or null when the key isn't a photo name or the file is gone */
+  async function read(key, env = process.env) {
+    if (!isKey(key)) return null;
+    try {
+      return { bytes: await fs.readFile(path.join(dirOf(env), key)), mediaType: mediaTypeOf(key) };
+    } catch (error) {
+      if (error?.code === "ENOENT") return null;
+      throw error;
+    }
+  }
+
+  /** Deletes a photo file; one that is already gone is fine */
+  async function remove(key, env = process.env) {
+    if (!isKey(key)) return;
+    await fs.unlink(path.join(dirOf(env), key)).catch((error) => {
+      if (error?.code !== "ENOENT") throw error;
+    });
+  }
+
+  return { save, read, remove };
 }
 
-/** Deletes a cover file; one that is already gone is fine */
-async function remove(key, env = process.env) {
-  if (!isKey(key)) return;
-  await fs.unlink(path.join(coverDir(env), key)).catch((error) => {
-    if (error?.code !== "ENOENT") throw error;
-  });
-}
+const { save, read, remove } = fileStore(coverDir);
 
 /**
  * Answers with a cover's bytes. Its URL changes whenever the cover does (?v=), so the app may keep
@@ -126,4 +140,4 @@ function send(res, { bytes, mediaType }) {
   res.end(bytes);
 }
 
-module.exports = { coverLimits, imageSize, checkCover, coverDir, isKey, save, read, remove, send };
+module.exports = { coverLimits, imageSize, checkPhoto, checkCover, coverDir, isKey, fileStore, save, read, remove, send };

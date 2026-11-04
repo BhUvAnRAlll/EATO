@@ -1186,6 +1186,7 @@ CREATE TABLE gym_members (
   weight_kg    DECIMAL(5,1) NULL,
   address      VARCHAR(200) NULL,
   notes        VARCHAR(300) NULL,
+  photo_key    VARCHAR(64)  NULL,                -- the member's photo file (gym/photos.js); NULL: initials
   plan_months  TINYINT UNSIGNED NULL,            -- the latest plan bought: its months,
   plan_days    SMALLINT UNSIGNED NULL,           -- or its days (exactly one is set)
   joined_on    DATE         NOT NULL,

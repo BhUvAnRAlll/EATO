@@ -7,6 +7,7 @@ const express = require("express");
 const { getAccount } = require("../auth");
 const { logSecurityEvent } = require("../logging");
 const { createRateLimiter, limitPerUser } = require("../rateLimit");
+const photos = require("./photos");
 const service = require("./service");
 const rules = require("./rules");
 const sms = require("./sms");
@@ -17,8 +18,9 @@ const smallBody = express.json({ limit: "4kb" });
 const pool = (req) => req.app.locals.pool;
 const today = () => rules.todayInIndia();
 
-// Before migrations/2026-11-19-gym-portal.sql has run, say so instead of a 500
-const MIGRATION = "The gym portal needs the 2026-11-19-gym-portal migration on this server.";
+// Before the gym migrations (2026-11-19-gym-portal.sql up to 2026-11-26-member-photos.sql) have
+// run, say so instead of a 500
+const MIGRATION = "The gym portal needs its migrations (up to 2026-11-26-member-photos) on this server.";
 const route = (handler) => (req, res, next) =>
   handler(req, res, next).catch((error) => {
     if (["ER_NO_SUCH_TABLE", "ER_BAD_FIELD_ERROR"].includes(error?.code)) return res.status(503).json({ error: MIGRATION });
@@ -100,6 +102,34 @@ router.post("/members/:memberId/services", smallBody, route(async (req, res) => 
 }));
 router.post("/members/:memberId/check-in", route(async (req, res) => {
   res.json(await service.checkIn(pool(req), req.gym.id, req.userId, rules.id(req.params.memberId), today()));
+}));
+
+// A member's photo (gym/photos.js): PUT { data: base64, mediaType } adds or replaces it (checked
+// from its bytes: JPEG, PNG or WebP, at most 3 MB) and answers the member, DELETE takes it off,
+// GET reads it. Only this branch's members; uploads have their own hourly allowance.
+const PHOTO_MIGRATION = "Member photos need the 2026-11-26-member-photos migration on this server.";
+const photoRoute = (handler) => (req, res, next) =>
+  handler(req, res, next).catch((error) => {
+    if (["ER_NO_SUCH_TABLE", "ER_BAD_FIELD_ERROR"].includes(error?.code)) return res.status(503).json({ error: PHOTO_MIGRATION });
+    next(error);
+  });
+const photoBody = express.json({ limit: Math.ceil(photos.photoLimits.maxBytes * (4 / 3)) + 1024 });
+const photoLimit = limitPerUser(createRateLimiter({ limit: 30, windowMs: 60 * 60 * 1000 }));
+
+router.put("/members/:memberId/photo", photoLimit, photoBody, photoRoute(async (req, res) => {
+  const memberId = rules.id(req.params.memberId);
+  const checked = photos.checkMemberPhoto(req.body);
+  if (!checked.ok) return res.status(checked.status).json({ error: checked.error });
+  await photos.setPhoto(pool(req), req.gym.id, memberId, checked);
+  res.json(await service.member(pool(req), req.gym.id, memberId, today()));
+}));
+router.delete("/members/:memberId/photo", photoRoute(async (req, res) => {
+  const memberId = rules.id(req.params.memberId);
+  await photos.removePhoto(pool(req), req.gym.id, memberId);
+  res.json(await service.member(pool(req), req.gym.id, memberId, today()));
+}));
+router.get("/members/:memberId/photo", photoRoute(async (req, res) => {
+  photos.send(res, await photos.photoFile(pool(req), req.gym.id, rules.id(req.params.memberId)));
 }));
 
 router.get("/payments", route(async (req, res) => {

@@ -63,6 +63,7 @@ const memberOf = (r, today) => ({
   weightKg: r.weight_kg === null || r.weight_kg === undefined ? null : Number(r.weight_kg),
   address: r.address ?? null,
   notes: r.notes ?? null,
+  photoUrl: r.photo_key ? `/api/gym/members/${r.id}/photo?v=${r.photo_key.slice(0, 8)}` : null,
   name: r.full_name,
   phone: toE164(r.phone),
   dob: r.dob ?? null,
@@ -79,7 +80,7 @@ const memberOf = (r, today) => ({
   status: r.expires_on < today ? "expired" : r.expires_on === today ? "expiring" : "active",
   inToday: Boolean(r.in_today),
 });
-const MEMBER_COLUMNS = `m.id, m.member_code, m.gender, m.email, m.height_cm, m.weight_kg, m.address, m.notes, m.full_name, m.phone, ${DAY("m.dob")} AS dob, m.plan_months, m.plan_days, ${DAY("m.joined_on")} AS joined_on, ${DAY("m.expires_on")} AS expires_on, m.due_amount, ${DAY("m.due_by")} AS due_by, m.pt_label, ${DAY("m.pt_from")} AS pt_from, ${DAY("m.pt_until")} AS pt_until,
+const MEMBER_COLUMNS = `m.id, m.member_code, m.gender, m.email, m.height_cm, m.weight_kg, m.address, m.notes, m.photo_key, m.full_name, m.phone, ${DAY("m.dob")} AS dob, m.plan_months, m.plan_days, ${DAY("m.joined_on")} AS joined_on, ${DAY("m.expires_on")} AS expires_on, m.due_amount, ${DAY("m.due_by")} AS due_by, m.pt_label, ${DAY("m.pt_from")} AS pt_from, ${DAY("m.pt_until")} AS pt_until,
   EXISTS (SELECT 1 FROM gym_attendance a WHERE a.member_id = m.id AND a.on_date = ?) AS in_today`;
 
 // Home: today's revenue by method, today's counts, what needs attention, the latest payments
@@ -471,6 +472,7 @@ module.exports = {
   wallet,
   updateDetails,
   paymentOf,
+  inTransaction,
   PAYMENT_COLUMNS,
   DAY,
 };

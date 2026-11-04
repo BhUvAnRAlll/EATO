@@ -4908,6 +4908,7 @@
   background-color: var(--color-gym-bar);
   align-items: center;
   justify-content: center;
+  overflow: hidden;
 }
 
 @utility gym-avatar--item {
@@ -5407,6 +5408,7 @@
   background-color: var(--color-gym-faint);
   align-items: center;
   justify-content: center;
+  overflow: hidden;
 }
 
 @utility gym-member-photo__initials {
@@ -5464,6 +5466,7 @@
   background-color: rgba(255, 255, 255, 0.22);
   align-items: center;
   justify-content: center;
+  overflow: hidden;
 }
 
 @utility gym-member-hero__name {
@@ -5537,6 +5540,7 @@
   background-color: var(--color-gym-faint);
   align-items: center;
   justify-content: center;
+  overflow: hidden;
 }
 
 /* Manage › Member (the user's "Reminders from the list" design): the Member dropdown, the plain

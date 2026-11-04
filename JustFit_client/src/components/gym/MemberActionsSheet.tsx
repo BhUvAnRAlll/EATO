@@ -4,6 +4,7 @@ import { router, type Href } from "expo-router";
 
 import { PressableScale } from "@/components/PressableScale";
 import { GymIcon } from "@/components/gym/GymIcon";
+import { MemberPhotoImage } from "@/components/gym/MemberPhotoImage";
 import { CollectDueSheet } from "@/components/gym/CollectDueSheet";
 import { GradientFill } from "@/components/gym/GradientFill";
 import { GymSheet } from "@/components/gym/GymSheet";
@@ -87,7 +88,7 @@ export function MemberActionsSheet({ member, payments, gym, onClose, onChanged }
         <View className="gym-member-hero">
           <GradientFill radius={24} />
           <View className="flex-row items-center" style={{ gap: 12 }}>
-            <View className="gym-member-hero__avatar"><Text className="gym-member-photo__initials" style={{ fontSize: 20 }}>{initialsOf(member.name)}</Text></View>
+            <View className="gym-member-hero__avatar"><Text className="gym-member-photo__initials" style={{ fontSize: 20 }}>{initialsOf(member.name)}</Text><MemberPhotoImage url={member.photoUrl} /></View>
             <View className="min-w-0 flex-1">
               <Text className="gym-member-hero__name" numberOfLines={1}>{member.name}</Text>
               <View className="flex-row items-center" style={{ gap: 4 }}>

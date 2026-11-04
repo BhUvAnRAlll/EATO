@@ -5,6 +5,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { FormAlert } from "@/components/FormAlert";
 import { PressableScale } from "@/components/PressableScale";
 import { GymIcon } from "@/components/gym/GymIcon";
+import { MemberPhotoImage } from "@/components/gym/MemberPhotoImage";
 import { GymField } from "@/components/gym/GymField";
 import { GradientFill } from "@/components/gym/GradientFill";
 import { GymError, GymLoading } from "@/components/gym/GymStates";
@@ -71,6 +72,7 @@ export default function GymMember() {
         <View className="flex-row items-center" style={{ gap: 12 }}>
           <View className="gym-avatar" style={{ width: 52, height: 52 }}>
             <Text className="gym-avatar__label">{initialsOf(member.name)}</Text>
+            <MemberPhotoImage url={member.photoUrl} />
           </View>
           <View className="min-w-0 flex-1" style={{ gap: 2 }}>
             <Text className="gym-tx__name" numberOfLines={1}>{member.name}</Text>

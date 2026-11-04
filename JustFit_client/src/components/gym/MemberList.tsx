@@ -4,6 +4,7 @@ import { router } from "expo-router";
 
 import { PressableScale } from "@/components/PressableScale";
 import { GymIcon } from "@/components/gym/GymIcon";
+import { MemberPhotoImage } from "@/components/gym/MemberPhotoImage";
 import type { GymIconName } from "@/constants/gymIcons";
 import { AddMemberSheet } from "@/components/gym/AddMemberSheet";
 import { ConfirmDialog } from "@/components/gym/ConfirmDialog";
@@ -209,6 +210,7 @@ export function MemberList({ pick = null, initialFilter = "all", focusSearch = f
                 {!narrow && (
                   <View className="gym-member-card__avatar">
                     <GymIcon name="user" size={34} color={colors.white} />
+                    <MemberPhotoImage url={item.photoUrl} />
                   </View>
                 )}
                 <View className="min-w-0 flex-1" style={{ gap: 3 }}>

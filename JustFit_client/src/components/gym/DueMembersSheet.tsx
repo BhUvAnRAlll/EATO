@@ -3,6 +3,7 @@ import { Text, useWindowDimensions, View } from "react-native";
 
 import { PressableScale } from "@/components/PressableScale";
 import { GymIcon } from "@/components/gym/GymIcon";
+import { MemberPhotoImage } from "@/components/gym/MemberPhotoImage";
 import { GymEmpty, GymError, GymLoading } from "@/components/gym/GymStates";
 import { GymSheet } from "@/components/gym/GymSheet";
 import { MemberActionsSheet } from "@/components/gym/MemberActionsSheet";
@@ -36,7 +37,7 @@ export function DueMembersSheet({ gym, onClose, onChanged }: { gym: GymInfo; onC
           ) : (
             result.data.members.map((m) => (
               <PressableScale key={m.id} onPress={() => setOpen(m)} className="gym-card flex-row items-center" style={{ gap: narrow ? 6 : 12, padding: narrow ? 10 : 14 }} accessibilityRole="button" accessibilityLabel={`${m.name}, ${m.code}${m.pt?.active ? ", on PT" : ""}, ${daysLeftText(m.daysLeft)}, ${rupees(m.due)} payment due${m.overdue ? ", overdue" : ""}`}>
-                {!narrow && <View className="gym-due-avatar"><Text className="gym-member-photo__initials" style={{ fontSize: 18 }}>{initialsOf(m.name)}</Text></View>}
+                {!narrow && <View className="gym-due-avatar"><Text className="gym-member-photo__initials" style={{ fontSize: 18 }}>{initialsOf(m.name)}</Text><MemberPhotoImage url={m.photoUrl} /></View>}
                 <View className="min-w-0 flex-1" style={{ gap: 3 }}>
                   <Text className="gym-tx__name" numberOfLines={1}>{m.name}</Text>
                   <View className="flex-row items-center" style={{ gap: 6 }}>

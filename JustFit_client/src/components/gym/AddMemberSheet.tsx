@@ -13,9 +13,11 @@ import { CheckRow, ChipRow, METHODS } from "@/components/gym/GymChoice";
 import { GymField, amountInput, rupeesFromText } from "@/components/gym/GymField";
 import { GymPrimaryButton } from "@/components/gym/GymPrimaryButton";
 import { GymSheet } from "@/components/gym/GymSheet";
+import { MemberPhotoImage } from "@/components/gym/MemberPhotoImage";
 import { PlanLengthFields, durationValue } from "@/components/gym/PlanLengthFields";
 import { GENDER_LABEL, METHOD_LABEL, daysFromToday, initialsOf, phoneInput, planLabel, rupees, shortDate } from "@/data/gymDashboard";
-import { comingSoon } from "@/lib/gymPortal";
+import { pickMemberPhoto, type MemberPhoto, type PhotoSource } from "@/lib/gymPhoto";
+import { comingSoon, notice } from "@/lib/gymPortal";
 import { gymApi, type CatalogItem, type Gender, type GymMemberDetail, type PayMethod, type PlanUnit } from "@/lib/gymApi";
 import { useGymSave } from "@/lib/gymForm";
 import { haptic } from "@/lib/haptics";
@@ -39,12 +41,15 @@ function StepButtons({ onBack, label, ready, busy, onNext }: { onBack: () => voi
 const numberOrBlank = (text: string) => (text.trim() === "" ? "" : Number(text));
 
 // Home › + › Add Member (the user's designs), in three steps:
-//   1. the profile: the Member ID the server will give them, name, mobile, gender
+//   1. the profile: an optional photo (camera or library, cropped square), the Member ID the
+//      server will give them, name, mobile, gender
 //   2. optional fields: email, height, weight, address, notes, date of birth (attachments later)
 //   3. the plan and payment: joining and payment dates, a plan from the catalogue (or a custom
 //      one, or Add New Plan), admission amount, discount, mode, what's payable and owed, the
 //      amount collected, the due date when something is owed, and Send Invoice
-// then "Please confirm the details". The server makes the ID and checks every field again.
+// then "Please confirm the details". The server makes the ID and checks every field again. The
+// photo is uploaded once the member is saved; if only the photo fails, the member stays saved
+// and the gym admin is told.
 export function AddMemberSheet({ onClose, onSaved }: { onClose: () => void; onSaved: (detail: GymMemberDetail) => void }) {
   const colors = useThemeColors();
   const loadCode = useCallback((token: string | null) => gymApi.nextCode(token), []);
@@ -58,6 +63,8 @@ export function AddMemberSheet({ onClose, onSaved }: { onClose: () => void; onSa
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [gender, setGender] = useState<Gender | "">("");
+  const [photo, setPhoto] = useState<MemberPhoto | null>(null);
+  const [photoError, setPhotoError] = useState("");
   // Step 2
   const [email, setEmail] = useState("");
   const [height, setHeight] = useState("");
@@ -120,19 +127,34 @@ export function AddMemberSheet({ onClose, onSaved }: { onClose: () => void; onSa
   const amountsOk = planChosen && discountNum <= planFee + admissionNum && payable >= 1 && paidNum >= 1 && paidNum <= payable && method !== "";
   const payReady = amountsOk && (due === 0 || dueBy !== null);
 
+  const choosePhoto = async (source: PhotoSource) => {
+    setPhotoError("");
+    const picked = await pickMemberPhoto(source).catch(() => ({ ok: false as const, error: "That photo couldn't be read. Please try another." }));
+    if (picked.ok) {
+      haptic.select();
+      setPhoto(picked.photo);
+    } else if ("error" in picked) setPhotoError(picked.error);
+  };
+
   const submit = () => {
     setConfirming(false);
-    save((token) =>
-      gymApi.admit(token, {
+    save(async (token) => {
+      const admitted = await gymApi.admit(token, {
         name: name.trim(), phone, dob: dob ?? "", gender,
         email: email.trim(), heightCm: heightNum === "" ? "" : heightNum, weightKg: weightNum === "" ? "" : weightNum, address: address.trim(), notes: notes.trim(),
         unit: lengthUnit, duration: length ?? 1, fee: planFee, admissionFee: admissionNum, discount: discountNum, paid: paidNum, method: method || "online",
         dueBy: due > 0 && dueBy ? dueBy : "", joinedOn, paidOn,
-      }),
-    );
+      });
+      if (!admitted.ok || !photo) return admitted;
+      const withPhoto = await gymApi.setPhoto(token, admitted.data.member.id, photo);
+      if (withPhoto.ok) return withPhoto;
+      notice("Member added", `${admitted.data.member.name} was added, but the photo couldn't be saved: ${withPhoto.error}`);
+      return admitted;
+    });
   };
   const rows: [string, string][] = [
     ["Name", name.trim()],
+    ...(photo ? [["Photo", "Added"] as [string, string]] : []),
     ["Plan", `${planLabel(length ?? 1, lengthUnit)} from ${shortDate(joinedOn)}`],
     ["Payable", rupees(payable)],
     ["Collected", `${rupees(Number.isNaN(paidNum) ? 0 : paidNum)} · ${METHODS[method || "online"]}`],
@@ -149,8 +171,28 @@ export function AddMemberSheet({ onClose, onSaved }: { onClose: () => void; onSa
       >
         {step === 1 && (
           <>
-            <View className="gym-member-photo self-center" accessible accessibilityLabel="Member photo">
-              {name.trim() ? <Text className="gym-member-photo__initials">{initialsOf(name)}</Text> : <GymIcon name="user" size={44} color={colors.white} />}
+            <View className="items-center" style={{ gap: 10 }}>
+              <View className="gym-member-photo" accessible accessibilityLabel={photo ? "Member photo, chosen" : "Member photo, none yet"}>
+                {name.trim() ? <Text className="gym-member-photo__initials">{initialsOf(name)}</Text> : <GymIcon name="user" size={44} color={colors.white} />}
+                <MemberPhotoImage uri={photo?.previewUri} />
+              </View>
+              <View className="flex-row flex-wrap justify-center" style={{ gap: 8 }}>
+                <PressableScale onPress={() => choosePhoto("camera")} className="gym-choice flex-row items-center" style={{ gap: 6 }} accessibilityRole="button" accessibilityLabel={photo ? "Retake the photo" : "Take a photo"}>
+                  <GymIcon name="camera" size={16} color={colors.gymPrimary} />
+                  <Text className="gym-choice__label">{photo ? "Retake" : "Camera"}</Text>
+                </PressableScale>
+                <PressableScale onPress={() => choosePhoto("library")} className="gym-choice flex-row items-center" style={{ gap: 6 }} accessibilityRole="button" accessibilityLabel="Choose a photo from the gallery">
+                  <GymIcon name="image" size={16} color={colors.gymPrimary} />
+                  <Text className="gym-choice__label">Gallery</Text>
+                </PressableScale>
+                {photo && (
+                  <PressableScale onPress={() => { setPhoto(null); setPhotoError(""); }} className="gym-choice flex-row items-center" style={{ gap: 6 }} accessibilityRole="button" accessibilityLabel="Remove the photo">
+                    <GymIcon name="x" size={16} color={colors.gymPrimary} />
+                    <Text className="gym-choice__label">Remove</Text>
+                  </PressableScale>
+                )}
+              </View>
+              {photoError ? <Text className="gym-tx__meta text-center" style={{ color: colors.gymDanger }}>{photoError}</Text> : null}
             </View>
             <View style={{ gap: 6 }}>
               <GymField label="Member ID" icon="id-card" value={code.state === "ready" ? code.data.code : ""} placeholder="Member ID" editable={false} />
