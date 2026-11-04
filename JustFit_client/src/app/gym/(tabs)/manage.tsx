@@ -57,7 +57,7 @@ export default function GymManage() {
           )}
           {tab === "expense" && (
             <View className="p-4">
-              <GymEmpty icon={{ ios: "doc.text", android: "receipt_long", web: "receipt_long" }} title="Expenses are coming soon" text="Rent, salaries and other spending will be kept here." />
+              <GymEmpty icon="receipt" title="Expenses are coming soon" text="Rent, salaries and other spending will be kept here." />
             </View>
           )}
         </View>

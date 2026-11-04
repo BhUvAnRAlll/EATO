@@ -161,7 +161,7 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
   tabs Member, Plan / Catalogue, Enquiry, Expense (coming soon). The ☰ (and the account button) on
   Home open the side menu (`components/gym/GymMenu.tsx`): the account and branch, Manage items
   (Expenses, Staff / Admin Login, Reminder Templates: coming soon; Outlets = branches), Other (Send
-  Bulk SMS, Biometric Attendance: coming soon) and Sign out. No subscription/Buy Now card (no
+  Bulk SMS opens its sheet; Biometric Attendance: coming soon) and Sign out. No subscription/Buy Now card (no
   billing in justFit yet).
   Money in whole rupees; "today" is India's date (`rules.todayInIndia`); gyms are never deleted
   and nothing cascades except `gym_staff` from users.
@@ -172,9 +172,33 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
   (today, this month, owed). Admin: the Gyms tab, a gym's page,
   New gym. Calls in `lib/gymApi.ts`, loading in `lib/useGymData.ts`, saves in `lib/gymForm.ts`.
 - **Look:** `gym-*` tokens (the indigo-to-violet theme, this portal only) and `gym-*` utilities; the member app and the
-  Super Admin stay red. No AI button (removed at the user's request). Send Bulk SMS says "coming
-  soon" (real SMS costs money; not built).
-- **Tests:** `__tests__/gym-rules.test.js`, `e2e/gym-portal.e2e.test.js`, `ui/gym-portal.ui.test.js`.
+  Super Admin stay red. No AI button (removed at the user's request).
+- **SMS to members (2026-11-04, the user's GymOps designs; real SMS approved by the user):**
+  Manage › Member is the "Reminders from the list" design (`MemberList`: the Member dropdown =
+  the filters, a sort button, a search button; cards with the ID, PT tag, days left or "Expired n
+  days ago", payment due; a due reminder button when they owe, a membership reminder button (red
+  once expired), ⋯; a round + for Add Member). Send Bulk SMS (`BulkSmsSheet`, from Home's card,
+  the + sheet and the ☰ menu): Available Credits on a dark navy card, Buy Credits (says the
+  justFit team adds them: no payments), Quick Actions Auto Reminders (switches for the expiry
+  reminder 1 day before, expired 3 days after, weekly due, birthday wishes; each with a Preview),
+  Manual Send (a group: expiring in 3 days, expired in the last 30 days, payment due, birthday
+  today; confirm, then sent/failed/skipped) and Message Logs (30 a page). Server `gym/sms.js`,
+  pure rules and the four message texts in `gym/smsRules.js`, the sender in `gym/smsSender.js`;
+  routes `GET /api/gym/sms`, `PATCH /api/gym/sms/settings`, `POST /api/gym/sms/send`,
+  `POST /api/gym/members/:id/sms`, `GET /api/gym/sms/logs` (sends: 30 an hour per account, one
+  group send per branch at a time); Super Admin › a gym › SMS credits
+  (`POST /api/admin/portal/gyms/:id/sms-credits`, 1-100,000, audited `gym.sms_credits`).
+  1 credit = 1 SMS, per branch (`gyms.sms_credits`): a credit is taken and the `gym_sms_log` row
+  written in one transaction, then the provider is called; a failure gives the credit back. Auto
+  reminders run hourly between 10:00 and 19:59 India time (`startReminders`, never in tests) and
+  go once per member (`auto_key`: per plan end, per week, per year, unique). Sending uses
+  `SMS_PROVIDER` (`fake` in tests writes `gym-sms.jsonl` to the outbox) and, for Fast2SMS, the
+  DLT route with four registered templates `FAST2SMS_GYM_EXPIRY_ID`, `_EXPIRED_ID`, `_DUE_ID`,
+  `_BIRTHDAY_ID` (texts word for word from `smsRules.js`); without them gym SMS stay off, the
+  sheet says so and the list's buttons open the phone's SMS app instead. Logs never return phone
+  numbers. Migration `2026-11-25-gym-sms.sql`.
+- **Tests:** `__tests__/gym-rules.test.js`, `gym-sms-rules.test.js`, `e2e/gym-portal.e2e.test.js`,
+  `e2e/gym-sms.e2e.test.js`, `ui/gym-portal.ui.test.js`.
 
 ### Community and gyms: removed (2026-11-01)
 
@@ -503,6 +527,13 @@ Import `SymbolView` from `@/components/SymbolView`, never from `expo-symbols`. S
 Symbol names (`name="envelope"`); iOS draws them natively, and the wrapper adds the Material
 Symbols twin from `constants/symbols.ts` for Android and the web. A new icon name needs a line
 in that map (a missing one warns in development and shows nothing on Android).
+
+The gym portal (`app/gym/`, `components/gym/`, `data/gymDashboard.ts`) is the exception since
+2026-11-04 (approved by the user): it uses Lucide (`lucide-react-native`, drawn with
+react-native-svg, no native rebuild) through `components/gym/GymIcon.tsx`, never imported directly.
+Icons are named by their Lucide name (`<GymIcon name="users" size={18} color={colors.gymPrimary} />`)
+from the typed map in `constants/gymIcons.ts` (a new icon needs a line there); every icon has the
+same 1.75 px line (`absoluteStrokeWidth`). The member app and the Super Admin keep `SymbolView`.
 
 ---
 

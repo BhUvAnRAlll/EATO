@@ -1,4 +1,4 @@
-import type { Icon } from "@/types/profile";
+import type { GymIconName } from "@/constants/gymIcons";
 import type { CatalogKind, Gender, MemberFilter, MemberStatus, PaymentKind, PayMethod, PlanUnit, SaleCategory } from "@/lib/gymApi";
 
 // The gym admin portal's fixed words and small formatters. The numbers themselves come from the
@@ -96,21 +96,21 @@ export const GENDER_LABEL: Record<Gender, string> = { male: "Male", female: "Fem
 
 // The + sheet on Home (the user's design)
 export type AddAction = "member" | "plan" | "enquiry" | "expense" | "outlet" | "staff" | "sms" | "biometric";
-export const ADD_SHEET: { id: AddAction; label: string; icon: Icon }[] = [
-  { id: "member", label: "Add Member", icon: { ios: "person.badge.plus", android: "person_add", web: "person_add" } },
-  { id: "plan", label: "Add Plan", icon: { ios: "list.bullet.rectangle", android: "account_tree", web: "account_tree" } },
-  { id: "enquiry", label: "Add Enquiry", icon: { ios: "questionmark.circle.fill", android: "help", web: "help" } },
-  { id: "expense", label: "Add Expense", icon: { ios: "creditcard", android: "credit_card", web: "credit_card" } },
-  { id: "outlet", label: "Add Outlet", icon: { ios: "list.bullet", android: "view_list", web: "view_list" } },
-  { id: "staff", label: "Add Staff / Admin Login", icon: { ios: "person.badge.plus", android: "person_add", web: "person_add" } },
-  { id: "sms", label: "Send Bulk SMS", icon: { ios: "ellipsis.message.fill", android: "sms", web: "sms" } },
-  { id: "biometric", label: "Biometric Attendance", icon: { ios: "touchid", android: "fingerprint", web: "fingerprint" } },
+export const ADD_SHEET: { id: AddAction; label: string; icon: GymIconName }[] = [
+  { id: "member", label: "Add Member", icon: "user-plus" },
+  { id: "plan", label: "Add Plan", icon: "clipboard-list" },
+  { id: "enquiry", label: "Add Enquiry", icon: "message-circle-question" },
+  { id: "expense", label: "Add Expense", icon: "credit-card" },
+  { id: "outlet", label: "Add Outlet", icon: "store" },
+  { id: "staff", label: "Add Staff / Admin Login", icon: "user-plus" },
+  { id: "sms", label: "Send Bulk SMS", icon: "message-square-more" },
+  { id: "biometric", label: "Biometric Attendance", icon: "fingerprint" },
 ];
 
 
 // The portal's tabs, in order
-export const gymTabs: { name: string; label: string; icon: Icon }[] = [
-  { name: "index", label: "Home", icon: { ios: "house.fill", android: "home", web: "home" } },
-  { name: "manage", label: "Manage", icon: { ios: "gearshape.fill", android: "settings", web: "settings" } },
-  { name: "wallet", label: "Wallet", icon: { ios: "wallet.pass.fill", android: "account_balance_wallet", web: "account_balance_wallet" } },
+export const gymTabs: { name: string; label: string; icon: GymIconName }[] = [
+  { name: "index", label: "Home", icon: "house" },
+  { name: "manage", label: "Manage", icon: "layout-grid" },
+  { name: "wallet", label: "Wallet", icon: "wallet" },
 ];

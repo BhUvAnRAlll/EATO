@@ -1,6 +1,6 @@
 import { Pressable, Text, View } from "react-native";
 
-import { SymbolView } from "@/components/SymbolView";
+import { GymIcon } from "@/components/gym/GymIcon";
 import { GymSheet } from "@/components/gym/GymSheet";
 import { ADD_SHEET, type AddAction } from "@/data/gymDashboard";
 import { useThemeColors } from "@/theme";
@@ -12,10 +12,10 @@ export function AddSheet({ onClose, onPick }: { onClose: () => void; onPick: (ac
   const row = (item: (typeof ADD_SHEET)[number]) => (
     <Pressable key={item.id} onPress={() => onPick(item.id)} className="gym-addrow" accessibilityRole="button" accessibilityLabel={item.label}>
       <View className="gym-addrow__icon">
-        <SymbolView name={item.icon} size={18} tintColor={colors.gymPrimary} />
+        <GymIcon name={item.icon} size={18} color={colors.gymPrimary} />
       </View>
       <Text className="gym-menu__label flex-1" numberOfLines={1}>{item.label}</Text>
-      <SymbolView name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }} size={13} tintColor={colors.gymInk} />
+      <GymIcon name="chevron-right" size={13} color={colors.gymInk} />
     </Pressable>
   );
   return (

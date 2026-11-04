@@ -51,6 +51,8 @@ const { recordAdminAction } = require("./admin/overview");
 // AUTH_SECRET signs the code hashes and member passes; it is not the SMS provider's key.
 const otpKey = deriveOtpKey(process.env.AUTH_SECRET);
 const sms = createSmsProvider(process.env);
+// The gym portal's SMS to members (reminders, wishes): on the same provider, with its own templates
+const gymSms = require("./gym/smsSender").createGymSmsSender(process.env);
 const otpLimits = otpConfig(process.env);
 // Development only: a fixed code for a few numbers (auth/devLogin.js). Refused outside
 // NODE_ENV=development on justfit (or tests), so this line stops a production start that has it.
@@ -74,6 +76,7 @@ if (process.env.TRUST_PROXY) {
   app.set("trust proxy", /^[0-9]+$/.test(value) ? Number(value) : value.split(",").map((part) => part.trim()));
 }
 app.locals.pool = pool; // routers read the pool from here
+app.locals.gymSms = gymSms; // the gym portal's member SMS (gym/smsSender.js)
 app.use(securityHeaders); // httpSecurity.js: nosniff, no framing, no caching, HSTS over HTTPS
 // Browser origins (httpSecurity.js): CORS_ORIGINS, or none in production, or any in development
 // and tests (Expo web). The native app sends no Origin header and is never affected.
@@ -432,6 +435,9 @@ const port = Number(process.env.PORT ?? 4000);
 coachChatHistory.startCleanup(pool);
 // YouTube data on session videos (their creators): refreshed before 25 days, deleted after 30 (YouTube's API terms)
 require("./fitness/youtubeRefresh").startRefresh(pool);
+// The gym portal's switched-on auto reminders: every hour in the daytime, while SMS sending is on
+require("./gym/sms").startReminders(pool, gymSms);
+if (process.env.NODE_ENV !== "test") console.log(gymSms.enabled ? "Gym SMS: sending on" : `Gym SMS: off (${gymSms.reason})`);
 app.listen(port, "0.0.0.0", () => {
   console.log(`justFit server listening on http://localhost:${port}`);
 });

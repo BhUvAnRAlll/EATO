@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Text, View } from "react-native";
 
 import { PressableScale } from "@/components/PressableScale";
-import { SymbolView } from "@/components/SymbolView";
+import { GymIcon } from "@/components/gym/GymIcon";
 import { DatePickerSheet } from "@/components/setup/DatePickerSheet";
 import { shortDate } from "@/data/gymDashboard";
 import { useThemeColors } from "@/theme";
@@ -22,7 +22,7 @@ export function DateSelect({ label, value, onChange, min, max, stacked = false }
     <View className={stacked ? "" : "flex-row items-center"} style={{ gap: stacked ? 8 : 12 }}>
       <Text className="gym-field__label" style={{ fontSize: 14 }}>{label}</Text>
       <PressableScale onPress={() => setOpen(true)} className="gym-choice flex-row items-center self-start" style={{ gap: 8 }} accessibilityRole="button" accessibilityLabel={`${label}: ${value ? shortDate(value) : "not set"}. Select`}>
-        <SymbolView name={{ ios: "calendar", android: "calendar_month", web: "calendar_month" }} size={16} tintColor={colors.gymPrimary} />
+        <GymIcon name="calendar" size={16} color={colors.gymPrimary} />
         <Text className="gym-choice__label">{value ? shortDate(value) : "Select"}</Text>
       </PressableScale>
       <DatePickerSheet

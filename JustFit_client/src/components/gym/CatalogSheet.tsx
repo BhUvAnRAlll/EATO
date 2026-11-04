@@ -63,11 +63,11 @@ export function CatalogSheet({ kind, item, onClose, onSaved }: { kind: CatalogKi
       onClose={onClose}
       overlay={confirming ? <ConfirmDialog rows={rows} onEdit={() => setConfirming(false)} onConfirm={submit} /> : null}
     >
-      <GymField label={`${TITLE[kind]} name`} icon={{ ios: "arrowtriangle.right.fill", android: "arrow_right", web: "arrow_right" }} value={name} onChangeText={setName} maxLength={80} placeholder={`${TITLE[kind]} Name (Eg. ${kind === "plan" ? "6 Months" : meta.example})`} />
+      <GymField label={`${TITLE[kind]} name`} icon="pencil-line" value={name} onChangeText={setName} maxLength={80} placeholder={`${TITLE[kind]} Name (Eg. ${kind === "plan" ? "6 Months" : meta.example})`} />
       {isPlan && <PlanLengthFields unit={unit} onUnit={setUnit} duration={duration} onDuration={setDuration} />}
-      <GymField label={`${TITLE[kind]} amount`} icon={{ ios: "banknote", android: "payments", web: "payments" }} value={price} onChangeText={(t) => setPrice(amountInput(t))} keyboardType="number-pad" placeholder={`${TITLE[kind]} Amount (Eg. 500)`} />
+      <GymField label={`${TITLE[kind]} amount`} icon="banknote" value={price} onChangeText={(t) => setPrice(amountInput(t))} keyboardType="number-pad" placeholder={`${TITLE[kind]} Amount (Eg. 500)`} />
       {isProduct && (
-        <GymField label="In stock" icon={{ ios: "archivebox", android: "inventory_2", web: "inventory_2" }} value={stock} onChangeText={(t) => setStock(t.replace(/\D/g, "").slice(0, 6))} keyboardType="number-pad" placeholder="In Stock (Eg. 20, optional)" hint={stockValue !== null && stockValue > 100000 ? "Up to 1,00,000." : "Selling to a member takes them out of stock."} />
+        <GymField label="In stock" icon="boxes" value={stock} onChangeText={(t) => setStock(t.replace(/\D/g, "").slice(0, 6))} keyboardType="number-pad" placeholder="In Stock (Eg. 20, optional)" hint={stockValue !== null && stockValue > 100000 ? "Up to 1,00,000." : "Selling to a member takes them out of stock."} />
       )}
       {error ? <FormAlert message={error} /> : null}
       <GymPrimaryButton label={item ? "Save changes" : title} ready={ready} busy={busy} onPress={() => setConfirming(true)} />

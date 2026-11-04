@@ -2,8 +2,8 @@ import { Text, View } from "react-native";
 
 import { PressableScale } from "@/components/PressableScale";
 import { ScreenSkeleton } from "@/components/Skeleton";
-import { SymbolView } from "@/components/SymbolView";
-import type { Icon } from "@/types/profile";
+import { GymIcon } from "@/components/gym/GymIcon";
+import type { GymIconName } from "@/constants/gymIcons";
 import { useThemeColors } from "@/theme";
 
 // A first read that failed: what went wrong and Try again
@@ -11,7 +11,7 @@ export function GymError({ error, onRetry }: { error: string; onRetry: () => voi
   const colors = useThemeColors();
   return (
     <View className="gym-card items-center p-6" style={{ gap: 10 }}>
-      <SymbolView name={{ ios: "exclamationmark.triangle.fill", android: "warning", web: "warning" }} size={24} tintColor={colors.gymWarning} />
+      <GymIcon name="triangle-alert" size={24} color={colors.gymWarning} />
       <Text className="gym-tx__name text-center">{"Couldn't load this"}</Text>
       <Text className="gym-tx__meta text-center">{error}</Text>
       <PressableScale onPress={onRetry} className="gym-btn gym-btn--outline" accessibilityRole="button" accessibilityLabel="Try again">
@@ -22,12 +22,12 @@ export function GymError({ error, onRetry }: { error: string; onRetry: () => voi
 }
 
 // Nothing here yet
-export function GymEmpty({ icon, title, text }: { icon: Icon; title: string; text: string }) {
+export function GymEmpty({ icon, title, text }: { icon: GymIconName; title: string; text: string }) {
   const colors = useThemeColors();
   return (
     <View className="gym-card items-center p-6" style={{ gap: 8 }}>
       <View className="gym-sms__icon">
-        <SymbolView name={icon} size={20} tintColor={colors.gymPrimary} />
+        <GymIcon name={icon} size={20} color={colors.gymPrimary} />
       </View>
       <Text className="gym-tx__name text-center">{title}</Text>
       <Text className="gym-tx__meta text-center">{text}</Text>

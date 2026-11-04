@@ -8,6 +8,7 @@ const { ValidationError } = require("../profile");
 const { toE164 } = require("../auth/phone");
 const { audit } = require("./overview");
 const gymService = require("../gym/service");
+const gymSms = require("../gym/sms");
 
 const gymOf = (r) => ({ id: r.id, brandId: r.brand_id, name: r.brand, branch: r.branch, area: r.area, city: r.city, createdAt: r.created_at ? new Date(r.created_at).toISOString() : null });
 const GYM_COLUMNS = "g.id, g.brand_id, b.name AS brand, g.name AS branch, g.area, g.city, g.created_at";
@@ -66,6 +67,7 @@ async function detail(pool, gymId, today) {
   const n = Number;
   return {
     gym: gymOf(gym),
+    smsCredits: await smsCredits(pool, gymId),
     branches: siblings.map((b) => ({ id: b.id, branch: b.name })),
     stats: {
       todayOnline: n(money.today_online),
@@ -155,6 +157,25 @@ async function unlinkStaff(pool, adminId, gymId, userId) {
   await audit(pool, adminId, "gym.staff_remove", "gym", gymId, `Removed a gym admin from “${gym.brand}”, ${gym.branch} branch`);
 }
 
+// The branch's SMS credits (null before migrations/2026-11-25-gym-sms.sql)
+async function smsCredits(pool, gymId) {
+  try {
+    return await gymSms.credits(pool, gymId);
+  } catch (error) {
+    if (error?.code === "ER_BAD_FIELD_ERROR") return null;
+    throw error;
+  }
+}
+
+// Adds SMS credits to a branch (there is no payment in justFit: the team adds them by hand)
+async function addSmsCredits(pool, adminId, gymId, credits) {
+  const gym = await gymRow(pool, gymId);
+  await inTransaction(pool, async (db) => {
+    await gymSms.addCredits(db, gymId, credits);
+    await audit(db, adminId, "gym.sms_credits", "gym", gymId, `Added ${credits} SMS credits to “${gym.brand}”, ${gym.branch} branch`);
+  });
+}
+
 // The Overview's gym line: how many gyms, and their takings today (null before the migration)
 async function overviewCounts(pool, today) {
   try {
@@ -169,4 +190,4 @@ async function overviewCounts(pool, today) {
   }
 }
 
-module.exports = { list, detail, create, addBranch, update, linkStaff, unlinkStaff, overviewCounts };
+module.exports = { list, detail, create, addBranch, update, linkStaff, unlinkStaff, addSmsCredits, overviewCounts };

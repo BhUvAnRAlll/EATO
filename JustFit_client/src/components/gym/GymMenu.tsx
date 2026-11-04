@@ -3,33 +3,34 @@ import Animated, { FadeIn, ReduceMotion, SlideInLeft } from "react-native-reanim
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router, type Href } from "expo-router";
 
-import { SymbolView } from "@/components/SymbolView";
+import { GymIcon } from "@/components/gym/GymIcon";
 import { GradientFill } from "@/components/gym/GradientFill";
 import { comingSoon } from "@/lib/gymPortal";
 import { phoneText } from "@/data/gymDashboard";
 import { useAuthStore } from "@/store/auth";
 import { useThemeColors } from "@/theme";
-import type { Icon } from "@/types/profile";
+import type { GymIconName } from "@/constants/gymIcons";
 
-type MenuItem = { label: string; icon: Icon; href?: Href };
+type MenuItem = { label: string; icon: GymIconName; href?: Href; action?: "sms" };
 
 const MANAGE: MenuItem[] = [
-  { label: "Members", icon: { ios: "person.2.fill", android: "group", web: "group" }, href: "/gym/manage?tab=member" },
-  { label: "Plans / Catalogue", icon: { ios: "list.bullet.rectangle", android: "list_alt", web: "list_alt" }, href: "/gym/manage?tab=catalog" },
-  { label: "Enquiries", icon: { ios: "bubble.left.and.bubble.right.fill", android: "forum", web: "forum" }, href: "/gym/manage?tab=enquiry" },
-  { label: "Expenses", icon: { ios: "doc.text", android: "receipt_long", web: "receipt_long" } },
-  { label: "Outlets", icon: { ios: "storefront", android: "storefront", web: "storefront" }, href: "/gym/branches" },
-  { label: "Staff / Admin Login", icon: { ios: "person.badge.shield.checkmark", android: "admin_panel_settings", web: "admin_panel_settings" } },
-  { label: "Reminder Templates", icon: { ios: "text.bubble.fill", android: "chat", web: "chat" } },
+  { label: "Members", icon: "users", href: "/gym/manage?tab=member" },
+  { label: "Plans / Catalogue", icon: "clipboard-list", href: "/gym/manage?tab=catalog" },
+  { label: "Enquiries", icon: "messages-square", href: "/gym/manage?tab=enquiry" },
+  { label: "Expenses", icon: "receipt" },
+  { label: "Outlets", icon: "store", href: "/gym/branches" },
+  { label: "Staff / Admin Login", icon: "user-cog" },
+  { label: "Reminder Templates", icon: "message-square-text" },
 ];
 const OTHER: MenuItem[] = [
-  { label: "Send Bulk SMS", icon: { ios: "ellipsis.message.fill", android: "sms", web: "sms" } },
-  { label: "Biometric Attendance", icon: { ios: "touchid", android: "fingerprint", web: "fingerprint" } },
+  { label: "Send Bulk SMS", icon: "message-square-more", action: "sms" },
+  { label: "Biometric Attendance", icon: "fingerprint" },
 ];
 
 // The ☰ side menu over Home: who is signed in and their branch, Manage (Members, Plans /
-// Catalogue, Enquiries, Outlets = branches; the rest are on their way), Other, and Sign out.
-export function GymMenu({ open, onClose, gymLine }: { open: boolean; onClose: () => void; gymLine: string | null }) {
+// Catalogue, Enquiries, Outlets = branches; the rest are on their way), Other (Send Bulk SMS
+// opens Home's sheet through onBulkSms), and Sign out.
+export function GymMenu({ open, onClose, gymLine, onBulkSms }: { open: boolean; onClose: () => void; gymLine: string | null; onBulkSms: () => void }) {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
   const user = useAuthStore((state) => state.user);
@@ -38,13 +39,14 @@ export function GymMenu({ open, onClose, gymLine }: { open: boolean; onClose: ()
   const go = (item: MenuItem) => {
     onClose();
     if (item.href) router.push(item.href);
+    else if (item.action === "sms") onBulkSms();
     else setTimeout(() => comingSoon(item.label), 250);
   };
   const row = (item: MenuItem) => (
-    <Pressable key={item.label} onPress={() => go(item)} className="gym-menu__row" accessibilityRole="button" accessibilityLabel={item.href ? item.label : `${item.label}, coming soon`}>
-      <SymbolView name={item.icon} size={20} tintColor={colors.gymInkSoft} />
+    <Pressable key={item.label} onPress={() => go(item)} className="gym-menu__row" accessibilityRole="button" accessibilityLabel={item.href || item.action ? item.label : `${item.label}, coming soon`}>
+      <GymIcon name={item.icon} size={20} color={colors.gymInkSoft} />
       <Text className="gym-menu__label flex-1" numberOfLines={1}>{item.label}</Text>
-      <SymbolView name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }} size={13} tintColor={colors.gymFaint} />
+      <GymIcon name="chevron-right" size={13} color={colors.gymFaint} />
     </Pressable>
   );
 
@@ -65,7 +67,7 @@ export function GymMenu({ open, onClose, gymLine }: { open: boolean; onClose: ()
             <Text className="gym-menu__section" style={{ marginTop: 12 }}>Other</Text>
             {OTHER.map(row)}
             <Pressable onPress={() => { onClose(); useAuthStore.getState().signOut(); }} className="gym-menu__row" style={{ marginTop: 12 }} accessibilityRole="button" accessibilityLabel="Sign out">
-              <SymbolView name={{ ios: "rectangle.portrait.and.arrow.right", android: "logout", web: "logout" }} size={20} tintColor={colors.danger} />
+              <GymIcon name="log-out" size={20} color={colors.danger} />
               <Text className="gym-menu__label flex-1" style={{ color: colors.danger }}>Sign out</Text>
             </Pressable>
           </ScrollView>

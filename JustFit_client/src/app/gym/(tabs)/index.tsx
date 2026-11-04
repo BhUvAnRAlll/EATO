@@ -5,9 +5,10 @@ import { router, type Href } from "expo-router";
 import { useState } from "react";
 
 import { PressableScale } from "@/components/PressableScale";
-import { SymbolView } from "@/components/SymbolView";
+import { GymIcon } from "@/components/gym/GymIcon";
 import { AddMemberSheet } from "@/components/gym/AddMemberSheet";
 import { AddSheet } from "@/components/gym/AddSheet";
+import { BulkSmsSheet } from "@/components/gym/BulkSmsSheet";
 import { DueMembersSheet } from "@/components/gym/DueMembersSheet";
 import { GymMenu } from "@/components/gym/GymMenu";
 import { GradientFill } from "@/components/gym/GradientFill";
@@ -20,7 +21,7 @@ import { gymApi } from "@/lib/gymApi";
 import { useGymData } from "@/lib/useGymData";
 import { useAuthStore } from "@/store/auth";
 import { useThemeColors, type Palette } from "@/theme";
-import type { Icon } from "@/types/profile";
+import type { GymIconName } from "@/constants/gymIcons";
 
 type Tone = "primary" | "ink" | "success" | "warning" | "danger";
 // A tone's text colour, icon colour, soft fill and outline
@@ -44,16 +45,18 @@ export default function GymHome() {
   const [refreshing, setRefreshing] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   // The + sheet, or Add New Member opened from it
-  const [sheet, setSheet] = useState<"add" | "member" | "due" | null>(null);
+  const [sheet, setSheet] = useState<"add" | "member" | "due" | "sms" | null>(null);
   const pick = (action: AddAction) => {
     setSheet(action === "member" ? "member" : null);
     if (action === "member") return;
+    // Send Bulk SMS opens once the + sheet has gone
+    if (action === "sms") return void setTimeout(() => setSheet("sms"), 250);
     const go: Partial<Record<AddAction, () => void>> = {
       plan: () => router.push("/gym/manage?tab=catalog"),
       enquiry: () => router.push("/gym/enquiry"),
       outlet: () => router.push("/gym/branches"),
     };
-    const label = { expense: "Add Expense", staff: "Add Staff / Admin Login", sms: "Send Bulk SMS", biometric: "Biometric Attendance" } as Partial<Record<AddAction, string>>;
+    const label = { expense: "Add Expense", staff: "Add Staff / Admin Login", biometric: "Biometric Attendance" } as Partial<Record<AddAction, string>>;
     if (go[action]) go[action]!();
     else setTimeout(() => comingSoon(label[action] ?? "This"), 250);
   };
@@ -69,23 +72,23 @@ export default function GymHome() {
     box: colors[`gymTile${k}Box`],
     icon: colors[`gymTile${k}Icon`],
   });
-  const stats: { id: string; value: number; label: string; color: ReturnType<typeof tile>; icon: Icon; href: Href }[] = data
+  const stats: { id: string; value: number; label: string; color: ReturnType<typeof tile>; icon: GymIconName; href: Href }[] = data
     ? [
-        { id: "admission", value: data.stats.admission, label: "Admission", color: tile("Violet"), icon: { ios: "person.2", android: "group", web: "group" }, href: "/gym/transactions?kind=admission&today=1" },
-        { id: "renewal", value: data.stats.renewal, label: "Renewal", color: tile("Orange"), icon: { ios: "arrow.triangle.2.circlepath", android: "sync", web: "sync" }, href: "/gym/transactions?kind=renewal&today=1" },
-        { id: "enquiry", value: data.stats.enquiry, label: "Enquiry", color: tile("Blue"), icon: { ios: "doc.text", android: "description", web: "description" }, href: "/gym/enquiries" },
-        { id: "due-paid", value: data.stats.duePaid, label: "Due Paid", color: tile("Green"), icon: { ios: "indianrupeesign", android: "currency_rupee", web: "currency_rupee" }, href: "/gym/transactions?kind=due&today=1" },
-        { id: "pt", value: data.stats.pt, label: "PT", color: tile("Pink"), icon: { ios: "dumbbell", android: "fitness_center", web: "fitness_center" }, href: "/gym/transactions?kind=pt&today=1" },
-        { id: "product", value: data.stats.product, label: "Product", color: tile("Purple"), icon: { ios: "shippingbox", android: "deployed_code", web: "deployed_code" }, href: "/gym/transactions?kind=sale&today=1" },
+        { id: "admission", value: data.stats.admission, label: "Admission", color: tile("Violet"), icon: "users", href: "/gym/transactions?kind=admission&today=1" },
+        { id: "renewal", value: data.stats.renewal, label: "Renewal", color: tile("Orange"), icon: "refresh-ccw", href: "/gym/transactions?kind=renewal&today=1" },
+        { id: "enquiry", value: data.stats.enquiry, label: "Enquiry", color: tile("Blue"), icon: "message-circle-question", href: "/gym/enquiries" },
+        { id: "due-paid", value: data.stats.duePaid, label: "Due Paid", color: tile("Green"), icon: "indian-rupee", href: "/gym/transactions?kind=due&today=1" },
+        { id: "pt", value: data.stats.pt, label: "PT", color: tile("Pink"), icon: "dumbbell", href: "/gym/transactions?kind=pt&today=1" },
+        { id: "product", value: data.stats.product, label: "Product", color: tile("Purple"), icon: "package", href: "/gym/transactions?kind=sale&today=1" },
       ]
     : [];
-  const alerts: { id: string; value: number; label: string; tag: string; tone: Tone; icon: Icon; href: Href }[] = data
+  const alerts: { id: string; value: number; label: string; tag: string; tone: Tone; icon: GymIconName; href: Href }[] = data
     ? [
-        { id: "due", value: data.alerts.dueMembers, label: "Due Members", tag: "Action", tone: "danger", icon: { ios: "exclamationmark.triangle.fill", android: "warning", web: "warning" }, href: "/gym/members?filter=due" },
-        { id: "expiring", value: data.alerts.expiringToday, label: "Expiring Today", tag: "Urgent", tone: "warning", icon: { ios: "clock.fill", android: "schedule", web: "schedule" }, href: "/gym/members?filter=expiring" },
-        { id: "attendance", value: data.alerts.attendance, label: "Attendance", tag: "Live", tone: "primary", icon: { ios: "touchid", android: "fingerprint", web: "fingerprint" }, href: "/gym/members?filter=in_today" },
-        { id: "expiring-soon", value: data.alerts.expiringSoon, label: "Expiring in 1-3 days", tag: "Soon", tone: "warning", icon: { ios: "calendar.badge.clock", android: "event_upcoming", web: "event_upcoming" }, href: "/gym/members?filter=expiring_soon" },
-        { id: "birthdays", value: data.alerts.birthdays, label: "Birthdays Today", tag: "Wish", tone: "success", icon: { ios: "gift.fill", android: "cake", web: "cake" }, href: "/gym/members?filter=birthday" },
+        { id: "due", value: data.alerts.dueMembers, label: "Due Members", tag: "Action", tone: "danger", icon: "triangle-alert", href: "/gym/members?filter=due" },
+        { id: "expiring", value: data.alerts.expiringToday, label: "Expiring Today", tag: "Urgent", tone: "warning", icon: "clock", href: "/gym/members?filter=expiring" },
+        { id: "attendance", value: data.alerts.attendance, label: "Attendance", tag: "Live", tone: "primary", icon: "fingerprint", href: "/gym/members?filter=in_today" },
+        { id: "expiring-soon", value: data.alerts.expiringSoon, label: "Expiring in 1-3 days", tag: "Soon", tone: "warning", icon: "calendar-clock", href: "/gym/members?filter=expiring_soon" },
+        { id: "birthdays", value: data.alerts.birthdays, label: "Birthdays Today", tag: "Wish", tone: "success", icon: "cake", href: "/gym/members?filter=birthday" },
       ]
     : [];
 
@@ -95,7 +98,7 @@ export default function GymHome() {
       <SafeAreaView edges={["top"]} style={{ flex: 1 }}>
         <View className="gym-header">
           <PressableScale onPress={() => setMenuOpen(true)} className="gym-icon-btn" accessibilityRole="button" accessibilityLabel="Menu">
-            <SymbolView name={{ ios: "line.3.horizontal", android: "menu", web: "menu" }} size={18} tintColor={colors.gymInk} />
+            <GymIcon name="menu" size={18} color={colors.gymInk} />
           </PressableScale>
           <View className="min-w-0 flex-1" style={{ gap: 2 }}>
             <View className="flex-row items-center" style={{ gap: 8 }}>
@@ -107,17 +110,17 @@ export default function GymHome() {
             </View>
             {data && (
               <PressableScale onPress={() => router.push("/gym/branches")} className="flex-row items-center self-start" style={{ gap: 4, maxWidth: "100%" }} accessibilityRole="button" accessibilityLabel={`${data.gym.branch} branch, ${data.gym.area}, ${data.gym.city}. Switch or edit branch`}>
-                <SymbolView name={{ ios: "mappin", android: "location_on", web: "location_on" }} size={14} tintColor={colors.gymPrimary} />
+                <GymIcon name="map-pin" size={14} color={colors.gymPrimary} />
                 <Text className="gym-header__place" numberOfLines={1}>{`${data.gym.branch} branch`}</Text>
-                <SymbolView name={{ ios: "arrow.left.arrow.right", android: "swap_horiz", web: "swap_horiz" }} size={11} tintColor={colors.gymFaint} />
+                <GymIcon name="arrow-left-right" size={11} color={colors.gymFaint} />
               </PressableScale>
             )}
           </View>
           <PressableScale onPress={() => router.push("/gym/members?focus=search")} className="gym-icon-btn" accessibilityRole="button" accessibilityLabel="Search members">
-            <SymbolView name={{ ios: "magnifyingglass", android: "search", web: "search" }} size={17} tintColor={colors.gymInk} />
+            <GymIcon name="search" size={17} color={colors.gymInk} />
           </PressableScale>
           <PressableScale onPress={() => setMenuOpen(true)} className="gym-icon-btn" accessibilityRole="button" accessibilityLabel="Your account">
-            <SymbolView name={{ ios: "person.fill", android: "person", web: "person" }} size={17} tintColor={colors.gymInk} />
+            <GymIcon name="user" size={17} color={colors.gymInk} />
             <View className="gym-online-dot" />
           </PressableScale>
         </View>
@@ -155,7 +158,7 @@ export default function GymHome() {
                 {stats.map((stat) => (
                   <PressableScale key={stat.id} onPress={() => router.push(stat.href)} className="gym-tile" style={[{ flexBasis: "30%", flexGrow: 1, backgroundColor: stat.color.bg, borderColor: stat.color.line }, narrow ? { flexDirection: "column", alignItems: "flex-start", gap: 6 } : null]} accessibilityRole="button" accessibilityLabel={`${stat.value} ${stat.label}`}>
                     <View className="gym-tile__icon" style={{ backgroundColor: stat.color.box }}>
-                      <SymbolView name={stat.icon} size={17} tintColor={stat.color.icon} />
+                      <GymIcon name={stat.icon} size={17} color={stat.color.icon} />
                     </View>
                     <View className="min-w-0 flex-1">
                       <Text className="gym-stat__value" style={{ color: colors.gymInk }}>{stat.value}</Text>
@@ -165,16 +168,16 @@ export default function GymHome() {
                 ))}
               </View>
 
-              <PressableScale onPress={() => comingSoon("Send Bulk SMS")} className="gym-sms" accessibilityRole="button" accessibilityLabel="Send Bulk SMS. Auto reminders, alerts and wishes">
+              <PressableScale onPress={() => setSheet("sms")} className="gym-sms" accessibilityRole="button" accessibilityLabel="Send Bulk SMS. Auto reminders, alerts and wishes">
                 <View className="gym-sms__icon">
-                  <SymbolView name={{ ios: "message.fill", android: "sms", web: "sms" }} size={18} tintColor={colors.gymPrimary} />
+                  <GymIcon name="message-square-text" size={18} color={colors.gymPrimary} />
                 </View>
                 <View className="min-w-0 flex-1">
                   <Text className="gym-sms__title" numberOfLines={1}>Send Bulk SMS</Text>
                   <Text className="gym-sms__text" numberOfLines={1}>{"Auto Reminders, Alerts & Wishes"}</Text>
                 </View>
                 <View className="gym-chevron-btn">
-                  <SymbolView name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }} size={13} tintColor={colors.gymInk} />
+                  <GymIcon name="chevron-right" size={13} color={colors.gymInk} />
                 </View>
               </PressableScale>
 
@@ -185,7 +188,7 @@ export default function GymHome() {
                     <PressableScale key={alert.id} onPress={() => (alert.id === "due" ? setSheet("due") : router.push(alert.href))} className="gym-card gym-alert" style={{ flexBasis: "30%", flexGrow: 1 }} accessibilityRole="button" accessibilityLabel={`${alert.value} ${alert.label}, ${alert.tag}`}>
                       <View className="flex-row items-center justify-between" style={{ gap: 4 }}>
                         <View className="gym-alert__icon" style={{ backgroundColor: tone.soft, borderColor: tone.line }}>
-                          <SymbolView name={alert.icon} size={15} tintColor={tone.icon} />
+                          <GymIcon name={alert.icon} size={15} color={tone.icon} />
                         </View>
                         <View className="gym-tag" style={{ backgroundColor: tone.soft }}>
                           <Text className="gym-tag__label" style={{ color: tone.text }} numberOfLines={1}>{alert.tag}</Text>
@@ -208,7 +211,7 @@ export default function GymHome() {
               </View>
 
               {data.recent.length === 0 ? (
-                <GymEmpty icon={{ ios: "indianrupeesign.circle", android: "currency_rupee", web: "currency_rupee" }} title="No payments yet" text="Tap + to record an admission, a renewal, a due payment or a shop sale." />
+                <GymEmpty icon="indian-rupee" title="No payments yet" text="Tap + to record an admission, a renewal, a due payment or a shop sale." />
               ) : (
                 <View style={{ gap: 10 }}>
                   {data.recent.map((payment) => (
@@ -223,11 +226,12 @@ export default function GymHome() {
         <View className="absolute" style={{ right: 16, bottom: 16 }}>
           <PressableScale onPress={() => setSheet("add")} haptic="tap" className="gym-fab" accessibilityRole="button" accessibilityLabel="Add a member, plan, enquiry or payment">
             <GradientFill radius={18} />
-            <SymbolView name={{ ios: "plus", android: "add", web: "add" }} size={24} tintColor={colors.white} />
+            <GymIcon name="plus" size={24} color={colors.white} />
           </PressableScale>
         </View>
       </SafeAreaView>
       {sheet === "add" && <AddSheet onClose={() => setSheet(null)} onPick={pick} />}
+      {sheet === "sms" && <BulkSmsSheet onClose={() => setSheet(null)} />}
       {sheet === "due" && data && <DueMembersSheet gym={data.gym} onClose={() => setSheet(null)} onChanged={reload} />}
       {sheet === "member" && (
         <AddMemberSheet
@@ -239,7 +243,7 @@ export default function GymHome() {
           }}
         />
       )}
-      <GymMenu open={menuOpen} onClose={() => setMenuOpen(false)} gymLine={data ? `${data.gym.name} · ${data.gym.branch} branch` : null} />
+      <GymMenu open={menuOpen} onClose={() => setMenuOpen(false)} onBulkSms={() => setTimeout(() => setSheet("sms"), 250)} gymLine={data ? `${data.gym.name} · ${data.gym.branch} branch` : null} />
     </View>
   );
 }

@@ -6,8 +6,11 @@ const express = require("express");
 
 const { getAccount } = require("../auth");
 const { logSecurityEvent } = require("../logging");
+const { createRateLimiter, limitPerUser } = require("../rateLimit");
 const service = require("./service");
 const rules = require("./rules");
+const sms = require("./sms");
+const smsRules = require("./smsRules");
 
 const router = express.Router();
 const smallBody = express.json({ limit: "4kb" });
@@ -64,7 +67,7 @@ router.patch("/details", smallBody, route(async (req, res) => {
 }));
 
 router.get("/members", route(async (req, res) => {
-  res.json(await service.members(pool(req), req.gym.id, rules.membersQuery(req.query), today()));
+  res.json({ ...(await service.members(pool(req), req.gym.id, rules.membersQuery(req.query), today())), gym: service.gymInfo(req.gym) });
 }));
 router.post("/members", smallBody, route(async (req, res) => {
   res.status(201).json(await service.admit(pool(req), req.gym, req.userId, rules.admissionBody(req.body), today()));
@@ -128,6 +131,34 @@ router.patch("/catalog/:itemId", smallBody, route(async (req, res) => {
 }));
 router.delete("/catalog/:itemId", route(async (req, res) => {
   res.json(await service.deleteItem(pool(req), req.gym.id, rules.id(req.params.itemId, "item")));
+}));
+
+// Send Bulk SMS (gym/sms.js): credits, Auto Reminders, Manual Send, a member's reminder, Message
+// Logs. Sending costs the branch's credits, so sends have their own small budget per account.
+const SMS_MIGRATION = "SMS needs the 2026-11-25-gym-sms migration on this server.";
+const smsRoute = (handler) => (req, res, next) =>
+  handler(req, res, next).catch((error) => {
+    if (["ER_NO_SUCH_TABLE", "ER_BAD_FIELD_ERROR"].includes(error?.code)) return res.status(503).json({ error: SMS_MIGRATION });
+    next(error);
+  });
+const smsSendLimit = limitPerUser(createRateLimiter({ limit: 30, windowMs: 60 * 60 * 1000 }));
+const sender = (req) => req.app.locals.gymSms;
+
+router.get("/sms", smsRoute(async (req, res) => {
+  res.json(await sms.overview(pool(req), req.gym, sender(req), today()));
+}));
+router.patch("/sms/settings", smallBody, smsRoute(async (req, res) => {
+  res.json(await sms.updateSettings(pool(req), req.gym, req.userId, smsRules.settingsBody(req.body), sender(req), today()));
+}));
+router.post("/sms/send", smsSendLimit, smallBody, smsRoute(async (req, res) => {
+  res.json(await sms.sendToGroup(pool(req), req.gym, req.userId, sender(req), smsRules.sendBody(req.body).group, today()));
+}));
+router.post("/members/:memberId/sms", smsSendLimit, smallBody, smsRoute(async (req, res) => {
+  const memberId = rules.id(req.params.memberId);
+  res.json(await sms.sendToMember(pool(req), req.gym, req.userId, sender(req), memberId, smsRules.memberSmsBody(req.body).kind));
+}));
+router.get("/sms/logs", smsRoute(async (req, res) => {
+  res.json(await sms.logs(pool(req), req.gym.id, smsRules.logsQuery(req.query)));
 }));
 
 router.get("/wallet", route(async (req, res) => {

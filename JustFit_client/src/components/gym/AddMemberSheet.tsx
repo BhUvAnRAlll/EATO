@@ -3,7 +3,7 @@ import { Share, Text, View } from "react-native";
 
 import { FormAlert } from "@/components/FormAlert";
 import { PressableScale } from "@/components/PressableScale";
-import { SymbolView } from "@/components/SymbolView";
+import { GymIcon } from "@/components/gym/GymIcon";
 import { CatalogSheet } from "@/components/gym/CatalogSheet";
 import { ConfirmDialog } from "@/components/gym/ConfirmDialog";
 import { DateSelect } from "@/components/gym/DateSelect";
@@ -150,25 +150,25 @@ export function AddMemberSheet({ onClose, onSaved }: { onClose: () => void; onSa
         {step === 1 && (
           <>
             <View className="gym-member-photo self-center" accessible accessibilityLabel="Member photo">
-              {name.trim() ? <Text className="gym-member-photo__initials">{initialsOf(name)}</Text> : <SymbolView name={{ ios: "person.fill", android: "person", web: "person" }} size={44} tintColor={colors.white} />}
+              {name.trim() ? <Text className="gym-member-photo__initials">{initialsOf(name)}</Text> : <GymIcon name="user" size={44} color={colors.white} />}
             </View>
             <View style={{ gap: 6 }}>
-              <GymField label="Member ID" icon={{ ios: "ticket", android: "confirmation_number", web: "confirmation_number" }} value={code.state === "ready" ? code.data.code : ""} placeholder="Member ID" editable={false} />
+              <GymField label="Member ID" icon="id-card" value={code.state === "ready" ? code.data.code : ""} placeholder="Member ID" editable={false} />
               {code.state === "ready" && (
                 <View className="flex-row items-center" style={{ gap: 6, paddingLeft: 6 }}>
-                  <SymbolView name={{ ios: "checkmark.seal.fill", android: "verified", web: "verified" }} size={16} tintColor={colors.gymSuccess} />
+                  <GymIcon name="badge-check" size={16} color={colors.gymSuccess} />
                   <Text className="gym-tx__meta" style={{ color: colors.gymInkSoft }}>Member ID assigned automatically</Text>
                 </View>
               )}
             </View>
-            <GymField label="Name" icon={{ ios: "person.fill", android: "person", web: "person" }} value={name} onChangeText={setName} maxLength={80} placeholder="Name" autoCapitalize="words" />
+            <GymField label="Name" icon="user" value={name} onChangeText={setName} maxLength={80} placeholder="Name" autoCapitalize="words" />
             <View className="flex-row items-start" style={{ gap: 10 }}>
               <View className="gym-field--icon" style={{ paddingHorizontal: 14 }} accessible accessibilityLabel="India, plus 91">
                 <Text style={{ fontSize: 18 }}>🇮🇳</Text>
                 <Text className="gym-tx__name">+91</Text>
               </View>
               <View className="min-w-0 flex-1">
-                <GymField label="Mobile number" icon={{ ios: "phone.fill", android: "call", web: "call" }} value={phone} onChangeText={(t) => setPhone(phoneInput(t))} maxLength={16} keyboardType="phone-pad" placeholder="Mobile Number" hint={phoneOk ? undefined : "Enter a 10-digit mobile number starting with 6, 7, 8 or 9."} />
+                <GymField label="Mobile number" icon="phone" value={phone} onChangeText={(t) => setPhone(phoneInput(t))} maxLength={16} keyboardType="phone-pad" placeholder="Mobile Number" hint={phoneOk ? undefined : "Enter a 10-digit mobile number starting with 6, 7, 8 or 9."} />
               </View>
             </View>
             <ChipRow label="Gender" options={GENDER_LABEL} value={gender} onChange={(g) => setGender(g)} clearable />
@@ -179,22 +179,22 @@ export function AddMemberSheet({ onClose, onSaved }: { onClose: () => void; onSa
         {step === 2 && (
           <>
             <Text className="gym-field__label" style={{ fontSize: 15 }}>Optional fields</Text>
-            <GymField label="Email" icon={{ ios: "envelope", android: "mail", web: "mail" }} value={email} onChangeText={setEmail} maxLength={120} placeholder="Email" keyboardType="email-address" autoCapitalize="none" autoCorrect={false} hint={emailOk ? undefined : "Enter a valid email address."} />
+            <GymField label="Email" icon="mail" value={email} onChangeText={setEmail} maxLength={120} placeholder="Email" keyboardType="email-address" autoCapitalize="none" autoCorrect={false} hint={emailOk ? undefined : "Enter a valid email address."} />
             <View className="flex-row" style={{ gap: 10 }}>
               <View className="min-w-0 flex-1">
-                <GymField label="Height in cm" icon={{ ios: "arrow.up.and.down", android: "height", web: "height" }} value={height} onChangeText={(t) => setHeight(t.replace(/\D/g, "").slice(0, 3))} keyboardType="number-pad" placeholder="Height (cm)" hint={heightOk ? undefined : "50 to 250 cm"} />
+                <GymField label="Height in cm" icon="ruler" value={height} onChangeText={(t) => setHeight(t.replace(/\D/g, "").slice(0, 3))} keyboardType="number-pad" placeholder="Height (cm)" hint={heightOk ? undefined : "50 to 250 cm"} />
               </View>
               <View className="min-w-0 flex-1">
-                <GymField label="Weight in kg" icon={{ ios: "chart.line.uptrend.xyaxis", android: "monitor_weight", web: "monitor_weight" }} value={weight} onChangeText={(t) => setWeight(t.replace(/[^0-9.]/g, "").slice(0, 5))} keyboardType="decimal-pad" placeholder="Weight (kg)" hint={weightOk ? undefined : "10 to 300 kg"} />
+                <GymField label="Weight in kg" icon="weight" value={weight} onChangeText={(t) => setWeight(t.replace(/[^0-9.]/g, "").slice(0, 5))} keyboardType="decimal-pad" placeholder="Weight (kg)" hint={weightOk ? undefined : "10 to 300 kg"} />
               </View>
             </View>
-            <GymField label="Address" icon={{ ios: "mappin.and.ellipse", android: "location_on", web: "location_on" }} value={address} onChangeText={setAddress} maxLength={200} placeholder="Address" />
-            <GymField label="Notes" icon={{ ios: "text.alignleft", android: "notes", web: "notes" }} value={notes} onChangeText={setNotes} maxLength={300} placeholder="Notes" />
+            <GymField label="Address" icon="map-pin" value={address} onChangeText={setAddress} maxLength={200} placeholder="Address" />
+            <GymField label="Notes" icon="notebook-pen" value={notes} onChangeText={setNotes} maxLength={300} placeholder="Notes" />
             <DateSelect label="Date of Birth" value={dob} onChange={setDob} min="1920-01-01" max={daysFromToday(0)} />
             <View className="flex-row items-center" style={{ gap: 12 }}>
               <Text className="gym-field__label" style={{ fontSize: 14 }}>Attachment</Text>
               <PressableScale onPress={() => comingSoon("Attachments")} className="gym-choice flex-row items-center" style={{ gap: 8 }} accessibilityRole="button" accessibilityLabel="Attachment, coming soon">
-                <SymbolView name={{ ios: "photo", android: "image", web: "image" }} size={16} tintColor={colors.gymPrimary} />
+                <GymIcon name="image" size={16} color={colors.gymPrimary} />
                 <Text className="gym-choice__label">Select</Text>
               </PressableScale>
             </View>
@@ -225,19 +225,19 @@ export function AddMemberSheet({ onClose, onSaved }: { onClose: () => void; onSa
               </PressableScale>
             </View>
             <PressableScale onPress={() => setAddingPlan(true)} className="gym-choice flex-row items-center self-start" style={{ gap: 6 }} accessibilityRole="button" accessibilityLabel="Add New Plan">
-              <SymbolView name={{ ios: "plus", android: "add", web: "add" }} size={14} tintColor={colors.gymPrimary} />
+              <GymIcon name="plus" size={14} color={colors.gymPrimary} />
               <Text className="gym-choice__label">Add New Plan</Text>
             </PressableScale>
             {planId === "custom" && (
               <>
                 <PlanLengthFields unit={unit} onUnit={setUnit} duration={duration} onDuration={setDuration} />
-                <GymField label="Plan fee" icon={{ ios: "banknote", android: "payments", web: "payments" }} value={customFee} onChangeText={(t) => setCustomFee(amountInput(t))} keyboardType="number-pad" placeholder="Plan Fee (Eg. 1500)" />
+                <GymField label="Plan fee" icon="banknote" value={customFee} onChangeText={(t) => setCustomFee(amountInput(t))} keyboardType="number-pad" placeholder="Plan Fee (Eg. 1500)" />
               </>
             )}
             {chosen && <Text className="gym-tx__meta">{`${chosen.name}: ${planLabel(length ?? 1, lengthUnit)} · ${rupees(chosen.price)}`}</Text>}
             <View className="flex-row" style={{ gap: 10 }}>
-              <View className="min-w-0 flex-1"><GymField label="Admission amount" icon={{ ios: "banknote", android: "payments", web: "payments" }} value={admission} onChangeText={(t) => setAdmission(amountInput(t))} keyboardType="number-pad" placeholder="Admission Amount" /></View>
-              <View className="min-w-0 flex-1"><GymField label="Discount amount" icon={{ ios: "tag", android: "sell", web: "sell" }} value={discount} onChangeText={(t) => setDiscount(amountInput(t))} keyboardType="number-pad" placeholder="Discount Amount" /></View>
+              <View className="min-w-0 flex-1"><GymField label="Admission amount" icon="banknote" value={admission} onChangeText={(t) => setAdmission(amountInput(t))} keyboardType="number-pad" placeholder="Admission Amount" /></View>
+              <View className="min-w-0 flex-1"><GymField label="Discount amount" icon="tag" value={discount} onChangeText={(t) => setDiscount(amountInput(t))} keyboardType="number-pad" placeholder="Discount Amount" /></View>
             </View>
             <ChipRow label="Mode" options={METHODS} value={method} onChange={(m) => setMethod(m)} />
             <View className="flex-row" style={{ gap: 12 }}>
@@ -250,7 +250,7 @@ export function AddMemberSheet({ onClose, onSaved }: { onClose: () => void; onSa
                 <View className="gym-amount-box"><Text className="gym-amount-box__value" style={{ color: due > 0 ? colors.gymDanger : colors.gymSuccess }}>{rupees(due)}</Text></View>
               </View>
             </View>
-            <GymField label="Amount collected" icon={{ ios: "indianrupeesign.circle", android: "currency_rupee", web: "currency_rupee" }} value={collected} onChangeText={(t) => setCollected(amountInput(t))} keyboardType="number-pad" placeholder="Amount Collected" hint={paidNum > payable ? "Can't be more than the amount payable." : discountNum > planFee + admissionNum ? "The discount can't be more than the plan and admission amounts." : undefined} />
+            <GymField label="Amount collected" icon="indian-rupee" value={collected} onChangeText={(t) => setCollected(amountInput(t))} keyboardType="number-pad" placeholder="Amount Collected" hint={paidNum > payable ? "Can't be more than the amount payable." : discountNum > planFee + admissionNum ? "The discount can't be more than the plan and admission amounts." : undefined} />
             {amountsOk && due > 0 && <DueByField value={dueBy} onChange={setDueBy} />}
             <CheckRow label="Send Invoice" checked={sendInvoice} onChange={setSendInvoice} />
             {error ? <FormAlert message={error} /> : null}

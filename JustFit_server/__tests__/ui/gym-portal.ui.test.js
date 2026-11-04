@@ -2,7 +2,9 @@
 // isolated test server and the justfit_test database. A justFit admin's gym (created through the
 // API) with a payment and a sale; its gym admin signs in onto Home showing those numbers, records
 // an admission through the form, checks the member in, and reads Transactions, Wallet and
-// the ☰ menu; Manage › Plan / Catalogue adds a plan the admission form then offers; the guards keep gym admins, members and admins in their own portals; the admin sees
+// the ☰ menu; Manage › Plan / Catalogue adds a plan the admission form then offers; Manage ›
+// Member sends a reminder SMS and Send Bulk SMS runs Auto Reminders, Manual Send and Message Logs
+// on the fake SMS provider; the guards keep gym admins, members and admins in their own portals; the admin sees
 // the gym's numbers on Gyms and the gym's page. Screenshots at three widths.
 //
 //   yarn test:ui      (needs JustFit_server/.env.test and Google Chrome; otherwise skipped)
@@ -139,7 +141,7 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
       if (state.gym) {
         const ids = [state.gym, state.branch2].filter(Boolean);
         const [[{ brand_id: brandId }]] = await connection.query("SELECT brand_id FROM gyms WHERE id = ?", [state.gym]);
-        for (const table of ["gym_attendance", "gym_payments", "gym_enquiries", "gym_catalog_items", "gym_members", "gym_staff"]) await connection.query(`DELETE FROM \`${table}\` WHERE gym_id IN (?)`, [ids]);
+        for (const table of ["gym_sms_log", "gym_sms_settings", "gym_attendance", "gym_payments", "gym_enquiries", "gym_catalog_items", "gym_members", "gym_staff"]) await connection.query(`DELETE FROM \`${table}\` WHERE gym_id IN (?)`, [ids]);
         await connection.query("DELETE FROM gyms WHERE id IN (?)", [ids]);
         await connection.query("DELETE FROM gym_brands WHERE id = ?", [brandId]);
       }
@@ -264,7 +266,7 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
     assert.deepEqual([ravi.due_amount, ravi.due_by], [0, null], "Ravi paid in full");
     await page.navigate(`${expo.baseUrl}/gym/members?filter=due`);
     await h.expectText("Mohammed Asif");
-    await h.expectText("Owes ₹1,500");
+    await h.expectText("₹1,500 payment due");
     await snapshotAllWidths("gym-members");
     await page.navigate(`${expo.baseUrl}/gym/transactions`);
     await h.expectText("Ravi Shankar");
@@ -368,6 +370,108 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
     await h.expectText("Whey Protein 1kg × 2");
   }));
 
+  it("4e. Manage › Member reminders, then Send Bulk SMS: credits, Auto Reminders, Manual Send, Message Logs", run("gym-sms", async () => {
+    // The justFit team has given the branch 5 credits; Karthik's plan ended 6 days ago
+    assert.equal((await apiAs("admin", "POST", `/api/admin/portal/gyms/${state.gym}/sms-credits`, { credits: 5 })).status, 200);
+    const karthik = await apiAs("gym", "POST", "/api/gym/members", { name: "Karthik Raja", phone: "9811122233", unit: "months", duration: 1, fee: 1000, paid: 1000, method: "cash" });
+    assert.equal(karthik.status, 201, JSON.stringify(karthik.json));
+    const today = new Date(Date.now() + 19800000).toISOString().slice(0, 10);
+    await connection.query("UPDATE gym_members SET expires_on = DATE_SUB(?, INTERVAL 6 DAY) WHERE id = ?", [today, karthik.json.member.id]);
+    // His payment would change the takings the later steps check
+    await connection.query("DELETE FROM gym_payments WHERE member_id = ?", [karthik.json.member.id]);
+    const credits = async () => (await connection.query("SELECT sms_credits FROM gyms WHERE id = ?", [state.gym]))[0][0].sms_credits;
+    // window.alert would block the page: keep its messages instead
+    const stubAlerts = () => page.evaluate(`(() => { window.__alerts = []; window.alert = (m) => { window.__alerts.push(String(m)); }; return true; })()`);
+    const alerted = (text) => page.waitFor(`(window.__alerts || []).some((m) => m.includes(${JSON.stringify(text)}))`, NAV_TIMEOUT, `an alert saying ${text}`);
+
+    await page.navigate(`${expo.baseUrl}/gym/manage`);
+    await h.expectText("Manager");
+    await h.expectText("All Members");
+    await h.expectText("Karthik Raja");
+    await h.expectText("6 days ago");
+    await h.expectText("₹1,500 payment due");
+    await snapshotAllWidths("gym-manage-members");
+    await stubAlerts();
+    await clickLabel("Send Karthik Raja an expired reminder");
+    await h.expectText("Send expired reminder?");
+    await h.expectText("Credits left");
+    await snapshotAllWidths("gym-sms-confirm");
+    await clickLabel("Send SMS");
+    await alerted("Expired reminder sent to Karthik Raja");
+    const [[log]] = await connection.query("SELECT kind, source, status FROM gym_sms_log WHERE member_id = ?", [karthik.json.member.id]);
+    assert.deepEqual({ ...log }, { kind: "expired", source: "manual", status: "sent" });
+    assert.equal(await credits(), 4);
+    assert.ok(fs.readFileSync(path.join(server.outbox, "gym-sms.jsonl"), "utf8").includes("9811122233"), "the fake provider got it");
+
+    // The Member dropdown filters the list
+    await clickLabel("Show: All Members. Change");
+    await h.expectText("Show members");
+    await h.settle();
+    await clickLabel("Expired");
+    await page.waitFor(`!(document.body.innerText || "").includes("Mohammed Asif")`, NAV_TIMEOUT, "only expired members");
+    await h.expectText("Karthik Raja");
+    await clickLabel("Show: Expired. Change");
+    await h.expectText("Show members");
+    await h.settle();
+    await clickLabel("All Members");
+    await h.expectText("Mohammed Asif");
+
+    // Home › Send Bulk SMS
+    await page.navigate(`${expo.baseUrl}/gym`);
+    await h.expectPath("/gym");
+    await stubAlerts();
+    await clickLabel("Send Bulk SMS. Auto reminders, alerts and wishes");
+    await h.expectText("Available Credits");
+    await h.expectText("QUICK ACTIONS");
+    assert.ok(await hasLabel("4 credits"));
+    await h.settle();
+    await snapshotAllWidths("gym-bulk-sms");
+    await clickLabel("Buy credits");
+    await alerted("added by the justFit team");
+
+    // Auto Reminders: a switch saves, a preview shows the message
+    await clickLabel("Auto Reminders. Manage scheduled SMS reminders");
+    await h.expectText("Reminders will be skipped if your balance runs out.");
+    await h.expectText("Membership Expiry Reminder");
+    await h.settle();
+    await snapshotAllWidths("gym-auto-reminders");
+    await clickLabel("Membership Expiry Reminder, 1 day before expiry");
+    await page.waitFor(`true`, 500, "a moment");
+    const switched = async () => (await connection.query("SELECT enabled FROM gym_sms_settings WHERE gym_id = ? AND kind = 'expiry'", [state.gym]))[0][0]?.enabled;
+    for (let i = 0; i < 40 && (await switched()) !== 1; i++) await new Promise((r) => setTimeout(r, 250));
+    assert.equal(await switched(), 1, "the expiry reminder is switched on");
+    await clickLabel("Preview the Birthday Wishes");
+    await h.expectText("Happy birthday Priya!");
+    await snapshotAllWidths("gym-sms-preview");
+    await clickLabel("Close preview");
+
+    // Manual Send to the members who owe
+    await clickLabel("Back");
+    const due = (await apiAs("gym", "GET", "/api/gym/sms")).json.groups.find((g) => g.id === "due").count;
+    assert.ok(due >= 1);
+    await clickLabel("Manual Send. Send SMS to specific member groups");
+    await h.expectText("Who should get it?");
+    await clickLabel(`Payment due, ${due} members, Due reminder`);
+    await h.expectText("Message preview");
+    await h.settle();
+    await snapshotAllWidths("gym-manual-send");
+    await clickLabel(`Send to ${due} ${due === 1 ? "member" : "members"}`);
+    await h.expectText("Send these SMS?");
+    await clickLabel("Send");
+    await h.expectText(`${due} SMS sent`);
+    assert.equal(await credits(), 4 - due);
+    await clickLabel("Done");
+
+    // Message Logs
+    await clickLabel("Message Logs. View sent SMS history");
+    await h.expectText("Karthik Raja");
+    await h.expectText("Expired reminder · Manual");
+    await h.settle();
+    await snapshotAllWidths("gym-sms-logs");
+    await clickLabel("Close");
+    await page.waitFor(`!(document.body.innerText || "").includes("QUICK ACTIONS") && !(document.body.innerText || "").includes("Message Logs")`, NAV_TIMEOUT, "the sheet closes");
+  }));
+
   it("4b. the branch switcher opens Kunigal's own numbers, then back to Tumkur", run("gym-branches", async () => {
     await page.navigate(`${expo.baseUrl}/gym`);
     await clickLabel("Tumkur branch, SIT Road, Tumakuru. Switch or edit branch");
@@ -398,12 +502,19 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
     await h.expectText("Tumkur branch · SIT Road, Tumakuru");
     await h.expectText("₹18,200 today"); // with 4d's ₹6,000 product sale
     await snapshotAllWidths("admin-gyms");
-    await clickLabel("Forma, Tumkur branch, SIT Road, Tumakuru. ₹18,200 today, 2 members, 1 in today");
+    await clickLabel("Forma, Tumkur branch, SIT Road, Tumakuru. ₹18,200 today, 3 members, 1 in today");
     await page.waitFor(`location.pathname.startsWith("/admin/gyms/")`, NAV_TIMEOUT, "the gym's page");
     await h.expectText("Arjun Kumar");
     await h.expectText("Ravi Shankar");
     await h.expectText("Kunigal");
     await snapshotAllWidths("admin-gym");
+    // SMS credits: the team adds them by hand
+    await h.expectText("SMS credits");
+    const before = (await connection.query("SELECT sms_credits FROM gyms WHERE id = ?", [state.gym]))[0][0].sms_credits;
+    await page.setInput(h.input("500"), "100");
+    await clickLabel("Add SMS credits");
+    await page.waitFor(`!!document.querySelector('[aria-label="${before + 100} SMS credits left"]')`, NAV_TIMEOUT, "the new balance");
+    assert.equal((await connection.query("SELECT sms_credits FROM gyms WHERE id = ?", [state.gym]))[0][0].sms_credits, before + 100);
   }));
 
   it("7. a member can't open the gym portal", run("member-guard", async () => {

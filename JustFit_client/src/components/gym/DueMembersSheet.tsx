@@ -2,7 +2,7 @@ import { useCallback, useState } from "react";
 import { Text, useWindowDimensions, View } from "react-native";
 
 import { PressableScale } from "@/components/PressableScale";
-import { SymbolView } from "@/components/SymbolView";
+import { GymIcon } from "@/components/gym/GymIcon";
 import { GymEmpty, GymError, GymLoading } from "@/components/gym/GymStates";
 import { GymSheet } from "@/components/gym/GymSheet";
 import { MemberActionsSheet } from "@/components/gym/MemberActionsSheet";
@@ -32,7 +32,7 @@ export function DueMembersSheet({ gym, onClose, onChanged }: { gym: GymInfo; onC
         {result.state === "failed" && <GymError error={result.error} onRetry={retry} />}
         {result.state === "ready" &&
           (result.data.members.length === 0 ? (
-            <GymEmpty icon={{ ios: "checkmark.seal", android: "verified", web: "verified" }} title="Nobody owes anything" text="Members with a payment due show here." />
+            <GymEmpty icon="badge-check" title="Nobody owes anything" text="Members with a payment due show here." />
           ) : (
             result.data.members.map((m) => (
               <PressableScale key={m.id} onPress={() => setOpen(m)} className="gym-card flex-row items-center" style={{ gap: narrow ? 6 : 12, padding: narrow ? 10 : 14 }} accessibilityRole="button" accessibilityLabel={`${m.name}, ${m.code}${m.pt?.active ? ", on PT" : ""}, ${daysLeftText(m.daysLeft)}, ${rupees(m.due)} payment due${m.overdue ? ", overdue" : ""}`}>
@@ -40,25 +40,25 @@ export function DueMembersSheet({ gym, onClose, onChanged }: { gym: GymInfo; onC
                 <View className="min-w-0 flex-1" style={{ gap: 3 }}>
                   <Text className="gym-tx__name" numberOfLines={1}>{m.name}</Text>
                   <View className="flex-row items-center" style={{ gap: 6 }}>
-                    <SymbolView name={{ ios: "ticket", android: "confirmation_number", web: "confirmation_number" }} size={13} tintColor={colors.gymMuted} />
+                    <GymIcon name="id-card" size={13} color={colors.gymMuted} />
                     <Text className="gym-tx__meta" numberOfLines={1}>{m.code}</Text>
                     {m.pt?.active && <View className="gym-chip" style={{ borderColor: colors.gymSuccessLine, backgroundColor: colors.gymSuccessSoft }}><Text className="gym-chip__label" style={{ color: colors.gymSuccess }}>PT</Text></View>}
                   </View>
                   <Text className="gym-tx__meta" numberOfLines={1} style={m.daysLeft < 0 ? { color: colors.gymDanger } : undefined}>{daysLeftText(m.daysLeft)}</Text>
                   <View className="flex-row items-center" style={{ gap: 6 }}>
-                    <SymbolView name={{ ios: "banknote", android: "payments", web: "payments" }} size={14} tintColor={colors.gymPrimary} />
+                    <GymIcon name="banknote" size={14} color={colors.gymPrimary} />
                     <Text className="gym-tx__meta" numberOfLines={1} style={{ flexShrink: 1, color: m.overdue ? colors.gymDanger : colors.gymInkSoft }}>{`${rupees(m.due)} ${narrow ? "due" : "payment due"}${m.overdue ? " · overdue" : ""}`}</Text>
                   </View>
                 </View>
-                {m.birthdayToday && <SymbolView name={{ ios: "birthday.cake.fill", android: "cake", web: "cake" }} size={18} tintColor={colors.gymInkSoft} />}
+                {m.birthdayToday && <GymIcon name="cake" size={18} color={colors.gymInkSoft} />}
                 <PressableScale onPress={() => whatsapp(m, dueReminder(m, gym))} hitSlop={6} className="gym-icon-btn" style={btn} accessibilityRole="button" accessibilityLabel={`Send ${m.name} a due reminder on WhatsApp`}>
-                  <SymbolView name={{ ios: "bell.badge", android: "notifications_active", web: "notifications_active" }} size={16} tintColor={colors.gymInkSoft} />
+                  <GymIcon name="bell-ring" size={16} color={colors.gymInkSoft} />
                 </PressableScale>
                 <PressableScale onPress={() => sms(m, dueReminder(m, gym))} hitSlop={6} className="gym-icon-btn" style={btn} accessibilityRole="button" accessibilityLabel={`Text ${m.name} a due reminder`}>
-                  <SymbolView name={{ ios: "message", android: "sms", web: "sms" }} size={16} tintColor={colors.gymInkSoft} />
+                  <GymIcon name="message-square" size={16} color={colors.gymInkSoft} />
                 </PressableScale>
                 <PressableScale onPress={() => setOpen(m)} hitSlop={6} className="gym-icon-btn" style={btn} accessibilityRole="button" accessibilityLabel={`${m.name}: options`}>
-                  <SymbolView name={{ ios: "ellipsis", android: "more_horiz", web: "more_horiz" }} size={16} tintColor={colors.gymInkSoft} />
+                  <GymIcon name="ellipsis" size={16} color={colors.gymInkSoft} />
                 </PressableScale>
               </PressableScale>
             ))

@@ -449,6 +449,7 @@ module.exports = {
   editItem,
   deleteItem,
   staffGym,
+  gymInfo,
   nextMemberCode,
   branches,
   switchBranch,

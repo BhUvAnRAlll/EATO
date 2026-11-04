@@ -1,7 +1,7 @@
 import { Text, View } from "react-native";
 
 import { PressableScale } from "@/components/PressableScale";
-import { SymbolView } from "@/components/SymbolView";
+import { GymIcon } from "@/components/gym/GymIcon";
 import { KIND_LABEL, METHOD_LABEL, initialsOf, rupees, shortDate } from "@/data/gymDashboard";
 import type { GymPayment } from "@/lib/gymApi";
 import { useThemeColors } from "@/theme";
@@ -16,7 +16,7 @@ export function PaymentRow({ payment, onPress }: { payment: GymPayment; onPress?
     <PressableScale onPress={onPress} disabled={!onPress} className="gym-card gym-tx" accessibilityRole={onPress ? "button" : undefined} accessibilityLabel={label}>
       {payment.kind === "sale" ? (
         <View className="gym-avatar gym-avatar--item">
-          <SymbolView name={{ ios: "dumbbell.fill", android: "fitness_center", web: "fitness_center" }} size={18} tintColor={colors.gymSuccess} />
+          <GymIcon name="dumbbell" size={18} color={colors.gymSuccess} />
         </View>
       ) : (
         <View className="gym-avatar">

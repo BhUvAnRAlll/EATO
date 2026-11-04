@@ -53,7 +53,7 @@ export default function GymTransactions() {
       {result.state === "failed" && <GymError error={result.error} onRetry={retry} />}
       {result.state === "ready" &&
         (rows.length === 0 ? (
-          <GymEmpty icon={{ ios: "indianrupeesign.circle", android: "currency_rupee", web: "currency_rupee" }} title="No transactions" text={todayOnly ? "Nothing of this type has been recorded today." : "Nothing of this type has been recorded yet."} />
+          <GymEmpty icon="indian-rupee" title="No transactions" text={todayOnly ? "Nothing of this type has been recorded today." : "Nothing of this type has been recorded yet."} />
         ) : (
           <View style={{ gap: 10 }}>
             {rows.map((p) => (

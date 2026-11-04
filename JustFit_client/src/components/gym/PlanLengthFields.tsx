@@ -28,7 +28,7 @@ export function PlanLengthFields({ unit, onUnit, duration, onDuration }: { unit:
       </View>
       <GymField
         label="Duration"
-        icon={{ ios: "timer", android: "timer", web: "timer" }}
+        icon="timer"
         value={duration}
         onChangeText={(t) => onDuration(t.replace(/\D/g, "").slice(0, 3))}
         keyboardType="number-pad"

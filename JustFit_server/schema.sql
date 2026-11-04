@@ -1152,6 +1152,7 @@ CREATE TABLE gyms (                               -- one branch of a gym brand
   area        VARCHAR(80)  NOT NULL,
   city        VARCHAR(60)  NOT NULL,
   next_member_no INT UNSIGNED NOT NULL DEFAULT 1,  -- the branch's next member ID number
+  sms_credits INT UNSIGNED NOT NULL DEFAULT 0,     -- SMS to members it can still send (1 credit = 1 SMS)
   created_by  VARCHAR(64)  NULL,
   created_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -1290,4 +1291,40 @@ CREATE TABLE gym_catalog_items (
   CONSTRAINT chk_gym_catalog_lengths CHECK (
     (kind IN ('plan', 'pt') AND ((duration_unit = 'months' AND duration BETWEEN 1 AND 24) OR (duration_unit = 'days' AND duration BETWEEN 1 AND 365)))
     OR (kind <> 'plan' AND duration IS NULL AND duration_unit IS NULL))
+) ENGINE = InnoDB;
+
+-- Send Bulk SMS (gym/sms.js): which auto reminders a branch has switched on (no row = off)
+CREATE TABLE gym_sms_settings (
+  gym_id      INT UNSIGNED NOT NULL,
+  kind        ENUM('expiry', 'expired', 'due', 'birthday') NOT NULL,
+  enabled     TINYINT(1)   NOT NULL DEFAULT 0,
+  updated_by  VARCHAR(64)  NULL,
+  updated_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (gym_id, kind),
+  CONSTRAINT fk_gym_sms_settings_gym FOREIGN KEY (gym_id) REFERENCES gyms (id),
+  CONSTRAINT fk_gym_sms_settings_by FOREIGN KEY (updated_by) REFERENCES users (id) ON DELETE SET NULL
+) ENGINE = InnoDB;
+
+-- Every SMS sent to a member (Message Logs): what it said, how it went, the credit it cost
+-- (0 once refunded after a failure). auto_key makes each auto reminder go once per member
+-- ("expiry:2026-11-30", "due:2026-11-02", "birthday:2026"); manual sends have none.
+CREATE TABLE gym_sms_log (
+  id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  gym_id      INT UNSIGNED NOT NULL,
+  member_id   INT UNSIGNED NOT NULL,
+  kind        ENUM('expiry', 'expired', 'due', 'birthday') NOT NULL,
+  source      ENUM('auto', 'manual') NOT NULL,
+  status      ENUM('sending', 'sent', 'failed') NOT NULL,
+  body        VARCHAR(320) NOT NULL,
+  credits     TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  auto_key    VARCHAR(40)  NULL,
+  error       VARCHAR(40)  NULL,                    -- the provider's status code only
+  sent_by     VARCHAR(64)  NULL,                    -- the gym admin (NULL for auto reminders)
+  created_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_gym_sms_auto (member_id, auto_key),
+  KEY idx_gym_sms_log_gym (gym_id, id),
+  CONSTRAINT fk_gym_sms_log_gym FOREIGN KEY (gym_id) REFERENCES gyms (id),
+  CONSTRAINT fk_gym_sms_log_member FOREIGN KEY (member_id) REFERENCES gym_members (id),
+  CONSTRAINT fk_gym_sms_log_by FOREIGN KEY (sent_by) REFERENCES users (id) ON DELETE SET NULL
 ) ENGINE = InnoDB;

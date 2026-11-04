@@ -71,7 +71,7 @@ const call = <T>(token: string | null, path: string, method: "GET" | "POST" | "P
 export const gymApi = {
   dashboard: (token: string | null) => call<GymDashboard>(token, "/api/gym/dashboard"),
   members: (token: string | null, filter: MemberFilter, search: string) =>
-    call<{ members: GymMember[] }>(token, `/api/gym/members?filter=${filter}&search=${encodeURIComponent(search)}`),
+    call<{ members: GymMember[]; gym: GymInfo }>(token, `/api/gym/members?filter=${filter}&search=${encodeURIComponent(search)}`),
   nextCode: (token: string | null) => call<{ code: string }>(token, "/api/gym/members/next-code"),
   member: (token: string | null, id: number) => call<GymMemberDetail>(token, `/api/gym/members/${id}`),
   admit: (token: string | null, fields: AdmissionFields) => call<GymMemberDetail>(token, "/api/gym/members", "POST", fields),
@@ -99,7 +99,27 @@ export const gymApi = {
     call<{ gym: GymInfo; adminName: string | null }>(token, "/api/gym/details", "PATCH", fields),
   branches: (token: string | null) => call<GymBranches>(token, "/api/gym/branches"),
   switchBranch: (token: string | null, branchId: number) => call<GymBranches>(token, "/api/gym/branch", "POST", { branchId }),
+  sms: (token: string | null) => call<GymSms>(token, "/api/gym/sms"),
+  smsSettings: (token: string | null, changes: Partial<Record<SmsKind, boolean>>) => call<GymSms>(token, "/api/gym/sms/settings", "PATCH", changes),
+  smsSend: (token: string | null, group: SmsGroupId) => call<SmsSendResult>(token, "/api/gym/sms/send", "POST", { group }),
+  memberSms: (token: string | null, id: number, kind: SmsKind) => call<{ sent: number; credits: number }>(token, `/api/gym/members/${id}/sms`, "POST", { kind }),
+  smsLogs: (token: string | null, before: number | null) => call<{ logs: SmsLog[]; next: number | null }>(token, `/api/gym/sms/logs${before ? `?before=${before}` : ""}`),
 };
+
+// ---- Send Bulk SMS (1 credit = 1 SMS; credits are added by the justFit team) -------------------
+
+export type SmsKind = "expiry" | "expired" | "due" | "birthday";
+export type SmsGroupId = "expiring" | "expired" | "due" | "birthday";
+// sending: whether the server can send SMS (false: the app opens the phone's own SMS app instead)
+export type GymSms = {
+  credits: number;
+  sending: boolean;
+  reminders: { kind: SmsKind; title: string; when: string; on: boolean; preview: string }[];
+  groups: { id: SmsGroupId; label: string; kind: SmsKind; count: number }[];
+};
+// skipped: not sent because the credits ran out
+export type SmsSendResult = { sent: number; failed: number; skipped: number; credits: number };
+export type SmsLog = { id: number; name: string; code: string; kind: SmsKind; source: "auto" | "manual"; status: "sending" | "sent" | "failed"; text: string; at: string };
 
 // ---- Super Admin › Gyms -------------------------------------------------------------------
 
@@ -123,6 +143,8 @@ export type AdminGymDetail = {
   };
   staff: { id: string; name: string; phone: string | null }[];
   recent: GymPayment[];
+  // SMS this branch can still send (null before the SMS migration has run)
+  smsCredits: number | null;
 };
 
 export const adminGyms = {
@@ -132,5 +154,6 @@ export const adminGyms = {
   addBranch: (token: string | null, id: number, fields: Omit<GymInfo, "name">) => call<AdminGymDetail>(token, `/api/admin/portal/gyms/${id}/branches`, "POST", fields),
   update: (token: string | null, id: number, fields: Partial<GymInfo>) => call<AdminGymDetail>(token, `/api/admin/portal/gyms/${id}`, "PATCH", fields),
   linkStaff: (token: string | null, id: number, phone: string) => call<AdminGymDetail>(token, `/api/admin/portal/gyms/${id}/staff`, "POST", { phone }),
+  addSmsCredits: (token: string | null, id: number, credits: number) => call<AdminGymDetail>(token, `/api/admin/portal/gyms/${id}/sms-credits`, "POST", { credits }),
   unlinkStaff: (token: string | null, id: number, userId: string) => call<AdminGymDetail>(token, `/api/admin/portal/gyms/${id}/staff/${encodeURIComponent(userId)}`, "DELETE"),
 };

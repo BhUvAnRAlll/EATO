@@ -2,7 +2,7 @@ import { useCallback, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
 
 import { PressableScale } from "@/components/PressableScale";
-import { SymbolView } from "@/components/SymbolView";
+import { GymIcon } from "@/components/gym/GymIcon";
 import { GymEmpty, GymError, GymLoading } from "@/components/gym/GymStates";
 import { GradientFill } from "@/components/gym/GradientFill";
 import { CATALOG_KINDS, planLabel, rupees } from "@/data/gymDashboard";
@@ -11,17 +11,17 @@ import { CatalogSheet } from "@/components/gym/CatalogSheet";
 import { haptic } from "@/lib/haptics";
 import { useGymData } from "@/lib/useGymData";
 import { useThemeColors } from "@/theme";
-import type { Icon } from "@/types/profile";
+import type { GymIconName } from "@/constants/gymIcons";
 
 // Manage › Plan / Catalogue: the branch's price list by kind (Membership, PT, Service, Product).
 // Each card (the GymOps designs) shows the name, a small pill (a plan's or PT package's length with
 // a clock, a product's stock with a box; services have none) and the price; tapping it opens the
 // Edit sheet; the + opens Add (CatalogSheet) for the kind shown.
-type Pill = { icon: Icon; label: string; empty?: boolean };
+type Pill = { icon: GymIconName; label: string; empty?: boolean };
 function pillOf(item: CatalogItem): Pill | null {
-  if (item.duration && item.unit) return { icon: { ios: "clock", android: "schedule", web: "schedule" }, label: planLabel(item.duration, item.unit) };
+  if (item.duration && item.unit) return { icon: "clock", label: planLabel(item.duration, item.unit) };
   if (item.kind === "product" && item.stock !== null) {
-    return { icon: { ios: "archivebox", android: "inventory_2", web: "inventory_2" }, label: item.stock === 0 ? "Out of stock" : `${item.stock} in stock`, empty: item.stock === 0 };
+    return { icon: "boxes", label: item.stock === 0 ? "Out of stock" : `${item.stock} in stock`, empty: item.stock === 0 };
   }
   return null;
 }
@@ -61,7 +61,7 @@ export function CatalogList() {
         {result.state === "failed" && <GymError error={result.error} onRetry={retry} />}
         {result.state === "ready" &&
           (items.length === 0 ? (
-            <GymEmpty icon={{ ios: "list.bullet.rectangle", android: "list_alt", web: "list_alt" }} title={`No ${meta.noun}s yet`} text={`Tap + to add one, for example "${meta.example}". Its price fills in when you record a payment.`} />
+            <GymEmpty icon="clipboard-list" title={`No ${meta.noun}s yet`} text={`Tap + to add one, for example "${meta.example}". Its price fills in when you record a payment.`} />
           ) : (
             items.map((item) => {
               const pill = pillOf(item);
@@ -75,12 +75,12 @@ export function CatalogList() {
                 >
                   <View className="flex-row items-center justify-between">
                     <Text className="gym-plan__name" numberOfLines={1}>{item.name}</Text>
-                    <SymbolView name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }} size={13} tintColor={colors.gymInk} />
+                    <GymIcon name="chevron-right" size={13} color={colors.gymInk} />
                   </View>
                   <View className="flex-row items-center justify-between">
                     {pill ? (
                       <View className="gym-plan__pill" style={pill.empty ? { backgroundColor: colors.gymDangerSoft } : undefined}>
-                        <SymbolView name={pill.icon} size={12} tintColor={pill.empty ? colors.gymDanger : colors.gymMuted} />
+                        <GymIcon name={pill.icon} size={12} color={pill.empty ? colors.gymDanger : colors.gymMuted} />
                         <Text className="gym-plan__pill-label" style={pill.empty ? { color: colors.gymDanger } : undefined}>{pill.label}</Text>
                       </View>
                     ) : (
@@ -96,7 +96,7 @@ export function CatalogList() {
       <View className="absolute" style={{ right: 16, bottom: 16 }}>
         <PressableScale onPress={() => setSheet({ item: null })} haptic="tap" className="gym-fab-round" accessibilityRole="button" accessibilityLabel={`Add a ${meta.noun}`}>
           <GradientFill radius={26} />
-          <SymbolView name={{ ios: "plus", android: "add", web: "add" }} size={22} tintColor={colors.white} />
+          <GymIcon name="plus" size={22} color={colors.white} />
         </PressableScale>
       </View>
       {sheet && (

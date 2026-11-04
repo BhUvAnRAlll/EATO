@@ -1,7 +1,7 @@
 import { Text, View } from "react-native";
 
 import { PressableScale } from "@/components/PressableScale";
-import { SymbolView } from "@/components/SymbolView";
+import { GymIcon } from "@/components/gym/GymIcon";
 import { GradientFill } from "@/components/gym/GradientFill";
 import { haptic } from "@/lib/haptics";
 import { useThemeColors } from "@/theme";
@@ -32,7 +32,7 @@ export function CheckRow({ label, checked, onChange }: { label: string; checked:
     <PressableScale onPress={() => { haptic.select(); onChange(!checked); }} className="flex-row items-center self-start" style={{ gap: 10, minHeight: 40 }} accessibilityRole="checkbox" accessibilityState={{ checked }} accessibilityLabel={label}>
       <View className={checked ? "gym-check gym-check--on" : "gym-check"}>
         {checked && <GradientFill radius={5} />}
-        {checked && <SymbolView name={{ ios: "checkmark", android: "check", web: "check" }} size={13} tintColor={colors.white} />}
+        {checked && <GymIcon name="check" size={13} color={colors.white} />}
       </View>
       <Text className="gym-field__label" style={{ fontSize: 14 }}>{label}</Text>
     </PressableScale>

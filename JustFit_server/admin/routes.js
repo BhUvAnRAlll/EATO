@@ -7,6 +7,7 @@ const express = require("express");
 const { overview } = require("./overview");
 const users = require("./users");
 const gyms = require("./gyms");
+const smsRules = require("../gym/smsRules");
 const gymRules = require("../gym/rules");
 const aiUsage = require("./aiUsage");
 const usage = require("./usage");
@@ -77,6 +78,12 @@ router.get("/gyms/:gymId", gymRoute(async (req, res) => {
 router.patch("/gyms/:gymId", smallBody, gymRoute(async (req, res) => {
   const id = gymId(req);
   await gyms.update(pool(req), req.userId, id, gymRules.gymBody(req.body, { creating: false }));
+  res.json(await gyms.detail(pool(req), id, gymRules.todayInIndia()));
+}));
+// Adds SMS credits to a branch (1 credit = 1 SMS to a member)
+router.post("/gyms/:gymId/sms-credits", smallBody, gymRoute(async (req, res) => {
+  const id = gymId(req);
+  await gyms.addSmsCredits(pool(req), req.userId, id, smsRules.creditsBody(req.body).credits);
   res.json(await gyms.detail(pool(req), id, gymRules.todayInIndia()));
 }));
 router.post("/gyms/:gymId/staff", smallBody, gymRoute(async (req, res) => {

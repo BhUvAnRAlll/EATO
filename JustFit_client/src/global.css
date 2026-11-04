@@ -5755,3 +5755,230 @@
   letter-spacing: -0.1px;
   color: var(--color-gym-muted);
 }
+
+/* Manage › Member (the user's "Reminders from the list" design): the Member dropdown, the plain
+   sort and search buttons, and the member cards with their reminder buttons */
+@utility gym-dropdown__caption {
+  font-family: var(--font-sans-medium);
+  font-size: 15px;
+  line-height: 22px;
+  color: var(--color-gym-ink);
+}
+
+@utility gym-dropdown {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding-inline: 14px;
+  border-radius: 999px;
+  border-width: 1.5px;
+  border-color: var(--color-gym-ink);
+  background-color: var(--color-gym-page);
+}
+
+@utility gym-dropdown__label {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 22px;
+  color: var(--color-gym-ink);
+}
+
+@utility gym-plain-btn {
+  width: 40px;
+  height: 40px;
+  align-items: center;
+  justify-content: center;
+}
+
+@utility gym-member-card {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 12px;
+  border-width: 1px;
+  border-color: var(--color-gym-line);
+  background-color: var(--color-gym-page);
+  box-shadow: 0 1px 3px rgba(17, 24, 39, 0.06);
+}
+
+@utility gym-member-card__avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 999px;
+  overflow: hidden;
+  align-items: center;
+  justify-content: flex-end;
+  background-color: var(--color-gym-faint);
+}
+
+@utility gym-member-card__name {
+  font-family: var(--font-sans-semibold);
+  font-size: 15px;
+  line-height: 21px;
+  color: var(--color-gym-ink);
+}
+
+@utility gym-member-card__line {
+  font-family: var(--font-sans-medium);
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--color-gym-ink-soft);
+}
+
+@utility gym-member-card__action {
+  width: 34px;
+  height: 40px;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Send Bulk SMS (the user's designs): the dark credits card, the Quick Actions rows, the Auto
+   Reminders rows and the yellow warning */
+@utility gym-credits {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  padding-inline: 20px;
+  padding-block: 18px;
+  border-radius: 18px;
+  background-color: var(--color-gym-navy);
+}
+
+@utility gym-credits__label {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--color-gym-navy-muted);
+}
+
+@utility gym-credits__value {
+  font-family: var(--font-sans-semibold);
+  font-size: 28px;
+  line-height: 36px;
+  color: var(--color-white);
+}
+
+@utility gym-credits__note {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--color-gym-navy-muted);
+}
+
+@utility gym-credits__buy {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding-inline: 16px;
+  border-radius: 12px;
+  border-width: 1px;
+  border-color: var(--color-gym-navy-line);
+  background-color: var(--color-gym-navy-soft);
+}
+
+@utility gym-credits__buy-label {
+  font-family: var(--font-sans-semibold);
+  font-size: 15px;
+  line-height: 20px;
+  color: var(--color-white);
+}
+
+@utility gym-section-rule {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+}
+
+@utility gym-section-rule__label {
+  font-family: var(--font-sans-semibold);
+  font-size: 13px;
+  line-height: 18px;
+  letter-spacing: 1.5px;
+  color: var(--color-gym-ink-soft);
+}
+
+@utility gym-section-rule__line {
+  flex: 1;
+  height: 1px;
+  background-color: var(--color-gym-line);
+}
+
+@utility gym-quick {
+  flex-direction: row;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  border-radius: 14px;
+}
+
+@utility gym-quick__icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  align-items: center;
+  justify-content: center;
+}
+
+@utility gym-quick__title {
+  font-family: var(--font-sans-semibold);
+  font-size: 16px;
+  line-height: 22px;
+}
+
+@utility gym-quick__text {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 18px;
+}
+
+@utility gym-warning {
+  flex-direction: row;
+  gap: 10px;
+  padding-inline: 16px;
+  padding-block: 12px;
+  border-radius: 12px;
+  border-width: 1.5px;
+  border-color: var(--color-gym-warning-line);
+  background-color: var(--color-gym-warning-soft);
+}
+
+@utility gym-warning__text {
+  flex: 1;
+  font-family: var(--font-sans-medium);
+  font-size: 14px;
+  line-height: 21px;
+  color: var(--color-gym-warning-ink);
+}
+
+@utility gym-reminder {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  padding-block: 14px;
+}
+
+@utility gym-reminder__icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  align-items: center;
+  justify-content: center;
+}
+
+@utility gym-reminder__title {
+  font-family: var(--font-sans-medium);
+  font-size: 15px;
+  line-height: 21px;
+  color: var(--color-gym-ink);
+}
+
+@utility gym-reminder__when {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 19px;
+  color: var(--color-gym-muted);
+}
+

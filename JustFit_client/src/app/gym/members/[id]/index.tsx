@@ -4,7 +4,7 @@ import { router, useLocalSearchParams } from "expo-router";
 
 import { FormAlert } from "@/components/FormAlert";
 import { PressableScale } from "@/components/PressableScale";
-import { SymbolView } from "@/components/SymbolView";
+import { GymIcon } from "@/components/gym/GymIcon";
 import { GymField } from "@/components/gym/GymField";
 import { GradientFill } from "@/components/gym/GradientFill";
 import { GymError, GymLoading } from "@/components/gym/GymStates";
@@ -61,7 +61,7 @@ export default function GymMember() {
       right={
         gym ? (
           <PressableScale onPress={() => setOptions(true)} className="gym-icon-btn" accessibilityRole="button" accessibilityLabel={`${member.name}: options`}>
-            <SymbolView name={{ ios: "ellipsis", android: "more_horiz", web: "more_horiz" }} size={18} tintColor={colors.gymInk} />
+            <GymIcon name="ellipsis" size={18} color={colors.gymInk} />
           </PressableScale>
         ) : undefined
       }
@@ -138,7 +138,7 @@ export default function GymMember() {
         accessibilityLabel={member.inToday ? "Checked in today" : "Check in for today"}
       >
         {!member.inToday && <GradientFill radius={14} />}
-        {checkIn.busy ? <ActivityIndicator size="small" color={colors.white} /> : <SymbolView name={{ ios: "touchid", android: "fingerprint", web: "fingerprint" }} size={18} tintColor={member.inToday ? colors.gymPrimary : colors.white} />}
+        {checkIn.busy ? <ActivityIndicator size="small" color={colors.white} /> : <GymIcon name="fingerprint" size={18} color={member.inToday ? colors.gymPrimary : colors.white} />}
         <Text className={member.inToday ? "gym-btn__label gym-btn__label--outline" : "gym-btn__label"}>{member.inToday ? "Checked in today" : "Check in"}</Text>
       </PressableScale>
       <View className="flex-row flex-wrap" style={{ gap: 10 }}>

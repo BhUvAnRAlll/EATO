@@ -14,7 +14,7 @@ export function EnquiryList() {
       {result.state === "failed" && <GymError error={result.error} onRetry={retry} />}
       {result.state === "ready" &&
         (result.data.enquiries.length === 0 ? (
-          <GymEmpty icon={{ ios: "questionmark.bubble", android: "contact_support", web: "contact_support" }} title="No enquiries yet" text="When someone asks about joining, add them here so you can follow up." />
+          <GymEmpty icon="message-circle-question" title="No enquiries yet" text="When someone asks about joining, add them here so you can follow up." />
         ) : (
           <View style={{ gap: 10 }}>
             {result.data.enquiries.map((e) => (

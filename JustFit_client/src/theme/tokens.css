@@ -147,6 +147,13 @@
   --color-gym-warning-soft: #fffbeb;
   --color-gym-danger: #dc2626;
   --color-gym-danger-soft: #fef2f2;
+  /* Send Bulk SMS: the dark credits card and the yellow "enough credits" warning */
+  --color-gym-navy: #1b2140;
+  --color-gym-navy-soft: #2c3454;
+  --color-gym-navy-line: #6b7394;
+  --color-gym-navy-muted: #c3c8dc;
+  --color-gym-warning-line: #f2c94c;
+  --color-gym-warning-ink: #7a4b00;
 
   /* Accent: links, progress rings, "today", icons (leaf), its soft fill and the
      active tab icon (leaf-dark) */

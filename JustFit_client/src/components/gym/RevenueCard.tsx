@@ -2,7 +2,7 @@ import { Text, useWindowDimensions, View } from "react-native";
 import Svg, { Circle, Defs, LinearGradient, Pattern, Rect, Stop } from "react-native-svg";
 
 import { PressableScale } from "@/components/PressableScale";
-import { SymbolView } from "@/components/SymbolView";
+import { GymIcon } from "@/components/gym/GymIcon";
 import { rupees } from "@/data/gymDashboard";
 import { useThemeColors } from "@/theme";
 
@@ -39,7 +39,7 @@ export function RevenueCard({ online, cash, onMenu }: RevenueCardProps) {
 
       <View className="flex-row items-center" style={{ gap: 12 }}>
         <View className="gym-hero__icon">
-          <SymbolView name={{ ios: "wallet.pass.fill", android: "account_balance_wallet", web: "account_balance_wallet" }} size={16} tintColor={colors.white} />
+          <GymIcon name="wallet" size={16} color={colors.white} />
         </View>
         <Text className="gym-hero__label flex-1" numberOfLines={1}>{"Today's Revenue"}</Text>
         <PressableScale onPress={onMenu} hitSlop={12} className="items-center justify-center" style={{ width: 24, height: 24, gap: 3 }} accessibilityRole="button" accessibilityLabel="Revenue options">

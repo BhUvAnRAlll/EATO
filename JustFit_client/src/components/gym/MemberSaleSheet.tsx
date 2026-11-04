@@ -3,7 +3,7 @@ import { Text, View } from "react-native";
 
 import { FormAlert } from "@/components/FormAlert";
 import { PressableScale } from "@/components/PressableScale";
-import { SymbolView } from "@/components/SymbolView";
+import { GymIcon } from "@/components/gym/GymIcon";
 import { CatalogSheet } from "@/components/gym/CatalogSheet";
 import { DateSelect } from "@/components/gym/DateSelect";
 import { DueByField } from "@/components/gym/DueByField";
@@ -21,7 +21,7 @@ import { haptic } from "@/lib/haptics";
 import { useGymData } from "@/lib/useGymData";
 import { useThemeColors } from "@/theme";
 
-const MONEY = { ios: "banknote", android: "payments", web: "payments" } as const;
+const MONEY = "banknote" as const;
 const COPY = {
   product: { title: "Sell Product", subtitle: "Sell a product to this member", list: "Available Products", add: "Add New Product" },
   service: { title: "Add Service", subtitle: "Add a service for this member", list: "Available Services", add: "Add New Service" },
@@ -100,7 +100,7 @@ export function MemberSaleSheet({ kind, member, gym, onClose, onSaved }: { kind:
                 );
               })}
               <PressableScale onPress={() => setAdding(true)} className="gym-choice flex-row items-center" style={{ gap: 6 }} accessibilityRole="button" accessibilityLabel={copy.add}>
-                <SymbolView name={{ ios: "plus", android: "add", web: "add" }} size={14} tintColor={colors.gymPrimary} />
+                <GymIcon name="plus" size={14} color={colors.gymPrimary} />
                 <Text className="gym-choice__label">{copy.add}</Text>
               </PressableScale>
             </View>
@@ -112,7 +112,7 @@ export function MemberSaleSheet({ kind, member, gym, onClose, onSaved }: { kind:
               <GymField label="Quantity" icon={MONEY} value={quantity} onChangeText={(t) => setQuantity(t.replace(/\D/g, "").slice(0, 3))} keyboardType="number-pad" placeholder="Quantity" hint={quantityHint} />
             </View>
             <View className="min-w-0 flex-1">
-              <GymField label="In stock" icon={{ ios: "archivebox", android: "inventory_2", web: "inventory_2" }} value={chosen ? (chosen.stock === null ? "Not counted" : String(chosen.stock)) : "-"} placeholder="In Stock" editable={false} style={{ color: colors.gymMuted }} />
+              <GymField label="In stock" icon="boxes" value={chosen ? (chosen.stock === null ? "Not counted" : String(chosen.stock)) : "-"} placeholder="In Stock" editable={false} style={{ color: colors.gymMuted }} />
             </View>
           </View>
         )}

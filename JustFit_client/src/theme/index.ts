@@ -117,6 +117,12 @@ export const lightColors = {
   gymWarningSoft: "#FFFBEB",
   gymDanger: "#DC2626",
   gymDangerSoft: "#FEF2F2",
+  gymNavy: "#1B2140",
+  gymNavySoft: "#2C3454",
+  gymNavyLine: "#6B7394",
+  gymNavyMuted: "#C3C8DC",
+  gymWarningLine: "#F2C94C",
+  gymWarningInk: "#7A4B00",
 
   white: "#FFFFFF",
   black: "#000000",

@@ -19,7 +19,7 @@ const back = () => (router.canGoBack() ? router.back() : router.replace("/admin/
 
 // Super Admin › a gym branch: today's takings, this month, members, dues, attendance and enquiries; its
 // gym admins (link one by their sign-in number, or remove them); its latest payments; and editing
-// its name and place. The numbers are the same ones the gym's own portal shows.
+// its name and place; its SMS credits (added by hand: justFit takes no payments). The numbers are the same ones the gym's own portal shows.
 export default function AdminGymDetailScreen() {
   const colors = useThemeColors();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -31,7 +31,9 @@ export default function AdminGymDetailScreen() {
   const [fields, setFields] = useState({ name: "", branch: "", area: "", city: "" });
   const [newBranch, setNewBranch] = useState<{ branch: string; area: string; city: string } | null>(null);
   const [removing, setRemoving] = useState<string | null>(null);
+  const [credits, setCredits] = useState("");
   const link = useGymSave((data: AdminGymDetail) => { set(data); setPhone(""); });
+  const topUp = useGymSave((data: AdminGymDetail) => { set(data); setCredits(""); });
   const unlink = useGymSave((data: AdminGymDetail) => { set(data); setRemoving(null); });
   const edit = useGymSave((data: AdminGymDetail) => { set(data); setEditing(false); });
   const addBranch = useGymSave((data: AdminGymDetail) => { setNewBranch(null); router.replace({ pathname: "/admin/gyms/[id]", params: { id: String(data.gym.id) } }); });
@@ -171,6 +173,32 @@ export default function AdminGymDetailScreen() {
                 {link.busy && <ActivityIndicator size="small" color={colors.leaf} />}
                 <Text className="btn-outline__label">Link gym admin</Text>
               </Pressable>
+
+              <Text className="setup__section">SMS credits</Text>
+              {data.smsCredits === null ? (
+                <Text className="meta-text">SMS needs the 2026-11-25-gym-sms migration on this server.</Text>
+              ) : (
+                <>
+                  <View className="admin-stat" accessible accessibilityLabel={`${data.smsCredits} SMS credits left`}>
+                    <Text className="admin-stat__label">Credits left</Text>
+                    <Text className="admin-stat__value">{data.smsCredits.toLocaleString("en-IN")}</Text>
+                    <Text className="meta-text">1 credit = 1 SMS to a member (reminders, wishes)</Text>
+                  </View>
+                  <AdminField
+                    label="Add credits"
+                    hint="Between 1 and 100,000, added to this branch only."
+                    value={credits}
+                    onChangeText={(t) => setCredits(t.replace(/\D/g, "").slice(0, 6))}
+                    keyboardType="number-pad"
+                    placeholder="500"
+                  />
+                  {topUp.error ? <FormAlert message={topUp.error} /> : null}
+                  <Pressable onPress={() => topUp.save((token) => adminGyms.addSmsCredits(token, gymId, Number(credits)))} disabled={!(Number(credits) >= 1) || topUp.busy} className="btn-outline" style={{ opacity: !(Number(credits) >= 1) || topUp.busy ? 0.5 : 1 }} accessibilityRole="button" accessibilityLabel="Add SMS credits">
+                    {topUp.busy && <ActivityIndicator size="small" color={colors.leaf} />}
+                    <Text className="btn-outline__label">Add credits</Text>
+                  </Pressable>
+                </>
+              )}
 
               <Text className="setup__section">Latest payments</Text>
               {data.recent.length === 0 ? (

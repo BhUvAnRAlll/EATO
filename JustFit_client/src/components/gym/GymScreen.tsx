@@ -5,7 +5,7 @@ import { StatusBar } from "expo-status-bar";
 import { router } from "expo-router";
 
 import { PressableScale } from "@/components/PressableScale";
-import { SymbolView } from "@/components/SymbolView";
+import { GymIcon } from "@/components/gym/GymIcon";
 import { useThemeColors } from "@/theme";
 
 type GymScreenProps = {
@@ -29,7 +29,7 @@ export function GymScreen({ title, children, right, scroll = true, refreshContro
       <SafeAreaView edges={["top"]} style={{ flex: 1 }}>
         <View className="gym-header">
           <PressableScale onPress={back} className="gym-icon-btn" accessibilityRole="button" accessibilityLabel="Back">
-            <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={17} tintColor={colors.gymInk} />
+            <GymIcon name="chevron-left" size={17} color={colors.gymInk} />
           </PressableScale>
           <Text className="gym-header__name flex-1" numberOfLines={1} accessibilityRole="header">{title}</Text>
           {right}

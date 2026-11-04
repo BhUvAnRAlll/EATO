@@ -4,7 +4,7 @@ import { router } from "expo-router";
 
 import { FormAlert } from "@/components/FormAlert";
 import { PressableScale } from "@/components/PressableScale";
-import { SymbolView } from "@/components/SymbolView";
+import { GymIcon } from "@/components/gym/GymIcon";
 import { GymError, GymLoading } from "@/components/gym/GymStates";
 import { GymScreen } from "@/components/gym/GymScreen";
 import { gymApi, type GymBranches } from "@/lib/gymApi";
@@ -50,7 +50,7 @@ export default function GymBranchesScreen() {
                   accessibilityLabel={`${b.branch} branch, ${b.area}, ${b.city}`}
                 >
                   <View className="gym-sms__icon">
-                    <SymbolView name={{ ios: "mappin.and.ellipse", android: "location_on", web: "location_on" }} size={18} tintColor={colors.gymPrimary} />
+                    <GymIcon name="map-pin" size={18} color={colors.gymPrimary} />
                   </View>
                   <View className="min-w-0 flex-1">
                     <Text className="gym-tx__name" numberOfLines={1}>{`${b.branch} branch`}</Text>
@@ -59,7 +59,7 @@ export default function GymBranchesScreen() {
                   {switching === b.id ? (
                     <ActivityIndicator size="small" color={colors.gymPrimary} />
                   ) : current ? (
-                    <SymbolView name={{ ios: "checkmark.circle.fill", android: "check_circle", web: "check_circle" }} size={20} tintColor={colors.gymPrimary} />
+                    <GymIcon name="circle-check" size={20} color={colors.gymPrimary} />
                   ) : null}
                 </PressableScale>
               );
@@ -68,7 +68,7 @@ export default function GymBranchesScreen() {
           {error ? <FormAlert message={error} /> : null}
           {result.data.branches.length === 1 && <Text className="gym-tx__meta">{"Your gym's other branches show here once the justFit team adds you to them."}</Text>}
           <PressableScale onPress={() => router.push("/gym/details")} className="gym-btn gym-btn--outline" accessibilityRole="button" accessibilityLabel="Edit this branch">
-            <SymbolView name={{ ios: "pencil", android: "edit", web: "edit" }} size={15} tintColor={colors.gymPrimary} />
+            <GymIcon name="pencil" size={15} color={colors.gymPrimary} />
             <Text className="gym-btn__label gym-btn__label--outline">Edit this branch</Text>
           </PressableScale>
         </>

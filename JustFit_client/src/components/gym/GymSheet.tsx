@@ -4,7 +4,7 @@ import Animated, { FadeIn, ReduceMotion, SlideInDown } from "react-native-reanim
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { PressableScale } from "@/components/PressableScale";
-import { SymbolView } from "@/components/SymbolView";
+import { GymIcon } from "@/components/gym/GymIcon";
 import { useThemeColors } from "@/theme";
 
 type GymSheetProps = {
@@ -52,7 +52,7 @@ export function GymSheet({ title, subtitle, onClose, children, overlay, onBack }
                 <View className="flex-row items-start" style={{ gap: 12 }}>
                   {onBack && (
                     <PressableScale onPress={onBack} hitSlop={10} style={{ paddingTop: 4 }} accessibilityRole="button" accessibilityLabel="Back">
-                      <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={20} tintColor={colors.gymInk} />
+                      <GymIcon name="chevron-left" size={20} color={colors.gymInk} />
                     </PressableScale>
                   )}
                   <View className="flex-1" style={{ gap: 2 }}>
@@ -60,7 +60,7 @@ export function GymSheet({ title, subtitle, onClose, children, overlay, onBack }
                     {subtitle ? <Text className="gym-sheet__subtitle">{subtitle}</Text> : null}
                   </View>
                   <PressableScale onPress={onClose} hitSlop={10} accessibilityRole="button" accessibilityLabel="Close">
-                    <SymbolView name={{ ios: "xmark", android: "close", web: "close" }} size={22} tintColor={colors.gymInk} />
+                    <GymIcon name="x" size={22} color={colors.gymInk} />
                   </PressableScale>
                 </View>
               ) : null}
