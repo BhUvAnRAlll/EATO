@@ -143,9 +143,9 @@ describe("ui admin: programs, their cover photos and categories", () => {
     await signInAs(page, h, admin);
     await page.waitFor(`location.pathname.startsWith("/admin")`, 60000, "landing on /admin");
     await h.goto(`/admin/programs/${program.id}`, "Shown to members");
-    assert.equal(await page.evaluate(`!!document.querySelector('[aria-label="Edit cover"]')`), false, "no Edit before there is a cover");
+    assert.equal(await page.evaluate(`!!document.querySelector('[aria-label="Change cover photo"]')`), false, "no Edit before there is a cover");
     await snapshotAllWidths("admin-program-no-cover");
-    await chooseFile("Add cover", path.join(photoDir, "first.png"));
+    await chooseFile("Add cover photo", path.join(photoDir, "first.png"));
     await h.expectText("Cover added.");
     await coverShown();
     const { cover_key: key } = await row();
@@ -157,11 +157,11 @@ describe("ui admin: programs, their cover photos and categories", () => {
     await coverShown();
   }));
 
-  it("2. Edit → Replace photo swaps the cover and deletes the old file", run("cover-replace", async () => {
+  it("2. Change → Replace photo swaps the cover and deletes the old file", run("cover-replace", async () => {
     await h.goto(`/admin/programs/${program.id}`, "Shown to members");
     await coverShown();
     const before = (await row()).cover_key;
-    await clickLabel("Edit cover");
+    await clickLabel("Change cover photo");
     await h.expectText("Replace photo");
     await h.expectText("Remove cover");
     await snapshotAllWidths("admin-program-cover-menu");
@@ -173,13 +173,13 @@ describe("ui admin: programs, their cover photos and categories", () => {
     await coverShown();
   }));
 
-  it("3. Edit → Remove cover brings the gradient back and deletes the file", run("cover-remove", async () => {
-    await clickLabel("Edit cover");
+  it("3. Change → Remove cover brings the gradient back and deletes the file", run("cover-remove", async () => {
+    await clickLabel("Change cover photo");
     await clickLabel("Remove cover");
     await h.expectText("Cover removed.");
     assert.equal((await row()).cover_key, null);
     assert.deepEqual(fs.readdirSync(coverDir), []);
-    await page.waitFor(`!!document.querySelector('[aria-label="Add cover"]')`, NAV_TIMEOUT, "the Add cover button again");
+    await page.waitFor(`!!document.querySelector('[aria-label="Add cover photo"]')`, NAV_TIMEOUT, "the Add cover button again");
   }));
 
   // ---- categories ------------------------------------------------------------------------------

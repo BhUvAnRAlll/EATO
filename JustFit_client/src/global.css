@@ -4776,9 +4776,7 @@
 
 @utility gym-role-pill {
   border-radius: 6px;
-  border-width: 1px;
-  border-color: var(--color-gym-primary-line);
-  background-color: var(--color-gym-primary-soft);
+  background-color: var(--color-gym-primary);
   padding-inline: 7px;
   padding-block: 1px;
 }
@@ -4788,7 +4786,7 @@
   font-size: 10px;
   line-height: 15px;
   letter-spacing: 1px;
-  color: var(--color-gym-primary-text);
+  color: var(--color-white);
 }
 
 @utility gym-online-dot {
@@ -5145,8 +5143,6 @@
   width: 56px;
   height: 56px;
   border-radius: 18px;
-  border-width: 3px;
-  border-color: var(--color-gym-page);
   background-color: var(--color-gym-primary);
   align-items: center;
   justify-content: center;
@@ -5179,9 +5175,7 @@
 }
 
 @utility gym-tabbar__icon--active {
-  border-width: 1px;
-  border-color: var(--color-gym-primary-line);
-  background-color: var(--color-gym-primary-soft);
+  background-color: var(--color-gym-primary);
 }
 
 @utility gym-tabbar__label {
@@ -5275,4 +5269,303 @@
   background-color: var(--color-gym-bar);
   padding: 14px;
   gap: 6px;
+}
+
+@utility gym-live--off {
+  border-color: var(--color-gym-line);
+  background-color: var(--color-gym-bar);
+}
+
+@utility gym-live__dot--off {
+  background-color: var(--color-gym-faint);
+}
+
+@utility gym-live__label--off {
+  color: var(--color-gym-muted);
+}
+
+@utility gym-branch--current {
+  border-color: var(--color-gym-primary);
+}
+
+/* Gym admin › Manage ("Manager", from the user's design, in the portal's indigo): centred title,
+   underlined top tabs, kind chips, outlined plan cards and a round + */
+@utility gym-manage__title {
+  text-align: center;
+  padding-top: 8px;
+  padding-bottom: 6px;
+  font-family: var(--font-sans-medium);
+  font-size: 19px;
+  line-height: 26px;
+  color: var(--color-gym-ink);
+}
+
+@utility gym-toptabs {
+  border-bottom-width: 1px;
+  border-color: var(--color-gym-line);
+}
+
+@utility gym-toptab {
+  min-height: 42px;
+  justify-content: center;
+  padding-inline: 10px;
+  border-bottom-width: 2px;
+  border-color: transparent;
+}
+
+@utility gym-toptab--selected {
+  border-color: var(--color-gym-primary);
+}
+
+@utility gym-toptab__label {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--color-gym-muted);
+}
+
+@utility gym-toptab__label--selected {
+  font-family: var(--font-sans-medium);
+  color: var(--color-gym-primary-text);
+}
+
+@utility gym-kind {
+  min-height: 30px;
+  justify-content: center;
+  border-radius: var(--radius-pill);
+  border-width: 1px;
+  border-color: var(--color-gym-primary-line);
+  padding-inline: 11px;
+}
+
+@utility gym-kind--selected {
+  border-color: var(--color-gym-primary);
+  background-color: var(--color-gym-primary);
+}
+
+@utility gym-kind__label {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--color-gym-primary-text);
+}
+
+@utility gym-kind__label--selected {
+  color: var(--color-white);
+}
+
+@utility gym-plan {
+  gap: 10px;
+  border-radius: 12px;
+  border-width: 1px;
+  border-color: var(--color-gym-line);
+  background-color: var(--color-gym-page);
+  padding-inline: 13px;
+  padding-block: 12px;
+}
+
+@utility gym-plan__name {
+  flex: 1;
+  font-family: var(--font-sans-semibold);
+  font-size: 15px;
+  line-height: 21px;
+  color: var(--color-gym-ink);
+}
+
+@utility gym-plan__pill {
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+  border-radius: 6px;
+  background-color: var(--color-gym-bar);
+  padding-inline: 8px;
+  padding-block: 3px;
+}
+
+@utility gym-plan__pill-label {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--color-gym-muted);
+}
+
+@utility gym-plan__price {
+  font-family: var(--font-sans-semibold);
+  font-size: 15px;
+  line-height: 21px;
+  color: var(--color-gym-ink);
+}
+
+@utility gym-fab-round {
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-gym-primary);
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-gym-fab);
+}
+
+/* The ☰ side menu */
+@utility gym-menu {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 84%;
+  max-width: 340px;
+  background-color: var(--color-gym-page);
+  border-top-right-radius: 20px;
+  border-bottom-right-radius: 20px;
+}
+
+@utility gym-menu__section {
+  padding-top: 6px;
+  padding-bottom: 4px;
+  font-family: var(--font-sans-medium);
+  font-size: 12px;
+  line-height: 16px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--color-gym-faint);
+}
+
+@utility gym-menu__row {
+  min-height: 52px;
+  flex-direction: row;
+  align-items: center;
+  gap: 14px;
+}
+
+@utility gym-menu__label {
+  font-family: var(--font-sans-medium);
+  font-size: 15px;
+  line-height: 21px;
+  color: var(--color-gym-ink);
+}
+
+/* The outlined field with an icon inside (the Add Plan design) */
+@utility gym-field--icon {
+  min-height: 54px;
+  flex-direction: row;
+  align-items: center;
+  gap: 14px;
+  border-radius: 14px;
+  border-width: 1px;
+  border-color: var(--color-line-strong);
+  background-color: var(--color-gym-page);
+  padding-inline: 16px;
+}
+
+@utility gym-field__icon-input {
+  flex: 1;
+  min-height: 52px;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  color: var(--color-gym-ink);
+}
+
+/* A bottom sheet over a screen (Add Plan) */
+@utility gym-sheet {
+  border-top-left-radius: 28px;
+  border-top-right-radius: 28px;
+  background-color: var(--color-gym-page);
+  padding-inline: 20px;
+  padding-top: 10px;
+  gap: 16px;
+}
+
+@utility gym-sheet__handle {
+  align-self: center;
+  width: 44px;
+  height: 4px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-gym-line);
+}
+
+@utility gym-sheet__title {
+  font-family: var(--font-sans-medium);
+  font-size: 22px;
+  line-height: 30px;
+  color: var(--color-gym-ink);
+}
+
+@utility gym-sheet__subtitle {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--color-gym-muted);
+}
+
+@utility gym-field__float {
+  position: absolute;
+  top: -9px;
+  left: 14px;
+  max-width: 80%;
+  padding-inline: 6px;
+  background-color: var(--color-gym-page);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--color-gym-muted);
+}
+
+/* "Please confirm the details" over the Add Plan sheet */
+@utility gym-confirm {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  align-items: center;
+  justify-content: center;
+  padding-inline: 32px;
+  background-color: rgba(17, 24, 39, 0.35);
+}
+
+@utility gym-confirm__card {
+  width: 100%;
+  max-width: 360px;
+  gap: 22px;
+  border-radius: 22px;
+  background-color: var(--color-gym-page);
+  padding-inline: 24px;
+  padding-top: 24px;
+  padding-bottom: 12px;
+}
+
+@utility gym-confirm__title {
+  font-family: var(--font-sans-semibold);
+  font-size: 19px;
+  line-height: 26px;
+  color: var(--color-gym-ink);
+}
+
+@utility gym-confirm__label {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 21px;
+  color: var(--color-gym-ink-soft);
+}
+
+@utility gym-confirm__value {
+  flex-shrink: 1;
+  font-family: var(--font-sans-semibold);
+  font-size: 16px;
+  line-height: 22px;
+  color: var(--color-gym-ink);
+}
+
+@utility gym-confirm__action {
+  min-height: 44px;
+  justify-content: center;
+  padding-inline: 14px;
+  border-radius: var(--radius-pill);
+}
+
+@utility gym-confirm__action-label {
+  font-family: var(--font-sans-medium);
+  font-size: 15px;
+  line-height: 20px;
+  color: var(--color-gym-primary-text);
 }

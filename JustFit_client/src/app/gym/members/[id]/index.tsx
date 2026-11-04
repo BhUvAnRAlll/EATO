@@ -6,11 +6,12 @@ import { FormAlert } from "@/components/FormAlert";
 import { PressableScale } from "@/components/PressableScale";
 import { SymbolView } from "@/components/SymbolView";
 import { GymField } from "@/components/gym/GymField";
+import { GradientFill } from "@/components/gym/GradientFill";
 import { GymError, GymLoading } from "@/components/gym/GymStates";
 import { GymScreen } from "@/components/gym/GymScreen";
 import { PaymentRow } from "@/components/gym/PaymentRow";
 import { SaveButton } from "@/components/gym/SaveButton";
-import { STATUS_LABEL, initialsOf, planLabel, phoneText, rupees, shortDate } from "@/data/gymDashboard";
+import { STATUS_LABEL, dobFromText, dobInput, dobText, initialsOf, planLabel, phoneText, rupees, shortDate } from "@/data/gymDashboard";
 import { gymApi, type GymMemberDetail } from "@/lib/gymApi";
 import { useGymSave } from "@/lib/gymForm";
 import { useGymData } from "@/lib/useGymData";
@@ -28,6 +29,7 @@ export default function GymMember() {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [dob, setDob] = useState("");
   const checkIn = useGymSave((data: GymMemberDetail) => {
     set(data);
     setNotice(data.alreadyIn ? "Already checked in today." : "Checked in for today.");
@@ -57,11 +59,13 @@ export default function GymMember() {
           <View className="min-w-0 flex-1" style={{ gap: 2 }}>
             <Text className="gym-tx__name" numberOfLines={1}>{member.name}</Text>
             <Text className="gym-tx__meta">{member.phone ? phoneText(member.phone) : "No phone number"}</Text>
+            {member.birthdayToday ? <Text className="gym-tx__meta" style={{ color: colors.gymPrimaryText }}>Birthday today</Text> : member.dob ? <Text className="gym-tx__meta">{`Born ${shortDate(member.dob)}`}</Text> : null}
           </View>
           <PressableScale
             onPress={() => {
               setName(member.name);
               setPhone(member.phone?.replace(/^\+91/, "") ?? "");
+              setDob(dobText(member.dob));
               setEditing((e) => !e);
             }}
             hitSlop={8}
@@ -75,13 +79,14 @@ export default function GymMember() {
           <View style={{ gap: 12 }}>
             <GymField label="Name" value={name} onChangeText={setName} maxLength={80} autoCapitalize="words" />
             <GymField label="Mobile number" value={phone} onChangeText={(t) => setPhone(t.replace(/[^0-9+ ]/g, "").slice(0, 15))} keyboardType="phone-pad" hint="Leave empty to remove it." />
+            <GymField label="Date of birth" value={dob} onChangeText={(t) => setDob(dobInput(t))} keyboardType="number-pad" placeholder="DD-MM-YYYY" hint="Leave empty to remove it." />
             {edit.error ? <FormAlert message={edit.error} /> : null}
-            <SaveButton label="Save changes" ready={name.trim().length >= 2} busy={edit.busy} onPress={() => edit.save((token) => gymApi.editMember(token, memberId, { name: name.trim(), phone: phone.trim() }))} />
+            <SaveButton label="Save changes" ready={name.trim().length >= 2 && (dob.trim() === "" || dobFromText(dob) !== null)} busy={edit.busy} onPress={() => edit.save((token) => gymApi.editMember(token, memberId, { name: name.trim(), phone: phone.trim(), dob: dobFromText(dob) ?? "" }))} />
           </View>
         )}
         <View className="gym-summary">
           <View className="flex-row items-center justify-between">
-            <Text className="gym-tx__meta">{planLabel(member.planMonths)}</Text>
+            <Text className="gym-tx__meta">{planLabel(member.planLength.duration, member.planLength.unit)}</Text>
             <Text className="gym-tag__label" style={{ color: statusColor }}>{STATUS_LABEL[member.status]}</Text>
           </View>
           <Text className="gym-tx__name">{`Until ${shortDate(member.expiresOn)}`}</Text>
@@ -100,10 +105,14 @@ export default function GymMember() {
         accessibilityRole="button"
         accessibilityLabel={member.inToday ? "Checked in today" : "Check in for today"}
       >
+        {!member.inToday && <GradientFill radius={14} />}
         {checkIn.busy ? <ActivityIndicator size="small" color={colors.white} /> : <SymbolView name={{ ios: "touchid", android: "fingerprint", web: "fingerprint" }} size={18} tintColor={member.inToday ? colors.gymPrimary : colors.white} />}
         <Text className={member.inToday ? "gym-btn__label gym-btn__label--outline" : "gym-btn__label"}>{member.inToday ? "Checked in today" : "Check in"}</Text>
       </PressableScale>
-      <View className="flex-row" style={{ gap: 10 }}>
+      <View className="flex-row flex-wrap" style={{ gap: 10 }}>
+        <PressableScale onPress={() => router.push({ pathname: "/gym/members/[id]/pt", params: { id: String(memberId) } })} className="gym-btn gym-btn--outline flex-1" accessibilityRole="button" accessibilityLabel="Personal training payment">
+          <Text className="gym-btn__label gym-btn__label--outline">PT</Text>
+        </PressableScale>
         <PressableScale onPress={() => router.push({ pathname: "/gym/members/[id]/renew", params: { id: String(memberId) } })} className="gym-btn gym-btn--outline flex-1" accessibilityRole="button" accessibilityLabel="Renew plan">
           <Text className="gym-btn__label gym-btn__label--outline">Renew</Text>
         </PressableScale>
@@ -115,7 +124,7 @@ export default function GymMember() {
           accessibilityRole="button"
           accessibilityLabel="Collect due"
         >
-          <Text className="gym-btn__label gym-btn__label--outline">Collect due</Text>
+          <Text className="gym-btn__label gym-btn__label--outline" numberOfLines={1}>Pay due</Text>
         </PressableScale>
       </View>
 

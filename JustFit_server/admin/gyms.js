@@ -1,24 +1,26 @@
-// Super Admin › Gyms: every gym on justFit with today's numbers, a new gym, one gym in detail
-// (money, members, dues, attendance, enquiries, its staff and latest payments) and linking or
-// unlinking its gym_admin accounts. Only justFit admins reach this (requireAdmin). Linking never
-// changes a role: an account gets gym_admin only through npm run set-role.
+// Super Admin › Gyms: every gym's branches on justFit with today's numbers, a new gym (with its
+// first branch), another branch, one branch in detail (money, members, dues, attendance,
+// enquiries, its staff and latest payments) and linking or unlinking gym_admin accounts. A gym is
+// a brand (gym_brands); each branch is a `gyms` row. Only justFit admins reach this
+// (requireAdmin). Linking never changes a role: gym_admin comes only from npm run set-role.
 const { NotFoundError, ConflictError } = require("../errors");
 const { ValidationError } = require("../profile");
 const { toE164 } = require("../auth/phone");
 const { audit } = require("./overview");
 const gymService = require("../gym/service");
 
-const gymOf = (r) => ({ id: r.id, name: r.name, area: r.area, city: r.city, createdAt: r.created_at ? new Date(r.created_at).toISOString() : null });
+const gymOf = (r) => ({ id: r.id, brandId: r.brand_id, name: r.brand, branch: r.branch, area: r.area, city: r.city, createdAt: r.created_at ? new Date(r.created_at).toISOString() : null });
+const GYM_COLUMNS = "g.id, g.brand_id, b.name AS brand, g.name AS branch, g.area, g.city, g.created_at";
 
 async function list(pool, today) {
   const [rows] = await pool.query(
-    `SELECT g.id, g.name, g.area, g.city, g.created_at,
+    `SELECT ${GYM_COLUMNS},
        (SELECT COUNT(*) FROM gym_staff s WHERE s.gym_id = g.id) AS staff,
        (SELECT COUNT(*) FROM gym_members m WHERE m.gym_id = g.id) AS members,
        (SELECT COUNT(*) FROM gym_members m WHERE m.gym_id = g.id AND m.expires_on >= ?) AS active,
        (SELECT COALESCE(SUM(p.amount), 0) FROM gym_payments p WHERE p.gym_id = g.id AND p.paid_on = ?) AS revenue_today,
        (SELECT COUNT(*) FROM gym_attendance a WHERE a.gym_id = g.id AND a.on_date = ?) AS attendance_today
-     FROM gyms g ORDER BY g.name, g.id`,
+     FROM gyms g JOIN gym_brands b ON b.id = g.brand_id ORDER BY b.name, b.id, g.name, g.id`,
     [today, today, today],
   );
   return {
@@ -27,7 +29,7 @@ async function list(pool, today) {
 }
 
 async function gymRow(db, gymId) {
-  const [[row]] = await db.query("SELECT id, name, area, city, created_at FROM gyms WHERE id = ?", [gymId]);
+  const [[row]] = await db.query(`SELECT ${GYM_COLUMNS} FROM gyms g JOIN gym_brands b ON b.id = g.brand_id WHERE g.id = ?`, [gymId]);
   if (!row) throw new NotFoundError("That gym doesn't exist.");
   return row;
 }
@@ -60,9 +62,11 @@ async function detail(pool, gymId, today) {
     [gymId],
   );
   const [recent] = await pool.query(`SELECT ${gymService.PAYMENT_COLUMNS} FROM gym_payments WHERE gym_id = ? ORDER BY id DESC LIMIT 10`, [gymId]);
+  const [siblings] = await pool.query("SELECT id, name FROM gyms WHERE brand_id = ? ORDER BY name, id", [gym.brand_id]);
   const n = Number;
   return {
     gym: gymOf(gym),
+    branches: siblings.map((b) => ({ id: b.id, branch: b.name })),
     stats: {
       todayOnline: n(money.today_online),
       todayCash: n(money.today_cash),
@@ -81,14 +85,13 @@ async function detail(pool, gymId, today) {
   };
 }
 
-async function create(pool, adminId, fields) {
+async function inTransaction(pool, work) {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
-    const [result] = await connection.query("INSERT INTO gyms (name, area, city, created_by) VALUES (?, ?, ?, ?)", [fields.name, fields.area, fields.city, adminId]);
-    await audit(connection, adminId, "gym.create", "gym", result.insertId, `Created the gym “${fields.name}”, ${fields.area}`);
+    const result = await work(connection);
     await connection.commit();
-    return result.insertId;
+    return result;
   } catch (error) {
     await connection.rollback().catch(() => {});
     throw error;
@@ -97,12 +100,37 @@ async function create(pool, adminId, fields) {
   }
 }
 
+// A new gym and its first branch; returns the branch's id
+function create(pool, adminId, fields) {
+  return inTransaction(pool, async (db) => {
+    const [brand] = await db.query("INSERT INTO gym_brands (name, created_by) VALUES (?, ?)", [fields.name, adminId]);
+    const [branch] = await db.query("INSERT INTO gyms (brand_id, name, area, city, created_by) VALUES (?, ?, ?, ?, ?)", [brand.insertId, fields.branch, fields.area, fields.city, adminId]);
+    await audit(db, adminId, "gym.create", "gym", branch.insertId, `Created the gym “${fields.name}” with its ${fields.branch} branch`);
+    return branch.insertId;
+  });
+}
+
+// Another branch of the same gym as `gymId`; returns the new branch's id
+async function addBranch(pool, adminId, gymId, fields) {
+  const gym = await gymRow(pool, gymId);
+  return inTransaction(pool, async (db) => {
+    const [branch] = await db.query("INSERT INTO gyms (brand_id, name, area, city, created_by) VALUES (?, ?, ?, ?, ?)", [gym.brand_id, fields.branch, fields.area, fields.city, adminId]);
+    await audit(db, adminId, "gym.branch_add", "gym", branch.insertId, `Added the ${fields.branch} branch to “${gym.brand}”`);
+    return branch.insertId;
+  });
+}
+
+// The gym's name (all its branches share it) and this branch's name and place
 async function update(pool, adminId, gymId, fields) {
   const before = await gymRow(pool, gymId);
-  const columns = { name: "name", area: "area", city: "city" };
-  const keys = Object.keys(fields);
-  await pool.query(`UPDATE gyms SET ${keys.map((k) => `${columns[k]} = ?`).join(", ")} WHERE id = ?`, [...keys.map((k) => fields[k]), gymId]);
-  await audit(pool, adminId, "gym.edit", "gym", gymId, `Edited the gym “${fields.name ?? before.name}”`);
+  const { name, ...branchFields } = fields;
+  await inTransaction(pool, async (db) => {
+    if (name !== undefined) await db.query("UPDATE gym_brands SET name = ? WHERE id = ?", [name, before.brand_id]);
+    const columns = { branch: "name", area: "area", city: "city" };
+    const keys = Object.keys(branchFields);
+    if (keys.length > 0) await db.query(`UPDATE gyms SET ${keys.map((k) => `${columns[k]} = ?`).join(", ")} WHERE id = ?`, [...keys.map((k) => branchFields[k]), gymId]);
+    await audit(db, adminId, "gym.edit", "gym", gymId, `Edited “${name ?? before.brand}”, ${branchFields.branch ?? before.branch} branch`);
+  });
 }
 
 // Links a gym_admin account (found by its sign-in number) to the gym
@@ -111,25 +139,27 @@ async function linkStaff(pool, adminId, gymId, phone) {
   const [[user]] = await pool.query("SELECT id, role FROM users WHERE verified_phone = ?", [phone]);
   if (!user) throw new NotFoundError("No account has signed in with that number yet. Ask them to sign in to justFit once.");
   if (user.role !== "gym_admin") throw new ValidationError("That account isn't a gym admin yet. Give it the gym_admin role first (npm run set-role).");
-  const [[current]] = await pool.query("SELECT g.id, g.name FROM gym_staff s JOIN gyms g ON g.id = s.gym_id WHERE s.user_id = ?", [user.id]);
-  if (current && current.id === gymId) throw new ConflictError("That account already works at this gym.");
-  if (current) throw new ConflictError(`That account already works at “${current.name}”. Remove it there first.`);
+  // An account works at branches of one gym only
+  const [current] = await pool.query("SELECT g.id, g.brand_id, b.name AS brand FROM gym_staff s JOIN gyms g ON g.id = s.gym_id JOIN gym_brands b ON b.id = g.brand_id WHERE s.user_id = ?", [user.id]);
+  if (current.some((c) => c.id === gymId)) throw new ConflictError("That account already works at this branch.");
+  const other = current.find((c) => c.brand_id !== gym.brand_id);
+  if (other) throw new ConflictError(`That account works at “${other.brand}”. Remove it there first.`);
   await pool.query("INSERT INTO gym_staff (user_id, gym_id) VALUES (?, ?)", [user.id, gymId]);
-  await audit(pool, adminId, "gym.staff_add", "gym", gymId, `Added a gym admin to “${gym.name}”`);
+  await audit(pool, adminId, "gym.staff_add", "gym", gymId, `Added a gym admin to “${gym.brand}”, ${gym.branch} branch`);
 }
 
 async function unlinkStaff(pool, adminId, gymId, userId) {
   const gym = await gymRow(pool, gymId);
   const [result] = await pool.query("DELETE FROM gym_staff WHERE user_id = ? AND gym_id = ?", [userId, gymId]);
   if (result.affectedRows === 0) throw new NotFoundError("That account doesn't work at this gym.");
-  await audit(pool, adminId, "gym.staff_remove", "gym", gymId, `Removed a gym admin from “${gym.name}”`);
+  await audit(pool, adminId, "gym.staff_remove", "gym", gymId, `Removed a gym admin from “${gym.brand}”, ${gym.branch} branch`);
 }
 
 // The Overview's gym line: how many gyms, and their takings today (null before the migration)
 async function overviewCounts(pool, today) {
   try {
     const [[row]] = await pool.query(
-      "SELECT (SELECT COUNT(*) FROM gyms) AS gyms, (SELECT COALESCE(SUM(amount), 0) FROM gym_payments WHERE paid_on = ?) AS revenue_today",
+      "SELECT (SELECT COUNT(*) FROM gym_brands) AS gyms, (SELECT COALESCE(SUM(amount), 0) FROM gym_payments WHERE paid_on = ?) AS revenue_today",
       [today],
     );
     return { gyms: Number(row.gyms), gymRevenueToday: Number(row.revenue_today) };
@@ -139,4 +169,4 @@ async function overviewCounts(pool, today) {
   }
 }
 
-module.exports = { list, detail, create, update, linkStaff, unlinkStaff, overviewCounts };
+module.exports = { list, detail, create, addBranch, update, linkStaff, unlinkStaff, overviewCounts };

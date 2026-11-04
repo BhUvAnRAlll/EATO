@@ -2,7 +2,7 @@
 // isolated test server and the justfit_test database. A justFit admin's gym (created through the
 // API) with a payment and a sale; its gym admin signs in onto Home showing those numbers, records
 // an admission through the form, checks the member in, and reads Transactions, Wallet and
-// Settings; the guards keep gym admins, members and admins in their own portals; the admin sees
+// the ☰ menu; Manage › Plan / Catalogue adds a plan the admission form then offers; the guards keep gym admins, members and admins in their own portals; the admin sees
 // the gym's numbers on Gyms and the gym's page. Screenshots at three widths.
 //
 //   yarn test:ui      (needs JustFit_server/.env.test and Google Chrome; otherwise skipped)
@@ -113,11 +113,15 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
     await connection.query("UPDATE users SET full_name = ? WHERE id = ?", ["Maya Ortiz", identities.admin.id]);
     await connection.query("INSERT INTO profiles (user_id, dob, gender, goal, height_cm, weight_kg, workout_frequency, profile_complete) VALUES (?, '1995-05-10', 'male', 'muscle_gain', 175, 70, '3-4', TRUE)", [identities.member.id]);
     // The admin's gym, its gym admin, a member who owes ₹1,500 and a shop sale
-    const gym = await apiAs("admin", "POST", "/api/admin/portal/gyms", { name: "Just Fit Anna Nagar", area: "Anna Nagar", city: "Chennai" });
+    const gym = await apiAs("admin", "POST", "/api/admin/portal/gyms", { name: "Forma", branch: "Tumkur", area: "SIT Road", city: "Tumakuru" });
     assert.equal(gym.status, 201, JSON.stringify(gym.json));
     state.gym = gym.json.gym.id;
     assert.equal((await apiAs("admin", "POST", `/api/admin/portal/gyms/${state.gym}/staff`, { phone: identities.gym.phone })).status, 201);
-    const asif = await apiAs("gym", "POST", "/api/gym/members", { name: "Mohammed Asif", phone: "9876543210", months: 3, fee: 6000, paid: 4500, method: "online" });
+    // A second branch, so the gym admin can switch
+    const second = await apiAs("admin", "POST", `/api/admin/portal/gyms/${state.gym}/branches`, { branch: "Kunigal", area: "Main Road", city: "Kunigal" });
+    state.branch2 = second.json.gym.id;
+    assert.equal((await apiAs("admin", "POST", `/api/admin/portal/gyms/${state.branch2}/staff`, { phone: identities.gym.phone })).status, 201);
+    const asif = await apiAs("gym", "POST", "/api/gym/members", { name: "Mohammed Asif", phone: "9876543210", unit: "months", duration: 3, fee: 6000, paid: 4500, method: "online" });
     assert.equal(asif.status, 201, JSON.stringify(asif.json));
     state.asif = asif.json.member.id;
     assert.equal((await apiAs("gym", "POST", "/api/gym/sales", { item: "Whey Protein 1kg", category: "supplement", amount: 3200, method: "cash" })).status, 201);
@@ -133,8 +137,11 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
     await step("rows", async () => {
       if (!connection) return;
       if (state.gym) {
-        for (const table of ["gym_attendance", "gym_payments", "gym_enquiries", "gym_members", "gym_staff"]) await connection.query(`DELETE FROM \`${table}\` WHERE gym_id = ?`, [state.gym]);
-        await connection.query("DELETE FROM gyms WHERE id = ?", [state.gym]);
+        const ids = [state.gym, state.branch2].filter(Boolean);
+        const [[{ brand_id: brandId }]] = await connection.query("SELECT brand_id FROM gyms WHERE id = ?", [state.gym]);
+        for (const table of ["gym_attendance", "gym_payments", "gym_enquiries", "gym_catalog_items", "gym_members", "gym_staff"]) await connection.query(`DELETE FROM \`${table}\` WHERE gym_id IN (?)`, [ids]);
+        await connection.query("DELETE FROM gyms WHERE id IN (?)", [ids]);
+        await connection.query("DELETE FROM gym_brands WHERE id = ?", [brandId]);
       }
       const ids = Object.values(identities).map((i) => i.id);
       if (ids.length > 0) {
@@ -157,16 +164,17 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
     await signIn(identities.gym, "/gym");
     await h.expectPath("/gym");
     await h.expectText("Arjun Kumar");
-    await h.expectText("Anna Nagar, Chennai");
+    await h.expectText("Tumkur branch");
+    await h.expectText("FORMA");
     const revenue = JSON.stringify(`[aria-label^="Today's revenue ₹7,700"]`);
     await page.waitFor(`!!document.querySelector(${revenue})`, NAV_TIMEOUT, "today's revenue: 4,500 online + 3,200 cash");
-    for (const label of ["1 Admission", "0 Renewal", "0 Enquiry", "0 Due Paid", "1 Due Members, Action", "0 Expiring Today, Urgent", "0 Attendance, Live"]) {
+    for (const label of ["1 Admission", "0 Renewal", "0 Enquiry", "0 Due Paid", "0 PT", "1 Product", "1 Due Members, Action", "0 Expiring Today, Urgent", "0 Attendance, Live", "0 Expiring in 1-3 days, Soon", "0 Birthdays Today, Wish"]) {
       assert.ok(await hasLabel(label), `${label} is shown`);
     }
     await h.expectText("Mohammed Asif");
     await h.expectText("Whey Protein 1kg");
     const tabs = await page.evaluate(`[...document.querySelectorAll('[role="tab"]')].filter((e) => e.getClientRects().length > 0).map((e) => e.getAttribute("aria-label"))`);
-    assert.deepEqual(tabs, ["Home", "Settings", "Wallet"]);
+    assert.deepEqual(tabs, ["Home", "Manage", "Wallet"]);
     assert.equal(await hasLabel("AI assistant"), false, "no AI button");
     await snapshotAllWidths("gym-home");
   }));
@@ -179,7 +187,7 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
     await h.expectPath("/gym/admission");
     await page.setInput(h.input("For example: Mohammed Asif"), "Ravi Shankar");
     await page.setInput(h.input("98765 43210"), "9123456789");
-    await clickLabel("3 Months");
+    await page.setInput(h.input("Duration (Eg. 6)"), "3");
     await page.setInput(h.input("4500"), "4500");
     await page.setInput(h.input("3000"), "4000");
     await clickLabel("Cash");
@@ -202,7 +210,7 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
     assert.ok(await hasLabel("2 Admission"));
   }));
 
-  it("4. Members, Transactions, Wallet and Settings", run("gym-lists", async () => {
+  it("4. Members, Transactions, Wallet and the ☰ menu", run("gym-lists", async () => {
     await clickLabel("2 Due Members, Action");
     await h.expectPath("/gym/members");
     await h.expectText("Mohammed Asif");
@@ -219,10 +227,51 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
     await h.expectText("Owed by members");
     await h.expectText("₹11,700");
     await snapshotAllWidths("gym-wallet");
-    await clickTab("Settings");
-    await h.expectText("Just Fit Anna Nagar");
+    await clickTab("Home");
+    await clickLabel("Menu");
+    await h.expectText("Forma · Tumkur branch");
+    await h.expectText("Plans / Catalogue");
     await h.expectText("Sign out");
-    await snapshotAllWidths("gym-settings");
+    await snapshotAllWidths("gym-menu");
+    await clickLabel("Plans / Catalogue");
+    await h.expectPath("/gym/manage");
+  }));
+
+  it("4c. Manage › Plan / Catalogue: add a plan, and the admission form offers it", run("gym-catalog", async () => {
+    await h.expectText("Manager");
+    await h.expectText("No membership plans yet");
+    await clickLabel("Add a membership plan");
+    await h.expectText("Add a membership plan for the outlet.");
+    await page.setInput(h.input("Plan Name (Eg. 6 Months)"), "3 Months");
+    await page.setInput(h.input("Duration (Eg. 6)"), "3");
+    await page.setInput(h.input("Plan Amount (Eg. 500)"), "4000");
+    await snapshotAllWidths("gym-add-plan");
+    await clickLabel("Add Plan");
+    await h.expectText("Please confirm the details");
+    await h.expectText("₹4,000");
+    await snapshotAllWidths("gym-confirm");
+    await clickLabel("Confirm");
+    await page.waitFor(`!!document.querySelector('[aria-label="3 Months, 3 Months, ₹4,000. Edit"]')`, NAV_TIMEOUT, "the new plan card");
+    await snapshotAllWidths("gym-catalog");
+    await page.navigate(`${expo.baseUrl}/gym/admission`);
+    await clickLabel("3 Months, ₹4,000");
+    assert.equal(await page.inputValue(h.input("4500")), "4000", "the fee filled in from the plan");
+  }));
+
+  it("4b. the branch switcher opens Kunigal's own numbers, then back to Tumkur", run("gym-branches", async () => {
+    await page.navigate(`${expo.baseUrl}/gym`);
+    await clickLabel("Tumkur branch, SIT Road, Tumakuru. Switch or edit branch");
+    await h.expectPath("/gym/branches");
+    await h.expectText("Kunigal branch");
+    await snapshotAllWidths("gym-branches");
+    await clickLabel("Kunigal branch, Main Road, Kunigal");
+    await h.expectPath("/gym");
+    await page.waitFor(`!!document.querySelector(${JSON.stringify('[aria-label^="Kunigal branch, Main Road, Kunigal. Switch"]')})`, NAV_TIMEOUT, "Kunigal open on Home");
+    const empty = JSON.stringify(`[aria-label^="Today's revenue ₹0"]`);
+    await page.waitFor(`!!document.querySelector(${empty})`, NAV_TIMEOUT, "Kunigal has no takings");
+    await clickLabel("Kunigal branch, Main Road, Kunigal. Switch or edit branch");
+    await clickLabel("Tumkur branch, SIT Road, Tumakuru");
+    await h.expectText("Tumkur branch");
   }));
 
   it("5. a gym admin can't open the Super Admin portal or the member app", run("gym-guard", async () => {
@@ -236,13 +285,14 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
     await signIn(identities.admin, "/admin");
     await clickTab("Gyms");
     await h.expectPath("/admin/gyms");
-    await h.expectText("Just Fit Anna Nagar");
+    await h.expectText("Tumkur branch · SIT Road, Tumakuru");
     await h.expectText("₹11,700 today");
     await snapshotAllWidths("admin-gyms");
-    await clickLabel("Just Fit Anna Nagar, Anna Nagar, Chennai. ₹11,700 today, 2 members, 1 in today");
+    await clickLabel("Forma, Tumkur branch, SIT Road, Tumakuru. ₹11,700 today, 2 members, 1 in today");
     await page.waitFor(`location.pathname.startsWith("/admin/gyms/")`, NAV_TIMEOUT, "the gym's page");
     await h.expectText("Arjun Kumar");
     await h.expectText("Ravi Shankar");
+    await h.expectText("Kunigal");
     await snapshotAllWidths("admin-gym");
   }));
 

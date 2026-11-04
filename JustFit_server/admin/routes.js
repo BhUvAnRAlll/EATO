@@ -67,6 +67,10 @@ router.post("/gyms", smallBody, gymRoute(async (req, res) => {
   const id = await gyms.create(pool(req), req.userId, gymRules.gymBody(req.body, { creating: true }));
   res.status(201).json(await gyms.detail(pool(req), id, gymRules.todayInIndia()));
 }));
+router.post("/gyms/:gymId/branches", smallBody, gymRoute(async (req, res) => {
+  const id = await gyms.addBranch(pool(req), req.userId, gymId(req), gymRules.branchBody(req.body));
+  res.status(201).json(await gyms.detail(pool(req), id, gymRules.todayInIndia()));
+}));
 router.get("/gyms/:gymId", gymRoute(async (req, res) => {
   res.json(await gyms.detail(pool(req), gymId(req), gymRules.todayInIndia()));
 }));

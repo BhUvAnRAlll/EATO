@@ -13,14 +13,16 @@ import { useThemeColors } from "@/theme";
 
 const back = () => (router.canGoBack() ? router.back() : router.replace("/admin/gyms"));
 
-// Super Admin › Gyms › New gym: its name and where it is. Its gym admin is linked on the gym's page.
+// Super Admin › Gyms › New gym: its name and its first branch (name, area, city). More branches and
+// the gym admins are added on the branch's page.
 export default function AdminNewGym() {
   const colors = useThemeColors();
   const [name, setName] = useState("");
+  const [branch, setBranch] = useState("");
   const [area, setArea] = useState("");
   const [city, setCity] = useState("");
   const { busy, error, save } = useGymSave((data: { gym: { id: number } }) => router.replace({ pathname: "/admin/gyms/[id]", params: { id: String(data.gym.id) } }));
-  const ready = name.trim().length >= 2 && area.trim().length >= 2 && city.trim().length >= 2;
+  const ready = [name, branch, area, city].every((v) => v.trim().length >= 2);
   return (
     <View className="flex-1 bg-cream">
       <StatusBar style="auto" />
@@ -33,11 +35,12 @@ export default function AdminNewGym() {
           <View className="screen-bar__spacer" />
         </View>
         <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40, gap: 16 }} keyboardShouldPersistTaps="handled" keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}>
-          <AdminField label="Gym name" value={name} onChangeText={setName} maxLength={80} placeholder="For example: Just Fit Anna Nagar" />
-          <AdminField label="Area" value={area} onChangeText={setArea} maxLength={80} placeholder="Anna Nagar" />
-          <AdminField label="City" value={city} onChangeText={setCity} maxLength={60} placeholder="Chennai" />
+          <AdminField label="Gym name" value={name} onChangeText={setName} maxLength={80} placeholder="For example: Forma" />
+          <AdminField label="First branch" value={branch} onChangeText={setBranch} maxLength={80} placeholder="For example: Tumkur" />
+          <AdminField label="Area" value={area} onChangeText={setArea} maxLength={80} placeholder="For example: SIT Road" />
+          <AdminField label="City" value={city} onChangeText={setCity} maxLength={60} placeholder="For example: Tumakuru" />
           {error ? <FormAlert message={error} /> : null}
-          <Pressable onPress={() => save((token) => adminGyms.create(token, { name: name.trim(), area: area.trim(), city: city.trim() }))} disabled={!ready || busy} className="btn-forest" style={{ opacity: ready && !busy ? 1 : 0.5 }} accessibilityRole="button" accessibilityLabel="Create gym">
+          <Pressable onPress={() => save((token) => adminGyms.create(token, { name: name.trim(), branch: branch.trim(), area: area.trim(), city: city.trim() }))} disabled={!ready || busy} className="btn-forest" style={{ opacity: ready && !busy ? 1 : 0.5 }} accessibilityRole="button" accessibilityLabel="Create gym">
             {busy && <ActivityIndicator size="small" color={colors.onPrimary} />}
             <Text className="btn-forest__label">Create gym</Text>
           </Pressable>

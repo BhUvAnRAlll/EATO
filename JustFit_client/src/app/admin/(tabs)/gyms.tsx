@@ -11,8 +11,8 @@ import { adminGyms } from "@/lib/gymApi";
 import { useGymData } from "@/lib/useGymData";
 import { useThemeColors } from "@/theme";
 
-// Super Admin › Gyms: every gym on justFit with today's takings, members and check-ins. A gym
-// opens its page (money, dues, attendance, staff); New gym creates one.
+// Super Admin › Gyms: every gym's branches on justFit with today's takings, members and check-ins.
+// A branch opens its page (money, dues, attendance, staff, other branches); New gym creates one.
 export default function AdminGyms() {
   const colors = useThemeColors();
   const { result, retry } = useGymData(adminGyms.list);
@@ -47,14 +47,14 @@ export default function AdminGyms() {
                       onPress={() => router.push({ pathname: "/admin/gyms/[id]", params: { id: String(g.id) } })}
                       className={i === 0 ? "admin-row" : "admin-row admin-row--divided"}
                       accessibilityRole="button"
-                      accessibilityLabel={`${g.name}, ${g.area}, ${g.city}. ${rupees(g.revenueToday)} today, ${g.members} members, ${g.attendanceToday} in today`}
+                      accessibilityLabel={`${g.name}, ${g.branch} branch, ${g.area}, ${g.city}. ${rupees(g.revenueToday)} today, ${g.members} members, ${g.attendanceToday} in today`}
                     >
                       <View className="admin-row__icon">
                         <SymbolView name={{ ios: "building.2", android: "apartment", web: "apartment" }} size={18} tintColor={colors.forestInk} />
                       </View>
                       <View className="min-w-0 flex-1">
                         <Text className="card__title" numberOfLines={1}>{g.name}</Text>
-                        <Text className="meta-text" numberOfLines={1}>{`${g.area}, ${g.city}`}</Text>
+                        <Text className="meta-text" numberOfLines={1}>{`${g.branch} branch · ${g.area}, ${g.city}`}</Text>
                         <Text className="meta-text" numberOfLines={1}>{`${rupees(g.revenueToday)} today · ${g.active}/${g.members} active · ${g.attendanceToday} in today${g.staff === 0 ? " · no staff yet" : ""}`}</Text>
                       </View>
                       <SymbolView name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }} size={14} tintColor={colors.faint} />

@@ -1,12 +1,30 @@
 import { Text, TextInput, View, type TextInputProps } from "react-native";
 
 import { PressableScale } from "@/components/PressableScale";
+import { SymbolView } from "@/components/SymbolView";
+import type { Icon } from "@/types/profile";
 import { haptic } from "@/lib/haptics";
 import { useThemeColors } from "@/theme";
 
-// A labelled text box in the gym portal's look
-export function GymField({ label, hint, style, ...inputProps }: TextInputProps & { label: string; hint?: string }) {
+// A labelled text box in the gym portal's look. With `icon`, the box is the outlined field of the
+// Add Plan design (the icon inside, on the left) and the label is read only by screen readers.
+export function GymField({ label, hint, style, icon, iconColor, ...inputProps }: TextInputProps & { label: string; hint?: string; icon?: Icon; iconColor?: string }) {
   const colors = useThemeColors();
+  if (icon) {
+    return (
+      <View style={{ gap: 6 }}>
+        <View className="gym-field--icon">
+          {/* Once something is typed, the hint floats onto the border as the field's label */}
+          {inputProps.value ? (
+            <Text className="gym-field__float" numberOfLines={1} importantForAccessibility="no">{inputProps.placeholder}</Text>
+          ) : null}
+          <SymbolView name={icon} size={20} tintColor={iconColor ?? colors.gymMuted} />
+          <TextInput className="gym-field__icon-input" placeholderTextColor={colors.gymFaint} accessibilityLabel={label} style={style} {...inputProps} />
+        </View>
+        {hint ? <Text className="gym-tx__meta" style={{ paddingLeft: 4 }}>{hint}</Text> : null}
+      </View>
+    );
+  }
   return (
     <View style={{ gap: 6 }}>
       <Text className="gym-field__label">{label}</Text>

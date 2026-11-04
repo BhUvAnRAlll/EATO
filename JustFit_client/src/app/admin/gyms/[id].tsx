@@ -17,7 +17,7 @@ import { useThemeColors } from "@/theme";
 
 const back = () => (router.canGoBack() ? router.back() : router.replace("/admin/gyms"));
 
-// Super Admin › a gym: today's takings, this month, members, dues, attendance and enquiries; its
+// Super Admin › a gym branch: today's takings, this month, members, dues, attendance and enquiries; its
 // gym admins (link one by their sign-in number, or remove them); its latest payments; and editing
 // its name and place. The numbers are the same ones the gym's own portal shows.
 export default function AdminGymDetailScreen() {
@@ -28,11 +28,13 @@ export default function AdminGymDetailScreen() {
   const { result, retry, set } = useGymData(load);
   const [phone, setPhone] = useState("");
   const [editing, setEditing] = useState(false);
-  const [fields, setFields] = useState({ name: "", area: "", city: "" });
+  const [fields, setFields] = useState({ name: "", branch: "", area: "", city: "" });
+  const [newBranch, setNewBranch] = useState<{ branch: string; area: string; city: string } | null>(null);
   const [removing, setRemoving] = useState<string | null>(null);
   const link = useGymSave((data: AdminGymDetail) => { set(data); setPhone(""); });
   const unlink = useGymSave((data: AdminGymDetail) => { set(data); setRemoving(null); });
   const edit = useGymSave((data: AdminGymDetail) => { set(data); setEditing(false); });
+  const addBranch = useGymSave((data: AdminGymDetail) => { setNewBranch(null); router.replace({ pathname: "/admin/gyms/[id]", params: { id: String(data.gym.id) } }); });
 
   const data = result.state === "ready" ? result.data : null;
   const s = data?.stats;
@@ -57,7 +59,7 @@ export default function AdminGymDetailScreen() {
           </Pressable>
           <View className="min-w-0 flex-1 items-center">
             <Text className="screen-bar__title" numberOfLines={1} accessibilityRole="header">{data?.gym.name ?? "Gym"}</Text>
-            {data && <Text className="screen-bar__subtitle" numberOfLines={1}>{`${data.gym.area}, ${data.gym.city}`}</Text>}
+            {data && <Text className="screen-bar__subtitle" numberOfLines={1}>{`${data.gym.branch} branch · ${data.gym.area}, ${data.gym.city}`}</Text>}
           </View>
           <View className="screen-bar__spacer" />
         </View>
@@ -78,7 +80,54 @@ export default function AdminGymDetailScreen() {
                 ))}
               </View>
 
-              <Text className="setup__section">Gym admins</Text>
+              <Text className="setup__section">{`${data.gym.name}'s branches`}</Text>
+              <View className="flex-row flex-wrap" style={{ gap: 8 }}>
+                {data.branches.map((b) => {
+                  const current = b.id === data.gym.id;
+                  return (
+                    <Pressable
+                      key={b.id}
+                      onPress={current ? undefined : () => router.replace({ pathname: "/admin/gyms/[id]", params: { id: String(b.id) } })}
+                      className={current ? "filter-chip filter-chip--selected" : "filter-chip"}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: current }}
+                      accessibilityLabel={`${b.branch} branch${current ? ", open" : ""}`}
+                    >
+                      <Text className={current ? "filter-chip__label filter-chip__label--selected" : "filter-chip__label"}>{b.branch}</Text>
+                    </Pressable>
+                  );
+                })}
+                {!newBranch && (
+                  <Pressable onPress={() => setNewBranch({ branch: "", area: "", city: data.gym.city })} className="filter-chip" accessibilityRole="button" accessibilityLabel="Add a branch">
+                    <Text className="filter-chip__label">+ Add branch</Text>
+                  </Pressable>
+                )}
+              </View>
+              {newBranch && (
+                <View style={{ gap: 12 }}>
+                  <AdminField label="Branch name" value={newBranch.branch} onChangeText={(branch) => setNewBranch((b) => b && { ...b, branch })} maxLength={80} placeholder="For example: Kunigal" />
+                  <AdminField label="Area" value={newBranch.area} onChangeText={(area) => setNewBranch((b) => b && { ...b, area })} maxLength={80} />
+                  <AdminField label="City" value={newBranch.city} onChangeText={(city) => setNewBranch((b) => b && { ...b, city })} maxLength={60} />
+                  {addBranch.error ? <FormAlert message={addBranch.error} /> : null}
+                  <View className="flex-row" style={{ gap: 10 }}>
+                    <Pressable
+                      onPress={() => addBranch.save((token) => adminGyms.addBranch(token, gymId, { branch: newBranch.branch.trim(), area: newBranch.area.trim(), city: newBranch.city.trim() }))}
+                      disabled={addBranch.busy || ![newBranch.branch, newBranch.area, newBranch.city].every((v) => v.trim().length >= 2)}
+                      className="btn-forest flex-1"
+                      style={{ opacity: [newBranch.branch, newBranch.area, newBranch.city].every((v) => v.trim().length >= 2) ? 1 : 0.5 }}
+                      accessibilityRole="button"
+                      accessibilityLabel="Save branch"
+                    >
+                      <Text className="btn-forest__label">Add branch</Text>
+                    </Pressable>
+                    <Pressable onPress={() => setNewBranch(null)} className="btn-outline" style={{ paddingHorizontal: 18 }} accessibilityRole="button" accessibilityLabel="Cancel">
+                      <Text className="btn-outline__label">Cancel</Text>
+                    </Pressable>
+                  </View>
+                </View>
+              )}
+
+              <Text className="setup__section">{`Gym admins at ${data.gym.branch}`}</Text>
               <View className="admin-list">
                 {data.staff.length === 0 ? (
                   <View className="admin-row"><Text className="meta-text flex-1">{"No gym admin yet. Link one below so they can use the gym portal."}</Text></View>
@@ -146,12 +195,13 @@ export default function AdminGymDetailScreen() {
               <Text className="setup__section">Details</Text>
               {editing ? (
                 <View style={{ gap: 12 }}>
-                  <AdminField label="Gym name" value={fields.name} onChangeText={(name) => setFields((f) => ({ ...f, name }))} maxLength={80} />
+                  <AdminField label="Gym name" hint="Shared by all its branches" value={fields.name} onChangeText={(name) => setFields((f) => ({ ...f, name }))} maxLength={80} />
+                  <AdminField label="Branch name" value={fields.branch} onChangeText={(branch) => setFields((f) => ({ ...f, branch }))} maxLength={80} />
                   <AdminField label="Area" value={fields.area} onChangeText={(area) => setFields((f) => ({ ...f, area }))} maxLength={80} />
                   <AdminField label="City" value={fields.city} onChangeText={(city) => setFields((f) => ({ ...f, city }))} maxLength={60} />
                   {edit.error ? <FormAlert message={edit.error} /> : null}
                   <View className="flex-row" style={{ gap: 10 }}>
-                    <Pressable onPress={() => edit.save((token) => adminGyms.update(token, gymId, { name: fields.name.trim(), area: fields.area.trim(), city: fields.city.trim() }))} disabled={edit.busy} className="btn-forest flex-1" accessibilityRole="button" accessibilityLabel="Save gym details">
+                    <Pressable onPress={() => edit.save((token) => adminGyms.update(token, gymId, { name: fields.name.trim(), branch: fields.branch.trim(), area: fields.area.trim(), city: fields.city.trim() }))} disabled={edit.busy} className="btn-forest flex-1" accessibilityRole="button" accessibilityLabel="Save gym details">
                       <Text className="btn-forest__label">Save</Text>
                     </Pressable>
                     <Pressable onPress={() => setEditing(false)} className="btn-outline" style={{ paddingHorizontal: 18 }} accessibilityRole="button" accessibilityLabel="Cancel">
@@ -160,8 +210,8 @@ export default function AdminGymDetailScreen() {
                   </View>
                 </View>
               ) : (
-                <Pressable onPress={() => { setFields({ name: data.gym.name, area: data.gym.area, city: data.gym.city }); setEditing(true); }} className="btn-outline" accessibilityRole="button" accessibilityLabel="Edit gym details">
-                  <Text className="btn-outline__label">Edit name and place</Text>
+                <Pressable onPress={() => { setFields({ name: data.gym.name, branch: data.gym.branch, area: data.gym.area, city: data.gym.city }); setEditing(true); }} className="btn-outline" accessibilityRole="button" accessibilityLabel="Edit gym details">
+                  <Text className="btn-outline__label">Edit names and place</Text>
                 </Pressable>
               )}
             </>

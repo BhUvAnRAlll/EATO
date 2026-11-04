@@ -14,7 +14,7 @@ import { useGymData } from "@/lib/useGymData";
 import { useThemeColors } from "@/theme";
 
 type KindFilter = PaymentKind | "all";
-const KINDS: KindFilter[] = ["all", "admission", "renewal", "due", "sale"];
+const KINDS: KindFilter[] = ["all", "admission", "renewal", "due", "pt", "service", "sale"];
 const isKind = (value: unknown): value is KindFilter => typeof value === "string" && (KINDS as string[]).includes(value);
 
 // Gym admin › Transactions (View All): every payment, newest first, by type, 50 at a time.

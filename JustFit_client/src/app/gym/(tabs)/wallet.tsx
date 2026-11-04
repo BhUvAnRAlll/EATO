@@ -10,7 +10,7 @@ import { KIND_LABEL, rupees } from "@/data/gymDashboard";
 import { gymApi, type GymWallet, type PaymentKind } from "@/lib/gymApi";
 import { useGymData } from "@/lib/useGymData";
 
-const KINDS: PaymentKind[] = ["admission", "renewal", "due", "sale"];
+const KINDS: PaymentKind[] = ["admission", "renewal", "due", "pt", "service", "sale"];
 
 // One period's money: the total, online and cash, and each type
 function PeriodCard({ title, sums }: { title: string; sums: GymWallet["month"] }) {

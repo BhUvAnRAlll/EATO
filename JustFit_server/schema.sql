@@ -1125,31 +1125,47 @@ CREATE TABLE analytics_sessions (
 ) ENGINE = InnoDB;
 
 -- ---------------------------------------------------------------------------
--- Gym admin portal (2026-11-04, migration 2026-11-19-gym-portal.sql). A gym is created by a
--- justFit admin, who links gym_admin accounts to it (gym_staff, one gym per account). Everything
+-- Gym admin portal (2026-11-04, migrations 2026-11-19-gym-portal.sql and 2026-11-20-gym-branches.sql).
+-- A justFit admin creates a gym brand (gym_brands, e.g. Forma) and its branches (gyms, one row
+-- per branch, e.g. Tumkur), and links gym_admin accounts to branches of one brand (gym_staff;
+-- the account switches between them, selected_at remembers the last). Everything
 -- else belongs to one gym and is written only by its staff: the gym's own members (people at the
 -- gym, not app accounts), payments, enquiries and daily check-ins. Money is in whole rupees;
 -- days are India's calendar days (the server works them out). Nothing cascades from a gym: gyms
 -- are never deleted. Only users cascade (gym_staff), the rest keep their rows with created_by NULL.
 -- ---------------------------------------------------------------------------
 
-CREATE TABLE gyms (
+CREATE TABLE gym_brands (
   id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
-  name        VARCHAR(80)  NOT NULL,
+  name        VARCHAR(80)  NOT NULL,              -- the gym's name, e.g. Forma
+  created_by  VARCHAR(64)  NULL,
+  created_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  CONSTRAINT fk_gym_brands_created_by FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL
+) ENGINE = InnoDB;
+
+CREATE TABLE gyms (                               -- one branch of a gym brand
+  id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  brand_id    INT UNSIGNED NOT NULL,
+  name        VARCHAR(80)  NOT NULL,              -- the branch's name, e.g. Tumkur
   area        VARCHAR(80)  NOT NULL,
   city        VARCHAR(60)  NOT NULL,
   created_by  VARCHAR(64)  NULL,
   created_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
+  KEY idx_gyms_brand (brand_id),
+  CONSTRAINT fk_gyms_brand FOREIGN KEY (brand_id) REFERENCES gym_brands (id),
   CONSTRAINT fk_gyms_created_by FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL
 ) ENGINE = InnoDB;
 
 CREATE TABLE gym_staff (
-  user_id   VARCHAR(64)  NOT NULL,              -- a gym_admin account: one gym each
-  gym_id    INT UNSIGNED NOT NULL,
-  added_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (user_id),
+  user_id      VARCHAR(64)  NOT NULL,           -- a gym_admin account, on branches of one brand
+  gym_id       INT UNSIGNED NOT NULL,
+  added_at     TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  selected_at  TIMESTAMP(3) NULL,               -- when the account last switched to this branch
+  PRIMARY KEY (user_id, gym_id),
   KEY idx_gym_staff_gym (gym_id),
   CONSTRAINT fk_gym_staff_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
   CONSTRAINT fk_gym_staff_gym FOREIGN KEY (gym_id) REFERENCES gyms (id)
@@ -1160,7 +1176,9 @@ CREATE TABLE gym_members (
   gym_id       INT UNSIGNED NOT NULL,
   full_name    VARCHAR(80)  NOT NULL,
   phone        CHAR(10)     NULL,                -- 10 digits, +91 implied
-  plan_months  TINYINT UNSIGNED NOT NULL,        -- the latest plan bought
+  dob          DATE         NULL,                -- optional, for birthdays
+  plan_months  TINYINT UNSIGNED NULL,            -- the latest plan bought: its months,
+  plan_days    SMALLINT UNSIGNED NULL,           -- or its days (exactly one is set)
   joined_on    DATE         NOT NULL,
   expires_on   DATE         NOT NULL,            -- the last day the membership covers
   due_amount   INT UNSIGNED NOT NULL DEFAULT 0,  -- rupees still owed
@@ -1175,16 +1193,18 @@ CREATE TABLE gym_members (
   CONSTRAINT fk_gym_members_created_by FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL,
   CONSTRAINT chk_gym_members_phone CHECK (phone IS NULL OR phone REGEXP '^[6-9][0-9]{9}$'),
   CONSTRAINT chk_gym_members_plan CHECK (plan_months BETWEEN 1 AND 24),
+  CONSTRAINT chk_gym_members_plan_days CHECK (plan_days BETWEEN 1 AND 365),
+  CONSTRAINT chk_gym_members_plan_one CHECK ((plan_months IS NULL) <> (plan_days IS NULL)),
   CONSTRAINT chk_gym_members_due CHECK (due_amount <= 1000000)
 ) ENGINE = InnoDB;
 
 CREATE TABLE gym_payments (
   id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
   gym_id      INT UNSIGNED NOT NULL,
-  member_id   INT UNSIGNED NULL,                 -- NULL for a shop sale
-  kind        ENUM('admission', 'renewal', 'due', 'sale') NOT NULL,
+  member_id   INT UNSIGNED NULL,                 -- NULL for a product sale
+  kind        ENUM('admission', 'renewal', 'due', 'sale', 'pt', 'service') NOT NULL,  -- sale: a product; pt: personal training
   title       VARCHAR(80)  NOT NULL,             -- the member's name, or the item sold
-  detail      VARCHAR(80)  NOT NULL,             -- "3 Months", "Due payment", "Supplement Sale"
+  detail      VARCHAR(80)  NOT NULL,             -- "3 Months", "Due payment", "Supplement", "PT · 12 sessions"
   method      ENUM('online', 'cash') NOT NULL,
   amount      INT UNSIGNED NOT NULL,             -- rupees
   paid_on     DATE         NOT NULL,
@@ -1228,4 +1248,28 @@ CREATE TABLE gym_attendance (
   CONSTRAINT fk_gym_attendance_gym FOREIGN KEY (gym_id) REFERENCES gyms (id),
   CONSTRAINT fk_gym_attendance_member FOREIGN KEY (member_id) REFERENCES gym_members (id),
   CONSTRAINT fk_gym_attendance_created_by FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL
+) ENGINE = InnoDB;
+
+-- A branch's price list (Plans / Catalogue, 2026-11-04, migration 2026-11-21-gym-catalog.sql):
+-- membership plans, PT packages, services and products. The forms fill the fee from it; a payment keeps its
+-- own amount and words, so changing or deleting an item never changes past payments.
+CREATE TABLE gym_catalog_items (
+  id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  gym_id      INT UNSIGNED NOT NULL,                -- the branch whose price list it is
+  kind        ENUM('plan', 'pt', 'service', 'product') NOT NULL,
+  name        VARCHAR(80)  NOT NULL,                -- "3 Months", "12 sessions", "Steam bath", "Whey Protein 1kg"
+  duration       SMALLINT UNSIGNED NULL,            -- plans only: how long
+  duration_unit  ENUM('months', 'days') NULL,       -- plans only: 1-24 months or 1-365 days
+  price       INT UNSIGNED NOT NULL,                -- rupees
+  created_by  VARCHAR(64)  NULL,
+  created_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_gym_catalog_kind (gym_id, kind),
+  CONSTRAINT fk_gym_catalog_gym FOREIGN KEY (gym_id) REFERENCES gyms (id),
+  CONSTRAINT fk_gym_catalog_created_by FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL,
+  CONSTRAINT chk_gym_catalog_price CHECK (price BETWEEN 1 AND 1000000),
+  CONSTRAINT chk_gym_catalog_length CHECK (
+    (kind = 'plan' AND ((duration_unit = 'months' AND duration BETWEEN 1 AND 24) OR (duration_unit = 'days' AND duration BETWEEN 1 AND 365)))
+    OR (kind <> 'plan' AND duration IS NULL AND duration_unit IS NULL))
 ) ENGINE = InnoDB;

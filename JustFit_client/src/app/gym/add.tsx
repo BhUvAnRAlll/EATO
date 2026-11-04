@@ -7,12 +7,13 @@ import { GymScreen } from "@/components/gym/GymScreen";
 import { ADD_ACTIONS } from "@/data/gymDashboard";
 import { useThemeColors } from "@/theme";
 
-// Gym admin › +: what to record. Renewals and due payments start by picking the member.
+// Gym admin › +: what to record. Renewals, due payments and PT start by picking the member.
 export default function GymAdd() {
   const colors = useThemeColors();
   const open = (id: (typeof ADD_ACTIONS)[number]["id"]) => {
     if (id === "admission") router.push("/gym/admission");
     else if (id === "sale") router.push("/gym/sale");
+    else if (id === "service") router.push("/gym/service");
     else if (id === "enquiry") router.push("/gym/enquiry");
     else router.push({ pathname: "/gym/members", params: { pick: id, filter: id === "due" ? "due" : "all" } });
   };

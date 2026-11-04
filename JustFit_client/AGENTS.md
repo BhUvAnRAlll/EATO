@@ -103,15 +103,37 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
   every query is scoped to that gym. Admin side `/api/admin/portal/gyms*` (`admin/gyms.js`,
   audited as `gym.create`, `gym.edit`, `gym.staff_add`, `gym.staff_remove`); the Overview adds
   gym counts. Tables `gyms`, `gym_staff`, `gym_members`, `gym_payments`, `gym_enquiries`,
-  `gym_attendance` (migrations `2026-11-18-gym-admin-role.sql`, `2026-11-19-gym-portal.sql`).
+  `gym_attendance` (migrations `2026-11-18-gym-admin-role.sql`, `2026-11-19-gym-portal.sql`,
+  `2026-11-20-gym-branches.sql`). Branches: `gym_brands` is the gym (Forma), each `gyms` row a
+  branch (Tumkur); staff can be linked to several branches of one gym and switch (`/gym/branches`,
+  the server keeps the choice in `gym_staff.selected_at`). Payment kinds add `pt`; `sale` shows as
+  Product. Members have an optional `dob` for birthdays. Plans / Catalogue (`gym_catalog_items`,
+  migration `2026-11-21-gym-catalog.sql`): each branch's membership plans (with months), PT
+  packages, services and products with prices; the forms fill the price from it (`CatalogPicks`);
+  payment kind `service` added. Adding or editing is the Add Plan bottom sheet (`CatalogSheet`:
+  name, Duration Type Months/Days and Duration for plans, amount), then "Please confirm the
+  details" (Edit / Confirm). Plan lengths are 1-24 months or 1-365 days everywhere (catalogue,
+  admission, renewal; `gym_members.plan_days` beside `plan_months`).
+- **Theme (2026-11-04):** the portal's main theme is an indigo-to-violet gradient (`gym-grad-from`
+  `#4F46E5` → `gym-grad-to` `#7C3AED`, drawn by `components/gym/GradientFill.tsx` with
+  react-native-svg): the revenue card, filled buttons, the + buttons, selected chips, the active
+  tab, the ADMIN pill, the badge and the menu's account card. Text on it is white. Soft fills,
+  outlines and small text stay solid indigo (`gym-primary*`); never black.
+- **Navigation:** tabs Home · Manage · Wallet. Manage ("Manager", from the user's design) has top
+  tabs Member, Plan / Catalogue, Enquiry, Expense (coming soon). The ☰ (and the account button) on
+  Home open the side menu (`components/gym/GymMenu.tsx`): the account and branch, Manage items
+  (Expenses, Staff / Admin Login, Reminder Templates: coming soon; Outlets = branches), Other (Send
+  Bulk SMS, Biometric Attendance: coming soon) and Sign out. No subscription/Buy Now card (no
+  billing in justFit yet).
   Money in whole rupees; "today" is India's date (`rules.todayInIndia`); gyms are never deleted
   and nothing cascades except `gym_staff` from users.
-- **App:** Home (live dashboard from the user's indigo design), + (`/gym/add`: admission, renewal,
-  due payment, shop sale, enquiry), Members (search, filters, pick mode), a member's page (check in
+- **App:** Home (live dashboard from the user's indigo design: six count tiles Admission, Renewal,
+  Enquiry, Due Paid, PT, Product; five cards Due, Expiring today, Attendance, Expiring in 1-3
+  days, Birthdays today), + (`/gym/add`: admission, renewal, due payment, PT, product, enquiry), Members (search, filters, pick mode), a member's page (check in
   once a day, renew, collect due, edit), Transactions (View All, 50 a page), Enquiries, Wallet tab
-  (today, this month, owed), Settings tab (the gym, Sign out). Admin: the Gyms tab, a gym's page,
+  (today, this month, owed). Admin: the Gyms tab, a gym's page,
   New gym. Calls in `lib/gymApi.ts`, loading in `lib/useGymData.ts`, saves in `lib/gymForm.ts`.
-- **Look:** `gym-*` tokens (indigo, this portal only) and `gym-*` utilities; the member app and the
+- **Look:** `gym-*` tokens (the indigo-to-violet theme, this portal only) and `gym-*` utilities; the member app and the
   Super Admin stay red. No AI button (removed at the user's request). Send Bulk SMS says "coming
   soon" (real SMS costs money; not built).
 - **Tests:** `__tests__/gym-rules.test.js`, `e2e/gym-portal.e2e.test.js`, `ui/gym-portal.ui.test.js`.
