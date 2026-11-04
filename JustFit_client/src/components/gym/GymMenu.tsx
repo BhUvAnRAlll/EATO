@@ -34,7 +34,7 @@ export function GymMenu({ open, onClose, gymLine, onBulkSms }: { open: boolean; 
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
   const user = useAuthStore((state) => state.user);
-  const name = user?.fullName?.trim() || "Gym admin";
+  const name = user?.fullName?.trim() || "Admin";
 
   const go = (item: MenuItem) => {
     onClose();

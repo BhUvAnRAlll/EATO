@@ -35,7 +35,7 @@ async function requireGymStaff(req, res, next) {
   }
   if (account.role !== "gym_admin") {
     logSecurityEvent("admin.denied", { userId: req.userId, method: req.method, path: req.originalUrl?.split("?")[0] ?? req.path });
-    return res.status(403).json({ error: "Only gym admins can do that." });
+    return res.status(403).json({ error: "Only this gym's admins can do that." });
   }
   try {
     req.gym = await service.staffGym(pool(req), req.userId);

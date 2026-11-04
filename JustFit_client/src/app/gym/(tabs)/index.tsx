@@ -46,7 +46,7 @@ const toneColors = (colors: Palette, tone: Tone) =>
 export default function GymHome() {
   const colors = useThemeColors();
   const user = useAuthStore((state) => state.user);
-  const name = user?.fullName?.trim() || "Gym admin";
+  const name = user?.fullName?.trim() || "Admin";
   const { result, reload, retry } = useGymData(gymApi.dashboard);
   const [refreshing, setRefreshing] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
