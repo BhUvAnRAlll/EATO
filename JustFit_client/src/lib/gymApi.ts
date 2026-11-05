@@ -39,7 +39,25 @@ export type MemberPt = { label: string; from: string; until: string; active: boo
 export type GymMember = MemberDetails & { id: number; code: string; photoUrl: string | null; dueBy: string | null; overdue: boolean; daysLeft: number; pt: MemberPt | null; gender: Gender | null; name: string; phone: string | null; dob: string | null; birthdayToday: boolean; planLength: PlanLength; joinedOn: string; expiresOn: string; due: number; status: MemberStatus; inToday: boolean; insideNow: boolean };
 export type GymMemberDetail = { member: GymMember & { visitsThisMonth: number; lastVisit: string | null }; payments: GymPayment[]; alreadyIn?: boolean; durationMin?: number | null };
 export type MemberFilter = "all" | "due" | "overdue" | "expiring" | "expiring_soon" | "expired" | "in_today" | "birthday";
-export type GymEnquiry = { id: number; name: string; phone: string | null; note: string | null; enquiredOn: string };
+// Enquiry follow-up: lost shows as "Not interested"; joined has the member they became
+export type EnquiryStatus = "new" | "follow_up" | "joined" | "lost";
+export type EnquiryInterest = "membership" | "pt" | "trial" | "other";
+export type EnquirySource = "walk_in" | "call" | "whatsapp" | "instagram" | "referral" | "other";
+export type EnquiryView = "today" | "overdue" | "open" | "joined" | "lost" | "all";
+export type GymEnquiry = {
+  id: number;
+  name: string;
+  phone: string | null;
+  note: string | null;
+  status: EnquiryStatus;
+  followUpOn: string | null;
+  interest: EnquiryInterest | null;
+  source: EnquirySource | null;
+  member: { id: number; code: string } | null;
+  enquiredOn: string;
+};
+export type EnquiryFields = { name: string; phone: string; note: string; interest: EnquiryInterest | ""; source: EnquirySource | ""; followUpOn: string | "" };
+export type GymEnquiries = { today: string; enquiries: GymEnquiry[]; counts: Record<EnquiryView, number>; gym: GymInfo };
 type Sums = { online: number; cash: number; total: number; byKind: Record<PaymentKind, number> };
 export type GymWallet = { today: Sums; month: Sums; owed: { total: number; members: number } };
 
@@ -95,8 +113,11 @@ export const gymApi = {
   editItem: (token: string | null, id: number, fields: { name?: string; duration?: number; unit?: PlanUnit; price?: number; stock?: number | "" }) => call<{ items: CatalogItem[] }>(token, `/api/gym/catalog/${id}`, "PATCH", fields),
   deleteItem: (token: string | null, id: number) => call<{ items: CatalogItem[] }>(token, `/api/gym/catalog/${id}`, "DELETE"),
   sale: (token: string | null, fields: { item: string; category: SaleCategory; amount: number; method: PayMethod }) => call<{ payment: GymPayment }>(token, "/api/gym/sales", "POST", fields),
-  enquiries: (token: string | null) => call<{ enquiries: GymEnquiry[] }>(token, "/api/gym/enquiries"),
-  addEnquiry: (token: string | null, fields: { name: string; phone: string; note: string }) => call<{ enquiry: GymEnquiry }>(token, "/api/gym/enquiries", "POST", fields),
+  enquiries: (token: string | null, view: EnquiryView, search: string) =>
+    call<GymEnquiries>(token, `/api/gym/enquiries?view=${view}&search=${encodeURIComponent(search)}`),
+  addEnquiry: (token: string | null, fields: EnquiryFields) => call<{ enquiry: GymEnquiry }>(token, "/api/gym/enquiries", "POST", fields),
+  editEnquiry: (token: string | null, id: number, fields: Partial<EnquiryFields> & { status?: EnquiryStatus; memberId?: number }) =>
+    call<{ enquiry: GymEnquiry }>(token, `/api/gym/enquiries/${id}`, "PATCH", fields),
   wallet: (token: string | null) => call<GymWallet>(token, "/api/gym/wallet"),
   updateDetails: (token: string | null, fields: Partial<Omit<GymInfo, "name">> & { adminName?: string }) =>
     call<{ gym: GymInfo; adminName: string | null }>(token, "/api/gym/details", "PATCH", fields),

@@ -12,6 +12,7 @@ import { AddMemberSheet } from "@/components/gym/AddMemberSheet";
 import { AddSheet } from "@/components/gym/AddSheet";
 import { BulkSmsSheet } from "@/components/gym/BulkSmsSheet";
 import { DueMembersSheet } from "@/components/gym/DueMembersSheet";
+import { EnquirySheet } from "@/components/gym/EnquirySheet";
 import { GymMenu } from "@/components/gym/GymMenu";
 import { GradientFill } from "@/components/gym/GradientFill";
 import { PaymentRow } from "@/components/gym/PaymentRow";
@@ -51,15 +52,15 @@ export default function GymHome() {
   const [refreshing, setRefreshing] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   // The + sheet, or Add New Member opened from it
-  const [sheet, setSheet] = useState<"add" | "member" | "due" | "sms" | null>(null);
+  const [sheet, setSheet] = useState<"add" | "member" | "due" | "sms" | "enquiry" | null>(null);
   const pick = (action: AddAction) => {
     setSheet(action === "member" ? "member" : null);
     if (action === "member") return;
     // Send Bulk SMS opens once the + sheet has gone
     if (action === "sms") return void setTimeout(() => setSheet("sms"), 250);
+    if (action === "enquiry") return void setTimeout(() => setSheet("enquiry"), 250);
     const go: Partial<Record<AddAction, () => void>> = {
       plan: () => router.push("/gym/manage?tab=catalog"),
-      enquiry: () => router.push("/gym/enquiry"),
       outlet: () => router.push("/gym/branches"),
       attendance: () => router.push("/gym/attendance"),
     };
@@ -83,7 +84,7 @@ export default function GymHome() {
     ? [
         { id: "admission", value: data.stats.admission, label: "Admission", color: tile("Violet"), icon: "users", href: "/gym/transactions?kind=admission&today=1" },
         { id: "renewal", value: data.stats.renewal, label: "Renewal", color: tile("Orange"), icon: "refresh-ccw", href: "/gym/transactions?kind=renewal&today=1" },
-        { id: "enquiry", value: data.stats.enquiry, label: "Enquiry", color: tile("Blue"), icon: "message-circle-question", href: "/gym/enquiries" },
+        { id: "enquiry", value: data.stats.enquiry, label: "Enquiry", color: tile("Blue"), icon: "message-circle-question", href: "/gym/manage?tab=enquiry" },
         { id: "due-paid", value: data.stats.duePaid, label: "Due Paid", color: tile("Green"), icon: "indian-rupee", href: "/gym/transactions?kind=due&today=1" },
         { id: "pt", value: data.stats.pt, label: "PT", color: tile("Pink"), icon: "dumbbell", href: "/gym/transactions?kind=pt&today=1" },
         { id: "product", value: data.stats.product, label: "Product", color: tile("Purple"), icon: "package", href: "/gym/transactions?kind=sale&today=1" },
@@ -249,6 +250,17 @@ export default function GymHome() {
       </SafeAreaView>
       {sheet === "add" && <AddSheet onClose={() => setSheet(null)} onPick={pick} />}
       {sheet === "sms" && <BulkSmsSheet onClose={() => setSheet(null)} />}
+      {sheet === "enquiry" && (
+        <EnquirySheet
+          enquiry={null}
+          onClose={() => setSheet(null)}
+          onSaved={() => {
+            setSheet(null);
+            reload();
+            router.push("/gym/manage?tab=enquiry");
+          }}
+        />
+      )}
       {sheet === "due" && data && <DueMembersSheet gym={data.gym} onClose={() => setSheet(null)} onChanged={reload} />}
       {sheet === "member" && (
         <AddMemberSheet

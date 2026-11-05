@@ -173,9 +173,24 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
   Expiring in 1-3 days, Birthdays today, then Send Bulk SMS and Recent Transactions; content
   max 760 px; sections fade up once when the numbers first arrive, counts change with
   `AnimatedNumber`), + (`/gym/add`: admission, renewal, due payment, PT, product, enquiry), Members (search, filters, pick mode), a member's page (check in
-  once a day, renew, collect due, edit), Transactions (View All, 50 a page), Enquiries, Wallet tab
+  once a day, renew, collect due, edit), Transactions (View All, 50 a page), Enquiries (see below), Wallet tab
   (today, this month, owed). Admin: the Gyms tab, a gym's page,
   New gym. Calls in `lib/gymApi.ts`, loading in `lib/useGymData.ts`, saves in `lib/gymForm.ts`.
+- **Enquiry follow-up (2026-11-05, chosen by the user):** Manage › Enquiry (`EnquiryList`; Home's
+  Enquiry tile and the ☰ menu open it; `/gym/enquiries` and `/gym/enquiry` only redirect there)
+  lists everyone who asked about joining: Today, Overdue, Open (new or follow-up), Joined, Not
+  interested and All, each with its count, and search by name or number. Cards show the status,
+  when to call back (red once overdue), interest and source, with Call and WhatsApp (the phone's
+  apps, `lib/gymContact.ts`) and the round +. `EnquirySheet` adds (also Home's + › Add Enquiry) and
+  edits: name, mobile, Interested in (Membership, PT, Trial, Other), Came from (Walk-in, Call,
+  WhatsApp, Instagram, Referral, Other), note, Follow up on (Today, Tomorrow, 3 days, 1 week or a
+  date), status (New, Follow-up, Not interested) and Convert to member: Add Member opens with the
+  name and number, and once saved the enquiry is Joined and linked to that member (only a member
+  of the same branch; reopening unlinks it). A follow-up date moves a new enquiry to follow-up.
+  Server: `GET /api/gym/enquiries?view=&search=` (with `counts`), `POST`, `PATCH /:id`
+  (`rules.enquiryBody` / `enquiryEditBody` / `enquiriesQuery`, `service.enquiries` /
+  `editEnquiry`). Migration `2026-11-28-gym-enquiry-followup.sql` (status, follow_up_on, interest,
+  source, member_id, updated_at); before it, the list answers 503 naming it.
 - **Look:** `gym-*` tokens (the indigo-to-violet theme, this portal only) and `gym-*` utilities; the member app and the
   Super Admin stay red. No AI button (removed at the user's request).
 - **SMS to members (2026-11-04, the user's GymOps designs; real SMS approved by the user):**

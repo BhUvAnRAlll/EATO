@@ -83,10 +83,38 @@ describe("gym rules: admissions, renewals, dues, sales, enquiries", () => {
     assert.equal(rules.duePaymentBody({ amount: 1, method: "cash", paidOn: rules.addDays(today, -3) }).paidOn, rules.addDays(today, -3));
     refuses(() => rules.duePaymentBody({ amount: 1, method: "cash", paidOn: rules.addDays(today, 1) }), /collected date/);
     refuses(() => rules.saleBody({ item: "Whey", category: "__proto__", amount: 3200, method: "cash" }), /what was sold/);
-    assert.deepEqual(rules.enquiryBody({ name: "Priya", phone: "", note: "  Evening batch?  " }), { name: "Priya", phone: null, note: "Evening batch?" });
+    assert.deepEqual(rules.enquiryBody({ name: "Priya", phone: "", note: "  Evening batch?  " }), { name: "Priya", phone: null, note: "Evening batch?", interest: null, source: null, followUpOn: null });
     assert.equal(rules.enquiryBody({ name: "Priya" }).note, null);
     // QA 2026-11-04: a note that isn't text was saved as "object Object"
     for (const note of [{ a: 1 }, ["x"], 42, true]) assert.throws(() => rules.enquiryBody({ name: "Priya", note }), /note as text/);
+  });
+
+  it("enquiry follow-up: interest, source, the call-back day, status and the member they became", () => {
+    const today = "2026-11-05";
+    const full = rules.enquiryBody({ name: "Priya", phone: "9123456780", note: "Evenings", interest: "pt", source: "instagram", followUpOn: "2026-11-06" }, today);
+    assert.deepEqual(full, { name: "Priya", phone: "9123456780", note: "Evenings", interest: "pt", source: "instagram", followUpOn: "2026-11-06" });
+    assert.equal(rules.enquiryBody({ name: "Priya", interest: "", source: "", followUpOn: "" }, today).followUpOn, null, "blank means none");
+    refuses(() => rules.enquiryBody({ name: "Priya", interest: "yoga" }, today), /interested in/);
+    refuses(() => rules.enquiryBody({ name: "Priya", source: "__proto__" }, today), /found the gym/);
+    refuses(() => rules.enquiryBody({ name: "Priya", status: "joined" }, today), /fields/, "a new enquiry can't be added as joined");
+    for (const bad of ["2027-11-06", "2025-11-04", "2026-02-30", "06-11-2026", 20261106]) refuses(() => rules.enquiryBody({ name: "Priya", followUpOn: bad }, today), /follow-up date/);
+    assert.equal(rules.followUpDate("2025-11-05", today), "2025-11-05", "a year back is kept (an edit saved as it was)");
+
+    assert.deepEqual(rules.enquiryEditBody({ status: "lost" }, today), { status: "lost" });
+    assert.deepEqual(rules.enquiryEditBody({ followUpOn: "" }, today), { followUpOn: null });
+    assert.deepEqual(rules.enquiryEditBody({ status: "joined", memberId: 7 }, today), { status: "joined", memberId: 7 });
+    refuses(() => rules.enquiryEditBody({ status: "joined" }, today), /Convert the enquiry/);
+    refuses(() => rules.enquiryEditBody({ memberId: 7 }, today), /only be linked/);
+    refuses(() => rules.enquiryEditBody({ status: "lost", memberId: 7 }, today), /only be linked/);
+    for (const memberId of ["7", 0, -1, 1.5, 2 ** 40]) refuses(() => rules.enquiryEditBody({ status: "joined", memberId }, today), /member doesn't exist/);
+    refuses(() => rules.enquiryEditBody({ status: "won" }, today), /Pick a status/);
+    refuses(() => rules.enquiryEditBody({}, today), /Change something/);
+    refuses(() => rules.enquiryEditBody({ gymId: 2 }, today), /fields/);
+
+    assert.deepEqual(rules.enquiriesQuery({}), { view: "open", search: "" });
+    assert.deepEqual(rules.enquiriesQuery({ view: "overdue", search: " Priya " }), { view: "overdue", search: "Priya" });
+    refuses(() => rules.enquiriesQuery({ view: "e.status" }), /Pick a list/);
+    refuses(() => rules.enquiriesQuery({ search: "x".repeat(61) }), /at most 60/);
   });
 
   it("dates of birth: optional, real, not in the future", () => {

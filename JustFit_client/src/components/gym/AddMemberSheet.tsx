@@ -50,7 +50,7 @@ const numberOrBlank = (text: string) => (text.trim() === "" ? "" : Number(text))
 // then "Please confirm the details". The server makes the ID and checks every field again. The
 // photo is uploaded once the member is saved; if only the photo fails, the member stays saved
 // and the gym admin is told.
-export function AddMemberSheet({ onClose, onSaved }: { onClose: () => void; onSaved: (detail: GymMemberDetail) => void }) {
+export function AddMemberSheet({ onClose, onSaved, initial }: { onClose: () => void; onSaved: (detail: GymMemberDetail) => void; initial?: { name: string; phone: string | null } }) {
   const colors = useThemeColors();
   const loadCode = useCallback((token: string | null) => gymApi.nextCode(token), []);
   const { result: code } = useGymData(loadCode);
@@ -60,8 +60,9 @@ export function AddMemberSheet({ onClose, onSaved }: { onClose: () => void; onSa
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
   // Step 1
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
+  // Convert to member (Manage › Enquiry) opens with the enquiry's name and number
+  const [name, setName] = useState(initial?.name ?? "");
+  const [phone, setPhone] = useState(initial?.phone?.replace(/^\+91/, "") ?? "");
   const [gender, setGender] = useState<Gender | "">("");
   const [photo, setPhoto] = useState<MemberPhoto | null>(null);
   const [photoError, setPhotoError] = useState("");

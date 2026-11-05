@@ -1250,12 +1250,22 @@ CREATE TABLE gym_enquiries (
   full_name    VARCHAR(80)  NOT NULL,
   phone        CHAR(10)     NULL,
   note         VARCHAR(200) NULL,
+  -- Follow-up (migration 2026-11-28-gym-enquiry-followup.sql): lost shows as "Not interested";
+  -- member_id is the member they became (Convert to member)
+  status       ENUM('new', 'follow_up', 'joined', 'lost') NOT NULL DEFAULT 'new',
+  follow_up_on DATE         NULL,
+  interest     ENUM('membership', 'pt', 'trial', 'other') NULL,
+  source       ENUM('walk_in', 'call', 'whatsapp', 'instagram', 'referral', 'other') NULL,
+  member_id    INT UNSIGNED NULL,
   enquired_on  DATE         NOT NULL,
   created_by   VARCHAR(64)  NULL,
   created_at   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at   TIMESTAMP    NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   KEY idx_gym_enquiries_day (gym_id, enquired_on),
+  KEY idx_gym_enquiries_followup (gym_id, status, follow_up_on),
   CONSTRAINT fk_gym_enquiries_gym FOREIGN KEY (gym_id) REFERENCES gyms (id),
+  CONSTRAINT fk_gym_enquiries_member FOREIGN KEY (member_id) REFERENCES gym_members (id),
   CONSTRAINT fk_gym_enquiries_created_by FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL,
   CONSTRAINT chk_gym_enquiries_phone CHECK (phone IS NULL OR phone REGEXP '^[6-9][0-9]{9}$')
 ) ENGINE = InnoDB;

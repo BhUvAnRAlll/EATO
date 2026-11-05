@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { daysFromToday, dobFromText, dobInput, phoneInput, todayIso } from "../gymDashboard.ts";
+import { daysFromToday, dobFromText, dobInput, followUpText, phoneInput, todayIso } from "../gymDashboard.ts";
 
 describe("gym portal inputs", () => {
   it("mobile numbers keep to 10 digits, whatever is typed or pasted", () => {
@@ -30,5 +30,16 @@ describe("gym portal inputs", () => {
     assert.equal(daysFromToday(7, lateUtc), "2026-11-12");
     assert.equal(daysFromToday(-365, lateUtc), "2025-11-05");
     assert.equal(todayIso(new Date("2026-11-04T18:29:00Z")), "2026-11-04", "23:59 in India");
+  });
+
+  it("an enquiry's follow-up line: today, overdue, tomorrow or the date", () => {
+    const today = "2026-11-05";
+    assert.deepEqual(followUpText(today, today), { tone: "today", text: "Follow up today" });
+    assert.deepEqual(followUpText("2026-11-04", today), { tone: "overdue", text: "Overdue by 1 day" });
+    assert.deepEqual(followUpText("2026-10-26", today), { tone: "overdue", text: "Overdue by 10 days" });
+    assert.deepEqual(followUpText("2026-11-06", today), { tone: "later", text: "Follow up tomorrow" });
+    assert.equal(followUpText("2026-12-01", today).tone, "later");
+    assert.match(followUpText("2026-12-01", today).text, /^Follow up on 1 Dec 2026$/);
+    assert.deepEqual(followUpText("2027-01-01", "2026-12-31"), { tone: "later", text: "Follow up tomorrow" }, "across a year end");
   });
 });

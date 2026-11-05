@@ -1,37 +1,218 @@
-import { Text, View } from "react-native";
+import { useCallback, useEffect, useState } from "react";
+import { FlatList, Platform, ScrollView, Text, TextInput, useWindowDimensions, View } from "react-native";
+import { router } from "expo-router";
 
+import { PressableScale } from "@/components/PressableScale";
+import { AddMemberSheet } from "@/components/gym/AddMemberSheet";
+import { EnquirySheet } from "@/components/gym/EnquirySheet";
+import { GradientFill } from "@/components/gym/GradientFill";
+import { GymIcon } from "@/components/gym/GymIcon";
 import { GymEmpty, GymError, GymLoading } from "@/components/gym/GymStates";
-import { initialsOf, phoneText, shortDate } from "@/data/gymDashboard";
-import { gymApi } from "@/lib/gymApi";
+import { ENQUIRY_STATUS_LABEL, ENQUIRY_VIEWS, INTEREST_LABEL, SOURCE_LABEL, followUpText, initialsOf, phoneText, shortDate } from "@/data/gymDashboard";
+import { gymApi, type EnquiryStatus, type EnquiryView, type GymEnquiry } from "@/lib/gymApi";
+import { callPhone, enquiryFollowUp, whatsappPhone } from "@/lib/gymContact";
+import { notice } from "@/lib/gymPortal";
+import { haptic } from "@/lib/haptics";
+import { listPerf } from "@/lib/listPerf";
+import { useSessionToken } from "@/lib/session";
 import { useGymData } from "@/lib/useGymData";
+import { useThemeColors } from "@/theme";
 
-// The latest 100 people who asked about joining. Used by Enquiries and Manage › Enquiry.
-export function EnquiryList() {
-  const { result, retry } = useGymData(gymApi.enquiries);
-  return (
-    <View style={{ gap: 12 }}>
-      {result.state === "loading" && <GymLoading label="Loading enquiries" />}
-      {result.state === "failed" && <GymError error={result.error} onRetry={retry} />}
-      {result.state === "ready" &&
-        (result.data.enquiries.length === 0 ? (
-          <GymEmpty icon="message-circle-question" title="No enquiries yet" text="When someone asks about joining, add them here so you can follow up." />
-        ) : (
-          <View style={{ gap: 10 }}>
-            {result.data.enquiries.map((e) => (
-              <View key={e.id} className="gym-card gym-tx" accessible accessibilityLabel={`${e.name}${e.phone ? `, ${e.phone}` : ""}${e.note ? `, ${e.note}` : ""}, ${shortDate(e.enquiredOn)}`}>
-                <View className="gym-avatar">
-                  <Text className="gym-avatar__label">{initialsOf(e.name)}</Text>
-                </View>
-                <View className="min-w-0 flex-1" style={{ gap: 2 }}>
-                  <Text className="gym-tx__name" numberOfLines={1}>{e.name}</Text>
-                  {e.phone ? <Text className="gym-tx__meta">{phoneText(e.phone)}</Text> : null}
-                  {e.note ? <Text className="gym-tx__meta" numberOfLines={2}>{e.note}</Text> : null}
-                </View>
-                <Text className="gym-tx__date">{shortDate(e.enquiredOn)}</Text>
-              </View>
-            ))}
-          </View>
-        ))}
+const EMPTY: Record<EnquiryView, { title: string; text: string }> = {
+  today: { title: "No calls for today", text: "Enquiries to follow up today show here." },
+  overdue: { title: "Nothing overdue", text: "Enquiries whose follow-up day has passed show here." },
+  open: { title: "No open enquiries", text: "When someone asks about joining, tap + to add them so you can follow up." },
+  joined: { title: "No one has joined yet", text: "Convert an enquiry to a member and it shows here." },
+  lost: { title: "No one said no", text: "Enquiries marked not interested show here." },
+  all: { title: "No enquiries yet", text: "When someone asks about joining, tap + to add them so you can follow up." },
+};
+
+// Manage › Enquiry: everyone who asked about joining, followed up until they join or say no.
+// Lists (Today, Overdue, Open, Joined, Not interested, All) with their counts, search by name or
+// number; each card shows when to call them back, what they want and how they found the gym, with
+// Call, WhatsApp (the phone's own apps, the message written) and ⋯ to edit, change the status or
+// Convert to member. The round + adds one.
+export function EnquiryList({ initialView = "open" }: { initialView?: EnquiryView }) {
+  const colors = useThemeColors();
+  const getToken = useSessionToken();
+  // Narrow phones (under 360): no initials circle, so the name and the follow-up line fit
+  const narrow = useWindowDimensions().width < 360;
+  const [view, setView] = useState<EnquiryView>(initialView);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [typed, setTyped] = useState("");
+  const [search, setSearch] = useState("");
+  // null: closed; "new": Add Enquiry; an enquiry: edit it
+  const [editing, setEditing] = useState<GymEnquiry | "new" | null>(null);
+  const [converting, setConverting] = useState<GymEnquiry | null>(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setSearch(typed.trim()), 300);
+    return () => clearTimeout(timer);
+  }, [typed]);
+
+  const load = useCallback((token: string | null) => gymApi.enquiries(token, view, search), [view, search]);
+  const { result, retry, reload } = useGymData(load);
+  const data = result.state === "ready" ? result.data : null;
+
+  // Saved in Add Member: mark the enquiry joined and link the member, then open them
+  const joined = async (enquiry: GymEnquiry, memberId: number) => {
+    setConverting(null);
+    const linked = await gymApi.editEnquiry(await getToken().catch(() => null), enquiry.id, { status: "joined", memberId });
+    if (!linked.ok) notice("Member added", `${enquiry.name} was added as a member, but the enquiry couldn't be marked joined: ${linked.error}`);
+    reload();
+    router.push({ pathname: "/gym/members/[id]", params: { id: String(memberId) } });
+  };
+
+  const statusTone = (status: EnquiryStatus) =>
+    status === "joined"
+      ? { bg: colors.gymSuccessSoft, line: colors.gymSuccessLine, ink: colors.gymSuccess }
+      : status === "lost"
+        ? { bg: colors.gymBar, line: colors.gymLine, ink: colors.gymMuted }
+        : { bg: colors.gymPrimarySoft, line: colors.gymPrimaryLine, ink: colors.gymPrimaryText };
+
+  const header = (
+    <View style={{ gap: 12, paddingBottom: 6 }}>
+      <View className="flex-row items-center" style={{ gap: 8 }}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flex: 1 }} contentContainerStyle={{ gap: 8 }} accessibilityRole="tablist">
+          {ENQUIRY_VIEWS.map((v) => {
+            const selected = v.id === view;
+            const count = data?.counts[v.id];
+            return (
+              <PressableScale
+                key={v.id}
+                onPress={() => { if (!selected) haptic.select(); setView(v.id); }}
+                className={selected ? "gym-kind gym-kind--selected" : "gym-kind"}
+                accessibilityRole="tab"
+                accessibilityState={{ selected }}
+                accessibilityLabel={`${v.label}${count !== undefined ? `, ${count}` : ""}`}
+              >
+                {selected && <GradientFill radius={999} />}
+                <Text className={selected ? "gym-kind__label gym-kind__label--selected" : "gym-kind__label"}>{count !== undefined ? `${v.label} · ${count}` : v.label}</Text>
+              </PressableScale>
+            );
+          })}
+        </ScrollView>
+        <PressableScale onPress={() => { setSearchOpen((o) => !o); if (searchOpen) setTyped(""); }} hitSlop={8} className="gym-plain-btn" accessibilityRole="button" accessibilityLabel={searchOpen ? "Close search" : "Search enquiries"}>
+          <GymIcon name={searchOpen ? "x" : "search"} size={22} color={colors.gymInkSoft} />
+        </PressableScale>
+      </View>
+      {searchOpen && (
+        <View className="gym-field__input flex-row items-center" style={{ gap: 8 }}>
+          <GymIcon name="search" size={16} color={colors.gymFaint} />
+          <TextInput
+            value={typed}
+            onChangeText={setTyped}
+            placeholder="Search by name or phone"
+            placeholderTextColor={colors.gymFaint}
+            autoFocus
+            autoCorrect={false}
+            maxLength={60}
+            style={{ flex: 1, fontFamily: "Poppins-Regular", fontSize: 15, color: colors.gymInk, paddingVertical: 0 }}
+            accessibilityLabel="Search enquiries"
+          />
+        </View>
+      )}
     </View>
+  );
+
+  return (
+    <>
+      <FlatList
+        {...listPerf}
+        data={data?.enquiries ?? []}
+        keyExtractor={(e) => String(e.id)}
+        contentContainerStyle={{ padding: 16, paddingBottom: 120, gap: 14 }}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+        ListHeaderComponent={header}
+        ListEmptyComponent={
+          result.state === "loading" ? (
+            <GymLoading label="Loading enquiries" />
+          ) : result.state === "failed" ? (
+            <GymError error={result.error} onRetry={retry} />
+          ) : search ? (
+            <GymEmpty icon="message-circle-question" title="No enquiries match" text="Try another name or number." />
+          ) : (
+            <GymEmpty icon="message-circle-question" title={EMPTY[view].title} text={EMPTY[view].text} />
+          )
+        }
+        renderItem={({ item }) => {
+          const open = item.status === "new" || item.status === "follow_up";
+          const follow = open && item.followUpOn && data ? followUpText(item.followUpOn, data.today) : null;
+          const followColor = follow?.tone === "overdue" ? colors.gymDanger : follow?.tone === "today" ? colors.gymWarning : colors.gymInkSoft;
+          const about = [item.interest ? INTEREST_LABEL[item.interest] : null, item.source ? SOURCE_LABEL[item.source] : null].filter(Boolean).join(" · ");
+          const tone = statusTone(item.status);
+          return (
+            // The info opens the enquiry; Call and WhatsApp sit beside it (no button inside a button)
+            <View className="gym-member-card">
+              <PressableScale
+                onPress={() => setEditing(item)}
+                className="min-w-0 flex-1 flex-row items-center"
+                style={{ gap: 12 }}
+                accessibilityRole="button"
+                accessibilityLabel={`${item.name}, ${ENQUIRY_STATUS_LABEL[item.status]}${follow ? `, ${follow.text}` : ""}${about ? `, ${about}` : ""}${item.member ? `, joined as ${item.member.code}` : ""}. Edit`}
+              >
+                {!narrow && (
+                  <View className="gym-avatar">
+                    <Text className="gym-avatar__label">{initialsOf(item.name)}</Text>
+                  </View>
+                )}
+                <View className="min-w-0 flex-1" style={{ gap: 3 }}>
+                  <View className="flex-row items-center" style={{ gap: 6 }}>
+                    <Text className="gym-member-card__name flex-shrink" numberOfLines={1}>{item.name}</Text>
+                    <View className="gym-chip" style={{ borderColor: tone.line, backgroundColor: tone.bg }}>
+                      <Text className="gym-chip__label" style={{ color: tone.ink }}>{ENQUIRY_STATUS_LABEL[item.status]}</Text>
+                    </View>
+                  </View>
+                  {item.phone ? <Text className="gym-member-card__line" numberOfLines={1}>{phoneText(item.phone)}</Text> : null}
+                  {follow ? (
+                    <View className="flex-row items-center" style={{ gap: 6 }}>
+                      <GymIcon name="calendar-clock" size={15} color={followColor} />
+                      <Text className="gym-member-card__line" numberOfLines={1} style={{ color: followColor }}>{follow.text}</Text>
+                    </View>
+                  ) : null}
+                  {item.member ? <Text className="gym-member-card__line" numberOfLines={1} style={{ color: colors.gymSuccess }}>{`Joined as ${item.member.code}`}</Text> : null}
+                  {about ? <Text className="gym-tx__meta" numberOfLines={1}>{about}</Text> : null}
+                  {item.note ? <Text className="gym-tx__meta" numberOfLines={2}>{item.note}</Text> : null}
+                  <Text className="gym-tx__meta" numberOfLines={1}>{`Asked on ${shortDate(item.enquiredOn)}`}</Text>
+                </View>
+              </PressableScale>
+              {item.phone && (
+                <View className="flex-row items-center" style={{ gap: 2 }}>
+                  <PressableScale onPress={() => callPhone(item.phone)} hitSlop={6} className="gym-member-card__action" accessibilityRole="button" accessibilityLabel={`Call ${item.name}`}>
+                    <GymIcon name="phone" size={20} color={colors.gymInkSoft} />
+                  </PressableScale>
+                  <PressableScale onPress={() => data && whatsappPhone(item.phone, enquiryFollowUp(item.name, data.gym))} hitSlop={6} className="gym-member-card__action" accessibilityRole="button" accessibilityLabel={`WhatsApp ${item.name}`}>
+                    <GymIcon name="message-circle" size={20} color={colors.gymTileGreenIcon} />
+                  </PressableScale>
+                </View>
+              )}
+            </View>
+          );
+        }}
+      />
+      <View className="absolute" style={{ right: 16, bottom: 16 }}>
+        <PressableScale onPress={() => setEditing("new")} haptic="tap" className="gym-fab-round" accessibilityRole="button" accessibilityLabel="Add an enquiry">
+          <GradientFill radius={26} />
+          <GymIcon name="plus" size={22} color={colors.white} />
+        </PressableScale>
+      </View>
+      {editing && (
+        <EnquirySheet
+          enquiry={editing === "new" ? null : editing}
+          onClose={() => setEditing(null)}
+          onSaved={() => { setEditing(null); reload(); }}
+          onConvert={(enquiry) => { setEditing(null); setConverting(enquiry); }}
+          onOpenMember={(id) => { setEditing(null); router.push({ pathname: "/gym/members/[id]", params: { id: String(id) } }); }}
+        />
+      )}
+      {converting && (
+        <AddMemberSheet
+          initial={{ name: converting.name, phone: converting.phone }}
+          onClose={() => setConverting(null)}
+          onSaved={(detail) => joined(converting, detail.member.id)}
+        />
+      )}
+    </>
   );
 }

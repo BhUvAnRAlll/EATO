@@ -20,9 +20,9 @@ const smallBody = express.json({ limit: "4kb" });
 const pool = (req) => req.app.locals.pool;
 const today = () => rules.todayInIndia();
 
-// Before the gym migrations (2026-11-19-gym-portal.sql up to 2026-11-27-gym-qr-attendance.sql)
+// Before the gym migrations (2026-11-19-gym-portal.sql up to 2026-11-28-gym-enquiry-followup.sql)
 // have run, say so instead of a 500
-const MIGRATION = "The gym portal needs its migrations (up to 2026-11-27-gym-qr-attendance) on this server.";
+const MIGRATION = "The gym portal needs its migrations (up to 2026-11-28-gym-enquiry-followup) on this server.";
 const route = (handler) => (req, res, next) =>
   handler(req, res, next).catch((error) => {
     if (["ER_NO_SUCH_TABLE", "ER_BAD_FIELD_ERROR"].includes(error?.code)) return res.status(503).json({ error: MIGRATION });
@@ -154,10 +154,14 @@ router.post("/sales", smallBody, route(async (req, res) => {
 }));
 
 router.get("/enquiries", route(async (req, res) => {
-  res.json(await service.enquiries(pool(req), req.gym.id));
+  res.json({ ...(await service.enquiries(pool(req), req.gym.id, rules.enquiriesQuery(req.query), today())), gym: service.gymInfo(req.gym) });
 }));
 router.post("/enquiries", smallBody, route(async (req, res) => {
-  res.status(201).json(await service.addEnquiry(pool(req), req.gym.id, req.userId, rules.enquiryBody(req.body), today()));
+  res.status(201).json(await service.addEnquiry(pool(req), req.gym.id, req.userId, rules.enquiryBody(req.body, today()), today()));
+}));
+// Follow-up: the details, the call-back day, the status, and the member they became
+router.patch("/enquiries/:enquiryId", smallBody, route(async (req, res) => {
+  res.json(await service.editEnquiry(pool(req), req.gym.id, rules.id(req.params.enquiryId, "enquiry"), rules.enquiryEditBody(req.body, today())));
 }));
 
 // Plans / Catalogue: the branch's membership plans, PT packages and products with their prices

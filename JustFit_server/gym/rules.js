@@ -234,11 +234,77 @@ function saleBody(body) {
   return { item: requiredText(body.item, "item", limits.name), detail: SALE_KINDS[body.category], amount: rupees(body.amount, "amount"), method: method(body.method) };
 }
 
-function enquiryBody(body) {
-  onlyKeys(body, ["name", "phone", "note"]);
-  if (!blank(body.note) && typeof body.note !== "string") throw new ValidationError("Enter the note as text.");
-  const note = blank(body.note) ? "" : cleanText(body.note.slice(0, limits.note * 2), limits.note);
-  return { name: requiredText(body.name, "name", limits.name), phone: optionalPhone(body.phone), note: note || null };
+// Enquiry follow-up: lost shows as "Not interested"; joined is set by Convert to member
+const ENQUIRY_STATUSES = ["new", "follow_up", "joined", "lost"];
+const ENQUIRY_INTERESTS = ["membership", "pt", "trial", "other"];
+const ENQUIRY_SOURCES = ["walk_in", "call", "whatsapp", "instagram", "referral", "other"];
+const ENQUIRY_VIEWS = ["today", "overdue", "open", "joined", "lost", "all"];
+
+const enquiryNote = (value) => {
+  if (!blank(value) && typeof value !== "string") throw new ValidationError("Enter the note as text.");
+  return (blank(value) ? "" : cleanText(value.slice(0, limits.note * 2), limits.note)) || null;
+};
+
+// The day to call them back: "" or missing → none; otherwise a real date from a year ago (an
+// enquiry kept as it was) to a year ahead
+function followUpDate(value, today = todayInIndia()) {
+  if (blank(value)) return null;
+  const bad = () => new ValidationError("Pick the follow-up date: up to a year ahead.");
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) throw bad();
+  const date = new Date(`${value}T00:00:00Z`);
+  if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value) throw bad();
+  if (value < addDays(today, -365) || value > addDays(today, 365)) throw bad();
+  return value;
+}
+
+const interest = (value) => optionalChoice(value, ENQUIRY_INTERESTS, "Pick what they're interested in: membership, PT, a trial or other.");
+const source = (value) => optionalChoice(value, ENQUIRY_SOURCES, "Pick how they found the gym: walk-in, call, WhatsApp, Instagram, referral or other.");
+
+// A new enquiry
+function enquiryBody(body, today = todayInIndia()) {
+  onlyKeys(body, ["name", "phone", "note", "interest", "source", "followUpOn"]);
+  return {
+    name: requiredText(body.name, "name", limits.name),
+    phone: optionalPhone(body.phone),
+    note: enquiryNote(body.note),
+    interest: interest(body.interest),
+    source: source(body.source),
+    followUpOn: followUpDate(body.followUpOn, today),
+  };
+}
+
+// An enquiry changed: only the fields sent. Joined comes only with the member they became
+// (memberId, checked against this gym by the service); a member can't be given otherwise.
+function enquiryEditBody(body, today = todayInIndia()) {
+  onlyKeys(body, ["name", "phone", "note", "interest", "source", "followUpOn", "status", "memberId"]);
+  const out = {};
+  if (body.name !== undefined) out.name = requiredText(body.name, "name", limits.name);
+  if (body.phone !== undefined) out.phone = optionalPhone(body.phone);
+  if (body.note !== undefined) out.note = enquiryNote(body.note);
+  if (body.interest !== undefined) out.interest = interest(body.interest);
+  if (body.source !== undefined) out.source = source(body.source);
+  if (body.followUpOn !== undefined) out.followUpOn = followUpDate(body.followUpOn, today);
+  if (body.status !== undefined) {
+    if (!ENQUIRY_STATUSES.includes(body.status)) throw new ValidationError("Pick a status: new, follow-up, joined or not interested.");
+    out.status = body.status;
+  }
+  if (body.memberId !== undefined) {
+    if (!Number.isInteger(body.memberId) || body.memberId < 1 || body.memberId > 4_294_967_295) throw new ValidationError("That member doesn't exist.");
+    if (out.status !== "joined") throw new ValidationError("A member can only be linked when the enquiry is marked joined.");
+    out.memberId = body.memberId;
+  }
+  if (out.status === "joined" && out.memberId === undefined) throw new ValidationError("Convert the enquiry to a member to mark it joined.");
+  if (Object.keys(out).length === 0) throw new ValidationError("Change something about the enquiry.");
+  return out;
+}
+
+// Manage › Enquiry's lists and search
+function enquiriesQuery(query = {}) {
+  const view = query.view === undefined || query.view === "" ? "open" : query.view;
+  if (!ENQUIRY_VIEWS.includes(view)) throw new ValidationError("Pick a list: today, overdue, open, joined, not interested or all.");
+  const search = typeof query.search === "string" ? query.search.trim() : "";
+  if (search.length > limits.search) throw new ValidationError(`Search for at most ${limits.search} characters.`);
+  return { view, search };
 }
 
 // A member's name and phone, corrected
@@ -410,6 +476,10 @@ module.exports = {
   serviceBody,
   saleBody,
   enquiryBody,
+  enquiryEditBody,
+  enquiriesQuery,
+  followUpDate,
+  ENQUIRY_VIEWS,
   memberEditBody,
   optionalDob,
   dueByDate,

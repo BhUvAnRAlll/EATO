@@ -7,13 +7,23 @@ import type { GymInfo, GymMember, GymPayment } from "@/lib/gymApi";
 // the message already written. justFit sends nothing itself (no SMS provider, no cost); the gym
 // admin reads the message and taps send.
 
-const noNumber = () => Alert.alert("No mobile number", "Add the member's mobile number to reach them.");
+const noNumber = () => Alert.alert("No mobile number", "Add their mobile number to reach them.");
 const open = (url: string, what: string) =>
   Linking.openURL(url).catch(() => Alert.alert(`Couldn't open ${what}`, `${what} isn't available on this phone.`));
 
+// A number on its own (an enquiry), or a member's
+export function callPhone(phone: string | null) {
+  if (!phone) return noNumber();
+  open(`tel:${phone}`, "the phone app");
+}
+
+export function whatsappPhone(phone: string | null, text = "") {
+  if (!phone) return noNumber();
+  open(`https://wa.me/${phone.replace(/\D/g, "")}?text=${encodeURIComponent(text)}`, "WhatsApp");
+}
+
 export function call(member: GymMember) {
-  if (!member.phone) return noNumber();
-  open(`tel:${member.phone}`, "the phone app");
+  callPhone(member.phone);
 }
 
 export function sms(member: GymMember, text = "") {
@@ -23,8 +33,7 @@ export function sms(member: GymMember, text = "") {
 }
 
 export function whatsapp(member: GymMember, text = "") {
-  if (!member.phone) return noNumber();
-  open(`https://wa.me/${member.phone.replace(/\D/g, "")}?text=${encodeURIComponent(text)}`, "WhatsApp");
+  whatsappPhone(member.phone, text);
 }
 
 export function email(member: GymMember, subject = "", body = "") {
@@ -53,6 +62,11 @@ export function invoice(member: GymMember, gym: GymInfo, payment: GymPayment | u
     ...(payment ? [`Paid: ${rupees(payment.amount)} (${payment.method === "cash" ? "Cash" : "Online"}) on ${shortDate(payment.paidOn)} for ${payment.detail}`] : []),
     member.due > 0 ? `Still due: ${rupees(member.due)}${member.dueBy ? ` by ${shortDate(member.dueBy)}` : ""}` : "Nothing due. Thank you!",
   ].join("\n");
+}
+
+// A friendly follow-up to someone who asked about joining
+export function enquiryFollowUp(name: string, gym: GymInfo) {
+  return `Hi ${name.split(" ")[0]}, this is ${gymName(gym)}. Thanks for asking about joining us! Would you like to visit for a session this week? Reply here and we'll help you pick a plan.`;
 }
 
 // "0 days left", "1 day left", "Expired 3 days ago", "Expires today"

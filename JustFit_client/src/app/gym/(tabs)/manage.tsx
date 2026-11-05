@@ -49,11 +49,7 @@ export default function GymManage() {
         <View className="flex-1">
           {tab === "member" && <MemberList />}
           {tab === "catalog" && <CatalogList />}
-          {tab === "enquiry" && (
-            <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 48 }} showsVerticalScrollIndicator={false}>
-              <EnquiryList />
-            </ScrollView>
-          )}
+          {tab === "enquiry" && <EnquiryList />}
           {tab === "expense" && (
             <View className="p-4">
               <GymEmpty icon="receipt" title="Expenses are coming soon" text="Rent, salaries and other spending will be kept here." />

@@ -553,6 +553,60 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
     await page.waitFor(`!(document.body.innerText || "").includes("QUICK ACTIONS") && !(document.body.innerText || "").includes("Message Logs")`, NAV_TIMEOUT, "the sheet closes");
   }));
 
+  it("4f. Manage › Enquiry: add one with a call-back day, it shows under Today; edit, Convert opens Add Member filled in", run("gym-enquiries", async () => {
+    await page.navigate(`${expo.baseUrl}/gym/manage?tab=enquiry`);
+    await h.expectText("No open enquiries");
+    await snapshotAllWidths("gym-enquiries-empty");
+    await clickLabel("Add an enquiry");
+    await h.expectText("Someone who asked about joining.");
+    await h.settle();
+    await page.setInput(h.input("Name (Eg. Priya)"), "Priya Sharma");
+    await page.setInput(h.input("Mobile Number"), "9123456780");
+    await clickLabel("PT");
+    await clickLabel("Instagram");
+    await page.setInput('textarea[placeholder="Evening timings? Budget? Goal?"]', "Evenings after 6");
+    await clickLabel("Follow up today");
+    await snapshotAllWidths("gym-enquiry-add");
+    await page.evaluate(`document.querySelector('[aria-label="Save enquiry"]').scrollIntoView({ block: "center" })`);
+    await h.settle();
+    await clickLabel("Save enquiry");
+    const card = "Priya Sharma, Follow-up, Follow up today, PT · Instagram. Edit";
+    await page.waitFor(`!!document.querySelector(${JSON.stringify(`[aria-label="${card}"]`)})`, NAV_TIMEOUT, "the new enquiry's card");
+    assert.ok(await hasLabel("Today, 1"), "one call for today");
+    assert.ok(await hasLabel("Open, 1"));
+    assert.ok(await hasLabel("Call Priya Sharma"));
+    assert.ok(await hasLabel("WhatsApp Priya Sharma"));
+    await snapshotAllWidths("gym-enquiries");
+    await clickLabel("Today, 1");
+    await page.waitFor(`!!document.querySelector(${JSON.stringify(`[aria-label="${card}"]`)})`, NAV_TIMEOUT, "listed under Today");
+
+    // Edit: Convert to member opens Add Member with the name and number
+    await clickLabel(card);
+    await h.expectText("Edit Enquiry");
+    await snapshotAllWidths("gym-enquiry-edit");
+    await page.evaluate(`document.querySelector('[aria-label="Convert Priya Sharma to a member"]').scrollIntoView({ block: "center" })`);
+    await h.settle();
+    await clickLabel("Convert Priya Sharma to a member");
+    await h.expectText("Add member profile.");
+    await page.waitFor(`[...document.querySelectorAll("input")].some((i) => i.value === "Priya Sharma") && [...document.querySelectorAll("input")].some((i) => i.value === "9123456780")`, NAV_TIMEOUT, "the name and number filled in");
+    await clickLabel("Close");
+    await h.settle();
+
+    // Not interested: off the open lists
+    await clickLabel(card);
+    await h.expectText("Edit Enquiry");
+    await h.settle();
+    await clickLabel("Not interested");
+    await page.evaluate(`document.querySelector('[aria-label="Save changes"]').scrollIntoView({ block: "center" })`);
+    await h.settle();
+    await clickLabel("Save changes");
+    await page.waitFor(`!!document.querySelector('[aria-label="Not interested, 1"]')`, NAV_TIMEOUT, "counted as not interested");
+    await h.expectText("No calls for today");
+    const [[row]] = await connection.query("SELECT status, interest, source, phone FROM gym_enquiries WHERE full_name = 'Priya Sharma'");
+    assert.deepEqual({ ...row }, { status: "lost", interest: "pt", source: "instagram", phone: "9123456780" });
+    await connection.query("DELETE FROM gym_enquiries WHERE full_name = 'Priya Sharma'");
+  }));
+
   it("4b. the branch switcher opens Kunigal's own numbers, then back to Tumkur", run("gym-branches", async () => {
     await page.navigate(`${expo.baseUrl}/gym`);
     await clickLabel("Tumkur branch, SIT Road, Tumakuru. Switch or edit branch");

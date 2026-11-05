@@ -332,20 +332,111 @@ async function editMember(pool, gymId, memberId, body, today) {
   return member(pool, gymId, memberId, today);
 }
 
-async function addEnquiry(pool, gymId, userId, body, today) {
-  const [result] = await pool.query(
-    "INSERT INTO gym_enquiries (gym_id, full_name, phone, note, enquired_on, created_by) VALUES (?, ?, ?, ?, ?, ?)",
-    [gymId, body.name, body.phone, body.note, today, userId],
+// Enquiries: people who asked about joining, followed up until they join (Convert to member) or
+// say no. Open = new or follow-up; Today / Overdue = open ones whose call-back day is today / past.
+const ENQUIRY_LIST_LIMIT = 200;
+const ENQUIRY_COLUMNS = `e.id, e.full_name, e.phone, e.note, e.status, ${DAY("e.follow_up_on")} AS follow_up_on, e.interest, e.source,
+  e.member_id, m.member_code, ${DAY("e.enquired_on")} AS enquired_on`;
+const OPEN = "e.status IN ('new', 'follow_up')";
+const ENQUIRY_VIEW_SQL = {
+  today: `${OPEN} AND e.follow_up_on = ?`,
+  overdue: `${OPEN} AND e.follow_up_on < ?`,
+  open: OPEN,
+  joined: "e.status = 'joined'",
+  lost: "e.status = 'lost'",
+  all: "1 = 1",
+};
+const enquiryOf = (r) => ({
+  id: r.id,
+  name: r.full_name,
+  phone: toE164(r.phone),
+  note: r.note,
+  status: r.status,
+  followUpOn: r.follow_up_on,
+  interest: r.interest,
+  source: r.source,
+  member: r.member_id ? { id: r.member_id, code: r.member_code } : null,
+  enquiredOn: r.enquired_on,
+});
+
+async function enquiry(db, gymId, enquiryId) {
+  const [[row]] = await db.query(
+    `SELECT ${ENQUIRY_COLUMNS} FROM gym_enquiries e LEFT JOIN gym_members m ON m.id = e.member_id WHERE e.id = ? AND e.gym_id = ?`,
+    [enquiryId, gymId],
   );
-  return { enquiry: { id: result.insertId, name: body.name, phone: toE164(body.phone), note: body.note, enquiredOn: today } };
+  if (!row) throw new NotFoundError("That enquiry doesn't exist.");
+  return enquiryOf(row);
 }
 
-async function enquiries(pool, gymId) {
-  const [rows] = await pool.query(
-    `SELECT id, full_name, phone, note, ${DAY("enquired_on")} AS enquired_on FROM gym_enquiries WHERE gym_id = ? ORDER BY id DESC LIMIT 100`,
-    [gymId],
+async function addEnquiry(pool, gymId, userId, body, today) {
+  const [result] = await pool.query(
+    `INSERT INTO gym_enquiries (gym_id, full_name, phone, note, status, follow_up_on, interest, source, enquired_on, created_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [gymId, body.name, body.phone, body.note, body.followUpOn ? "follow_up" : "new", body.followUpOn, body.interest, body.source, today, userId],
   );
-  return { enquiries: rows.map((r) => ({ id: r.id, name: r.full_name, phone: toE164(r.phone), note: r.note, enquiredOn: r.enquired_on })) };
+  return { enquiry: await enquiry(pool, gymId, result.insertId) };
+}
+
+// One list (view) with search, and how many are in each list
+async function enquiries(pool, gymId, { view, search }, today) {
+  const params = [gymId];
+  let where = `WHERE e.gym_id = ? AND ${ENQUIRY_VIEW_SQL[view]}`;
+  if (view === "today" || view === "overdue") params.push(today);
+  if (search) {
+    const like = `%${search.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+    const digits = search.replace(/[\s+-]/g, "");
+    if (/^\d{3,12}$/.test(digits)) {
+      const local = /^\s*\+91/.test(search) || (digits.length === 12 && digits.startsWith("91")) ? digits.slice(2) : digits;
+      where += " AND (e.full_name LIKE ? OR e.phone LIKE ?)";
+      params.push(like, `%${local.slice(-10)}%`);
+    } else {
+      where += " AND e.full_name LIKE ?";
+      params.push(like);
+    }
+  }
+  // Due lists: the longest-waiting call-back first; the rest: newest enquiry first
+  const order = view === "today" || view === "overdue" ? "e.follow_up_on, e.id" : "e.id DESC";
+  const [rows] = await pool.query(
+    `SELECT ${ENQUIRY_COLUMNS} FROM gym_enquiries e LEFT JOIN gym_members m ON m.id = e.member_id ${where} ORDER BY ${order} LIMIT ?`,
+    [...params, ENQUIRY_LIST_LIMIT],
+  );
+  const [[counts]] = await pool.query(
+    `SELECT
+       COALESCE(SUM(${OPEN} AND e.follow_up_on = ?), 0) AS today,
+       COALESCE(SUM(${OPEN} AND e.follow_up_on < ?), 0) AS overdue,
+       COALESCE(SUM(${OPEN}), 0) AS open,
+       COALESCE(SUM(e.status = 'joined'), 0) AS joined,
+       COALESCE(SUM(e.status = 'lost'), 0) AS lost,
+       COUNT(*) AS \`all\`
+     FROM gym_enquiries e WHERE e.gym_id = ?`,
+    [today, today, gymId],
+  );
+  return {
+    today,
+    enquiries: rows.map(enquiryOf),
+    counts: Object.fromEntries(rules.ENQUIRY_VIEWS.map((v) => [v, Number(counts[v])])),
+  };
+}
+
+// Changes an enquiry of this gym. Joined links the member they became, who must be this gym's.
+// A follow-up date on a new enquiry moves it to follow-up.
+async function editEnquiry(pool, gymId, enquiryId, body) {
+  const current = await enquiry(pool, gymId, enquiryId);
+  if (body.memberId !== undefined) {
+    const [[member]] = await pool.query("SELECT id FROM gym_members WHERE id = ? AND gym_id = ?", [body.memberId, gymId]);
+    if (!member) throw new NotFoundError("That member isn't at this branch.");
+  }
+  const columns = { name: "full_name", phone: "phone", note: "note", interest: "interest", source: "source", followUpOn: "follow_up_on", status: "status", memberId: "member_id" };
+  const fields = { ...body };
+  if (fields.followUpOn && fields.status === undefined && current.status === "new") fields.status = "follow_up";
+  // Moved off joined: no longer linked to a member
+  if (fields.status !== undefined && fields.status !== "joined") fields.memberId = null;
+  const keys = Object.keys(fields).filter((k) => Object.hasOwn(columns, k));
+  await pool.query(
+    `UPDATE gym_enquiries SET ${keys.map((k) => `${columns[k]} = ?`).join(", ")} WHERE id = ? AND gym_id = ?`,
+    [...keys.map((k) => fields[k]), enquiryId, gymId],
+  );
+  return { enquiry: await enquiry(pool, gymId, enquiryId) };
 }
 
 // The gym admin changes their branch's name or place, or their own name, in one transaction.
@@ -460,6 +551,7 @@ module.exports = {
   editMember,
   addEnquiry,
   enquiries,
+  editEnquiry,
   payments,
   wallet,
   updateDetails,

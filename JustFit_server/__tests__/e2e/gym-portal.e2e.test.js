@@ -313,6 +313,60 @@ describe("gym portal e2e: gyms, staff, members, money and attendance", () => {
     assert.equal((await as("admin").del(`/api/admin/portal/gyms/${state.gymB}/staff/${identities.gymB.id}`)).status, 404);
   }));
 
+  it("7b. enquiry follow-up: lists and counts, the call-back day, status, Convert to member; another gym's are out of reach", run(async () => {
+    const gym = as("gymA");
+    assert.equal((await api("GET", "/api/gym/enquiries", null)).status, 401);
+    assert.equal((await as("member").get("/api/gym/enquiries")).status, 403);
+
+    const priya = (await gym.get("/api/gym/enquiries")).json.enquiries.find((e) => e.name === "Priya");
+    assert.deepEqual([priya.status, priya.followUpOn, priya.interest, priya.source, priya.member], ["new", null, null, null, null], "an older enquiry starts as new");
+
+    // A new enquiry with a call-back day starts as follow-up
+    const added = await gym.post("/api/gym/enquiries", { name: "Rahul S", phone: "9988776655", interest: "pt", source: "instagram", note: "Mornings", followUpOn: today });
+    assert.equal(added.status, 201, JSON.stringify(added.json));
+    assert.deepEqual([added.json.enquiry.status, added.json.enquiry.followUpOn, added.json.enquiry.phone], ["follow_up", today, "+919988776655"]);
+    const rahul = added.json.enquiry.id;
+    const late = await gym.post("/api/gym/enquiries", { name: "Late Caller", followUpOn: rules.addDays(today, 2) });
+    await connection.query("UPDATE gym_enquiries SET follow_up_on = ? WHERE id = ?", [rules.addDays(today, -2), late.json.enquiry.id]);
+    assert.equal((await gym.post("/api/gym/enquiries", { name: "Bad", followUpOn: rules.addDays(today, 400) })).status, 400);
+    assert.equal((await gym.post("/api/gym/enquiries", { name: "Bad", status: "joined" })).status, 400, "can't be added as joined");
+
+    const list = async (query) => (await gym.get(`/api/gym/enquiries${query}`)).json;
+    const names = async (query) => (await list(query)).enquiries.map((e) => e.name);
+    assert.deepEqual(await names("?view=today"), ["Rahul S"]);
+    assert.deepEqual(await names("?view=overdue"), ["Late Caller"]);
+    assert.deepEqual(await names("?view=open"), ["Late Caller", "Rahul S", "Priya"], "newest first");
+    assert.deepEqual((await list("")).counts, { today: 1, overdue: 1, open: 3, joined: 0, lost: 0, all: 3 });
+    assert.deepEqual(await names("?view=all&search=99887"), ["Rahul S"], "by phone");
+    assert.deepEqual(await names(`?view=all&search=${encodeURIComponent("%' OR 1=1 --")}`), [], "SQL and wildcards are just text");
+    assert.equal((await gym.get("/api/gym/enquiries?view=1%3D1")).status, 400);
+
+    // Edits: the call-back day, the status
+    const moved = await gym.patch(`/api/gym/enquiries/${priya.id}`, { followUpOn: rules.addDays(today, 3) });
+    assert.deepEqual([moved.json.enquiry.status, moved.json.enquiry.followUpOn], ["follow_up", rules.addDays(today, 3)], "a date moves a new one to follow-up");
+    assert.equal((await gym.patch(`/api/gym/enquiries/${late.json.enquiry.id}`, { status: "lost" })).json.enquiry.status, "lost");
+    assert.equal((await gym.patch(`/api/gym/enquiries/${priya.id}`, { status: "joined" })).status, 400, "joined only with a member");
+    assert.equal((await gym.patch(`/api/gym/enquiries/${priya.id}`, { gymId: state.gymB })).status, 400);
+
+    // Convert to member: only a member of this branch can be linked
+    assert.equal((await gym.patch(`/api/gym/enquiries/${rahul}`, { status: "joined", memberId: state.bMember })).status, 404, "another gym's member");
+    assert.equal((await gym.patch(`/api/gym/enquiries/${rahul}`, { status: "joined", memberId: 99999999 })).status, 404);
+    const won = await gym.patch(`/api/gym/enquiries/${rahul}`, { status: "joined", memberId: state.kavya });
+    assert.equal(won.status, 200, JSON.stringify(won.json));
+    assert.deepEqual([won.json.enquiry.status, won.json.enquiry.member?.id], ["joined", state.kavya]);
+    assert.deepEqual((await list("?view=joined")).counts, { today: 0, overdue: 0, open: 1, joined: 1, lost: 1, all: 3 });
+    // Reopened: no longer linked
+    const reopened = await gym.patch(`/api/gym/enquiries/${rahul}`, { status: "follow_up" });
+    assert.deepEqual([reopened.json.enquiry.status, reopened.json.enquiry.member], ["follow_up", null]);
+
+    // Another gym's enquiry: not found, untouched
+    const [bRow] = await connection.query("INSERT INTO gym_enquiries (gym_id, full_name, enquired_on) VALUES (?, 'B Lead', ?)", [state.gymB, today]);
+    assert.equal((await gym.patch(`/api/gym/enquiries/${bRow.insertId}`, { status: "lost" })).status, 404);
+    assert.equal((await connection.query("SELECT status FROM gym_enquiries WHERE id = ?", [bRow.insertId]))[0][0].status, "new");
+    assert.equal((await names("?view=all")).includes("B Lead"), false, "only this gym's enquiries are listed");
+    assert.equal((await gym.patch("/api/gym/enquiries/1%20OR%201=1", { status: "lost" })).status, 400);
+  }));
+
   it("9. a gym admin changes their gym's name and location, and their own name; the admin sees it", run(async () => {
     const gym = as("gymA");
     const r = await gym.patch("/api/gym/details", { branch: "Tumkur Main", area: "SIT Road", city: "Tumakuru", adminName: "Arjun K" });
