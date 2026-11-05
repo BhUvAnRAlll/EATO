@@ -220,8 +220,9 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
   `out_source` 'staff'). Admin screens: `app/gym/attendance/` (dashboard: inside now, today's
   numbers, daily/weekly/monthly stats, 7-day bars, history with range/status/search and CSV
   export; `settings.tsx`: name, map (`AttendanceMap`: react-native-maps, Google on Android with
-  `GOOGLE_MAPS_ANDROID_API_KEY` set in the shell before a build (read by `app.config.ts`, never
-  committed), Apple Maps on iOS, no map on the web build), place search by the phone's geocoder,
+  `GOOGLE_MAPS_ANDROID_API_KEY`, Google on iOS too with `GOOGLE_MAPS_IOS_API_KEY` (Apple Maps when
+  it isn't set); both in `JustFit_client/.env` or the shell, read by `app.config.ts`, never
+  committed, then `npx expo prebuild --clean`; no map on the web build), place search by the phone's geocoder,
   current location, coordinates, radius; `qr.tsx`: show, share/print, regenerate;
   `member/[id].tsx`: one member's history). GPS through `lib/gpsReading.ts` (expo-location, while
   in use only). Audit actions `gym.attendance_place`, `gym.qr_regenerate`; security events

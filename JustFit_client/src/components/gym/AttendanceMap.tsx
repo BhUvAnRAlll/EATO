@@ -8,9 +8,12 @@ import { useThemeColors } from "@/theme";
 
 export type LatLng = { latitude: number; longitude: number };
 
-// Android draws Google Maps, which needs the key from app.config.ts in the build (without one the
-// map would crash, so the form shows without it); iOS draws Apple Maps, which needs no key.
-export const mapAvailable = Platform.OS === "ios" || (Platform.OS === "android" && Constants.expoConfig?.extra?.googleMapsAndroid === true);
+// Both phones draw Google Maps, which needs the platform's key from app.config.ts in the build.
+// Without the Android key the map would crash, so the form shows without it; without the iOS key
+// iOS falls back to Apple Maps, which needs no key.
+const extra = Constants.expoConfig?.extra;
+const googleOnIos = Platform.OS === "ios" && extra?.googleMapsIos === true;
+export const mapAvailable = Platform.OS === "ios" || (Platform.OS === "android" && extra?.googleMapsAndroid === true);
 
 // India, when nothing is picked yet
 const INDIA = { latitude: 20.5937, longitude: 78.9629, latitudeDelta: 22, longitudeDelta: 22 };
@@ -37,7 +40,7 @@ export function AttendanceMap({ place, radiusM, onPick, focus }: { place: LatLng
     <View className="gym-map" accessibilityLabel="Map: tap the gym's entrance or drag the pin. The circle shows the attendance radius.">
       <MapView
         ref={map}
-        provider={Platform.OS === "android" ? PROVIDER_GOOGLE : undefined}
+        provider={Platform.OS === "android" || googleOnIos ? PROVIDER_GOOGLE : undefined}
         style={StyleSheet.absoluteFill}
         initialRegion={place ? regionAround(place, radiusM) : INDIA}
         onPress={(e: MapPressEvent) => onPick(e.nativeEvent.coordinate)}
