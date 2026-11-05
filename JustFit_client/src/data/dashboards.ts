@@ -88,4 +88,10 @@ export const dashboards: Record<Role, Dashboard> = {
     subtitle: "Your gym's members, payments and attendance.",
     tiles: [],
   },
+  // A gym's trainer uses the member app (lib/roles.ts usesMemberApp)
+  trainer: {
+    label: "Home",
+    subtitle: "Your meals, nutrition and your PT clients.",
+    tiles: [],
+  },
 };

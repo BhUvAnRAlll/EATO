@@ -295,11 +295,11 @@ describe("phone sign-in e2e: request and verify codes, sessions, roles", () => {
     assert.equal((await connection.query("SELECT COUNT(*) AS n FROM auth_sessions WHERE user_id = ?", [c.user.id]))[0][0].n, 0);
   }));
 
-  it("13. roles: new accounts are members; only the database role (set by an admin) opens admin routes; trainers are gone", run(async () => {
+  it("13. roles: new accounts are members; only the database role (set by an admin) opens admin routes; the old trainer portal is gone", run(async () => {
     const m = await signIn();
     assert.equal(m.user.role, "user");
     assert.equal((await api("GET", "/api/admin/promotions", { token: m.token })).status, 403);
-    assert.equal((await api("GET", "/api/trainers/me/profile", { token: m.token })).status, 404, "the trainer routes are gone");
+    assert.equal((await api("GET", "/api/trainers/me/profile", { token: m.token })).status, 404, "the old trainer portal routes are gone");
     assert.equal((await api("POST", "/api/account-type", { token: m.token })).status, 404, "the self-service role route is gone");
     assert.equal((await api("POST", "/api/auth/verify-otp", { body: { phone: m.phone, code: "123456", role: "admin" } })).status, 400, "a role in the body is refused");
     await testAccounts.setRole(m.user.id, "admin");
@@ -307,7 +307,12 @@ describe("phone sign-in e2e: request and verify codes, sessions, roles", () => {
     assert.equal((await api("GET", "/api/auth/me", { token: m.token })).json.user.role, "admin");
     await testAccounts.setRole(m.user.id, "user");
     assert.equal((await api("GET", "/api/admin/promotions", { token: m.token })).status, 403, "demoted: refused at once");
-    await assert.rejects(testAccounts.setRole(m.user.id, "trainer"), "the database no longer has a trainer role");
+    // A gym's trainer (2026-11-05, given by the gym admin): the member app, never an admin route
+    await testAccounts.setRole(m.user.id, "trainer");
+    assert.equal((await api("GET", "/api/auth/me", { token: m.token })).json.user.role, "trainer");
+    assert.equal((await api("GET", "/api/admin/promotions", { token: m.token })).status, 403, "a trainer isn't an admin");
+    assert.equal((await api("GET", "/api/gym/dashboard", { token: m.token })).status, 403, "nor gym staff");
+    await assert.rejects(testAccounts.setRole(m.user.id, "owner"), "the database has no other roles");
   }));
 
   it("14. profile-complete: false after sign-in, true after the setup is saved; the verified phone is kept", run(async () => {

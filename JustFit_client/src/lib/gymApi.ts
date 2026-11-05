@@ -19,9 +19,18 @@ export type GymPayment = { id: number; kind: PaymentKind; title: string; detail:
 export type GymInfo = { name: string; branch: string; area: string; city: string };
 export type GymBranch = { id: number; branch: string; area: string; city: string };
 export type GymBranches = { currentId: number; gym: string; branches: GymBranch[] };
+// What the signed-in person is at the open branch: the gym admin (owner, linked by the justFit
+// team) or Staff. Only the owner manages the team (Staff / Admin Login).
+export type GymAccess = "owner" | "staff";
+// Staff / Admin Login: the branch's team and its invites (numbers that haven't signed in yet).
+// Phones arrive masked ("+91 ••••• ••210"); name is null until they've set up their profile.
+export type StaffKind = "staff" | "trainer";
+export type TeamMember = { id: string; name: string | null; phone: string | null; kind: "owner" | StaffKind; addedAt: string | null; you: boolean };
+export type StaffInvite = { id: number; phone: string | null; kind: StaffKind; invitedAt: string | null };
+export type GymTeam = { gym: { name: string; branch: string }; team: TeamMember[]; invites: StaffInvite[] };
 
 export type GymDashboard = {
-  gym: GymInfo & { branchCount: number };
+  gym: GymInfo & { branchCount: number; access: GymAccess };
   today: string;
   revenue: { online: number; cash: number };
   stats: { admission: number; renewal: number; enquiry: number; duePaid: number; pt: number; product: number };
@@ -35,7 +44,10 @@ export type Gender = "male" | "female" | "other";
 // dueBy: the date what they owe should be paid by; overdue once it has passed
 export type MemberDetails = { email: string | null; heightCm: number | null; weightKg: number | null; address: string | null; notes: string | null };
 // daysLeft: on the plan (0 on its last day, negative once ended); pt: the latest PT period
-export type MemberPt = { label: string; from: string; until: string; active: boolean };
+// trainer: who the PT is with (one of the branch's trainers from Staff / Admin Login), or null
+export type MemberPt = { label: string; from: string; until: string; active: boolean; trainer: { id: string; name: string } | null };
+// The branch's trainers, for the PT form's picker and Change trainer
+export type GymTrainer = { id: string; name: string };
 export type GymMember = MemberDetails & { id: number; code: string; photoUrl: string | null; dueBy: string | null; overdue: boolean; daysLeft: number; pt: MemberPt | null; gender: Gender | null; name: string; phone: string | null; dob: string | null; birthdayToday: boolean; planLength: PlanLength; joinedOn: string; expiresOn: string; due: number; status: MemberStatus; inToday: boolean; insideNow: boolean };
 export type GymMemberDetail = { member: GymMember & { visitsThisMonth: number; lastVisit: string | null }; payments: GymPayment[]; alreadyIn?: boolean; durationMin?: number | null };
 export type MemberFilter = "all" | "due" | "overdue" | "expiring" | "expiring_soon" | "expired" | "in_today" | "birthday";
@@ -98,7 +110,10 @@ export const gymApi = {
   editMember: (token: string | null, id: number, fields: { name?: string; phone?: string; dob?: string; gender?: Gender | "" } & Partial<{ [K in keyof MemberDetails]: MemberDetails[K] | "" }>) => call<GymMemberDetail>(token, `/api/gym/members/${id}`, "PATCH", fields),
   renew: (token: string | null, id: number, fields: RenewalFields) => call<GymMemberDetail>(token, `/api/gym/members/${id}/renew`, "POST", fields),
   collectDue: (token: string | null, id: number, fields: { amount: number; method: PayMethod; dueBy?: string; paidOn?: string }) => call<GymMemberDetail>(token, `/api/gym/members/${id}/due`, "POST", fields),
-  personalTraining: (token: string | null, id: number, fields: { package: string; amount: number; method: PayMethod; unit: PlanUnit; duration: number }) => call<GymMemberDetail>(token, `/api/gym/members/${id}/pt`, "POST", fields),
+  // trainerId: the trainer this PT is with, or null for none
+  personalTraining: (token: string | null, id: number, fields: { package: string; amount: number; method: PayMethod; unit: PlanUnit; duration: number; trainerId: string | null }) => call<GymMemberDetail>(token, `/api/gym/members/${id}/pt`, "POST", fields),
+  trainers: (token: string | null) => call<{ trainers: GymTrainer[] }>(token, "/api/gym/trainers"),
+  setTrainer: (token: string | null, id: number, trainerId: string | null) => call<GymMemberDetail>(token, `/api/gym/members/${id}/trainer`, "POST", { trainerId }),
   sellToMember: (token: string | null, id: number, kind: "product" | "service", fields: MemberSaleFields) =>
     call<GymMemberDetail>(token, `/api/gym/members/${id}/${kind === "product" ? "sales" : "services"}`, "POST", fields),
   checkIn: (token: string | null, id: number) => call<GymMemberDetail>(token, `/api/gym/members/${id}/check-in`, "POST"),
@@ -123,6 +138,11 @@ export const gymApi = {
     call<{ gym: GymInfo; adminName: string | null }>(token, "/api/gym/details", "PATCH", fields),
   branches: (token: string | null) => call<GymBranches>(token, "/api/gym/branches"),
   switchBranch: (token: string | null, branchId: number) => call<GymBranches>(token, "/api/gym/branch", "POST", { branchId }),
+  team: (token: string | null) => call<GymTeam>(token, "/api/gym/staff"),
+  // added: linked now (their role changed); invited: they join at their first sign-in
+  addStaff: (token: string | null, phone: string, kind: StaffKind) => call<GymTeam & { result: "added" | "invited" }>(token, "/api/gym/staff", "POST", { phone, kind }),
+  removeStaff: (token: string | null, userId: string) => call<GymTeam>(token, `/api/gym/staff/${encodeURIComponent(userId)}`, "DELETE"),
+  cancelInvite: (token: string | null, id: number) => call<GymTeam>(token, `/api/gym/staff/invites/${id}`, "DELETE"),
   sms: (token: string | null) => call<GymSms>(token, "/api/gym/sms"),
   smsSettings: (token: string | null, changes: Partial<Record<SmsKind, boolean>>) => call<GymSms>(token, "/api/gym/sms/settings", "PATCH", changes),
   smsSend: (token: string | null, group: SmsGroupId) => call<SmsSendResult>(token, "/api/gym/sms/send", "POST", { group }),

@@ -1554,6 +1554,20 @@
   color: var(--color-muted);
 }
 
+/* My Clients (a gym trainer's PT clients): a small soft status pill (colours set by role inline) */
+@utility client-tag {
+  align-self: flex-start;
+  padding-inline: 8px;
+  padding-block: 2px;
+  border-radius: var(--radius-pill);
+}
+
+@utility client-tag__label {
+  font-family: var(--font-sans-medium);
+  font-size: 12px;
+  line-height: 18px;
+}
+
 /* Screen bar: back chevron, centred title, hairline below */
 @utility screen-bar {
   height: 56px;
@@ -1645,6 +1659,12 @@
 @utility search--pill {
   height: 48px;
   border-radius: var(--radius-md);
+}
+
+/* A search box straight on the grey page (My Clients): white like a card, so it doesn't vanish */
+@utility search--on-page {
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-card);
 }
 
 /* Filter chips: All / Members / Admins, and the AI usage history filters */
@@ -5738,6 +5758,24 @@
   font-size: 14px;
   line-height: 21px;
   color: var(--color-gym-warning-ink);
+}
+
+/* A soft indigo line of explanation inside a sheet (Staff / Admin Login: what adding someone does) */
+@utility gym-note {
+  flex-direction: row;
+  gap: 10px;
+  padding-inline: 14px;
+  padding-block: 12px;
+  border-radius: 12px;
+  background-color: var(--color-gym-primary-soft);
+}
+
+@utility gym-note__text {
+  flex: 1;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--color-gym-ink-soft);
 }
 
 @utility gym-reminder {

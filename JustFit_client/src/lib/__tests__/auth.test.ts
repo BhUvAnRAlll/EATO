@@ -8,7 +8,7 @@ import { describe, it } from "node:test";
 import { clearAccountData, onAccountCleared, sameAccount } from "../accountScope.ts";
 import { devServerHost } from "../apiHost.ts";
 import { codeInput, formatIndianMobile, normalizeIndianMobile, phoneInput } from "../phone.ts";
-import { afterAccountCheck, afterSignOut, checkSavedSession, homeRouteFor, secondsLeft, UNCONFIRMED_SIGN_OUT } from "../sessionRules.ts";
+import { afterAccountCheck, afterSignOut, checkSavedSession, homeRouteFor, secondsLeft, UNCONFIRMED_SIGN_OUT, usesMemberApp } from "../sessionRules.ts";
 
 describe("phone numbers", () => {
   it("accept the usual ways of typing an Indian mobile number, like the server", () => {
@@ -98,6 +98,14 @@ describe("where an account opens", () => {
     assert.equal(homeRouteFor({ role: "gym_admin", profileComplete: false }), "/gym", "a gym admin never goes through member setup");
     assert.equal(homeRouteFor({ role: "user", profileComplete: false }), "/setup/personal");
     assert.equal(homeRouteFor({ role: "user", profileComplete: true }), "/home");
+    assert.equal(homeRouteFor({ role: "trainer", profileComplete: false }), "/setup/personal", "a trainer sets up like a member");
+    assert.equal(homeRouteFor({ role: "trainer", profileComplete: true }), "/home");
+  });
+
+  it("members and trainers use the member app; nobody else does", () => {
+    assert.equal(usesMemberApp("user"), true);
+    assert.equal(usesMemberApp("trainer"), true);
+    for (const role of ["admin", "gym_admin", null, undefined] as const) assert.equal(usesMemberApp(role), false, String(role));
   });
 });
 

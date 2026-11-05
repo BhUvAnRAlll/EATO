@@ -13,6 +13,9 @@ const photos = require("./photos");
 const service = require("./service");
 const rules = require("./rules");
 const sms = require("./sms");
+const staff = require("./staff");
+const staffRules = require("./staffRules");
+const trainer = require("./trainer");
 const smsRules = require("./smsRules");
 
 const router = express.Router();
@@ -20,16 +23,16 @@ const smallBody = express.json({ limit: "4kb" });
 const pool = (req) => req.app.locals.pool;
 const today = () => rules.todayInIndia();
 
-// Before the gym migrations (2026-11-19-gym-portal.sql up to 2026-11-28-gym-enquiry-followup.sql)
+// Before the gym migrations (2026-11-19-gym-portal.sql up to 2026-11-29-gym-staff-logins.sql)
 // have run, say so instead of a 500
-const MIGRATION = "The gym portal needs its migrations (up to 2026-11-28-gym-enquiry-followup) on this server.";
+const MIGRATION = "The gym portal needs its migrations (up to 2026-11-29-gym-staff-logins) on this server.";
 const route = (handler) => (req, res, next) =>
   handler(req, res, next).catch((error) => {
     if (["ER_NO_SUCH_TABLE", "ER_BAD_FIELD_ERROR"].includes(error?.code)) return res.status(503).json({ error: MIGRATION });
     next(error);
   });
 
-// 403 unless the caller is a gym admin linked to a gym
+// 403 unless the caller is a gym admin or Staff linked to a gym (a trainer's link doesn't count)
 async function requireGymStaff(req, res, next) {
   let account;
   try {
@@ -52,6 +55,30 @@ async function requireGymStaff(req, res, next) {
 }
 
 router.use(requireGymStaff);
+
+// Staff / Admin Login (gym/staff.js): only the branch's gym admin (kind 'owner', linked by the
+// justFit Super Admin) sees and changes its team; Staff get a 403. Adding and removing have their
+// own hourly allowance.
+function requireGymOwner(req, res, next) {
+  if (req.gym.kind === "owner") return next();
+  logSecurityEvent("admin.denied", { userId: req.userId, method: req.method, path: req.originalUrl?.split("?")[0] ?? req.path });
+  return res.status(403).json({ error: "Only the gym admin can manage the team." });
+}
+const staffLimit = limitPerUser(createRateLimiter({ limit: 30, windowMs: 60 * 60 * 1000 }));
+
+router.get("/staff", requireGymOwner, route(async (req, res) => {
+  res.json(await staff.team(pool(req), req.gym, req.userId));
+}));
+router.post("/staff", requireGymOwner, staffLimit, smallBody, route(async (req, res) => {
+  const answer = await staff.add(pool(req), req.gym, req.userId, staffRules.addBody(req.body));
+  res.status(answer.result === "added" ? 201 : 202).json(answer);
+}));
+router.delete("/staff/invites/:inviteId", requireGymOwner, staffLimit, route(async (req, res) => {
+  res.json(await staff.cancelInvite(pool(req), req.gym, req.userId, rules.id(req.params.inviteId, "invite")));
+}));
+router.delete("/staff/:userId", requireGymOwner, staffLimit, route(async (req, res) => {
+  res.json(await staff.remove(pool(req), req.gym, req.userId, staffRules.userIdParam(req.params.userId)));
+}));
 
 router.get("/dashboard", route(async (req, res) => {
   res.json(await service.dashboard(pool(req), req.gym, today()));
@@ -91,6 +118,15 @@ router.post("/members/:memberId/renew", smallBody, route(async (req, res) => {
 }));
 router.post("/members/:memberId/due", smallBody, route(async (req, res) => {
   res.json(await service.collectDue(pool(req), req.gym.id, req.userId, rules.id(req.params.memberId), rules.duePaymentBody(req.body), today()));
+}));
+// The branch's trainers (Staff / Admin Login), for the PT form's picker; and Change trainer
+router.get("/trainers", route(async (req, res) => {
+  res.json(await trainer.branchTrainers(pool(req), req.gym.id));
+}));
+router.post("/members/:memberId/trainer", smallBody, route(async (req, res) => {
+  const memberId = rules.id(req.params.memberId);
+  await trainer.setTrainer(pool(req), req.gym.id, memberId, rules.trainerBody(req.body).trainerId);
+  res.json(await service.member(pool(req), req.gym.id, memberId, today()));
 }));
 router.post("/members/:memberId/pt", smallBody, route(async (req, res) => {
   res.json(await service.personalTraining(pool(req), req.gym.id, req.userId, rules.id(req.params.memberId), rules.ptBody(req.body), today()));

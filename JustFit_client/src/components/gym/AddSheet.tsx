@@ -6,8 +6,8 @@ import { ADD_SHEET, type AddAction } from "@/data/gymDashboard";
 import { useThemeColors } from "@/theme";
 
 // Home's + (the user's design): Add Member, Add Plan, Add Enquiry, Add Expense, Add Outlet, Add
-// Staff / Admin Login, Send Bulk SMS, QR Attendance
-export function AddSheet({ onClose, onPick }: { onClose: () => void; onPick: (action: AddAction) => void }) {
+// Staff / Admin Login (the gym admin only: canManageTeam), Send Bulk SMS, QR Attendance
+export function AddSheet({ onClose, onPick, canManageTeam }: { onClose: () => void; onPick: (action: AddAction) => void; canManageTeam: boolean }) {
   const colors = useThemeColors();
   const row = (item: (typeof ADD_SHEET)[number]) => (
     <Pressable key={item.id} onPress={() => onPick(item.id)} className="gym-addrow" accessibilityRole="button" accessibilityLabel={item.label}>
@@ -20,7 +20,7 @@ export function AddSheet({ onClose, onPick }: { onClose: () => void; onPick: (ac
   );
   return (
     <GymSheet onClose={onClose}>
-      <View>{ADD_SHEET.map(row)}</View>
+      <View>{ADD_SHEET.filter((item) => item.id !== "staff" || canManageTeam).map(row)}</View>
     </GymSheet>
   );
 }

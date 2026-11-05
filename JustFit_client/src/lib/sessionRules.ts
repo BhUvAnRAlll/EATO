@@ -50,8 +50,13 @@ export function afterSignOut(result: { ok: boolean; status?: number }, everywher
 export const UNCONFIRMED_SIGN_OUT =
   "You're signed out on this device, but we couldn't reach justFit to end the session on our side. It ends by itself within 30 days; to end it now, log in and use Sign out of all devices.";
 
-// Where a signed-in account opens: admins and gym admins their dashboard; members finish
-// profile setup first, then home. Role and setup state come from the server's answer only.
+// Members and a gym's trainers use the member app (app/(user)/)
+export function usesMemberApp(role: Role | null | undefined): boolean {
+  return role === "user" || role === "trainer";
+}
+
+// Where a signed-in account opens: admins and gym admins their dashboard; members and trainers
+// finish profile setup first, then home. Role and setup state come from the server's answer only.
 export function homeRouteFor(user: { role: Role; profileComplete: boolean }): "/admin" | "/gym" | "/home" | "/setup/personal" {
   if (user.role === "admin") return "/admin";
   if (user.role === "gym_admin") return "/gym";

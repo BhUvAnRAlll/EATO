@@ -217,8 +217,24 @@ function duePaymentBody(body, today = todayInIndia()) {
 // Personal training a member paid for: the package ("12 sessions", "1 month with Ravi") and the
 // period it covers (months or days, following on from a PT period still running)
 function ptBody(body) {
-  onlyKeys(body, ["package", "amount", "method", "unit", "duration"]);
-  return { package: requiredText(body.package, "PT package", 60), amount: rupees(body.amount, "amount"), method: method(body.method), ...planLength(body) };
+  onlyKeys(body, ["package", "amount", "method", "unit", "duration", "trainerId"]);
+  const pt = { package: requiredText(body.package, "PT package", 60), amount: rupees(body.amount, "amount"), method: method(body.method), ...planLength(body) };
+  return body.trainerId === undefined ? pt : { ...pt, trainerId: trainerId(body.trainerId) };
+}
+
+// The trainer a PT is with: an account id (the server checks it's this branch's trainer), or
+// null for none
+function trainerId(value) {
+  if (value === null) return null;
+  if (typeof value !== "string" || !/^[A-Za-z0-9_]{1,64}$/.test(value)) throw new ValidationError("Pick one of this branch's trainers.");
+  return value;
+}
+
+// Member › ⋯ › Change trainer: { trainerId }
+function trainerBody(body) {
+  onlyKeys(body, ["trainerId"]);
+  if (body.trainerId === undefined) throw new ValidationError("Pick one of this branch's trainers.");
+  return { trainerId: trainerId(body.trainerId) };
 }
 
 // A service sold (a steam bath, a diet plan, a body scan)
@@ -463,6 +479,7 @@ function renewedUntil(expiresOn, today, count, unit = "months") {
 }
 
 module.exports = {
+  trainerBody,
   limits,
   PLAN_UNITS,
   planLength,

@@ -1,0 +1,121 @@
+import { useCallback, useState } from "react";
+import { Pressable, ScrollView, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { StatusBar } from "expo-status-bar";
+import { Redirect, router, useFocusEffect, useLocalSearchParams } from "expo-router";
+
+import { FormAlert } from "@/components/FormAlert";
+import { IconButton } from "@/components/IconButton";
+import { PrimaryButton } from "@/components/PrimaryButton";
+import { ScreenSkeleton } from "@/components/Skeleton";
+import { SymbolView } from "@/components/SymbolView";
+import { MemberPhotoImage } from "@/components/gym/MemberPhotoImage";
+import { ClientTag } from "@/components/trainer/ClientTag";
+import { initialsOf, shortDate } from "@/data/gymDashboard";
+import { STATUS_TEXT, clockTime, dayOf, durationText } from "@/lib/attendanceText";
+import { callPhone, whatsappPhone } from "@/lib/gymContact";
+import { useSessionToken } from "@/lib/session";
+import { trainerApi, type TrainerClientDetail } from "@/lib/trainerApi";
+import { useAuthStore } from "@/store/auth";
+import { useThemeColors } from "@/theme";
+import type { Icon } from "@/types/profile";
+
+// My Clients › a client (gym trainers only): their PT package and dates, their last 10 gym visits,
+// and Call or WhatsApp in the phone's own apps. The server answers only for the trainer's own
+// clients; nothing about money is shown or sent.
+export default function TrainerClientScreen() {
+  const trainer = useAuthStore((state) => state.user?.role === "trainer");
+  return trainer ? <ClientPage /> : <Redirect href="/home" />;
+}
+
+function ClientPage() {
+  const colors = useThemeColors();
+  const getToken = useSessionToken();
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const [state, setState] = useState<{ status: "loading" } | { status: "failed"; error: string } | { status: "ready"; data: TrainerClientDetail }>({ status: "loading" });
+
+  const load = useCallback(async () => {
+    const answer = await trainerApi.client(await getToken().catch(() => null), Number(id));
+    setState((current) => (answer.ok ? { status: "ready", data: answer.data } : current.status === "ready" ? current : { status: "failed", error: answer.error }));
+  }, [getToken, id]);
+  useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  const back = () => (router.canGoBack() ? router.back() : router.replace("/clients"));
+  const contact = (label: string, icon: Icon, onPress: () => void) => (
+    <Pressable onPress={onPress} className="btn-outline flex-1 flex-row" style={{ gap: 8 }} accessibilityRole="button" accessibilityLabel={label}>
+      <SymbolView name={icon} size={18} tintColor={colors.leaf} />
+      <Text className="btn-outline__label">{label}</Text>
+    </Pressable>
+  );
+
+  return (
+    <View className="flex-1 bg-cream">
+      <StatusBar style="dark" />
+      <SafeAreaView edges={["top"]} style={{ flex: 1 }}>
+        <View className="flex-row items-center px-4 py-2" style={{ gap: 12 }}>
+          <IconButton icon={{ ios: "chevron.left", android: "chevron_left", web: "chevron_left" }} label="Back" onPress={back} />
+          <Text className="type-title flex-1" numberOfLines={1} accessibilityRole="header">{state.status === "ready" ? state.data.client.name : "Client"}</Text>
+        </View>
+
+        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 48, gap: 16 }} showsVerticalScrollIndicator={false}>
+          {state.status === "loading" && <ScreenSkeleton label="Loading your client" />}
+          {state.status === "failed" && (
+            <View style={{ gap: 12 }}>
+              <FormAlert message={state.error} />
+              <PrimaryButton label="Try again" onPress={() => { setState({ status: "loading" }); load(); }} />
+            </View>
+          )}
+          {state.status === "ready" && (() => {
+            const { client, visits } = state.data;
+            return (
+              <>
+                <View className="card items-center" style={{ gap: 8 }}>
+                  <View className="home__avatar overflow-hidden" style={{ width: 72, height: 72 }}>
+                    <Text className="home__avatar-label" style={{ fontSize: 22, lineHeight: 28 }}>{initialsOf(client.name)}</Text>
+                    <MemberPhotoImage url={client.photoUrl} />
+                  </View>
+                  <Text className="card__title text-center">{client.name}</Text>
+                  <Text className="meta-text text-center">{`${client.code} · ${client.branch} branch`}</Text>
+                  {client.inToday && <Text className="client-tag__label" style={{ color: colors.success }}>✓ Checked in today</Text>}
+                </View>
+
+                <View className="card" style={{ gap: 10 }}>
+                  <Text className="type-overline text-muted">Personal training</Text>
+                  <View className="flex-row items-start justify-between" style={{ gap: 12 }}>
+                    <View className="min-w-0 flex-1" style={{ gap: 2 }}>
+                      <Text className="type-subhead text-ink">{client.pt.label}</Text>
+                      <Text className="meta-text">{`${shortDate(client.pt.from)} – ${shortDate(client.pt.until)}`}</Text>
+                    </View>
+                    <ClientTag client={client} />
+                  </View>
+                </View>
+
+                <View className="flex-row" style={{ gap: 12 }}>
+                  {contact("Call", { ios: "phone", android: "call", web: "call" }, () => callPhone(client.phone))}
+                  {contact("WhatsApp", { ios: "message", android: "chat", web: "chat" }, () => whatsappPhone(client.phone, `Hi ${client.name.split(" ")[0]}, `))}
+                </View>
+
+                <View className="card" style={{ gap: 12 }}>
+                  <Text className="type-overline text-muted">Recent visits</Text>
+                  {visits.length === 0 ? (
+                    <Text className="meta-text">No gym visits yet.</Text>
+                  ) : (
+                    visits.map((v) => (
+                      <View key={v.inAt} className="flex-row items-center justify-between" style={{ gap: 12 }} accessible accessibilityLabel={`${dayOf(v.inAt)}, in ${clockTime(v.inAt)}${v.outAt ? `, out ${clockTime(v.outAt)}` : ""}, ${STATUS_TEXT[v.status]}`}>
+                        <View className="min-w-0 flex-1">
+                          <Text className="type-body text-ink">{dayOf(v.inAt)}</Text>
+                          <Text className="meta-text">{`${clockTime(v.inAt)}${v.outAt ? ` – ${clockTime(v.outAt)}` : ""}`}</Text>
+                        </View>
+                        <Text className="meta-text">{v.status === "completed" ? durationText(v.durationMin) : STATUS_TEXT[v.status]}</Text>
+                      </View>
+                    ))
+                  )}
+                </View>
+              </>
+            );
+          })()}
+        </ScrollView>
+      </SafeAreaView>
+    </View>
+  );
+}

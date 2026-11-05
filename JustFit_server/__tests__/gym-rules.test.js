@@ -75,7 +75,8 @@ describe("gym rules: admissions, renewals, dues, sales, enquiries", () => {
     assert.deepEqual(rules.saleBody({ item: "Whey Protein 1kg", category: "supplement", amount: 3200, method: "cash" }), { item: "Whey Protein 1kg", detail: "Supplement", amount: 3200, method: "cash" });
     const month = { unit: "months", duration: 1 };
     assert.deepEqual(rules.ptBody({ package: " 12  sessions ", amount: 6000, method: "online", ...month }), { package: "12 sessions", amount: 6000, method: "online", unit: "months", duration: 1 });
-    refuses(() => rules.ptBody({ package: "12 sessions", amount: 6000, method: "online", ...month, trainerId: 1 }), /fields/);
+    refuses(() => rules.ptBody({ package: "12 sessions", amount: 6000, method: "online", ...month, gymId: 1 }), /fields/);
+    refuses(() => rules.ptBody({ package: "12 sessions", amount: 6000, method: "online", ...month, trainerId: 1 }), /trainers/, "a trainer is an account id, not a number");
     refuses(() => rules.ptBody({ package: "x", amount: 6000, method: "online", ...month }), /PT package/);
     refuses(() => rules.ptBody({ package: "12 sessions", amount: 6000, method: "online" }), /duration type/, "PT needs its period");
     const today = rules.todayInIndia();

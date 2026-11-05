@@ -5,9 +5,10 @@
 const sessions = require("./auth/sessions");
 const { logSecurityEvent } = require("./logging");
 
-// gym_admin (2026-11-04): the gym admin portal (app/gym/). It is not an admin: requireAdmin
-// still lets only "admin" in.
-const ROLES = ["user", "admin", "gym_admin"];
+// gym_admin (2026-11-04): the gym admin portal (app/gym/), for a gym's admin and its Staff. It
+// is not an admin: requireAdmin still lets only "admin" in. trainer (2026-11-05): a gym's PT
+// trainer, given by that gym's admin (gym/staff.js); the member app.
+const ROLES = ["user", "admin", "gym_admin", "trainer"];
 
 const signInAgain = (res) => res.status(401).json({ error: "Please sign in again." });
 

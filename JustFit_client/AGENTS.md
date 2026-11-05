@@ -79,7 +79,7 @@ Do not introduce new major libraries unless there is a strong reason.
 | Concern | Where | Why |
 | --- | --- | --- |
 | Sign in / out (one flow for new and returning members: mobile number → texted code) | `POST /api/auth/request-otp`, `POST /api/auth/verify-otp`, `GET /api/auth/me`, `POST /api/auth/logout`, `POST /api/auth/logout-all` on the Express server (`JustFit_server/auth/`); the app's screens are `app/(auth)/sign-in.tsx` and `sign-up.tsx`, its session `store/auth.ts` | No passwords exist; codes and session tokens are stored only as hashes; the SMS key never leaves the server |
-| Roles (`user`, `admin`, `gym_admin`) | MySQL `users.role`, read on every request; new accounts are always `user`; only `npm run set-role -- <phone> <role>` in `JustFit_server` changes it (`gym_admin` needs migration `2026-11-18-gym-admin-role.sql`) | The app can't promote itself; `requireAdmin` admits only `admin` |
+| Roles (`user`, `admin`, `gym_admin`, `trainer`) | MySQL `users.role`, read on every request; new accounts are always `user`; `npm run set-role -- <phone> <role>` in `JustFit_server` changes it (`gym_admin` needs migration `2026-11-18-gym-admin-role.sql`, `trainer` `2026-11-29-gym-staff-logins.sql`). Since 2026-11-05 a gym's admin also changes it through Staff / Admin Login: adding someone as Staff makes them `gym_admin`, as Trainer `trainer`; leaving their last branch makes them `user` (`gym/staff.js`, see the gym portal section) | The app can't promote itself; `requireAdmin` admits only `admin`; a gym admin can never give or take `admin` |
 | Reading an uploaded body composition report (removed from the app's setup on 2026-10-25; the server route is still there, unused) | `POST /api/body-composition` on the Express server → OpenAI (`JustFit_server/bodyComposition/`) | Keeps `OPENAI_API_KEY` off the device; the file is never stored |
 | Estimating body fat % from a front and a side photo (optional Body composition step `setup/body-composition.tsx`: Scan Body → `setup/scan-guide.tsx`: the instruction video only (`assets/videos/scan-instructions.mp4` via `constants/videos.ts`, played with `expo-video`, added 2026-10-25; autoplays on a loop with no controls, with sound on phones and muted on the web) and the privacy note. The written tips and pose drawings were removed at the user's request → `setup/body-scan.tsx` → the body composition report `setup/scan-report.tsx` (animated graphs in `components/setup/ReportGraphs.tsx` and `SegmentalChart.tsx`; graph ranges in `lib/bodyScanRules.ts`). The report lives in the setup store only (not saved yet), shows no model or technical wording, offers no download, and allows screenshots and screen recordings (the block added earlier on 2026-10-25 was removed at the user's request the same day; `lib/screenProtection.ts` and `expo-screen-capture` stay for reuse, unused. On iOS that block moves the whole app window into a secure layer, so never switch it on over the photo picker or mid-transition). There is no typed body fat field. After setup, Profile › Body composition › Scan Body runs the same screens with `?from=profile` (`lib/profileScan.ts`, pure and unit-tested): the report's Save to my profile shows the change, then on confirm saves through `POST /api/profile` with the targets recalculated; a user-entered target is kept) | `POST /api/body-composition/scan` on the Express server → the Forma scan server at `FORMA_SCAN_URL` (`JustFit_server/bodyComposition/scan.js`; a separate process, `Forma_BodyFat/forma_server.py`) | Photos pass through in memory and are never stored or logged; the answer is an estimate the user accepts as their body fat % (saved like a typed value, no `'scan'` report source yet). Forma's model is not validated against DEXA or InBody and the screen says so |
 | Scan food in the Macro tab (Log food › Scan Food, `app/(user)/macro/scan.tsx`, added 2026-10-25): one photo plus an optional note → an editable estimate per food (kcal, protein, carbs, fat) → logged through `POST /api/macro/meals` as a `manual` meal (the `source` ENUM has no `scan` value) | `POST /api/macro/scan` on the Express server → OpenAI (`JustFit_server/macro/foodScan.js`, model from `ai/models.js` (`AI_MODEL_FOOD_SCAN`, default gpt-4.1-mini); photos only, upload rate budget; tests use `AI_PROVIDER=fake`) | Keeps `OPENAI_API_KEY` off the device; the photo is never stored or logged and scanning writes nothing |
@@ -95,9 +95,47 @@ Every Express route except the health check and the two sign-in routes verifies 
 
 A portal for gym staff, separate from the removed gym owner portal and from the Super Admin.
 
-- **Who:** role `gym_admin` (only `npm run set-role`), linked to one gym by a justFit admin
-  (Super Admin › Gyms › a gym › Link a gym admin, by sign-in number; linking never changes a
-  role). The app opens `app/gym/` (guarded in the root layout; `homeRouteFor` → `/gym`).
+- **Who:** role `gym_admin`, linked to one gym by a justFit admin (Super Admin › Gyms › a gym ›
+  Link a gym admin, by sign-in number; that link is `gym_staff.kind = 'owner'`, needs the role
+  from `npm run set-role` and never changes it), plus the Staff that gym admin adds (below). The
+  app opens `app/gym/` (guarded in the root layout; `homeRouteFor` → `/gym`). The Super Admin's
+  gym page lists and unlinks gym admins (owners) only.
+- **Staff / Admin Login (2026-11-05, the user's plan):** the gym admin (owner only; Staff get a 403
+  and don't see it) opens ☰ › Staff / Admin Login or + › Add Staff / Admin Login (`/gym/staff`,
+  `?add=1` opens the sheet) and adds people by sign-in number as **Staff** (the portal, role
+  `gym_admin`, `kind 'staff'`, everything but the team) or **Trainer** (the member app, role
+  `trainer`, `kind 'trainer'`; see Trainers below). A number with an account is linked and its role changed in one
+  transaction; one that has never signed in is saved in `gym_staff_invites` and joins when that
+  number verifies a code (`applyInvites` inside `verifyOtp`'s transaction; only the proved
+  number). Refused (409): a Super Admin, someone at another gym, someone already on the team or
+  invited, Staff as Trainer or the other way round (one kind per account). Removing (⋯ › Remove,
+  confirm) never applies to yourself or the owner; from the last branch the role goes back to
+  `user` and a trainer's PT members lose `pt_trainer_id`. Lists show masked numbers. Server
+  `gym/staffRules.js` (pure), `gym/staff.js`, routes `GET|POST /api/gym/staff`,
+  `DELETE /api/gym/staff/:userId`, `DELETE /api/gym/staff/invites/:id` (30 changes an hour);
+  audited `gym.staff_add`, `gym.staff_invite`, `gym.staff_invite_cancel`, `gym.staff_remove`,
+  `gym.staff_join`. `staffGym` only counts owner and staff links and returns `kind`
+  (`gym.access`: owner or staff; Home's pill says ADMIN or STAFF). The app re-checks
+  `/api/auth/me` when it comes to the front and after any 403 (`useAuthStore.recheck`,
+  `onAccessDenied` in `lib/api.ts`), so a changed role switches the app without a restart.
+  App: `app/gym/staff.tsx`, `components/gym/AddStaffSheet.tsx`. Migration
+  `2026-11-29-gym-staff-logins.sql` (the `trainer` role, `gym_staff.kind`, `gym_staff_invites`,
+  `gym_members.pt_trainer_id`); before it the portal answers 503 naming it.
+- **Trainers and My Clients (2026-11-05, phase 2):** a member's PT is with one of the branch's
+  trainers (`gym_members.pt_trainer_id`), picked on the PT form (`TrainerChips`; left out, the
+  member keeps their trainer) or in the member's ⋯ › Sales › Change Trainer (`ChangeTrainerSheet`);
+  the ⋯ card shows "1 Month PT · Ravi". Server: `GET /api/gym/trainers`,
+  `POST /api/gym/members/:id/trainer`, `trainerId` on `POST /members/:id/pt` (only a `kind
+  'trainer'` row of this branch, checked in the transaction). A trainer's app (role `trainer`) has
+  the tabs Home · Meals · Macro · My Clients (`trainerTabs`; the Coach and Fitness screens and any
+  `/coach`, `/workout`, `/fitness` address send them Home, `(user)/_layout.tsx`); Home skips the
+  workout cards and Macro the coach tip. My Clients (`(tabs)/clients.tsx`): their clients with PT
+  running, then PT that ended in the last 30 days, search by name or ID; a client's page
+  (`(user)/clients/[id].tsx`): PT dates, Call / WhatsApp (the phone's apps), the last 10 visits.
+  No money anywhere. Server `gym/trainer.js`, `trainerRules.js` (pure), `trainerRoutes.js`
+  (`/api/trainer/clients`, `/clients/:id`, `/clients/:id/photo`; trainers only, scoped to
+  `pt_trainer_id` = the caller at branches where the caller is a trainer). `refuseTrainers`
+  answers a trainer 403 on `/api/coach`, `/api/workout` and `/api/fitness`.
 - **Server:** `/api/gym/*` (`JustFit_server/gym/`: `rules.js` pure and unit-tested, `service.js`,
   `routes.js`). `requireGymStaff` reads the role and the gym from the database on every request;
   every query is scoped to that gym. Admin side `/api/admin/portal/gyms*` (`admin/gyms.js`,
@@ -160,7 +198,8 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
 - **Navigation:** tabs Home · Manage · Wallet. Manage ("Manager", from the user's design) has top
   tabs Member, Plan / Catalogue, Enquiry, Expense (coming soon). The ☰ (and the account button) on
   Home open the side menu (`components/gym/GymMenu.tsx`): the account and branch, Manage items
-  (Expenses, Staff / Admin Login, Reminder Templates: coming soon; Outlets = branches), Other (Send
+  (Expenses, Reminder Templates: coming soon; Outlets = branches; Staff / Admin Login for the gym
+  admin only), Other (Send
   Bulk SMS opens its sheet; QR Attendance; Location & Attendance Settings) and Sign out. No subscription/Buy Now card (no
   billing in justFit yet).
   Money in whole rupees; "today" is India's date (`rules.todayInIndia`); gyms are never deleted
@@ -245,8 +284,10 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
   (keeps existing check-ins as `no_checkout`/`staff`). Mock-location detection is best effort
   (Android's flag, iOS simulated locations); a rooted phone can still fake GPS.
 - **Tests:** `__tests__/gym-rules.test.js`, `gym-sms-rules.test.js`, `gym-attendance-rules.test.js`,
-  `e2e/gym-portal.e2e.test.js`, `e2e/gym-sms.e2e.test.js`, `e2e/gym-attendance.e2e.test.js`,
-  `ui/gym-portal.ui.test.js`.
+  `gym-staff-rules.test.js`, `e2e/gym-portal.e2e.test.js`, `e2e/gym-sms.e2e.test.js`,
+  `e2e/gym-attendance.e2e.test.js`, `e2e/gym-staff.e2e.test.js`, `ui/gym-portal.ui.test.js`,
+  `ui/gym-staff.ui.test.js`, `gym-trainer-rules.test.js`, `e2e/gym-trainer.e2e.test.js`,
+  `ui/gym-trainer.ui.test.js`.
 
 ### Community and gyms: removed (2026-11-01)
 
@@ -258,6 +299,8 @@ members, invitations, announcements, events and QR codes; the gym owner portal (
 `/api/owner`), member passes and QR attendance (`/my-qr`), gym notices and the bell's gym items; the
 WhatsApp gym agent (`/api/whatsapp`, the job worker) and Admin › Gyms; the `/api/media` uploads.
 Groups, Challenges and Trainers had already gone. Do not rebuild any of it unless the user asks.
+(The user asked on 2026-11-05 for gym PT trainers, added by a gym's admin: role `trainer`, see
+Staff / Admin Login. The old trainer portal and coaching stay removed.)
 
 - The Super Admin portal's tabs are Overview · Users · Content. The Overview counts users, new users
   and the last seven days' finished workouts and logged meals; Users filters All / Members / Admins
@@ -1107,7 +1150,8 @@ and `AUTH-MIGRATION-AUDIT.md` at the repo root). Keep these rules:
 
 - One flow for everyone: a 10-digit Indian mobile number (stored as 10 digits, shown as +91) and a
   6-digit code. A number with no account gets a new account with role `user` when its code is
-  verified. Nothing in the app or the request can pick a role.
+  verified. Nothing in the app or the request can pick a role; the only role a sign-in can bring
+  is a gym's invite for that very number (Staff / Admin Login), applied in the same transaction.
 - Codes: `crypto.randomInt`, stored only as an HMAC (`AUTH_SECRET`, HKDF label `justfit-otp-code`)
   bound to the challenge id; 5 minutes; 5 wrong tries lock the code; a new code supersedes the old.
   Sends are limited per number (60 s cooldown, 5 an hour, 10 a day), per IP, and in total per day

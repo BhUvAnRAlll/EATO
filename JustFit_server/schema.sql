@@ -21,7 +21,8 @@ USE justfit;
 
 -- One row per account (signed in with a phone and a code since 2026-11-01). The role decides
 -- which dashboard opens after login: user (member), admin (Super Admin), gym_admin (the gym
--- admin portal, 2026-11-04).
+-- admin portal, 2026-11-04; also a gym's Staff), trainer (a gym's PT trainer: the member app,
+-- 2026-11-05).
 CREATE TABLE users (
   id                 VARCHAR(64)  NOT NULL,          -- user_ + random base62 (Clerk ids before 2026-11-01 keep theirs)
   email              VARCHAR(255) NULL,              -- optional: phone sign-in needs none
@@ -29,7 +30,7 @@ CREATE TABLE users (
   phone              CHAR(10)     NULL,              -- 10 digits, +91 implied
   phone_verified_at  DATETIME     NULL,              -- set when a sign-in code proved the phone
   verified_phone     CHAR(10)     AS (IF(phone_verified_at IS NULL, NULL, phone)) VIRTUAL,  -- the login
-  role               ENUM('user', 'admin', 'gym_admin') NOT NULL DEFAULT 'user',
+  role               ENUM('user', 'admin', 'gym_admin', 'trainer') NOT NULL DEFAULT 'user',
   created_at         TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at         TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
@@ -1169,15 +1170,36 @@ CREATE TABLE gyms (                               -- one branch of a gym brand
   CONSTRAINT chk_gyms_radius CHECK (attendance_radius_m BETWEEN 20 AND 1000)
 ) ENGINE = InnoDB;
 
+-- A branch's team. owner: the gym admin, linked by the justFit Super Admin; staff and trainer:
+-- added by the gym admin (Staff / Admin Login, 2026-11-05). An account works at branches of one
+-- brand, and is either portal staff (owner, staff: role gym_admin) or a trainer (role trainer).
 CREATE TABLE gym_staff (
-  user_id      VARCHAR(64)  NOT NULL,           -- a gym_admin account, on branches of one brand
+  user_id      VARCHAR(64)  NOT NULL,           -- on branches of one brand
   gym_id       INT UNSIGNED NOT NULL,
+  kind         ENUM('owner', 'staff', 'trainer') NOT NULL DEFAULT 'owner',
   added_at     TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
   selected_at  TIMESTAMP(3) NULL,               -- when the account last switched to this branch
   PRIMARY KEY (user_id, gym_id),
   KEY idx_gym_staff_gym (gym_id),
   CONSTRAINT fk_gym_staff_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
   CONSTRAINT fk_gym_staff_gym FOREIGN KEY (gym_id) REFERENCES gyms (id)
+) ENGINE = InnoDB;
+
+-- Numbers a gym admin added that haven't signed in to justFit yet: they join the branch's team
+-- (and the row goes) when that number first proves itself with a sign-in code
+CREATE TABLE gym_staff_invites (
+  id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  gym_id      INT UNSIGNED NOT NULL,
+  phone       CHAR(10)     NOT NULL,                -- 10 digits, +91 implied
+  kind        ENUM('staff', 'trainer') NOT NULL,
+  invited_by  VARCHAR(64)  NULL,
+  created_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_gym_staff_invites (gym_id, phone),
+  KEY idx_gym_staff_invites_phone (phone),
+  CONSTRAINT chk_gym_staff_invites_phone CHECK (phone REGEXP '^[0-9]{10}$'),
+  CONSTRAINT fk_gym_staff_invites_gym FOREIGN KEY (gym_id) REFERENCES gyms (id),
+  CONSTRAINT fk_gym_staff_invites_by FOREIGN KEY (invited_by) REFERENCES users (id) ON DELETE SET NULL
 ) ENGINE = InnoDB;
 
 CREATE TABLE gym_members (
@@ -1203,6 +1225,7 @@ CREATE TABLE gym_members (
   pt_label     VARCHAR(60)  NULL,                -- the latest PT package ("12 sessions") and its period
   pt_from      DATE         NULL,
   pt_until     DATE         NULL,
+  pt_trainer_id VARCHAR(64) NULL,                -- the trainer the PT is with (a gym_staff trainer)
   created_by   VARCHAR(64)  NULL,
   created_at   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -1214,6 +1237,7 @@ CREATE TABLE gym_members (
   KEY idx_gym_members_name (gym_id, full_name),
   CONSTRAINT fk_gym_members_gym FOREIGN KEY (gym_id) REFERENCES gyms (id),
   CONSTRAINT fk_gym_members_created_by FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL,
+  CONSTRAINT fk_gym_members_pt_trainer FOREIGN KEY (pt_trainer_id) REFERENCES users (id) ON DELETE SET NULL,
   CONSTRAINT chk_gym_members_phone CHECK (phone IS NULL OR phone REGEXP '^[6-9][0-9]{9}$'),
   CONSTRAINT chk_gym_members_plan CHECK (plan_months BETWEEN 1 AND 24),
   CONSTRAINT chk_gym_members_plan_days CHECK (plan_days BETWEEN 1 AND 365),

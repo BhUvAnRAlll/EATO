@@ -125,7 +125,7 @@ describe("gym portal e2e: gyms, staff, members, money and attendance", () => {
     assert.match(loner.json.error, /isn't linked to a gym/);
     const empty = await as("gymA").get("/api/gym/dashboard");
     assert.equal(empty.status, 200, JSON.stringify(empty.json));
-    assert.deepEqual(empty.json.gym, { name: "Forma", branch: "Tumkur", area: "Batawadi", city: "Tumakuru", branchCount: 1 });
+    assert.deepEqual(empty.json.gym, { name: "Forma", branch: "Tumkur", area: "Batawadi", city: "Tumakuru", branchCount: 1, access: "owner" });
     assert.deepEqual(empty.json.revenue, { online: 0, cash: 0 });
     assert.deepEqual(empty.json.recent, []);
   }));
@@ -212,7 +212,7 @@ describe("gym portal e2e: gyms, staff, members, money and attendance", () => {
     const pt = await gym.post(`/api/gym/members/${state.asif}/pt`, { package: "12 sessions", amount: 6000, method: "online", unit: "months", duration: 1 });
     assert.equal(pt.status, 200, JSON.stringify(pt.json));
     assert.deepEqual([pt.json.payments[0].kind, pt.json.payments[0].detail, pt.json.payments[0].amount], ["pt", "PT · 12 sessions", 6000]);
-    assert.deepEqual(pt.json.member.pt, { label: "12 sessions", from: today, until: rules.planEnd(today, 1), active: true }, "the PT period");
+    assert.deepEqual(pt.json.member.pt, { label: "12 sessions", from: today, until: rules.planEnd(today, 1), active: true, trainer: null }, "the PT period (no trainer picked)");
     const again = await gym.post(`/api/gym/members/${state.asif}/pt`, { package: "8 sessions", amount: 1, method: "cash", unit: "days", duration: 10 });
     assert.deepEqual([again.json.member.pt.label, again.json.member.pt.from, again.json.member.pt.until], ["8 sessions", rules.addDays(rules.planEnd(today, 1), 1), rules.addDays(rules.planEnd(today, 1), 10)], "a renewal follows on from the running period");
     await connection.query("DELETE FROM gym_payments WHERE member_id = ? AND amount = 1 AND kind = 'pt'", [state.asif]);
@@ -371,7 +371,7 @@ describe("gym portal e2e: gyms, staff, members, money and attendance", () => {
     const gym = as("gymA");
     const r = await gym.patch("/api/gym/details", { branch: "Tumkur Main", area: "SIT Road", city: "Tumakuru", adminName: "Arjun K" });
     assert.equal(r.status, 200, JSON.stringify(r.json));
-    assert.deepEqual(r.json, { gym: { name: "Forma", branch: "Tumkur Main", area: "SIT Road", city: "Tumakuru", branchCount: 1 }, adminName: "Arjun K" });
+    assert.deepEqual(r.json, { gym: { name: "Forma", branch: "Tumkur Main", area: "SIT Road", city: "Tumakuru", branchCount: 1, access: "owner" }, adminName: "Arjun K" });
     assert.equal((await gym.get("/api/gym/dashboard")).json.gym.area, "SIT Road");
     const detail = (await as("admin").get(`/api/admin/portal/gyms/${state.gymA}`)).json;
     assert.deepEqual([detail.gym.name, detail.gym.branch], ["Forma", "Tumkur Main"]);

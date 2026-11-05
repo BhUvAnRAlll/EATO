@@ -1,13 +1,26 @@
+import { useEffect } from "react";
 import { Platform, View } from "react-native";
-import { Stack } from "expo-router";
+import { router, Stack, usePathname } from "expo-router";
 
 import { SessionExpiredBanner } from "@/components/SessionExpiredBanner";
 import { useThemeColors } from "@/theme";
+import { useAuthStore } from "@/store/auth";
+
+// AI Coach, Workout and Fitness screens: not part of a trainer's account (the server refuses them too)
+const NOT_FOR_TRAINERS = /^\/(coach|workout|fitness)(\/|$)/;
 
 // A member's screens: the tab bar group plus the screens pushed over it
-// (notifications, addresses, nutrition, goals). Only the "user" role gets here (root layout).
+// (notifications, addresses, nutrition, goals). Only members ("user") and a gym's trainers
+// ("trainer") get here (root layout).
 export default function UserLayout() {
   const colors = useThemeColors();
+  // A trainer who reaches a Coach or Fitness screen anyway (a link, an old reminder, a promotion)
+  // is sent Home
+  const pathname = usePathname();
+  const trainer = useAuthStore((state) => state.user?.role === "trainer");
+  useEffect(() => {
+    if (trainer && NOT_FOR_TRAINERS.test(pathname)) router.replace("/home");
+  }, [trainer, pathname]);
   return (
     <View style={{ flex: 1 }}>
       <Stack

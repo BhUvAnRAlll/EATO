@@ -12,23 +12,28 @@ const DAY = (column) => `DATE_FORMAT(${column}, '%Y-%m-%d')`;
 const MEMBER_LIST_LIMIT = 200;
 
 // The branch a staff account is working at (the one they last switched to), or null
+// Only the portal's people: the gym admin (owner) and Staff. A trainer's branches aren't portal
+// branches. `kind` says which the caller is at the open branch (only the owner manages the team).
+const PORTAL_KINDS = "('owner', 'staff')";
+
 async function staffGym(pool, userId) {
   const [[row]] = await pool.query(
-    `SELECT g.id, g.name AS branch, g.area, g.city, b.id AS brand_id, b.name AS brand,
-       (SELECT COUNT(*) FROM gym_staff x WHERE x.user_id = s.user_id) AS branch_count
+    `SELECT g.id, g.name AS branch, g.area, g.city, b.id AS brand_id, b.name AS brand, s.kind,
+       (SELECT COUNT(*) FROM gym_staff x WHERE x.user_id = s.user_id AND x.kind IN ${PORTAL_KINDS}) AS branch_count
      FROM gym_staff s JOIN gyms g ON g.id = s.gym_id JOIN gym_brands b ON b.id = g.brand_id
-     WHERE s.user_id = ? ORDER BY s.selected_at IS NULL, s.selected_at DESC, s.added_at, g.id LIMIT 1`,
+     WHERE s.user_id = ? AND s.kind IN ${PORTAL_KINDS} ORDER BY s.selected_at IS NULL, s.selected_at DESC, s.added_at, g.id LIMIT 1`,
     [userId],
   );
   return row ?? null;
 }
 
-const gymInfo = (gym) => ({ name: gym.brand, branch: gym.branch, area: gym.area, city: gym.city, branchCount: gym.branch_count });
+// access: owner (the gym admin) or staff, so the app shows Staff / Admin Login to the owner only
+const gymInfo = (gym) => ({ name: gym.brand, branch: gym.branch, area: gym.area, city: gym.city, branchCount: gym.branch_count, access: gym.kind });
 
 // Every branch the account is linked to, and which one is open
 async function branches(pool, gym, userId) {
   const [rows] = await pool.query(
-    "SELECT g.id, g.name, g.area, g.city FROM gym_staff s JOIN gyms g ON g.id = s.gym_id WHERE s.user_id = ? ORDER BY g.name, g.id",
+    `SELECT g.id, g.name, g.area, g.city FROM gym_staff s JOIN gyms g ON g.id = s.gym_id WHERE s.user_id = ? AND s.kind IN ${PORTAL_KINDS} ORDER BY g.name, g.id`,
     [userId],
   );
   return { currentId: gym.id, gym: gym.brand, branches: rows.map((r) => ({ id: r.id, branch: r.name, area: r.area, city: r.city })) };
@@ -36,7 +41,7 @@ async function branches(pool, gym, userId) {
 
 // Opens another of the account's branches; a branch they aren't linked to reads as missing
 async function switchBranch(pool, userId, branchId) {
-  const [result] = await pool.query("UPDATE gym_staff SET selected_at = NOW(3) WHERE user_id = ? AND gym_id = ?", [userId, branchId]);
+  const [result] = await pool.query(`UPDATE gym_staff SET selected_at = NOW(3) WHERE user_id = ? AND gym_id = ? AND kind IN ${PORTAL_KINDS}`, [userId, branchId]);
   if (result.affectedRows === 0) throw new NotFoundError("That branch isn't one of yours.");
   const gym = await staffGym(pool, userId);
   return branches(pool, gym, userId);
@@ -75,13 +80,15 @@ const memberOf = (r, today) => ({
   dueBy: r.due_amount > 0 ? r.due_by ?? null : null,
   // Days left on the plan: 0 on its last day, negative once it has ended
   daysLeft: Math.round((Date.parse(`${r.expires_on}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86400000),
-  pt: r.pt_until ? { label: r.pt_label, from: r.pt_from, until: r.pt_until, active: r.pt_until >= today } : null,
+  // trainer: who the PT is with (a trainer at this branch), or null
+  pt: r.pt_until ? { label: r.pt_label, from: r.pt_from, until: r.pt_until, active: r.pt_until >= today, trainer: r.pt_trainer_id ? { id: r.pt_trainer_id, name: r.pt_trainer_name || "Trainer" } : null } : null,
   overdue: r.due_amount > 0 && Boolean(r.due_by) && r.due_by < today,
   status: r.expires_on < today ? "expired" : r.expires_on === today ? "expiring" : "active",
   inToday: Boolean(r.in_today),
   insideNow: Boolean(r.inside_now),
 });
-const MEMBER_COLUMNS = `m.id, m.member_code, m.gender, m.email, m.height_cm, m.weight_kg, m.address, m.notes, m.photo_key, m.full_name, m.phone, ${DAY("m.dob")} AS dob, m.plan_months, m.plan_days, ${DAY("m.joined_on")} AS joined_on, ${DAY("m.expires_on")} AS expires_on, m.due_amount, ${DAY("m.due_by")} AS due_by, m.pt_label, ${DAY("m.pt_from")} AS pt_from, ${DAY("m.pt_until")} AS pt_until,
+const MEMBER_COLUMNS = `m.id, m.member_code, m.gender, m.email, m.height_cm, m.weight_kg, m.address, m.notes, m.photo_key, m.full_name, m.phone, ${DAY("m.dob")} AS dob, m.plan_months, m.plan_days, ${DAY("m.joined_on")} AS joined_on, ${DAY("m.expires_on")} AS expires_on, m.due_amount, ${DAY("m.due_by")} AS due_by, m.pt_label, ${DAY("m.pt_from")} AS pt_from, ${DAY("m.pt_until")} AS pt_until, m.pt_trainer_id,
+  (SELECT u.full_name FROM users u WHERE u.id = m.pt_trainer_id) AS pt_trainer_name,
   EXISTS (SELECT 1 FROM gym_attendance a WHERE a.member_id = m.id AND a.on_date = ?) AS in_today,
   EXISTS (SELECT 1 FROM gym_attendance a WHERE a.member_id = m.id AND a.status = 'inside' AND a.checked_in_at >= NOW() - INTERVAL 12 HOUR) AS inside_now`;
 
@@ -263,6 +270,15 @@ async function personalTraining(pool, gymId, userId, memberId, body, today) {
     const from = row.pt_until && row.pt_until >= today ? rules.addDays(row.pt_until, 1) : today;
     const until = rules.planEnd(from, body.duration, body.unit);
     await db.query("UPDATE gym_members SET pt_label = ?, pt_from = ?, pt_until = ? WHERE id = ? AND gym_id = ?", [body.package, from, until, memberId, gymId]);
+    // The trainer this PT is with (Staff / Admin Login's trainers): only one of this branch's;
+    // null takes the trainer off; left out, the member keeps the one they have
+    if (body.trainerId !== undefined) {
+      if (body.trainerId !== null) {
+        const [[trainer]] = await db.query("SELECT user_id FROM gym_staff WHERE gym_id = ? AND user_id = ? AND kind = 'trainer'", [gymId, body.trainerId]);
+        if (!trainer) throw new ValidationError("Pick one of this branch's trainers.");
+      }
+      await db.query("UPDATE gym_members SET pt_trainer_id = ? WHERE id = ? AND gym_id = ?", [body.trainerId, memberId, gymId]);
+    }
     await addPayment(db, gymId, userId, { memberId, kind: "pt", title: row.full_name, detail: `PT · ${body.package}`, method: body.method, amount: body.amount }, today);
   });
   return member(pool, gymId, memberId, today);

@@ -20,6 +20,10 @@ type AuthState = {
   signedIn: (token: string, user: AccountUser) => Promise<void>;
   // The server confirmed a change (a saved setup, a new name)
   updateUser: (changes: Partial<AccountUser>) => void;
+  // Asks the server again who the signed-in account is (when the app comes to the front, and
+  // after a 403), so a role a gym admin gave or took away applies without restarting the app.
+  // The root layout's guards then open the right screens. Failures change nothing.
+  recheck: () => Promise<void>;
   // Ends the session here; with everywhere, on every device (only once the server confirms).
   // Signing out here always succeeds on this device; if the server couldn't confirm it,
   // `notice` says so on Log in.
@@ -30,6 +34,10 @@ type AuthState = {
 
 // One account check at a time: a second call during a check waits for the same one
 let restoring: Promise<void> | null = null;
+// Rechecks: one at a time, at most one every few seconds
+let rechecking = false;
+let lastRecheck = 0;
+const RECHECK_GAP_MS = 3000;
 
 const signedOutState = { status: "signedOut" as const, token: null, user: null };
 
@@ -69,6 +77,23 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   updateUser: (changes) => {
     const user = get().user;
     if (user) set({ user: { ...user, ...changes } });
+  },
+
+  recheck: async () => {
+    const { status, token } = get();
+    if (status !== "signedIn" || !token || rechecking || Date.now() - lastRecheck < RECHECK_GAP_MS) return;
+    rechecking = true;
+    lastRecheck = Date.now();
+    try {
+      const result = await fetchAccount(token);
+      const user = get().user;
+      // Signed out or into another account meanwhile: this answer is about someone else
+      if (!result.ok || get().token !== token || !user) return;
+      const next = result.data.user;
+      if (next.role !== user.role || next.profileComplete !== user.profileComplete) set({ user: next });
+    } finally {
+      rechecking = false;
+    }
   },
 
   signOut: async ({ everywhere = false } = {}) => {

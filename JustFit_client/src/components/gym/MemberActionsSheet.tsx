@@ -5,6 +5,7 @@ import { router, type Href } from "expo-router";
 import { PressableScale } from "@/components/PressableScale";
 import { GymIcon } from "@/components/gym/GymIcon";
 import { MemberPhotoImage } from "@/components/gym/MemberPhotoImage";
+import { ChangeTrainerSheet } from "@/components/gym/ChangeTrainerSheet";
 import { CollectDueSheet } from "@/components/gym/CollectDueSheet";
 import { GradientFill } from "@/components/gym/GradientFill";
 import { GymSheet } from "@/components/gym/GymSheet";
@@ -21,13 +22,15 @@ type Row = { label: string; icon: GymIconName; tone?: "danger"; onPress: () => v
 // A member's options (the user's designs): their card on the portal's gradient (Call, SMS,
 // WhatsApp, Email; the plan and PT with their dates), Attendance History, Reminders (due, expired, invoice:
 // WhatsApp with the message written), Membership (Collect Payment Due, Renew Member, Edit
-// Membership, Pause Membership, Transaction History) and Sales (Renew PT, Add Service, Sell Product).
+// Membership, Pause Membership, Transaction History) and Sales (Renew PT, Change Trainer once they
+// have PT, Add Service, Sell Product).
 // `onLeave` closes whatever opened this sheet (another sheet) when a row opens a screen; on the
 // member's own page (`onMemberPage`) Edit Membership and Transaction History just close the sheet.
 export function MemberActionsSheet({ member, payments, gym, onClose, onChanged, onLeave, onMemberPage = false }: { member: GymMember; payments?: GymPayment[]; gym: GymInfo; onClose: () => void; onChanged: (detail: GymMemberDetail) => void; onLeave?: () => void; onMemberPage?: boolean }) {
   const colors = useThemeColors();
   const [collecting, setCollecting] = useState(false);
   const [selling, setSelling] = useState<"product" | "service" | null>(null);
+  const [changingTrainer, setChangingTrainer] = useState(false);
   const go = (href: Href) => { onClose(); onLeave?.(); router.push(href); };
   const openMember = () => (onMemberPage ? onClose() : go({ pathname: "/gym/members/[id]", params: { id: String(member.id) } }));
   const id = String(member.id);
@@ -46,6 +49,7 @@ export function MemberActionsSheet({ member, payments, gym, onClose, onChanged, 
     { label: "Transaction History", icon: "history", onPress: openMember },
   ];
   const sales: Row[] = [{ label: member.pt ? "Renew PT" : "Add PT", icon: "refresh-ccw", onPress: () => go({ pathname: "/gym/members/[id]/pt", params: { id } }) },
+    ...(member.pt ? [{ label: member.pt.trainer ? `Change Trainer : ${member.pt.trainer.name}` : "Change Trainer", icon: "dumbbell", onPress: () => setChangingTrainer(true) } as Row] : []),
     { label: "Add Service", icon: "plus", onPress: () => setSelling("service") },
     { label: "Sell Product", icon: "plus", onPress: () => setSelling("product") },
   ];
@@ -111,7 +115,7 @@ export function MemberActionsSheet({ member, payments, gym, onClose, onChanged, 
           {member.pt && (
             <>
               <View className="gym-member-hero__line" />
-              {period(member.pt.label, member.pt.active ? daysLeftText(ptDays) : "PT ended", member.pt.from, member.pt.until, "PT")}
+              {period(member.pt.trainer ? `${member.pt.label} · ${member.pt.trainer.name}` : member.pt.label, member.pt.active ? daysLeftText(ptDays) : "PT ended", member.pt.from, member.pt.until, "PT")}
             </>
           )}
         </View>
@@ -125,6 +129,7 @@ export function MemberActionsSheet({ member, payments, gym, onClose, onChanged, 
         {section("Sales", sales)}
       </GymSheet>
       {selling && <MemberSaleSheet kind={selling} member={member} gym={gym} onClose={() => setSelling(null)} onSaved={(detail) => { setSelling(null); onChanged(detail); }} />}
+      {changingTrainer && <ChangeTrainerSheet member={member} onClose={() => setChangingTrainer(false)} onSaved={(detail) => { setChangingTrainer(false); onChanged(detail); }} />}
       {collecting && <CollectDueSheet member={member} gym={gym} onClose={() => setCollecting(false)} onSaved={(detail) => { setCollecting(false); onChanged(detail); }} />}
     </>
   );

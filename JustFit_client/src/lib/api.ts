@@ -39,6 +39,13 @@ export function onSessionRejected(handler: ((token: string) => void) | null): vo
   sessionRejected = handler;
 }
 
+// Told when the server refuses a signed-in request with 403: the account's role may have changed
+// (a gym admin added or removed them), so the app asks who it is again (lib/session.ts registers it)
+let accessDenied: (() => void) | null = null;
+export function onAccessDenied(handler: (() => void) | null): void {
+  accessDenied = handler;
+}
+
 // Calls the justFit server. JSON in, JSON out, one friendly error line on failure.
 export async function apiFetch<T>(path: string, options: ApiOptions = {}): Promise<ApiResult<T>> {
   const headers: Record<string, string> = {};
@@ -58,6 +65,7 @@ export async function apiFetch<T>(path: string, options: ApiOptions = {}): Promi
     const body = readJson(await response.text());
     if (!response.ok) {
       if (response.status === 401 && options.token && !path.startsWith("/api/auth/")) sessionRejected?.(options.token);
+      if (response.status === 403 && options.token) accessDenied?.();
       const retryAfter = Number(response.headers.get("retry-after"));
       return {
         ok: false,

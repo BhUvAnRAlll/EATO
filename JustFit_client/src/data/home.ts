@@ -237,7 +237,7 @@ export const sampleDeliveryPincode = "110017";
 
 // Every bottom tab, in order
 // Home dashboard, meals and menu, the AI Coach, macro balance (calories and macros), workouts
-export type HomeTab = { name: "home" | "meals" | "macro" | "coach" | "workout"; label: string; icon: Icon; raised?: boolean };
+export type HomeTab = { name: "home" | "meals" | "macro" | "coach" | "workout" | "clients"; label: string; icon: Icon; raised?: boolean };
 
 export const homeTabs: HomeTab[] = [
   { name: "home", label: "Home", icon: { ios: "house", android: "home", web: "home" } },
@@ -246,4 +246,12 @@ export const homeTabs: HomeTab[] = [
   { name: "coach", label: "AI Coach", icon: { ios: "sparkles", android: "auto_awesome", web: "auto_awesome" }, raised: true },
   { name: "macro", label: "Macro", icon: { ios: "scalemass", android: "balance", web: "balance" } },
   { name: "workout", label: "Fitness", icon: { ios: "dumbbell", android: "fitness_center", web: "fitness_center" } },
+];
+
+// A gym's trainer (role "trainer"): no AI Coach or Fitness; My Clients lists their PT clients
+export const trainerTabs: HomeTab[] = [
+  { name: "home", label: "Home", icon: { ios: "house", android: "home", web: "home" } },
+  { name: "meals", label: "Meals", icon: { ios: "fork.knife", android: "restaurant", web: "restaurant" } },
+  { name: "macro", label: "Macro", icon: { ios: "scalemass", android: "balance", web: "balance" } },
+  { name: "clients", label: "My Clients", icon: { ios: "person.2", android: "group", web: "group" } },
 ];

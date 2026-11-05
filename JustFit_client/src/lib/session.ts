@@ -2,7 +2,7 @@ import { useCallback } from "react";
 import { router } from "expo-router";
 import { create } from "zustand";
 
-import { onSessionRejected } from "@/lib/api";
+import { onAccessDenied, onSessionRejected } from "@/lib/api";
 import { onAccountCleared } from "@/lib/accountScope";
 import { useAuthStore } from "@/store/auth";
 
@@ -31,6 +31,11 @@ onSessionRejected((token) => {
   if (token === useAuthStore.getState().token) useSessionExpiry.setState({ expired: true });
 });
 onAccountCleared(() => useSessionExpiry.setState({ expired: false }));
+
+// A 403 may mean the role changed (a gym admin added or removed this account): check who we are
+onAccessDenied(() => {
+  useAuthStore.getState().recheck();
+});
 
 let returning = false;
 

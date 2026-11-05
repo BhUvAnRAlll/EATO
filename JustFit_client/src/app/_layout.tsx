@@ -6,13 +6,14 @@ import { DefaultTheme, Stack, ThemeProvider } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import * as SystemUI from "expo-system-ui";
-import { ActivityIndicator, View } from "react-native";
+import { ActivityIndicator, AppState, View } from "react-native";
 
 import { fontFiles } from "@/constants/fonts";
 import { useAuthStore } from "@/store/auth";
 import { useThemeColors } from "@/theme";
 import { startAnalytics } from "@/lib/analytics";
 import { useMealReminderTaps } from "@/lib/mealReminders";
+import { usesMemberApp } from "@/lib/roles";
 
 // Each role can only open its own dashboard. If someone opens a screen they
 // aren't allowed to (or signs out), Expo Router sends them back to the start
@@ -41,13 +42,21 @@ function RootStack() {
   const status = useAuthStore((state) => state.status);
   const role = useAuthStore((state) => (state.status === "signedIn" ? state.user?.role ?? null : null));
   // A tapped meal reminder opens the Meal Plan, once a member is signed in
-  useMealReminderTaps(role === "user");
+  useMealReminderTaps(usesMemberApp(role));
 
   // Ask the server about the saved session once at launch (the store runs one check at a time)
   useEffect(() => {
     useAuthStore.getState().restore().then(startAnalytics);
     const timer = setTimeout(hideLaunchScreen, LAUNCH_MAX_MS);
     return () => clearTimeout(timer);
+  }, []);
+
+  // Back in front: check the account again, in case a gym admin changed its role meanwhile
+  useEffect(() => {
+    const listener = AppState.addEventListener("change", (next) => {
+      if (next === "active") useAuthStore.getState().recheck();
+    });
+    return () => listener.remove();
   }, []);
 
   // The window behind every screen matches the page colour, so a screen
@@ -77,7 +86,7 @@ function RootStack() {
         contentStyle: { backgroundColor: colors.background },
       }}
     >
-      <Stack.Protected guard={role === "user"}>
+      <Stack.Protected guard={usesMemberApp(role)}>
         <Stack.Screen name="(user)" />
       </Stack.Protected>
       <Stack.Protected guard={role === "admin"}>

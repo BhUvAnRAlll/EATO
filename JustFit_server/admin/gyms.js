@@ -2,7 +2,9 @@
 // first branch), another branch, one branch in detail (money, members, dues, attendance,
 // enquiries, its staff and latest payments) and linking or unlinking gym_admin accounts. A gym is
 // a brand (gym_brands); each branch is a `gyms` row. Only justFit admins reach this
-// (requireAdmin). Linking never changes a role: gym_admin comes only from npm run set-role.
+// (requireAdmin). Linking never changes a role: gym_admin comes only from npm run set-role. This
+// page is about each branch's gym admins (gym_staff kind 'owner'); the gym admin adds their own
+// Staff and Trainers (gym/staff.js).
 const { NotFoundError, ConflictError } = require("../errors");
 const { ValidationError } = require("../profile");
 const { toE164 } = require("../auth/phone");
@@ -16,7 +18,7 @@ const GYM_COLUMNS = "g.id, g.brand_id, b.name AS brand, g.name AS branch, g.area
 async function list(pool, today) {
   const [rows] = await pool.query(
     `SELECT ${GYM_COLUMNS},
-       (SELECT COUNT(*) FROM gym_staff s WHERE s.gym_id = g.id) AS staff,
+       (SELECT COUNT(*) FROM gym_staff s WHERE s.gym_id = g.id AND s.kind = 'owner') AS staff,
        (SELECT COUNT(*) FROM gym_members m WHERE m.gym_id = g.id) AS members,
        (SELECT COUNT(*) FROM gym_members m WHERE m.gym_id = g.id AND m.expires_on >= ?) AS active,
        (SELECT COALESCE(SUM(p.amount), 0) FROM gym_payments p WHERE p.gym_id = g.id AND p.paid_on = ?) AS revenue_today,
@@ -59,7 +61,7 @@ async function detail(pool, gymId, today) {
     [gymId, gymId, today, gymId, gymId, gymId, today, gymId, monthStart],
   );
   const [staff] = await pool.query(
-    "SELECT u.id, u.full_name, u.verified_phone FROM gym_staff s JOIN users u ON u.id = s.user_id WHERE s.gym_id = ? ORDER BY s.added_at, u.id",
+    "SELECT u.id, u.full_name, u.verified_phone FROM gym_staff s JOIN users u ON u.id = s.user_id WHERE s.gym_id = ? AND s.kind = 'owner' ORDER BY s.added_at, u.id",
     [gymId],
   );
   const [recent] = await pool.query(`SELECT ${gymService.PAYMENT_COLUMNS} FROM gym_payments WHERE gym_id = ? ORDER BY id DESC LIMIT 10`, [gymId]);
@@ -152,7 +154,7 @@ async function linkStaff(pool, adminId, gymId, phone) {
 
 async function unlinkStaff(pool, adminId, gymId, userId) {
   const gym = await gymRow(pool, gymId);
-  const [result] = await pool.query("DELETE FROM gym_staff WHERE user_id = ? AND gym_id = ?", [userId, gymId]);
+  const [result] = await pool.query("DELETE FROM gym_staff WHERE user_id = ? AND gym_id = ? AND kind = 'owner'", [userId, gymId]);
   if (result.affectedRows === 0) throw new NotFoundError("That account doesn't work at this gym.");
   await audit(pool, adminId, "gym.staff_remove", "gym", gymId, `Removed a gym admin from “${gym.brand}”, ${gym.branch} branch`);
 }

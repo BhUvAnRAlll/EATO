@@ -4,7 +4,8 @@ import { ScreenSkeleton } from "@/components/Skeleton";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { SymbolView } from "@/components/SymbolView";
-import { router, useFocusEffect } from "expo-router";
+import { Redirect, router, useFocusEffect } from "expo-router";
+import { useAuthStore } from "@/store/auth";
 import Animated, { FadeIn, ReduceMotion } from "react-native-reanimated";
 
 import { ChangeCoachSheet } from "@/components/coach/ChangeCoachSheet";
@@ -59,7 +60,13 @@ function workoutNote({ day, status, plan }: TodayWorkout) {
 // coach (Change, and the ask box that opens the chat), today's numbers from Macro, the plan
 // (Today's meals and workout on a timeline, the Week, Insights), then Edit my answers and Make
 // a new plan. Reads everything each time it comes into view.
+// A gym's trainer has no AI Coach or Fitness (the tab isn't in their bar; a link here sends them Home)
 export default function Coach() {
+  const trainer = useAuthStore((state) => state.user?.role === "trainer");
+  return trainer ? <Redirect href="/home" /> : <CoachScreen />;
+}
+
+function CoachScreen() {
   const colors = useThemeColors();
   const getToken = useSessionToken();
   const start = useCoachIntakeStore((state) => state.start);

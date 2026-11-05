@@ -17,6 +17,7 @@ const sessions = require("./sessions");
 const { SmsError } = require("./sms");
 const { toE164 } = require("./phone");
 const { isDevPhone } = require("./devLogin");
+const gymStaff = require("../gym/staff");
 
 const LOCK_WAIT_SECONDS = 5;
 
@@ -106,7 +107,9 @@ async function requestOtp(pool, phone, { sms, otpKey, config, devLogin = null })
 }
 
 // Checks a code. A right one signs in: the account for this verified number, or a new
-// member account (role 'user', no email). Returns { token, expiresAt, user }.
+// member account (role 'user', no email). A gym's invites for the number (Staff / Admin Login)
+// join it to that team in the same transaction, which may change its role: the number has
+// just been proved. Returns { token, expiresAt, user }.
 async function verifyOtp(pool, phone, code, { otpKey, config }) {
   const conn = await pool.getConnection();
   try {
@@ -161,6 +164,7 @@ async function verifyOtp(pool, phone, code, { otpKey, config }) {
         if (!user) throw error;
       }
     }
+    await gymStaff.applyInvites(conn, user.id, phone);
     const session = await sessions.createSession(conn, user.id);
     await conn.commit();
     return { token: session.token, expiresAt: session.expiresAt, user: { ...(await accountFor(pool, user.id)), isNew } };

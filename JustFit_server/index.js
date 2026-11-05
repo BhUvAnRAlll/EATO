@@ -44,6 +44,7 @@ const { workoutRouter } = require("./workout/routes");
 const { fitnessRouter } = require("./fitness/routes");
 const { gymRouter } = require("./gym/routes");
 const { attendanceRouter } = require("./gym/attendanceRoutes");
+const { trainerRouter, refuseTrainers } = require("./gym/trainerRoutes");
 const { deriveQrKey } = require("./gym/attendanceRules");
 const { adminPortalRouter } = require("./admin/routes");
 const { recordAdminAction } = require("./admin/overview");
@@ -187,7 +188,8 @@ app.post("/api/body-composition/scan", requireUser, limitPerUser(scanLimiter), j
 });
 
 // There is no self-service role change: every new account is a member ('user'), and only an
-// admin (scripts/set-role.js) makes an account an admin.
+// admin (scripts/set-role.js) makes an account an admin. A gym's admin can make an account their
+// Staff (gym_admin) or Trainer (trainer) and back (gym/staff.js), never an admin.
 
 // ---------------------------------------------------------------------------
 // Home screen content (see home.js)
@@ -389,21 +391,25 @@ app.use("/api/macro", requireUser, limitPerUser(macroLimiter), macroRouter);
 // AI Coach (see coach/routes.js): the intake answers, the plan and the chat (making a plan and each chat message have their own hourly budgets)
 // ---------------------------------------------------------------------------
 
-app.use("/api/coach", requireUser, limitPerUser(coachLimiter), coachRouter);
+// A gym's trainers don't have AI Coach, Workout or Fitness (gym/trainerRoutes.js refuseTrainers)
+app.use("/api/coach", requireUser, limitPerUser(coachLimiter), refuseTrainers, coachRouter);
 
 // ---------------------------------------------------------------------------
 // Workout (see workout/routes.js): the active plan, one training day, history
 // ---------------------------------------------------------------------------
 
-app.use("/api/workout", requireUser, limitPerUser(workoutLimiter), workoutRouter);
+app.use("/api/workout", requireUser, limitPerUser(workoutLimiter), refuseTrainers, workoutRouter);
 // The Fitness tab's programs and location sheet (fitness/routes.js), on the same budget as the workout routes
-app.use("/api/fitness", requireUser, limitPerUser(workoutLimiter), fitnessRouter);
+app.use("/api/fitness", requireUser, limitPerUser(workoutLimiter), refuseTrainers, fitnessRouter);
 
 // The gym admin portal (gym/routes.js): gym admins only, each on their own gym's data
 app.use("/api/gym", requireUser, limitPerUser(gymLimiter), gymRouter);
 
 // QR attendance for members (gym/attendanceRoutes.js): scan the gym's code to check in and out
 app.use("/api/attendance", requireUser, limitPerUser(attendanceLimiter), attendanceRouter);
+
+// A gym trainer's PT clients (gym/trainerRoutes.js): trainers only, their own clients only
+app.use("/api/trainer", requireUser, limitPerUser(gymLimiter), trainerRouter);
 
 // No route matched: answer in JSON like every other response, not Express's HTML page
 app.use((req, res) => {

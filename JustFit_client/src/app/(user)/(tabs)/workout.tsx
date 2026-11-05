@@ -4,7 +4,8 @@ import { ScreenSkeleton } from "@/components/Skeleton";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { SymbolView } from "@/components/SymbolView";
-import { router, useFocusEffect } from "expo-router";
+import { Redirect, router, useFocusEffect } from "expo-router";
+import { useAuthStore } from "@/store/auth";
 import * as Haptics from "expo-haptics";
 
 import { BottomSheet } from "@/components/BottomSheet";
@@ -64,7 +65,13 @@ type Prompt = { kind: "move" | "swap"; date: string };
 
 const moon = { ios: "moon.stars.fill", android: "bedtime", web: "bedtime" } as const;
 
+// A gym's trainer has no AI Coach or Fitness (the tab isn't in their bar; a link here sends them Home)
 export default function WorkoutHub() {
+  const trainer = useAuthStore((state) => state.user?.role === "trainer");
+  return trainer ? <Redirect href="/home" /> : <WorkoutHubScreen />;
+}
+
+function WorkoutHubScreen() {
   const getToken = useSessionToken();
   const [load, setLoad] = useState<Load>({ state: "loading" });
   const [showAll, setShowAll] = useState(false);

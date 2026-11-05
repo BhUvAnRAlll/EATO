@@ -23,6 +23,7 @@ import { coachTip, plannedStill } from "@/lib/coachTipRules";
 import { syncMealReminders } from "@/lib/mealReminders";
 import { longDate, macro, todayIso, whole, type DayProgress, type DayView, type Meal } from "@/lib/macro";
 import { useSessionToken } from "@/lib/session";
+import { useAuthStore } from "@/store/auth";
 import { useMacroStore, useMacroWeek } from "@/store/macro";
 import { useThemeColors } from "@/theme";
 
@@ -61,7 +62,8 @@ export default function MacroHub() {
     const [dayResult, weekResult, planResult] = await Promise.all([
       macro.day(token, selectedDate),
       macro.progress(token, week),
-      selectedDate === today ? coachApi.plan(token, today) : Promise.resolve(null),
+      // The coach's tip needs today's plan; a gym's trainer has no AI Coach
+      selectedDate === today && useAuthStore.getState().user?.role !== "trainer" ? coachApi.plan(token, today) : Promise.resolve(null),
     ]);
     if (request !== latest.current) return;
     // The tip is a nicety: a plan that can't be read just means no tip

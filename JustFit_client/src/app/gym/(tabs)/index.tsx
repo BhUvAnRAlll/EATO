@@ -20,15 +20,15 @@ import { RevenueCard } from "@/components/gym/RevenueCard";
 import { GymEmpty, GymError, GymLoading } from "@/components/gym/GymStates";
 import { greetingFor, initialsOf, type AddAction } from "@/data/gymDashboard";
 import { comingSoon } from "@/lib/gymPortal";
-import { gymApi } from "@/lib/gymApi";
+import { gymApi, type GymAccess } from "@/lib/gymApi";
 import { useGymData } from "@/lib/useGymData";
 import { useAuthStore } from "@/store/auth";
 import { useThemeColors, type Palette } from "@/theme";
 import type { GymIconName } from "@/constants/gymIcons";
-import type { Role } from "@/lib/roles";
 
 // The pill beside the gym's name: the account's role as the server gave it
-const roleLabel = (role: Role | undefined) => (role === "gym_admin" ? "ADMIN" : role === "admin" ? "SUPER ADMIN" : "STAFF");
+// The pill under the name: the gym admin or Staff at this branch
+const roleLabel = (access: GymAccess | undefined) => (access === "staff" ? "STAFF" : "ADMIN");
 
 type Tone = "primary" | "ink" | "success" | "warning" | "danger";
 // A tone's text colour, icon colour, soft fill and outline
@@ -62,9 +62,10 @@ export default function GymHome() {
     const go: Partial<Record<AddAction, () => void>> = {
       plan: () => router.push("/gym/manage?tab=catalog"),
       outlet: () => router.push("/gym/branches"),
+      staff: () => router.push("/gym/staff?add=1"),
       attendance: () => router.push("/gym/attendance"),
     };
-    const label = { expense: "Add Expense", staff: "Add Staff / Admin Login" } as Partial<Record<AddAction, string>>;
+    const label = { expense: "Add Expense" } as Partial<Record<AddAction, string>>;
     if (go[action]) go[action]!();
     else setTimeout(() => comingSoon(label[action] ?? "This"), 250);
   };
@@ -145,7 +146,7 @@ export default function GymHome() {
                     <Text className="gym-dash-name" numberOfLines={1}>{data.gym.name}</Text>
                     <View className="gym-role-pill">
                       <GradientFill radius={6} />
-                      <Text className="gym-role-pill__label">{roleLabel(user?.role)}</Text>
+                      <Text className="gym-role-pill__label">{roleLabel(data?.gym.access)}</Text>
                     </View>
                   </View>
                 </Animated.View>
@@ -248,7 +249,7 @@ export default function GymHome() {
           </PressableScale>
         </View>
       </SafeAreaView>
-      {sheet === "add" && <AddSheet onClose={() => setSheet(null)} onPick={pick} />}
+      {sheet === "add" && <AddSheet onClose={() => setSheet(null)} onPick={pick} canManageTeam={data?.gym.access === "owner"} />}
       {sheet === "sms" && <BulkSmsSheet onClose={() => setSheet(null)} />}
       {sheet === "enquiry" && (
         <EnquirySheet
@@ -272,7 +273,7 @@ export default function GymHome() {
           }}
         />
       )}
-      <GymMenu open={menuOpen} onClose={() => setMenuOpen(false)} onBulkSms={() => setTimeout(() => setSheet("sms"), 250)} gymLine={data ? `${data.gym.name} · ${data.gym.branch} branch` : null} />
+      <GymMenu open={menuOpen} onClose={() => setMenuOpen(false)} onBulkSms={() => setTimeout(() => setSheet("sms"), 250)} gymLine={data ? `${data.gym.name} · ${data.gym.branch} branch` : null} canManageTeam={data?.gym.access === "owner"} />
     </View>
   );
 }

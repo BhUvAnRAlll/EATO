@@ -11,7 +11,7 @@ import { useAuthStore } from "@/store/auth";
 import { useThemeColors } from "@/theme";
 import type { GymIconName } from "@/constants/gymIcons";
 
-type MenuItem = { label: string; icon: GymIconName; href?: Href; action?: "sms" };
+type MenuItem = { label: string; icon: GymIconName; href?: Href; action?: "sms"; ownerOnly?: boolean };
 
 const MANAGE: MenuItem[] = [
   { label: "Members", icon: "users", href: "/gym/manage?tab=member" },
@@ -19,7 +19,7 @@ const MANAGE: MenuItem[] = [
   { label: "Enquiries", icon: "messages-square", href: "/gym/manage?tab=enquiry" },
   { label: "Expenses", icon: "receipt" },
   { label: "Outlets", icon: "store", href: "/gym/branches" },
-  { label: "Staff / Admin Login", icon: "user-cog" },
+  { label: "Staff / Admin Login", icon: "user-cog", href: "/gym/staff", ownerOnly: true },
   { label: "Reminder Templates", icon: "message-square-text" },
 ];
 const OTHER: MenuItem[] = [
@@ -29,9 +29,10 @@ const OTHER: MenuItem[] = [
 ];
 
 // The ☰ side menu over Home: who is signed in and their branch, Manage (Members, Plans /
-// Catalogue, Enquiries, Outlets = branches; the rest are on their way), Other (Send Bulk SMS
-// opens Home's sheet through onBulkSms; QR Attendance and its settings), and Sign out.
-export function GymMenu({ open, onClose, gymLine, onBulkSms }: { open: boolean; onClose: () => void; gymLine: string | null; onBulkSms: () => void }) {
+// Catalogue, Enquiries, Outlets = branches, Staff / Admin Login for the gym admin only; the rest
+// are on their way), Other (Send Bulk SMS opens Home's sheet through onBulkSms; QR Attendance and
+// its settings), and Sign out.
+export function GymMenu({ open, onClose, gymLine, onBulkSms, canManageTeam }: { open: boolean; onClose: () => void; gymLine: string | null; onBulkSms: () => void; canManageTeam: boolean }) {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
   const user = useAuthStore((state) => state.user);
@@ -64,7 +65,7 @@ export function GymMenu({ open, onClose, gymLine, onBulkSms }: { open: boolean; 
               {gymLine ? <Text className="gym-tx__meta" style={{ color: colors.white, opacity: 0.85 }} numberOfLines={2}>{gymLine}</Text> : null}
             </View>
             <Text className="gym-menu__section">Manage</Text>
-            {MANAGE.map(row)}
+            {MANAGE.filter((item) => !item.ownerOnly || canManageTeam).map(row)}
             <Text className="gym-menu__section" style={{ marginTop: 12 }}>Other</Text>
             {OTHER.map(row)}
             <Pressable onPress={() => { onClose(); useAuthStore.getState().signOut(); }} className="gym-menu__row" style={{ marginTop: 12 }} accessibilityRole="button" accessibilityLabel="Sign out">

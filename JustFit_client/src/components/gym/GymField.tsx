@@ -51,7 +51,8 @@ export function GymChips<T extends string | number>({ label, options, value, onC
               }}
               className={selected ? "gym-choice gym-choice--selected" : "gym-choice"}
               accessibilityRole="radio"
-              accessibilityState={{ selected }}
+              // A radio is read as checked or not (as the coach chips do; it reaches the web build too)
+              aria-checked={selected}
               accessibilityLabel={option.label}
             >
               <Text className={selected ? "gym-choice__label gym-choice__label--selected" : "gym-choice__label"}>{option.label}</Text>

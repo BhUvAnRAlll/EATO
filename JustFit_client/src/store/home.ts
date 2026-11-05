@@ -5,6 +5,7 @@ import { onAccountCleared, sameAccount } from "@/lib/accountScope";
 import { fetchActivePromotions, fetchHomeContent } from "@/lib/home";
 import { macro, todayIso, type Totals } from "@/lib/macro";
 import { weekOf, workoutApi, type WeekActivity } from "@/lib/workoutApi";
+import { useAuthStore } from "@/store/auth";
 
 // Everything the home screen loads: promotions, labels, quick actions, popular meals and
 // the member's nutrition targets. Starts with the bundled defaults so the screen never
@@ -60,16 +61,22 @@ async function nutritionToday(token: string | null): Promise<NutritionToday | nu
 }
 
 // The other Home cards: water, today's workout and the week's activity. Each stands on its
-// own, so a failure leaves that card out, never the screen.
+// own, so a failure leaves that card out, never the screen. A gym's trainer has no workouts (no
+// Fitness), so theirs aren't asked for.
 async function extrasToday(token: string | null) {
   const today = todayIso();
-  const [water, home, activity] = await Promise.all([macro.water(token, today), workoutApi.home(token, today, weekOf(today), today), workoutApi.activity(token, today)]);
+  const trainer = useAuthStore.getState().user?.role === "trainer";
+  const [water, home, activity] = await Promise.all([
+    macro.water(token, today),
+    trainer ? Promise.resolve(null) : workoutApi.home(token, today, weekOf(today), today),
+    trainer ? Promise.resolve(null) : workoutApi.activity(token, today),
+  ]);
   return {
     water: water.ok && water.data.targetMl > 0 ? { consumedMl: water.data.consumedMl, targetMl: water.data.targetMl } : null,
-    workout: home.ok && home.data.plan
+    workout: home?.ok && home.data.plan
       ? { status: home.data.status, day: home.data.day ? { title: home.data.day.title, minutes: home.data.day.minutes, exerciseCount: home.data.day.exerciseCount } : null, level: home.data.plan.level }
       : null,
-    activity: activity.ok ? activity.data : null,
+    activity: activity?.ok ? activity.data : null,
   };
 }
 
