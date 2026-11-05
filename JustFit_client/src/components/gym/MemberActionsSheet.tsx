@@ -19,14 +19,17 @@ import type { GymIconName } from "@/constants/gymIcons";
 type Row = { label: string; icon: GymIconName; tone?: "danger"; onPress: () => void };
 
 // A member's options (the user's designs): their card on the portal's gradient (Call, SMS,
-// WhatsApp, Email; the plan and PT with their dates), Biometric, Reminders (due, expired, invoice:
+// WhatsApp, Email; the plan and PT with their dates), Attendance History, Reminders (due, expired, invoice:
 // WhatsApp with the message written), Membership (Collect Payment Due, Renew Member, Edit
-// Membership, Pause Membership, Transaction History) and Sales (Renew PT, Add Service, Sell Product)
-export function MemberActionsSheet({ member, payments, gym, onClose, onChanged }: { member: GymMember; payments?: GymPayment[]; gym: GymInfo; onClose: () => void; onChanged: (detail: GymMemberDetail) => void }) {
+// Membership, Pause Membership, Transaction History) and Sales (Renew PT, Add Service, Sell Product).
+// `onLeave` closes whatever opened this sheet (another sheet) when a row opens a screen; on the
+// member's own page (`onMemberPage`) Edit Membership and Transaction History just close the sheet.
+export function MemberActionsSheet({ member, payments, gym, onClose, onChanged, onLeave, onMemberPage = false }: { member: GymMember; payments?: GymPayment[]; gym: GymInfo; onClose: () => void; onChanged: (detail: GymMemberDetail) => void; onLeave?: () => void; onMemberPage?: boolean }) {
   const colors = useThemeColors();
   const [collecting, setCollecting] = useState(false);
   const [selling, setSelling] = useState<"product" | "service" | null>(null);
-  const go = (href: Href) => { onClose(); router.push(href); };
+  const go = (href: Href) => { onClose(); onLeave?.(); router.push(href); };
+  const openMember = () => (onMemberPage ? onClose() : go({ pathname: "/gym/members/[id]", params: { id: String(member.id) } }));
   const id = String(member.id);
   const start = planStart(member.expiresOn, member.planLength.duration, member.planLength.unit);
 
@@ -38,9 +41,9 @@ export function MemberActionsSheet({ member, payments, gym, onClose, onChanged }
   const membership: Row[] = [
     ...(member.due > 0 ? [{ label: `Collect Payment Due : ${rupees(member.due)}`, icon: "credit-card", tone: "danger", onPress: () => setCollecting(true) } as Row] : []),
     { label: "Renew Member", icon: "calendar-sync", onPress: () => go({ pathname: "/gym/members/[id]/renew", params: { id } }) },
-    { label: "Edit Membership", icon: "square-pen", onPress: () => go({ pathname: "/gym/members/[id]", params: { id } }) },
+    { label: "Edit Membership", icon: "square-pen", onPress: openMember },
     { label: "Pause Membership", icon: "circle-pause", onPress: () => comingSoon("Pause Membership") },
-    { label: "Transaction History", icon: "history", onPress: () => go({ pathname: "/gym/members/[id]", params: { id } }) },
+    { label: "Transaction History", icon: "history", onPress: openMember },
   ];
   const sales: Row[] = [{ label: member.pt ? "Renew PT" : "Add PT", icon: "refresh-ccw", onPress: () => go({ pathname: "/gym/members/[id]/pt", params: { id } }) },
     { label: "Add Service", icon: "plus", onPress: () => setSelling("service") },
@@ -112,10 +115,10 @@ export function MemberActionsSheet({ member, payments, gym, onClose, onChanged }
             </>
           )}
         </View>
-        <Pressable onPress={() => comingSoon("Biometric")} className="gym-card flex-row items-center" style={{ gap: 12, padding: 14 }} accessibilityRole="button" accessibilityLabel="Biometric, add. Coming soon">
-          <GymIcon name="fingerprint" size={20} color={colors.gymInkSoft} />
-          <Text className="gym-menu__label flex-1">Biometric</Text>
-          <Text className="gym-link">Add</Text>
+        <Pressable onPress={() => go({ pathname: "/gym/attendance/member/[id]", params: { id, name: member.name } })} className="gym-card flex-row items-center" style={{ gap: 12, padding: 14 }} accessibilityRole="button" accessibilityLabel="Attendance history">
+          <GymIcon name="history" size={20} color={colors.gymInkSoft} />
+          <Text className="gym-menu__label flex-1">Attendance History</Text>
+          <Text className="gym-link">{member.insideNow ? "Inside now" : "View"}</Text>
         </Pressable>
         {section("Reminders", reminders)}
         {section("Membership", membership)}

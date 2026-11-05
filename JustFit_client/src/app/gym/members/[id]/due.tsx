@@ -30,7 +30,9 @@ export default function GymDue() {
   const value = rupeesFromText(amount);
   const part = value >= 1 && value < owed;
   const dueByIso = dueBy;
-  const ready = value >= 1 && value <= owed;
+  // A part payment needs a date for the rest unless the member already has one
+  const hadDate = result.state === "ready" && result.data.member.dueBy !== null;
+  const ready = value >= 1 && value <= owed && (!part || dueBy !== null || hadDate);
 
   return (
     <GymScreen title="Due payment">

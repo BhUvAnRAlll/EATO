@@ -1153,13 +1153,20 @@ CREATE TABLE gyms (                               -- one branch of a gym brand
   city        VARCHAR(60)  NOT NULL,
   next_member_no INT UNSIGNED NOT NULL DEFAULT 1,  -- the branch's next member ID number
   sms_credits INT UNSIGNED NOT NULL DEFAULT 0,     -- SMS to members it can still send (1 credit = 1 SMS)
+  latitude    DECIMAL(9,6) NULL,                   -- QR attendance (2026-11-27): the entrance, picked on the map
+  longitude   DECIMAL(9,6) NULL,
+  attendance_radius_m SMALLINT UNSIGNED NOT NULL DEFAULT 100,  -- how far from it a scan counts (20-1000 m)
+  qr_version  INT UNSIGNED NOT NULL DEFAULT 0,     -- the attendance QR code's version (0: none yet); a new one voids the old
+  qr_made_at  TIMESTAMP    NULL,
   created_by  VARCHAR(64)  NULL,
   created_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   KEY idx_gyms_brand (brand_id),
   CONSTRAINT fk_gyms_brand FOREIGN KEY (brand_id) REFERENCES gym_brands (id),
-  CONSTRAINT fk_gyms_created_by FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL
+  CONSTRAINT fk_gyms_created_by FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL,
+  CONSTRAINT chk_gyms_place CHECK ((latitude IS NULL) = (longitude IS NULL) AND (latitude IS NULL OR (latitude BETWEEN -90 AND 90 AND longitude BETWEEN -180 AND 180))),
+  CONSTRAINT chk_gyms_radius CHECK (attendance_radius_m BETWEEN 20 AND 1000)
 ) ENGINE = InnoDB;
 
 CREATE TABLE gym_staff (
@@ -1253,19 +1260,42 @@ CREATE TABLE gym_enquiries (
   CONSTRAINT chk_gym_enquiries_phone CHECK (phone IS NULL OR phone REGEXP '^[6-9][0-9]{9}$')
 ) ENGINE = InnoDB;
 
+-- One visit to a branch (QR attendance, migration 2026-11-27-gym-qr-attendance.sql): checked in by a
+-- QR scan in the member's app (with the GPS reading and its distance from the gym) or by staff;
+-- 'inside' until checked out ('completed', with the minutes worked out by the server) or left open
+-- for 12 hours ('no_checkout'). open_member_id lets a member have only one open visit.
 CREATE TABLE gym_attendance (
   id             INT UNSIGNED NOT NULL AUTO_INCREMENT,
   gym_id         INT UNSIGNED NOT NULL,
   member_id      INT UNSIGNED NOT NULL,
-  on_date        DATE         NOT NULL,
+  on_date        DATE         NOT NULL,             -- India's date at check-in
   checked_in_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  created_by     VARCHAR(64)  NULL,
+  checked_out_at TIMESTAMP    NULL,
+  status         ENUM('inside', 'completed', 'no_checkout') NOT NULL DEFAULT 'inside',
+  duration_min   SMALLINT UNSIGNED NULL,            -- set at check-out, by the server
+  in_source      ENUM('staff', 'qr') NOT NULL DEFAULT 'staff',
+  out_source     ENUM('staff', 'qr') NULL,
+  check_in_lat   DECIMAL(9,6) NULL,                 -- the phone's reading at a QR check-in / check-out
+  check_in_lng   DECIMAL(9,6) NULL,
+  check_in_accuracy_m  SMALLINT UNSIGNED NULL,
+  check_in_distance_m  SMALLINT UNSIGNED NULL,      -- from the gym, as the server measured it
+  check_out_lat  DECIMAL(9,6) NULL,
+  check_out_lng  DECIMAL(9,6) NULL,
+  check_out_accuracy_m SMALLINT UNSIGNED NULL,
+  check_out_distance_m SMALLINT UNSIGNED NULL,
+  open_member_id INT UNSIGNED AS (IF(status = 'inside', member_id, NULL)) STORED,
+  created_by     VARCHAR(64)  NULL,                 -- the staff account that checked them in (NULL: the member's scan)
+  checked_out_by VARCHAR(64)  NULL,
+  updated_at     TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
-  UNIQUE KEY uq_gym_attendance_day (member_id, on_date),  -- one check-in a day
+  UNIQUE KEY uq_gym_attendance_open (open_member_id),  -- one open visit per member
+  KEY idx_gym_attendance_member (member_id, on_date),
   KEY idx_gym_attendance_day (gym_id, on_date),
+  KEY idx_gym_attendance_status (gym_id, status),
   CONSTRAINT fk_gym_attendance_gym FOREIGN KEY (gym_id) REFERENCES gyms (id),
   CONSTRAINT fk_gym_attendance_member FOREIGN KEY (member_id) REFERENCES gym_members (id),
-  CONSTRAINT fk_gym_attendance_created_by FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL
+  CONSTRAINT fk_gym_attendance_created_by FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL,
+  CONSTRAINT fk_gym_attendance_checked_out_by FOREIGN KEY (checked_out_by) REFERENCES users (id) ON DELETE SET NULL
 ) ENGINE = InnoDB;
 
 -- A branch's price list (Plans / Catalogue, 2026-11-04, migration 2026-11-21-gym-catalog.sql):

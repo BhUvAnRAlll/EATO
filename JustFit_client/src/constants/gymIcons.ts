@@ -68,6 +68,16 @@ import {
   Wallet,
   Weight,
   X,
+  DoorOpen,
+  Download,
+  LocateFixed,
+  LogIn,
+  Printer,
+  QrCode,
+  ScanQrCode,
+  Settings,
+  Share2,
+  UserCheck,
   type LucideIcon,
 } from "lucide-react-native";
 
@@ -143,6 +153,16 @@ export const gymIcons = {
   wallet: Wallet,
   weight: Weight,
   x: X,
+  "door-open": DoorOpen,
+  "download": Download,
+  "locate-fixed": LocateFixed,
+  "log-in": LogIn,
+  "printer": Printer,
+  "qr-code": QrCode,
+  "scan-qr-code": ScanQrCode,
+  "settings": Settings,
+  "share-2": Share2,
+  "user-check": UserCheck,
 } satisfies Record<string, LucideIcon>;
 
 export type GymIconName = keyof typeof gymIcons;

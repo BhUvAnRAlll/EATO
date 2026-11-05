@@ -43,6 +43,8 @@ const { FoodScanError, checkFoodPhoto, scanFood, scanLimits: foodScanLimits, che
 const { workoutRouter } = require("./workout/routes");
 const { fitnessRouter } = require("./fitness/routes");
 const { gymRouter } = require("./gym/routes");
+const { attendanceRouter } = require("./gym/attendanceRoutes");
+const { deriveQrKey } = require("./gym/attendanceRules");
 const { adminPortalRouter } = require("./admin/routes");
 const { recordAdminAction } = require("./admin/overview");
 
@@ -50,6 +52,7 @@ const { recordAdminAction } = require("./admin/overview");
 // an unknown SMS_PROVIDER or a bad OTP_* limit stops startup with one clear line (never a value).
 // AUTH_SECRET signs the code hashes and member passes; it is not the SMS provider's key.
 const otpKey = deriveOtpKey(process.env.AUTH_SECRET);
+const gymQrKey = deriveQrKey(process.env.AUTH_SECRET); // signs the gyms' attendance QR codes (own HKDF label)
 const sms = createSmsProvider(process.env);
 // The gym portal's SMS to members (reminders, wishes): on the same provider, with its own templates
 const gymSms = require("./gym/smsSender").createGymSmsSender(process.env);
@@ -77,6 +80,7 @@ if (process.env.TRUST_PROXY) {
 }
 app.locals.pool = pool; // routers read the pool from here
 app.locals.gymSms = gymSms; // the gym portal's member SMS (gym/smsSender.js)
+app.locals.gymQrKey = gymQrKey; // the gyms' attendance QR codes (gym/attendanceRules.js)
 app.use(securityHeaders); // httpSecurity.js: nosniff, no framing, no caching, HSTS over HTTPS
 // Browser origins (httpSecurity.js): CORS_ORIGINS, or none in production, or any in development
 // and tests (Expo web). The native app sends no Origin header and is never affected.
@@ -104,6 +108,7 @@ const coachLimiter = createRateLimiter(rateLimits.standard); // the AI Coach: th
 const workoutLimiter = createRateLimiter(rateLimits.frequent); // the Fitness tab: plan, training day, history
 const analyticsLimiter = createRateLimiter(rateLimits.frequent); // the app's usage events, in small batches
 const gymLimiter = createRateLimiter(rateLimits.frequent); // the gym admin portal: dashboard, members, payments
+const attendanceLimiter = createRateLimiter({ limit: 30, windowMs: 10 * 60 * 1000 }); // members' QR check-ins and check-outs
 
 // Phone sign-in (auth/routes.js): request and check a code, who am I, logout. The two sign-in
 // routes and the health check are the only ones without a session;
@@ -396,6 +401,9 @@ app.use("/api/fitness", requireUser, limitPerUser(workoutLimiter), fitnessRouter
 
 // The gym admin portal (gym/routes.js): gym admins only, each on their own gym's data
 app.use("/api/gym", requireUser, limitPerUser(gymLimiter), gymRouter);
+
+// QR attendance for members (gym/attendanceRoutes.js): scan the gym's code to check in and out
+app.use("/api/attendance", requireUser, limitPerUser(attendanceLimiter), attendanceRouter);
 
 // No route matched: answer in JSON like every other response, not Express's HTML page
 app.use((req, res) => {

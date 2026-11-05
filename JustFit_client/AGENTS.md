@@ -128,7 +128,7 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
   never repeated, kept when a name changes; searchable. Members also have an optional `gender`
   (there is no batch: removed at the user's request). Migration `2026-11-22-member-codes.sql`.
 - **Home's +** opens the + sheet (`AddSheet`: Add Member, Add Plan, Add Enquiry, Add Expense, Add
-  Outlet, Add Staff / Admin Login, Send Bulk SMS, Biometric Attendance; Record a payment was
+  Outlet, Add Staff / Admin Login, Send Bulk SMS, QR Attendance; Record a payment was
   removed at the user's request: Renewal, Due and PT are on a member's page).
   Add Member is a three-step sheet (`AddMemberSheet`, the user's designs): 1 the profile (the
   previewed Member ID `GET /api/gym/members/next-code`, name, mobile kept to 10 digits, gender);
@@ -143,7 +143,7 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
 - **Due members (2026-11-04, the user's designs):** Home's Due Members card opens `DueMembersSheet`
   (Payment Due Members: ID, PT tag, days left, amount due; a WhatsApp due reminder, an SMS, ⋯).
   ⋯ (and the ⋯ on a member's page) opens `MemberActionsSheet`: the member's card on the gradient
-  (Call, SMS, WhatsApp, Email; plan and PT with their dates), Biometric (coming soon), Reminders
+  (Call, SMS, WhatsApp, Email; plan and PT with their dates), Attendance History, Reminders
   (due, expired, invoice), Membership (Collect Payment Due → `CollectDueSheet` with a collected date,
   part payments and Send Invoice; Renew Member; Edit Membership; Pause Membership coming soon;
   Transaction History) and Sales (Renew PT). Messages open the phone's own apps with the text
@@ -161,7 +161,7 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
   tabs Member, Plan / Catalogue, Enquiry, Expense (coming soon). The ☰ (and the account button) on
   Home open the side menu (`components/gym/GymMenu.tsx`): the account and branch, Manage items
   (Expenses, Staff / Admin Login, Reminder Templates: coming soon; Outlets = branches), Other (Send
-  Bulk SMS opens its sheet; Biometric Attendance: coming soon) and Sign out. No subscription/Buy Now card (no
+  Bulk SMS opens its sheet; QR Attendance; Location & Attendance Settings) and Sign out. No subscription/Buy Now card (no
   billing in justFit yet).
   Money in whole rupees; "today" is India's date (`rules.todayInIndia`); gyms are never deleted
   and nothing cascades except `gym_staff` from users.
@@ -202,8 +202,35 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
   `_BIRTHDAY_ID` (texts word for word from `smsRules.js`); without them gym SMS stay off, the
   sheet says so and the list's buttons open the phone's SMS app instead. Logs never return phone
   numbers. Migration `2026-11-25-gym-sms.sql`.
-- **Tests:** `__tests__/gym-rules.test.js`, `gym-sms-rules.test.js`, `e2e/gym-portal.e2e.test.js`,
-  `e2e/gym-sms.e2e.test.js`, `ui/gym-portal.ui.test.js`.
+- **QR attendance (2026-11-04, replaced the never-built biometric attendance):** members check in
+  and out by scanning their branch's QR code in the member app (Profile › Gym attendance,
+  `app/(user)/attendance.tsx`; also opens from the code as a `justfit://attendance?…` link). The
+  member is the `gym_members` row at the scanned branch whose phone is the account's verified
+  phone (never an id from the app). Server: `gym/attendanceRules.js` (pure: the signed QR, the
+  haversine distance, the GPS checks, filters, CSV), `gym/attendance.js`, staff routes in
+  `gym/routes.js` (`/api/gym/attendance*`, `POST /members/:id/check-out`) and member routes
+  `/api/attendance` (`GET /`, `POST /scan`, `/check-in`, `/check-out`; 30 per 10 min per account)
+  in `gym/attendanceRoutes.js`. The QR code is an HMAC of branch id and `gyms.qr_version` (HKDF
+  label `justfit-gym-qr` from `AUTH_SECRET`): nothing secret stored, regenerating voids old prints.
+  A scan counts only with the current code, an active membership (check-in), and a GPS reading
+  that is fresh (2 min), precise (≤150 m), not mocked and within `gyms.attendance_radius_m`
+  (default 100, 20-1000) of `gyms.latitude/longitude`. One open visit per member (unique key on
+  the generated `open_member_id`); several visits a day; the server works out `duration_min`;
+  visits open 12 hours become `no_checkout`. Staff check in/out by hand stays (`in_source`/
+  `out_source` 'staff'). Admin screens: `app/gym/attendance/` (dashboard: inside now, today's
+  numbers, daily/weekly/monthly stats, 7-day bars, history with range/status/search and CSV
+  export; `settings.tsx`: name, map (`AttendanceMap`: react-native-maps, Google on Android with
+  `GOOGLE_MAPS_ANDROID_API_KEY` set in the shell before a build (read by `app.config.ts`, never
+  committed), Apple Maps on iOS, no map on the web build), place search by the phone's geocoder,
+  current location, coordinates, radius; `qr.tsx`: show, share/print, regenerate;
+  `member/[id].tsx`: one member's history). GPS through `lib/gpsReading.ts` (expo-location, while
+  in use only). Audit actions `gym.attendance_place`, `gym.qr_regenerate`; security events
+  `attendance.bad_qr`, `attendance.mock_location`. Migration `2026-11-27-gym-qr-attendance.sql`
+  (keeps existing check-ins as `no_checkout`/`staff`). Mock-location detection is best effort
+  (Android's flag, iOS simulated locations); a rooted phone can still fake GPS.
+- **Tests:** `__tests__/gym-rules.test.js`, `gym-sms-rules.test.js`, `gym-attendance-rules.test.js`,
+  `e2e/gym-portal.e2e.test.js`, `e2e/gym-sms.e2e.test.js`, `e2e/gym-attendance.e2e.test.js`,
+  `ui/gym-portal.ui.test.js`.
 
 ### Community and gyms: removed (2026-11-01)
 
@@ -222,8 +249,8 @@ Groups, Challenges and Trainers had already gone. Do not rebuild any of it unles
 - Kept as history: `admin_audit_log` rows about gyms, posts and reports; `ai_usage` rows of the
   `gym_assistant` feature (still in the ENUM, labelled "removed" on AI Usage, no section); old
   `analytics_events` of the community events (the server no longer accepts new ones).
-- Still installed but unused since: `expo-camera` and `react-native-qrcode-svg` (removing a package
-  needs the user's approval, and a new local build).
+- `expo-camera` and `react-native-qrcode-svg`, unused after this removal, are used again since
+  2026-11-04 by QR attendance (the member's scanner and the gym's code).
 
 ---
 

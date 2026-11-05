@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { ActivityIndicator, Text, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 
@@ -26,11 +26,14 @@ export default function GymTransactions() {
   const [todayOnly, setTodayOnly] = useState(params.today === "1");
   const [more, setMore] = useState<{ items: GymPayment[]; next: number | null; loading: boolean; error: string }>({ items: [], next: null, loading: false, error: "" });
   const getToken = useSessionToken();
+  // Which list Show more belongs to: an answer for an earlier filter is dropped, never appended
+  const listKey = useRef(0);
 
   const load = useCallback(
     async (token: string | null) => {
+      const key = ++listKey.current;
       const answer = await gymApi.payments(token, { kind: kind === "all" ? null : kind, today: todayOnly });
-      if (answer.ok) setMore({ items: [], next: answer.data.nextBefore, loading: false, error: "" });
+      if (answer.ok && key === listKey.current) setMore({ items: [], next: answer.data.nextBefore, loading: false, error: "" });
       return answer;
     },
     [kind, todayOnly],
@@ -39,8 +42,10 @@ export default function GymTransactions() {
 
   const loadMore = async () => {
     if (more.loading || !more.next) return;
+    const key = listKey.current;
     setMore((m) => ({ ...m, loading: true, error: "" }));
     const answer = await gymApi.payments(await getToken().catch(() => null), { kind: kind === "all" ? null : kind, today: todayOnly, before: more.next });
+    if (key !== listKey.current) return;
     setMore((m) => (answer.ok ? { items: [...m.items, ...answer.data.payments], next: answer.data.nextBefore, loading: false, error: "" } : { ...m, loading: false, error: answer.error }));
   };
 

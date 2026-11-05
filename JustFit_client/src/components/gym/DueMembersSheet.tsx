@@ -70,6 +70,7 @@ export function DueMembersSheet({ gym, onClose, onChanged }: { gym: GymInfo; onC
           member={open}
           gym={gym}
           onClose={() => setOpen(null)}
+          onLeave={onClose}
           onChanged={(detail) => {
             setOpen(detail.member.due > 0 ? detail.member : null);
             reload();

@@ -24,12 +24,13 @@ const MANAGE: MenuItem[] = [
 ];
 const OTHER: MenuItem[] = [
   { label: "Send Bulk SMS", icon: "message-square-more", action: "sms" },
-  { label: "Biometric Attendance", icon: "fingerprint" },
+  { label: "QR Attendance", icon: "qr-code", href: "/gym/attendance" },
+  { label: "Location & Attendance Settings", icon: "map-pin", href: "/gym/attendance/settings" },
 ];
 
 // The ☰ side menu over Home: who is signed in and their branch, Manage (Members, Plans /
 // Catalogue, Enquiries, Outlets = branches; the rest are on their way), Other (Send Bulk SMS
-// opens Home's sheet through onBulkSms), and Sign out.
+// opens Home's sheet through onBulkSms; QR Attendance and its settings), and Sign out.
 export function GymMenu({ open, onClose, gymLine, onBulkSms }: { open: boolean; onClose: () => void; gymLine: string | null; onBulkSms: () => void }) {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();

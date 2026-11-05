@@ -61,8 +61,9 @@ export default function GymHome() {
       plan: () => router.push("/gym/manage?tab=catalog"),
       enquiry: () => router.push("/gym/enquiry"),
       outlet: () => router.push("/gym/branches"),
+      attendance: () => router.push("/gym/attendance"),
     };
-    const label = { expense: "Add Expense", staff: "Add Staff / Admin Login", biometric: "Biometric Attendance" } as Partial<Record<AddAction, string>>;
+    const label = { expense: "Add Expense", staff: "Add Staff / Admin Login" } as Partial<Record<AddAction, string>>;
     if (go[action]) go[action]!();
     else setTimeout(() => comingSoon(label[action] ?? "This"), 250);
   };
@@ -92,7 +93,7 @@ export default function GymHome() {
     ? [
         { id: "due", value: data.alerts.dueMembers, label: "Due Members", tag: "Action", hint: "Payments to collect", tone: "danger", icon: "triangle-alert", href: "/gym/members?filter=due" },
         { id: "expiring", value: data.alerts.expiringToday, label: "Expiring Today", tag: "Urgent", hint: "Plans ending today", tone: "warning", icon: "clock", href: "/gym/members?filter=expiring" },
-        { id: "attendance", value: data.alerts.attendance, label: "Attendance", tag: "Live", hint: "Checked in today", tone: "primary", icon: "fingerprint", href: "/gym/members?filter=in_today" },
+        { id: "attendance", value: data.alerts.attendance, label: "Attendance", tag: "Live", hint: "Checked in today", tone: "primary", icon: "scan-qr-code", href: "/gym/attendance" },
         { id: "expiring-soon", value: data.alerts.expiringSoon, label: "Expiring in 1-3 days", tag: "Soon", hint: "Renewals coming up", tone: "warning", icon: "calendar-clock", href: "/gym/members?filter=expiring_soon" },
         { id: "birthdays", value: data.alerts.birthdays, label: "Birthdays Today", tag: "Wish", hint: "Send them a wish", tone: "success", icon: "cake", href: "/gym/members?filter=birthday" },
       ]

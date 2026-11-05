@@ -4,7 +4,7 @@ import { Text, View } from "react-native";
 import { PressableScale } from "@/components/PressableScale";
 import { GymIcon } from "@/components/gym/GymIcon";
 import { DatePickerSheet } from "@/components/setup/DatePickerSheet";
-import { shortDate } from "@/data/gymDashboard";
+import { shortDate, todayIso } from "@/data/gymDashboard";
 import { useThemeColors } from "@/theme";
 
 const toDate = (iso: string) => {
@@ -28,7 +28,7 @@ export function DateSelect({ label, value, onChange, min, max, stacked = false }
       <DatePickerSheet
         visible={open}
         title={label}
-        value={toDate(value ?? (max < toIso(new Date()) ? max : min > toIso(new Date()) ? min : toIso(new Date())))}
+        value={toDate(value ?? (max < todayIso() ? max : min > todayIso() ? min : todayIso()))}
         minimumDate={toDate(min)}
         maximumDate={toDate(max)}
         onSelect={(date) => onChange(toIso(date))}

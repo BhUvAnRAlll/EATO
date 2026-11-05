@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, FlatList, Modal, Platform, Pressable, Text, TextInput, useWindowDimensions, View } from "react-native";
 import { router } from "expo-router";
 
@@ -105,12 +105,16 @@ export function MemberList({ pick = null, initialFilter = "all", focusSearch = f
     setPending({ member, kind, credits: answer.data.credits });
   };
 
+  // A ref guard: a double tap on Send SMS in one frame would send (and pay for) it twice
+  const sendingRef = useRef(false);
   const send = async () => {
-    if (!pending) return;
+    if (!pending || sendingRef.current) return;
+    sendingRef.current = true;
     const { member, kind } = pending;
     setPending(null);
     setBusy(member.id);
     const answer = await gymApi.memberSms(await getToken().catch(() => null), member.id, kind);
+    sendingRef.current = false;
     setBusy(null);
     if (answer.ok) {
       haptic.success();

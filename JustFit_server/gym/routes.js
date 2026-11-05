@@ -7,6 +7,8 @@ const express = require("express");
 const { getAccount } = require("../auth");
 const { logSecurityEvent } = require("../logging");
 const { createRateLimiter, limitPerUser } = require("../rateLimit");
+const attendance = require("./attendance");
+const attendanceRules = require("./attendanceRules");
 const photos = require("./photos");
 const service = require("./service");
 const rules = require("./rules");
@@ -18,9 +20,9 @@ const smallBody = express.json({ limit: "4kb" });
 const pool = (req) => req.app.locals.pool;
 const today = () => rules.todayInIndia();
 
-// Before the gym migrations (2026-11-19-gym-portal.sql up to 2026-11-26-member-photos.sql) have
-// run, say so instead of a 500
-const MIGRATION = "The gym portal needs its migrations (up to 2026-11-26-member-photos) on this server.";
+// Before the gym migrations (2026-11-19-gym-portal.sql up to 2026-11-27-gym-qr-attendance.sql)
+// have run, say so instead of a 500
+const MIGRATION = "The gym portal needs its migrations (up to 2026-11-27-gym-qr-attendance) on this server.";
 const route = (handler) => (req, res, next) =>
   handler(req, res, next).catch((error) => {
     if (["ER_NO_SUCH_TABLE", "ER_BAD_FIELD_ERROR"].includes(error?.code)) return res.status(503).json({ error: MIGRATION });
@@ -100,8 +102,17 @@ router.post("/members/:memberId/sales", smallBody, route(async (req, res) => {
 router.post("/members/:memberId/services", smallBody, route(async (req, res) => {
   res.status(201).json(await service.sellToMember(pool(req), req.gym.id, req.userId, rules.id(req.params.memberId), "service", rules.memberSaleBody(req.body, { product: false }), today()));
 }));
+// Staff check a member in or out by hand (members without the app); QR scans are in
+// gym/attendanceRoutes.js
 router.post("/members/:memberId/check-in", route(async (req, res) => {
-  res.json(await service.checkIn(pool(req), req.gym.id, req.userId, rules.id(req.params.memberId), today()));
+  const memberId = rules.id(req.params.memberId);
+  const { alreadyIn } = await attendance.staffCheckIn(pool(req), req.gym.id, req.userId, memberId, today());
+  res.json({ ...(await service.member(pool(req), req.gym.id, memberId, today())), alreadyIn });
+}));
+router.post("/members/:memberId/check-out", route(async (req, res) => {
+  const memberId = rules.id(req.params.memberId);
+  const { durationMin } = await attendance.staffCheckOut(pool(req), req.gym.id, req.userId, memberId);
+  res.json({ ...(await service.member(pool(req), req.gym.id, memberId, today())), durationMin });
 }));
 
 // A member's photo (gym/photos.js): PUT { data: base64, mediaType } adds or replaces it (checked
@@ -189,6 +200,32 @@ router.post("/members/:memberId/sms", smsSendLimit, smallBody, smsRoute(async (r
 }));
 router.get("/sms/logs", smsRoute(async (req, res) => {
   res.json(await sms.logs(pool(req), req.gym.id, smsRules.logsQuery(req.query)));
+}));
+
+// QR attendance (gym/attendance.js): the branch's location, radius and QR code, the dashboard,
+// the history and its CSV export. The QR code is signed with a key from AUTH_SECRET.
+const qrKey = (req) => req.app.locals.gymQrKey;
+router.get("/attendance/settings", route(async (req, res) => {
+  res.json(await attendance.settings(pool(req), req.gym, qrKey(req)));
+}));
+router.put("/attendance/location", smallBody, route(async (req, res) => {
+  res.json(await attendance.saveLocation(pool(req), req.gym, req.userId, attendanceRules.locationBody(req.body), qrKey(req)));
+}));
+router.post("/attendance/qr", route(async (req, res) => {
+  res.json(await attendance.regenerateQr(pool(req), req.gym, req.userId, qrKey(req)));
+}));
+router.get("/attendance", route(async (req, res) => {
+  res.json(await attendance.summary(pool(req), req.gym, today()));
+}));
+router.get("/attendance/visits", route(async (req, res) => {
+  res.json(await attendance.history(pool(req), req.gym.id, attendanceRules.historyQuery(req.query, today())));
+}));
+router.get("/attendance/export", route(async (req, res) => {
+  const query = attendanceRules.historyQuery(req.query, today());
+  const csv = await attendance.exportCsv(pool(req), req.gym.id, query);
+  res.set("Content-Type", "text/csv; charset=utf-8");
+  res.set("Content-Disposition", `attachment; filename="attendance-${query.from}-to-${query.to}.csv"`);
+  res.send(`\uFEFF${csv}`);
 }));
 
 router.get("/wallet", route(async (req, res) => {

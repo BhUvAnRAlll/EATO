@@ -15,12 +15,17 @@ import { PaymentRow } from "@/components/gym/PaymentRow";
 import { SaveButton } from "@/components/gym/SaveButton";
 import { GENDER_LABEL, STATUS_LABEL, phoneInput, dobFromText, dobInput, dobText, initialsOf, planLabel, phoneText, rupees, shortDate } from "@/data/gymDashboard";
 import { gymApi, type GymMemberDetail } from "@/lib/gymApi";
+import { durationText } from "@/lib/attendanceText";
 import { useGymSave } from "@/lib/gymForm";
 import { useGymData } from "@/lib/useGymData";
 import { useThemeColors } from "@/theme";
 
-// Gym admin › a member: their plan, what they owe, visits, Check in, Renew, Collect due, editing
+// Gym admin › a member: their plan, what they owe, visits, Check in / Check out, Renew, Collect due, editing
 // the name and phone, and their payments
+// Height 50-250 cm and weight 10-300 kg, or empty (a typo like "72..5" must not clear the weight)
+const detailsValid = ({ height, weight }: { height: string; weight: string }) =>
+  (height === "" || (Number(height) >= 50 && Number(height) <= 250)) && (weight === "" || (Number.isFinite(Number(weight)) && Number(weight) >= 10 && Number(weight) <= 300));
+
 export default function GymMember() {
   const colors = useThemeColors();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -39,7 +44,8 @@ export default function GymMember() {
   const [details, setDetails] = useState({ email: "", height: "", weight: "", address: "", notes: "" });
   const checkIn = useGymSave((data: GymMemberDetail) => {
     set(data);
-    setNotice(data.alreadyIn ? "Already checked in today." : "Checked in for today.");
+    if (data.durationMin !== undefined) setNotice(`Checked out · ${durationText(data.durationMin ?? 0)} workout.`);
+    else setNotice(data.alreadyIn ? "Already checked in." : "Checked in.");
   });
   const edit = useGymSave((data: GymMemberDetail) => {
     set(data);
@@ -67,7 +73,7 @@ export default function GymMember() {
         ) : undefined
       }
     >
-      {options && gym && <MemberActionsSheet member={member} payments={payments} gym={gym} onClose={() => setOptions(false)} onChanged={(detail) => { set(detail); setOptions(false); }} />}
+      {options && gym && <MemberActionsSheet member={member} payments={payments} gym={gym} onMemberPage onClose={() => setOptions(false)} onChanged={(detail) => { set(detail); setOptions(false); }} />}
       <View className="gym-card p-4" style={{ gap: 12 }}>
         <View className="flex-row items-center" style={{ gap: 12 }}>
           <View className="gym-avatar" style={{ width: 52, height: 52 }}>
@@ -108,13 +114,13 @@ export default function GymMember() {
             <GymField label="Date of birth" value={dob} onChangeText={(t) => setDob(dobInput(t))} keyboardType="number-pad" placeholder="DD-MM-YYYY" hint="Leave empty to remove it." />
             <GymField label="Email" value={details.email} onChangeText={(email) => setDetails((d) => ({ ...d, email }))} maxLength={120} keyboardType="email-address" autoCapitalize="none" autoCorrect={false} />
             <View className="flex-row" style={{ gap: 10 }}>
-              <View className="min-w-0 flex-1"><GymField label="Height (cm)" value={details.height} onChangeText={(t) => setDetails((d) => ({ ...d, height: t.replace(/\D/g, "").slice(0, 3) }))} keyboardType="number-pad" /></View>
-              <View className="min-w-0 flex-1"><GymField label="Weight (kg)" value={details.weight} onChangeText={(t) => setDetails((d) => ({ ...d, weight: t.replace(/[^0-9.]/g, "").slice(0, 5) }))} keyboardType="decimal-pad" /></View>
+              <View className="min-w-0 flex-1"><GymField label="Height (cm)" hint={detailsValid({ height: details.height, weight: "" }) ? undefined : "50 to 250 cm"} value={details.height} onChangeText={(t) => setDetails((d) => ({ ...d, height: t.replace(/\D/g, "").slice(0, 3) }))} keyboardType="number-pad" /></View>
+              <View className="min-w-0 flex-1"><GymField label="Weight (kg)" hint={detailsValid({ height: "", weight: details.weight }) ? undefined : "10 to 300 kg"} value={details.weight} onChangeText={(t) => setDetails((d) => ({ ...d, weight: t.replace(/[^0-9.]/g, "").slice(0, 5) }))} keyboardType="decimal-pad" /></View>
             </View>
             <GymField label="Address" value={details.address} onChangeText={(address) => setDetails((d) => ({ ...d, address }))} maxLength={200} />
             <GymField label="Notes" value={details.notes} onChangeText={(notes) => setDetails((d) => ({ ...d, notes }))} maxLength={300} />
             {edit.error ? <FormAlert message={edit.error} /> : null}
-            <SaveButton label="Save changes" ready={name.trim().length >= 2 && (dob.trim() === "" || dobFromText(dob) !== null)} busy={edit.busy} onPress={() => edit.save((token) => gymApi.editMember(token, memberId, { name: name.trim(), phone: phone.trim(), dob: dobFromText(dob) ?? "", email: details.email.trim(), heightCm: details.height ? Number(details.height) : "", weightKg: details.weight ? Number(details.weight) : "", address: details.address.trim(), notes: details.notes.trim() }))} />
+            <SaveButton label="Save changes" ready={name.trim().length >= 2 && (dob.trim() === "" || dobFromText(dob) !== null) && detailsValid(details)} busy={edit.busy} onPress={() => edit.save((token) => gymApi.editMember(token, memberId, { name: name.trim(), phone: phone.trim(), dob: dobFromText(dob) ?? "", email: details.email.trim(), heightCm: details.height ? Number(details.height) : "", weightKg: details.weight ? Number(details.weight) : "", address: details.address.trim(), notes: details.notes.trim() }))} />
           </View>
         )}
         <View className="gym-summary">
@@ -131,17 +137,23 @@ export default function GymMember() {
 
       {notice ? <Text className="gym-tx__meta" accessibilityLiveRegion="polite">{notice}</Text> : null}
       {checkIn.error ? <FormAlert message={checkIn.error} /> : null}
+      {/* Staff check-in and check-out (members with the app scan the QR code instead) */}
       <PressableScale
-        onPress={() => checkIn.save((token) => gymApi.checkIn(token, memberId))}
-        disabled={checkIn.busy || member.inToday}
+        onPress={() => checkIn.save((token) => (member.insideNow ? gymApi.checkOut(token, memberId) : gymApi.checkIn(token, memberId)))}
+        disabled={checkIn.busy}
         haptic="tap"
-        className={member.inToday ? "gym-btn gym-btn--outline" : "gym-btn"}
+        className={member.insideNow ? "gym-btn gym-btn--outline" : "gym-btn"}
         accessibilityRole="button"
-        accessibilityLabel={member.inToday ? "Checked in today" : "Check in for today"}
+        accessibilityLabel={member.insideNow ? "Check out" : "Check in"}
+        accessibilityState={{ busy: checkIn.busy }}
       >
-        {!member.inToday && <GradientFill radius={14} />}
-        {checkIn.busy ? <ActivityIndicator size="small" color={colors.white} /> : <GymIcon name="fingerprint" size={18} color={member.inToday ? colors.gymPrimary : colors.white} />}
-        <Text className={member.inToday ? "gym-btn__label gym-btn__label--outline" : "gym-btn__label"}>{member.inToday ? "Checked in today" : "Check in"}</Text>
+        {!member.insideNow && <GradientFill radius={14} />}
+        {checkIn.busy ? <ActivityIndicator size="small" color={member.insideNow ? colors.gymPrimary : colors.white} /> : <GymIcon name={member.insideNow ? "log-out" : "log-in"} size={18} color={member.insideNow ? colors.gymPrimary : colors.white} />}
+        <Text className={member.insideNow ? "gym-btn__label gym-btn__label--outline" : "gym-btn__label"}>{member.insideNow ? "Check out" : "Check in"}</Text>
+      </PressableScale>
+      <PressableScale onPress={() => router.push({ pathname: "/gym/attendance/member/[id]", params: { id: String(memberId), name: member.name } })} className="flex-row items-center self-start" style={{ gap: 6 }} accessibilityRole="button" accessibilityLabel="Attendance history">
+        <GymIcon name="history" size={15} color={colors.gymPrimary} />
+        <Text className="gym-link">Attendance history</Text>
       </PressableScale>
       <View className="flex-row flex-wrap" style={{ gap: 10 }}>
         <PressableScale onPress={() => router.push({ pathname: "/gym/members/[id]/pt", params: { id: String(memberId) } })} className="gym-btn gym-btn--outline flex-1" accessibilityRole="button" accessibilityLabel="Personal training payment">

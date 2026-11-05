@@ -165,7 +165,8 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
     await viewport(390, 844);
     await signIn(identities.gym, "/gym");
     await h.expectPath("/gym");
-    await h.expectText("Arjun Kumar");
+    // Home's header shows the gym's name; the admin is the account badge's initials (Arjun Kumar)
+    await h.expectText("AK");
     await h.expectText("Tumkur branch");
     await h.expectText("FORMA");
     const revenue = JSON.stringify(`[aria-label^="Today's revenue ₹7,700"]`);
@@ -178,13 +179,21 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
     const tabs = await page.evaluate(`[...document.querySelectorAll('[role="tab"]')].filter((e) => e.getClientRects().length > 0).map((e) => e.getAttribute("aria-label"))`);
     assert.deepEqual(tabs, ["Home", "Manage", "Wallet"]);
     assert.equal(await hasLabel("AI assistant"), false, "no AI button");
+    // QA 2026-11-04: on the web the gradient painted over the icons on it (the active tab, +), and
+    // the icons' native-only props raised a React error whose toast covered the Wallet tab
+    // Painted over the gradient: the icon's box is positioned and comes after the gradient's
+    const iconOnTop = (selector) => page.evaluate(`(() => { const el = document.querySelector(${JSON.stringify(selector)}); if (!el) return "missing"; const grad = el.querySelector('rect[fill^="url"]'); if (!grad) return "no gradient"; const gradBox = grad.closest("svg").parentElement; const svgs = [...el.querySelectorAll("svg")]; const box = svgs[svgs.length - 1].parentElement; const ok = box !== gradBox && getComputedStyle(box).position !== "static" && Boolean(gradBox.compareDocumentPosition(box) & Node.DOCUMENT_POSITION_FOLLOWING); return ok || JSON.stringify({ svgs: svgs.length, same: box === gradBox, pos: getComputedStyle(box).position, rel: gradBox.compareDocumentPosition(box), boxHtml: box.outerHTML.slice(0, 300), gradHtml: gradBox.outerHTML.slice(0, 200) }); })()`);
+    assert.equal(await iconOnTop('[role="tab"][aria-label="Home"]'), true, "the active tab's icon is drawn over its gradient");
+    assert.equal(await iconOnTop('[aria-label="Add a member, plan, enquiry or payment"]'), true, "the + icon is drawn over its gradient");
+    assert.equal(await page.evaluate(`[...document.querySelectorAll("*")].some((e) => /React does not recognize/.test(e.textContent || "") && e.children.length < 6)`), false, "no React prop error on Home");
     await snapshotAllWidths("gym-home");
   }));
 
   it("2. + › Add Member: the profile with its automatic Member ID, then the plan, confirm, saved", run("gym-admission", async () => {
     await clickLabel("Add a member, plan, enquiry or payment");
     await h.expectText("Add Staff / Admin Login");
-    await h.expectText("Biometric Attendance");
+    await h.expectText("QR Attendance");
+    assert.equal(await page.hasText("Biometric"), false, "no biometric attendance");
     await snapshotAllWidths("gym-add");
     await h.settle();
     await clickLabel("Add Member");
@@ -233,13 +242,83 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
   }));
 
   it("3. checking the member in shows on their page and on Home", run("gym-checkin", async () => {
-    await clickLabel("Check in for today");
-    await h.expectText("Checked in for today.");
-    assert.ok(await hasLabel("Checked in today"));
+    await clickLabel("Check in");
+    await h.expectText("Checked in.");
+    assert.ok(await hasLabel("Check out"), "the button turns into Check out");
     await snapshotAllWidths("gym-member");
     await page.navigate(`${expo.baseUrl}/gym`);
     await page.waitFor(`!!document.querySelector('[aria-label="1 Attendance, Live"]')`, NAV_TIMEOUT, "attendance 1 on Home");
     assert.ok(await hasLabel("2 Admission"));
+  }));
+
+  it("3b. QR Attendance: the dashboard, location and radius, the QR code, a staff check-out and history", run("gym-attendance", async () => {
+    await page.navigate(`${expo.baseUrl}/gym/attendance`);
+    await h.expectText("INSIDE NOW (1)");
+    await h.expectText("Ravi Shankar");
+    await h.expectText("Set your gym's location and attendance radius first");
+    assert.ok(await hasLabel("1 Inside now"));
+    assert.ok(await hasLabel("1 Check-ins today"));
+    await snapshotAllWidths("gym-attendance");
+
+    // Settings: the coordinates (the web build has no map), a 150 m radius, saved
+    await clickLabel("Gym location and attendance settings");
+    await page.waitFor(`location.pathname === "/gym/attendance/settings"`, NAV_TIMEOUT, "the settings screen");
+    await h.expectText("No location saved yet");
+    await h.expectText("Attendance radius: 100 m");
+    await page.setInput(h.input("13.339200"), "13.3392");
+    await page.setInput(h.input("77.101200"), "77.1012");
+    await page.setInput(h.input("100"), "5000");
+    await h.expectText("Enter 20 to 1000 metres.");
+    await page.setInput(h.input("100"), "150");
+    await h.expectText("Members must be within 150 m of the pin");
+    await snapshotAllWidths("gym-attendance-settings");
+    await clickLabel("Save Location & Settings");
+    await h.expectText("Saved: 13.339200, 77.101200 · 150 m radius");
+    const [[place]] = await connection.query("SELECT latitude, longitude, attendance_radius_m FROM gyms WHERE id = ?", [state.gym]);
+    assert.deepEqual([Number(place.latitude), Number(place.longitude), place.attendance_radius_m], [13.3392, 77.1012, 150]);
+
+    // The QR code: none yet, then created
+    await page.navigate(`${expo.baseUrl}/gym/attendance/qr`);
+    await h.expectText("No QR code yet");
+    await clickLabel("Create QR code");
+    await h.expectText("Scan with the justFit app to check in and check out");
+    await h.expectText("Code 1");
+    assert.ok(await hasLabel("Regenerate QR code"));
+    const [[qr]] = await connection.query("SELECT qr_version FROM gyms WHERE id = ?", [state.gym]);
+    assert.equal(qr.qr_version, 1);
+    await snapshotAllWidths("gym-attendance-qr");
+
+    // Back on the dashboard: set up, and the front desk checks Ravi out
+    await page.navigate(`${expo.baseUrl}/gym/attendance`);
+    await h.expectText("INSIDE NOW (1)");
+    assert.equal(await page.hasText("Set your gym's location"), false);
+    await clickLabel("Check out Ravi Shankar");
+    await h.expectText("Nobody is checked in right now.");
+    await h.expectText("INSIDE NOW (0)");
+    await page.waitFor(`!!document.querySelector('[aria-label^="Ravi Shankar, FOR-TUM-0002. Completed."]')`, NAV_TIMEOUT, "the completed visit in the history");
+    assert.ok(await hasLabel("Export to CSV"));
+    await clickLabel("Completed");
+    await h.expectText("1 visit");
+    await page.setInput(`input[placeholder="Search a member by name or ID"]`, "nobody-like-this");
+    await h.expectText("No check-ins match these filters.");
+    const [[visit]] = await connection.query("SELECT status, in_source, out_source, duration_min FROM gym_attendance WHERE gym_id = ?", [state.gym]);
+    assert.deepEqual([visit.status, visit.in_source, visit.out_source], ["completed", "staff", "staff"]);
+
+    // The member's own attendance history
+    await page.navigate(`${expo.baseUrl}/gym/members`);
+    await h.expectText("Ravi Shankar");
+    const [[ravi]] = await connection.query("SELECT id FROM gym_members WHERE gym_id = ? AND full_name = 'Ravi Shankar'", [state.gym]);
+    await page.navigate(`${expo.baseUrl}/gym/members/${ravi.id}`);
+    await clickLabel("Attendance history");
+    await page.waitFor(`location.pathname === "/gym/attendance/member/${ravi.id}"`, NAV_TIMEOUT, "the member's attendance history");
+    await h.expectText("Ravi Shankar: attendance");
+    await h.expectText("1 visit");
+    await snapshotAllWidths("gym-attendance-member");
+    // Back to Home for the next steps; the visit still counts as today's attendance
+    await page.navigate(`${expo.baseUrl}/gym`);
+    await page.waitFor(`!!document.querySelector('[aria-label="1 Attendance, Live"]')`, NAV_TIMEOUT, "attendance 1 on Home");
+    assert.ok(await hasLabel("2 Admission"));
+    await h.settle();
   }));
 
   it("4. Members, Transactions, Wallet and the ☰ menu", run("gym-lists", async () => {
@@ -524,5 +603,11 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
     await page.navigate(`${expo.baseUrl}/gym`);
     await page.waitFor(`!location.pathname.startsWith("/gym")`, NAV_TIMEOUT, "sent away from /gym");
     assert.equal(await page.hasText("Today's Revenue"), false);
+    // Profile › Gym attendance: the scan screen and their (empty) visits; this member isn't at any gym
+    await page.navigate(`${expo.baseUrl}/attendance`);
+    await h.expectText("Check in or out at your gym");
+    await h.expectText("No visits yet.");
+    assert.ok(await hasLabel("Scan QR code") || (await page.hasText("Scan QR code")));
+    await snapshotAllWidths("member-attendance");
   }));
 });

@@ -5989,3 +5989,82 @@
   font-size: 14px;
   line-height: 20px;
 }
+
+/* QR attendance (2026-11-04): the location map, the 7-day bars and the printable QR card */
+@utility gym-map {
+  height: 280px;
+  border-radius: 16px;
+  border-width: 1px;
+  border-color: var(--color-gym-line);
+  background-color: var(--color-gym-bar);
+  overflow: hidden;
+}
+
+@utility gym-map--empty {
+  height: auto;
+  min-height: 150px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 20px;
+}
+
+@utility gym-bars {
+  flex-direction: row;
+  align-items: flex-end;
+  gap: 6px;
+  height: 96px;
+}
+
+@utility gym-bars__col {
+  flex: 1;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  height: 100%;
+}
+
+@utility gym-bars__bar {
+  width: 100%;
+  min-height: 3px;
+  border-radius: 6px;
+  background-color: var(--color-gym-primary);
+}
+
+@utility gym-qr {
+  align-items: center;
+  gap: 12px;
+  padding: 24px;
+  border-radius: 18px;
+  border-width: 1px;
+  border-color: var(--color-gym-hairline);
+  background-color: var(--color-gym-page);
+  box-shadow: var(--shadow-gym-card);
+}
+
+@utility gym-qr__title {
+  font-family: var(--font-sans-semibold);
+  font-size: 20px;
+  line-height: 28px;
+  color: var(--color-gym-ink);
+  text-align: center;
+}
+
+/* Member app › Gym attendance: the QR scanner (the camera, with a square guide over it) */
+@utility attendance-scanner {
+  flex: 1;
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  background-color: var(--color-immersive);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility attendance-scanner__frame {
+  position: absolute;
+  width: 64%;
+  aspect-ratio: 1;
+  border-radius: var(--radius-lg);
+  border-width: 3px;
+  border-color: var(--color-white);
+}

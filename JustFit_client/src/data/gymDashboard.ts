@@ -42,12 +42,12 @@ export function dobFromText(text: string): string | null {
   const m = /^(\d{2})-(\d{2})-(\d{4})$/.exec(text.trim());
   return m ? `${m[3]}-${m[2]}-${m[1]}` : null;
 }
-// Today on this phone, and a day some days from it, as YYYY-MM-DD
-export function todayIso(now = new Date()) {
-  const p = (n: number) => String(n).padStart(2, "0");
-  return `${now.getFullYear()}-${p(now.getMonth() + 1)}-${p(now.getDate())}`;
-}
-export const daysFromToday = (days: number, now = new Date()) => todayIso(new Date(now.getFullYear(), now.getMonth(), now.getDate() + days));
+// Today in India, and a day some days from it, as YYYY-MM-DD: the server checks payment and due
+// dates against India's date, so a phone or laptop on another zone (or UTC before 05:30 IST)
+// mustn't default to yesterday
+const IST_OFFSET_MS = 330 * 60 * 1000;
+export const todayIso = (now = new Date()) => new Date(now.getTime() + IST_OFFSET_MS).toISOString().slice(0, 10);
+export const daysFromToday = (days: number, now = new Date()) => todayIso(new Date(now.getTime() + days * 86400000));
 
 // The first day of a plan that ends on `expiresOn` (the day after the same date a plan-length back)
 export function planStart(expiresOn: string, duration: number, unit: PlanUnit) {
@@ -101,7 +101,7 @@ export const MEMBER_FILTERS: { id: MemberFilter; label: string }[] = [
 export const GENDER_LABEL: Record<Gender, string> = { male: "Male", female: "Female", other: "Other" };
 
 // The + sheet on Home (the user's design)
-export type AddAction = "member" | "plan" | "enquiry" | "expense" | "outlet" | "staff" | "sms" | "biometric";
+export type AddAction = "member" | "plan" | "enquiry" | "expense" | "outlet" | "staff" | "sms" | "attendance";
 export const ADD_SHEET: { id: AddAction; label: string; icon: GymIconName }[] = [
   { id: "member", label: "Add Member", icon: "user-plus" },
   { id: "plan", label: "Add Plan", icon: "clipboard-list" },
@@ -110,7 +110,7 @@ export const ADD_SHEET: { id: AddAction; label: string; icon: GymIconName }[] = 
   { id: "outlet", label: "Add Outlet", icon: "store" },
   { id: "staff", label: "Add Staff / Admin Login", icon: "user-plus" },
   { id: "sms", label: "Send Bulk SMS", icon: "message-square-more" },
-  { id: "biometric", label: "Biometric Attendance", icon: "fingerprint" },
+  { id: "attendance", label: "QR Attendance", icon: "qr-code" },
 ];
 
 

@@ -6,7 +6,7 @@ import { ADD_SHEET, type AddAction } from "@/data/gymDashboard";
 import { useThemeColors } from "@/theme";
 
 // Home's + (the user's design): Add Member, Add Plan, Add Enquiry, Add Expense, Add Outlet, Add
-// Staff / Admin Login, Send Bulk SMS, Biometric Attendance
+// Staff / Admin Login, Send Bulk SMS, QR Attendance
 export function AddSheet({ onClose, onPick }: { onClose: () => void; onPick: (action: AddAction) => void }) {
   const colors = useThemeColors();
   const row = (item: (typeof ADD_SHEET)[number]) => (

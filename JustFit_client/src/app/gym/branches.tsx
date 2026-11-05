@@ -19,7 +19,7 @@ export default function GymBranchesScreen() {
   const colors = useThemeColors();
   const { result, retry, set } = useGymData(gymApi.branches);
   const [switching, setSwitching] = useState<number | null>(null);
-  const { error, save } = useGymSave((data: GymBranches) => {
+  const { busy, error, save } = useGymSave((data: GymBranches) => {
     set(data);
     setSwitching(null);
     router.back();
@@ -42,7 +42,7 @@ export default function GymBranchesScreen() {
                     setSwitching(b.id);
                     save((token) => gymApi.switchBranch(token, b.id));
                   }}
-                  disabled={switching !== null}
+                  disabled={busy}
                   haptic="select"
                   className={current ? "gym-card gym-tx gym-branch--current" : "gym-card gym-tx"}
                   accessibilityRole="radio"
@@ -56,7 +56,7 @@ export default function GymBranchesScreen() {
                     <Text className="gym-tx__name" numberOfLines={1}>{`${b.branch} branch`}</Text>
                     <Text className="gym-tx__meta" numberOfLines={1}>{`${b.area}, ${b.city}`}</Text>
                   </View>
-                  {switching === b.id ? (
+                  {busy && switching === b.id ? (
                     <ActivityIndicator size="small" color={colors.gymPrimary} />
                   ) : current ? (
                     <GymIcon name="circle-check" size={20} color={colors.gymPrimary} />

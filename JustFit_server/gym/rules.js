@@ -236,7 +236,8 @@ function saleBody(body) {
 
 function enquiryBody(body) {
   onlyKeys(body, ["name", "phone", "note"]);
-  const note = body.note === undefined || body.note === null ? "" : cleanText(String(body.note).slice(0, limits.note * 2), limits.note);
+  if (!blank(body.note) && typeof body.note !== "string") throw new ValidationError("Enter the note as text.");
+  const note = blank(body.note) ? "" : cleanText(body.note.slice(0, limits.note * 2), limits.note);
   return { name: requiredText(body.name, "name", limits.name), phone: optionalPhone(body.phone), note: note || null };
 }
 

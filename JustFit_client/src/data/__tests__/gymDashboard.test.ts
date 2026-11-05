@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { dobFromText, dobInput, phoneInput } from "../gymDashboard.ts";
+import { daysFromToday, dobFromText, dobInput, phoneInput, todayIso } from "../gymDashboard.ts";
 
 describe("gym portal inputs", () => {
   it("mobile numbers keep to 10 digits, whatever is typed or pasted", () => {
@@ -19,5 +19,16 @@ describe("gym portal inputs", () => {
     assert.equal(dobInput("30072004"), "30-07-2004");
     assert.equal(dobFromText("30-07-2004"), "2004-07-30");
     assert.equal(dobFromText("30-07-04"), null);
+  });
+
+  // QA 2026-11-04: "today" was the phone's date, so a device in UTC before 05:30 IST defaulted to
+  // yesterday and the server (India's date) refused due dates and payment dates by a day
+  it("today and the days around it are India's dates, whatever the device's zone", () => {
+    const lateUtc = new Date("2026-11-04T20:00:00Z"); // 01:30 on 5 Nov in India
+    assert.equal(todayIso(lateUtc), "2026-11-05");
+    assert.equal(daysFromToday(0, lateUtc), "2026-11-05");
+    assert.equal(daysFromToday(7, lateUtc), "2026-11-12");
+    assert.equal(daysFromToday(-365, lateUtc), "2025-11-05");
+    assert.equal(todayIso(new Date("2026-11-04T18:29:00Z")), "2026-11-04", "23:59 in India");
   });
 });

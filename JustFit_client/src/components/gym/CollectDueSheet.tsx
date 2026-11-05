@@ -43,7 +43,7 @@ export function CollectDueSheet({ member, gym, onClose, onSaved }: { member: Gym
         label="Collect Due"
         ready={ready}
         busy={busy}
-        onPress={() => save((token) => gymApi.collectDue(token, member.id, { amount: value, method: method || "online", paidOn, ...(part && dueBy ? { dueBy } : {}) }))}
+        onPress={() => save((token) => gymApi.collectDue(token, member.id, { amount: value, method: method || "online", paidOn, ...(part && dueBy && dueBy !== member.dueBy ? { dueBy } : {}) }))}
       />
     </GymSheet>
   );

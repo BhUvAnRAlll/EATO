@@ -79,9 +79,11 @@ const memberOf = (r, today) => ({
   overdue: r.due_amount > 0 && Boolean(r.due_by) && r.due_by < today,
   status: r.expires_on < today ? "expired" : r.expires_on === today ? "expiring" : "active",
   inToday: Boolean(r.in_today),
+  insideNow: Boolean(r.inside_now),
 });
 const MEMBER_COLUMNS = `m.id, m.member_code, m.gender, m.email, m.height_cm, m.weight_kg, m.address, m.notes, m.photo_key, m.full_name, m.phone, ${DAY("m.dob")} AS dob, m.plan_months, m.plan_days, ${DAY("m.joined_on")} AS joined_on, ${DAY("m.expires_on")} AS expires_on, m.due_amount, ${DAY("m.due_by")} AS due_by, m.pt_label, ${DAY("m.pt_from")} AS pt_from, ${DAY("m.pt_until")} AS pt_until,
-  EXISTS (SELECT 1 FROM gym_attendance a WHERE a.member_id = m.id AND a.on_date = ?) AS in_today`;
+  EXISTS (SELECT 1 FROM gym_attendance a WHERE a.member_id = m.id AND a.on_date = ?) AS in_today,
+  EXISTS (SELECT 1 FROM gym_attendance a WHERE a.member_id = m.id AND a.status = 'inside' AND a.checked_in_at >= NOW() - INTERVAL 12 HOUR) AS inside_now`;
 
 // Home: today's revenue by method, today's counts, what needs attention, the latest payments
 async function dashboard(pool, gym, today) {
@@ -102,7 +104,7 @@ async function dashboard(pool, gym, today) {
        (SELECT COUNT(*) FROM gym_enquiries WHERE gym_id = ? AND enquired_on = ?) AS enquiries,
        (SELECT COUNT(*) FROM gym_members WHERE gym_id = ? AND due_amount > 0) AS due_members,
        (SELECT COUNT(*) FROM gym_members WHERE gym_id = ? AND expires_on = ?) AS expiring,
-       (SELECT COUNT(*) FROM gym_attendance WHERE gym_id = ? AND on_date = ?) AS attendance,
+       (SELECT COUNT(DISTINCT member_id) FROM gym_attendance WHERE gym_id = ? AND on_date = ?) AS attendance,
        (SELECT COUNT(*) FROM gym_members WHERE gym_id = ? AND expires_on BETWEEN ? AND ?) AS expiring_soon,
        (SELECT COUNT(*) FROM gym_members WHERE gym_id = ? AND DATE_FORMAT(dob, '%m-%d') = ?) AS birthdays`,
     [gym.id, today, gym.id, gym.id, today, gym.id, today, gym.id, rules.addDays(today, 1), rules.addDays(today, 3), gym.id, today.slice(5)],
@@ -126,7 +128,9 @@ async function members(pool, gymId, { filter, search }, today) {
     const digits = search.replace(/[\s+-]/g, "");
     if (/^\d{3,12}$/.test(digits)) {
       where += " AND (m.full_name LIKE ? OR m.phone LIKE ? OR m.member_code LIKE ?)";
-      params.push(like, `%${digits.slice(-10)}%`, `%${digits}`);
+      // Phones are stored as 10 digits: a typed "+91 98765" (or 91 and all ten) searches "98765"
+      const local = /^\s*\+91/.test(search) || (digits.length === 12 && digits.startsWith("91")) ? digits.slice(2) : digits;
+      params.push(like, `%${local.slice(-10)}%`, `%${digits}`);
     } else {
       where += " AND (m.full_name LIKE ? OR m.member_code LIKE ?)";
       params.push(like, like);
@@ -243,6 +247,8 @@ async function collectDue(pool, gymId, userId, memberId, body, today) {
     // Paid in full: no date any more; part: the new date if one was given, else the old one
     const left = row.due_amount - body.amount;
     const dueBy = left === 0 ? null : body.dueBy ?? row.due_by;
+    // What's still owed always has a date (else the member could never show as overdue)
+    if (left > 0 && !dueBy) throw new ValidationError("Pick the date the rest should be paid by.");
     await db.query("UPDATE gym_members SET due_amount = ?, due_by = ? WHERE id = ? AND gym_id = ?", [left, dueBy, memberId, gymId]);
     await addPayment(db, gymId, userId, { memberId, kind: "due", title: row.full_name, detail: "Due payment", method: body.method, amount: body.amount }, body.paidOn ?? today);
   });
@@ -324,19 +330,6 @@ async function editMember(pool, gymId, memberId, body, today) {
     throw error;
   }
   return member(pool, gymId, memberId, today);
-}
-
-// Today's check-in; a second one the same day changes nothing
-async function checkIn(pool, gymId, userId, memberId, today) {
-  await memberRow(pool, gymId, memberId, today);
-  let alreadyIn = false;
-  try {
-    await pool.query("INSERT INTO gym_attendance (gym_id, member_id, on_date, created_by) VALUES (?, ?, ?, ?)", [gymId, memberId, today, userId]);
-  } catch (error) {
-    if (error?.code !== "ER_DUP_ENTRY") throw error;
-    alreadyIn = true;
-  }
-  return { ...(await member(pool, gymId, memberId, today)), alreadyIn };
 }
 
 async function addEnquiry(pool, gymId, userId, body, today) {
@@ -465,7 +458,6 @@ module.exports = {
   sale,
   sellToMember,
   editMember,
-  checkIn,
   addEnquiry,
   enquiries,
   payments,

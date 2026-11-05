@@ -55,7 +55,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "justFit uses the camera to take photos for body scans and food logging.",
+          "cameraPermission": "justFit uses the camera to take photos for body scans and food logging, and to scan your gym's attendance QR code.",
           "microphonePermission": false,
           "recordAudioAndroid": false
         }
@@ -75,7 +75,14 @@
           "color": "#D40005",
           "enableRemoteNotifications": false
         }
-      ]
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "justFit checks your location when you scan your gym's attendance QR code, to confirm you're at the gym."
+        }
+      ],
+      "expo-sharing"
     ],
     "experiments": {
       "typedRoutes": true,

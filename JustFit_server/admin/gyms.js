@@ -20,7 +20,7 @@ async function list(pool, today) {
        (SELECT COUNT(*) FROM gym_members m WHERE m.gym_id = g.id) AS members,
        (SELECT COUNT(*) FROM gym_members m WHERE m.gym_id = g.id AND m.expires_on >= ?) AS active,
        (SELECT COALESCE(SUM(p.amount), 0) FROM gym_payments p WHERE p.gym_id = g.id AND p.paid_on = ?) AS revenue_today,
-       (SELECT COUNT(*) FROM gym_attendance a WHERE a.gym_id = g.id AND a.on_date = ?) AS attendance_today
+       (SELECT COUNT(DISTINCT a.member_id) FROM gym_attendance a WHERE a.gym_id = g.id AND a.on_date = ?) AS attendance_today
      FROM gyms g JOIN gym_brands b ON b.id = g.brand_id ORDER BY b.name, b.id, g.name, g.id`,
     [today, today, today],
   );
@@ -54,7 +54,7 @@ async function detail(pool, gymId, today) {
        (SELECT COUNT(*) FROM gym_members WHERE gym_id = ? AND expires_on >= ?) AS active,
        (SELECT COUNT(*) FROM gym_members WHERE gym_id = ? AND due_amount > 0) AS due_members,
        (SELECT COALESCE(SUM(due_amount), 0) FROM gym_members WHERE gym_id = ?) AS due_total,
-       (SELECT COUNT(*) FROM gym_attendance WHERE gym_id = ? AND on_date = ?) AS attendance_today,
+       (SELECT COUNT(DISTINCT member_id) FROM gym_attendance WHERE gym_id = ? AND on_date = ?) AS attendance_today,
        (SELECT COUNT(*) FROM gym_enquiries WHERE gym_id = ? AND enquired_on >= ?) AS enquiries_month`,
     [gymId, gymId, today, gymId, gymId, gymId, today, gymId, monthStart],
   );

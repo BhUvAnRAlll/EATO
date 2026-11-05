@@ -85,6 +85,8 @@ describe("gym rules: admissions, renewals, dues, sales, enquiries", () => {
     refuses(() => rules.saleBody({ item: "Whey", category: "__proto__", amount: 3200, method: "cash" }), /what was sold/);
     assert.deepEqual(rules.enquiryBody({ name: "Priya", phone: "", note: "  Evening batch?  " }), { name: "Priya", phone: null, note: "Evening batch?" });
     assert.equal(rules.enquiryBody({ name: "Priya" }).note, null);
+    // QA 2026-11-04: a note that isn't text was saved as "object Object"
+    for (const note of [{ a: 1 }, ["x"], 42, true]) assert.throws(() => rules.enquiryBody({ name: "Priya", note }), /note as text/);
   });
 
   it("dates of birth: optional, real, not in the future", () => {

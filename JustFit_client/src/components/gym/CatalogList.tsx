@@ -56,7 +56,8 @@ export function CatalogList() {
           );
         })}
       </ScrollView>
-      <View className="flex-1 px-4 pt-3" style={{ gap: 10 }}>
+      {/* Up to 100 items a branch: they scroll, with room under the last one for the + button */}
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 96, gap: 10 }} showsVerticalScrollIndicator={false}>
         {result.state === "loading" && <GymLoading label="Loading the catalogue" />}
         {result.state === "failed" && <GymError error={result.error} onRetry={retry} />}
         {result.state === "ready" &&
@@ -92,7 +93,7 @@ export function CatalogList() {
               );
             })
           ))}
-      </View>
+      </ScrollView>
       <View className="absolute" style={{ right: 16, bottom: 16 }}>
         <PressableScale onPress={() => setSheet({ item: null })} haptic="tap" className="gym-fab-round" accessibilityRole="button" accessibilityLabel={`Add a ${meta.noun}`}>
           <GradientFill radius={26} />
