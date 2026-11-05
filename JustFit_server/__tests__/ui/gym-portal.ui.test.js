@@ -232,7 +232,7 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
     await h.expectText("Please confirm the details");
     await clickLabel("Confirm");
     await page.waitFor(`location.pathname.startsWith("/gym/members/")`, NAV_TIMEOUT, "the new member's page");
-    await h.expectText("Owes ₹500");
+    await h.expectText("Due ₹500");
     await h.expectText("FOR-TUM-0002");
     await h.expectText("Male");
     await h.expectText("172 cm · 70 kg");
@@ -354,7 +354,7 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
     await page.navigate(`${expo.baseUrl}/gym`);
     await clickTab("Wallet");
     // The tab shows Wallet (the web address can stay /gym after a tab switch)
-    await h.expectText("Owed by members");
+    await h.expectText("Due from members");
     await h.expectText("₹12,200");
     await snapshotAllWidths("gym-wallet");
     await clickTab("Home");

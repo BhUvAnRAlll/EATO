@@ -229,7 +229,7 @@ async function renew(pool, gymId, userId, memberId, body, today) {
   await inTransaction(pool, async (db) => {
     const row = await memberRow(db, gymId, memberId, today, { lock: true });
     const due = row.due_amount + body.due;
-    if (due > rules.limits.amount) throw new ValidationError("That would make the amount owed more than ₹10,00,000.");
+    if (due > rules.limits.amount) throw new ValidationError("That would make the due amount more than ₹10,00,000.");
     // A new amount owed takes the date given; otherwise an earlier one stays
     const dueBy = body.due > 0 ? body.dueBy : due > 0 ? row.due_by : null;
     await db.query("UPDATE gym_members SET plan_months = ?, plan_days = ?, expires_on = ?, due_amount = ?, due_by = ? WHERE id = ? AND gym_id = ?", [...planColumns(body), rules.renewedUntil(row.expires_on, today, body.duration, body.unit), due, dueBy, memberId, gymId]);
@@ -242,8 +242,8 @@ async function renew(pool, gymId, userId, memberId, body, today) {
 async function collectDue(pool, gymId, userId, memberId, body, today) {
   await inTransaction(pool, async (db) => {
     const row = await memberRow(db, gymId, memberId, today, { lock: true });
-    if (row.due_amount === 0) throw new ValidationError("This member doesn't owe anything.");
-    if (body.amount > row.due_amount) throw new ValidationError(`That's more than they owe (₹${row.due_amount.toLocaleString("en-IN")}).`);
+    if (row.due_amount === 0) throw new ValidationError("This member has no dues.");
+    if (body.amount > row.due_amount) throw new ValidationError(`That's more than their due (₹${row.due_amount.toLocaleString("en-IN")}).`);
     // Paid in full: no date any more; part: the new date if one was given, else the old one
     const left = row.due_amount - body.amount;
     const dueBy = left === 0 ? null : body.dueBy ?? row.due_by;
@@ -302,7 +302,7 @@ async function sellToMember(pool, gymId, userId, memberId, kind, body, today) {
     const due = payable - body.paid;
     if (due > 0 && !body.dueBy) throw new ValidationError("Pick the date the rest should be paid by.");
     const owed = row.due_amount + due;
-    if (owed > rules.limits.amount) throw new ValidationError("That would make the amount owed more than ₹10,00,000.");
+    if (owed > rules.limits.amount) throw new ValidationError("That would make the due amount more than ₹10,00,000.");
     if (product && item.stock !== null) await db.query("UPDATE gym_catalog_items SET stock = stock - ? WHERE id = ? AND gym_id = ?", [body.quantity, item.id, gymId]);
     if (due > 0) await db.query("UPDATE gym_members SET due_amount = ?, due_by = ? WHERE id = ? AND gym_id = ?", [owed, body.dueBy, memberId, gymId]);
     const detail = product && body.quantity > 1 ? `${item.name} × ${body.quantity}` : item.name;
@@ -490,7 +490,7 @@ async function wallet(pool, gymId, today) {
     return { online: n.online, cash: n.cash, total: n.online + n.cash, byKind: { admission: n.admission, renewal: n.renewal, due: n.due, pt: n.pt, service: n.service, sale: n.sale } };
   };
   const [[owed]] = await pool.query("SELECT COALESCE(SUM(due_amount), 0) AS total, COUNT(NULLIF(due_amount, 0)) AS members FROM gym_members WHERE gym_id = ?", [gymId]);
-  return { today: await sums(today), month: await sums(monthStart), owed: { total: Number(owed.total), members: owed.members } };
+  return { today: await sums(today), month: await sums(monthStart), due: { total: Number(owed.total), members: owed.members } };
 }
 
 // ---- Plans / Catalogue: the branch's price list ------------------------------------------

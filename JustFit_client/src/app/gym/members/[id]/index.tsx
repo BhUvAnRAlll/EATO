@@ -130,7 +130,7 @@ export default function GymMember() {
           </View>
           <Text className="gym-tx__name">{`Until ${shortDate(member.expiresOn)}`}</Text>
           <Text className="gym-tx__meta">{`Joined ${shortDate(member.joinedOn)} · ${member.visitsThisMonth} ${member.visitsThisMonth === 1 ? "visit" : "visits"} this month${member.lastVisit ? ` · last ${shortDate(member.lastVisit)}` : ""}`}</Text>
-          <Text className="gym-tx__name" style={{ color: member.due > 0 ? colors.gymDanger : colors.gymSuccess }}>{member.due > 0 ? `Owes ${rupees(member.due)}${member.dueBy ? ` · pay by ${shortDate(member.dueBy)}` : ""}` : "Nothing owed"}</Text>
+          <Text className="gym-tx__name" style={{ color: member.due > 0 ? colors.gymDanger : colors.gymSuccess }}>{member.due > 0 ? `Due ${rupees(member.due)}${member.dueBy ? ` · pay by ${shortDate(member.dueBy)}` : ""}` : "No dues"}</Text>
           {member.overdue ? <Text className="gym-tag__label" style={{ color: colors.gymDanger }}>Overdue: the payment date has passed</Text> : null}
         </View>
       </View>

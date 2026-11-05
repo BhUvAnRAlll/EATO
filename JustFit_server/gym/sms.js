@@ -165,7 +165,7 @@ async function sendToMember(pool, gym, userId, sender, memberId, kind) {
   const [[member]] = await pool.query(`SELECT ${MEMBER_COLUMNS} FROM gym_members m WHERE m.id = ? AND m.gym_id = ?`, [memberId, gym.id]);
   if (!member) throw new NotFoundError("That member isn't at your gym.");
   if (!member.phone) throw new ConflictError("Add the member's mobile number to text them.");
-  if (kind === "due" && member.due_amount <= 0) throw new ConflictError("This member doesn't owe anything.");
+  if (kind === "due" && member.due_amount <= 0) throw new ConflictError("This member has no dues.");
   const outcome = await sendOne(pool, sender, gym, member, kind, { source: "manual", userId });
   if (outcome === "no_credits") throw noCredits();
   if (outcome === "failed") throw statusError(502, "The SMS couldn't be sent. Your credit was given back. Please try again.");

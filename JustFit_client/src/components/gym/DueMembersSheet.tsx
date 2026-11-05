@@ -29,11 +29,11 @@ export function DueMembersSheet({ gym, onClose, onChanged }: { gym: GymInfo; onC
     <>
       <GymSheet onClose={onClose}>
         <Text className="gym-sheet__title text-center" style={{ fontSize: 20 }} accessibilityRole="header">Payment Due Members</Text>
-        {result.state === "loading" && <GymLoading label="Loading members who owe" />}
+        {result.state === "loading" && <GymLoading label="Loading due members" />}
         {result.state === "failed" && <GymError error={result.error} onRetry={retry} />}
         {result.state === "ready" &&
           (result.data.members.length === 0 ? (
-            <GymEmpty icon="badge-check" title="Nobody owes anything" text="Members with a payment due show here." />
+            <GymEmpty icon="badge-check" title="No dues" text="Members with a payment due show here." />
           ) : (
             result.data.members.map((m) => (
               <PressableScale key={m.id} onPress={() => setOpen(m)} className="gym-card flex-row items-center" style={{ gap: narrow ? 6 : 12, padding: narrow ? 10 : 14 }} accessibilityRole="button" accessibilityLabel={`${m.name}, ${m.code}${m.pt?.active ? ", on PT" : ""}, ${daysLeftText(m.daysLeft)}, ${rupees(m.due)} payment due${m.overdue ? ", overdue" : ""}`}>

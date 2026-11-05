@@ -44,7 +44,7 @@ export default function GymRenew() {
         <>
           <View className="gym-summary">
             <Text className="gym-tx__name">{result.data.member.name}</Text>
-            <Text className="gym-tx__meta">{`${planLabel(result.data.member.planLength.duration, result.data.member.planLength.unit)} · until ${shortDate(result.data.member.expiresOn)}${result.data.member.due > 0 ? ` · owes ${rupees(result.data.member.due)}` : ""}`}</Text>
+            <Text className="gym-tx__meta">{`${planLabel(result.data.member.planLength.duration, result.data.member.planLength.unit)} · until ${shortDate(result.data.member.expiresOn)}${result.data.member.due > 0 ? ` · due ${rupees(result.data.member.due)}` : ""}`}</Text>
           </View>
           <CatalogPicks kind="plan" label="From your plans" onPick={(item) => { if (item.duration && item.unit) { setUnit(item.unit); setDuration(String(item.duration)); } setFee(String(item.price)); setPaid(String(item.price)); }} />
           <PlanLengthFields unit={unit} onUnit={setUnit} duration={duration} onDuration={setDuration} />
@@ -52,7 +52,7 @@ export default function GymRenew() {
           <GymField label="Paid now (₹)" value={paid} onChangeText={(t) => setPaid(amountInput(t))} keyboardType="number-pad" placeholder="3000" />
           <GymChips label="Paid by" options={(["online", "cash"] as const).map((m) => ({ value: m, label: METHOD_LABEL[m] }))} value={method} onChange={setMethod} />
           {leftOwed && <DueByField value={dueBy} onChange={setDueBy} />}
-          {ready && feeValue > paidValue && <Text className="gym-tx__meta">{`${rupees(feeValue - paidValue)} will be added to what they owe${dueByIso ? `, due ${shortDate(dueByIso)}` : ""}.`}</Text>}
+          {ready && feeValue > paidValue && <Text className="gym-tx__meta">{`${rupees(feeValue - paidValue)} will be added to their due${dueByIso ? `, due ${shortDate(dueByIso)}` : ""}.`}</Text>}
           {paidValue > feeValue && <Text className="gym-tx__meta">{"The amount paid can't be more than the plan fee."}</Text>}
           {error ? <FormAlert message={error} /> : null}
           <SaveButton label="Save renewal" ready={ready} busy={busy} onPress={() => save((token) => gymApi.renew(token, memberId, { unit, duration: length ?? 1, fee: feeValue, paid: paidValue, method, dueBy: leftOwed && dueByIso ? dueByIso : "" }))} />

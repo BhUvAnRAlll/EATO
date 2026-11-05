@@ -289,7 +289,7 @@ describe("gym portal e2e: gyms, staff, members, money and attendance", () => {
 
     const wallet = (await gym.get("/api/gym/wallet")).json;
     assert.deepEqual(wallet.today, { online: 10500, cash: 6200, total: 16700, byKind: { admission: 4500, renewal: 1000, due: 2000, pt: 6000, service: 0, sale: 3200 } });
-    assert.deepEqual(wallet.owed, { total: 0, members: 0 });
+    assert.deepEqual(wallet.due, { total: 0, members: 0 });
   }));
 
   it("7. the justFit admin sees each gym's numbers and staff, and can unlink and edit", run(async () => {

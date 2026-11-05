@@ -32,7 +32,7 @@ export function CollectDueSheet({ member, gym, onClose, onSaved }: { member: Gym
   return (
     <GymSheet title="Collect Due" subtitle="Collect pending due" onClose={onClose}>
       <DateSelect label="Collected Date" value={paidOn} onChange={setPaidOn} min={daysFromToday(-365)} max={daysFromToday(0)} />
-      <GymField label="Due amount" icon="banknote" value={amount} onChangeText={(t) => setAmount(amountInput(t))} keyboardType="number-pad" placeholder="Due Amount" hint={value > member.due ? `That's more than they owe (${rupees(member.due)}).` : undefined} />
+      <GymField label="Due amount" icon="banknote" value={amount} onChangeText={(t) => setAmount(amountInput(t))} keyboardType="number-pad" placeholder="Due Amount" hint={value > member.due ? `That's more than their due (${rupees(member.due)}).` : undefined} />
       <Text className="gym-tx__meta text-center">Partial due amount collection is also supported</Text>
       <ChipRow label="Mode" options={METHODS} value={method} onChange={setMethod} />
       {part && <DueByField value={dueBy} onChange={setDueBy} label={`Pay the other ${rupees(member.due - value)} by`} />}

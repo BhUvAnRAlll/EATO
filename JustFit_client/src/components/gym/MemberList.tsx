@@ -130,7 +130,7 @@ export function MemberList({ pick = null, initialFilter = "all", focusSearch = f
 
   const header = (
     <View style={{ gap: 12, paddingBottom: 6 }}>
-      {pick && <Text className="gym-tx__meta">{pick === "renewal" ? "Pick the member who is renewing." : pick === "pt" ? "Pick the member who is paying for personal training." : "Pick the member who is paying what they owe."}</Text>}
+      {pick && <Text className="gym-tx__meta">{pick === "renewal" ? "Pick the member who is renewing." : pick === "pt" ? "Pick the member who is paying for personal training." : "Pick the member who is paying their due."}</Text>}
       <View className="flex-row items-center" style={{ gap: 10 }}>
         {!narrow && <Text className="gym-dropdown__caption">Member</Text>}
         <PressableScale onPress={() => setSheet("filter")} className="gym-dropdown flex-1" accessibilityRole="button" accessibilityLabel={`Show: ${filterTitle(filter)}. Change`}>

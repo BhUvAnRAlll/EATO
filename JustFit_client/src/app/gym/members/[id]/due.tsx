@@ -42,7 +42,7 @@ export default function GymDue() {
         <>
           <View className="gym-summary">
             <Text className="gym-tx__name">{result.data.member.name}</Text>
-            <Text className="gym-tx__meta">{owed > 0 ? `Owes ${rupees(owed)}${result.data.member.dueBy ? `, due ${shortDate(result.data.member.dueBy)}` : ""}` : "Doesn't owe anything"}</Text>
+            <Text className="gym-tx__meta">{owed > 0 ? `Due ${rupees(owed)}${result.data.member.dueBy ? `, by ${shortDate(result.data.member.dueBy)}` : ""}` : "No dues"}</Text>
             {result.data.member.overdue ? <Text className="gym-tag__label" style={{ color: colors.gymDanger }}>Overdue</Text> : null}
           </View>
           {owed > 0 && (
@@ -51,7 +51,7 @@ export default function GymDue() {
               <GymChips label="Paid by" options={(["online", "cash"] as const).map((m) => ({ value: m, label: METHOD_LABEL[m] }))} value={method} onChange={setMethod} />
               {part && <DueByField value={dueBy} onChange={setDueBy} label="Pay the rest by" />}
               {part && dueBy === null && <Text className="gym-tx__meta">{result.data.member.dueBy ? `Leave the date empty to keep ${shortDate(result.data.member.dueBy)}.` : "Pick when the rest should be paid."}</Text>}
-              {value > owed && <Text className="gym-tx__meta">{`That's more than they owe (${rupees(owed)}).`}</Text>}
+              {value > owed && <Text className="gym-tx__meta">{`That's more than their due (${rupees(owed)}).`}</Text>}
               {error ? <FormAlert message={error} /> : null}
               <SaveButton label="Save payment" ready={ready} busy={busy} onPress={() => save((token) => gymApi.collectDue(token, memberId, { amount: value, method, ...(part && dueByIso ? { dueBy: dueByIso } : {}) }))} />
             </>

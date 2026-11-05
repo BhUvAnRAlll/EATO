@@ -59,7 +59,7 @@ export type GymEnquiry = {
 export type EnquiryFields = { name: string; phone: string; note: string; interest: EnquiryInterest | ""; source: EnquirySource | ""; followUpOn: string | "" };
 export type GymEnquiries = { today: string; enquiries: GymEnquiry[]; counts: Record<EnquiryView, number>; gym: GymInfo };
 type Sums = { online: number; cash: number; total: number; byKind: Record<PaymentKind, number> };
-export type GymWallet = { today: Sums; month: Sums; owed: { total: number; members: number } };
+export type GymWallet = { today: Sums; month: Sums; due: { total: number; members: number } };
 
 // fee: the plan's price; admissionFee and discount change what's payable; paid is collected now
 export type AdmissionFields = PlanLength &

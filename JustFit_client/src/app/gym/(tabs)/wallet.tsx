@@ -41,7 +41,7 @@ function PeriodCard({ title, sums }: { title: string; sums: GymWallet["month"] }
 }
 
 // Gym admin › Wallet: today's and this month's takings, by method and by type, and what members
-// still owe (GET /api/gym/wallet)
+// still have due (GET /api/gym/wallet)
 export default function GymWalletTab() {
   const { result, retry } = useGymData(gymApi.wallet);
   return (
@@ -58,12 +58,12 @@ export default function GymWalletTab() {
             <>
               <RevenueCard online={result.data.today.online} cash={result.data.today.cash} action={{ label: "Today's payments", onPress: () => router.push("/gym/transactions?today=1") }} />
               <PeriodCard title="This month" sums={result.data.month} />
-              <PressableScale onPress={() => router.push("/gym/members?filter=due")} className="gym-card gym-tx" accessibilityRole="button" accessibilityLabel={`Owed by members: ${rupees(result.data.owed.total)}, ${result.data.owed.members} members`}>
+              <PressableScale onPress={() => router.push("/gym/members?filter=due")} className="gym-card gym-tx" accessibilityRole="button" accessibilityLabel={`Due from members: ${rupees(result.data.due.total)}, ${result.data.due.members} members`}>
                 <View className="min-w-0 flex-1">
-                  <Text className="gym-tx__name">Owed by members</Text>
-                  <Text className="gym-tx__meta">{`${result.data.owed.members} ${result.data.owed.members === 1 ? "member owes" : "members owe"}`}</Text>
+                  <Text className="gym-tx__name">Due from members</Text>
+                  <Text className="gym-tx__meta">{`${result.data.due.members} ${result.data.due.members === 1 ? "member has a due" : "members have dues"}`}</Text>
                 </View>
-                <Text className="gym-tx__amount">{rupees(result.data.owed.total)}</Text>
+                <Text className="gym-tx__amount">{rupees(result.data.due.total)}</Text>
               </PressableScale>
             </>
           )}
