@@ -1294,6 +1294,25 @@ CREATE TABLE gym_enquiries (
   CONSTRAINT chk_gym_enquiries_phone CHECK (phone IS NULL OR phone REGEXP '^[6-9][0-9]{9}$')
 ) ENGINE = InnoDB;
 
+-- Enquiry contacts (migration 2026-11-30-gym-enquiry-contacts.sql): one row per contact attempt
+-- with an enquiry (a call, a WhatsApp message or a visit) and how it went, for the enquiry
+-- conversion score in Manage › Enquiry
+CREATE TABLE gym_enquiry_contacts (
+  id            INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  gym_id        INT UNSIGNED NOT NULL,
+  enquiry_id    INT UNSIGNED NOT NULL,
+  kind          ENUM('call', 'whatsapp', 'visit') NOT NULL,
+  outcome       ENUM('reached', 'no_answer', 'visited') NOT NULL,
+  contacted_on  DATE         NOT NULL,             -- India's date
+  created_by    VARCHAR(64)  NULL,
+  created_at    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_gym_enquiry_contacts_enquiry (enquiry_id, contacted_on),
+  CONSTRAINT fk_gym_enquiry_contacts_gym FOREIGN KEY (gym_id) REFERENCES gyms (id),
+  CONSTRAINT fk_gym_enquiry_contacts_enquiry FOREIGN KEY (enquiry_id) REFERENCES gym_enquiries (id),
+  CONSTRAINT fk_gym_enquiry_contacts_created_by FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL
+) ENGINE = InnoDB;
+
 -- One visit to a branch (QR attendance, migration 2026-11-27-gym-qr-attendance.sql): checked in by a
 -- QR scan in the member's app (with the GPS reading and its distance from the gym) or by staff;
 -- 'inside' until checked out ('completed', with the minutes worked out by the server) or left open

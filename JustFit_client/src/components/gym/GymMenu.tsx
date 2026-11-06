@@ -17,6 +17,7 @@ const MANAGE: MenuItem[] = [
   { label: "Members", icon: "users", href: "/gym/manage?tab=member" },
   { label: "Plans / Catalogue", icon: "clipboard-list", href: "/gym/manage?tab=catalog" },
   { label: "Enquiries", icon: "messages-square", href: "/gym/manage?tab=enquiry" },
+  { label: "Likely to leave", icon: "user-x", href: "/gym/predictions/renewals" },
   { label: "Expenses", icon: "receipt" },
   { label: "Outlets", icon: "store", href: "/gym/branches" },
   { label: "Staff / Admin Login", icon: "user-cog", href: "/gym/staff", ownerOnly: true },
@@ -29,8 +30,8 @@ const OTHER: MenuItem[] = [
 ];
 
 // The ☰ side menu over Home: who is signed in and their branch, Manage (Members, Plans /
-// Catalogue, Enquiries, Outlets = branches, Staff / Admin Login for the gym admin only; the rest
-// are on their way), Other (Send Bulk SMS opens Home's sheet through onBulkSms; QR Attendance and
+// Catalogue, Enquiries, Likely to leave = the renewal-risk prediction, Outlets = branches, Staff /
+// Admin Login for the gym admin only; the rest are on their way), Other (Send Bulk SMS opens Home's sheet through onBulkSms; QR Attendance and
 // its settings), and Sign out.
 export function GymMenu({ open, onClose, gymLine, onBulkSms, canManageTeam }: { open: boolean; onClose: () => void; gymLine: string | null; onBulkSms: () => void; canManageTeam: boolean }) {
   const colors = useThemeColors();

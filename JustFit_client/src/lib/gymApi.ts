@@ -34,8 +34,50 @@ export type GymDashboard = {
   today: string;
   revenue: { online: number; cash: number };
   stats: { admission: number; renewal: number; enquiry: number; duePaid: number; pt: number; product: number };
-  alerts: { dueMembers: number; expiringToday: number; attendance: number; expiringSoon: number; birthdays: number };
+  // renewalRisk: members at High renewal risk (Predictions › Likely to leave)
+  alerts: { dueMembers: number; expiringToday: number; attendance: number; expiringSoon: number; birthdays: number; renewalRisk: number };
   recent: GymPayment[];
+};
+
+// Predictions (rules on the branch's own records, no AI). A member's renewal risk: the points that
+// add up to the score, each with its reason; High 60+, Medium 35-59 (Low is never listed).
+export type RiskLevel = "high" | "medium" | "low";
+export type RiskListLevel = "all" | "high" | "medium";
+export type RenewalRisk = { score: number; level: RiskLevel; reasons: { points: number; text: string }[]; lastVisit: string | null; visitsLast: number; visitsPrior: number };
+export type RiskMember = GymMember & { risk: RenewalRisk };
+export type RenewalRisks = { gym: GymInfo; today: string; calculatedAt: string; counts: { high: number; medium: number }; members: RiskMember[] };
+// Busy hours: tomorrow's expected check-ins per hour, the average of the same weekday over the
+// last four weeks the branch was recording (enough: at least two such weeks). hours run from
+// 5 am to 10 pm, plus any earlier or later hour that had visits; expected is rounded.
+// Month-end revenue: collected so far + plans ending this month × the branch's own renewal rate
+// (last 90 days; null until 5 plan endings) × each member's last plan payment + eligible dues ×
+// the due-collection rate (null without due history). A null part isn't guessed: complete is false.
+export type RevenueForecast = {
+  gym: GymInfo;
+  today: string;
+  calculatedAt: string;
+  month: { from: string; to: string; daysLeft: number };
+  collected: number;
+  renewals: { expiring: number; priced: number; sample: { renewed: number; lapsed: number }; rate: number | null; amount: number | null };
+  dues: { outstanding: number; sample: { paid: number; overdue: number }; rate: number | null; amount: number | null };
+  expected: number;
+  complete: boolean;
+  lastMonth: number;
+};
+export type BusyHour = { hour: number; samples: number[]; expected: number };
+export type BusyHours = {
+  gym: GymInfo;
+  today: string;
+  calculatedAt: string;
+  forDate: string;
+  dates: string[];
+  weeksUsed: number;
+  enough: boolean;
+  hours: BusyHour[];
+  total: number;
+  busiest: { hour: number; expected: number } | null;
+  quietest: { hour: number; expected: number } | null;
+  lastWeek: { date: string; total: number } | null;
 };
 
 export type MemberStatus = "active" | "expiring" | "expired";
@@ -56,6 +98,13 @@ export type EnquiryStatus = "new" | "follow_up" | "joined" | "lost";
 export type EnquiryInterest = "membership" | "pt" | "trial" | "other";
 export type EnquirySource = "walk_in" | "call" | "whatsapp" | "instagram" | "referral" | "other";
 export type EnquiryView = "today" | "overdue" | "open" | "joined" | "lost" | "all";
+// A contact attempt with an enquiry and how it went (a visit is always visited)
+export type ContactKind = "call" | "whatsapp" | "visit";
+export type ContactOutcome = "reached" | "no_answer" | "visited";
+export type EnquiryContact = { id: number; kind: ContactKind; outcome: ContactOutcome; on: string };
+// The conversion score (Predictions #3): Hot 60+, Warm 30-59, Cold below; null once joined or lost
+export type LeadLevel = "hot" | "warm" | "cold";
+export type EnquiryLead = { score: number; level: LeadLevel; reasons: { points: number; text: string }[] };
 export type GymEnquiry = {
   id: number;
   name: string;
@@ -67,6 +116,8 @@ export type GymEnquiry = {
   source: EnquirySource | null;
   member: { id: number; code: string } | null;
   enquiredOn: string;
+  contacts: EnquiryContact[];
+  lead: EnquiryLead | null;
 };
 export type EnquiryFields = { name: string; phone: string; note: string; interest: EnquiryInterest | ""; source: EnquirySource | ""; followUpOn: string | "" };
 export type GymEnquiries = { today: string; enquiries: GymEnquiry[]; counts: Record<EnquiryView, number>; gym: GymInfo };
@@ -133,6 +184,8 @@ export const gymApi = {
   addEnquiry: (token: string | null, fields: EnquiryFields) => call<{ enquiry: GymEnquiry }>(token, "/api/gym/enquiries", "POST", fields),
   editEnquiry: (token: string | null, id: number, fields: Partial<EnquiryFields> & { status?: EnquiryStatus; memberId?: number }) =>
     call<{ enquiry: GymEnquiry }>(token, `/api/gym/enquiries/${id}`, "PATCH", fields),
+  addContact: (token: string | null, id: number, contact: { kind: ContactKind; outcome?: ContactOutcome }) =>
+    call<{ enquiry: GymEnquiry }>(token, `/api/gym/enquiries/${id}/contacts`, "POST", contact),
   wallet: (token: string | null) => call<GymWallet>(token, "/api/gym/wallet"),
   updateDetails: (token: string | null, fields: Partial<Omit<GymInfo, "name">> & { adminName?: string }) =>
     call<{ gym: GymInfo; adminName: string | null }>(token, "/api/gym/details", "PATCH", fields),
@@ -153,6 +206,10 @@ export const gymApi = {
   saveAttendancePlace: (token: string | null, place: { latitude: number; longitude: number; radiusM: number }) => call<AttendanceSettings>(token, "/api/gym/attendance/location", "PUT", place),
   regenerateQr: (token: string | null) => call<AttendanceSettings>(token, "/api/gym/attendance/qr", "POST"),
   smsLogs: (token: string | null, before: number | null) => call<{ logs: SmsLog[]; next: number | null }>(token, `/api/gym/sms/logs${before ? `?before=${before}` : ""}`),
+  renewalRisks: (token: string | null, level: RiskListLevel, search: string) =>
+    call<RenewalRisks>(token, `/api/gym/predictions/renewals?level=${level}&search=${encodeURIComponent(search)}`),
+  busyHours: (token: string | null) => call<BusyHours>(token, "/api/gym/predictions/busy-hours"),
+  revenueForecast: (token: string | null) => call<RevenueForecast>(token, "/api/gym/predictions/revenue"),
 };
 
 // ---- QR attendance ------------------------------------------------------------------------

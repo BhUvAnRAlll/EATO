@@ -283,11 +283,50 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
   `attendance.bad_qr`, `attendance.mock_location`. Migration `2026-11-27-gym-qr-attendance.sql`
   (keeps existing check-ins as `no_checkout`/`staff`). Mock-location detection is best effort
   (Android's flag, iOS simulated locations); a rooted phone can still fake GPS.
+- **Predictions (2026-11-06, the user's plan; #1 of five, rules only, no AI):** "Likely to leave",
+  the renewal-risk prediction. Home › Needs attention › Likely to leave (the High count, from
+  `dashboard.alerts.renewalRisk`) and ☰ › Likely to leave open `app/gym/predictions/renewals.tsx`:
+  Medium and High members, highest score first, with tabs All / High / Medium (counts follow the
+  search), search by name, phone or ID, each card's level and score chip, ID, PT tag and the
+  reasons in one line, WhatsApp and Call (the phone's apps with the renewal reminder written) and ⋯
+  → `MemberActionsSheet`. Scoring (`gym/predictionRules.js`, pure, constants at the top): plan ends
+  within 7 days or ended in the last 7 (+30), no visit for 10+ days (or never, 10+ days after
+  joining) (+30), visits in the last 30 days at most half of the 30 before when those were 4+ (+20),
+  a payment due (+20), PT running (−15); High 60+, Medium 35–59, Low never listed; members whose
+  plan ended more than 7 days ago aren't scored. `gym/predictions.js` reads `gym_members` plus
+  three attendance sub-selects (last visit, distinct visit days in each window) for the caller's
+  branch and scores live on every read: nothing stored, no job, nothing sent by itself;
+  `calculatedAt` is the response time. Route `GET /api/gym/predictions/renewals?level=all|high|medium&search=`
+  behind `requireGymStaff` (owner and Staff).
+  **#4 Busy hours (2026-11-06):** QR Attendance › "Tomorrow's busy hours" (`components/gym/BusyHoursCard.tsx`,
+  `GET /api/gym/predictions/busy-hours`, `predictionRules.busyHours`): tomorrow's expected
+  check-ins per hour = the average of the same weekday over the last four weeks, hour by hour,
+  rounded; a member counts once per hour per day; the hour is India's from the check-in's epoch
+  (`hourInIndia`), never the session's zone; only weeks on or after the branch's first attendance
+  date count, and fewer than two of them gives `enough: false` and a "Not enough attendance data
+  yet" card instead of a number. Bars from 5 am to 10 pm (plus any earlier/later hour with
+  visits), busiest and quietest hours, last week's total.
+  **#5 Month-end revenue (2026-11-06):** Wallet › "Expected by month end"
+  (`components/gym/RevenueForecastCard.tsx`, `GET /api/gym/predictions/revenue`,
+  `predictionRules.revenueForecast`): collected this month so far + plans ending between today and
+  month end × the branch's renewal rate (members who renewed in the last 90 days ÷ those plus
+  members whose plan ended in that time and is still not renewed; null until 5 endings) × each
+  member's last admission/renewal payment + dues due by month end, overdue or undated × the
+  due-collection rate (due payments in 90 days ÷ those plus dues now overdue; null without
+  history). A null part shows "—" and "needs history", the total is shown as "≥" with
+  `complete: false`; otherwise "≈". Last month's total for comparison. Everything is this branch's
+  own records; nothing is stored.
+  Not built yet (each needs approval and a migration): saving results, follow-up notes, snooze,
+  "not renewing", outcome tracking, a settings screen, and predictions #2 and #3 (payment,
+  enquiry; they need a late-payment history and a call log first). Tests:
+  `__tests__/gym-prediction-rules.test.js`, `e2e/gym-predictions.e2e.test.js`,
+  `ui/gym-predictions.ui.test.js` (attendance rows are inserted with `FROM_UNIXTIME` at an
+  India-time hour).
 - **Tests:** `__tests__/gym-rules.test.js`, `gym-sms-rules.test.js`, `gym-attendance-rules.test.js`,
   `gym-staff-rules.test.js`, `e2e/gym-portal.e2e.test.js`, `e2e/gym-sms.e2e.test.js`,
   `e2e/gym-attendance.e2e.test.js`, `e2e/gym-staff.e2e.test.js`, `ui/gym-portal.ui.test.js`,
   `ui/gym-staff.ui.test.js`, `gym-trainer-rules.test.js`, `e2e/gym-trainer.e2e.test.js`,
-  `ui/gym-trainer.ui.test.js`.
+  `ui/gym-trainer.ui.test.js`, and the predictions' three above.
 
 ### Community and gyms: removed (2026-11-01)
 

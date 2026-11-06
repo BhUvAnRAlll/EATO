@@ -6,6 +6,7 @@ import { router } from "expo-router";
 import { PressableScale } from "@/components/PressableScale";
 import { GymError, GymLoading } from "@/components/gym/GymStates";
 import { RevenueCard } from "@/components/gym/RevenueCard";
+import { RevenueForecastCard } from "@/components/gym/RevenueForecastCard";
 import { KIND_LABEL, rupees } from "@/data/gymDashboard";
 import { gymApi, type GymWallet, type PaymentKind } from "@/lib/gymApi";
 import { useGymData } from "@/lib/useGymData";
@@ -40,10 +41,12 @@ function PeriodCard({ title, sums }: { title: string; sums: GymWallet["month"] }
   );
 }
 
-// Gym admin › Wallet: today's and this month's takings, by method and by type, and what members
-// still have due (GET /api/gym/wallet)
+// Gym admin › Wallet: today's and this month's takings, by method and by type, what members
+// still have due (GET /api/gym/wallet), and the month-end estimate (`RevenueForecastCard`,
+// GET /api/gym/predictions/revenue)
 export default function GymWalletTab() {
   const { result, retry } = useGymData(gymApi.wallet);
+  const forecast = useGymData(gymApi.revenueForecast);
   return (
     <View className="flex-1 bg-gym-page">
       <StatusBar style="dark" />
@@ -58,13 +61,15 @@ export default function GymWalletTab() {
             <>
               <RevenueCard online={result.data.today.online} cash={result.data.today.cash} action={{ label: "Today's payments", onPress: () => router.push("/gym/transactions?today=1") }} />
               <PeriodCard title="This month" sums={result.data.month} />
-              <PressableScale onPress={() => router.push("/gym/members?filter=due")} className="gym-card gym-tx" accessibilityRole="button" accessibilityLabel={`Due from members: ${rupees(result.data.due.total)}, ${result.data.due.members} members`}>
+              <RevenueForecastCard result={forecast.result} onRetry={forecast.retry} />
+              {/* An older server answers without `due`: leave the card out rather than crash */}
+              {result.data.due && <PressableScale onPress={() => router.push("/gym/members?filter=due")} className="gym-card gym-tx" accessibilityRole="button" accessibilityLabel={`Due from members: ${rupees(result.data.due.total)}, ${result.data.due.members} members`}>
                 <View className="min-w-0 flex-1">
                   <Text className="gym-tx__name">Due from members</Text>
                   <Text className="gym-tx__meta">{`${result.data.due.members} ${result.data.due.members === 1 ? "member has a due" : "members have dues"}`}</Text>
                 </View>
                 <Text className="gym-tx__amount">{rupees(result.data.due.total)}</Text>
-              </PressableScale>
+              </PressableScale>}
             </>
           )}
         </ScrollView>

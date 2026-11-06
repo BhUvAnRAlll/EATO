@@ -4,6 +4,7 @@ import { router } from "expo-router";
 
 import { FormAlert } from "@/components/FormAlert";
 import { PressableScale } from "@/components/PressableScale";
+import { BusyHoursCard } from "@/components/gym/BusyHoursCard";
 import { GymChips } from "@/components/gym/GymField";
 import { GymIcon } from "@/components/gym/GymIcon";
 import { GymError, GymLoading } from "@/components/gym/GymStates";
@@ -21,13 +22,15 @@ type Period = "today" | "week" | "month";
 const WEEKDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 // Gym admin › QR Attendance: who is inside now (with Check out for the front desk), today's
-// check-ins and completed visits, daily / weekly / monthly numbers, the last 7 days, then the
-// history with its filters and CSV export. Settings (location, radius) and the QR code are in the
-// header. Every number is the server's (GET /api/gym/attendance), read whenever the screen opens.
+// check-ins and completed visits, daily / weekly / monthly numbers, the last 7 days, tomorrow's
+// busy hours (the prediction, `BusyHoursCard`), then the history with its filters and CSV export.
+// Settings (location, radius) and the QR code are in the header. Every number is the server's
+// (GET /api/gym/attendance and /api/gym/predictions/busy-hours), read whenever the screen opens.
 export default function GymAttendance() {
   const colors = useThemeColors();
   const getToken = useSessionToken();
   const { result, reload, retry } = useGymData(gymApi.attendance);
+  const busy = useGymData(gymApi.busyHours);
   const [period, setPeriod] = useState<Period>("today");
   const [checkingOut, setCheckingOut] = useState<number | null>(null);
   const [error, setError] = useState("");
@@ -136,6 +139,9 @@ export default function GymAttendance() {
           ))}
         </View>
       </View>
+
+      <Text className="gym-section-title" accessibilityRole="header">{"Tomorrow's busy hours"}</Text>
+      <BusyHoursCard result={busy.result} onRetry={busy.retry} />
 
       <Text className="gym-section-title" accessibilityRole="header">Attendance history</Text>
       <VisitHistory refreshKey={refreshKey} />

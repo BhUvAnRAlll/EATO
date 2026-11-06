@@ -10,6 +10,8 @@ const { createRateLimiter, limitPerUser } = require("../rateLimit");
 const attendance = require("./attendance");
 const attendanceRules = require("./attendanceRules");
 const photos = require("./photos");
+const predictions = require("./predictions");
+const predictionRules = require("./predictionRules");
 const service = require("./service");
 const rules = require("./rules");
 const sms = require("./sms");
@@ -81,7 +83,23 @@ router.delete("/staff/:userId", requireGymOwner, staffLimit, route(async (req, r
 }));
 
 router.get("/dashboard", route(async (req, res) => {
-  res.json(await service.dashboard(pool(req), req.gym, today()));
+  const dashboard = await service.dashboard(pool(req), req.gym, today());
+  // Needs attention › Likely to leave: the members at high renewal risk (gym/predictions.js)
+  dashboard.alerts.renewalRisk = await predictions.highRiskCount(pool(req), req.gym.id, today());
+  res.json(dashboard);
+}));
+
+// Predictions (rules on the branch's own records, no AI): who may not renew, highest risk first
+router.get("/predictions/renewals", route(async (req, res) => {
+  res.json(await predictions.renewalRisks(pool(req), req.gym, predictionRules.renewalsQuery(req.query), today()));
+}));
+// Tomorrow's expected check-ins per hour, from the last four same weekdays (QR Attendance)
+router.get("/predictions/busy-hours", route(async (req, res) => {
+  res.json(await predictions.busyHours(pool(req), req.gym, today()));
+}));
+// Expected takings by month end: collected so far, likely renewals and dues (Wallet)
+router.get("/predictions/revenue", route(async (req, res) => {
+  res.json(await predictions.revenue(pool(req), req.gym, today()));
 }));
 
 // The account's branches, and switching to another one
@@ -196,6 +214,12 @@ router.post("/enquiries", smallBody, route(async (req, res) => {
   res.status(201).json(await service.addEnquiry(pool(req), req.gym.id, req.userId, rules.enquiryBody(req.body, today()), today()));
 }));
 // Follow-up: the details, the call-back day, the status, and the member they became
+// A contact attempt with an enquiry (a call, WhatsApp or a visit, and how it went): feeds the
+// conversion score. 60 an hour per account.
+const contactLimit = limitPerUser(createRateLimiter({ limit: 60, windowMs: 60 * 60 * 1000 }));
+router.post("/enquiries/:enquiryId/contacts", contactLimit, smallBody, route(async (req, res) => {
+  res.status(201).json(await service.addContact(pool(req), req.gym.id, req.userId, rules.id(req.params.enquiryId, "enquiry"), rules.contactBody(req.body), today()));
+}));
 router.patch("/enquiries/:enquiryId", smallBody, route(async (req, res) => {
   res.json(await service.editEnquiry(pool(req), req.gym.id, rules.id(req.params.enquiryId, "enquiry"), rules.enquiryEditBody(req.body, today())));
 }));

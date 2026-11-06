@@ -94,6 +94,7 @@ export default function GymHome() {
   const alerts: { id: string; value: number; label: string; tag: string; hint: string; tone: Tone; icon: GymIconName; href: Href }[] = data
     ? [
         { id: "due", value: data.alerts.dueMembers, label: "Due Members", tag: "Action", hint: "Payments to collect", tone: "danger", icon: "triangle-alert", href: "/gym/members?filter=due" },
+        { id: "risk", value: data.alerts.renewalRisk, label: "Likely to leave", tag: "Risk", hint: "High renewal risk, worth a call", tone: "danger", icon: "user-x", href: "/gym/predictions/renewals" },
         { id: "expiring", value: data.alerts.expiringToday, label: "Expiring Today", tag: "Urgent", hint: "Plans ending today", tone: "warning", icon: "clock", href: "/gym/members?filter=expiring" },
         { id: "attendance", value: data.alerts.attendance, label: "Attendance", tag: "Live", hint: "Checked in today", tone: "primary", icon: "scan-qr-code", href: "/gym/attendance" },
         { id: "expiring-soon", value: data.alerts.expiringSoon, label: "Expiring in 1-3 days", tag: "Soon", hint: "Renewals coming up", tone: "warning", icon: "calendar-clock", href: "/gym/members?filter=expiring_soon" },

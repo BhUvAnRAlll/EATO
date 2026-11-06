@@ -6,6 +6,7 @@ const { NotFoundError, ConflictError } = require("../errors");
 const { ValidationError } = require("../profile");
 const { toE164 } = require("../auth/phone");
 const rules = require("./rules");
+const predictionRules = require("./predictionRules");
 const { audit } = require("../admin/overview");
 
 const DAY = (column) => `DATE_FORMAT(${column}, '%Y-%m-%d')`;
@@ -127,22 +128,26 @@ async function dashboard(pool, gym, today) {
   };
 }
 
+// The member search (name, ID, and a phone when digits are typed) as a SQL fragment with its
+// bound values; "" matches everyone. Shared by the member list and the predictions.
+function memberSearch(search) {
+  if (!search) return { sql: "", params: [] };
+  const like = `%${search.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+  const digits = search.replace(/[\s+-]/g, "");
+  if (/^\d{3,12}$/.test(digits)) {
+    // Phones are stored as 10 digits: a typed "+91 98765" (or 91 and all ten) searches "98765"
+    const local = /^\s*\+91/.test(search) || (digits.length === 12 && digits.startsWith("91")) ? digits.slice(2) : digits;
+    return { sql: " AND (m.full_name LIKE ? OR m.phone LIKE ? OR m.member_code LIKE ?)", params: [like, `%${local.slice(-10)}%`, `%${digits}`] };
+  }
+  return { sql: " AND (m.full_name LIKE ? OR m.member_code LIKE ?)", params: [like, like] };
+}
+
 async function members(pool, gymId, { filter, search }, today) {
   const params = [today, gymId];
   let where = "WHERE m.gym_id = ?";
-  if (search) {
-    const like = `%${search.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
-    const digits = search.replace(/[\s+-]/g, "");
-    if (/^\d{3,12}$/.test(digits)) {
-      where += " AND (m.full_name LIKE ? OR m.phone LIKE ? OR m.member_code LIKE ?)";
-      // Phones are stored as 10 digits: a typed "+91 98765" (or 91 and all ten) searches "98765"
-      const local = /^\s*\+91/.test(search) || (digits.length === 12 && digits.startsWith("91")) ? digits.slice(2) : digits;
-      params.push(like, `%${local.slice(-10)}%`, `%${digits}`);
-    } else {
-      where += " AND (m.full_name LIKE ? OR m.member_code LIKE ?)";
-      params.push(like, like);
-    }
-  }
+  const found = memberSearch(search);
+  where += found.sql;
+  params.push(...found.params);
   if (filter === "due") where += " AND m.due_amount > 0";
   if (filter === "overdue") { where += " AND m.due_amount > 0 AND m.due_by < ?"; params.push(today); }
   if (filter === "expiring") { where += " AND m.expires_on = ?"; params.push(today); }
@@ -362,7 +367,8 @@ const ENQUIRY_VIEW_SQL = {
   lost: "e.status = 'lost'",
   all: "1 = 1",
 };
-const enquiryOf = (r) => ({
+// contacts: every contact attempt, oldest first; lead: the conversion score (null once closed)
+const enquiryOf = (r, contacts = [], today = rules.todayInIndia()) => ({
   id: r.id,
   name: r.full_name,
   phone: toE164(r.phone),
@@ -373,15 +379,40 @@ const enquiryOf = (r) => ({
   source: r.source,
   member: r.member_id ? { id: r.member_id, code: r.member_code } : null,
   enquiredOn: r.enquired_on,
+  contacts: contacts.map((c) => ({ id: c.id, kind: c.kind, outcome: c.outcome, on: c.contacted_on })),
+  lead: predictionRules.enquiryScore({ today, status: r.status, enquiredOn: r.enquired_on, source: r.source, interest: r.interest, contacts: contacts.map((c) => ({ kind: c.kind, outcome: c.outcome, contactedOn: c.contacted_on })) }),
 });
 
-async function enquiry(db, gymId, enquiryId) {
+// The contact attempts of these enquiries, grouped by enquiry, oldest first. Before migration
+// 2026-11-30-gym-enquiry-contacts.sql has run there are none (the list still works; logging one
+// answers 503 through the route's handler).
+async function contactsOf(db, gymId, enquiryIds) {
+  const grouped = new Map(enquiryIds.map((id) => [id, []]));
+  if (enquiryIds.length === 0) return grouped;
+  try {
+    const [rows] = await db.query(`SELECT id, enquiry_id, kind, outcome, ${DAY("contacted_on")} AS contacted_on FROM gym_enquiry_contacts WHERE gym_id = ? AND enquiry_id IN (?) ORDER BY contacted_on, id`, [gymId, enquiryIds]);
+    for (const row of rows) grouped.get(row.enquiry_id)?.push(row);
+  } catch (error) {
+    if (error?.code !== "ER_NO_SUCH_TABLE") throw error;
+  }
+  return grouped;
+}
+
+async function enquiry(db, gymId, enquiryId, today = rules.todayInIndia()) {
   const [[row]] = await db.query(
     `SELECT ${ENQUIRY_COLUMNS} FROM gym_enquiries e LEFT JOIN gym_members m ON m.id = e.member_id WHERE e.id = ? AND e.gym_id = ?`,
     [enquiryId, gymId],
   );
   if (!row) throw new NotFoundError("That enquiry doesn't exist.");
-  return enquiryOf(row);
+  return enquiryOf(row, (await contactsOf(db, gymId, [row.id])).get(row.id), today);
+}
+
+// POST /api/gym/enquiries/:id/contacts: a contact attempt, dated today; answers the enquiry with
+// its new score
+async function addContact(pool, gymId, userId, enquiryId, { kind, outcome }, today) {
+  await enquiry(pool, gymId, enquiryId, today);
+  await pool.query("INSERT INTO gym_enquiry_contacts (gym_id, enquiry_id, kind, outcome, contacted_on, created_by) VALUES (?, ?, ?, ?, ?, ?)", [gymId, enquiryId, kind, outcome, today, userId]);
+  return { enquiry: await enquiry(pool, gymId, enquiryId, today) };
 }
 
 async function addEnquiry(pool, gymId, userId, body, today) {
@@ -416,6 +447,10 @@ async function enquiries(pool, gymId, { view, search }, today) {
     `SELECT ${ENQUIRY_COLUMNS} FROM gym_enquiries e LEFT JOIN gym_members m ON m.id = e.member_id ${where} ORDER BY ${order} LIMIT ?`,
     [...params, ENQUIRY_LIST_LIMIT],
   );
+  const contacts = await contactsOf(pool, gymId, rows.map((r) => r.id));
+  const list = rows.map((r) => enquiryOf(r, contacts.get(r.id), today));
+  // Open: the hottest first (the conversion score), newest among equals
+  if (view === "open") list.sort((a, b) => (b.lead?.score ?? 0) - (a.lead?.score ?? 0) || b.id - a.id);
   const [[counts]] = await pool.query(
     `SELECT
        COALESCE(SUM(${OPEN} AND e.follow_up_on = ?), 0) AS today,
@@ -429,7 +464,7 @@ async function enquiries(pool, gymId, { view, search }, today) {
   );
   return {
     today,
-    enquiries: rows.map(enquiryOf),
+    enquiries: list,
     counts: Object.fromEntries(rules.ENQUIRY_VIEWS.map((v) => [v, Number(counts[v])])),
   };
 }
@@ -568,11 +603,16 @@ module.exports = {
   addEnquiry,
   enquiries,
   editEnquiry,
+  addContact,
   payments,
   wallet,
   updateDetails,
   paymentOf,
+  memberOf,
+  memberSearch,
   inTransaction,
   PAYMENT_COLUMNS,
+  MEMBER_COLUMNS,
+  MEMBER_LIST_LIMIT,
   DAY,
 };

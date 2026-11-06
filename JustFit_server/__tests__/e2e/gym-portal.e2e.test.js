@@ -268,7 +268,7 @@ describe("gym portal e2e: gyms, staff, members, money and attendance", () => {
     const home = (await gym.get("/api/gym/dashboard")).json;
     assert.deepEqual(home.revenue, { online: 3000 + 1500 + 6000, cash: 1000 + 500 + 3200 + 1500 });
     assert.deepEqual(home.stats, { admission: 2, renewal: 1, enquiry: 1, duePaid: 2, pt: 1, product: 1 });
-    assert.deepEqual(home.alerts, { dueMembers: 0, expiringToday: 0, attendance: 1, expiringSoon: 1, birthdays: 1 });
+    assert.deepEqual(home.alerts, { dueMembers: 0, expiringToday: 0, attendance: 1, expiringSoon: 1, birthdays: 1, renewalRisk: 0 });
     assert.deepEqual(home.recent.map((p) => p.kind), ["admission", "pt", "sale", "due", "due"], "the newest five");
 
     const list = async (query) => (await gym.get(`/api/gym/members${query}`)).json.members.map((m) => m.id);

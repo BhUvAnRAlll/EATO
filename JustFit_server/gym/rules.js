@@ -314,6 +314,18 @@ function enquiryEditBody(body, today = todayInIndia()) {
   return out;
 }
 
+// A contact attempt with an enquiry: how (call, WhatsApp, a visit) and how it went. A visit is
+// always "visited"; a call or message is reached or no answer.
+const CONTACT_KINDS = ["call", "whatsapp", "visit"];
+const CONTACT_OUTCOMES = ["reached", "no_answer", "visited"];
+function contactBody(body) {
+  onlyKeys(body, ["kind", "outcome"]);
+  if (!CONTACT_KINDS.includes(body.kind)) throw new ValidationError("Pick how you reached them: a call, WhatsApp or a visit.");
+  const outcome = body.kind === "visit" ? "visited" : body.outcome;
+  if (!CONTACT_OUTCOMES.includes(outcome) || (body.kind !== "visit" && outcome === "visited")) throw new ValidationError("Say how it went: reached or no answer.");
+  return { kind: body.kind, outcome };
+}
+
 // Manage › Enquiry's lists and search
 function enquiriesQuery(query = {}) {
   const view = query.view === undefined || query.view === "" ? "open" : query.view;
@@ -495,6 +507,7 @@ module.exports = {
   enquiryBody,
   enquiryEditBody,
   enquiriesQuery,
+  contactBody,
   followUpDate,
   ENQUIRY_VIEWS,
   memberEditBody,
