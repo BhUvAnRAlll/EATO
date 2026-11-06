@@ -227,16 +227,14 @@ describe("ui coach: the AI Coach intake", () => {
     assert.equal(row.coach, "priya");
   }));
 
-  it("5. Make my plan shows Logged today, the meal plan summary and today's workout; the Meal Plan screen lists the meals", run("plan", async () => {
+  it("5. Make my plan shows the meal plan summary and today's workout; the Meal Plan screen lists the meals", run("plan", async () => {
     await page.clickText("Make my plan");
-    await h.expectText("Logged today");
     await h.expectText("Meal plan");
     // Today's workout, a card of its own (not on the meal plan); on a rest day the row says so. The
     // plan follows the intake's days (Mon, Tue, Thu, saved in step 4), not the older workout profile.
     await h.expectText([1, 2, 4].includes(new Date().getDay()) ? "Workout" : "Rest day");
     const [[plan]] = await connection.query("SELECT COUNT(*) AS n, MAX(calories) AS kcal FROM coach_plans WHERE user_id = ? AND status = 'active'", [identities.a.id]);
     assert.deepEqual({ n: plan.n, kcal: plan.kcal }, { n: 1, kcal: 1800 });
-    await h.expectText("/ 1800"); // the calories column of Logged today
     await snapshotAllWidths("coach-plan");
     // The Meal Plan screen: the meals on a timeline, and the Adjust Plan banner
     await clickLabel("Open meal plan");

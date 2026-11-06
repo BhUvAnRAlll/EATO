@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, FlatList, Modal, Platform, Pressable, Text, TextInput, useWindowDimensions, View } from "react-native";
+import { Alert, FlatList, Modal, Platform, Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from "react-native";
 import { router } from "expo-router";
 
 import { PressableScale } from "@/components/PressableScale";
@@ -42,10 +42,13 @@ function daysText(days: number) {
 // A reminder about to be sent: who, which message, and the branch's balance
 type Pending = { member: GymMember; kind: SmsKind; credits: number };
 
-// Manage › Member (the user's "Reminders from the list" design): a Member dropdown (the filters),
-// sort and search; each card has the member's ID (PT when on personal training), days left or
-// how long ago it expired, what they owe, a due reminder (when they owe), a membership reminder
-// (red once expired) and ⋯ for their options. Reminders go by SMS from justFit (1 credit each,
+// Manage › Member (the user's design, 2026-11-06): the Members title with an add button, the
+// search bar with the sort button, the filters as chips (the chosen one carries its count), then
+// a card per member: the photo spot on a violet panel, the name, the ID (PT when on personal
+// training), a days-left pill (red once expired) and a payment-due pill, the status (Active,
+// Due, Expiring or Expired), ⋯ for their options, and two reminder buttons told apart by their
+// icon and tint: the due reminder (a banknote, blue; only when they owe) and the membership
+// reminder (a bell, violet; red once expired). Reminders go by SMS from justFit (1 credit each,
 // after a confirm); while sending is off the phone's own SMS app opens with the text written.
 // In pick mode (from + › Renewal, Due payment or PT) tapping a member opens that form.
 export function MemberList({ pick = null, initialFilter = "all", focusSearch = false }: { pick?: MemberPick; initialFilter?: MemberFilter; focusSearch?: boolean }) {
@@ -55,10 +58,9 @@ export function MemberList({ pick = null, initialFilter = "all", focusSearch = f
   const narrow = useWindowDimensions().width < 360;
   const [filter, setFilter] = useState<MemberFilter>(initialFilter);
   const [sort, setSort] = useState<Sort>("name");
-  const [searchOpen, setSearchOpen] = useState(focusSearch);
   const [typed, setTyped] = useState("");
   const [search, setSearch] = useState("");
-  const [sheet, setSheet] = useState<"filter" | "sort" | "add" | null>(null);
+  const [sheet, setSheet] = useState<"sort" | "add" | null>(null);
   const [actions, setActions] = useState<GymMember | null>(null);
   const [pending, setPending] = useState<Pending | null>(null);
   const [busy, setBusy] = useState<number | null>(null);
@@ -122,44 +124,71 @@ export function MemberList({ pick = null, initialFilter = "all", focusSearch = f
     } else say("Not sent", answer.error);
   };
 
-  const iconBtn = (label: string, onPress: () => void, icon: GymIconName, tint: string, id: number) => (
-    <PressableScale onPress={onPress} disabled={busy === id} hitSlop={6} className="gym-member-card__action" style={narrow ? { width: 28 } : undefined} accessibilityRole="button" accessibilityLabel={label}>
+  // A reminder button: its icon and tint say which reminder it sends
+  const remindBtn = (label: string, onPress: () => void, icon: GymIconName, tint: string, ground: string, id: number) => (
+    <PressableScale onPress={onPress} disabled={busy === id} className="gym-mcard__btn" style={{ backgroundColor: ground }} accessibilityRole="button" accessibilityLabel={label}>
       <GymIcon name={icon} size={20} color={tint} />
     </PressableScale>
   );
 
   const header = (
-    <View style={{ gap: 12, paddingBottom: 6 }}>
+    <View style={{ gap: 14, paddingBottom: 4 }}>
       {pick && <Text className="gym-tx__meta">{pick === "renewal" ? "Pick the member who is renewing." : pick === "pt" ? "Pick the member who is paying for personal training." : "Pick the member who is paying their due."}</Text>}
-      <View className="flex-row items-center" style={{ gap: 10 }}>
-        {!narrow && <Text className="gym-dropdown__caption">Member</Text>}
-        <PressableScale onPress={() => setSheet("filter")} className="gym-dropdown flex-1" accessibilityRole="button" accessibilityLabel={`Show: ${filterTitle(filter)}. Change`}>
-          <Text className="gym-dropdown__label flex-1" numberOfLines={1}>{filterTitle(filter)}</Text>
-          <GymIcon name="chevron-down" size={18} color={colors.gymInk} />
-        </PressableScale>
-        <PressableScale onPress={() => setSheet("sort")} hitSlop={8} className="gym-plain-btn" accessibilityRole="button" accessibilityLabel={`Sort: ${SORTS.find((s) => s.id === sort)?.label}`}>
-          <GymIcon name="list-filter" size={22} color={sort === "name" ? colors.gymInkSoft : colors.gymPrimary} />
-        </PressableScale>
-        <PressableScale onPress={() => { setSearchOpen((v) => !v); if (searchOpen) setTyped(""); }} hitSlop={8} className="gym-plain-btn" accessibilityRole="button" accessibilityLabel={searchOpen ? "Close search" : "Search members"}>
-          <GymIcon name={searchOpen ? "x" : "search"} size={22} color={colors.gymInkSoft} />
-        </PressableScale>
+      <View className="flex-row items-center" style={{ gap: 12 }}>
+        <View className="min-w-0 flex-1">
+          <Text className="gym-mlist__title" numberOfLines={1}>Members</Text>
+          <Text className="gym-mlist__sub" numberOfLines={1}>Manage your gym members</Text>
+        </View>
+        {!pick && (
+          <PressableScale onPress={() => setSheet("add")} haptic="tap" className="gym-mlist__square" accessibilityRole="button" accessibilityLabel="Add a new member">
+            <GymIcon name="user-plus" size={24} color={colors.gymPrimary} />
+          </PressableScale>
+        )}
       </View>
-      {searchOpen && (
-        <View className="gym-field__input flex-row items-center" style={{ gap: 8 }}>
-          <GymIcon name="search" size={16} color={colors.gymFaint} />
+      <View className="flex-row items-center" style={{ gap: 12 }}>
+        <View className="gym-mlist__search flex-1">
+          <GymIcon name="search" size={20} color={colors.gymFaint} />
           <TextInput
             value={typed}
             onChangeText={setTyped}
-            placeholder="Search by name, phone or ID"
+            placeholder="Search member by name or ID"
             placeholderTextColor={colors.gymFaint}
-            autoFocus
+            autoFocus={focusSearch}
             autoCorrect={false}
             maxLength={60}
             style={{ flex: 1, fontFamily: "Poppins-Regular", fontSize: 15, color: colors.gymInk, paddingVertical: 0 }}
             accessibilityLabel="Search members"
           />
         </View>
-      )}
+        <PressableScale onPress={() => setSheet("sort")} className="gym-mlist__square" accessibilityRole="button" accessibilityLabel={`Sort: ${SORTS.find((s) => s.id === sort)?.label}`}>
+          <GymIcon name="sliders-horizontal" size={22} color={colors.gymPrimary} />
+        </PressableScale>
+      </View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingVertical: 2 }} accessibilityRole="tablist">
+        {MEMBER_FILTERS.map((f) => {
+          const selected = f.id === filter;
+          // Only the chosen filter's count is known: it is the list on screen
+          const count = selected && result.state === "ready" ? members.length : null;
+          return (
+            <PressableScale
+              key={f.id}
+              onPress={() => { if (!selected) haptic.select(); setFilter(f.id); }}
+              className={selected ? "gym-mlist__chip gym-mlist__chip--selected" : "gym-mlist__chip"}
+              accessibilityRole="tab"
+              accessibilityState={{ selected }}
+              accessibilityLabel={count === null ? filterTitle(f.id) : `${filterTitle(f.id)}, ${count}`}
+            >
+              {selected && <GradientFill radius={999} />}
+              <Text className={selected ? "gym-mlist__chip-label gym-mlist__chip-label--selected" : "gym-mlist__chip-label"}>{filterTitle(f.id)}</Text>
+              {count !== null && (
+                <View className="gym-mlist__count">
+                  <Text className="gym-mlist__count-label">{count}</Text>
+                </View>
+              )}
+            </PressableScale>
+          );
+        })}
+      </ScrollView>
     </View>
   );
 
@@ -201,50 +230,70 @@ export function MemberList({ pick = null, initialFilter = "all", focusSearch = f
         renderItem={({ item }) => {
           const days = daysText(item.daysLeft);
           const kind = membershipKind(item);
+          const status = item.status === "expired"
+            ? { label: "Expired", color: colors.gymDanger, ground: colors.gymDangerSoft, hollow: false }
+            : item.due > 0
+              ? { label: "Due", color: colors.gymPrimaryText, ground: colors.gymPrimarySoft, hollow: true }
+              : item.status === "expiring"
+                ? { label: "Expiring", color: colors.gymWarning, ground: colors.gymWarningSoft, hollow: false }
+                : { label: "Active", color: colors.gymPrimaryText, ground: colors.gymPrimarySoft, hollow: false };
           return (
-            // The info opens the member; the reminder buttons sit beside it (no button inside a button)
-            <View className="gym-member-card">
+            // The info opens the member; the status, ⋯ and the reminder buttons sit beside it (no button inside a button)
+            <View className="gym-mcard">
               <PressableScale
                 onPress={() => open(item)}
                 className="min-w-0 flex-1 flex-row items-center"
-                style={{ gap: 12 }}
                 accessibilityRole="button"
                 accessibilityLabel={`${item.name}, ${item.code}${item.pt?.active ? ", on PT" : ""}, ${days.expired ? `expired ${days.text}` : days.text}${item.due > 0 ? `, ${rupees(item.due)} payment due` : ""}`}
               >
                 {!narrow && (
-                  <View className="gym-member-card__avatar">
-                    <GymIcon name="user" size={34} color={colors.white} />
-                    <MemberPhotoImage url={item.photoUrl} />
+                  <View className="gym-mcard__side">
+                    <View className="gym-member-card__avatar">
+                      <GymIcon name="user" size={34} color={colors.white} />
+                      <MemberPhotoImage url={item.photoUrl} />
+                    </View>
                   </View>
                 )}
-                <View className="min-w-0 flex-1" style={{ gap: 3 }}>
-                  <Text className="gym-member-card__name" numberOfLines={1}>{item.name}</Text>
+                <View className="min-w-0 flex-1" style={{ gap: 8, paddingVertical: 14, paddingLeft: narrow ? 14 : 12 }}>
+                  <Text className="gym-mcard__name" numberOfLines={1}>{item.name}</Text>
                   <View className="flex-row items-center" style={{ gap: 6 }}>
-                    <GymIcon name="id-card" size={15} color={colors.gymInkSoft} />
-                    <Text className="gym-member-card__line" numberOfLines={1}>{item.code}</Text>
+                    <GymIcon name="id-card" size={16} color={colors.gymInkSoft} />
+                    <Text className="gym-mcard__code" numberOfLines={1} style={{ flexShrink: 1 }}>{item.code}</Text>
                     {item.pt?.active && (
                       <View className="gym-chip" style={{ borderColor: colors.gymSuccessLine, backgroundColor: colors.gymSuccessSoft }}>
                         <Text className="gym-chip__label" style={{ color: colors.gymSuccess }}>PT</Text>
                       </View>
                     )}
                   </View>
-                  <Text className="gym-member-card__line" numberOfLines={1}>
-                    {days.expired ? <Text style={{ color: colors.gymDanger }}>{"Expired "}</Text> : null}
-                    {days.text}
-                  </Text>
-                  {item.due > 0 && (
-                    <View className="flex-row items-center" style={{ gap: 6 }}>
-                      <GymIcon name="banknote" size={16} color={colors.gymTileBlueIcon} />
-                      <Text className="gym-member-card__line" numberOfLines={2} style={{ flexShrink: 1, color: item.overdue ? colors.gymDanger : undefined }}>{`${rupees(item.due)} payment due${item.overdue ? " · overdue" : ""}`}</Text>
+                  <View className="flex-row flex-wrap" style={{ gap: 8 }}>
+                    <View className="gym-mcard__pill" style={days.expired ? { backgroundColor: colors.gymDangerSoft } : undefined}>
+                      <GymIcon name="calendar" size={15} color={days.expired ? colors.gymDanger : colors.gymPrimary} />
+                      <Text className="gym-mcard__pill-label" numberOfLines={1} style={days.expired ? { color: colors.gymDanger } : undefined}>{days.expired ? `Expired ${days.text}` : days.text}</Text>
                     </View>
-                  )}
+                    {item.due > 0 && (
+                      <View className="gym-mcard__pill" style={item.overdue ? { backgroundColor: colors.gymDangerSoft } : undefined}>
+                        <GymIcon name="credit-card" size={15} color={item.overdue ? colors.gymDanger : colors.gymPrimary} />
+                        <Text className="gym-mcard__pill-label" numberOfLines={1} style={[{ flexShrink: 1 }, item.overdue && { color: colors.gymDanger }]}>{`${rupees(item.due)} payment due${item.overdue ? " · overdue" : ""}`}</Text>
+                      </View>
+                    )}
+                  </View>
                 </View>
               </PressableScale>
               {!pick && (
-                <View className="flex-row items-center" style={{ gap: 2 }}>
-                  {item.due > 0 && iconBtn(`Send ${item.name} a due reminder`, () => remind(item, "due"), "message-square-text", colors.gymInkSoft, item.id)}
-                  {iconBtn(`Send ${item.name} ${kind === "expired" ? "an expired" : "an expiry"} reminder`, () => remind(item, kind), "message-square", kind === "expired" ? colors.gymDanger : colors.gymInkSoft, item.id)}
-                  {iconBtn(`${item.name}: options`, () => setActions(item), "ellipsis", colors.gymInkSoft, -1)}
+                <View className="gym-mcard__right">
+                  <View className="flex-row items-center" style={{ gap: 2 }}>
+                    <View className="gym-mcard__status" style={{ backgroundColor: status.ground }} accessibilityLabel={`Status: ${status.label}`}>
+                      <View className="gym-mcard__dot" style={{ borderColor: status.color, backgroundColor: status.hollow ? "transparent" : status.color }} />
+                      <Text className="gym-mcard__status-label" style={{ color: status.color }}>{status.label}</Text>
+                    </View>
+                    <PressableScale onPress={() => setActions(item)} hitSlop={6} className="gym-plain-btn" style={{ width: 32 }} accessibilityRole="button" accessibilityLabel={`${item.name}: options`}>
+                      <GymIcon name="ellipsis" size={20} color={colors.gymInkSoft} />
+                    </PressableScale>
+                  </View>
+                  <View className="flex-row items-center" style={{ gap: 8 }}>
+                    {item.due > 0 && remindBtn(`Send ${item.name} a due reminder`, () => remind(item, "due"), "banknote", colors.gymTileBlueIcon, colors.gymTileBlue, item.id)}
+                    {remindBtn(`Send ${item.name} ${kind === "expired" ? "an expired" : "an expiry"} reminder`, () => remind(item, kind), "bell-ring", kind === "expired" ? colors.gymDanger : colors.gymPrimary, kind === "expired" ? colors.gymDangerSoft : colors.gymPrimarySoft, item.id)}
+                  </View>
                 </View>
               )}
             </View>
@@ -269,7 +318,6 @@ export function MemberList({ pick = null, initialFilter = "all", focusSearch = f
           }}
         />
       )}
-      {sheet === "filter" && choiceSheet("Show members", MEMBER_FILTERS.map((f) => ({ id: f.id, label: filterTitle(f.id) })), filter, setFilter)}
       {sheet === "sort" && choiceSheet("Sort members", SORTS, sort, setSort)}
       {actions && gym && <MemberActionsSheet member={actions} gym={gym} onClose={() => setActions(null)} onChanged={(detail) => { setActions(detail.member); reload(); }} />}
       {pending && (

@@ -496,16 +496,11 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
     assert.equal(await credits(), 4);
     assert.ok(fs.readFileSync(path.join(server.outbox, "gym-sms.jsonl"), "utf8").includes("9811122233"), "the fake provider got it");
 
-    // The Member dropdown filters the list
-    await clickLabel("Show: All Members. Change");
-    await h.expectText("Show members");
-    await h.settle();
+    // The filter chips filter the list; the chosen chip carries its count
     await clickLabel("Expired");
     await page.waitFor(`!(document.body.innerText || "").includes("Mohammed Asif")`, NAV_TIMEOUT, "only expired members");
     await h.expectText("Karthik Raja");
-    await clickLabel("Show: Expired. Change");
-    await h.expectText("Show members");
-    await h.settle();
+    await waitLabel("Expired, 1");
     await clickLabel("All Members");
     await h.expectText("Mohammed Asif");
 

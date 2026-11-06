@@ -97,6 +97,13 @@ describe("coach chat: what the model is told", () => {
     assert.match(text, /Never assume their religion or region/);
   });
 
+  it("asks for the main points in bold on every reply, with an example (2026-11-06)", () => {
+    const text = chatInstructions(intake);
+    assert.match(text, /Every reply, in any language, wraps its one to three main points/);
+    assert.match(text, /\*\*Add 30 g paneer at lunch\*\*/);
+    assert.match(text, /a reply with nothing in bold is wrong/);
+  });
+
   it("the brief carries cuisines, cooking time and budget so suggestions fit them", () => {
     const brief = memberBrief({
       intake: { ...intake, cookingTime: "quick", foodBudget: "low" },
@@ -135,8 +142,20 @@ describe("coach chat: the reply", () => {
     assert.equal(cleanReply("  ## Plan\n**Eat** dal and rice. ** Walk daily.  "), "Plan\n**Eat** dal and rice.  Walk daily.");
   });
 
-  it("is capped, and an empty answer is null", () => {
-    assert.equal(cleanReply("a".repeat(limits.reply + 50)).length, limits.reply);
+  it("always has a main point in bold: when the model marked none, the first sentence is bolded", () => {
+    // A reply with bold is left as it is; a decimal point or a line break isn't a sentence end
+    assert.equal(cleanReply("Eat **dal** today. Then walk."), "Eat **dal** today. Then walk.");
+    assert.equal(cleanReply("Good question! Keep your protein up today."), "**Good question!** Keep your protein up today.");
+    assert.equal(cleanReply("Aim for 2.5 kg a month. Slow is fine."), "**Aim for 2.5 kg a month.** Slow is fine.");
+    assert.equal(cleanReply("Focus on these meals:\nM1: Poha\nM2: Dal rice"), "**Focus on these meals:**\nM1: Poha\nM2: Dal rice");
+    assert.equal(cleanReply("Two lines without a full stop\nsecond line"), "**Two lines without a full stop**\nsecond line");
+    assert.equal(cleanReply("आज दाल खाओ। फिर चलो।"), "**आज दाल खाओ।** फिर चलो।");
+    // A stray ** alone doesn't count as bold
+    assert.equal(cleanReply("Walk daily. ** Then rest."), "**Walk daily.**  Then rest.");
+  });
+
+  it("is capped (the bold markers aren't counted), and an empty answer is null", () => {
+    assert.equal(cleanReply("a".repeat(limits.reply + 50)).replace(/\*\*/g, "").length, limits.reply);
     assert.equal(cleanReply("   "), null);
     assert.equal(cleanReply(undefined), null);
   });

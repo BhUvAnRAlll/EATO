@@ -80,6 +80,7 @@ import {
   Settings,
   Share2,
   ShieldCheck,
+  SlidersHorizontal,
   UserCheck,
   type LucideIcon,
 } from "lucide-react-native";
@@ -168,6 +169,7 @@ export const gymIcons = {
   "settings": Settings,
   "share-2": Share2,
   "shield-check": ShieldCheck,
+  "sliders-horizontal": SlidersHorizontal,
   "user-check": UserCheck,
 } satisfies Record<string, LucideIcon>;
 

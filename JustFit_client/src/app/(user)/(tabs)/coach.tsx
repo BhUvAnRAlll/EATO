@@ -13,13 +13,12 @@ import { CoachAvatar } from "@/components/coach/CoachAvatar";
 import { CoachButton } from "@/components/coach/CoachButton";
 import { InsightsTab } from "@/components/coach/InsightsTab";
 import type { TodayWorkout } from "@/components/coach/PlanTimeline";
-import { TodayOverview } from "@/components/coach/TodayOverview";
 import { WeekPlan } from "@/components/coach/WeekPlan";
 import { usePullToRefresh } from "@/components/PullToRefresh";
 import { coachPrompts, coaches, coachStyles, labelOf, type CoachId, type CoachStyle } from "@/data/coach";
 import { coachApi, type Intake, type IntakePrefill, type PlanState } from "@/lib/coach";
 import type { Insights, InsightsWeek } from "@/lib/coachInsights";
-import { macro, todayIso, type DayView } from "@/lib/macro";
+import { todayIso } from "@/lib/macro";
 import { useSessionToken } from "@/lib/session";
 import { LEVEL_LABEL, weekOf, workoutApi } from "@/lib/workoutApi";
 import { useCoachChatStore } from "@/store/coachChat";
@@ -57,7 +56,7 @@ function workoutNote({ day, status, plan }: TodayWorkout) {
 
 // The AI Coach tab, in the coach's own look (pink wash, white cards, red accents). Before the
 // intake: what the coach does and Get started. After it, each thing once, top to bottom: your
-// coach (Change, and the ask box that opens the chat), today's numbers from Macro, the plan
+// coach (Change, and the ask box that opens the chat), the plan
 // (Today's meals and workout on a timeline, the Week, Insights), then Edit my answers and Make
 // a new plan. Reads everything each time it comes into view.
 // A gym's trainer has no AI Coach or Fitness (the tab isn't in their bar; a link here sends them Home)
@@ -73,7 +72,6 @@ function CoachScreen() {
   const clearChat = useCoachChatStore((state) => state.clear);
   const [loaded, setLoaded] = useState<{ intake: Intake | null; prefill: IntakePrefill } | null>(null);
   const [plan, setPlan] = useState<PlanState | null>(null);
-  const [day, setDay] = useState<DayView | null>(null);
   const [workout, setWorkout] = useState<TodayWorkout | null>(null);
   const [tab, setTab] = useState<PlanTab>("today");
   const [error, setError] = useState<string | null>(null);
@@ -97,11 +95,10 @@ function CoachScreen() {
     const result = await coachApi.intake(token);
     if (!result.ok) return setError(result.status ? result.error : OFFLINE);
     if (result.data.intake) {
-      const [planResult, dayResult] = await Promise.all([coachApi.plan(token, today), macro.day(token, today), loadWorkout(token, today)]);
+      const [planResult] = await Promise.all([coachApi.plan(token, today), loadWorkout(token, today)]);
       if (!planResult.ok) return setError(planResult.status ? planResult.error : OFFLINE);
       setPlan(planResult.data);
       syncMealReminders(planResult.data.plan, today).catch(() => {});
-      setDay(dayResult.ok ? dayResult.data : null);
     }
     setLoaded(result.data);
   }, [getToken, loadWorkout]);
@@ -116,7 +113,7 @@ function CoachScreen() {
   const [insights, setInsights] = useState<Partial<Record<InsightsWeek, Insights>>>({});
   const keepInsights = useCallback((week: InsightsWeek, data: Insights) => setInsights((current) => ({ ...current, [week]: data })), []);
 
-  // A pull reads the intake, the plan, today's numbers, the workout and the insights again
+  // A pull reads the intake, the plan, the workout and the insights again
   const { refreshControl } = usePullToRefresh(
     useCallback(async () => {
       setInsights({});
@@ -247,8 +244,6 @@ function CoachScreen() {
                   ))}
                 </ScrollView>
               </View>
-
-              {day && <TodayOverview date={day.date} totals={day.totals} targets={day.targets} />}
 
               {plan?.state === "none" && (
                 <View className="coach__card">
