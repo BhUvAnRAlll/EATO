@@ -8,6 +8,32 @@ const { ConflictError } = require("../errors");
 const { normalizePhone } = require("../auth/phone");
 
 const KINDS = ["staff", "trainer"];
+// Role & Permission: the portal's areas a Staff login can be given (in the order the sheet shows)
+const AREAS = ["members", "payments", "enquiries", "catalog", "attendance", "sms", "predictions"];
+const AREA_LABEL = {
+  members: "Members",
+  payments: "Payments",
+  enquiries: "Enquiries",
+  catalog: "Plans / Catalogue",
+  attendance: "Attendance",
+  sms: "SMS",
+  predictions: "Predictions",
+};
+// Which area a gym route belongs to, by its path under /api/gym (the first match wins). Routes
+// with no area (the dashboard, branches, the team) are open to every portal login; the team is
+// the gym admin's alone anyway (requireGymOwner).
+const AREA_OF_PATH = [
+  [/^\/members\/[^/]+\/sms$/, "sms"],
+  [/^\/members\/[^/]+\/(due|pt|sales|services)$/, "payments"],
+  [/^\/members\/[^/]+\/check-(in|out)$/, "attendance"],
+  [/^\/(members|trainers)(\/|$)/, "members"],
+  [/^\/(payments|services|sales|wallet)(\/|$)/, "payments"],
+  [/^\/enquiries(\/|$)/, "enquiries"],
+  [/^\/catalog(\/|$)/, "catalog"],
+  [/^\/sms(\/|$)/, "sms"],
+  [/^\/attendance(\/|$)/, "attendance"],
+  [/^\/predictions(\/|$)/, "predictions"],
+];
 // The role each kind of team member has
 const ROLE_FOR = { owner: "gym_admin", staff: "gym_admin", trainer: "trainer" };
 const KIND_LABEL = { owner: "Gym admin", staff: "Staff", trainer: "Trainer" };
@@ -20,6 +46,39 @@ function addBody(body) {
   if (Object.keys(body).some((key) => !["phone", "kind"].includes(key))) throw new ValidationError("That request has fields we don't use.");
   if (!KINDS.includes(body.kind)) throw new ValidationError("Choose Staff or Trainer.");
   return { phone: normalizePhone(body.phone), kind: body.kind };
+}
+
+// PUT /api/gym/staff/:userId/permissions: { areas: ["members", ...] } (an empty list is allowed:
+// Home only). Answers the areas in AREAS order, each once.
+function permissionsBody(body) {
+  if (!isPlainObject(body)) throw new ValidationError("Send the details as JSON.");
+  if (Object.keys(body).some((key) => key !== "areas")) throw new ValidationError("That request has fields we don't use.");
+  if (!Array.isArray(body.areas) || body.areas.length > AREAS.length) throw new ValidationError("Choose which areas they can use.");
+  if (body.areas.some((a) => !AREAS.includes(a))) throw new ValidationError("That isn't one of the portal's areas.");
+  return { areas: AREAS.filter((a) => body.areas.includes(a)) };
+}
+
+// The areas a team row allows: the gym admin everything, Staff what was saved for them (NULL =
+// everything, every Staff login before the gym admin edits them), a trainer nothing (no portal)
+function areasOf(row) {
+  if (row.kind === "owner") return [...AREAS];
+  if (row.kind !== "staff") return [];
+  const saved = typeof row.permissions === "string" ? JSON.parse(row.permissions) : row.permissions;
+  if (!Array.isArray(saved)) return [...AREAS];
+  return AREAS.filter((a) => saved.includes(a));
+}
+
+// The area a request under /api/gym needs, or null when every portal login may make it
+function areaOfPath(path) {
+  const found = AREA_OF_PATH.find(([pattern]) => pattern.test(path));
+  return found ? found[1] : null;
+}
+
+// Why the caller can't change this team member's permissions, or null. target: the gym_staff row
+function permissionsProblem(callerId, target) {
+  if (target.userId === callerId) return "You can't change your own access.";
+  if (target.kind !== "staff") return "Only Staff logins have permissions.";
+  return null;
 }
 
 // An account id from the path (user_ + base62; older Clerk ids are letters, numbers and _)
@@ -73,4 +132,4 @@ function roleAfterLeaving(role, branchesLeft) {
 // "+91 ••••• ••210": lists show only the last three digits
 const maskPhone = (digits) => (typeof digits === "string" && /^[0-9]{10}$/.test(digits) ? `+91 ••••• ••${digits.slice(7)}` : null);
 
-module.exports = { KINDS, ROLE_FOR, KIND_LABEL, addBody, userIdParam, joinProblem, checkJoin, inviteProblem, removeProblem, roleAfterLeaving, maskPhone };
+module.exports = { KINDS, AREAS, AREA_LABEL, ROLE_FOR, KIND_LABEL, addBody, permissionsBody, areasOf, areaOfPath, permissionsProblem, userIdParam, joinProblem, checkJoin, inviteProblem, removeProblem, roleAfterLeaving, maskPhone };

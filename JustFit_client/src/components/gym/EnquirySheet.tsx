@@ -9,7 +9,7 @@ import { GymField } from "@/components/gym/GymField";
 import { GymIcon } from "@/components/gym/GymIcon";
 import { GymPrimaryButton } from "@/components/gym/GymPrimaryButton";
 import { GymSheet } from "@/components/gym/GymSheet";
-import { ENQUIRY_STATUS_LABEL, INTEREST_LABEL, SOURCE_LABEL, daysFromToday, phoneInput, shortDate } from "@/data/gymDashboard";
+import { ENQUIRY_STATUS_LABEL, INTEREST_LABEL, LEAD_LABEL, SOURCE_LABEL, contactText, daysFromToday, phoneInput, shortDate } from "@/data/gymDashboard";
 import { gymApi, type EnquiryInterest, type EnquirySource, type EnquiryStatus, type GymEnquiry } from "@/lib/gymApi";
 import { useGymSave } from "@/lib/gymForm";
 import { haptic } from "@/lib/haptics";
@@ -57,7 +57,16 @@ export function EnquirySheet({ enquiry, onClose, onSaved, onConvert, onOpenMembe
     });
 
   return (
-    <GymSheet title={enquiry ? "Edit Enquiry" : "Add Enquiry"} subtitle={enquiry ? `Asked on ${shortDate(enquiry.enquiredOn)}` : "Someone who asked about joining."} onClose={onClose}>
+    <GymSheet title={enquiry ? "Edit Enquiry" : "Add Enquiry"} subtitle={enquiry ? `Asked on ${shortDate(enquiry.enquiredOn)}${enquiry.lead ? ` · ${LEAD_LABEL[enquiry.lead.level]} · ${enquiry.lead.score}` : ""}` : "Someone who asked about joining."} onClose={onClose}>
+      {/* Every contact attempt so far (logged from the list's buttons), oldest first */}
+      {enquiry && enquiry.contacts.length > 0 && (
+        <View style={{ gap: 4 }}>
+          <Text className="gym-field__label">Contacts</Text>
+          {enquiry.contacts.map((c) => (
+            <Text key={c.id} className="gym-tx__meta">{contactText(c)}</Text>
+          ))}
+        </View>
+      )}
       <GymField label="Name" icon="user" value={name} onChangeText={setName} maxLength={80} placeholder="Name (Eg. Priya)" autoCapitalize="words" />
       <GymField label="Mobile number (optional)" icon="phone" value={phone} onChangeText={(t) => setPhone(phoneInput(t))} maxLength={16} keyboardType="phone-pad" placeholder="Mobile Number" hint={phoneOk ? undefined : "Enter a 10-digit mobile number starting with 6, 7, 8 or 9."} />
       <ChipRow label="Interested in" options={INTEREST_LABEL} value={interest} onChange={setInterest} clearable />

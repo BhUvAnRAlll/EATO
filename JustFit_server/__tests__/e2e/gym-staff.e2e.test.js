@@ -19,6 +19,7 @@ const db = require("./test-db.js");
 const { startTestServer } = require("./server.js");
 const { identitiesFor, describeIdentityError } = require("./test-identities.js");
 const rules = require("../../gym/rules.js");
+const staffRules = require("../../gym/staffRules.js");
 
 describe("gym staff e2e: Staff / Admin Login, invites and roles", () => {
   const runId = crypto.randomBytes(4).toString("hex");
@@ -32,6 +33,12 @@ describe("gym staff e2e: Staff / Admin Login, invites and roles", () => {
   const freshPhone = () => "8" + String(crypto.randomInt(0, 1_000_000_000)).padStart(9, "0");
   const newcomer = freshPhone();
   const cancelled = freshPhone();
+  // The development sign-in code (auth/devLogin.js) is on for one listed number; an invited
+  // number takes it too (test 6b), a number nobody invited still gets an SMS
+  const DEV = { DEV_LOGIN_PHONE: freshPhone(), DEV_LOGIN_CODE: "480317" };
+  const devJoiner = freshPhone();
+  const stranger = freshPhone();
+  const throwaway = [newcomer, cancelled, devJoiner, stranger];
 
   const api = async (method, route, token, body) => {
     const headers = {};
@@ -45,8 +52,10 @@ describe("gym staff e2e: Staff / Admin Login, invites and roles", () => {
   const as = (tag) => ({
     get: (route) => api("GET", route, tokens[tag]),
     post: (route, body) => api("POST", route, tokens[tag], body ?? {}),
+    put: (route, body) => api("PUT", route, tokens[tag], body ?? {}),
     del: (route) => api("DELETE", route, tokens[tag]),
   });
+  const rules_areas = () => [...staffRules.AREAS];
   const roleOf = async (userId) => (await connection.query("SELECT role FROM users WHERE id = ?", [userId]))[0][0]?.role;
   const count = async (table, where, params) => (await connection.query(`SELECT COUNT(*) AS n FROM \`${table}\` WHERE ${where}`, params))[0][0].n;
   const run = (fn) => async (t) => { if (skipReason) return t.skip(skipReason); await fn(); };
@@ -58,7 +67,7 @@ describe("gym staff e2e: Staff / Admin Login, invites and roles", () => {
     try { connection = await db.connect(env); } catch (error) { skipReason = `test database unreachable (${error?.code ?? "refused"})`; return; }
     assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT);
     testAccounts = identitiesFor(env);
-    server = await startTestServer(env);
+    server = await startTestServer({ ...env, ...DEV });
     try {
       for (const [tag, role] of [["admin", "admin"], ["owner", "gym_admin"], ["otherOwner", "gym_admin"], ["staffer", "user"], ["coach", "user"], ["member", "user"]]) {
         identities[tag] = await testAccounts.createIdentity(runId, tag, { role });
@@ -77,7 +86,7 @@ describe("gym staff e2e: Staff / Admin Login, invites and roles", () => {
     if (connection) {
       try {
         const gymIds = [state.tumkur, state.kunigal, state.other].filter(Boolean);
-        const [joined] = await connection.query("SELECT id FROM users WHERE phone IN (?)", [[newcomer, cancelled]]);
+        const [joined] = await connection.query("SELECT id FROM users WHERE phone IN (?)", [throwaway]);
         if (gymIds.length) {
           const [brands] = await connection.query("SELECT DISTINCT brand_id FROM gyms WHERE id IN (?)", [gymIds]);
           for (const table of ["gym_payments", "gym_members", "gym_staff_invites", "gym_staff"]) await connection.query(`DELETE FROM \`${table}\` WHERE gym_id IN (?)`, [gymIds]);
@@ -87,7 +96,7 @@ describe("gym staff e2e: Staff / Admin Login, invites and roles", () => {
         const all = [...Object.values(identities).map((i) => i.id), ...joined.map((u) => u.id)];
         await connection.query("DELETE FROM admin_audit_log WHERE admin_id IN (?) OR target_id IN (?)", [all, gymIds.length ? gymIds.map(String) : ["-"]]);
         await connection.query("DELETE FROM auth_sessions WHERE user_id IN (?)", [all]);
-        await connection.query("DELETE FROM otp_challenges WHERE phone IN (?)", [[newcomer, cancelled]]);
+        await connection.query("DELETE FROM otp_challenges WHERE phone IN (?)", [throwaway]);
         await db.deleteUsers(connection, all);
       } catch (error) { problems.push(`rows: ${error.code ?? error.message}`); }
     }
@@ -125,7 +134,7 @@ describe("gym staff e2e: Staff / Admin Login, invites and roles", () => {
     const list = await as("owner").get("/api/gym/staff");
     assert.equal(list.status, 200, JSON.stringify(list.json));
     assert.equal(list.json.team.length, 1);
-    assert.deepEqual({ ...list.json.team[0], addedAt: undefined }, { id: identities.owner.id, name: null, phone: list.json.team[0].phone, kind: "owner", addedAt: undefined, you: true });
+    assert.deepEqual({ ...list.json.team[0], addedAt: undefined }, { id: identities.owner.id, name: null, phone: list.json.team[0].phone, kind: "owner", areas: rules_areas(), addedAt: undefined, you: true });
     assert.match(list.json.team[0].phone, /^\+91 ••••• ••\d{3}$/, "numbers are masked");
     assert.deepEqual(list.json.invites, []);
   }));
@@ -159,6 +168,51 @@ describe("gym staff e2e: Staff / Admin Login, invites and roles", () => {
     assert.equal((await as("coach").get("/api/auth/me")).json.user.role, "trainer");
     assert.equal((await as("coach").get("/api/gym/dashboard")).status, 403, "a trainer's link isn't a portal link");
     assert.equal((await as("coach").get("/api/gym/staff")).status, 403);
+  }));
+
+  it("4b. Role & Permission: the gym admin limits a Staff login to some areas; the server refuses the rest at once", run(async () => {
+    const staffer = identities.staffer.id;
+    assert.deepEqual((await as("staffer").get("/api/gym/dashboard")).json.gym.areas, rules_areas(), "every area until the gym admin edits them");
+    const set = await as("owner").put(`/api/gym/staff/${staffer}/permissions`, { areas: ["members", "enquiries"] });
+    assert.equal(set.status, 200, JSON.stringify(set.json));
+    assert.deepEqual(set.json.team.find((p) => p.id === staffer).areas, ["members", "enquiries"]);
+    assert.deepEqual(set.json.team.find((p) => p.kind === "owner").areas, rules_areas(), "the gym admin keeps everything");
+    assert.deepEqual(set.json.team.find((p) => p.kind === "trainer").areas, [], "a trainer has no portal");
+
+    // Their very next requests follow it: no restart, no new session
+    assert.deepEqual((await as("staffer").get("/api/gym/dashboard")).json.gym.areas, ["members", "enquiries"]);
+    assert.equal((await as("staffer").get("/api/gym/members?filter=all&search=")).status, 200);
+    assert.equal((await as("staffer").get("/api/gym/enquiries")).status, 200);
+    for (const [call, area] of [
+      [as("staffer").get("/api/gym/wallet"), "Payments"], [as("staffer").get("/api/gym/payments"), "Payments"], [as("staffer").post("/api/gym/sales", {}), "Payments"],
+      [as("staffer").get("/api/gym/catalog"), "Plans / Catalogue"], [as("staffer").get("/api/gym/sms"), "SMS"], [as("staffer").get("/api/gym/attendance"), "Attendance"],
+      [as("staffer").get("/api/gym/predictions/renewals"), "Predictions"], [as("staffer").post("/api/gym/members/1/due", {}), "Payments"],
+    ]) {
+      const refused = await call;
+      assert.equal(refused.status, 403, area);
+      assert.match(refused.json.error, new RegExp(area));
+    }
+    assert.equal(await count("admin_audit_log", "admin_id = ? AND action = 'gym.staff_permissions'", [identities.owner.id]), 1);
+
+    // Home only is allowed; the dashboard still answers
+    assert.equal((await as("owner").put(`/api/gym/staff/${staffer}/permissions`, { areas: [] })).status, 200);
+    assert.equal((await as("staffer").get("/api/gym/dashboard")).status, 200);
+    assert.equal((await as("staffer").get("/api/gym/members?filter=all&search=")).status, 403);
+
+    // Who may change what
+    assert.equal((await as("staffer").put(`/api/gym/staff/${identities.coach.id}/permissions`, { areas: [] })).status, 403, "Staff can't set permissions");
+    assert.equal((await as("owner").put(`/api/gym/staff/${identities.owner.id}/permissions`, { areas: [] })).status, 409, "not your own");
+    assert.equal((await as("owner").put(`/api/gym/staff/${identities.coach.id}/permissions`, { areas: ["members"] })).status, 409, "not a trainer");
+    assert.equal((await as("owner").put(`/api/gym/staff/${identities.member.id}/permissions`, { areas: ["members"] })).status, 404, "not on the team");
+    assert.equal((await as("otherOwner").put(`/api/gym/staff/${staffer}/permissions`, { areas: [] })).status, 404, "another gym's admin can't");
+    assert.equal((await as("owner").put("/api/gym/staff/x%27%20OR%201%3D1/permissions", { areas: [] })).status, 400);
+    for (const body of [{ areas: ["team"] }, { areas: "members" }, { areas: ["members"], kind: "owner" }, {}]) {
+      assert.equal((await as("owner").put(`/api/gym/staff/${staffer}/permissions`, body)).status, 400, JSON.stringify(body));
+    }
+
+    // Everything again, so the later tests see today's Staff
+    assert.equal((await as("owner").put(`/api/gym/staff/${staffer}/permissions`, { areas: rules_areas() })).status, 200);
+    assert.deepEqual((await as("staffer").get("/api/gym/dashboard")).json.gym.areas, rules_areas());
   }));
 
   it("5. refuses Super Admins, other gyms' people, repeats and bad requests, writing nothing", run(async () => {
@@ -198,7 +252,9 @@ describe("gym staff e2e: Staff / Admin Login, invites and roles", () => {
     assert.equal(await count("users", "phone = ?", [newcomer]), 0, "inviting makes no account");
 
     assert.equal((await api("POST", "/api/auth/request-otp", null, { phone: newcomer })).status, 200);
-    const signedIn = await api("POST", "/api/auth/verify-otp", null, { phone: newcomer, code: server.readCode(newcomer) });
+    // The development code is on in this suite, so the invited number takes it instead of an SMS (test 6b checks that rule)
+    assert.equal(server.readCode(newcomer), null);
+    const signedIn = await api("POST", "/api/auth/verify-otp", null, { phone: newcomer, code: DEV.DEV_LOGIN_CODE });
     assert.equal(signedIn.status, 200, JSON.stringify(signedIn.json));
     assert.equal(signedIn.json.user.role, "trainer", "the invite applied in the sign-in");
     assert.equal(signedIn.json.user.isNew, true);
@@ -207,6 +263,31 @@ describe("gym staff e2e: Staff / Admin Login, invites and roles", () => {
     assert.equal(await count("gym_staff_invites", "phone = ?", [newcomer]), 0, "the invite is used up");
     assert.equal(await count("admin_audit_log", "action = 'gym.staff_join' AND target_id = ?", [String(state.tumkur)]), 1);
     assert.equal((await as("owner").get("/api/gym/staff")).json.invites.length, 0);
+  }));
+
+  it("6b. with the development code on, an invited number signs in with that code and no SMS; a number nobody invited still gets an SMS", run(async () => {
+    assert.equal((await as("owner").post("/api/gym/staff", { phone: devJoiner, kind: "staff" })).status, 202);
+    assert.equal((await api("POST", "/api/auth/request-otp", null, { phone: devJoiner })).status, 200);
+    assert.equal(server.readCode(devJoiner), null, "no SMS for an invited number while the development code is on");
+    const wrong = await api("POST", "/api/auth/verify-otp", null, { phone: devJoiner, code: "480318" });
+    assert.equal(wrong.status, 400, "the development code is still checked");
+    const signedIn = await api("POST", "/api/auth/verify-otp", null, { phone: devJoiner, code: DEV.DEV_LOGIN_CODE });
+    assert.equal(signedIn.status, 200, JSON.stringify(signedIn.json));
+    assert.equal(signedIn.json.user.role, "gym_admin", "the invite applied: Staff");
+    assert.equal(await count("gym_staff", "user_id = ? AND gym_id = ? AND kind = 'staff'", [signedIn.json.user.id, state.tumkur]), 1);
+    assert.equal(await count("gym_staff_invites", "phone = ?", [devJoiner]), 0);
+    // Now on a team (no invite left), the number keeps taking the development code: a second device, a reinstall
+    assert.equal((await api("POST", "/api/auth/request-otp", null, { phone: devJoiner })).status, 200);
+    assert.equal(server.readCode(devJoiner), null, "still no SMS once they are on the team");
+
+    assert.equal((await api("POST", "/api/auth/request-otp", null, { phone: stranger })).status, 200);
+    assert.match(server.readCode(stranger) ?? "", /^[0-9]{6}$/, "a number no gym added gets a real (fake-provider) SMS as before");
+    assert.equal((await api("POST", "/api/auth/verify-otp", null, { phone: stranger, code: DEV.DEV_LOGIN_CODE })).status, 400, "and the development code doesn't open it");
+    assert.ok(server.logs.join("\n").includes("and for every number a gym adds as Staff or Trainer"), "the server says so at startup");
+
+    // Off the team again (a member once more), so the later tests see the team they expect
+    assert.equal((await as("owner").del(`/api/gym/staff/${signedIn.json.user.id}`)).status, 200);
+    assert.equal(await roleOf(signedIn.json.user.id), "user");
   }));
 
   it("7. cancelling an invite: only this branch's, once", run(async () => {
@@ -268,7 +349,7 @@ describe("gym staff e2e: Staff / Admin Login, invites and roles", () => {
   }));
 
   it("10. every change is in the audit log; the Super Admin's gym page lists gym admins only", run(async () => {
-    for (const action of ["gym.staff_add", "gym.staff_invite", "gym.staff_invite_cancel", "gym.staff_remove"]) {
+    for (const action of ["gym.staff_add", "gym.staff_invite", "gym.staff_invite_cancel", "gym.staff_remove", "gym.staff_permissions"]) {
       assert.ok(await count("admin_audit_log", "admin_id = ? AND action = ?", [identities.owner.id, action]) >= 1, action);
     }
     const detail = await as("admin").get(`/api/admin/portal/gyms/${state.tumkur}?date=${today}`);

@@ -25,12 +25,16 @@ export type GymAccess = "owner" | "staff";
 // Staff / Admin Login: the branch's team and its invites (numbers that haven't signed in yet).
 // Phones arrive masked ("+91 ••••• ••210"); name is null until they've set up their profile.
 export type StaffKind = "staff" | "trainer";
-export type TeamMember = { id: string; name: string | null; phone: string | null; kind: "owner" | StaffKind; addedAt: string | null; you: boolean };
+// Role & Permission: the portal's areas a Staff login can be given (the gym admin has all of them,
+// a trainer none). Which routes each covers is the server's call (gym/staffRules.js).
+export type StaffArea = "members" | "payments" | "enquiries" | "catalog" | "attendance" | "sms" | "predictions";
+export type TeamMember = { id: string; name: string | null; phone: string | null; kind: "owner" | StaffKind; areas: StaffArea[]; addedAt: string | null; you: boolean };
 export type StaffInvite = { id: number; phone: string | null; kind: StaffKind; invitedAt: string | null };
 export type GymTeam = { gym: { name: string; branch: string }; team: TeamMember[]; invites: StaffInvite[] };
 
 export type GymDashboard = {
-  gym: GymInfo & { branchCount: number; access: GymAccess };
+  // areas: what the signed-in login may use at this branch (Role & Permission), so the app hides the rest
+  gym: GymInfo & { branchCount: number; access: GymAccess; areas: StaffArea[] };
   today: string;
   revenue: { online: number; cash: number };
   stats: { admission: number; renewal: number; enquiry: number; duePaid: number; pt: number; product: number };
@@ -195,6 +199,8 @@ export const gymApi = {
   // added: linked now (their role changed); invited: they join at their first sign-in
   addStaff: (token: string | null, phone: string, kind: StaffKind) => call<GymTeam & { result: "added" | "invited" }>(token, "/api/gym/staff", "POST", { phone, kind }),
   removeStaff: (token: string | null, userId: string) => call<GymTeam>(token, `/api/gym/staff/${encodeURIComponent(userId)}`, "DELETE"),
+  // Role & Permission: the areas a Staff login may use at this branch (an empty list = Home only)
+  setPermissions: (token: string | null, userId: string, areas: StaffArea[]) => call<GymTeam>(token, `/api/gym/staff/${encodeURIComponent(userId)}/permissions`, "PUT", { areas }),
   cancelInvite: (token: string | null, id: number) => call<GymTeam>(token, `/api/gym/staff/invites/${id}`, "DELETE"),
   sms: (token: string | null) => call<GymSms>(token, "/api/gym/sms"),
   smsSettings: (token: string | null, changes: Partial<Record<SmsKind, boolean>>) => call<GymSms>(token, "/api/gym/sms/settings", "PATCH", changes),

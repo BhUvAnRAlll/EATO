@@ -1,15 +1,16 @@
-import { useCallback, useEffect, useState } from "react";
-import { FlatList, Platform, ScrollView, Text, TextInput, useWindowDimensions, View } from "react-native";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { AppState, FlatList, Platform, ScrollView, Text, TextInput, useWindowDimensions, View } from "react-native";
 import { router } from "expo-router";
 
 import { PressableScale } from "@/components/PressableScale";
 import { AddMemberSheet } from "@/components/gym/AddMemberSheet";
+import { EnquiryContactSheet } from "@/components/gym/EnquiryContactSheet";
 import { EnquirySheet } from "@/components/gym/EnquirySheet";
 import { GradientFill } from "@/components/gym/GradientFill";
 import { GymIcon } from "@/components/gym/GymIcon";
 import { GymEmpty, GymError, GymLoading } from "@/components/gym/GymStates";
-import { ENQUIRY_STATUS_LABEL, ENQUIRY_VIEWS, INTEREST_LABEL, SOURCE_LABEL, followUpText, initialsOf, phoneText, shortDate } from "@/data/gymDashboard";
-import { gymApi, type EnquiryStatus, type EnquiryView, type GymEnquiry } from "@/lib/gymApi";
+import { ENQUIRY_STATUS_LABEL, ENQUIRY_VIEWS, INTEREST_LABEL, LEAD_LABEL, SOURCE_LABEL, contactText, followUpText, initialsOf, phoneText, shortDate } from "@/data/gymDashboard";
+import { gymApi, type EnquiryStatus, type EnquiryView, type GymEnquiry, type LeadLevel } from "@/lib/gymApi";
 import { callPhone, enquiryFollowUp, whatsappPhone } from "@/lib/gymContact";
 import { notice } from "@/lib/gymPortal";
 import { haptic } from "@/lib/haptics";
@@ -29,9 +30,11 @@ const EMPTY: Record<EnquiryView, { title: string; text: string }> = {
 
 // Manage › Enquiry: everyone who asked about joining, followed up until they join or say no.
 // Lists (Today, Overdue, Open, Joined, Not interested, All) with their counts, search by name or
-// number; each card shows when to call them back, what they want and how they found the gym, with
-// Call, WhatsApp (the phone's own apps, the message written) and ⋯ to edit, change the status or
-// Convert to member. The round + adds one.
+// number; each card shows when to call them back, what they want and how they found the gym, its
+// Hot / Warm / Cold score with the reasons (Predictions #3; Open is sorted hottest first by the
+// server), with Call, WhatsApp (the phone's own apps, the message written), a log button for a
+// contact attempt and ⋯ to edit, change the status or Convert to member. After Call, when the app
+// comes back to the front, "How did it go?" asks once (Reached / No answer / Skip). The round + adds one.
 export function EnquiryList({ initialView = "open" }: { initialView?: EnquiryView }) {
   const colors = useThemeColors();
   const getToken = useSessionToken();
@@ -44,15 +47,40 @@ export function EnquiryList({ initialView = "open" }: { initialView?: EnquiryVie
   // null: closed; "new": Add Enquiry; an enquiry: edit it
   const [editing, setEditing] = useState<GymEnquiry | "new" | null>(null);
   const [converting, setConverting] = useState<GymEnquiry | null>(null);
+  // Logging a contact: from the card's button, or asked after a call
+  const [logging, setLogging] = useState<{ enquiry: GymEnquiry; afterCall: boolean } | null>(null);
+  const pendingCall = useRef<GymEnquiry | null>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => setSearch(typed.trim()), 300);
     return () => clearTimeout(timer);
   }, [typed]);
 
+  // Back from the phone app after Call: ask how it went (once per call)
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state !== "active" || !pendingCall.current) return;
+      const enquiry = pendingCall.current;
+      pendingCall.current = null;
+      setLogging({ enquiry, afterCall: true });
+    });
+    return () => sub.remove();
+  }, []);
+  const call = (enquiry: GymEnquiry) => {
+    pendingCall.current = enquiry;
+    callPhone(enquiry.phone);
+  };
+
   const load = useCallback((token: string | null) => gymApi.enquiries(token, view, search), [view, search]);
   const { result, retry, reload } = useGymData(load);
   const data = result.state === "ready" ? result.data : null;
+
+  const leadTone = (level: LeadLevel) =>
+    level === "hot"
+      ? { bg: colors.gymSuccessSoft, line: colors.gymSuccessLine, ink: colors.gymSuccess }
+      : level === "warm"
+        ? { bg: colors.gymWarningSoft, line: colors.gymWarningSoft, ink: colors.gymWarning }
+        : { bg: colors.gymBar, line: colors.gymLine, ink: colors.gymMuted };
 
   // Saved in Add Member: mark the enquiry joined and link the member, then open them
   const joined = async (enquiry: GymEnquiry, memberId: number) => {
@@ -142,15 +170,17 @@ export function EnquiryList({ initialView = "open" }: { initialView?: EnquiryVie
           const followColor = follow?.tone === "overdue" ? colors.gymDanger : follow?.tone === "today" ? colors.gymWarning : colors.gymInkSoft;
           const about = [item.interest ? INTEREST_LABEL[item.interest] : null, item.source ? SOURCE_LABEL[item.source] : null].filter(Boolean).join(" · ");
           const tone = statusTone(item.status);
+          const lead = item.lead ? { ...leadTone(item.lead.level), text: `${LEAD_LABEL[item.lead.level]} · ${item.lead.score}`, reasons: item.lead.reasons.map((r) => r.text).join(" · ") } : null;
+          const lastContact = item.contacts.length > 0 ? item.contacts[item.contacts.length - 1] : null;
           return (
-            // The info opens the enquiry; Call and WhatsApp sit beside it (no button inside a button)
+            // The info opens the enquiry; Call, WhatsApp and the log button sit beside it (no button inside a button)
             <View className="gym-member-card">
               <PressableScale
                 onPress={() => setEditing(item)}
                 className="min-w-0 flex-1 flex-row items-center"
                 style={{ gap: 12 }}
                 accessibilityRole="button"
-                accessibilityLabel={`${item.name}, ${ENQUIRY_STATUS_LABEL[item.status]}${follow ? `, ${follow.text}` : ""}${about ? `, ${about}` : ""}${item.member ? `, joined as ${item.member.code}` : ""}. Edit`}
+                accessibilityLabel={`${item.name}, ${ENQUIRY_STATUS_LABEL[item.status]}${lead ? `, ${lead.text}` : ""}${follow ? `, ${follow.text}` : ""}${about ? `, ${about}` : ""}${item.member ? `, joined as ${item.member.code}` : ""}. Edit`}
               >
                 {!narrow && (
                   <View className="gym-avatar">
@@ -158,12 +188,18 @@ export function EnquiryList({ initialView = "open" }: { initialView?: EnquiryVie
                   </View>
                 )}
                 <View className="min-w-0 flex-1" style={{ gap: 3 }}>
-                  <View className="flex-row items-center" style={{ gap: 6 }}>
+                  <View className="flex-row flex-wrap items-center" style={{ gap: 6 }}>
                     <Text className="gym-member-card__name flex-shrink" numberOfLines={1}>{item.name}</Text>
                     <View className="gym-chip" style={{ borderColor: tone.line, backgroundColor: tone.bg }}>
                       <Text className="gym-chip__label" style={{ color: tone.ink }}>{ENQUIRY_STATUS_LABEL[item.status]}</Text>
                     </View>
+                    {lead && (
+                      <View className="gym-chip" style={{ borderColor: lead.line, backgroundColor: lead.bg }}>
+                        <Text className="gym-chip__label" style={{ color: lead.ink }}>{lead.text}</Text>
+                      </View>
+                    )}
                   </View>
+                  {lead?.reasons ? <Text className="gym-member-card__line" numberOfLines={2}>{lead.reasons}</Text> : null}
                   {item.phone ? <Text className="gym-member-card__line" numberOfLines={1}>{phoneText(item.phone)}</Text> : null}
                   {follow ? (
                     <View className="flex-row items-center" style={{ gap: 6 }}>
@@ -175,16 +211,26 @@ export function EnquiryList({ initialView = "open" }: { initialView?: EnquiryVie
                   {about ? <Text className="gym-tx__meta" numberOfLines={1}>{about}</Text> : null}
                   {item.note ? <Text className="gym-tx__meta" numberOfLines={2}>{item.note}</Text> : null}
                   <Text className="gym-tx__meta" numberOfLines={1}>{`Asked on ${shortDate(item.enquiredOn)}`}</Text>
+                  {lastContact ? <Text className="gym-tx__meta" numberOfLines={2}>{`Last contact: ${contactText(lastContact)}`}</Text> : null}
                 </View>
               </PressableScale>
-              {item.phone && (
+              {(item.phone || open) && (
                 <View className="flex-row items-center" style={{ gap: 2 }}>
-                  <PressableScale onPress={() => callPhone(item.phone)} hitSlop={6} className="gym-member-card__action" accessibilityRole="button" accessibilityLabel={`Call ${item.name}`}>
-                    <GymIcon name="phone" size={20} color={colors.gymInkSoft} />
-                  </PressableScale>
-                  <PressableScale onPress={() => data && whatsappPhone(item.phone, enquiryFollowUp(item.name, data.gym))} hitSlop={6} className="gym-member-card__action" accessibilityRole="button" accessibilityLabel={`WhatsApp ${item.name}`}>
-                    <GymIcon name="message-circle" size={20} color={colors.gymTileGreenIcon} />
-                  </PressableScale>
+                  {item.phone && (
+                    <PressableScale onPress={() => call(item)} hitSlop={6} className="gym-member-card__action" accessibilityRole="button" accessibilityLabel={`Call ${item.name}`}>
+                      <GymIcon name="phone" size={20} color={colors.gymInkSoft} />
+                    </PressableScale>
+                  )}
+                  {item.phone && (
+                    <PressableScale onPress={() => data && whatsappPhone(item.phone, enquiryFollowUp(item.name, data.gym))} hitSlop={6} className="gym-member-card__action" accessibilityRole="button" accessibilityLabel={`WhatsApp ${item.name}`}>
+                      <GymIcon name="message-circle" size={20} color={colors.gymTileGreenIcon} />
+                    </PressableScale>
+                  )}
+                  {open && (
+                    <PressableScale onPress={() => setLogging({ enquiry: item, afterCall: false })} hitSlop={6} className="gym-member-card__action" accessibilityRole="button" accessibilityLabel={`Log a contact with ${item.name}`}>
+                      <GymIcon name="clipboard-list" size={20} color={colors.gymInkSoft} />
+                    </PressableScale>
+                  )}
                 </View>
               )}
             </View>
@@ -211,6 +257,14 @@ export function EnquiryList({ initialView = "open" }: { initialView?: EnquiryVie
           initial={{ name: converting.name, phone: converting.phone }}
           onClose={() => setConverting(null)}
           onSaved={(detail) => joined(converting, detail.member.id)}
+        />
+      )}
+      {logging && (
+        <EnquiryContactSheet
+          enquiry={logging.enquiry}
+          afterCall={logging.afterCall}
+          onClose={() => setLogging(null)}
+          onSaved={() => { setLogging(null); haptic.success(); reload(); }}
         />
       )}
     </>

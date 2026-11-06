@@ -6,6 +6,7 @@ const { NotFoundError, ConflictError } = require("../errors");
 const { ValidationError } = require("../profile");
 const { toE164 } = require("../auth/phone");
 const rules = require("./rules");
+const staffRules = require("./staffRules");
 const predictionRules = require("./predictionRules");
 const { audit } = require("../admin/overview");
 
@@ -19,7 +20,7 @@ const PORTAL_KINDS = "('owner', 'staff')";
 
 async function staffGym(pool, userId) {
   const [[row]] = await pool.query(
-    `SELECT g.id, g.name AS branch, g.area, g.city, b.id AS brand_id, b.name AS brand, s.kind,
+    `SELECT g.id, g.name AS branch, g.area, g.city, b.id AS brand_id, b.name AS brand, s.kind, s.permissions,
        (SELECT COUNT(*) FROM gym_staff x WHERE x.user_id = s.user_id AND x.kind IN ${PORTAL_KINDS}) AS branch_count
      FROM gym_staff s JOIN gyms g ON g.id = s.gym_id JOIN gym_brands b ON b.id = g.brand_id
      WHERE s.user_id = ? AND s.kind IN ${PORTAL_KINDS} ORDER BY s.selected_at IS NULL, s.selected_at DESC, s.added_at, g.id LIMIT 1`,
@@ -28,8 +29,9 @@ async function staffGym(pool, userId) {
   return row ?? null;
 }
 
-// access: owner (the gym admin) or staff, so the app shows Staff / Admin Login to the owner only
-const gymInfo = (gym) => ({ name: gym.brand, branch: gym.branch, area: gym.area, city: gym.city, branchCount: gym.branch_count, access: gym.kind });
+// access: owner (the gym admin) or staff, so the app shows Staff / Admin Login to the owner only;
+// areas: what this login may use here (Role & Permission, staffRules.areasOf), so the app hides the rest
+const gymInfo = (gym) => ({ name: gym.brand, branch: gym.branch, area: gym.area, city: gym.city, branchCount: gym.branch_count, access: gym.kind, areas: staffRules.areasOf(gym) });
 
 // Every branch the account is linked to, and which one is open
 async function branches(pool, gym, userId) {

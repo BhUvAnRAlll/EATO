@@ -76,6 +76,8 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
     await page.clickAt(pos.x, pos.y);
   };
   const hasLabel = (label) => page.evaluate(`!!document.querySelector(${JSON.stringify(`[aria-label="${label}"]`)})`);
+  // For a label that settles after a fetch (the Send via sheet's "Checking credits…" → "No credits left")
+  const waitLabel = (label) => page.waitFor(`!!document.querySelector(${JSON.stringify(`[aria-label="${label}"]`)})`, NAV_TIMEOUT, `element labelled ${label}`);
   // The real phone sign-in (shared helper), then the account's own landing page
   const signIn = async (identity, landing) => {
     await signInAs(page, h, identity);
@@ -141,7 +143,7 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
       if (state.gym) {
         const ids = [state.gym, state.branch2].filter(Boolean);
         const [[{ brand_id: brandId }]] = await connection.query("SELECT brand_id FROM gyms WHERE id = ?", [state.gym]);
-        for (const table of ["gym_sms_log", "gym_sms_settings", "gym_attendance", "gym_payments", "gym_enquiries", "gym_catalog_items", "gym_members", "gym_staff"]) await connection.query(`DELETE FROM \`${table}\` WHERE gym_id IN (?)`, [ids]);
+        for (const table of ["gym_sms_log", "gym_sms_settings", "gym_attendance", "gym_payments", "gym_enquiry_contacts", "gym_enquiries", "gym_catalog_items", "gym_members", "gym_staff"]) await connection.query(`DELETE FROM \`${table}\` WHERE gym_id IN (?)`, [ids]);
         await connection.query("DELETE FROM gyms WHERE id IN (?)", [ids]);
         await connection.query("DELETE FROM gym_brands WHERE id = ?", [brandId]);
       }
@@ -338,14 +340,14 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
     // Send Due Reminder opens Send via: an SMS from justFit (no credits yet, so it can't be
     // picked), the phone's SMS app or WhatsApp, with the message shown first
     await clickLabel("Send Due Reminder");
-    await h.expectText("Send via");
+    await h.expectText("SEND VIA"); // the section title is upper-cased by its style
     await h.expectText("A payment of ₹500 is due");
-    assert.ok(await hasLabel("SMS from justFit. No credits left"));
+    await waitLabel("SMS from justFit. No credits left");
     assert.ok(await hasLabel("SMS app. Your phone's Messages, no credits"));
     assert.ok(await hasLabel("WhatsApp. Opens WhatsApp with the message written"));
     await snapshotAllWidths("gym-send-via");
     await clickLabel("Close");
-    await page.waitFor(`!(document.body.innerText || "").includes("Send via")`, NAV_TIMEOUT, "the Send via sheet closes");
+    await page.waitFor(`!(document.body.innerText || "").includes("SEND VIA")`, NAV_TIMEOUT, "the Send via sheet closes");
     await h.settle();
     await clickLabel("Collect Payment Due : ₹500");
     await h.expectText("Partial due amount collection is also supported");
@@ -582,7 +584,8 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
     await page.evaluate(`document.querySelector('[aria-label="Save enquiry"]').scrollIntoView({ block: "center" })`);
     await h.settle();
     await clickLabel("Save enquiry");
-    const card = "Priya Sharma, Follow-up, Follow up today, PT · Instagram. Edit";
+    // Cold · 0: an Instagram enquiry nobody has contacted yet scores nothing (predictions #3)
+    const card = "Priya Sharma, Follow-up, Cold · 0, Follow up today, PT · Instagram. Edit";
     await page.waitFor(`!!document.querySelector(${JSON.stringify(`[aria-label="${card}"]`)})`, NAV_TIMEOUT, "the new enquiry's card");
     assert.ok(await hasLabel("Today, 1"), "one call for today");
     assert.ok(await hasLabel("Open, 1"));

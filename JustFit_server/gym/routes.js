@@ -27,7 +27,7 @@ const today = () => rules.todayInIndia();
 
 // Before the gym migrations (2026-11-19-gym-portal.sql up to 2026-11-29-gym-staff-logins.sql)
 // have run, say so instead of a 500
-const MIGRATION = "The gym portal needs its migrations (up to 2026-11-29-gym-staff-logins) on this server.";
+const MIGRATION = "The gym portal needs its migrations (up to 2026-12-01-gym-staff-permissions) on this server.";
 const route = (handler) => (req, res, next) =>
   handler(req, res, next).catch((error) => {
     if (["ER_NO_SUCH_TABLE", "ER_BAD_FIELD_ERROR"].includes(error?.code)) return res.status(503).json({ error: MIGRATION });
@@ -58,6 +58,18 @@ async function requireGymStaff(req, res, next) {
 
 router.use(requireGymStaff);
 
+// Role & Permission (staffRules.areaOfPath): a Staff login reaches only the areas the gym admin
+// gave them at this branch; the gym admin reaches everything, and routes without an area (the
+// dashboard, branches) are open to every portal login. The areas come from the branch row read
+// on this very request, so a change applies at once.
+function requireArea(req, res, next) {
+  const area = staffRules.areaOfPath(req.path);
+  if (!area || staffRules.areasOf(req.gym).includes(area)) return next();
+  logSecurityEvent("admin.denied", { userId: req.userId, method: req.method, path: req.originalUrl?.split("?")[0] ?? req.path });
+  return res.status(403).json({ error: `Your login doesn't include ${staffRules.AREA_LABEL[area]}. Ask your gym admin.` });
+}
+router.use(requireArea);
+
 // Staff / Admin Login (gym/staff.js): only the branch's gym admin (kind 'owner', linked by the
 // justFit Super Admin) sees and changes its team; Staff get a 403. Adding and removing have their
 // own hourly allowance.
@@ -74,6 +86,12 @@ router.get("/staff", requireGymOwner, route(async (req, res) => {
 router.post("/staff", requireGymOwner, staffLimit, smallBody, route(async (req, res) => {
   const answer = await staff.add(pool(req), req.gym, req.userId, staffRules.addBody(req.body));
   res.status(answer.result === "added" ? 201 : 202).json(answer);
+}));
+// Role & Permission: which areas a Staff login may use at this branch (its own hourly allowance:
+// switching areas on and off doesn't spend the add / remove budget)
+const permissionLimit = limitPerUser(createRateLimiter({ limit: 30, windowMs: 60 * 60 * 1000 }));
+router.put("/staff/:userId/permissions", requireGymOwner, permissionLimit, smallBody, route(async (req, res) => {
+  res.json(await staff.setPermissions(pool(req), req.gym, req.userId, staffRules.userIdParam(req.params.userId), staffRules.permissionsBody(req.body)));
 }));
 router.delete("/staff/invites/:inviteId", requireGymOwner, staffLimit, route(async (req, res) => {
   res.json(await staff.cancelInvite(pool(req), req.gym, req.userId, rules.id(req.params.inviteId, "invite")));

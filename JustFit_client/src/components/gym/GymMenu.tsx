@@ -7,37 +7,43 @@ import { GymIcon } from "@/components/gym/GymIcon";
 import { GradientFill } from "@/components/gym/GradientFill";
 import { comingSoon } from "@/lib/gymPortal";
 import { phoneText } from "@/data/gymDashboard";
+import type { StaffArea } from "@/lib/gymApi";
 import { useAuthStore } from "@/store/auth";
+import { useCan } from "@/store/gymAccess";
 import { useThemeColors } from "@/theme";
 import type { GymIconName } from "@/constants/gymIcons";
 
-type MenuItem = { label: string; icon: GymIconName; href?: Href; action?: "sms"; ownerOnly?: boolean };
+// area: the Role & Permission area the item needs (a Staff login without it doesn't see the item)
+type MenuItem = { label: string; icon: GymIconName; href?: Href; action?: "sms"; ownerOnly?: boolean; area?: StaffArea };
 
 const MANAGE: MenuItem[] = [
-  { label: "Members", icon: "users", href: "/gym/manage?tab=member" },
-  { label: "Plans / Catalogue", icon: "clipboard-list", href: "/gym/manage?tab=catalog" },
-  { label: "Enquiries", icon: "messages-square", href: "/gym/manage?tab=enquiry" },
-  { label: "Likely to leave", icon: "user-x", href: "/gym/predictions/renewals" },
+  { label: "Members", icon: "users", href: "/gym/manage?tab=member", area: "members" },
+  { label: "Plans / Catalogue", icon: "clipboard-list", href: "/gym/manage?tab=catalog", area: "catalog" },
+  { label: "Enquiries", icon: "messages-square", href: "/gym/manage?tab=enquiry", area: "enquiries" },
+  { label: "Likely to leave", icon: "user-x", href: "/gym/predictions/renewals", area: "predictions" },
   { label: "Expenses", icon: "receipt" },
   { label: "Outlets", icon: "store", href: "/gym/branches" },
   { label: "Staff / Admin Login", icon: "user-cog", href: "/gym/staff", ownerOnly: true },
+  { label: "Role & Permission", icon: "shield-check", href: "/gym/permissions", ownerOnly: true },
   { label: "Reminder Templates", icon: "message-square-text" },
 ];
 const OTHER: MenuItem[] = [
-  { label: "Send Bulk SMS", icon: "message-square-more", action: "sms" },
-  { label: "QR Attendance", icon: "qr-code", href: "/gym/attendance" },
-  { label: "Location & Attendance Settings", icon: "map-pin", href: "/gym/attendance/settings" },
+  { label: "Send Bulk SMS", icon: "message-square-more", action: "sms", area: "sms" },
+  { label: "QR Attendance", icon: "qr-code", href: "/gym/attendance", area: "attendance" },
+  { label: "Location & Attendance Settings", icon: "map-pin", href: "/gym/attendance/settings", area: "attendance" },
 ];
 
 // The ☰ side menu over Home: who is signed in and their branch, Manage (Members, Plans /
 // Catalogue, Enquiries, Likely to leave = the renewal-risk prediction, Outlets = branches, Staff /
-// Admin Login for the gym admin only; the rest are on their way), Other (Send Bulk SMS opens Home's sheet through onBulkSms; QR Attendance and
-// its settings), and Sign out.
+// Admin Login and Role & Permission for the gym admin only; the rest are on their way), Other (Send Bulk SMS opens Home's sheet through onBulkSms; QR Attendance and
+// its settings), and Sign out. A Staff login sees only the areas the gym admin gave them (useCan).
 export function GymMenu({ open, onClose, gymLine, onBulkSms, canManageTeam }: { open: boolean; onClose: () => void; gymLine: string | null; onBulkSms: () => void; canManageTeam: boolean }) {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
   const user = useAuthStore((state) => state.user);
+  const can = useCan();
   const name = user?.fullName?.trim() || "Admin";
+  const allowed = (item: MenuItem) => (!item.ownerOnly || canManageTeam) && (!item.area || can(item.area));
 
   const go = (item: MenuItem) => {
     onClose();
@@ -66,9 +72,9 @@ export function GymMenu({ open, onClose, gymLine, onBulkSms, canManageTeam }: { 
               {gymLine ? <Text className="gym-tx__meta" style={{ color: colors.white, opacity: 0.85 }} numberOfLines={2}>{gymLine}</Text> : null}
             </View>
             <Text className="gym-menu__section">Manage</Text>
-            {MANAGE.filter((item) => !item.ownerOnly || canManageTeam).map(row)}
+            {MANAGE.filter(allowed).map(row)}
             <Text className="gym-menu__section" style={{ marginTop: 12 }}>Other</Text>
-            {OTHER.map(row)}
+            {OTHER.filter(allowed).map(row)}
             <Pressable onPress={() => { onClose(); useAuthStore.getState().signOut(); }} className="gym-menu__row" style={{ marginTop: 12 }} accessibilityRole="button" accessibilityLabel="Sign out">
               <GymIcon name="log-out" size={20} color={colors.danger} />
               <Text className="gym-menu__label flex-1" style={{ color: colors.danger }}>Sign out</Text>

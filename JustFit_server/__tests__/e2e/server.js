@@ -61,6 +61,10 @@ async function startTestServer(env, { sms = "fake" } = {}) {
       AUTH_SECRET: env.AUTH_SECRET || crypto.randomBytes(32).toString("base64url"),
       SMS_PROVIDER: sms === "off" ? "off" : "fake", SMS_FAKE_OUTBOX: outbox,
       ...RELAXED_OTP,
+      // The development sign-in code is off on the test server unless a test passes it in (empty
+      // values keep index.js's own .env load from turning it on): the UI suites sign gym staff in
+      // through the fake SMS outbox, and a team number would take the dev code instead
+      DEV_LOGIN_PHONE: "", DEV_LOGIN_CODE: "",
       // The AI tests pass their fake provider and limits; the phone sign-in tests their limits and
       // the development sign-in code
       ...Object.fromEntries(Object.entries(env).filter(([key]) => /^(AI_|OTP_|DEV_LOGIN_)/.test(key))),

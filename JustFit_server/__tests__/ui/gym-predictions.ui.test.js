@@ -168,7 +168,7 @@ describe("ui gym predictions: Likely to leave", () => {
       if (!connection) return;
       if (state.gym) {
         const [[{ brand_id: brandId }]] = await connection.query("SELECT brand_id FROM gyms WHERE id = ?", [state.gym]);
-        for (const table of ["gym_attendance", "gym_payments", "gym_enquiries", "gym_catalog_items", "gym_members", "gym_staff"]) await connection.query(`DELETE FROM \`${table}\` WHERE gym_id = ?`, [state.gym]);
+        for (const table of ["gym_attendance", "gym_payments", "gym_enquiry_contacts", "gym_enquiries", "gym_catalog_items", "gym_members", "gym_staff"]) await connection.query(`DELETE FROM \`${table}\` WHERE gym_id = ?`, [state.gym]);
         await connection.query("DELETE FROM gyms WHERE id = ?", [state.gym]);
         await connection.query("DELETE FROM gym_brands WHERE id = ?", [brandId]);
       }
@@ -274,5 +274,31 @@ describe("ui gym predictions: Likely to leave", () => {
     await h.expectText("Likely renewals");
     await h.expectText("Likely dues collected");
     await snapshotScrolledTo("Expected by month end", "gym-revenue-forecast");
+  }));
+
+  it("7. Manage › Enquiry: the Hot / Warm / Cold chip with its reasons, and logging a contact moves it", run("predictions-enquiry", async () => {
+    // Kiran: a referral who walked in → 50, Warm
+    const added = await apiAs("gym", "POST", "/api/gym/enquiries", { name: "Kiran P", phone: "9000000001", source: "referral", interest: "membership" });
+    assert.equal(added.status, 201, JSON.stringify(added.json));
+    await apiAs("gym", "POST", `/api/gym/enquiries/${added.json.enquiry.id}/contacts`, { kind: "visit" });
+    await page.navigate(`${expo.baseUrl}/gym/manage?tab=enquiry`);
+    await h.expectText("Kiran P");
+    await h.expectText("Warm · 50");
+    await h.expectText("Referral · Visited the gym");
+    await h.expectText("Visited the gym · ");
+    await snapshotAllWidths("gym-enquiry-lead");
+    // Log a call that was answered: +20 → 70, Hot
+    await clickLabel("Log a contact with Kiran P");
+    await h.expectText("Log a contact");
+    await h.settle(); // the sheet slides in: a tap mid-animation lands elsewhere
+    await clickLabel("Reached them");
+    await h.expectText("Hot · 70");
+    await h.expectText("Called back within 2 days");
+    await h.expectText("Called, reached · ");
+    // The edit sheet lists the contacts
+    await clickLabel("Kiran P, New, Hot · 70, Membership · Referral. Edit");
+    await h.expectText("Contacts");
+    await h.expectText("Called, reached");
+    await snapshotAllWidths("gym-enquiry-contacts");
   }));
 });

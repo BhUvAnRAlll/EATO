@@ -1177,6 +1177,7 @@ CREATE TABLE gym_staff (
   user_id      VARCHAR(64)  NOT NULL,           -- on branches of one brand
   gym_id       INT UNSIGNED NOT NULL,
   kind         ENUM('owner', 'staff', 'trainer') NOT NULL DEFAULT 'owner',
+  permissions  JSON         NULL,               -- a Staff login's portal areas (gym/staffRules.js AREAS); NULL = every area
   added_at     TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
   selected_at  TIMESTAMP(3) NULL,               -- when the account last switched to this branch
   PRIMARY KEY (user_id, gym_id),

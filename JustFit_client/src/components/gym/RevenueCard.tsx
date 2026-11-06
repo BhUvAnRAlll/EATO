@@ -8,7 +8,8 @@ import { rupees } from "@/data/gymDashboard";
 import { useTween } from "@/lib/useTween";
 import { useThemeColors } from "@/theme";
 
-type RevenueCardProps = { online: number; cash: number; action: { label: string; onPress: () => void } };
+// action: the link at the top right (left out for a Staff login without Payments)
+type RevenueCardProps = { online: number; cash: number; action?: { label: string; onPress: () => void } };
 
 // Today's revenue on the portal's gradient: the total, a bar splitting it into online and cash,
 // and both parts with their share. Home's link opens the Wallet, the Wallet's today's payments.
@@ -45,10 +46,12 @@ export function RevenueCard({ online, cash, action }: RevenueCardProps) {
       <View style={{ gap: 4 }}>
         <View className="flex-row items-center" style={{ gap: 10 }}>
           <Text className="gym-hero__label flex-1" numberOfLines={1}>{"Today's Revenue"}</Text>
-          <PressableScale onPress={action.onPress} hitSlop={8} className="gym-dash-hero__link" accessibilityRole="button" accessibilityLabel={action.label}>
-            <Text className="gym-dash-hero__link-label">{action.label}</Text>
-            <GymIcon name="chevron-right" size={14} color={colors.white} />
-          </PressableScale>
+          {action ? (
+            <PressableScale onPress={action.onPress} hitSlop={8} className="gym-dash-hero__link" accessibilityRole="button" accessibilityLabel={action.label}>
+              <Text className="gym-dash-hero__link-label">{action.label}</Text>
+              <GymIcon name="chevron-right" size={14} color={colors.white} />
+            </PressableScale>
+          ) : null}
         </View>
         <AnimatedNumber className="gym-dash-hero__amount" numberOfLines={1} adjustsFontSizeToFit>{rupees(total)}</AnimatedNumber>
       </View>

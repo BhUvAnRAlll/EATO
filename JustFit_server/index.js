@@ -66,7 +66,7 @@ const devLogin = devLoginConfig(process.env);
 if (!process.env.OPENAI_API_KEY && process.env.AI_PROVIDER !== "fake") console.warn("OPENAI_API_KEY is not set: report reading, food scan and the AI Coach will fail until it is.");
 // Which model each AI feature uses (ai/models.js; AI_MODEL_* to change), said once so a costly override is visible
 if (process.env.NODE_ENV !== "test") console.log(`AI models: ${aiModels.routingSummary()}`);
-if (devLogin) console.warn(`Development sign-in code is ON for ${devLogin.phones.length} number${devLogin.phones.length === 1 ? "" : "s"}. Never set DEV_LOGIN_* outside development.`);
+if (devLogin) console.warn(`Development sign-in code is ON for ${devLogin.phones.length} number${devLogin.phones.length === 1 ? "" : "s"} and for every number a gym adds as Staff or Trainer. Never set DEV_LOGIN_* outside development.`);
 
 const app = express();
 app.disable("x-powered-by"); // no need to advertise the framework

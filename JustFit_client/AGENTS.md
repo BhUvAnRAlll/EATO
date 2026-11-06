@@ -121,6 +121,23 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
   App: `app/gym/staff.tsx`, `components/gym/AddStaffSheet.tsx`. Migration
   `2026-11-29-gym-staff-logins.sql` (the `trainer` role, `gym_staff.kind`, `gym_staff_invites`,
   `gym_members.pt_trainer_id`); before it the portal answers 503 naming it.
+- **Role & Permission (2026-11-06, the user's request):** the gym admin (owner only) chooses what
+  each Staff login can open at a branch: ☰ › Role & Permission (`app/gym/permissions.tsx`; also
+  from a Staff row's ⋯ on Staff / Admin Login) lists the Staff with "All areas" / "Members, SMS" /
+  "Home only", and tapping one opens `PermissionsSheet`: one switch per area (members, payments,
+  enquiries, catalog, attendance, sms, predictions; labels and what each opens in
+  `data/gymDashboard.ts` `STAFF_AREAS`), saved together through
+  `PUT /api/gym/staff/:userId/permissions { areas }` (30 an hour, audited `gym.staff_permissions`;
+  never your own, never a trainer or the owner). Stored per branch in `gym_staff.permissions`
+  (JSON; NULL = every area, so nothing changes until the gym admin edits someone; migration
+  `2026-12-01-gym-staff-permissions.sql`, before it the portal answers 503 naming it). The server
+  decides: `requireArea` in `gym/routes.js` maps every route under `/api/gym` to its area
+  (`staffRules.areaOfPath`, pure) and answers a Staff login without it 403 "Your login doesn't
+  include Payments. Ask your gym admin."; the dashboard, branches and the team routes have no
+  area. The app only tidies: the dashboard's `gym.areas` goes into `store/gymAccess.ts`
+  (`useCan`), and Home's tiles, cards and Wallet link, the ☰ menu, the + sheet, the Manage tabs and
+  the Wallet / Manage tabs hide what isn't included (nothing is hidden until Home has loaded).
+  Tests: `gym-staff-rules.test.js`, `e2e/gym-staff.e2e.test.js` (4b), `ui/gym-permissions.ui.test.js`.
 - **Trainers and My Clients (2026-11-05, phase 2):** a member's PT is with one of the branch's
   trainers (`gym_members.pt_trainer_id`), picked on the PT form (`TrainerChips`; left out, the
   member keeps their trainer) or in the member's ⋯ › Sales › Change Trainer (`ChangeTrainerSheet`);
@@ -316,17 +333,28 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
   history). A null part shows "—" and "needs history", the total is shown as "≥" with
   `complete: false`; otherwise "≈". Last month's total for comparison. Everything is this branch's
   own records; nothing is stored.
+  **#3 Enquiry conversion (2026-11-06, migration approved by the user):** Manage › Enquiry scores
+  every open enquiry (`predictionRules.enquiryScore`): referral or wants a trial +30, walked in or
+  visited since +20, first call or message within 2 days of the enquiry +20, no answer twice or
+  more −30, older than 14 days −20; **Hot 60+ · Warm 30–59 · Cold**; null once joined or lost.
+  Each card shows the chip and the reasons, the last contact, and a log button
+  (`EnquiryContactSheet`: reached / no answer by call or WhatsApp, or a visit); after Call, when
+  the app comes back to the front, "How did it go?" asks once (Reached / No answer / Skip). The
+  Open list is sorted hottest first by the server; the edit sheet lists the contacts. Table
+  `gym_enquiry_contacts` (migration `2026-11-30-gym-enquiry-contacts.sql`; before it the list
+  works without contacts and logging answers 503), `POST /api/gym/enquiries/:id/contacts`
+  (`rules.contactBody`, 60 an hour), contacts and `lead` on every enquiry answer.
   Not built yet (each needs approval and a migration): saving results, follow-up notes, snooze,
-  "not renewing", outcome tracking, a settings screen, and predictions #2 and #3 (payment,
-  enquiry; they need a late-payment history and a call log first). Tests:
+  "not renewing", outcome tracking, a settings screen, and prediction #2 (payment on time; it
+  needs a late-payment history first). Tests:
   `__tests__/gym-prediction-rules.test.js`, `e2e/gym-predictions.e2e.test.js`,
   `ui/gym-predictions.ui.test.js` (attendance rows are inserted with `FROM_UNIXTIME` at an
   India-time hour).
 - **Tests:** `__tests__/gym-rules.test.js`, `gym-sms-rules.test.js`, `gym-attendance-rules.test.js`,
   `gym-staff-rules.test.js`, `e2e/gym-portal.e2e.test.js`, `e2e/gym-sms.e2e.test.js`,
   `e2e/gym-attendance.e2e.test.js`, `e2e/gym-staff.e2e.test.js`, `ui/gym-portal.ui.test.js`,
-  `ui/gym-staff.ui.test.js`, `gym-trainer-rules.test.js`, `e2e/gym-trainer.e2e.test.js`,
-  `ui/gym-trainer.ui.test.js`, and the predictions' three above.
+  `ui/gym-staff.ui.test.js`, `ui/gym-permissions.ui.test.js`, `gym-trainer-rules.test.js`,
+  `e2e/gym-trainer.e2e.test.js`, `ui/gym-trainer.ui.test.js`, and the predictions' three above.
 
 ### Community and gyms: removed (2026-11-01)
 
@@ -1203,6 +1231,11 @@ and `AUTH-MIGRATION-AUDIT.md` at the repo root). Keep these rules:
 - `SMS_PROVIDER`: `off` (default; sign-in answers 503), `fake` (tests only; refused unless
   `NODE_ENV=test` and `DB_NAME=justfit_test`), `fast2sms` (only after a real code has been verified on a
   real phone). The Fast2SMS key is never used for signing anything.
+- The development code (`DEV_LOGIN_PHONE` + `DEV_LOGIN_CODE`, `auth/devLogin.js`; the server refuses
+  it outside `NODE_ENV=development` on `justfit` or tests) is taken by its listed numbers and, since
+  2026-11-06 (the user's request), by every number a gym has added as Staff or Trainer (an invite in
+  `gym_staff_invites` or a `gym_staff` member, `isGymTeamPhone` in `auth/service.js`), so a tester's
+  phone can join a gym without an SMS provider. Still hashed, 5 tries, once, inside the limits.
 - The app keeps only the token, never the role or setup state: at launch it asks `GET /api/auth/me`;
   a 401 forgets the token, any other failure keeps it and offers Try again.
 - Phone accounts have no email (no email is ever verified).

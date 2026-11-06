@@ -2,7 +2,7 @@ import { RefreshControl, ScrollView, Text, useWindowDimensions, View } from "rea
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { router, type Href } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Animated, { FadeInDown, ReduceMotion } from "react-native-reanimated";
 
 import { PressableScale } from "@/components/PressableScale";
@@ -20,9 +20,10 @@ import { RevenueCard } from "@/components/gym/RevenueCard";
 import { GymEmpty, GymError, GymLoading } from "@/components/gym/GymStates";
 import { greetingFor, initialsOf, type AddAction } from "@/data/gymDashboard";
 import { comingSoon } from "@/lib/gymPortal";
-import { gymApi, type GymAccess } from "@/lib/gymApi";
+import { gymApi, type GymAccess, type StaffArea } from "@/lib/gymApi";
 import { useGymData } from "@/lib/useGymData";
 import { useAuthStore } from "@/store/auth";
+import { useCan, useGymAccess } from "@/store/gymAccess";
 import { useThemeColors, type Palette } from "@/theme";
 import type { GymIconName } from "@/constants/gymIcons";
 
@@ -73,6 +74,13 @@ export default function GymHome() {
   const columns = useWindowDimensions().width >= 700 ? 6 : 3;
   const now = new Date();
   const data = result.state === "ready" ? result.data : null;
+  // Role & Permission: what this login may open (the dashboard says); the rest of the portal hides it
+  const can = useCan();
+  const setAreas = useGymAccess((state) => state.setAreas);
+  const areasKey = data?.gym.areas.join(",");
+  useEffect(() => {
+    if (data) setAreas(data.gym.areas);
+  }, [areasKey]); // eslint-disable-line react-hooks/exhaustive-deps -- the joined list is the value that matters
 
   // Each count tile has its own soft colour and icon (the user's design)
   const tile = (k: "Violet" | "Orange" | "Blue" | "Green" | "Pink" | "Purple") => ({
@@ -81,26 +89,27 @@ export default function GymHome() {
     box: colors[`gymTile${k}Box`],
     icon: colors[`gymTile${k}Icon`],
   });
-  const stats: { id: string; value: number; label: string; color: ReturnType<typeof tile>; icon: GymIconName; href: Href }[] = data
+  // area: what the tile opens needs (a Staff login without it sees the count, but it isn't a button)
+  const stats: { id: string; value: number; label: string; color: ReturnType<typeof tile>; icon: GymIconName; href: Href; area: StaffArea }[] = data
     ? [
-        { id: "admission", value: data.stats.admission, label: "Admission", color: tile("Violet"), icon: "users", href: "/gym/transactions?kind=admission&today=1" },
-        { id: "renewal", value: data.stats.renewal, label: "Renewal", color: tile("Orange"), icon: "refresh-ccw", href: "/gym/transactions?kind=renewal&today=1" },
-        { id: "enquiry", value: data.stats.enquiry, label: "Enquiry", color: tile("Blue"), icon: "message-circle-question", href: "/gym/manage?tab=enquiry" },
-        { id: "due-paid", value: data.stats.duePaid, label: "Due Paid", color: tile("Green"), icon: "indian-rupee", href: "/gym/transactions?kind=due&today=1" },
-        { id: "pt", value: data.stats.pt, label: "PT", color: tile("Pink"), icon: "dumbbell", href: "/gym/transactions?kind=pt&today=1" },
-        { id: "product", value: data.stats.product, label: "Product", color: tile("Purple"), icon: "package", href: "/gym/transactions?kind=sale&today=1" },
+        { id: "admission", value: data.stats.admission, label: "Admission", color: tile("Violet"), icon: "users", href: "/gym/transactions?kind=admission&today=1", area: "payments" },
+        { id: "renewal", value: data.stats.renewal, label: "Renewal", color: tile("Orange"), icon: "refresh-ccw", href: "/gym/transactions?kind=renewal&today=1", area: "payments" },
+        { id: "enquiry", value: data.stats.enquiry, label: "Enquiry", color: tile("Blue"), icon: "message-circle-question", href: "/gym/manage?tab=enquiry", area: "enquiries" },
+        { id: "due-paid", value: data.stats.duePaid, label: "Due Paid", color: tile("Green"), icon: "indian-rupee", href: "/gym/transactions?kind=due&today=1", area: "payments" },
+        { id: "pt", value: data.stats.pt, label: "PT", color: tile("Pink"), icon: "dumbbell", href: "/gym/transactions?kind=pt&today=1", area: "payments" },
+        { id: "product", value: data.stats.product, label: "Product", color: tile("Purple"), icon: "package", href: "/gym/transactions?kind=sale&today=1", area: "payments" },
       ]
     : [];
-  const alerts: { id: string; value: number; label: string; tag: string; hint: string; tone: Tone; icon: GymIconName; href: Href }[] = data
+  const alerts: { id: string; value: number; label: string; tag: string; hint: string; tone: Tone; icon: GymIconName; href: Href; area: StaffArea }[] = (data
     ? [
-        { id: "due", value: data.alerts.dueMembers, label: "Due Members", tag: "Action", hint: "Payments to collect", tone: "danger", icon: "triangle-alert", href: "/gym/members?filter=due" },
-        { id: "risk", value: data.alerts.renewalRisk, label: "Likely to leave", tag: "Risk", hint: "High renewal risk, worth a call", tone: "danger", icon: "user-x", href: "/gym/predictions/renewals" },
-        { id: "expiring", value: data.alerts.expiringToday, label: "Expiring Today", tag: "Urgent", hint: "Plans ending today", tone: "warning", icon: "clock", href: "/gym/members?filter=expiring" },
-        { id: "attendance", value: data.alerts.attendance, label: "Attendance", tag: "Live", hint: "Checked in today", tone: "primary", icon: "scan-qr-code", href: "/gym/attendance" },
-        { id: "expiring-soon", value: data.alerts.expiringSoon, label: "Expiring in 1-3 days", tag: "Soon", hint: "Renewals coming up", tone: "warning", icon: "calendar-clock", href: "/gym/members?filter=expiring_soon" },
-        { id: "birthdays", value: data.alerts.birthdays, label: "Birthdays Today", tag: "Wish", hint: "Send them a wish", tone: "success", icon: "cake", href: "/gym/members?filter=birthday" },
-      ]
-    : [];
+        { id: "due", value: data.alerts.dueMembers, label: "Due Members", tag: "Action", hint: "Payments to collect", tone: "danger", icon: "triangle-alert", href: "/gym/members?filter=due", area: "members" },
+        { id: "risk", value: data.alerts.renewalRisk, label: "Likely to leave", tag: "Risk", hint: "High renewal risk, worth a call", tone: "danger", icon: "user-x", href: "/gym/predictions/renewals", area: "predictions" },
+        { id: "expiring", value: data.alerts.expiringToday, label: "Expiring Today", tag: "Urgent", hint: "Plans ending today", tone: "warning", icon: "clock", href: "/gym/members?filter=expiring", area: "members" },
+        { id: "attendance", value: data.alerts.attendance, label: "Attendance", tag: "Live", hint: "Checked in today", tone: "primary", icon: "scan-qr-code", href: "/gym/attendance", area: "attendance" },
+        { id: "expiring-soon", value: data.alerts.expiringSoon, label: "Expiring in 1-3 days", tag: "Soon", hint: "Renewals coming up", tone: "warning", icon: "calendar-clock", href: "/gym/members?filter=expiring_soon", area: "members" },
+        { id: "birthdays", value: data.alerts.birthdays, label: "Birthdays Today", tag: "Wish", hint: "Send them a wish", tone: "success", icon: "cake", href: "/gym/members?filter=birthday", area: "members" },
+      ] as const
+    : []).filter((alert) => can(alert.area));
 
   // Each section rises in once, a beat after the one above, when the numbers first arrive
   const enter = (step: number) => FadeInDown.duration(380).delay(step * 60).reduceMotion(ReduceMotion.System);
@@ -122,9 +131,11 @@ export default function GymHome() {
               </PressableScale>
             )}
           </View>
-          <PressableScale onPress={() => router.push("/gym/members?focus=search")} className="gym-dash-icon-btn" accessibilityRole="button" accessibilityLabel="Search members">
+{can("members") && (
+                    <PressableScale onPress={() => router.push("/gym/members?focus=search")} className="gym-dash-icon-btn" accessibilityRole="button" accessibilityLabel="Search members">
             <GymIcon name="search" size={18} color={colors.gymInk} />
           </PressableScale>
+          )}
           <PressableScale onPress={() => setMenuOpen(true)} className="gym-brand-badge" style={{ width: 40, height: 40, borderRadius: 12 }} accessibilityRole="button" accessibilityLabel="Your account">
             <GradientFill radius={12} />
             <Text className="gym-brand-badge__label">{initialsOf(name)}</Text>
@@ -153,22 +164,23 @@ export default function GymHome() {
                 </Animated.View>
 
                 <Animated.View entering={enter(1)}>
-                  <RevenueCard online={data.revenue.online} cash={data.revenue.cash} action={{ label: "Wallet", onPress: () => router.push("/gym/wallet") }} />
+                  <RevenueCard online={data.revenue.online} cash={data.revenue.cash} action={can("payments") ? { label: "Wallet", onPress: () => router.push("/gym/wallet") } : undefined} />
                 </Animated.View>
 
                 <Animated.View entering={enter(2)} className="gym-dash-section">
                   <View className="flex-row items-center">
                     <Text className="gym-dash-section__title" accessibilityRole="header">Today</Text>
-                    <Text className="gym-dash-section__note">Tap a count for its payments</Text>
+                    <Text className="gym-dash-section__note">{can("payments") ? "Tap a count for its payments" : "Today's counts"}</Text>
                   </View>
                   <View className="gym-dash-card flex-row flex-wrap">
                     {stats.map((stat, index) => (
                       <PressableScale
                         key={stat.id}
-                        onPress={() => router.push(stat.href)}
+                        onPress={can(stat.area) ? () => router.push(stat.href) : undefined}
+                        disabled={!can(stat.area)}
                         className="gym-dash-stat"
                         style={{ width: `${100 / columns}%`, borderRightWidth: index % columns === columns - 1 ? 0 : 1, borderTopWidth: index >= columns ? 1 : 0 }}
-                        accessibilityRole="button"
+                        accessibilityRole={can(stat.area) ? "button" : "text"}
                         accessibilityLabel={`${stat.value} ${stat.label}`}
                       >
                         <View className="gym-dash-stat__icon" style={{ backgroundColor: stat.color.box }}>
@@ -183,6 +195,7 @@ export default function GymHome() {
                   </View>
                 </Animated.View>
 
+                {alerts.length > 0 && (
                 <Animated.View entering={enter(3)} className="gym-dash-section">
                   <Text className="gym-dash-section__title" accessibilityRole="header">Needs attention</Text>
                   <View className="gym-dash-card">
@@ -207,7 +220,9 @@ export default function GymHome() {
                     })}
                   </View>
                 </Animated.View>
+                )}
 
+                {can("sms") && (
                 <Animated.View entering={enter(4)}>
                   <PressableScale onPress={() => setSheet("sms")} className="gym-dash-card gym-dash-row" accessibilityRole="button" accessibilityLabel="Send Bulk SMS. Auto reminders, alerts and wishes">
                     <View className="gym-dash-row__icon" style={{ backgroundColor: colors.gymPrimarySoft }}>
@@ -220,7 +235,9 @@ export default function GymHome() {
                     <GymIcon name="chevron-right" size={16} color={colors.gymFaint} />
                   </PressableScale>
                 </Animated.View>
+                )}
 
+                {can("payments") && (
                 <Animated.View entering={enter(5)} className="gym-dash-section">
                   <View className="flex-row items-center">
                     <Text className="gym-dash-section__title" accessibilityRole="header">Recent Transactions</Text>
@@ -238,6 +255,7 @@ export default function GymHome() {
                     </View>
                   )}
                 </Animated.View>
+                )}
               </>
             )}
           </View>

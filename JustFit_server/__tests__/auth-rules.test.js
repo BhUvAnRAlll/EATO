@@ -195,8 +195,9 @@ describe("replacing a code (fake database connection, nothing sent)", () => {
   const config = otp.otpConfig({});
   const otpKey = otp.deriveOtpKey(SECRET);
 
-  // Records every statement in order; `failOn` makes the matching statement throw
-  function fakePool({ failOn = null } = {}) {
+  // Records every statement in order; `failOn` makes the matching statement throw. `onTeam` is
+  // what the gym team lookup (pool.query, outside the connection) answers for the number
+  function fakePool({ failOn = null, onTeam = false } = {}) {
     const log = [];
     const conn = {
       async query(sql) {
@@ -221,7 +222,12 @@ describe("replacing a code (fake database connection, nothing sent)", () => {
       async rollback() { log.push("rollback"); },
       release() { log.push("release"); },
     };
-    return { log, pool: { getConnection: async () => conn } };
+    const query = async (sql) => {
+      assert.match(sql, /gym_staff_invites/, "the only query outside the connection is the gym team lookup");
+      log.push("team lookup");
+      return [[{ found: onTeam ? 1 : 0 }]];
+    };
+    return { log, pool: { getConnection: async () => conn, query } };
   }
   const sender = (log, { fail = false } = {}) => ({
     enabled: true,
@@ -262,7 +268,18 @@ describe("replacing a code (fake database connection, nothing sent)", () => {
     assert.deepEqual(log, ["lock", "history", "daily cap", "insert pending", "begin", "supersede others", "mark sent", "commit", "unlock", "release"], "same steps, minus the SMS");
     const other = fakePool();
     await assert.rejects(requestOtp(other.pool, "9876500002", { sms: off, otpKey, config, devLogin }), (error) => error.status === 503);
-    assert.deepEqual(other.log, [], "another number is refused before anything is written");
+    assert.deepEqual(other.log, ["team lookup"], "another number is refused after one read, before anything is written");
+  });
+
+  it("a number a gym added as Staff or Trainer takes the development code too (no SMS); without the development code on, it is an ordinary number", async () => {
+    const devLogin = { phones: ["9876500001"], code: "480317" };
+    const off = { enabled: false, async sendOtp() { throw new Error("never"); } };
+    const team = fakePool({ onTeam: true });
+    await requestOtp(team.pool, "9876500002", { sms: off, otpKey, config, devLogin });
+    assert.deepEqual(team.log, ["team lookup", "lock", "history", "daily cap", "insert pending", "begin", "supersede others", "mark sent", "commit", "unlock", "release"]);
+    const plain = fakePool({ onTeam: true });
+    await assert.rejects(requestOtp(plain.pool, "9876500002", { sms: off, otpKey, config }), (error) => error.status === 503);
+    assert.deepEqual(plain.log, [], "the team is not even looked up while the development code is off");
   });
 
   for (const failOn of ["supersede others", "mark sent"]) {

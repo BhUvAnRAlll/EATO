@@ -11,6 +11,9 @@ const assert = require("node:assert/strict");
 const { describe, it, before, after } = require("node:test");
 const crypto = require("node:crypto");
 
+// What the gym admin (owner) may use: every area of Role & Permission (gym/staffRules.js AREAS)
+const ALL_AREAS = ["members", "payments", "enquiries", "catalog", "attendance", "sms", "predictions"];
+
 const db = require("./test-db.js");
 const { startTestServer } = require("./server.js");
 const { identitiesFor, describeIdentityError } = require("./test-identities.js");
@@ -71,7 +74,7 @@ describe("gym portal e2e: gyms, staff, members, money and attendance", () => {
         const gymIds = [state.gymA, state.gymA2, state.gymB].filter(Boolean);
         if (gymIds.length) {
           const [brands] = await connection.query("SELECT DISTINCT brand_id FROM gyms WHERE id IN (?)", [gymIds]);
-          for (const table of ["gym_attendance", "gym_payments", "gym_enquiries", "gym_catalog_items", "gym_members", "gym_staff"]) await connection.query(`DELETE FROM \`${table}\` WHERE gym_id IN (?)`, [gymIds]);
+          for (const table of ["gym_attendance", "gym_payments", "gym_enquiry_contacts", "gym_enquiries", "gym_catalog_items", "gym_members", "gym_staff"]) await connection.query(`DELETE FROM \`${table}\` WHERE gym_id IN (?)`, [gymIds]);
           await connection.query("DELETE FROM gyms WHERE id IN (?)", [gymIds]);
           if (brands.length) await connection.query("DELETE FROM gym_brands WHERE id IN (?)", [brands.map((b) => b.brand_id)]);
         }
@@ -125,7 +128,8 @@ describe("gym portal e2e: gyms, staff, members, money and attendance", () => {
     assert.match(loner.json.error, /isn't linked to a gym/);
     const empty = await as("gymA").get("/api/gym/dashboard");
     assert.equal(empty.status, 200, JSON.stringify(empty.json));
-    assert.deepEqual(empty.json.gym, { name: "Forma", branch: "Tumkur", area: "Batawadi", city: "Tumakuru", branchCount: 1, access: "owner" });
+    // areas: the gym admin may use every area (Role & Permission)
+    assert.deepEqual(empty.json.gym, { name: "Forma", branch: "Tumkur", area: "Batawadi", city: "Tumakuru", branchCount: 1, access: "owner", areas: ALL_AREAS });
     assert.deepEqual(empty.json.revenue, { online: 0, cash: 0 });
     assert.deepEqual(empty.json.recent, []);
   }));
@@ -371,7 +375,7 @@ describe("gym portal e2e: gyms, staff, members, money and attendance", () => {
     const gym = as("gymA");
     const r = await gym.patch("/api/gym/details", { branch: "Tumkur Main", area: "SIT Road", city: "Tumakuru", adminName: "Arjun K" });
     assert.equal(r.status, 200, JSON.stringify(r.json));
-    assert.deepEqual(r.json, { gym: { name: "Forma", branch: "Tumkur Main", area: "SIT Road", city: "Tumakuru", branchCount: 1, access: "owner" }, adminName: "Arjun K" });
+    assert.deepEqual(r.json, { gym: { name: "Forma", branch: "Tumkur Main", area: "SIT Road", city: "Tumakuru", branchCount: 1, access: "owner", areas: ALL_AREAS }, adminName: "Arjun K" });
     assert.equal((await gym.get("/api/gym/dashboard")).json.gym.area, "SIT Road");
     const detail = (await as("admin").get(`/api/admin/portal/gyms/${state.gymA}`)).json;
     assert.deepEqual([detail.gym.name, detail.gym.branch], ["Forma", "Tumkur Main"]);

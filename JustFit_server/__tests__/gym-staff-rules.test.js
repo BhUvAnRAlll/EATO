@@ -75,3 +75,52 @@ describe("gym staff rules", () => {
     assert.equal(rules.maskPhone("123"), null);
   });
 });
+
+describe("gym staff rules: Role & Permission", () => {
+  it("reads a list of known areas, in the portal's order, each once; an empty list means Home only", () => {
+    assert.deepEqual(rules.permissionsBody({ areas: ["sms", "members", "members"] }), { areas: ["members", "sms"] });
+    assert.deepEqual(rules.permissionsBody({ areas: [] }), { areas: [] });
+    assert.deepEqual(rules.permissionsBody({ areas: [...rules.AREAS].reverse() }), { areas: rules.AREAS });
+    for (const bad of [null, [], "members", { areas: "members" }, { areas: ["team"] }, { areas: ["members", 1] }, { areas: ["members"], kind: "staff" }, { areas: Array(20).fill("members") }]) {
+      assert.throws(() => rules.permissionsBody(bad), /JSON|areas|fields|portal's areas/, JSON.stringify(bad));
+    }
+    assert.throws(() => rules.permissionsBody({ areas: ["members' OR 1=1"] }), /portal's areas/);
+  });
+
+  it("what a team row allows: the gym admin everything, Staff what was saved (nothing saved = everything), a trainer nothing", () => {
+    assert.deepEqual(rules.areasOf({ kind: "owner", permissions: '["sms"]' }), rules.AREAS, "the gym admin is never limited");
+    assert.deepEqual(rules.areasOf({ kind: "staff", permissions: null }), rules.AREAS);
+    assert.deepEqual(rules.areasOf({ kind: "staff", permissions: undefined }), rules.AREAS);
+    assert.deepEqual(rules.areasOf({ kind: "staff", permissions: '["sms", "members"]' }), ["members", "sms"], "mysql2 may hand JSON back as a string");
+    assert.deepEqual(rules.areasOf({ kind: "staff", permissions: ["payments", "bogus"] }), ["payments"], "or parsed; unknown entries are dropped");
+    assert.deepEqual(rules.areasOf({ kind: "staff", permissions: "[]" }), []);
+    assert.deepEqual(rules.areasOf({ kind: "trainer", permissions: null }), []);
+  });
+
+  it("which area a route under /api/gym needs", () => {
+    const cases = {
+      "/dashboard": null, "/branches": null, "/branch": null, "/details": null, "/staff": null, "/staff/u1/permissions": null,
+      "/members": "members", "/members/next-code": "members", "/members/3": "members", "/members/3/renew": "members", "/members/3/photo": "members", "/members/3/trainer": "members", "/trainers": "members",
+      "/members/3/due": "payments", "/members/3/pt": "payments", "/members/3/sales": "payments", "/members/3/services": "payments",
+      "/payments": "payments", "/sales": "payments", "/services": "payments", "/wallet": "payments",
+      "/members/3/sms": "sms", "/sms": "sms", "/sms/settings": "sms", "/sms/send": "sms", "/sms/logs": "sms",
+      "/members/3/check-in": "attendance", "/members/3/check-out": "attendance", "/attendance": "attendance", "/attendance/qr": "attendance", "/attendance/export": "attendance",
+      "/enquiries": "enquiries", "/enquiries/4": "enquiries", "/enquiries/4/contacts": "enquiries",
+      "/catalog": "catalog", "/catalog/2": "catalog",
+      "/predictions/renewals": "predictions", "/predictions/busy-hours": "predictions", "/predictions/revenue": "predictions",
+    };
+    for (const [path, area] of Object.entries(cases)) assert.equal(rules.areaOfPath(path), area, path);
+    assert.equal(rules.areaOfPath("/membersx"), null, "a prefix is not a match");
+  });
+
+  it("whose permissions may be changed: a Staff login other than yourself", () => {
+    assert.equal(rules.permissionsProblem("u1", { userId: "u2", kind: "staff" }), null);
+    assert.match(rules.permissionsProblem("u1", { userId: "u1", kind: "staff" }), /your own/);
+    assert.match(rules.permissionsProblem("u1", { userId: "u2", kind: "owner" }), /Only Staff/);
+    assert.match(rules.permissionsProblem("u1", { userId: "u2", kind: "trainer" }), /Only Staff/);
+  });
+
+  it("every area has a label for the audit log and the app", () => {
+    for (const area of rules.AREAS) assert.equal(typeof rules.AREA_LABEL[area], "string", area);
+  });
+});

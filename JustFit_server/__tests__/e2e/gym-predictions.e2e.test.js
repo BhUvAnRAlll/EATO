@@ -34,7 +34,8 @@ describe("gym predictions e2e: who may not renew, and tomorrow's busy hours", ()
     try { json = await response.json(); } catch { /* empty */ }
     return { status: response.status, json };
   };
-  const as = (tag) => ({ get: (route) => api("GET", route, tokens[tag]), post: (route, body) => api("POST", route, tokens[tag], body ?? {}) });
+  const as = (tag) => ({ get: (route) => api("GET", route, tokens[tag]), post: (route, body) => api("POST", route, tokens[tag], body ?? {}), patch: (route, body) => api("PATCH", route, tokens[tag], body) });
+  const count = async (table, where, params) => (await connection.query(`SELECT COUNT(*) AS n FROM \`${table}\` WHERE ${where}`, params))[0][0].n;
   const run = (fn) => async (t) => { if (skipReason) return t.skip(skipReason); await fn(); };
 
   // A member of gym A: the admission through the API, then the plan's end set directly
@@ -82,7 +83,7 @@ describe("gym predictions e2e: who may not renew, and tomorrow's busy hours", ()
         const gymIds = [state.gymA, state.gymB].filter(Boolean);
         if (gymIds.length) {
           const [brands] = await connection.query("SELECT DISTINCT brand_id FROM gyms WHERE id IN (?)", [gymIds]);
-          for (const table of ["gym_attendance", "gym_payments", "gym_enquiries", "gym_catalog_items", "gym_members", "gym_staff"]) await connection.query(`DELETE FROM \`${table}\` WHERE gym_id IN (?)`, [gymIds]);
+          for (const table of ["gym_attendance", "gym_payments", "gym_enquiry_contacts", "gym_enquiries", "gym_catalog_items", "gym_members", "gym_staff"]) await connection.query(`DELETE FROM \`${table}\` WHERE gym_id IN (?)`, [gymIds]);
           await connection.query("DELETE FROM gyms WHERE id IN (?)", [gymIds]);
           if (brands.length) await connection.query("DELETE FROM gym_brands WHERE id IN (?)", [brands.map((b) => b.brand_id)]);
         }
@@ -294,5 +295,50 @@ describe("gym predictions e2e: who may not renew, and tomorrow's busy hours", ()
     assert.deepEqual([a.json.renewals.sample, a.json.renewals.rate, a.json.complete], [{ renewed: 1, lapsed: 1 }, null, false]);
     assert.equal((await api("GET", "/api/gym/predictions/revenue", null)).status, 401);
     for (const tag of ["member", "admin", "loner"]) assert.equal((await as(tag).get("/api/gym/predictions/revenue")).status, 403, `${tag} is refused`);
+  }));
+
+  it("11. enquiries: each open one carries its Hot / Warm / Cold score; logging contacts moves it; Open is hottest first", run(async () => {
+    const gym = as("gymB");
+    const kiran = (await gym.post("/api/gym/enquiries", { name: "Kiran P", phone: "9000000001", source: "referral", interest: "membership" })).json.enquiry;
+    assert.deepEqual([kiran.lead, kiran.contacts], [{ score: 30, level: "warm", reasons: [{ points: 30, text: "Referral" }] }, []], "a referral starts Warm at 30");
+    const deepa = (await gym.post("/api/gym/enquiries", { name: "Deepa N", phone: "9000000002", source: "instagram" })).json.enquiry;
+    assert.deepEqual(deepa.lead, { score: 0, level: "cold", reasons: [] });
+    const walk = (await gym.post("/api/gym/enquiries", { name: "Walked In", source: "walk_in", interest: "trial" })).json.enquiry;
+    assert.deepEqual([walk.lead.score, walk.lead.level], [50, "warm"], "trial 30 + walk-in 20");
+
+    // Kiran: called today (within 2 days) and reached → +20 = 50; then visited → +20 = 70, Hot
+    const called = await gym.post(`/api/gym/enquiries/${kiran.id}/contacts`, { kind: "call", outcome: "reached" });
+    assert.equal(called.status, 201, JSON.stringify(called.json));
+    assert.deepEqual(called.json.enquiry.lead, { score: 50, level: "warm", reasons: [{ points: 30, text: "Referral" }, { points: 20, text: "Called back within 2 days" }] });
+    assert.deepEqual(called.json.enquiry.contacts.map((c) => [c.kind, c.outcome, c.on]), [["call", "reached", today]]);
+    const visited = await gym.post(`/api/gym/enquiries/${kiran.id}/contacts`, { kind: "visit" });
+    assert.deepEqual([visited.json.enquiry.lead.score, visited.json.enquiry.lead.level], [70, "hot"]);
+    assert.deepEqual(visited.json.enquiry.lead.reasons.map((r) => r.text), ["Referral", "Visited the gym", "Called back within 2 days"]);
+    // Deepa: no answer twice → 20 − 30, floored at 0
+    await gym.post(`/api/gym/enquiries/${deepa.id}/contacts`, { kind: "call", outcome: "no_answer" });
+    const twice = await gym.post(`/api/gym/enquiries/${deepa.id}/contacts`, { kind: "whatsapp", outcome: "no_answer" });
+    assert.deepEqual(twice.json.enquiry.lead, { score: 0, level: "cold", reasons: [{ points: 20, text: "Called back within 2 days" }, { points: -30, text: "No answer twice" }] });
+    assert.equal(twice.json.enquiry.contacts.length, 2);
+
+    const open = (await gym.get("/api/gym/enquiries?view=open")).json.enquiries;
+    assert.deepEqual(open.map((e) => [e.name, e.lead.score]), [["Kiran P", 70], ["Walked In", 50], ["Deepa N", 0]], "hottest first");
+    // Closed enquiries aren't scored
+    const lost = await gym.patch(`/api/gym/enquiries/${deepa.id}`, { status: "lost" });
+    assert.equal(lost.json.enquiry.lead, null);
+    assert.equal(lost.json.enquiry.contacts.length, 2, "the history stays");
+  }));
+
+  it("12. contacts: bad bodies, another gym's enquiry, and the usual guards", run(async () => {
+    const gym = as("gymB");
+    const kiran = (await gym.get("/api/gym/enquiries?view=open")).json.enquiries.find((e) => e.name === "Kiran P");
+    for (const body of [{ kind: "email", outcome: "reached" }, { kind: "call" }, { kind: "call", outcome: "visited" }, { kind: "call", outcome: "reached", note: "x" }, { kind: "visit", gymId: 1 }]) {
+      assert.equal((await gym.post(`/api/gym/enquiries/${kiran.id}/contacts`, body)).status, 400, JSON.stringify(body));
+    }
+    assert.equal((await gym.post("/api/gym/enquiries/999999/contacts", { kind: "visit" })).status, 404);
+    assert.equal((await gym.post("/api/gym/enquiries/1%20OR%201=1/contacts", { kind: "visit" })).status, 400);
+    assert.equal((await as("gymA").post(`/api/gym/enquiries/${kiran.id}/contacts`, { kind: "visit" })).status, 404, "another gym's enquiry");
+    assert.equal((await api("POST", `/api/gym/enquiries/${kiran.id}/contacts`, null, { kind: "visit" })).status, 401);
+    for (const tag of ["member", "admin", "loner"]) assert.equal((await as(tag).post(`/api/gym/enquiries/${kiran.id}/contacts`, { kind: "visit" })).status, 403, `${tag} is refused`);
+    assert.equal(await count("gym_enquiry_contacts", "enquiry_id = ?", [kiran.id]), 2, "only Kiran's two real contacts were written");
   }));
 });

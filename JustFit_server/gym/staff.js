@@ -14,7 +14,7 @@ const dayOf = (value) => (value ? new Date(value).toISOString() : null);
 // The branch's team (the gym admin first) and its open invites. Numbers are masked.
 async function team(pool, gym, callerId) {
   const [people] = await pool.query(
-    `SELECT s.user_id, s.kind, s.added_at, u.full_name, u.verified_phone
+    `SELECT s.user_id, s.kind, s.permissions, s.added_at, u.full_name, u.verified_phone
        FROM gym_staff s JOIN users u ON u.id = s.user_id
       WHERE s.gym_id = ? ORDER BY FIELD(s.kind, 'owner', 'staff', 'trainer'), s.added_at, s.user_id`,
     [gym.id],
@@ -27,6 +27,8 @@ async function team(pool, gym, callerId) {
       name: (p.full_name && p.full_name.trim()) || null,
       phone: rules.maskPhone(p.verified_phone),
       kind: p.kind,
+      // Role & Permission: what they can use here (the gym admin everything, a trainer nothing)
+      areas: rules.areasOf(p),
       addedAt: dayOf(p.added_at),
       you: p.user_id === callerId,
     })),
@@ -99,6 +101,21 @@ async function remove(pool, gym, callerId, userId) {
   return team(pool, gym, callerId);
 }
 
+// Role & Permission: what a Staff login may use at this branch (an empty list leaves them Home
+// only). Takes effect on their next request: the areas are read with the branch on every call.
+async function setPermissions(pool, gym, callerId, userId, { areas }) {
+  await inTransaction(pool, async (db) => {
+    const [[row]] = await db.query("SELECT user_id, kind FROM gym_staff WHERE user_id = ? AND gym_id = ? FOR UPDATE", [userId, gym.id]);
+    if (!row) throw new NotFoundError("They aren't on your team.");
+    const problem = rules.permissionsProblem(callerId, { userId: row.user_id, kind: row.kind });
+    if (problem) throw new ConflictError(problem);
+    await db.query("UPDATE gym_staff SET permissions = ? WHERE user_id = ? AND gym_id = ?", [JSON.stringify(areas), userId, gym.id]);
+    const named = areas.length === 0 ? "Home only" : areas.map((a) => rules.AREA_LABEL[a]).join(", ");
+    await audit(db, callerId, "gym.staff_permissions", "gym", gym.id, `The gym admin set a Staff login's access at ${gym.brand}, ${gym.branch} branch to: ${named}`);
+  });
+  return team(pool, gym, callerId);
+}
+
 async function cancelInvite(pool, gym, callerId, inviteId) {
   await inTransaction(pool, async (db) => {
     const [deleted] = await db.query("DELETE FROM gym_staff_invites WHERE id = ? AND gym_id = ?", [inviteId, gym.id]);
@@ -138,4 +155,4 @@ async function applyInvites(db, userId, phone) {
   await db.query("DELETE FROM gym_staff_invites WHERE phone = ?", [phone]);
 }
 
-module.exports = { team, add, remove, cancelInvite, applyInvites };
+module.exports = { team, add, remove, setPermissions, cancelInvite, applyInvites };

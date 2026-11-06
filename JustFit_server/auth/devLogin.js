@@ -1,7 +1,9 @@
 // A fixed sign-in code for a few phone numbers, for development only, so developers can sign in
 // on a phone before an SMS provider is set up. DEV_LOGIN_PHONE is one number or a short
-// comma-separated list (at most 5); they share DEV_LOGIN_CODE. Off unless both DEV_LOGIN_PHONE and
-// DEV_LOGIN_CODE are set. When they are, the server starts only if NODE_ENV says development
+// comma-separated list (at most 5); they share DEV_LOGIN_CODE. While it is on, every number a gym
+// has added as Staff or Trainer (an invite or a team member, see isGymTeamPhone in auth/service.js)
+// takes the same code too, so a tester's phone can join a gym without an SMS provider. Off unless
+// both DEV_LOGIN_PHONE and DEV_LOGIN_CODE are set. When they are, the server starts only if NODE_ENV says development
 // (on the development database `justfit`) or test (on `justfit_test`): anywhere else, production
 // included, it refuses to start, so a copied .env can't open an account on a real server.
 //

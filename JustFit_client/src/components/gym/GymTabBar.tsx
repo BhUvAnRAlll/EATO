@@ -6,6 +6,7 @@ import { GymIcon } from "@/components/gym/GymIcon";
 import { GradientFill } from "@/components/gym/GradientFill";
 import { gymTabs } from "@/data/gymDashboard";
 import { haptic } from "@/lib/haptics";
+import { useCan } from "@/store/gymAccess";
 import { useThemeColors } from "@/theme";
 
 // The gym admin portal's bar: white, a hairline on top, the active tab's icon white on the portal's
@@ -13,12 +14,15 @@ import { useThemeColors } from "@/theme";
 export function GymTabBar({ state, emitter, navigateToTab }: BottomTabBarProps) {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
+  const can = useCan();
+  // Role & Permission: the Wallet is a Payments screen; Manage needs at least one of its areas
+  const shown = (name: string) => (name === "wallet" ? can("payments") : name === "manage" ? can("members") || can("catalog") || can("enquiries") : true);
 
   return (
     <View className="gym-tabbar" style={{ paddingBottom: Math.max(insets.bottom, 10) }} accessibilityRole="tablist">
       {state.routes.map((route, routeIndex) => {
         const tab = gymTabs.find((candidate) => candidate.name === route.name);
-        if (!tab) return null;
+        if (!tab || !shown(route.name)) return null;
         const active = state.index === routeIndex;
         const onPress = () => {
           const event = emitter.emit({ type: "tabPress", target: route.key, canPreventDefault: true });

@@ -49,6 +49,7 @@ import {
   Pencil,
   PencilLine,
   Phone,
+  PhoneOff,
   Plus,
   Receipt,
   ReceiptText,
@@ -78,6 +79,7 @@ import {
   ScanQrCode,
   Settings,
   Share2,
+  ShieldCheck,
   UserCheck,
   type LucideIcon,
 } from "lucide-react-native";
@@ -135,6 +137,7 @@ export const gymIcons = {
   pencil: Pencil,
   "pencil-line": PencilLine,
   phone: Phone,
+  "phone-off": PhoneOff,
   plus: Plus,
   receipt: Receipt,
   "receipt-text": ReceiptText,
@@ -164,6 +167,7 @@ export const gymIcons = {
   "scan-qr-code": ScanQrCode,
   "settings": Settings,
   "share-2": Share2,
+  "shield-check": ShieldCheck,
   "user-check": UserCheck,
 } satisfies Record<string, LucideIcon>;
 

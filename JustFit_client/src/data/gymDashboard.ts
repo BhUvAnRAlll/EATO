@@ -1,5 +1,5 @@
 import type { GymIconName } from "@/constants/gymIcons";
-import type { CatalogKind, ContactKind, ContactOutcome, EnquiryContact, EnquiryInterest, EnquirySource, EnquiryStatus, EnquiryView, Gender, LeadLevel, MemberFilter, MemberStatus, PaymentKind, PayMethod, PlanUnit, SaleCategory } from "@/lib/gymApi";
+import type { CatalogKind, ContactKind, ContactOutcome, EnquiryContact, EnquiryInterest, EnquirySource, EnquiryStatus, EnquiryView, Gender, LeadLevel, MemberFilter, MemberStatus, PaymentKind, PayMethod, PlanUnit, SaleCategory, StaffArea } from "@/lib/gymApi";
 
 // The gym admin portal's fixed words and small formatters. The numbers themselves come from the
 // server (lib/gymApi.ts).
@@ -148,3 +148,22 @@ export const gymTabs: { name: string; label: string; icon: GymIconName }[] = [
   { name: "manage", label: "Manage", icon: "layout-grid" },
   { name: "wallet", label: "Wallet", icon: "wallet" },
 ];
+
+// Role & Permission: the areas a Staff login can be given, in the order the sheet shows them, with
+// what each one opens in the portal
+export const STAFF_AREAS: { id: StaffArea; label: string; line: string; icon: GymIconName }[] = [
+  { id: "members", label: "Members", line: "Member list, Add Member, renewals, member pages", icon: "users" },
+  { id: "payments", label: "Payments", line: "Collect dues, PT, product and service sales, Transactions, Wallet", icon: "indian-rupee" },
+  { id: "enquiries", label: "Enquiries", line: "Enquiry list, follow-ups and the contact log", icon: "messages-square" },
+  { id: "catalog", label: "Plans / Catalogue", line: "Membership plans, PT packages, services and products", icon: "clipboard-list" },
+  { id: "attendance", label: "Attendance", line: "QR attendance, check-ins, history and settings", icon: "qr-code" },
+  { id: "sms", label: "SMS", line: "Send Bulk SMS, reminders and message logs", icon: "message-square-more" },
+  { id: "predictions", label: "Predictions", line: "Likely to leave, busy hours, month-end revenue", icon: "user-x" },
+];
+
+// "All areas", "Members, SMS" or "Home only": what a Staff login can use, in one line
+export function areasLine(areas: StaffArea[]): string {
+  if (areas.length === STAFF_AREAS.length) return "All areas";
+  if (areas.length === 0) return "Home only";
+  return STAFF_AREAS.filter((a) => areas.includes(a.id)).map((a) => a.label).join(", ");
+}

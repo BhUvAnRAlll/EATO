@@ -21,6 +21,26 @@ const gymStaff = require("../gym/staff");
 
 const LOCK_WAIT_SECONDS = 5;
 
+// Development only (only reached while devLogin is on, which the server refuses outside
+// development and tests): a number a gym has added as Staff or Trainer also takes the development
+// code, so a tester can sign in with it before an SMS provider is set up. That is an invite waiting
+// for its first sign-in (gym_staff_invites) or someone already on a team (gym_staff). Read from the
+// database on every request, never cached; before the gym migrations the tables are missing and
+// then nobody qualifies.
+async function isGymTeamPhone(pool, phone) {
+  try {
+    const [[row]] = await pool.query(
+      `SELECT (EXISTS (SELECT 1 FROM gym_staff_invites WHERE phone = ?)
+            OR EXISTS (SELECT 1 FROM gym_staff s JOIN users u ON u.id = s.user_id WHERE u.verified_phone = ?)) AS found`,
+      [phone, phone],
+    );
+    return Number(row.found) === 1;
+  } catch (error) {
+    if (error?.code === "ER_NO_SUCH_TABLE") return false;
+    throw error;
+  }
+}
+
 // A refusal with its own status (and, for 429, when to try again)
 function refusal(status, message, retryAfterSeconds) {
   const error = new ValidationError(message);
@@ -34,10 +54,11 @@ const BASE62 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 const newUserId = () => "user_" + Array.from({ length: 24 }, () => BASE62[crypto.randomInt(0, 62)]).join("");
 
 // Sends a new code to the number. Returns { retryAfterSeconds, expiresInSeconds }.
-// devLogin (auth/devLogin.js, development only): for its numbers the code is the fixed
-// development code and no SMS is sent; everything else (limits, hashing, expiry) is the same.
+// devLogin (auth/devLogin.js, development only): for its numbers, and for any number a gym has
+// added as Staff or Trainer (isGymTeamPhone), the code is the fixed development code and no SMS
+// is sent; everything else (limits, hashing, expiry) is the same.
 async function requestOtp(pool, phone, { sms, otpKey, config, devLogin = null }) {
-  const dev = isDevPhone(devLogin, phone);
+  const dev = isDevPhone(devLogin, phone) || (devLogin != null && await isGymTeamPhone(pool, phone));
   if (!sms.enabled && !dev) throw refusal(503, "Phone sign-in isn't available yet.");
   const conn = await pool.getConnection();
   const lockName = `justfit-otp:${phone}`;

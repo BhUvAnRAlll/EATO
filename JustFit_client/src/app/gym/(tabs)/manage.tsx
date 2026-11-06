@@ -9,13 +9,16 @@ import { CatalogList } from "@/components/gym/CatalogList";
 import { EnquiryList } from "@/components/gym/EnquiryList";
 import { GymEmpty } from "@/components/gym/GymStates";
 import { MemberList } from "@/components/gym/MemberList";
+import type { StaffArea } from "@/lib/gymApi";
 import { haptic } from "@/lib/haptics";
+import { useCan } from "@/store/gymAccess";
 
 type Tab = "member" | "catalog" | "enquiry" | "expense";
-const TABS: { id: Tab; label: string }[] = [
-  { id: "member", label: "Member" },
-  { id: "catalog", label: "Plan / Catalogue" },
-  { id: "enquiry", label: "Enquiry" },
+// area: the Role & Permission area the tab needs (a Staff login without it doesn't see the tab)
+const TABS: { id: Tab; label: string; area?: StaffArea }[] = [
+  { id: "member", label: "Member", area: "members" },
+  { id: "catalog", label: "Plan / Catalogue", area: "catalog" },
+  { id: "enquiry", label: "Enquiry", area: "enquiries" },
   { id: "expense", label: "Expense" },
 ];
 const isTab = (v: unknown): v is Tab => typeof v === "string" && TABS.some((t) => t.id === v);
@@ -27,7 +30,11 @@ export default function GymManage() {
   // The tab picked here, remembered against the link it was picked under: a new link from the ☰
   // menu (?tab=) wins over an earlier pick
   const [choice, setChoice] = useState<{ link: string | undefined; tab: Tab } | null>(null);
-  const tab: Tab = choice && choice.link === params.tab ? choice.tab : isTab(params.tab) ? params.tab : "member";
+  const can = useCan();
+  const tabs = TABS.filter((t) => !t.area || can(t.area));
+  const wanted: Tab = choice && choice.link === params.tab ? choice.tab : isTab(params.tab) ? params.tab : "member";
+  // A tab this login can't open falls back to the first it can
+  const tab: Tab = tabs.some((t) => t.id === wanted) ? wanted : (tabs[0]?.id ?? "expense");
   const setTab = (next: Tab) => setChoice({ link: params.tab, tab: next });
 
   return (
@@ -36,7 +43,7 @@ export default function GymManage() {
       <SafeAreaView edges={["top"]} style={{ flex: 1 }}>
         <View className="gym-toptabs">
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 12 }} accessibilityRole="tablist">
-            {TABS.map((t) => {
+            {tabs.map((t) => {
               const selected = t.id === tab;
               return (
                 <PressableScale key={t.id} onPress={() => { if (!selected) haptic.select(); setTab(t.id); }} className={selected ? "gym-toptab gym-toptab--selected" : "gym-toptab"} accessibilityRole="tab" accessibilityState={{ selected }} accessibilityLabel={t.label}>

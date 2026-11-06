@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Text, View } from "react-native";
 import Animated, { FadeInDown, ReduceMotion } from "react-native-reanimated";
-import { useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 
 import { FormAlert } from "@/components/FormAlert";
 import { PressableScale } from "@/components/PressableScale";
@@ -11,7 +11,7 @@ import { GymIcon } from "@/components/gym/GymIcon";
 import { GymSheet } from "@/components/gym/GymSheet";
 import { GymEmpty, GymError, GymLoading } from "@/components/gym/GymStates";
 import { GymScreen } from "@/components/gym/GymScreen";
-import { initialsOf } from "@/data/gymDashboard";
+import { areasLine, initialsOf } from "@/data/gymDashboard";
 import { gymApi, type GymTeam, type StaffInvite, type StaffKind, type TeamMember } from "@/lib/gymApi";
 import { useGymSave } from "@/lib/gymForm";
 import { useGymData } from "@/lib/useGymData";
@@ -87,6 +87,7 @@ export default function GymStaffScreen() {
             {tag(m.kind)}
             {m.phone ? <Text className="gym-tx__meta" numberOfLines={1}>{m.phone}</Text> : null}
           </View>
+          {m.kind === "staff" ? <Text className="gym-tx__meta" numberOfLines={1}>{`Can open: ${areasLine(m.areas)}`}</Text> : null}
         </View>
         {m.kind !== "owner" && more(`${name}: options`, () => setPicked({ type: "member", member: m }))}
       </View>
@@ -176,6 +177,11 @@ export default function GymStaffScreen() {
             ) : null
           }
         >
+          {picked.type === "member" && picked.member.kind === "staff" ? (
+            <PressableScale onPress={() => { setPicked(null); router.push("/gym/permissions"); }} className="gym-btn gym-btn--outline" accessibilityRole="button" accessibilityLabel={`Role & Permission for ${pickedName}`}>
+              <Text className="gym-btn__label" style={{ color: colors.gymPrimary }}>{`Role & Permission · ${areasLine(picked.member.areas)}`}</Text>
+            </PressableScale>
+          ) : null}
           <View className="gym-note">
             <GymIcon name="info" size={18} color={colors.gymPrimary} />
             <Text className="gym-note__text">{removeLine}</Text>
