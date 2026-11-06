@@ -1258,6 +1258,7 @@ CREATE TABLE gym_payments (
   method      ENUM('online', 'cash') NOT NULL,
   amount      INT UNSIGNED NOT NULL,             -- rupees
   paid_on     DATE         NOT NULL,
+  due_by      DATE         NULL,                 -- due payments: the date the due was to be paid by (migration 2026-12-02); NULL before it
   created_by  VARCHAR(64)  NULL,
   created_at  TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   PRIMARY KEY (id),

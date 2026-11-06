@@ -83,4 +83,35 @@ async function revenue(pool, gym, today) {
   return { gym: service.gymInfo(gym), today, calculatedAt: new Date().toISOString(), ...forecast };
 }
 
-module.exports = { renewalRisks, highRiskCount, busyHours, revenue };
+// GET /api/gym/predictions/payments: everyone with a due, each with how likely they are to pay it
+// late (rules.paymentRisk), likeliest first. Their past due payments come from gym_payments rows
+// that carry the due date they were paid against (migration 2026-12-02; older rows don't count).
+async function paymentRisks(pool, gym, { search }, today) {
+  const found = service.memberSearch(search);
+  const [rows] = await pool.query(
+    `SELECT ${service.MEMBER_COLUMNS} FROM gym_members m WHERE m.gym_id = ? AND m.due_amount > 0${found.sql} ORDER BY m.full_name, m.id LIMIT ?`,
+    [today, gym.id, ...found.params, service.MEMBER_LIST_LIMIT],
+  );
+  const history = new Map();
+  if (rows.length > 0) {
+    const [paid] = await pool.query(
+      `SELECT member_id, ${service.DAY("paid_on")} AS paid_on, ${service.DAY("due_by")} AS due_by FROM gym_payments
+       WHERE gym_id = ? AND kind = 'due' AND due_by IS NOT NULL AND member_id IN (?) ORDER BY paid_on DESC, id DESC`,
+      [gym.id, rows.map((r) => r.id)],
+    );
+    for (const p of paid) {
+      if (!history.has(p.member_id)) history.set(p.member_id, []);
+      history.get(p.member_id).push({ paidOn: p.paid_on, dueBy: p.due_by });
+    }
+  }
+  const members = rows
+    .map((row) => ({
+      ...service.memberOf(row, today),
+      payment: rules.paymentRisk({ today, dueAmount: row.due_amount, dueBy: row.due_by, joinedOn: row.joined_on, history: history.get(row.id) ?? [] }),
+    }))
+    .sort((a, b) => b.payment.score - a.payment.score || a.name.localeCompare(b.name));
+  const counts = { late: members.filter((m) => m.payment.level === "late").length, watch: members.filter((m) => m.payment.level === "watch").length };
+  return { gym: service.gymInfo(gym), today, calculatedAt: new Date().toISOString(), counts, members };
+}
+
+module.exports = { renewalRisks, highRiskCount, busyHours, revenue, paymentRisks };

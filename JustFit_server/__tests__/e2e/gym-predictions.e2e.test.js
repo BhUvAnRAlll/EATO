@@ -341,4 +341,45 @@ describe("gym predictions e2e: who may not renew, and tomorrow's busy hours", ()
     for (const tag of ["member", "admin", "loner"]) assert.equal((await as(tag).post(`/api/gym/enquiries/${kiran.id}/contacts`, { kind: "visit" })).status, 403, `${tag} is refused`);
     assert.equal(await count("gym_enquiry_contacts", "enquiry_id = ?", [kiran.id]), 2, "only Kiran's two real contacts were written");
   }));
+
+  it("13. payments: a due payment keeps the due date it was paid against; the Due Members list scores late payers first", run(async () => {
+    const gym = as("gymA");
+    // Arjun: ₹3,500 due; paid ₹500 late twice (each after the date it was due by) → ₹2,500 left
+    state.arjun = await admit("Arjun M", { expiresIn: 60, due: 3500 });
+    await connection.query("UPDATE gym_members SET due_by = ? WHERE id = ?", [days(-30), state.arjun]);
+    // (the rest's new date must be today or later, so the past due dates are set directly)
+    let r = await gym.post(`/api/gym/members/${state.arjun}/due`, { amount: 500, method: "cash", paidOn: days(-25), dueBy: days(5) });
+    assert.equal(r.status, 200, JSON.stringify(r.json));
+    await connection.query("UPDATE gym_members SET due_by = ? WHERE id = ?", [days(-20), state.arjun]);
+    r = await gym.post(`/api/gym/members/${state.arjun}/due`, { amount: 500, method: "cash", paidOn: days(-10), dueBy: days(5) });
+    assert.equal(r.status, 200, JSON.stringify(r.json));
+    const [stored] = await connection.query("SELECT amount, DATE_FORMAT(paid_on, '%Y-%m-%d') AS paid_on, DATE_FORMAT(due_by, '%Y-%m-%d') AS due_by FROM gym_payments WHERE member_id = ? AND kind = 'due' ORDER BY id", [state.arjun]);
+    assert.deepEqual(stored, [{ amount: 500, paid_on: days(-25), due_by: days(-30) }, { amount: 500, paid_on: days(-10), due_by: days(-20) }], "each payment keeps the due date that applied when it was collected");
+    // Priya: ₹900 due, paid ₹100 three times before the date → on time, ₹600 left
+    state.priya = await admit("Priya S", { expiresIn: 60, due: 900 });
+    for (let i = 0; i < 3; i += 1) assert.equal((await gym.post(`/api/gym/members/${state.priya}/due`, { amount: 100, method: "online", paidOn: days(-3) })).status, 200);
+
+    const list = await gym.get("/api/gym/predictions/payments");
+    assert.equal(list.status, 200, JSON.stringify(list.json));
+    assert.deepEqual(list.json.counts, { late: 1, watch: 0 });
+    assert.deepEqual(list.json.members.map((m) => [m.name, m.due, m.payment.score, m.payment.level]), [["Arjun M", 2500, 60, "late"], ["Priya S", 600, 0, "on_time"]], "likeliest late first; nobody else at gym A has a due");
+    const [arjun, priya] = list.json.members;
+    assert.deepEqual(arjun.payment.reasons, [{ points: 40, text: "Paid late twice before" }, { points: 20, text: "₹2,500 due" }]);
+    assert.deepEqual([arjun.payment.late, arjun.payment.onTime, arjun.dueBy], [2, 0, days(5)]);
+    assert.deepEqual(priya.payment.reasons, [{ points: -30, text: "Paid on time the last 3 times" }]);
+    assert.deepEqual([priya.payment.late, priya.payment.onTime], [0, 3]);
+    assert.ok(Date.parse(list.json.calculatedAt) > 0);
+    // Search by name, phone digits or ID; SQL in it finds nobody; too long is refused
+    assert.deepEqual((await gym.get("/api/gym/predictions/payments?search=pri")).json.members.map((m) => m.name), ["Priya S"]);
+    assert.deepEqual((await gym.get(`/api/gym/predictions/payments?search=${encodeURIComponent("' OR 1=1 --")}`)).json.members, []);
+    assert.equal((await gym.get(`/api/gym/predictions/payments?search=${"x".repeat(200)}`)).status, 400);
+  }));
+
+  it("14. payments: only this gym's staff, and only this gym's members", run(async () => {
+    const gymB = await as("gymB").get("/api/gym/predictions/payments");
+    assert.equal(gymB.status, 200);
+    assert.ok(gymB.json.members.length > 0 && gymB.json.members.every((m) => !["Arjun M", "Priya S"].includes(m.name)), "gym B sees only its own dues, none of gym A's");
+    assert.equal((await api("GET", "/api/gym/predictions/payments", null)).status, 401);
+    for (const tag of ["member", "admin", "loner"]) assert.equal((await as(tag).get("/api/gym/predictions/payments")).status, 403, `${tag} is refused`);
+  }));
 });

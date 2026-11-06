@@ -50,6 +50,12 @@ export type RiskListLevel = "all" | "high" | "medium";
 export type RenewalRisk = { score: number; level: RiskLevel; reasons: { points: number; text: string }[]; lastVisit: string | null; visitsLast: number; visitsPrior: number };
 export type RiskMember = GymMember & { risk: RenewalRisk };
 export type RenewalRisks = { gym: GymInfo; today: string; calculatedAt: string; counts: { high: number; medium: number }; members: RiskMember[] };
+// Payment on time (prediction #2): a member with a due and how likely they are to pay it late.
+// unknown: nothing against them and no due payments on record yet
+export type PayLevel = "late" | "watch" | "on_time" | "unknown";
+export type PaymentRisk = { score: number; level: PayLevel; reasons: { points: number; text: string }[]; late: number; onTime: number };
+export type DueMember = GymMember & { payment: PaymentRisk };
+export type PaymentRisks = { gym: GymInfo; today: string; calculatedAt: string; counts: { late: number; watch: number }; members: DueMember[] };
 // Busy hours: tomorrow's expected check-ins per hour, the average of the same weekday over the
 // last four weeks the branch was recording (enough: at least two such weeks). hours run from
 // 5 am to 10 pm, plus any earlier or later hour that had visits; expected is rounded.
@@ -214,6 +220,7 @@ export const gymApi = {
   smsLogs: (token: string | null, before: number | null) => call<{ logs: SmsLog[]; next: number | null }>(token, `/api/gym/sms/logs${before ? `?before=${before}` : ""}`),
   renewalRisks: (token: string | null, level: RiskListLevel, search: string) =>
     call<RenewalRisks>(token, `/api/gym/predictions/renewals?level=${level}&search=${encodeURIComponent(search)}`),
+  paymentRisks: (token: string | null, search: string) => call<PaymentRisks>(token, `/api/gym/predictions/payments?search=${encodeURIComponent(search)}`),
   busyHours: (token: string | null) => call<BusyHours>(token, "/api/gym/predictions/busy-hours"),
   revenueForecast: (token: string | null) => call<RevenueForecast>(token, "/api/gym/predictions/revenue"),
 };

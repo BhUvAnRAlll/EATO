@@ -1,5 +1,5 @@
 import type { GymIconName } from "@/constants/gymIcons";
-import type { CatalogKind, ContactKind, ContactOutcome, EnquiryContact, EnquiryInterest, EnquirySource, EnquiryStatus, EnquiryView, Gender, LeadLevel, MemberFilter, MemberStatus, PaymentKind, PayMethod, PlanUnit, SaleCategory, StaffArea } from "@/lib/gymApi";
+import type { CatalogKind, ContactKind, ContactOutcome, EnquiryContact, EnquiryInterest, EnquirySource, EnquiryStatus, EnquiryView, Gender, LeadLevel, MemberFilter, MemberStatus, PayLevel, PaymentKind, PayMethod, PlanUnit, SaleCategory, StaffArea } from "@/lib/gymApi";
 
 // The gym admin portal's fixed words and small formatters. The numbers themselves come from the
 // server (lib/gymApi.ts).
@@ -115,6 +115,9 @@ export const SOURCE_LABEL: Record<EnquirySource, string> = { walk_in: "Walk-in",
 
 // The conversion score's levels and a contact's wording ("Called, no answer")
 export const LEAD_LABEL: Record<LeadLevel, string> = { hot: "Hot", warm: "Warm", cold: "Cold" };
+// Payment on time (Due Members): "Likely late · 60"; No history shows no score
+export const PAY_LABEL: Record<PayLevel, string> = { late: "Likely late", watch: "Watch", on_time: "On time", unknown: "No history" };
+export const payChipText = (level: PayLevel, score: number) => (level === "unknown" ? PAY_LABEL[level] : `${PAY_LABEL[level]} · ${score}`);
 export const CONTACT_LABEL: Record<ContactKind, string> = { call: "Called", whatsapp: "Messaged", visit: "Visited the gym" };
 export const OUTCOME_LABEL: Record<ContactOutcome, string> = { reached: "reached", no_answer: "no answer", visited: "" };
 export const contactText = (c: EnquiryContact) => `${CONTACT_LABEL[c.kind]}${c.outcome === "visited" ? "" : `, ${OUTCOME_LABEL[c.outcome]}`} · ${shortDate(c.on)}`;

@@ -301,4 +301,22 @@ describe("ui gym predictions: Likely to leave", () => {
     await h.expectText("Called, reached");
     await snapshotAllWidths("gym-enquiry-contacts");
   }));
+
+  it("8. Home › Due Members: each due member's pay-on-time chip and reasons, likeliest late first", run("predictions-payments", async () => {
+    // Arjun: ₹3,500 due, paid ₹500 late twice → ₹2,500 left: 40 + 20 = 60, Likely late. Ravi (₹800, nothing on record): No history
+    state.arjun = await admit("Arjun M", { expiresIn: 60, due: 3500 });
+    await connection.query("UPDATE gym_members SET due_by = ? WHERE id = ?", [days(-30), state.arjun]);
+    assert.equal((await apiAs("gym", "POST", `/api/gym/members/${state.arjun}/due`, { amount: 500, method: "cash", paidOn: days(-25), dueBy: days(5) })).status, 200);
+    await connection.query("UPDATE gym_members SET due_by = ? WHERE id = ?", [days(-20), state.arjun]);
+    assert.equal((await apiAs("gym", "POST", `/api/gym/members/${state.arjun}/due`, { amount: 500, method: "cash", paidOn: days(-10), dueBy: days(5) })).status, 200);
+    await page.navigate(`${expo.baseUrl}/gym`);
+    await h.expectText("Needs attention");
+    await clickLabel("2 Due Members, Action");
+    await h.expectText("Payment Due Members");
+    await h.expectText("Likely late · 60");
+    await h.expectText("Paid late twice before · ₹2,500 due");
+    await h.expectText("No history");
+    await page.waitFor(`(() => { const t = document.body.innerText; return t.indexOf("Arjun M") < t.indexOf("Ravi Kumar"); })()`, NAV_TIMEOUT, "Arjun above Ravi");
+    await snapshotAllWidths("gym-due-risk");
+  }));
 });

@@ -196,11 +196,14 @@ async function inTransaction(pool, work) {
 const duplicatePhone = (error) => error?.code === "ER_DUP_ENTRY" && String(error.message).includes("uq_gym_members_phone");
 const SAME_PHONE = "A member with that phone number is already at your gym.";
 
-async function addPayment(db, gymId, userId, { memberId = null, kind, title, detail, method, amount }, today) {
-  const [result] = await db.query(
-    "INSERT INTO gym_payments (gym_id, member_id, kind, title, detail, method, amount, paid_on, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-    [gymId, memberId, kind, title, detail, method, amount, today, userId],
-  );
+// dueBy (due payments only): the date the due was to be paid by, kept for the payment-on-time
+// prediction. Written only when there is one, so every other payment keeps working before
+// migration 2026-12-02-gym-payment-due-by.sql has run.
+async function addPayment(db, gymId, userId, { memberId = null, kind, title, detail, method, amount, dueBy = null }, today) {
+  const columns = ["gym_id", "member_id", "kind", "title", "detail", "method", "amount", "paid_on", "created_by"];
+  const values = [gymId, memberId, kind, title, detail, method, amount, today, userId];
+  if (dueBy) { columns.push("due_by"); values.push(dueBy); }
+  const [result] = await db.query(`INSERT INTO gym_payments (${columns.join(", ")}) VALUES (${columns.map(() => "?").join(", ")})`, values);
   return result.insertId;
 }
 
@@ -264,7 +267,8 @@ async function collectDue(pool, gymId, userId, memberId, body, today) {
     // What's still owed always has a date (else the member could never show as overdue)
     if (left > 0 && !dueBy) throw new ValidationError("Pick the date the rest should be paid by.");
     await db.query("UPDATE gym_members SET due_amount = ?, due_by = ? WHERE id = ? AND gym_id = ?", [left, dueBy, memberId, gymId]);
-    await addPayment(db, gymId, userId, { memberId, kind: "due", title: row.full_name, detail: "Due payment", method: body.method, amount: body.amount }, body.paidOn ?? today);
+    // The payment remembers the due date it was paid against (late or on time, for prediction #2)
+    await addPayment(db, gymId, userId, { memberId, kind: "due", title: row.full_name, detail: "Due payment", method: body.method, amount: body.amount, dueBy: row.due_by }, body.paidOn ?? today);
   });
   return member(pool, gymId, memberId, today);
 }

@@ -344,9 +344,18 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
   `gym_enquiry_contacts` (migration `2026-11-30-gym-enquiry-contacts.sql`; before it the list
   works without contacts and logging answers 503), `POST /api/gym/enquiries/:id/contacts`
   (`rules.contactBody`, 60 an hour), contacts and `lead` on every enquiry answer.
+  **#2 Payment on time (2026-11-06, migration approved by the user):** Home › Due Members
+  (`DueMembersSheet`, now `GET /api/gym/predictions/payments?search=`) shows each due member's chip
+  and reasons, likeliest late first (`predictionRules.paymentRisk`): paid a due late 2+ times
+  +40, due over ₹2,000 +20, member under 60 days +10, already overdue +20, the last 3 due
+  payments on time −30; **Likely late 60+ · Watch 35–59 · On time** below, or **No history** when
+  nothing is against them and no due payment is on record. "Late" needs the date a due was paid
+  against: `gym_payments.due_by`, written by Collect Payment Due from the member's due date at
+  that moment (migration `2026-12-02-gym-payment-due-by.sql`; `addPayment` writes the column only
+  when it has a value, so other payments work before it; older due payments stay NULL and count
+  as neither). Nothing stored, no job, no AI.
   Not built yet (each needs approval and a migration): saving results, follow-up notes, snooze,
-  "not renewing", outcome tracking, a settings screen, and prediction #2 (payment on time; it
-  needs a late-payment history first). Tests:
+  "not renewing", outcome tracking, and a settings screen. Tests:
   `__tests__/gym-prediction-rules.test.js`, `e2e/gym-predictions.e2e.test.js`,
   `ui/gym-predictions.ui.test.js` (attendance rows are inserted with `FROM_UNIXTIME` at an
   India-time hour).

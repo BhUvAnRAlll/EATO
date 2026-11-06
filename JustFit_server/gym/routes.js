@@ -27,7 +27,7 @@ const today = () => rules.todayInIndia();
 
 // Before the gym migrations (2026-11-19-gym-portal.sql up to 2026-11-29-gym-staff-logins.sql)
 // have run, say so instead of a 500
-const MIGRATION = "The gym portal needs its migrations (up to 2026-12-01-gym-staff-permissions) on this server.";
+const MIGRATION = "The gym portal needs its migrations (up to 2026-12-02-gym-payment-due-by) on this server.";
 const route = (handler) => (req, res, next) =>
   handler(req, res, next).catch((error) => {
     if (["ER_NO_SUCH_TABLE", "ER_BAD_FIELD_ERROR"].includes(error?.code)) return res.status(503).json({ error: MIGRATION });
@@ -118,6 +118,12 @@ router.get("/predictions/busy-hours", route(async (req, res) => {
 // Expected takings by month end: collected so far, likely renewals and dues (Wallet)
 router.get("/predictions/revenue", route(async (req, res) => {
   res.json(await predictions.revenue(pool(req), req.gym, today()));
+}));
+
+// Home › Due Members: everyone with a due, each with how likely they are to pay it late
+// (gym/predictionRules.js paymentRisk; rules only, nothing stored)
+router.get("/predictions/payments", route(async (req, res) => {
+  res.json(await predictions.paymentRisks(pool(req), req.gym, predictionRules.paymentsQuery(req.query), today()));
 }));
 
 // The account's branches, and switching to another one

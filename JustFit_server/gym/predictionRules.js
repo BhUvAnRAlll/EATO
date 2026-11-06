@@ -211,4 +211,49 @@ function enquiryScore({ today, status, enquiredOn, source, interest, contacts = 
   return { score, level: enquiryLevel(score), reasons };
 }
 
-module.exports = { RENEWAL, LEVELS, renewalRisk, renewalWindows, showsLevel, renewalsQuery, daysBetween, BUSY, busyDates, busyHours, hourInIndia, REVENUE, monthRange, revenueForecast, ENQUIRY, enquiryScore };
+// ---- Payment on time ---------------------------------------------------------------------------
+// How likely a member with a due is to pay it late, from their past due payments (gym_payments
+// rows of kind 'due' that carry the due date they were paid against), the amount, how long they
+// have been a member and whether the due is already overdue. Staff remind the likely-late first.
+const PAYMENT = {
+  points: { paidLateTwice: 40, bigAmount: 20, newMember: 10, overdue: 20, onTimeLately: -30 },
+  lateCount: 2, // this many late due payments count against
+  bigAmount: 2000, // a due above this counts against
+  newMemberDays: 60, // a member for fewer days than this (about 2 months) counts against
+  onTimeStreak: 3, // the last this-many due payments all on time count for
+  levels: { late: 60, watch: 35 }, // Likely late at 60+, Watch at 35-59; below: On time, or No history
+};
+const paymentLevel = (score, history) =>
+  score >= PAYMENT.levels.late ? "late" : score >= PAYMENT.levels.watch ? "watch" : history.length > 0 ? "on_time" : "unknown";
+
+// history: this member's past due payments that carry a due date, newest first: [{ paidOn, dueBy }].
+// Due payments from before the due date was recorded aren't in it: neither late nor on time.
+function paymentRisk({ today, dueAmount, dueBy, joinedOn, history = [] }) {
+  const reasons = [];
+  const add = (points, text) => reasons.push({ points, text });
+
+  const late = history.filter((p) => p.paidOn > p.dueBy).length;
+  if (late >= PAYMENT.lateCount) add(PAYMENT.points.paidLateTwice, `Paid late ${late === 2 ? "twice" : `${late} times`} before`);
+
+  if (dueAmount > PAYMENT.bigAmount) add(PAYMENT.points.bigAmount, `${rupees(dueAmount)} due`);
+
+  const memberDays = daysBetween(joinedOn, today);
+  if (memberDays < PAYMENT.newMemberDays) add(PAYMENT.points.newMember, memberDays === 0 ? "Joined today" : `Member for ${plural(memberDays, "day")}`);
+
+  if (dueBy && dueBy < today) add(PAYMENT.points.overdue, `Overdue by ${plural(daysBetween(dueBy, today), "day")}`);
+
+  const recent = history.slice(0, PAYMENT.onTimeStreak);
+  if (recent.length === PAYMENT.onTimeStreak && recent.every((p) => p.paidOn <= p.dueBy)) add(PAYMENT.points.onTimeLately, `Paid on time the last ${PAYMENT.onTimeStreak} times`);
+
+  const score = Math.max(0, reasons.reduce((sum, r) => sum + r.points, 0));
+  return { score, level: paymentLevel(score, history), reasons, late, onTime: history.length - late };
+}
+
+// GET /api/gym/predictions/payments?search=
+function paymentsQuery(query = {}) {
+  const search = typeof query.search === "string" ? query.search.trim() : "";
+  if (search.length > limits.search) throw new ValidationError(`Search for at most ${limits.search} characters.`);
+  return { search };
+}
+
+module.exports = { RENEWAL, LEVELS, renewalRisk, renewalWindows, showsLevel, renewalsQuery, daysBetween, BUSY, busyDates, busyHours, hourInIndia, REVENUE, monthRange, revenueForecast, ENQUIRY, enquiryScore, PAYMENT, paymentRisk, paymentsQuery };

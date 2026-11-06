@@ -2,7 +2,7 @@
 const assert = require("node:assert/strict");
 const { describe, it } = require("node:test");
 
-const { RENEWAL, renewalRisk, renewalWindows, showsLevel, renewalsQuery, daysBetween, BUSY, busyDates, busyHours, hourInIndia, REVENUE, monthRange, revenueForecast, ENQUIRY, enquiryScore } = require("../gym/predictionRules");
+const { RENEWAL, renewalRisk, renewalWindows, showsLevel, renewalsQuery, daysBetween, BUSY, busyDates, busyHours, hourInIndia, REVENUE, monthRange, revenueForecast, ENQUIRY, enquiryScore, PAYMENT, paymentRisk, paymentsQuery } = require("../gym/predictionRules");
 const { addDays } = require("../gym/rules");
 
 const today = "2026-11-06";
@@ -240,5 +240,59 @@ describe("enquiry conversion: how likely an open enquiry is to join", () => {
     refuses(() => contactBody({ kind: "call" }), /reached or no answer/);
     refuses(() => contactBody({ kind: "call", outcome: "reached", note: "x" }), /fields we don't use/);
     refuses(() => contactBody(null), /JSON/);
+  });
+});
+
+describe("payment on time: the score and its reasons", () => {
+  // A long-standing member with ₹600 due in 5 days and no due payments on record
+  const plain = { today, dueAmount: 600, dueBy: days(5), joinedOn: days(-100), history: [] };
+  const onTime = (n) => ({ paidOn: days(-n), dueBy: days(-n + 2) });
+  const late = (n) => ({ paidOn: days(-n), dueBy: days(-n - 3) });
+  const ptexts = (risk) => risk.reasons.map((r) => r.text);
+
+  it("nothing against them and no history: 0, No history", () => {
+    assert.deepEqual(paymentRisk(plain), { score: 0, level: "unknown", reasons: [], late: 0, onTime: 0 });
+  });
+
+  it("Arjun: paid late twice before and ₹2,500 due → 60, Likely late", () => {
+    const risk = paymentRisk({ ...plain, dueAmount: 2500, history: [late(10), late(40), onTime(70)] });
+    assert.equal(risk.score, 60);
+    assert.equal(risk.level, "late");
+    assert.deepEqual(ptexts(risk), ["Paid late twice before", "₹2,500 due"]);
+    assert.deepEqual([risk.late, risk.onTime], [2, 1]);
+  });
+
+  it("Priya: paid on time the last 3 times → the −30 wins, On time", () => {
+    const risk = paymentRisk({ ...plain, dueAmount: 2500, history: [onTime(5), onTime(35), onTime(65), late(95)] });
+    assert.deepEqual(ptexts(risk), ["₹2,500 due", "Paid on time the last 3 times"]);
+    assert.deepEqual([risk.score, risk.level], [0, "on_time"]);
+  });
+
+  it("each sign and its wording", () => {
+    assert.deepEqual(ptexts(paymentRisk({ ...plain, history: [late(1), late(2), late(3)] })), ["Paid late 3 times before"]);
+    assert.deepEqual(ptexts(paymentRisk({ ...plain, dueAmount: PAYMENT.bigAmount })), [], "₹2,000 exactly is not over");
+    assert.deepEqual(ptexts(paymentRisk({ ...plain, dueAmount: PAYMENT.bigAmount + 1 })), ["₹2,001 due"]);
+    assert.deepEqual(ptexts(paymentRisk({ ...plain, joinedOn: days(-59) })), ["Member for 59 days"]);
+    assert.deepEqual(ptexts(paymentRisk({ ...plain, joinedOn: days(-60) })), [], "60 days is two months");
+    assert.deepEqual(ptexts(paymentRisk({ ...plain, joinedOn: today })), ["Joined today"]);
+    assert.deepEqual(ptexts(paymentRisk({ ...plain, dueBy: days(-1) })), ["Overdue by 1 day"]);
+    assert.deepEqual(ptexts(paymentRisk({ ...plain, dueBy: today })), [], "due today is not overdue");
+    assert.deepEqual(ptexts(paymentRisk({ ...plain, dueBy: null })), []);
+    assert.deepEqual(ptexts(paymentRisk({ ...plain, history: [onTime(1), onTime(2)] })), [], "two on time is not yet a streak");
+    assert.deepEqual(ptexts(paymentRisk({ ...plain, history: [onTime(1), onTime(2), late(3), late(4)] })), ["Paid late twice before"], "the streak is the newest three");
+  });
+
+  it("the levels at their boundaries, and a floor of 0", () => {
+    const score = (extra) => paymentRisk({ ...plain, ...extra });
+    assert.deepEqual([score({ history: [late(1), late(2)], dueAmount: 2500 }).level, score({ history: [late(1), late(2)] }).level], ["late", "watch"], "60 and 40");
+    assert.equal(score({ dueAmount: 2500, joinedOn: days(-10) }).level, "unknown", "20 + 10 = 30 is below Watch, and with no history it is No history");
+    assert.equal(score({ dueAmount: 2500, dueBy: days(-2) }).level, "watch", "20 + 20 = 40");
+    assert.equal(score({ history: [onTime(1), onTime(2), onTime(3)] }).score, 0, "never below 0");
+  });
+
+  it("the query: the search is trimmed and capped", () => {
+    assert.deepEqual(paymentsQuery({}), { search: "" });
+    assert.deepEqual(paymentsQuery({ search: "  Arjun " }), { search: "Arjun" });
+    refuses(() => paymentsQuery({ search: "x".repeat(200) }), /at most/);
   });
 });
