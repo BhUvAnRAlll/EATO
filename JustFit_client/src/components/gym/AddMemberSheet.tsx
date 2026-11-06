@@ -163,157 +163,159 @@ export function AddMemberSheet({ onClose, onSaved, initial }: { onClose: () => v
   ];
 
   return (
-    <>
-      <GymSheet
-        title="Add New Member"
-        subtitle="Add member profile."
-        onClose={onClose}
-        overlay={confirming ? <ConfirmDialog rows={rows} onEdit={() => setConfirming(false)} onConfirm={submit} /> : null}
-      >
-        {step === 1 && (
-          <>
-            <View className="items-center" style={{ gap: 10 }}>
-              <View className="gym-member-photo" accessible accessibilityLabel={photo ? "Member photo, chosen" : "Member photo, none yet"}>
-                {name.trim() ? <Text className="gym-member-photo__initials">{initialsOf(name)}</Text> : <GymIcon name="user" size={44} color={colors.white} />}
-                <MemberPhotoImage uri={photo?.previewUri} />
-              </View>
-              <View className="flex-row flex-wrap justify-center" style={{ gap: 8 }}>
-                <PressableScale onPress={() => choosePhoto("camera")} className="gym-choice flex-row items-center" style={{ gap: 6 }} accessibilityRole="button" accessibilityLabel={photo ? "Retake the photo" : "Take a photo"}>
-                  <GymIcon name="camera" size={16} color={colors.gymPrimary} />
-                  <Text className="gym-choice__label">{photo ? "Retake" : "Camera"}</Text>
-                </PressableScale>
-                <PressableScale onPress={() => choosePhoto("library")} className="gym-choice flex-row items-center" style={{ gap: 6 }} accessibilityRole="button" accessibilityLabel="Choose a photo from the gallery">
-                  <GymIcon name="image" size={16} color={colors.gymPrimary} />
-                  <Text className="gym-choice__label">Gallery</Text>
-                </PressableScale>
-                {photo && (
-                  <PressableScale onPress={() => { setPhoto(null); setPhotoError(""); }} className="gym-choice flex-row items-center" style={{ gap: 6 }} accessibilityRole="button" accessibilityLabel="Remove the photo">
-                    <GymIcon name="x" size={16} color={colors.gymPrimary} />
-                    <Text className="gym-choice__label">Remove</Text>
-                  </PressableScale>
-                )}
-              </View>
-              {photoError ? <Text className="gym-tx__meta text-center" style={{ color: colors.gymDanger }}>{photoError}</Text> : null}
+    <GymSheet
+      title="Add New Member"
+      subtitle="Add member profile."
+      onClose={onClose}
+      overlay={confirming ? <ConfirmDialog rows={rows} onEdit={() => setConfirming(false)} onConfirm={submit} /> : null}
+      stack={
+        <>
+          {addingPlan && (
+            <CatalogSheet
+              kind="plan"
+              item={null}
+              onClose={() => setAddingPlan(false)}
+              onSaved={(items) => {
+                setCatalog({ items });
+                const added = items.filter((i) => i.kind === "plan").sort((a, b) => b.id - a.id)[0];
+                if (added) setPlanId(added.id);
+                setAddingPlan(false);
+              }}
+            />
+          )}
+        </>
+      }
+    >
+      {step === 1 && (
+        <>
+          <View className="items-center" style={{ gap: 10 }}>
+            <View className="gym-member-photo" accessible accessibilityLabel={photo ? "Member photo, chosen" : "Member photo, none yet"}>
+              {name.trim() ? <Text className="gym-member-photo__initials">{initialsOf(name)}</Text> : <GymIcon name="user" size={44} color={colors.white} />}
+              <MemberPhotoImage uri={photo?.previewUri} />
             </View>
-            <View style={{ gap: 6 }}>
-              <GymField label="Member ID" icon="id-card" value={code.state === "ready" ? code.data.code : ""} placeholder="Member ID" editable={false} />
-              {code.state === "ready" && (
-                <View className="flex-row items-center" style={{ gap: 6, paddingLeft: 6 }}>
-                  <GymIcon name="badge-check" size={16} color={colors.gymSuccess} />
-                  <Text className="gym-tx__meta" style={{ color: colors.gymInkSoft }}>Member ID assigned automatically</Text>
-                </View>
+            <View className="flex-row flex-wrap justify-center" style={{ gap: 8 }}>
+              <PressableScale onPress={() => choosePhoto("camera")} className="gym-choice flex-row items-center" style={{ gap: 6 }} accessibilityRole="button" accessibilityLabel={photo ? "Retake the photo" : "Take a photo"}>
+                <GymIcon name="camera" size={16} color={colors.gymPrimary} />
+                <Text className="gym-choice__label">{photo ? "Retake" : "Camera"}</Text>
+              </PressableScale>
+              <PressableScale onPress={() => choosePhoto("library")} className="gym-choice flex-row items-center" style={{ gap: 6 }} accessibilityRole="button" accessibilityLabel="Choose a photo from the gallery">
+                <GymIcon name="image" size={16} color={colors.gymPrimary} />
+                <Text className="gym-choice__label">Gallery</Text>
+              </PressableScale>
+              {photo && (
+                <PressableScale onPress={() => { setPhoto(null); setPhotoError(""); }} className="gym-choice flex-row items-center" style={{ gap: 6 }} accessibilityRole="button" accessibilityLabel="Remove the photo">
+                  <GymIcon name="x" size={16} color={colors.gymPrimary} />
+                  <Text className="gym-choice__label">Remove</Text>
+                </PressableScale>
               )}
             </View>
-            <GymField label="Name" icon="user" value={name} onChangeText={setName} maxLength={80} placeholder="Name" autoCapitalize="words" />
-            <View className="flex-row items-start" style={{ gap: 10 }}>
-              <View className="gym-field--icon" style={{ paddingHorizontal: 14 }} accessible accessibilityLabel="India, plus 91">
-                <Text style={{ fontSize: 18 }}>🇮🇳</Text>
-                <Text className="gym-tx__name">+91</Text>
+            {photoError ? <Text className="gym-tx__meta text-center" style={{ color: colors.gymDanger }}>{photoError}</Text> : null}
+          </View>
+          <View style={{ gap: 6 }}>
+            <GymField label="Member ID" icon="id-card" value={code.state === "ready" ? code.data.code : ""} placeholder="Member ID" editable={false} />
+            {code.state === "ready" && (
+              <View className="flex-row items-center" style={{ gap: 6, paddingLeft: 6 }}>
+                <GymIcon name="badge-check" size={16} color={colors.gymSuccess} />
+                <Text className="gym-tx__meta" style={{ color: colors.gymInkSoft }}>Member ID assigned automatically</Text>
               </View>
-              <View className="min-w-0 flex-1">
-                <GymField label="Mobile number" icon="phone" value={phone} onChangeText={(t) => setPhone(phoneInput(t))} maxLength={16} keyboardType="phone-pad" placeholder="Mobile Number" hint={phoneOk ? undefined : "Enter a 10-digit mobile number starting with 6, 7, 8 or 9."} />
-              </View>
-            </View>
-            <ChipRow label="Gender" options={GENDER_LABEL} value={gender} onChange={(g) => setGender(g)} clearable />
-            <GymPrimaryButton label="Proceed" ready={profileReady} onPress={() => setStep(2)} />
-          </>
-        )}
-
-        {step === 2 && (
-          <>
-            <Text className="gym-field__label" style={{ fontSize: 15 }}>Optional fields</Text>
-            <GymField label="Email" icon="mail" value={email} onChangeText={setEmail} maxLength={120} placeholder="Email" keyboardType="email-address" autoCapitalize="none" autoCorrect={false} hint={emailOk ? undefined : "Enter a valid email address."} />
-            <View className="flex-row" style={{ gap: 10 }}>
-              <View className="min-w-0 flex-1">
-                <GymField label="Height in cm" icon="ruler" value={height} onChangeText={(t) => setHeight(t.replace(/\D/g, "").slice(0, 3))} keyboardType="number-pad" placeholder="Height (cm)" hint={heightOk ? undefined : "50 to 250 cm"} />
-              </View>
-              <View className="min-w-0 flex-1">
-                <GymField label="Weight in kg" icon="weight" value={weight} onChangeText={(t) => setWeight(t.replace(/[^0-9.]/g, "").slice(0, 5))} keyboardType="decimal-pad" placeholder="Weight (kg)" hint={weightOk ? undefined : "10 to 300 kg"} />
-              </View>
-            </View>
-            <GymField label="Address" icon="map-pin" value={address} onChangeText={setAddress} maxLength={200} placeholder="Address" />
-            <GymField label="Notes" icon="notebook-pen" value={notes} onChangeText={setNotes} maxLength={300} placeholder="Notes" />
-            <DateSelect label="Date of Birth" value={dob} onChange={setDob} min="1920-01-01" max={daysFromToday(0)} />
-            <View className="flex-row items-center" style={{ gap: 12 }}>
-              <Text className="gym-field__label" style={{ fontSize: 14 }}>Attachment</Text>
-              <PressableScale onPress={() => comingSoon("Attachments")} className="gym-choice flex-row items-center" style={{ gap: 8 }} accessibilityRole="button" accessibilityLabel="Attachment, coming soon">
-                <GymIcon name="image" size={16} color={colors.gymPrimary} />
-                <Text className="gym-choice__label">Select</Text>
-              </PressableScale>
-            </View>
-            <StepButtons onBack={() => setStep(1)} label="Proceed" ready={detailsReady} onNext={() => setStep(3)} />
-          </>
-        )}
-
-        {step === 3 && (
-          <>
-            <View className="flex-row" style={{ gap: 16 }}>
-              <View className="min-w-0 flex-1"><DateSelect label="Joining Date" value={joinedOn} onChange={setJoinedOn} min={daysFromToday(-365)} max={daysFromToday(60)} stacked /></View>
-              <View className="min-w-0 flex-1"><DateSelect label="Payment Date" value={paidOn} onChange={setPaidOn} min={daysFromToday(-365)} max={daysFromToday(0)} stacked /></View>
-            </View>
-            <Text className="gym-field__label" style={{ fontSize: 14 }}>{`Available Plans (${plans.length})`}</Text>
-            <View className="flex-row flex-wrap" style={{ gap: 8 }} accessibilityRole="radiogroup">
-              {plans.map((p) => {
-                const selected = p.id === planId;
-                return (
-                  <PressableScale key={p.id} onPress={() => { haptic.select(); setPlanId(p.id); }} className={selected ? "gym-kind gym-kind--selected" : "gym-kind"} style={{ minHeight: 36, paddingHorizontal: 14 }} accessibilityRole="radio" accessibilityState={{ selected }} accessibilityLabel={`${p.name}, ${rupees(p.price)}`}>
-                    {selected && <GradientFill radius={999} />}
-                    <Text className={selected ? "gym-kind__label gym-kind__label--selected" : "gym-kind__label"}>{p.name}</Text>
-                  </PressableScale>
-                );
-              })}
-              <PressableScale onPress={() => { haptic.select(); setPlanId("custom"); }} className={planId === "custom" ? "gym-kind gym-kind--selected" : "gym-kind"} style={{ minHeight: 36, paddingHorizontal: 14 }} accessibilityRole="radio" accessibilityState={{ selected: planId === "custom" }} accessibilityLabel="Custom plan">
-                {planId === "custom" && <GradientFill radius={999} />}
-                <Text className={planId === "custom" ? "gym-kind__label gym-kind__label--selected" : "gym-kind__label"}>Custom</Text>
-              </PressableScale>
-            </View>
-            <PressableScale onPress={() => setAddingPlan(true)} className="gym-choice flex-row items-center self-start" style={{ gap: 6 }} accessibilityRole="button" accessibilityLabel="Add New Plan">
-              <GymIcon name="plus" size={14} color={colors.gymPrimary} />
-              <Text className="gym-choice__label">Add New Plan</Text>
-            </PressableScale>
-            {planId === "custom" && (
-              <>
-                <PlanLengthFields unit={unit} onUnit={setUnit} duration={duration} onDuration={setDuration} />
-                <GymField label="Plan fee" icon="banknote" value={customFee} onChangeText={(t) => setCustomFee(amountInput(t))} keyboardType="number-pad" placeholder="Plan Fee (Eg. 1500)" />
-              </>
             )}
-            {chosen && <Text className="gym-tx__meta">{`${chosen.name}: ${planLabel(length ?? 1, lengthUnit)} · ${rupees(chosen.price)}`}</Text>}
-            <View className="flex-row" style={{ gap: 10 }}>
-              <View className="min-w-0 flex-1"><GymField label="Admission amount" icon="banknote" value={admission} onChangeText={(t) => setAdmission(amountInput(t))} keyboardType="number-pad" placeholder="Admission Amount" /></View>
-              <View className="min-w-0 flex-1"><GymField label="Discount amount" icon="tag" value={discount} onChangeText={(t) => setDiscount(amountInput(t))} keyboardType="number-pad" placeholder="Discount Amount" /></View>
+          </View>
+          <GymField label="Name" icon="user" value={name} onChangeText={setName} maxLength={80} placeholder="Name" autoCapitalize="words" />
+          <View className="flex-row items-start" style={{ gap: 10 }}>
+            <View className="gym-field--icon" style={{ paddingHorizontal: 14 }} accessible accessibilityLabel="India, plus 91">
+              <Text style={{ fontSize: 18 }}>🇮🇳</Text>
+              <Text className="gym-tx__name">+91</Text>
             </View>
-            <ChipRow label="Mode" options={METHODS} value={method} onChange={(m) => setMethod(m)} />
-            <View className="flex-row" style={{ gap: 12 }}>
-              <View className="flex-1 items-center" style={{ gap: 6 }} accessible accessibilityLabel={`Amount payable ${rupees(payable)}`}>
-                <Text className="gym-field__label" style={{ fontSize: 14 }}>Amount Payable</Text>
-                <View className="gym-amount-box"><Text className="gym-amount-box__value">{rupees(payable)}</Text></View>
-              </View>
-              <View className="flex-1 items-center" style={{ gap: 6 }} accessible accessibilityLabel={`Due amount ${rupees(due)}`}>
-                <Text className="gym-field__label" style={{ fontSize: 14 }}>Due Amount</Text>
-                <View className="gym-amount-box"><Text className="gym-amount-box__value" style={{ color: due > 0 ? colors.gymDanger : colors.gymSuccess }}>{rupees(due)}</Text></View>
-              </View>
+            <View className="min-w-0 flex-1">
+              <GymField label="Mobile number" icon="phone" value={phone} onChangeText={(t) => setPhone(phoneInput(t))} maxLength={16} keyboardType="phone-pad" placeholder="Mobile Number" hint={phoneOk ? undefined : "Enter a 10-digit mobile number starting with 6, 7, 8 or 9."} />
             </View>
-            <GymField label="Amount collected" icon="indian-rupee" value={collected} onChangeText={(t) => setCollected(amountInput(t))} keyboardType="number-pad" placeholder="Amount Collected" hint={paidNum > payable ? "Can't be more than the amount payable." : discountNum > planFee + admissionNum ? "The discount can't be more than the plan and admission amounts." : undefined} />
-            {amountsOk && due > 0 && <DueByField value={dueBy} onChange={setDueBy} />}
-            <CheckRow label="Send Invoice" checked={sendInvoice} onChange={setSendInvoice} />
-            {error ? <FormAlert message={error} /> : null}
-            <StepButtons onBack={() => setStep(2)} label="Add Member" ready={payReady} busy={busy} onNext={() => setConfirming(true)} />
-          </>
-        )}
-      </GymSheet>
-      {addingPlan && (
-        <CatalogSheet
-          kind="plan"
-          item={null}
-          onClose={() => setAddingPlan(false)}
-          onSaved={(items) => {
-            setCatalog({ items });
-            const added = items.filter((i) => i.kind === "plan").sort((a, b) => b.id - a.id)[0];
-            if (added) setPlanId(added.id);
-            setAddingPlan(false);
-          }}
-        />
+          </View>
+          <ChipRow label="Gender" options={GENDER_LABEL} value={gender} onChange={(g) => setGender(g)} clearable />
+          <GymPrimaryButton label="Proceed" ready={profileReady} onPress={() => setStep(2)} />
+        </>
       )}
-    </>
+
+      {step === 2 && (
+        <>
+          <Text className="gym-field__label" style={{ fontSize: 15 }}>Optional fields</Text>
+          <GymField label="Email" icon="mail" value={email} onChangeText={setEmail} maxLength={120} placeholder="Email" keyboardType="email-address" autoCapitalize="none" autoCorrect={false} hint={emailOk ? undefined : "Enter a valid email address."} />
+          <View className="flex-row" style={{ gap: 10 }}>
+            <View className="min-w-0 flex-1">
+              <GymField label="Height in cm" icon="ruler" value={height} onChangeText={(t) => setHeight(t.replace(/\D/g, "").slice(0, 3))} keyboardType="number-pad" placeholder="Height (cm)" hint={heightOk ? undefined : "50 to 250 cm"} />
+            </View>
+            <View className="min-w-0 flex-1">
+              <GymField label="Weight in kg" icon="weight" value={weight} onChangeText={(t) => setWeight(t.replace(/[^0-9.]/g, "").slice(0, 5))} keyboardType="decimal-pad" placeholder="Weight (kg)" hint={weightOk ? undefined : "10 to 300 kg"} />
+            </View>
+          </View>
+          <GymField label="Address" icon="map-pin" value={address} onChangeText={setAddress} maxLength={200} placeholder="Address" />
+          <GymField label="Notes" icon="notebook-pen" value={notes} onChangeText={setNotes} maxLength={300} placeholder="Notes" />
+          <DateSelect label="Date of Birth" value={dob} onChange={setDob} min="1920-01-01" max={daysFromToday(0)} />
+          <View className="flex-row items-center" style={{ gap: 12 }}>
+            <Text className="gym-field__label" style={{ fontSize: 14 }}>Attachment</Text>
+            <PressableScale onPress={() => comingSoon("Attachments")} className="gym-choice flex-row items-center" style={{ gap: 8 }} accessibilityRole="button" accessibilityLabel="Attachment, coming soon">
+              <GymIcon name="image" size={16} color={colors.gymPrimary} />
+              <Text className="gym-choice__label">Select</Text>
+            </PressableScale>
+          </View>
+          <StepButtons onBack={() => setStep(1)} label="Proceed" ready={detailsReady} onNext={() => setStep(3)} />
+        </>
+      )}
+
+      {step === 3 && (
+        <>
+          <View className="flex-row" style={{ gap: 16 }}>
+            <View className="min-w-0 flex-1"><DateSelect label="Joining Date" value={joinedOn} onChange={setJoinedOn} min={daysFromToday(-365)} max={daysFromToday(60)} stacked /></View>
+            <View className="min-w-0 flex-1"><DateSelect label="Payment Date" value={paidOn} onChange={setPaidOn} min={daysFromToday(-365)} max={daysFromToday(0)} stacked /></View>
+          </View>
+          <Text className="gym-field__label" style={{ fontSize: 14 }}>{`Available Plans (${plans.length})`}</Text>
+          <View className="flex-row flex-wrap" style={{ gap: 8 }} accessibilityRole="radiogroup">
+            {plans.map((p) => {
+              const selected = p.id === planId;
+              return (
+                <PressableScale key={p.id} onPress={() => { haptic.select(); setPlanId(p.id); }} className={selected ? "gym-kind gym-kind--selected" : "gym-kind"} style={{ minHeight: 36, paddingHorizontal: 14 }} accessibilityRole="radio" accessibilityState={{ selected }} accessibilityLabel={`${p.name}, ${rupees(p.price)}`}>
+                  {selected && <GradientFill radius={999} />}
+                  <Text className={selected ? "gym-kind__label gym-kind__label--selected" : "gym-kind__label"}>{p.name}</Text>
+                </PressableScale>
+              );
+            })}
+            <PressableScale onPress={() => { haptic.select(); setPlanId("custom"); }} className={planId === "custom" ? "gym-kind gym-kind--selected" : "gym-kind"} style={{ minHeight: 36, paddingHorizontal: 14 }} accessibilityRole="radio" accessibilityState={{ selected: planId === "custom" }} accessibilityLabel="Custom plan">
+              {planId === "custom" && <GradientFill radius={999} />}
+              <Text className={planId === "custom" ? "gym-kind__label gym-kind__label--selected" : "gym-kind__label"}>Custom</Text>
+            </PressableScale>
+          </View>
+          <PressableScale onPress={() => setAddingPlan(true)} className="gym-choice flex-row items-center self-start" style={{ gap: 6 }} accessibilityRole="button" accessibilityLabel="Add New Plan">
+            <GymIcon name="plus" size={14} color={colors.gymPrimary} />
+            <Text className="gym-choice__label">Add New Plan</Text>
+          </PressableScale>
+          {planId === "custom" && (
+            <>
+              <PlanLengthFields unit={unit} onUnit={setUnit} duration={duration} onDuration={setDuration} />
+              <GymField label="Plan fee" icon="banknote" value={customFee} onChangeText={(t) => setCustomFee(amountInput(t))} keyboardType="number-pad" placeholder="Plan Fee (Eg. 1500)" />
+            </>
+          )}
+          {chosen && <Text className="gym-tx__meta">{`${chosen.name}: ${planLabel(length ?? 1, lengthUnit)} · ${rupees(chosen.price)}`}</Text>}
+          <View className="flex-row" style={{ gap: 10 }}>
+            <View className="min-w-0 flex-1"><GymField label="Admission amount" icon="banknote" value={admission} onChangeText={(t) => setAdmission(amountInput(t))} keyboardType="number-pad" placeholder="Admission Amount" /></View>
+            <View className="min-w-0 flex-1"><GymField label="Discount amount" icon="tag" value={discount} onChangeText={(t) => setDiscount(amountInput(t))} keyboardType="number-pad" placeholder="Discount Amount" /></View>
+          </View>
+          <ChipRow label="Mode" options={METHODS} value={method} onChange={(m) => setMethod(m)} />
+          <View className="flex-row" style={{ gap: 12 }}>
+            <View className="flex-1 items-center" style={{ gap: 6 }} accessible accessibilityLabel={`Amount payable ${rupees(payable)}`}>
+              <Text className="gym-field__label" style={{ fontSize: 14 }}>Amount Payable</Text>
+              <View className="gym-amount-box"><Text className="gym-amount-box__value">{rupees(payable)}</Text></View>
+            </View>
+            <View className="flex-1 items-center" style={{ gap: 6 }} accessible accessibilityLabel={`Due amount ${rupees(due)}`}>
+              <Text className="gym-field__label" style={{ fontSize: 14 }}>Due Amount</Text>
+              <View className="gym-amount-box"><Text className="gym-amount-box__value" style={{ color: due > 0 ? colors.gymDanger : colors.gymSuccess }}>{rupees(due)}</Text></View>
+            </View>
+          </View>
+          <GymField label="Amount collected" icon="indian-rupee" value={collected} onChangeText={(t) => setCollected(amountInput(t))} keyboardType="number-pad" placeholder="Amount Collected" hint={paidNum > payable ? "Can't be more than the amount payable." : discountNum > planFee + admissionNum ? "The discount can't be more than the plan and admission amounts." : undefined} />
+          {amountsOk && due > 0 && <DueByField value={dueBy} onChange={setDueBy} />}
+          <CheckRow label="Send Invoice" checked={sendInvoice} onChange={setSendInvoice} />
+          {error ? <FormAlert message={error} /> : null}
+          <StepButtons onBack={() => setStep(2)} label="Add Member" ready={payReady} busy={busy} onNext={() => setConfirming(true)} />
+        </>
+      )}
+    </GymSheet>
   );
 }

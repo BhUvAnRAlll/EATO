@@ -335,6 +335,18 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
     await h.expectText("Transaction History");
     await snapshotAllWidths("gym-member-options");
     await h.settle();
+    // Send Due Reminder opens Send via: an SMS from justFit (no credits yet, so it can't be
+    // picked), the phone's SMS app or WhatsApp, with the message shown first
+    await clickLabel("Send Due Reminder");
+    await h.expectText("Send via");
+    await h.expectText("A payment of ₹500 is due");
+    assert.ok(await hasLabel("SMS from justFit. No credits left"));
+    assert.ok(await hasLabel("SMS app. Your phone's Messages, no credits"));
+    assert.ok(await hasLabel("WhatsApp. Opens WhatsApp with the message written"));
+    await snapshotAllWidths("gym-send-via");
+    await clickLabel("Close");
+    await page.waitFor(`!(document.body.innerText || "").includes("Send via")`, NAV_TIMEOUT, "the Send via sheet closes");
+    await h.settle();
     await clickLabel("Collect Payment Due : ₹500");
     await h.expectText("Partial due amount collection is also supported");
     await h.settle();

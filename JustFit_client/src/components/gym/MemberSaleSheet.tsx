@@ -81,72 +81,78 @@ export function MemberSaleSheet({ kind, member, gym, onClose, onSaved }: { kind:
     );
 
   return (
-    <>
-      <GymSheet title={copy.title} subtitle={copy.subtitle} onClose={onClose}>
-        <DateSelect label="Payment Date" value={paidOn} onChange={setPaidOn} min={daysFromToday(-365)} max={daysFromToday(0)} stacked />
-        {catalog.state === "loading" && <GymLoading label="Loading the catalogue" />}
-        {catalog.state === "failed" && <GymError error={catalog.error} onRetry={retry} />}
-        {catalog.state === "ready" && (
-          <>
-            <Text className="gym-field__label" style={{ fontSize: 14 }}>{`${copy.list} (${items.length})`}</Text>
-            <View className="flex-row flex-wrap" style={{ gap: 8 }} accessibilityRole="radiogroup">
-              {items.map((item) => {
-                const selected = item.id === itemId;
-                return (
-                  <PressableScale key={item.id} onPress={() => { if (!selected) haptic.select(); setItemId(item.id); }} className={selected ? "gym-kind gym-kind--selected" : "gym-kind"} style={{ minHeight: 36, paddingHorizontal: 14 }} accessibilityRole="radio" accessibilityState={{ selected }} accessibilityLabel={`${item.name}, ${rupees(item.price)}${item.stock === 0 ? ", out of stock" : ""}`}>
-                    {selected && <GradientFill radius={999} />}
-                    <Text className={selected ? "gym-kind__label gym-kind__label--selected" : "gym-kind__label"}>{item.name}</Text>
-                  </PressableScale>
-                );
-              })}
-              <PressableScale onPress={() => setAdding(true)} className="gym-choice flex-row items-center" style={{ gap: 6 }} accessibilityRole="button" accessibilityLabel={copy.add}>
-                <GymIcon name="plus" size={14} color={colors.gymPrimary} />
-                <Text className="gym-choice__label">{copy.add}</Text>
-              </PressableScale>
-            </View>
-          </>
-        )}
-        {isProduct && (
-          <View className="flex-row items-start" style={{ gap: 10 }}>
-            <View className="min-w-0 flex-1">
-              <GymField label="Quantity" icon={MONEY} value={quantity} onChangeText={(t) => setQuantity(t.replace(/\D/g, "").slice(0, 3))} keyboardType="number-pad" placeholder="Quantity" hint={quantityHint} />
-            </View>
-            <View className="min-w-0 flex-1">
-              <GymField label="In stock" icon="boxes" value={chosen ? (chosen.stock === null ? "Not counted" : String(chosen.stock)) : "-"} placeholder="In Stock" editable={false} style={{ color: colors.gymMuted }} />
-            </View>
+    <GymSheet
+      title={copy.title}
+      subtitle={copy.subtitle}
+      onClose={onClose}
+      stack={
+        <>
+          {adding && (
+            <CatalogSheet
+              kind={kind}
+              item={null}
+              onClose={() => setAdding(false)}
+              onSaved={(updated) => {
+                setCatalog({ items: updated });
+                const added = updated.filter((i) => i.kind === kind).sort((a, b) => b.id - a.id)[0];
+                if (added) setItemId(added.id);
+                setAdding(false);
+              }}
+            />
+          )}
+        </>
+      }
+    >
+      <DateSelect label="Payment Date" value={paidOn} onChange={setPaidOn} min={daysFromToday(-365)} max={daysFromToday(0)} stacked />
+      {catalog.state === "loading" && <GymLoading label="Loading the catalogue" />}
+      {catalog.state === "failed" && <GymError error={catalog.error} onRetry={retry} />}
+      {catalog.state === "ready" && (
+        <>
+          <Text className="gym-field__label" style={{ fontSize: 14 }}>{`${copy.list} (${items.length})`}</Text>
+          <View className="flex-row flex-wrap" style={{ gap: 8 }} accessibilityRole="radiogroup">
+            {items.map((item) => {
+              const selected = item.id === itemId;
+              return (
+                <PressableScale key={item.id} onPress={() => { if (!selected) haptic.select(); setItemId(item.id); }} className={selected ? "gym-kind gym-kind--selected" : "gym-kind"} style={{ minHeight: 36, paddingHorizontal: 14 }} accessibilityRole="radio" accessibilityState={{ selected }} accessibilityLabel={`${item.name}, ${rupees(item.price)}${item.stock === 0 ? ", out of stock" : ""}`}>
+                  {selected && <GradientFill radius={999} />}
+                  <Text className={selected ? "gym-kind__label gym-kind__label--selected" : "gym-kind__label"}>{item.name}</Text>
+                </PressableScale>
+              );
+            })}
+            <PressableScale onPress={() => setAdding(true)} className="gym-choice flex-row items-center" style={{ gap: 6 }} accessibilityRole="button" accessibilityLabel={copy.add}>
+              <GymIcon name="plus" size={14} color={colors.gymPrimary} />
+              <Text className="gym-choice__label">{copy.add}</Text>
+            </PressableScale>
           </View>
-        )}
-        <GymField label="Discount amount" icon={MONEY} value={discount} onChangeText={(t) => setDiscount(amountInput(t))} keyboardType="number-pad" placeholder="Discount Amount" hint={discountHint} />
-        <ChipRow label="Mode" options={METHODS} value={method} onChange={setMethod} />
-        <View className="flex-row" style={{ gap: 12 }}>
-          <View className="flex-1 items-center" style={{ gap: 6 }} accessible accessibilityLabel={`Amount payable ${rupees(payable)}`}>
-            <Text className="gym-field__label" style={{ fontSize: 14 }}>Amount Payable</Text>
-            <View className="gym-amount-box"><Text className="gym-amount-box__value">{rupees(payable)}</Text></View>
+        </>
+      )}
+      {isProduct && (
+        <View className="flex-row items-start" style={{ gap: 10 }}>
+          <View className="min-w-0 flex-1">
+            <GymField label="Quantity" icon={MONEY} value={quantity} onChangeText={(t) => setQuantity(t.replace(/\D/g, "").slice(0, 3))} keyboardType="number-pad" placeholder="Quantity" hint={quantityHint} />
           </View>
-          <View className="flex-1 items-center" style={{ gap: 6 }} accessible accessibilityLabel={`Due amount ${rupees(due)}`}>
-            <Text className="gym-field__label" style={{ fontSize: 14 }}>Due Amount</Text>
-            <View className="gym-amount-box"><Text className="gym-amount-box__value" style={{ color: due > 0 ? colors.gymDanger : colors.gymInk }}>{rupees(due)}</Text></View>
+          <View className="min-w-0 flex-1">
+            <GymField label="In stock" icon="boxes" value={chosen ? (chosen.stock === null ? "Not counted" : String(chosen.stock)) : "-"} placeholder="In Stock" editable={false} style={{ color: colors.gymMuted }} />
           </View>
         </View>
-        <GymField label="Amount collected" icon={MONEY} value={collected} onChangeText={(t) => setCollected(amountInput(t))} keyboardType="number-pad" placeholder="Amount Collected" hint={collectedHint} />
-        {chosen && paidNum >= 1 && due > 0 && <DueByField value={dueBy} onChange={setDueBy} label={`Pay the other ${rupees(due)} by`} />}
-        <CheckRow label="Send Invoice" checked={sendInvoice} onChange={setSendInvoice} />
-        {error ? <FormAlert message={error} /> : null}
-        <GymPrimaryButton label={copy.title} ready={ready} busy={busy} onPress={submit} />
-      </GymSheet>
-      {adding && (
-        <CatalogSheet
-          kind={kind}
-          item={null}
-          onClose={() => setAdding(false)}
-          onSaved={(updated) => {
-            setCatalog({ items: updated });
-            const added = updated.filter((i) => i.kind === kind).sort((a, b) => b.id - a.id)[0];
-            if (added) setItemId(added.id);
-            setAdding(false);
-          }}
-        />
       )}
-    </>
+      <GymField label="Discount amount" icon={MONEY} value={discount} onChangeText={(t) => setDiscount(amountInput(t))} keyboardType="number-pad" placeholder="Discount Amount" hint={discountHint} />
+      <ChipRow label="Mode" options={METHODS} value={method} onChange={setMethod} />
+      <View className="flex-row" style={{ gap: 12 }}>
+        <View className="flex-1 items-center" style={{ gap: 6 }} accessible accessibilityLabel={`Amount payable ${rupees(payable)}`}>
+          <Text className="gym-field__label" style={{ fontSize: 14 }}>Amount Payable</Text>
+          <View className="gym-amount-box"><Text className="gym-amount-box__value">{rupees(payable)}</Text></View>
+        </View>
+        <View className="flex-1 items-center" style={{ gap: 6 }} accessible accessibilityLabel={`Due amount ${rupees(due)}`}>
+          <Text className="gym-field__label" style={{ fontSize: 14 }}>Due Amount</Text>
+          <View className="gym-amount-box"><Text className="gym-amount-box__value" style={{ color: due > 0 ? colors.gymDanger : colors.gymInk }}>{rupees(due)}</Text></View>
+        </View>
+      </View>
+      <GymField label="Amount collected" icon={MONEY} value={collected} onChangeText={(t) => setCollected(amountInput(t))} keyboardType="number-pad" placeholder="Amount Collected" hint={collectedHint} />
+      {chosen && paidNum >= 1 && due > 0 && <DueByField value={dueBy} onChange={setDueBy} label={`Pay the other ${rupees(due)} by`} />}
+      <CheckRow label="Send Invoice" checked={sendInvoice} onChange={setSendInvoice} />
+      {error ? <FormAlert message={error} /> : null}
+      <GymPrimaryButton label={copy.title} ready={ready} busy={busy} onPress={submit} />
+    </GymSheet>
   );
 }

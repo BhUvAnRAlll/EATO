@@ -10,9 +10,10 @@ import { CollectDueSheet } from "@/components/gym/CollectDueSheet";
 import { GradientFill } from "@/components/gym/GradientFill";
 import { GymSheet } from "@/components/gym/GymSheet";
 import { MemberSaleSheet } from "@/components/gym/MemberSaleSheet";
+import { SendReminderSheet, type ReminderKind } from "@/components/gym/SendReminderSheet";
 import { initialsOf, planLabel, planStart, rupees, shortDate } from "@/data/gymDashboard";
 import { comingSoon } from "@/lib/gymPortal";
-import { call, daysLeftText, dueReminder, email, expiredReminder, invoice, sms, whatsapp } from "@/lib/gymContact";
+import { call, daysLeftText, email, sms, whatsapp } from "@/lib/gymContact";
 import type { GymInfo, GymMember, GymMemberDetail, GymPayment } from "@/lib/gymApi";
 import { useThemeColors } from "@/theme";
 import type { GymIconName } from "@/constants/gymIcons";
@@ -20,8 +21,8 @@ import type { GymIconName } from "@/constants/gymIcons";
 type Row = { label: string; icon: GymIconName; tone?: "danger"; onPress: () => void };
 
 // A member's options (the user's designs): their card on the portal's gradient (Call, SMS,
-// WhatsApp, Email; the plan and PT with their dates), Attendance History, Reminders (due, expired, invoice:
-// WhatsApp with the message written), Membership (Collect Payment Due, Renew Member, Edit
+// WhatsApp, Email; the plan and PT with their dates), Attendance History, Reminders (due, expired,
+// invoice: each opens Send via, an SMS from justFit, the phone's SMS app or WhatsApp), Membership (Collect Payment Due, Renew Member, Edit
 // Membership, Pause Membership, Transaction History) and Sales (Renew PT, Change Trainer once they
 // have PT, Add Service, Sell Product).
 // `onLeave` closes whatever opened this sheet (another sheet) when a row opens a screen; on the
@@ -31,15 +32,16 @@ export function MemberActionsSheet({ member, payments, gym, onClose, onChanged, 
   const [collecting, setCollecting] = useState(false);
   const [selling, setSelling] = useState<"product" | "service" | null>(null);
   const [changingTrainer, setChangingTrainer] = useState(false);
+  const [reminding, setReminding] = useState<ReminderKind | null>(null);
   const go = (href: Href) => { onClose(); onLeave?.(); router.push(href); };
   const openMember = () => (onMemberPage ? onClose() : go({ pathname: "/gym/members/[id]", params: { id: String(member.id) } }));
   const id = String(member.id);
   const start = planStart(member.expiresOn, member.planLength.duration, member.planLength.unit);
 
   const reminders: Row[] = [
-    ...(member.due > 0 ? [{ label: "Send Due Reminder", icon: "bell-ring", onPress: () => whatsapp(member, dueReminder(member, gym)) } as Row] : []),
-    { label: "Send Expired Reminder", icon: "message-square-warning", tone: "danger", onPress: () => whatsapp(member, expiredReminder(member, gym)) },
-    { label: "Send Invoice", icon: "receipt-text", onPress: () => whatsapp(member, invoice(member, gym, payments?.[0])) },
+    ...(member.due > 0 ? [{ label: "Send Due Reminder", icon: "bell-ring", onPress: () => setReminding("due") } as Row] : []),
+    { label: "Send Expired Reminder", icon: "message-square-warning", tone: "danger", onPress: () => setReminding("expired") },
+    { label: "Send Invoice", icon: "receipt-text", onPress: () => setReminding("invoice") },
   ];
   const membership: Row[] = [
     ...(member.due > 0 ? [{ label: `Collect Payment Due : ${rupees(member.due)}`, icon: "credit-card", tone: "danger", onPress: () => setCollecting(true) } as Row] : []),
@@ -90,47 +92,52 @@ export function MemberActionsSheet({ member, payments, gym, onClose, onChanged, 
   const ptDays = member.pt ? Math.round((Date.parse(`${member.pt.until}T00:00:00Z`) - Date.parse(`${member.expiresOn}T00:00:00Z`)) / 86400000) + member.daysLeft : 0;
 
   return (
-    <>
-      <GymSheet onClose={onClose}>
-        <View className="gym-member-hero">
-          <GradientFill radius={24} />
-          <View className="flex-row items-center" style={{ gap: 12 }}>
-            <View className="gym-member-hero__avatar"><Text className="gym-member-photo__initials" style={{ fontSize: 20 }}>{initialsOf(member.name)}</Text><MemberPhotoImage url={member.photoUrl} /></View>
-            <View className="min-w-0 flex-1">
-              <Text className="gym-member-hero__name" numberOfLines={1}>{member.name}</Text>
-              <View className="flex-row items-center" style={{ gap: 4 }}>
-                <GymIcon name="id-card" size={13} color={colors.white} />
-                <Text className="gym-hero__note">{member.code}</Text>
-              </View>
+    <GymSheet
+      onClose={onClose}
+      stack={
+        <>
+          {selling && <MemberSaleSheet kind={selling} member={member} gym={gym} onClose={() => setSelling(null)} onSaved={(detail) => { setSelling(null); onChanged(detail); }} />}
+          {changingTrainer && <ChangeTrainerSheet member={member} onClose={() => setChangingTrainer(false)} onSaved={(detail) => { setChangingTrainer(false); onChanged(detail); }} />}
+          {reminding && <SendReminderSheet kind={reminding} member={member} gym={gym} payment={payments?.[0]} onClose={() => setReminding(null)} />}
+          {collecting && <CollectDueSheet member={member} gym={gym} onClose={() => setCollecting(false)} onSaved={(detail) => { setCollecting(false); onChanged(detail); }} />}
+        </>
+      }
+    >
+      <View className="gym-member-hero">
+        <GradientFill radius={24} />
+        <View className="flex-row items-center" style={{ gap: 12 }}>
+          <View className="gym-member-hero__avatar"><Text className="gym-member-photo__initials" style={{ fontSize: 20 }}>{initialsOf(member.name)}</Text><MemberPhotoImage url={member.photoUrl} /></View>
+          <View className="min-w-0 flex-1">
+            <Text className="gym-member-hero__name" numberOfLines={1}>{member.name}</Text>
+            <View className="flex-row items-center" style={{ gap: 4 }}>
+              <GymIcon name="id-card" size={13} color={colors.white} />
+              <Text className="gym-hero__note">{member.code}</Text>
             </View>
           </View>
-          <View className="flex-row" style={{ gap: 8 }}>
-            {contact("Call", "phone", () => call(member))}
-            {contact("SMS", "message-square-text", () => sms(member))}
-            {contact("WhatsApp", "message-circle", () => whatsapp(member))}
-            {contact("Email", "mail", () => email(member, `${gym.name} membership`))}
-          </View>
-          <View className="gym-member-hero__line" />
-          {period(planLabel(member.planLength.duration, member.planLength.unit), daysLeftText(member.daysLeft), start, member.expiresOn)}
-          {member.pt && (
-            <>
-              <View className="gym-member-hero__line" />
-              {period(member.pt.trainer ? `${member.pt.label} · ${member.pt.trainer.name}` : member.pt.label, member.pt.active ? daysLeftText(ptDays) : "PT ended", member.pt.from, member.pt.until, "PT")}
-            </>
-          )}
         </View>
-        <Pressable onPress={() => go({ pathname: "/gym/attendance/member/[id]", params: { id, name: member.name } })} className="gym-card flex-row items-center" style={{ gap: 12, padding: 14 }} accessibilityRole="button" accessibilityLabel="Attendance history">
-          <GymIcon name="history" size={20} color={colors.gymInkSoft} />
-          <Text className="gym-menu__label flex-1">Attendance History</Text>
-          <Text className="gym-link">{member.insideNow ? "Inside now" : "View"}</Text>
-        </Pressable>
-        {section("Reminders", reminders)}
-        {section("Membership", membership)}
-        {section("Sales", sales)}
-      </GymSheet>
-      {selling && <MemberSaleSheet kind={selling} member={member} gym={gym} onClose={() => setSelling(null)} onSaved={(detail) => { setSelling(null); onChanged(detail); }} />}
-      {changingTrainer && <ChangeTrainerSheet member={member} onClose={() => setChangingTrainer(false)} onSaved={(detail) => { setChangingTrainer(false); onChanged(detail); }} />}
-      {collecting && <CollectDueSheet member={member} gym={gym} onClose={() => setCollecting(false)} onSaved={(detail) => { setCollecting(false); onChanged(detail); }} />}
-    </>
+        <View className="flex-row" style={{ gap: 8 }}>
+          {contact("Call", "phone", () => call(member))}
+          {contact("SMS", "message-square-text", () => sms(member))}
+          {contact("WhatsApp", "message-circle", () => whatsapp(member))}
+          {contact("Email", "mail", () => email(member, `${gym.name} membership`))}
+        </View>
+        <View className="gym-member-hero__line" />
+        {period(planLabel(member.planLength.duration, member.planLength.unit), daysLeftText(member.daysLeft), start, member.expiresOn)}
+        {member.pt && (
+          <>
+            <View className="gym-member-hero__line" />
+            {period(member.pt.trainer ? `${member.pt.label} · ${member.pt.trainer.name}` : member.pt.label, member.pt.active ? daysLeftText(ptDays) : "PT ended", member.pt.from, member.pt.until, "PT")}
+          </>
+        )}
+      </View>
+      <Pressable onPress={() => go({ pathname: "/gym/attendance/member/[id]", params: { id, name: member.name } })} className="gym-card flex-row items-center" style={{ gap: 12, padding: 14 }} accessibilityRole="button" accessibilityLabel="Attendance history">
+        <GymIcon name="history" size={20} color={colors.gymInkSoft} />
+        <Text className="gym-menu__label flex-1">Attendance History</Text>
+        <Text className="gym-link">{member.insideNow ? "Inside now" : "View"}</Text>
+      </Pressable>
+      {section("Reminders", reminders)}
+      {section("Membership", membership)}
+      {section("Sales", sales)}
+    </GymSheet>
   );
 }
