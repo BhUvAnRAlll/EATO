@@ -6,25 +6,21 @@ import { FormAlert } from "@/components/FormAlert";
 import { PressableScale } from "@/components/PressableScale";
 import { GymIcon } from "@/components/gym/GymIcon";
 import { MemberPhotoImage } from "@/components/gym/MemberPhotoImage";
-import { GymField } from "@/components/gym/GymField";
 import { GradientFill } from "@/components/gym/GradientFill";
 import { GymError, GymLoading } from "@/components/gym/GymStates";
 import { GymScreen } from "@/components/gym/GymScreen";
+import { EditProfileSheet } from "@/components/gym/EditProfileSheet";
 import { MemberActionsSheet } from "@/components/gym/MemberActionsSheet";
 import { PaymentRow } from "@/components/gym/PaymentRow";
-import { SaveButton } from "@/components/gym/SaveButton";
-import { GENDER_LABEL, STATUS_LABEL, phoneInput, dobFromText, dobInput, dobText, initialsOf, planLabel, phoneText, rupees, shortDate } from "@/data/gymDashboard";
+import { GENDER_LABEL, STATUS_LABEL, initialsOf, planLabel, phoneText, rupees, shortDate } from "@/data/gymDashboard";
 import { gymApi, type GymMemberDetail } from "@/lib/gymApi";
 import { durationText } from "@/lib/attendanceText";
 import { useGymSave } from "@/lib/gymForm";
 import { useGymData } from "@/lib/useGymData";
 import { useThemeColors } from "@/theme";
 
-// Gym admin › a member: their plan, what they owe, visits, Check in / Check out, Renew, Collect due, editing
-// the name and phone, and their payments
-// Height 50-250 cm and weight 10-300 kg, or empty (a typo like "72..5" must not clear the weight)
-const detailsValid = ({ height, weight }: { height: string; weight: string }) =>
-  (height === "" || (Number(height) >= 50 && Number(height) <= 250)) && (weight === "" || (Number.isFinite(Number(weight)) && Number(weight) >= 10 && Number(weight) <= 300));
+// Gym admin › a member: their plan, what they owe, visits, Check in / Check out, Renew, Collect due,
+// Edit (the profile sheet: photo, name, phone, gender and the details) and their payments
 
 export default function GymMember() {
   const colors = useThemeColors();
@@ -38,18 +34,10 @@ export default function GymMember() {
   const [options, setOptions] = useState(false);
   const { result: dash } = useGymData(gymApi.dashboard);
   const gym = dash.state === "ready" ? dash.data.gym : null;
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [dob, setDob] = useState("");
-  const [details, setDetails] = useState({ email: "", height: "", weight: "", address: "", notes: "" });
   const checkIn = useGymSave((data: GymMemberDetail) => {
     set(data);
     if (data.durationMin !== undefined) setNotice(`Checked out · ${durationText(data.durationMin ?? 0)} workout.`);
     else setNotice(data.alreadyIn ? "Already checked in." : "Checked in.");
-  });
-  const edit = useGymSave((data: GymMemberDetail) => {
-    set(data);
-    setEditing(false);
   });
 
   if (result.state !== "ready") {
@@ -74,6 +62,7 @@ export default function GymMember() {
       }
     >
       {options && gym && <MemberActionsSheet member={member} payments={payments} gym={gym} onMemberPage onClose={() => setOptions(false)} onChanged={(detail) => { set(detail); setOptions(false); }} />}
+      {editing && <EditProfileSheet member={member} onClose={() => setEditing(false)} onSaved={(detail) => { set(detail); setEditing(false); }} />}
       <View className="gym-card p-4" style={{ gap: 12 }}>
         <View className="flex-row items-center" style={{ gap: 12 }}>
           <View className="gym-avatar" style={{ width: 52, height: 52 }}>
@@ -92,37 +81,10 @@ export default function GymMember() {
             {member.notes ? <Text className="gym-tx__meta" numberOfLines={3}>{`Note: ${member.notes}`}</Text> : null}
             {member.birthdayToday ? <Text className="gym-tx__meta" style={{ color: colors.gymPrimaryText }}>Birthday today</Text> : member.dob ? <Text className="gym-tx__meta">{`Born ${shortDate(member.dob)}`}</Text> : null}
           </View>
-          <PressableScale
-            onPress={() => {
-              setName(member.name);
-              setPhone(member.phone?.replace(/^\+91/, "") ?? "");
-              setDob(dobText(member.dob));
-              setDetails({ email: member.email ?? "", height: member.heightCm ? String(member.heightCm) : "", weight: member.weightKg ? String(member.weightKg) : "", address: member.address ?? "", notes: member.notes ?? "" });
-              setEditing((e) => !e);
-            }}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel={editing ? "Cancel editing" : "Edit name and phone"}
-          >
-            <Text className="gym-link">{editing ? "Cancel" : "Edit"}</Text>
+          <PressableScale onPress={() => setEditing(true)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Edit profile">
+            <Text className="gym-link">Edit</Text>
           </PressableScale>
         </View>
-        {editing && (
-          <View style={{ gap: 12 }}>
-            <GymField label="Name" value={name} onChangeText={setName} maxLength={80} autoCapitalize="words" />
-            <GymField label="Mobile number" value={phone} onChangeText={(t) => setPhone(phoneInput(t))} maxLength={16} keyboardType="phone-pad" hint="Leave empty to remove it." />
-            <GymField label="Date of birth" value={dob} onChangeText={(t) => setDob(dobInput(t))} keyboardType="number-pad" placeholder="DD-MM-YYYY" hint="Leave empty to remove it." />
-            <GymField label="Email" value={details.email} onChangeText={(email) => setDetails((d) => ({ ...d, email }))} maxLength={120} keyboardType="email-address" autoCapitalize="none" autoCorrect={false} />
-            <View className="flex-row" style={{ gap: 10 }}>
-              <View className="min-w-0 flex-1"><GymField label="Height (cm)" hint={detailsValid({ height: details.height, weight: "" }) ? undefined : "50 to 250 cm"} value={details.height} onChangeText={(t) => setDetails((d) => ({ ...d, height: t.replace(/\D/g, "").slice(0, 3) }))} keyboardType="number-pad" /></View>
-              <View className="min-w-0 flex-1"><GymField label="Weight (kg)" hint={detailsValid({ height: "", weight: details.weight }) ? undefined : "10 to 300 kg"} value={details.weight} onChangeText={(t) => setDetails((d) => ({ ...d, weight: t.replace(/[^0-9.]/g, "").slice(0, 5) }))} keyboardType="decimal-pad" /></View>
-            </View>
-            <GymField label="Address" value={details.address} onChangeText={(address) => setDetails((d) => ({ ...d, address }))} maxLength={200} />
-            <GymField label="Notes" value={details.notes} onChangeText={(notes) => setDetails((d) => ({ ...d, notes }))} maxLength={300} />
-            {edit.error ? <FormAlert message={edit.error} /> : null}
-            <SaveButton label="Save changes" ready={name.trim().length >= 2 && (dob.trim() === "" || dobFromText(dob) !== null) && detailsValid(details)} busy={edit.busy} onPress={() => edit.save((token) => gymApi.editMember(token, memberId, { name: name.trim(), phone: phone.trim(), dob: dobFromText(dob) ?? "", email: details.email.trim(), heightCm: details.height ? Number(details.height) : "", weightKg: details.weight ? Number(details.weight) : "", address: details.address.trim(), notes: details.notes.trim() }))} />
-          </View>
-        )}
         <View className="gym-summary">
           <View className="flex-row items-center justify-between">
             <Text className="gym-tx__meta">{planLabel(member.planLength.duration, member.planLength.unit)}</Text>

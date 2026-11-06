@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Keyboard, Modal, PanResponder, Platform, Pressable, ScrollView, Text, useWindowDimensions, View } from "react-native";
-import Animated, { FadeIn, ReduceMotion, runOnJS, SlideInDown, useAnimatedStyle, useSharedValue, withSpring, withTiming } from "react-native-reanimated";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Keyboard, Modal, Platform, Pressable, Text, useWindowDimensions, View } from "react-native";
+import { GestureDetector, GestureHandlerRootView, ScrollView, usePanGesture } from "react-native-gesture-handler";
+import Animated, { FadeIn, ReduceMotion, SlideInDown, useAnimatedStyle, useSharedValue, withSpring, withTiming } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { PressableScale } from "@/components/PressableScale";
@@ -27,7 +28,8 @@ type GymSheetProps = {
 // above the keyboard. Tapping the dimmed page closes it, and so does dragging the sheet down: from
 // the handle always, from the content once it's scrolled to the top.
 const CLOSE_DISTANCE = 120;
-const CLOSE_VELOCITY = 0.6;
+const CLOSE_VELOCITY = 600; // points a second
+const HANDLE_HEIGHT = 30;
 
 export function GymSheet({ title, subtitle, onClose, children, overlay, onBack, stack }: GymSheetProps) {
   const colors = useThemeColors();
@@ -49,44 +51,53 @@ export function GymSheet({ title, subtitle, onClose, children, overlay, onBack, 
   const bottomPad = keyboard > 0 ? 12 : insets.bottom + 20;
 
   // Drag to close: the sheet follows the finger down, then either slides off (far or fast enough)
-  // or springs back. From the handle always; from the content only while it's scrolled to the top.
-  const atTop = useSharedValue(true);
+  // or springs back. The pan is a gesture-handler one, declared simultaneous with the content's
+  // own scroll (the library's ScrollView): a plain PanResponder never got the touch on iOS, where
+  // the native scroll claimed it first, so a tall sheet like a member's options could only be
+  // closed from its thin handle. A drag counts from the handle always, from the content only when
+  // it started scrolled to the top (otherwise it just scrolls).
+  const scrollY = useRef(0);
+  const closing = useRef(false);
+  const fromTop = useRef(true);
   const dragY = useSharedValue(0);
   const dragStyle = useAnimatedStyle(() => ({ transform: [{ translateY: dragY.get() }] }));
-  const responders = useMemo(() => {
-    const settle = () => dragY.set(withSpring(0, { damping: 20, stiffness: 220, reduceMotion: ReduceMotion.System }));
-    const make = (fromContent: boolean) => {
-      const wants = (_: unknown, g: { dx: number; dy: number }) => (!fromContent || atTop.get()) && g.dy > 8 && g.dy > Math.abs(g.dx) * 1.5;
-      return PanResponder.create({
-        onMoveShouldSetPanResponder: wants,
-        onMoveShouldSetPanResponderCapture: wants,
-        onPanResponderMove: (_, g) => dragY.set(Math.max(0, g.dy)),
-        onPanResponderRelease: (_, g) => {
-          if (g.dy > CLOSE_DISTANCE || g.vy > CLOSE_VELOCITY) {
-            Keyboard.dismiss();
-            dragY.set(withTiming(height, { duration: 200, reduceMotion: ReduceMotion.System }, (done) => { if (done) runOnJS(onClose)(); }));
-          } else {
-            settle();
-          }
-        },
-        onPanResponderTerminate: settle,
-      }).panHandlers;
-    };
-    return { handle: make(false), content: make(true) };
-  }, [atTop, dragY, height, onClose]);
+  const settle = () => dragY.set(withSpring(0, { damping: 20, stiffness: 220, reduceMotion: ReduceMotion.System }));
+  const pan = usePanGesture({
+    runOnJS: true,
+    activeOffsetY: 8,
+    failOffsetX: [-16, 16],
+    // Where the finger landed on the sheet: the top HANDLE_HEIGHT points are the handle
+    onBegin: (e) => { fromTop.current = e.y <= HANDLE_HEIGHT || scrollY.current <= 0; },
+    onUpdate: (e) => { if (fromTop.current && !closing.current) dragY.set(Math.max(0, e.translationY)); },
+    onDeactivate: (e) => {
+      if (closing.current || !fromTop.current) return;
+      if (e.translationY > CLOSE_DISTANCE || e.velocityY > CLOSE_VELOCITY) {
+        closing.current = true;
+        Keyboard.dismiss();
+        dragY.set(withTiming(height, { duration: 200, reduceMotion: ReduceMotion.System }));
+        setTimeout(onClose, 200);
+      } else {
+        settle();
+      }
+    },
+  });
 
   return (
     <Modal visible transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>
+      {/* A Modal is its own native window: gestures inside it need their own root view */}
+      <GestureHandlerRootView style={{ flex: 1 }}>
       <Animated.View entering={FadeIn.duration(160).reduceMotion(ReduceMotion.System)} style={{ flex: 1, backgroundColor: "rgba(17, 24, 39, 0.45)" }}>
         <Pressable style={{ flex: 1 }} onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" />
         <View style={{ marginBottom: keyboard }}>
+          <GestureDetector gesture={pan}>
           <Animated.View entering={SlideInDown.duration(260).reduceMotion(ReduceMotion.System)} className="gym-sheet" style={[{ paddingBottom: bottomPad, maxHeight: sheetMax }, dragStyle]} accessibilityViewIsModal>
             {/* A taller grab area around the handle, so it's easy to catch */}
-            <View style={{ paddingVertical: 10, marginTop: -10, marginBottom: -10, alignSelf: "stretch" }} {...responders.handle}>
+            <View style={{ paddingVertical: 10, marginTop: -10, marginBottom: -10, alignSelf: "stretch" }}>
               <View className="gym-sheet__handle" />
             </View>
-            {/* The content scrolls inside the sheet, so the last button is always reachable */}
-            <ScrollView style={{ flexShrink: 1, maxHeight: sheetMax - bottomPad - 30 }} contentContainerStyle={{ gap: 16, paddingTop: title ? 0 : 4 }} keyboardShouldPersistTaps="handled" keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"} showsVerticalScrollIndicator={false} bounces={false} scrollEventThrottle={16} onScroll={(e) => atTop.set(e.nativeEvent.contentOffset.y <= 0)} {...responders.content}>
+            {/* The content scrolls inside the sheet, so the last button is always reachable; its
+                scroll runs alongside the drag, which only follows a pull from the top */}
+            <ScrollView simultaneousWith={pan} style={{ flexShrink: 1, maxHeight: sheetMax - bottomPad - 30 }} contentContainerStyle={{ gap: 16, paddingTop: title ? 0 : 4 }} keyboardShouldPersistTaps="handled" keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"} showsVerticalScrollIndicator={false} bounces={false} overScrollMode="never" scrollEventThrottle={16} onScroll={(e) => { scrollY.current = e.nativeEvent.contentOffset.y; }}>
               {title ? (
                 <View className="flex-row items-start" style={{ gap: 12 }}>
                   {onBack && (
@@ -106,10 +117,12 @@ export function GymSheet({ title, subtitle, onClose, children, overlay, onBack, 
               {children}
             </ScrollView>
           </Animated.View>
+          </GestureDetector>
         </View>
       </Animated.View>
       {overlay}
       {stack}
+      </GestureHandlerRootView>
     </Modal>
   );
 }

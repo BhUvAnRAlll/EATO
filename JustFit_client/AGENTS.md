@@ -205,8 +205,23 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
   written (`lib/gymContact.ts`: `tel:`, `sms:`, `wa.me`, `mailto:`): justFit sends nothing and pays
   for nothing. A PT payment records its period (`pt_label`, `pt_from`, `pt_until`; a renewal follows
   on from a running one). Sheets share
-  `GymSheet`; confirm dialogs `ConfirmDialog`; the main sheet button `GymPrimaryButton`. No member
-  photo upload yet (storing photos needs approval): the photo spot shows the initials.
+  `GymSheet`; confirm dialogs `ConfirmDialog`; the main sheet button `GymPrimaryButton`. Member
+  photos (approved, migration `2026-11-26-member-photos.sql`) are picked on Add Member and Edit
+  Profile (`lib/gymPhoto.ts`, `PUT|DELETE|GET /api/gym/members/:id/photo`); without one the photo
+  spot shows the initials.
+  **Edit Profile (2026-11-06):** the ⋯ sheet's Profile › Edit Profile and a member's page's Edit
+  open `EditProfileSheet`: the Add Member profile filled in, in one sheet (the photo: retake,
+  gallery or remove; the Member ID read only; name, +91 mobile, gender chips, email, height, weight,
+  address, notes, date of birth with a Remove) and Save Changes → `PATCH /api/gym/members/:id`,
+  then `PUT`/`DELETE …/photo` only when the photo changed (a photo failure keeps the saved fields
+  and says so). The page's older inline name-and-phone form is gone.
+  **Sheet drag (2026-11-06):** `GymSheet` closes on a downward drag through
+  `react-native-gesture-handler` v3 hooks (`usePanGesture`, `GestureDetector`, the library's
+  `ScrollView` with `simultaneousWith={pan}`, a `GestureHandlerRootView` inside the Modal): from the
+  handle always, from the content only when it started scrolled to the top. The earlier
+  PanResponder never received the touch on iOS once the content scrolled, so tall sheets could only
+  be closed from the handle. Use the v3 hooks (`runOnJS: true` keeps the callbacks on the JS
+  thread), never the deprecated `Gesture.Pan()` builder.
 - **Theme (2026-11-04):** the portal's main theme is an indigo-to-violet gradient (`gym-grad-from`
   `#4F46E5` → `gym-grad-to` `#7C3AED`, drawn by `components/gym/GradientFill.tsx` with
   react-native-svg): the revenue card, filled buttons, the + buttons, selected chips, the active

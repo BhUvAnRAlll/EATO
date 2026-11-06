@@ -463,6 +463,31 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
     await h.expectText("Whey Protein 1kg × 2");
   }));
 
+  it("4d2. a member's ⋯ › Edit Profile: the filled-in profile, gender and height changed, saved", run("gym-edit-profile", async () => {
+    await page.navigate(`${expo.baseUrl}/gym/members/${state.asif}`);
+    await clickLabel("Mohammed Asif: options");
+    await h.expectText("Edit Profile");
+    await h.settle();
+    await clickLabel("Edit Profile");
+    await h.expectText("Update member profile.");
+    // Filled in from the member: the name, the number and the Member ID (read only)
+    await page.waitFor(`[...document.querySelectorAll("input")].some((i) => i.value === "Mohammed Asif") && [...document.querySelectorAll("input")].some((i) => i.value === "9876543210")`, NAV_TIMEOUT, "the name and number filled in");
+    const [[before]] = await connection.query("SELECT member_code FROM gym_members WHERE id = ?", [state.asif]);
+    assert.ok(await page.evaluate(`[...document.querySelectorAll("input")].some((i) => i.value === ${JSON.stringify(before.member_code)} && i.readOnly)`), "the Member ID shown, not editable");
+    await snapshotAllWidths("gym-edit-profile");
+    await clickLabel("Female");
+    await page.setInput(h.input("Height (cm)"), "170");
+    await page.setInput(h.input("Email"), "asif@example.com");
+    await page.evaluate(`document.querySelector('[aria-label="Save Changes"]').scrollIntoView({ block: "center" })`);
+    await h.settle();
+    await clickLabel("Save Changes");
+    await page.waitFor(`!(document.body.innerText || "").includes("Update member profile.")`, NAV_TIMEOUT, "the Edit Profile sheet closes");
+    const [[asif]] = await connection.query("SELECT full_name, phone, gender, height_cm, email, member_code FROM gym_members WHERE id = ?", [state.asif]);
+    assert.deepEqual({ ...asif }, { full_name: "Mohammed Asif", phone: "9876543210", gender: "female", height_cm: 170, email: "asif@example.com", member_code: before.member_code });
+    await h.expectText("Female");
+    await h.expectText("170 cm");
+  }));
+
   it("4e. Manage › Member reminders, then Send Bulk SMS: credits, Auto Reminders, Manual Send, Message Logs", run("gym-sms", async () => {
     // The justFit team has given the branch 5 credits; Karthik's plan ended 6 days ago
     assert.equal((await apiAs("admin", "POST", `/api/admin/portal/gyms/${state.gym}/sms-credits`, { credits: 5 })).status, 200);

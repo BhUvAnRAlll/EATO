@@ -7,6 +7,7 @@ import { GymIcon } from "@/components/gym/GymIcon";
 import { MemberPhotoImage } from "@/components/gym/MemberPhotoImage";
 import { ChangeTrainerSheet } from "@/components/gym/ChangeTrainerSheet";
 import { CollectDueSheet } from "@/components/gym/CollectDueSheet";
+import { EditProfileSheet } from "@/components/gym/EditProfileSheet";
 import { GradientFill } from "@/components/gym/GradientFill";
 import { GymSheet } from "@/components/gym/GymSheet";
 import { MemberSaleSheet } from "@/components/gym/MemberSaleSheet";
@@ -21,7 +22,8 @@ import type { GymIconName } from "@/constants/gymIcons";
 type Row = { label: string; icon: GymIconName; tone?: "danger"; onPress: () => void };
 
 // A member's options (the user's designs): their card on the portal's gradient (Call, SMS,
-// WhatsApp, Email; the plan and PT with their dates), Attendance History, Reminders (due, expired,
+// WhatsApp, Email; the plan and PT with their dates), Attendance History, Profile (Edit Profile:
+// photo, name, mobile, gender and the details), Reminders (due, expired,
 // invoice: each opens Send via, an SMS from justFit, the phone's SMS app or WhatsApp), Membership (Collect Payment Due, Renew Member, Edit
 // Membership, Pause Membership, Transaction History) and Sales (Renew PT, Change Trainer once they
 // have PT, Add Service, Sell Product).
@@ -33,11 +35,13 @@ export function MemberActionsSheet({ member, payments, gym, onClose, onChanged, 
   const [selling, setSelling] = useState<"product" | "service" | null>(null);
   const [changingTrainer, setChangingTrainer] = useState(false);
   const [reminding, setReminding] = useState<ReminderKind | null>(null);
+  const [editingProfile, setEditingProfile] = useState(false);
   const go = (href: Href) => { onClose(); onLeave?.(); router.push(href); };
   const openMember = () => (onMemberPage ? onClose() : go({ pathname: "/gym/members/[id]", params: { id: String(member.id) } }));
   const id = String(member.id);
   const start = planStart(member.expiresOn, member.planLength.duration, member.planLength.unit);
 
+  const profile: Row[] = [{ label: "Edit Profile", icon: "user-pen", onPress: () => setEditingProfile(true) }];
   const reminders: Row[] = [
     ...(member.due > 0 ? [{ label: "Send Due Reminder", icon: "bell-ring", onPress: () => setReminding("due") } as Row] : []),
     { label: "Send Expired Reminder", icon: "message-square-warning", tone: "danger", onPress: () => setReminding("expired") },
@@ -99,6 +103,7 @@ export function MemberActionsSheet({ member, payments, gym, onClose, onChanged, 
           {selling && <MemberSaleSheet kind={selling} member={member} gym={gym} onClose={() => setSelling(null)} onSaved={(detail) => { setSelling(null); onChanged(detail); }} />}
           {changingTrainer && <ChangeTrainerSheet member={member} onClose={() => setChangingTrainer(false)} onSaved={(detail) => { setChangingTrainer(false); onChanged(detail); }} />}
           {reminding && <SendReminderSheet kind={reminding} member={member} gym={gym} payment={payments?.[0]} onClose={() => setReminding(null)} />}
+          {editingProfile && <EditProfileSheet member={member} onClose={() => setEditingProfile(false)} onSaved={(detail) => { setEditingProfile(false); onChanged(detail); }} />}
           {collecting && <CollectDueSheet member={member} gym={gym} onClose={() => setCollecting(false)} onSaved={(detail) => { setCollecting(false); onChanged(detail); }} />}
         </>
       }
@@ -135,6 +140,7 @@ export function MemberActionsSheet({ member, payments, gym, onClose, onChanged, 
         <Text className="gym-menu__label flex-1">Attendance History</Text>
         <Text className="gym-link">{member.insideNow ? "Inside now" : "View"}</Text>
       </Pressable>
+      {section("Profile", profile)}
       {section("Reminders", reminders)}
       {section("Membership", membership)}
       {section("Sales", sales)}
