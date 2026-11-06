@@ -1000,7 +1000,7 @@ CREATE TABLE ai_usage (
   created_at     TIMESTAMP        NOT NULL DEFAULT CURRENT_TIMESTAMP,
   user_id        VARCHAR(64)      NULL,
   gym_id         CHAR(36)         NULL,
-  feature        ENUM('gym_assistant', 'coach_plan', 'coach_workout', 'coach_meal', 'coach_chat', 'food_scan', 'body_scan', 'body_report', 'exercise_library', 'workout_place', 'fitness_program', 'coach_insights') NOT NULL,
+  feature        ENUM('gym_assistant', 'coach_plan', 'coach_workout', 'coach_meal', 'coach_chat', 'food_scan', 'body_scan', 'body_report', 'exercise_library', 'workout_place', 'fitness_program', 'coach_insights', 'coach_voice') NOT NULL,
   provider       ENUM('openai', 'forma') NOT NULL,
   model          VARCHAR(64)      NOT NULL,
   input_tokens   INT UNSIGNED     NOT NULL DEFAULT 0,
@@ -1042,6 +1042,7 @@ INSERT INTO ai_model_prices (model, provider, input_usd_per_million, cached_inpu
   ('gpt-4.1-nano', 'openai', 0.1000, 0.0250,  0.4000, 0),
   ('gpt-5-mini',   'openai', 0.2500, 0.0250,  2.0000, 0),
   ('gpt-5-nano',   'openai', 0.0500, 0.0050,  0.4000, 0),
+  ('gpt-4o-mini-transcribe', 'openai', 3.0000, 3.0000, 5.0000, 0), -- billed by audio token: the audio input price (text tokens in the prompt are a handful)
   ('forma',        'forma',  0,      NULL,    0,      0);
 
 -- The monthly budget in rupees, the dollar exchange rate and which alerts are on: one row (id 1).

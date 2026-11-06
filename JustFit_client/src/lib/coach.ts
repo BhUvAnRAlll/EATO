@@ -69,6 +69,12 @@ export const CHAT_MAX_TEXT = 1000;
 const signedOut = <T>(): Promise<ApiResult<T>> => Promise.resolve({ ok: false, error: "Please sign in again." });
 
 export const coachApi = {
+  // A spoken question as a short clip (base64), for a phone whose own recogniser lacks the
+  // language: the server transcribes it (a small paid call) and answers the words, nothing is stored
+  voice(token: string | null, clip: { data: string; mediaType: string; language: string }): Promise<ApiResult<{ text: string }>> {
+    if (!token) return signedOut();
+    return apiFetch("/api/coach/voice", { method: "POST", body: clip, token });
+  },
   intake(token: string | null): Promise<ApiResult<{ intake: Intake | null; prefill: IntakePrefill }>> {
     if (!token) return signedOut();
     return apiFetch("/api/coach/intake", { token });

@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Pressable, View } from "react-native";
+import { ActivityIndicator, Pressable, View } from "react-native";
 import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withRepeat, withSequence, withTiming } from "react-native-reanimated";
 
 import { SymbolView } from "@/components/SymbolView";
@@ -7,8 +7,8 @@ import { useThemeColors } from "@/theme";
 
 // The mic beside Send in the coach chat. Tap to start listening, tap again to stop. While
 // listening it turns red with a soft ring pulsing behind it; with Reduce Motion on the ring
-// sits still.
-export function MicButton({ listening, disabled, onPress }: { listening: boolean; disabled?: boolean; onPress: () => void }) {
+// sits still. `busy`: the clip is being transcribed by the server (a spinner, nothing to tap).
+export function MicButton({ listening, busy, disabled, onPress }: { listening: boolean; busy?: boolean; disabled?: boolean; onPress: () => void }) {
   const colors = useThemeColors();
   const reduceMotion = useReducedMotion();
   const pulse = useSharedValue(0);
@@ -31,19 +31,23 @@ export function MicButton({ listening, disabled, onPress }: { listening: boolean
       <Animated.View pointerEvents="none" className="coach__mic-pulse" style={ring} />
       <Pressable
         onPress={onPress}
-        disabled={disabled}
-        className={listening ? "coach__mic coach__mic--on" : "coach__mic"}
-        style={disabled ? { opacity: 0.4 } : undefined}
+        disabled={disabled || busy}
+        className={listening || busy ? "coach__mic coach__mic--on" : "coach__mic"}
+        style={disabled && !busy ? { opacity: 0.4 } : undefined}
         accessibilityRole="button"
-        accessibilityLabel={listening ? "Stop listening" : "Speak your question"}
-        accessibilityState={{ disabled: !!disabled, selected: listening }}
+        accessibilityLabel={busy ? "Working out what you said" : listening ? "Stop listening" : "Speak your question"}
+        accessibilityState={{ disabled: !!disabled || !!busy, selected: listening, busy: !!busy }}
         hitSlop={4}
       >
-        <SymbolView
-          name={listening ? { ios: "mic.fill", android: "mic", web: "mic" } : { ios: "mic", android: "mic", web: "mic" }}
-          size={20}
-          tintColor={listening ? colors.onPrimary : colors.forestInk}
-        />
+        {busy ? (
+          <ActivityIndicator color={colors.onPrimary} />
+        ) : (
+          <SymbolView
+            name={listening ? { ios: "mic.fill", android: "mic", web: "mic" } : { ios: "mic", android: "mic", web: "mic" }}
+            size={20}
+            tintColor={listening ? colors.onPrimary : colors.forestInk}
+          />
+        )}
       </Pressable>
     </View>
   );

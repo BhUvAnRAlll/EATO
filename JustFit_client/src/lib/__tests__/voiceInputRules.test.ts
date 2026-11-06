@@ -6,36 +6,34 @@ import { describe, it } from "node:test";
 import {
   DEFAULT_VOICE_LANGUAGE,
   VOICE_LANGUAGES,
-  availableVoiceLanguages,
   isVoiceLanguage,
   mergeTranscript,
   resolveVoiceLanguage,
+  voiceEngineFor,
   voiceErrorMessage,
 } from "../voiceInputRules.ts";
 
-describe("availableVoiceLanguages", () => {
-  it("offers every language when the phone can't say what it supports", () => {
-    assert.deepEqual(availableVoiceLanguages([]), VOICE_LANGUAGES);
+describe("voiceEngineFor", () => {
+  it("uses the phone's recogniser when it can't say what it supports (the web, old Android)", () => {
+    assert.equal(voiceEngineFor("kn-IN", []), "phone");
+    assert.equal(voiceEngineFor("en-IN", []), "phone");
   });
 
-  it("keeps only the languages the phone lists, in the app's order, whatever the tag's shape", () => {
-    const codes = availableVoiceLanguages(["kn_IN", "EN-in", "ta-IN", "fr-FR"]).map((l) => l.code);
-    assert.deepEqual(codes, ["en-IN", "kn-IN"]);
-    assert.deepEqual(availableVoiceLanguages(["hi"]).map((l) => l.code), ["hi-IN"]);
-  });
-
-  it("still offers English when the phone lists none of them, so the recogniser can answer", () => {
-    assert.deepEqual(availableVoiceLanguages(["de-DE"]).map((l) => l.code), ["en-IN"]);
+  it("uses the phone for a language it lists, whatever the tag's shape, and the server for one it leaves out", () => {
+    const iphone = ["en-IN", "hi_IN", "ta-IN", "fr-FR"];
+    assert.equal(voiceEngineFor("en-IN", iphone), "phone");
+    assert.equal(voiceEngineFor("hi-IN", iphone), "phone");
+    assert.equal(voiceEngineFor("kn-IN", iphone), "server");
+    assert.equal(voiceEngineFor("kn-IN", ["kn"]), "phone");
   });
 });
 
 describe("resolveVoiceLanguage", () => {
-  it("keeps the member's choice when the phone has it, else falls back to the first available", () => {
-    const all = availableVoiceLanguages([]);
-    assert.equal(resolveVoiceLanguage("kn-IN", all), "kn-IN");
-    const iphone = availableVoiceLanguages(["en-IN", "hi-IN"]);
-    assert.equal(resolveVoiceLanguage("kn-IN", iphone), "en-IN");
-    assert.equal(resolveVoiceLanguage("hi-IN", iphone), "hi-IN");
+  it("keeps the member's choice when it is offered, else falls back to the first offered", () => {
+    assert.equal(resolveVoiceLanguage("kn-IN", VOICE_LANGUAGES), "kn-IN");
+    const two = VOICE_LANGUAGES.slice(0, 2);
+    assert.equal(resolveVoiceLanguage("kn-IN", two), "en-IN");
+    assert.equal(resolveVoiceLanguage("hi-IN", two), "hi-IN");
     assert.equal(resolveVoiceLanguage("kn-IN", []), DEFAULT_VOICE_LANGUAGE);
   });
 

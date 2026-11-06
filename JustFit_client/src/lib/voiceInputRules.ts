@@ -1,7 +1,9 @@
 // Voice input for the coach chat: the pure rules, with no React Native in them so they are
 // unit-tested on Node. The phone's own speech recogniser (Apple's on iOS, Google's on Android,
 // the browser's on the web) turns speech into text; nothing is recorded, uploaded or paid for.
-// The words land in the ask box for the member to read and fix before they tap Send.
+// When the phone's recogniser lacks the chosen language (an iPhone for Kannada), a short clip
+// is recorded and justFit's server transcribes it instead (POST /api/coach/voice, a small paid
+// call). Either way the words land in the ask box for the member to read and fix before Send.
 
 /** The languages the mic offers. The codes are BCP-47 tags the recognisers understand. */
 export const VOICE_LANGUAGES = [
@@ -21,23 +23,28 @@ export const isVoiceLanguage = (value: unknown): value is VoiceLanguageCode =>
 /** "kn_IN", "kn-in" and "kn" all count as Kannada */
 const languageOf = (tag: string) => tag.trim().toLowerCase().replace("_", "-").split("-")[0];
 
+/** Who turns the speech into text: the phone's own recogniser, or justFit's server from a clip */
+export type VoiceEngine = "phone" | "server";
+
 /**
- * The languages this phone can recognise, in the app's order. An empty list from the phone
- * (the web, Android 12 and below, or a failed read) means "unknown", and every language is
- * offered; the recogniser then says so itself if one isn't supported.
+ * The engine for a language on this phone. The phone's recogniser is used whenever it lists the
+ * language, and whenever it can't say what it lists (the web, Android 12 and below, a failed
+ * read): it then reports an unsupported language itself. Only a phone that lists its languages
+ * and leaves this one out sends a clip to the server.
  */
-export function availableVoiceLanguages(supportedLocales: readonly string[]): VoiceLanguage[] {
-  if (supportedLocales.length === 0) return [...VOICE_LANGUAGES];
+export function voiceEngineFor(code: VoiceLanguageCode, supportedLocales: readonly string[]): VoiceEngine {
+  if (supportedLocales.length === 0) return "phone";
   const supported = new Set(supportedLocales.map(languageOf));
-  const available = VOICE_LANGUAGES.filter((language) => supported.has(languageOf(language.code)));
-  // A phone that recognises none of them still gets English: the recogniser reports the real answer
-  return available.length > 0 ? available : [VOICE_LANGUAGES[0]];
+  return supported.has(languageOf(code)) ? "phone" : "server";
 }
 
-/** The language to listen in: the member's choice when the phone has it, otherwise the first available */
+/** The language to listen in: the member's choice, which every phone offers one way or the other */
 export function resolveVoiceLanguage(chosen: VoiceLanguageCode, available: readonly VoiceLanguage[]): VoiceLanguageCode {
   return available.some((language) => language.code === chosen) ? chosen : (available[0]?.code ?? DEFAULT_VOICE_LANGUAGE);
 }
+
+/** How long one spoken question may be: the server refuses longer clips */
+export const MAX_CLIP_SECONDS = 30;
 
 /**
  * What the ask box shows while listening: whatever was typed before the mic was tapped, then

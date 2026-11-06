@@ -13,6 +13,11 @@ const { chat, history } = require("./chat");
 const { chatBody } = require("./chatRules");
 const insights = require("./insights");
 const { insightsQuery, reviewBody } = require("./insightsRules");
+const { transcribeClip, VoiceError, FEATURE: VOICE_FEATURE } = require("./voice");
+const { checkVoiceClip, voiceLimits } = require("./voiceRules");
+const { jsonBodyWithLimit } = require("../requestBody");
+const aiLimits = require("../ai/limits");
+const aiUsage = require("../ai/usage");
 
 const router = express.Router();
 const smallBody = express.json({ limit: "16kb" });
@@ -29,6 +34,8 @@ const workoutChangeLimiter = createRateLimiter({ limit: 10, windowMs: 60 * 60 * 
 const reviewLimiter = createRateLimiter({ limit: 6, windowMs: 60 * 60 * 1000 });
 // Opening the chat reads the saved conversation (no AI call): generous, but not unlimited
 const chatHistoryLimiter = createRateLimiter({ limit: 120, windowMs: 60 * 60 * 1000 });
+// A voice clip is a small paid transcription call, and each becomes a chat message anyway
+const voiceLimiter = createRateLimiter({ limit: 20, windowMs: 60 * 60 * 1000 });
 
 const pool = (req) => req.app.locals.pool;
 
@@ -151,6 +158,22 @@ router.get("/chat", limitPerUser(chatHistoryLimiter), route(async (req, res) => 
 router.post("/chat", limitPerUser(chatLimiter), smallBody, route(async (req, res) => {
   const body = chatBody(req.body, Date.now());
   res.json(await chat(pool(req), req.userId, body));
+}));
+
+// POST /voice { data: base64, mediaType, language }: a spoken question (at most 30 s) → { text }
+// for the chat's box, for a phone whose own recogniser lacks the language. Its own budget and
+// body cap, byte-level checks, the AI limits, then the transcription model. Nothing is stored
+// and the clip is never logged; the member reads the text and sends it as a normal message.
+router.post("/voice", limitPerUser(voiceLimiter), jsonBodyWithLimit(voiceLimits.maxBodyBytes), route(async (req, res) => {
+  const clip = checkVoiceClip(req.body);
+  if (!clip.ok) return res.status(clip.status).json({ error: clip.error });
+  try {
+    await aiLimits.check(pool(req), { feature: VOICE_FEATURE, userId: req.userId });
+    res.json(await transcribeClip(clip, process.env, aiUsage.tracker(pool(req), { feature: VOICE_FEATURE, userId: req.userId })));
+  } catch (error) {
+    if (error instanceof VoiceError || error instanceof aiLimits.AiLimitError) return res.status(error.status).json({ error: error.message });
+    throw error;
+  }
 }));
 
 // GET /insights?today=&week=this|last → the week's numbers (food, workouts, weight) and its saved

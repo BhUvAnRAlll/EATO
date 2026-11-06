@@ -36,8 +36,9 @@ const keyOf = (turn: { id: string; role: string; clientId?: string }) => (turn.r
 // call, limited per member by the server; the server saves the conversation for 7 days, so it is
 // still here after leaving the chat or restarting the app. A failed message can be tapped to send
 // it again. A reply that recommends a change to the plan carries Apply cards (components/coach/ChatProposals).
-// The mic beside Send (lib/useVoiceInput) turns speech into text with the phone's own recogniser,
-// in English, Hindi or Kannada; the words go into the box for the member to read, fix and send.
+// The mic beside Send (lib/useVoiceInput) turns speech into text, in English, Hindi or Kannada:
+// with the phone's own recogniser, or, for a language it lacks, a short clip the server
+// transcribes; the words go into the box for the member to read, fix and send.
 export default function CoachChat() {
   const colors = useThemeColors();
   const { q, draft, name, coach } = useLocalSearchParams<{ q?: string; draft?: string; name?: string; coach?: string }>();
@@ -113,8 +114,9 @@ export default function CoachChat() {
     send(getToken, value);
   };
 
-  const canSend = text.trim().length > 0 && !sending && status === "ready" && !voice.listening;
+  const canSend = text.trim().length > 0 && !sending && status === "ready" && !voice.listening && !voice.transcribing;
   const micAvailable = voice.supported && status === "ready";
+  const chosenLanguage = voice.languages.find((l) => l.code === voice.language);
 
   return (
     <View className="coach__page">
@@ -217,11 +219,13 @@ export default function CoachChat() {
           </ScrollView>
 
           <View className="px-4 pb-2 pt-2">
-            {voice.listening && (
+            {(voice.listening || voice.transcribing) && (
               <Animated.View entering={TYPING_IN} className="coach__listen" accessibilityLiveRegion="polite">
                 <View className="coach__listen-dot" />
-                <Text className="coach__listen-text">Listening… tap the mic to stop</Text>
-                {voice.languages.length > 1 && (
+                <Text className="coach__listen-text">
+                  {voice.transcribing ? "Working out what you said…" : voice.engine === "server" ? `Listening in ${chosenLanguage?.native ?? ""} · sent to justFit to transcribe` : "Listening… tap the mic to stop"}
+                </Text>
+                {voice.listening && voice.languages.length > 1 && (
                   <View className="flex-row flex-wrap" style={{ gap: 6 }}>
                     {voice.languages.map((language) => {
                       const on = language.code === voice.language;
@@ -247,11 +251,11 @@ export default function CoachChat() {
               <TextInput
                 value={text}
                 onChangeText={setText}
-                placeholder={voice.listening ? "Speak now…" : "Ask your coach..."}
+                placeholder={voice.listening ? "Speak now…" : voice.transcribing ? "One moment…" : "Ask your coach..."}
                 placeholderTextColor={colors.faint}
                 maxLength={CHAT_MAX_TEXT}
                 multiline
-                editable={!voice.listening}
+                editable={!voice.listening && !voice.transcribing}
                 onSubmitEditing={() => submit(text)}
                 submitBehavior="submit"
                 returnKeyType="send"
@@ -259,7 +263,7 @@ export default function CoachChat() {
                 className="outline-none"
                 style={{ flex: 1, maxHeight: 110, paddingVertical: 10, color: colors.forestInk, fontFamily: fonts.regular, fontSize: 15, lineHeight: 20 }}
               />
-              {voice.supported && <MicButton listening={voice.listening} disabled={!micAvailable || sending} onPress={toggleMic} />}
+              {voice.supported && <MicButton listening={voice.listening} busy={voice.transcribing} disabled={!micAvailable || sending} onPress={toggleMic} />}
               <Pressable
                 onPress={() => submit(text)}
                 disabled={!canSend}
