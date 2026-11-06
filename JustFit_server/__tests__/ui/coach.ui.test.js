@@ -4,7 +4,8 @@
 // Continue staying off until a step is answered, the doctor note), the disclaimer tick, the
 // save, the summary on the Coach tab, Edit, making the plan (the timeline, Week and Insights), logging
 // a plan meal to Macro, the Insights dashboard from it (the week's numbers, weight, the coach's review), the coach chat (the fake AI's reply; the saved conversation after leaving
-// and after a restart; a chat that can't be loaded, and a failed send, each tried again), and
+// and after a restart; a chat that can't be loaded, and a failed send, each tried again; the mic,
+// with a stand-in recogniser, filling the box in English and Kannada without sending), and
 // screenshots at 3 widths.
 //
 //   yarn test:ui      (needs JustFit_server/.env.test and Google Chrome; otherwise skipped)
@@ -463,6 +464,70 @@ describe("ui coach: the AI Coach intake", () => {
     await h.goto("/coach", "Coach Priya");
     await clickLabel("Ask Priya");
     await h.expectPath("/coach/chat");
+  }));
+
+  it("7c. the mic: speaking fills the box without sending; the language chips change what the recogniser hears", run("chat-voice", async () => {
+    const chatRoute = "/coach/chat?name=Coach%20Priya&coach=priya";
+    const box = 'textarea[aria-label="Message your coach"]';
+    // Headless Chrome has no microphone: a stand-in for the browser's SpeechRecognition that
+    // "hears" a sentence (an interim result at once, the final one when Stop is tapped) and
+    // records each language it was started in
+    const { identifier } = await client.send("Page.addScriptToEvaluateOnNewDocument", { source: `(() => {
+      window.__voiceLangs = [];
+      class FakeRecognition extends EventTarget {
+        constructor() { super(); this.lang = ""; this.interimResults = false; this.maxAlternatives = 1; this.continuous = false; }
+        _result(text, isFinal) { const ev = new Event("result"); const list = [{ transcript: text, confidence: 0.9 }]; list.isFinal = isFinal; ev.results = [list]; ev.resultIndex = 0; this.dispatchEvent(ev); }
+        start() {
+          window.__voiceLangs.push(this.lang);
+          this.kannada = this.lang === "kn-IN";
+          setTimeout(() => this.dispatchEvent(new Event("start")), 10);
+          setTimeout(() => this._result(this.kannada ? "ಇಂದು" : "How much", false), 80);
+        }
+        stop() { this._result(this.kannada ? "ಇಂದು ಏನು ತಿನ್ನಬೇಕು" : "How much protein do I need", true); this.dispatchEvent(new Event("end")); }
+        abort() { const ev = new Event("error"); ev.error = "aborted"; ev.message = ""; this.dispatchEvent(ev); this.dispatchEvent(new Event("end")); }
+      }
+      window.webkitSpeechRecognition = FakeRecognition;
+    })();` }, page.sessionId);
+    try {
+      await h.goto(chatRoute, "How much water should I drink?");
+      const replies = async () => (await page.bodyText()).split("test reply").length - 1;
+      const before = await replies();
+      await page.setInput(box, "Coach,");
+      await clickLabel("Speak your question");
+      await h.expectText("Listening… tap the mic to stop");
+      // The words heard so far follow what was typed, in the box, while it listens
+      await page.waitFor(`document.querySelector(${JSON.stringify(box)}).value === "Coach, How much"`, NAV_TIMEOUT, "the interim words in the box");
+      await snapshotAllWidths("coach-chat-listening");
+      await clickLabel("Stop listening");
+      await page.waitFor(`document.querySelector(${JSON.stringify(box)}).value === "Coach, How much protein do I need"`, NAV_TIMEOUT, "the transcript in the box");
+      await h.expectNoText("Listening… tap the mic to stop");
+      assert.equal(await replies(), before, "speaking sends nothing by itself");
+      assert.deepEqual(await page.evaluate("window.__voiceLangs"), ["en-IN"], "listens in English first");
+      // Kannada: the chip ends the English session; the next tap listens in Kannada
+      await page.setInput(box, "");
+      await clickLabel("Speak your question");
+      await h.expectText("Listening… tap the mic to stop");
+      await clickLabel("Speak in Kannada");
+      await h.expectNoText("Listening… tap the mic to stop");
+      await clickLabel("Speak your question");
+      await h.expectText("Listening… tap the mic to stop");
+      await page.waitFor(`document.querySelector(${JSON.stringify(box)}).value === "ಇಂದು"`, NAV_TIMEOUT, "the interim Kannada words");
+      await clickLabel("Stop listening");
+      await page.waitFor(`document.querySelector(${JSON.stringify(box)}).value === "ಇಂದು ಏನು ತಿನ್ನಬೇಕು"`, NAV_TIMEOUT, "the Kannada transcript in the box");
+      assert.deepEqual(await page.evaluate("window.__voiceLangs"), ["en-IN", "en-IN", "kn-IN"]);
+      // Send is the member's decision, as for typed text
+      await clickLabel("Send message");
+      await h.expectText("ಇಂದು ಏನು ತಿನ್ನಬೇಕು");
+      await page.waitFor(`(document.body.innerText.match(/test reply/g) || []).length >= ${before + 1}`, NAV_TIMEOUT, "the spoken question's reply");
+      const [[saved]] = await connection.query("SELECT COUNT(*) AS n FROM coach_chat_messages WHERE user_id = ? AND text = 'ಇಂದು ಏನು ತಿನ್ನಬೇಕು'", [identities.a.id]);
+      assert.equal(saved.n, 1, "Kannada text is saved as written");
+    } finally {
+      await client.send("Page.removeScriptToEvaluateOnNewDocument", { identifier }, page.sessionId);
+      // Back to where test 8 starts, whatever happened here: the chat opened from the Coach tab
+      await h.goto("/coach", "Coach Priya");
+      await clickLabel("Ask Priya");
+      await h.expectPath("/coach/chat");
+    }
   }));
 
   it("8. Change opens the coach picker; saving switches the coach and keeps the other answers", run("change-coach", async () => {

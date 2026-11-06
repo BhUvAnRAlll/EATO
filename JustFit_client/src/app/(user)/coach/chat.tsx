@@ -8,6 +8,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { SymbolView } from "@/components/SymbolView";
 import { ChatProposals } from "@/components/coach/ChatProposals";
 import { CoachAvatar } from "@/components/coach/CoachAvatar";
+import { MicButton } from "@/components/coach/MicButton";
 import { RevealText } from "@/components/motion/RevealText";
 import { TypingDots } from "@/components/motion/TypingDots";
 import { coachPrompts, coaches, type CoachId } from "@/data/coach";
@@ -15,6 +16,8 @@ import { fonts } from "@/constants/fonts";
 import { CHAT_MAX_TEXT } from "@/lib/coach";
 import { useSessionToken } from "@/lib/session";
 import { useNewKeys } from "@/lib/useNewKeys";
+import { useVoiceInput } from "@/lib/useVoiceInput";
+import { mergeTranscript } from "@/lib/voiceInputRules";
 import { useCoachChatStore } from "@/store/coachChat";
 import { useThemeColors } from "@/theme";
 
@@ -33,6 +36,8 @@ const keyOf = (turn: { id: string; role: string; clientId?: string }) => (turn.r
 // call, limited per member by the server; the server saves the conversation for 7 days, so it is
 // still here after leaving the chat or restarting the app. A failed message can be tapped to send
 // it again. A reply that recommends a change to the plan carries Apply cards (components/coach/ChatProposals).
+// The mic beside Send (lib/useVoiceInput) turns speech into text with the phone's own recogniser,
+// in English, Hindi or Kannada; the words go into the box for the member to read, fix and send.
 export default function CoachChat() {
   const colors = useThemeColors();
   const { q, draft, name, coach } = useLocalSearchParams<{ q?: string; draft?: string; name?: string; coach?: string }>();
@@ -54,6 +59,28 @@ export default function CoachChat() {
   // is written in word by word, and its Apply cards follow once it's whole
   const added = useNewKeys(turns.map(keyOf), status === "ready");
   const [written, setWritten] = useState<Set<string>>(() => new Set());
+  // Voice: what was in the box when the mic was tapped stays, the words heard follow it. A
+  // session that ends with nothing heard (cancelled, or silence) leaves the box as it was.
+  const voice = useVoiceInput();
+  const typedBefore = useRef("");
+  const wasListening = useRef(false);
+  useEffect(() => {
+    if (voice.listening) wasListening.current = true;
+    if (voice.listening || voice.transcript) {
+      setText(mergeTranscript(typedBefore.current, voice.transcript, CHAT_MAX_TEXT));
+    } else if (wasListening.current) {
+      wasListening.current = false;
+      setText(typedBefore.current);
+    }
+  }, [voice.listening, voice.transcript]);
+  const toggleMic = () => {
+    if (voice.listening) {
+      voice.stop();
+      return;
+    }
+    typedBefore.current = text;
+    voice.start();
+  };
 
   const coachName = name || "Your coach";
   // Only a known coach id draws an avatar (the param is just a hint from the Coach tab)
@@ -86,7 +113,8 @@ export default function CoachChat() {
     send(getToken, value);
   };
 
-  const canSend = text.trim().length > 0 && !sending && status === "ready";
+  const canSend = text.trim().length > 0 && !sending && status === "ready" && !voice.listening;
+  const micAvailable = voice.supported && status === "ready";
 
   return (
     <View className="coach__page">
@@ -189,15 +217,41 @@ export default function CoachChat() {
           </ScrollView>
 
           <View className="px-4 pb-2 pt-2">
+            {voice.listening && (
+              <Animated.View entering={TYPING_IN} className="coach__listen" accessibilityLiveRegion="polite">
+                <View className="coach__listen-dot" />
+                <Text className="coach__listen-text">Listening… tap the mic to stop</Text>
+                {voice.languages.length > 1 && (
+                  <View className="flex-row flex-wrap" style={{ gap: 6 }}>
+                    {voice.languages.map((language) => {
+                      const on = language.code === voice.language;
+                      return (
+                        <Pressable
+                          key={language.code}
+                          onPress={() => voice.setLanguage(language.code)}
+                          className={on ? "coach__lang coach__lang--on" : "coach__lang"}
+                          accessibilityRole="radio"
+                          accessibilityLabel={`Speak in ${language.label}`}
+                          accessibilityState={{ checked: on }}
+                        >
+                          <Text className="coach__lang-label">{language.native}</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                )}
+              </Animated.View>
+            )}
             <View className="coach__ask">
               <SymbolView name={{ ios: "sparkles", android: "auto_awesome", web: "auto_awesome" }} size={18} tintColor={colors.leaf} />
               <TextInput
                 value={text}
                 onChangeText={setText}
-                placeholder="Ask your coach..."
+                placeholder={voice.listening ? "Speak now…" : "Ask your coach..."}
                 placeholderTextColor={colors.faint}
                 maxLength={CHAT_MAX_TEXT}
                 multiline
+                editable={!voice.listening}
                 onSubmitEditing={() => submit(text)}
                 submitBehavior="submit"
                 returnKeyType="send"
@@ -205,6 +259,7 @@ export default function CoachChat() {
                 className="outline-none"
                 style={{ flex: 1, maxHeight: 110, paddingVertical: 10, color: colors.forestInk, fontFamily: fonts.regular, fontSize: 15, lineHeight: 20 }}
               />
+              {voice.supported && <MicButton listening={voice.listening} disabled={!micAvailable || sending} onPress={toggleMic} />}
               <Pressable
                 onPress={() => submit(text)}
                 disabled={!canSend}
@@ -216,6 +271,19 @@ export default function CoachChat() {
                 <SymbolView name={{ ios: "paperplane.fill", android: "send", web: "send" }} size={18} tintColor={colors.onPrimary} />
               </Pressable>
             </View>
+            {voice.error && (
+              <View className="flex-row flex-wrap items-center" accessibilityRole="alert" style={{ gap: 8 }}>
+                <Text className="coach__voice-error">{voice.error.message}</Text>
+                {voice.error.settings && Platform.OS !== "web" && (
+                  <Pressable onPress={voice.openSettings} accessibilityRole="button" accessibilityLabel="Open Settings" hitSlop={8}>
+                    <Text className="coach__voice-link">Open Settings</Text>
+                  </Pressable>
+                )}
+                <Pressable onPress={voice.clearError} accessibilityRole="button" accessibilityLabel="Dismiss" hitSlop={8}>
+                  <Text className="coach__voice-link">Dismiss</Text>
+                </Pressable>
+              </View>
+            )}
           </View>
         </KeyboardAvoidingView>
       </SafeAreaView>

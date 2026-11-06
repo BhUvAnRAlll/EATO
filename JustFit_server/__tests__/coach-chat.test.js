@@ -89,6 +89,9 @@ describe("coach chat: what the model is told", () => {
     assert.match(text, /idli, dosa/);
     assert.match(text, /not oats, salads or imported foods/);
     assert.match(text, /kg, cm, km and kcal/);
+    // A spoken or typed question in Hindi or Kannada is answered in that language (voice input, 2026-11-06)
+    assert.match(text, /language of the member's latest message/);
+    assert.match(text, /Kannada/);
     assert.match(text, /hydrate in heat and humidity/);
     assert.match(text, /no crash diets/);
     assert.match(text, /Never assume their religion or region/);

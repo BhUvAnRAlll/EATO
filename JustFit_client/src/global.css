@@ -3541,6 +3541,95 @@
   opacity: 0.4;
 }
 
+/* The mic beside Send: a soft grey circle with an ink mic; solid red with a white mic while
+   listening (the pulse behind it is drawn by the screen with Reanimated) */
+@utility coach__mic {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-cream-deep);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility coach__mic--on {
+  background-color: var(--color-primary);
+}
+
+/* The soft red ring that pulses behind the mic while listening */
+@utility coach__mic-pulse {
+  position: absolute;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-accent-soft);
+}
+
+/* The line above the ask box while listening: a red dot, "Listening in …", the language chips */
+@utility coach__listen {
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-inline: 8px;
+  padding-bottom: 8px;
+}
+
+@utility coach__listen-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-primary);
+}
+
+@utility coach__listen-text {
+  font-family: var(--font-sans-medium);
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--color-forest-ink);
+}
+
+/* A language chip: outlined, red outline with a soft red fill when chosen */
+@utility coach__lang {
+  min-height: 30px;
+  padding-inline: 12px;
+  border-radius: var(--radius-pill);
+  border-width: 1px;
+  border-color: var(--color-line-strong);
+  background-color: var(--color-surface);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility coach__lang--on {
+  border-color: var(--color-primary);
+  background-color: var(--color-accent-soft);
+}
+
+@utility coach__lang-label {
+  font-family: var(--font-sans-medium);
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--color-forest-ink);
+}
+
+/* One line under the ask box when the recogniser fails; small, in words */
+@utility coach__voice-error {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-danger);
+  padding-inline: 8px;
+  padding-top: 6px;
+}
+
+@utility coach__voice-link {
+  font-family: var(--font-sans-medium);
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-primary-text);
+}
+
 @utility coach__prompt {
   height: 36px;
   padding-inline: 14px;
