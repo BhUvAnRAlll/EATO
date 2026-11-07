@@ -11,8 +11,8 @@ import { useThemeColors } from "@/theme";
 // action: the link at the top right (left out for a Staff login without Payments)
 type RevenueCardProps = { online: number; cash: number; action?: { label: string; onPress: () => void } };
 
-// Today's revenue on the portal's gradient: the total, a bar splitting it into online and cash,
-// and both parts with their share. Home's link opens the Wallet, the Wallet's today's payments.
+// Today's revenue on the portal's gradient: the total, a bar splitting it into online (white) and
+// cash (amber, so the two can be told apart), and both parts with their share and a dot in its colour. Home's link opens the Wallet, the Wallet's today's payments.
 export function RevenueCard({ online, cash, action }: RevenueCardProps) {
   const colors = useThemeColors();
   const total = online + cash;
@@ -20,8 +20,8 @@ export function RevenueCard({ online, cash, action }: RevenueCardProps) {
   // The bar eases to a new split when a payment comes in
   const fill = useTween(total > 0 ? online / total : 0);
   const parts = [
-    { label: "Online", value: online, share: onlineShare, solid: true },
-    { label: "Cash", value: cash, share: total > 0 ? 100 - onlineShare : 0, solid: false },
+    { label: "Online", value: online, share: onlineShare, color: colors.white },
+    { label: "Cash", value: cash, share: total > 0 ? 100 - onlineShare : 0, color: colors.gymWarningLine },
   ];
   return (
     <View className="gym-hero" style={{ gap: 18 }} accessible accessibilityLabel={`Today's revenue ${rupees(total)}: online ${rupees(online)}, cash ${rupees(cash)}`}>
@@ -59,12 +59,13 @@ export function RevenueCard({ online, cash, action }: RevenueCardProps) {
       <View style={{ gap: 12 }}>
         <View className="gym-dash-split">
           <View className="gym-dash-split__fill" style={{ width: `${fill * 100}%` }} />
+          {total > 0 && <View className="gym-dash-split__cash" />}
         </View>
         <View className="flex-row" style={{ gap: 12 }}>
           {parts.map((part) => (
             <View key={part.label} className="min-w-0 flex-1" style={{ gap: 2 }}>
               <View className="flex-row items-center" style={{ gap: 6 }}>
-                <View className="gym-dot" style={part.solid ? { backgroundColor: colors.white } : { borderWidth: 1.5, borderColor: colors.white }} />
+                <View className="gym-dot" style={{ backgroundColor: part.color }} />
                 <Text className="gym-dash-legend__label" numberOfLines={1}>{total > 0 ? `${part.label} · ${part.share}%` : part.label}</Text>
               </View>
               <AnimatedNumber className="gym-dash-legend__value" numberOfLines={1}>{rupees(part.value)}</AnimatedNumber>

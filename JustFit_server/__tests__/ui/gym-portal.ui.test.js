@@ -177,7 +177,7 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
     await h.expectText("FORMA");
     const revenue = JSON.stringify(`[aria-label^="Today's revenue ₹7,700"]`);
     await page.waitFor(`!!document.querySelector(${revenue})`, NAV_TIMEOUT, "today's revenue: 4,500 online + 3,200 cash");
-    for (const label of ["1 Admission", "0 Renewal", "0 Enquiry", "0 Due Paid", "0 PT", "1 Product", "1 Due Members, Action", "0 Expiring Today, Urgent", "0 Attendance, Live", "0 Expiring in 1-3 days, Soon", "0 Birthdays Today, Wish"]) {
+    for (const label of ["1 Admission", "0 Renewal", "0 Enquiry", "0 Due Paid", "0 PT", "1 Product", "1 Due Members, Action", "0 Expiring Today, Urgent", "0 Attendance, Live", "0 Expiring soon, Soon", "0 Birthdays Today, Wish"]) {
       assert.ok(await hasLabel(label), `${label} is shown`);
     }
     await h.expectText("Mohammed Asif");
@@ -369,8 +369,22 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
     assert.deepEqual([ravi.due_amount, ravi.due_by], [0, null], "Ravi paid in full");
     await page.navigate(`${expo.baseUrl}/gym/members?filter=due`);
     await h.expectText("Mohammed Asif");
-    await h.expectText("₹1,500 payment due");
+    await h.expectText("₹1,500 due"); // the compact card's pill (2026-11-07)
     await snapshotAllWidths("gym-members");
+    // Expiring soon: the window follows the day chips (Asif's plan is moved to end in 10 days,
+    // so he is outside the 3-day window Home opens and inside 30 days), then put back
+    const [[asifRow]] = await connection.query("SELECT id, DATE_FORMAT(expires_on, '%Y-%m-%d') AS expires_on FROM gym_members WHERE gym_id = ? AND full_name = 'Mohammed Asif'", [state.gym]);
+    const todayInIndia = new Date(Date.now() + 19800000).toISOString().slice(0, 10);
+    await connection.query("UPDATE gym_members SET expires_on = DATE_ADD(?, INTERVAL 10 DAY) WHERE id = ?", [todayInIndia, asifRow.id]);
+    await page.navigate(`${expo.baseUrl}/gym/members?filter=expiring_soon&days=3`);
+    await h.expectText("Ending in");
+    assert.ok(await hasLabel("Expiring soon, in the next 3 days"));
+    await h.expectText("No plans end in the next 3 days");
+    await clickLabel("Next 30 days");
+    await page.waitFor(`!!document.querySelector('[aria-label="Expiring soon, in the next 30 days"]')`, NAV_TIMEOUT, "the chip follows the pick");
+    await h.expectText("Mohammed Asif");
+    await snapshotAllWidths("gym-members-expiring-soon");
+    await connection.query("UPDATE gym_members SET expires_on = ? WHERE id = ?", [asifRow.expires_on, asifRow.id]);
     await page.navigate(`${expo.baseUrl}/gym/transactions`);
     await h.expectText("Ravi Shankar");
     await h.expectText("Whey Protein 1kg");
@@ -535,7 +549,7 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
     await h.expectText("All Members");
     await h.expectText("Karthik Raja");
     await h.expectText("6 days ago");
-    await h.expectText("₹1,500 payment due");
+    await h.expectText("₹1,500 due");
     await snapshotAllWidths("gym-manage-members");
     await stubAlerts();
     // The bell opens Send Reminder on the expired template; SMS alone, through justFit (credits

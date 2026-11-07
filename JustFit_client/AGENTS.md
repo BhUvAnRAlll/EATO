@@ -268,12 +268,19 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
   and nothing cascades except `gym_staff` from users.
 - **App:** Home (live dashboard, redesigned 2026-11-04: on the `gym-canvas` page with white
   `gym-dash-card`s, a header (menu, gym name and branch switcher, search, account), the greeting
-  with India's date and Live Sync, the gradient revenue card (total, an online/cash split bar,
-  both shares), Today: one card of six counts Admission, Renewal, Enquiry, Due Paid, PT, Product
+  with India's date and Live Sync, the gradient revenue card (total, an online/cash split bar:
+  online white, cash amber `gym-warning-line` since 2026-11-07 so the two can be told apart; both
+  shares with a dot in their colour), Today: one card of six counts Admission, Renewal, Enquiry, Due Paid, PT, Product
   (3 a row, 6 from 700 px), Needs attention: one list of Due, Expiring today, Attendance,
-  Expiring in 1-3 days, Birthdays today, then Send Bulk SMS and Recent Transactions; content
+  Expiring soon, Birthdays today, then Send Bulk SMS and Recent Transactions; content
   max 760 px; sections fade up once when the numbers first arrive, counts change with
-  `AnimatedNumber`), + (`/gym/add`: admission, renewal, due payment, PT, product, enquiry), Members (search, filters, pick mode), a member's page (check in
+  `AnimatedNumber`). **Expiring soon (2026-11-07, the user's request):** the window is a choice,
+  not a fixed 1-3 days: Home's row counts the next 3 days and opens Members on
+  `?filter=expiring_soon&days=3`; on Members the "Expiring soon · N days" chip shows a row of day
+  chips (3, 7, 15, 30; `EXPIRING_SOON_DAYS` in `data/gymDashboard.ts`), and both the list and the
+  chip's count follow the pick (tomorrow to today + N; today's endings stay under Expiring today).
+  `GET /api/gym/members?days=` is a whole number 1-90, default 3, else 400 (`rules.expiringDays`);
+  nothing is stored, Home always shows 3 days. The other screens: + (`/gym/add`: admission, renewal, due payment, PT, product, enquiry), Members (search, filters, pick mode), a member's page (check in
   once a day, renew, collect due, edit), Transactions (View All, 50 a page), Enquiries (see below), Wallet tab
   (today, this month, owed). Admin: the Gyms tab, a gym's page,
   New gym. Calls in `lib/gymApi.ts`, loading in `lib/useGymData.ts`, saves in `lib/gymForm.ts`.

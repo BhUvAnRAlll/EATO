@@ -6302,6 +6302,13 @@
   border-radius: var(--radius-pill);
   background-color: var(--color-white);
 }
+/* The cash share: the rest of the bar in amber, so both parts can be told apart (2026-11-07) */
+@utility gym-dash-split__cash {
+  flex: 1;
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-gym-warning-line);
+}
 
 @utility gym-dash-legend__label {
   font-family: var(--font-sans);
