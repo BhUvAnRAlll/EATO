@@ -5,12 +5,11 @@ import { router, useLocalSearchParams } from "expo-router";
 import { PressableScale } from "@/components/PressableScale";
 import { GradientFill } from "@/components/gym/GradientFill";
 import { GymIcon } from "@/components/gym/GymIcon";
-import { WhatsAppMark } from "@/components/gym/WhatsAppMark";
 import { GymScreen } from "@/components/gym/GymScreen";
 import { GymEmpty, GymError, GymLoading } from "@/components/gym/GymStates";
 import { MemberActionsSheet } from "@/components/gym/MemberActionsSheet";
 import { MemberPhotoImage } from "@/components/gym/MemberPhotoImage";
-import { call, expiredReminder, whatsapp } from "@/lib/gymContact";
+import { SendReminderSheet } from "@/components/gym/SendReminderSheet";
 import { gymApi, type RiskListLevel, type RiskMember } from "@/lib/gymApi";
 import { haptic } from "@/lib/haptics";
 import { listPerf } from "@/lib/listPerf";
@@ -28,8 +27,9 @@ const updatedAt = (iso: string) => new Date(iso).toLocaleTimeString("en-IN", { h
 // Gym admin › Likely to leave (Predictions, the first one): members who may not renew, highest
 // risk first. The server scores each member from the branch's own records (plan ending, no recent
 // visit, fewer visits, a payment due, PT) every time this opens: no AI, nothing stored, nothing
-// sent by itself. Each card shows the level, the score and the reasons; WhatsApp and Call open the
-// phone's apps with the renewal reminder written, and ⋯ opens the member's usual options.
+// sent by itself. Each card shows the level, the score and the reasons; the bell opens Send
+// Reminder on the renewal template (WhatsApp, SMS; notifications coming soon, the same as every
+// other bell since 2026-11-07), and ⋯ opens the member's usual options.
 export default function RenewalRisks() {
   const colors = useThemeColors();
   const params = useLocalSearchParams<{ level?: string }>();
@@ -39,6 +39,7 @@ export default function RenewalRisks() {
   const [typed, setTyped] = useState("");
   const [search, setSearch] = useState("");
   const [actions, setActions] = useState<RiskMember | null>(null);
+  const [reminding, setReminding] = useState<RiskMember | null>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => setSearch(typed.trim()), 300);
@@ -157,11 +158,8 @@ export default function RenewalRisks() {
                 </View>
               </PressableScale>
               <View className="flex-row items-center" style={{ gap: 2 }}>
-                <PressableScale onPress={() => data && whatsapp(item, expiredReminder(item, data.gym))} hitSlop={6} className="gym-member-card__action" style={narrow ? { width: 28 } : undefined} accessibilityRole="button" accessibilityLabel={`WhatsApp ${item.name} a renewal reminder`}>
-                  <WhatsAppMark size={22} />
-                </PressableScale>
-                <PressableScale onPress={() => call(item)} hitSlop={6} className="gym-member-card__action" style={narrow ? { width: 28 } : undefined} accessibilityRole="button" accessibilityLabel={`Call ${item.name}`}>
-                  <GymIcon name="phone" size={20} color={colors.gymInkSoft} />
+                <PressableScale onPress={() => { haptic.select(); setReminding(item); }} hitSlop={6} className="gym-member-card__action" style={narrow ? { width: 28 } : undefined} accessibilityRole="button" accessibilityLabel={`Send ${item.name} a renewal reminder`}>
+                  <GymIcon name="bell" size={20} color={colors.gymPrimary} />
                 </PressableScale>
                 <PressableScale onPress={() => setActions(item)} hitSlop={6} className="gym-member-card__action" style={narrow ? { width: 28 } : undefined} accessibilityRole="button" accessibilityLabel={`${item.name}: options`}>
                   <GymIcon name="ellipsis" size={20} color={colors.gymInkSoft} />
@@ -171,6 +169,7 @@ export default function RenewalRisks() {
           );
         }}
       />
+      {reminding && data && <SendReminderSheet kind="expired" member={reminding} gym={data.gym} onClose={() => setReminding(null)} onSent={reload} />}
       {actions && data && <MemberActionsSheet member={actions} gym={data.gym} onClose={() => setActions(null)} onChanged={() => { setActions(null); reload(); }} />}
     </GymScreen>
   );

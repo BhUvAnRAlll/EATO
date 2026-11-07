@@ -211,8 +211,8 @@ describe("ui gym predictions: Likely to leave", () => {
     assert.deepEqual(tabs, ["All, 2", "High, 1", "Medium, 1"]);
     const order = await page.evaluate(`(document.body.innerText || "").indexOf("Ravi Kumar") < (document.body.innerText || "").indexOf("Sneha R")`);
     assert.equal(order, true, "highest risk first");
-    assert.ok(await hasLabel("WhatsApp Ravi Kumar a renewal reminder"));
-    assert.ok(await hasLabel("Call Ravi Kumar"));
+    assert.ok(await hasLabel("Send Ravi Kumar a renewal reminder"), "the bell opens Send Reminder");
+    assert.equal(await hasLabel("Call Ravi Kumar"), false, "no Call button since the bell replaced it");
     await snapshotAllWidths("gym-predictions");
   }));
 

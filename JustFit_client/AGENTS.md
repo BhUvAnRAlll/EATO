@@ -361,7 +361,8 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
   `dashboard.alerts.renewalRisk`) and ☰ › Likely to leave open `app/gym/predictions/renewals.tsx`:
   Medium and High members, highest score first, with tabs All / High / Medium (counts follow the
   search), search by name, phone or ID, each card's level and score chip, ID, PT tag and the
-  reasons in one line, WhatsApp and Call (the phone's apps with the renewal reminder written) and ⋯
+  reasons in one line, a bell (opens Send Reminder on the renewal template, as every bell does since
+  2026-11-07; the WhatsApp and Call buttons were replaced at the user's request) and ⋯
   → `MemberActionsSheet`. Scoring (`gym/predictionRules.js`, pure, constants at the top): plan ends
   within 7 days or ended in the last 7 (+30), no visit for 10+ days (or never, 10+ days after
   joining) (+30), visits in the last 30 days at most half of the 30 before when those were 4+ (+20),
