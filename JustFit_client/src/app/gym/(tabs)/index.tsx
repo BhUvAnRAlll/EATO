@@ -62,7 +62,7 @@ export default function GymHome() {
     if (action === "enquiry") return void setTimeout(() => setSheet("enquiry"), 250);
     const go: Partial<Record<AddAction, () => void>> = {
       plan: () => router.push("/gym/manage?tab=catalog"),
-      outlet: () => router.push("/gym/branches"),
+      outlet: () => router.push("/gym/branches?add=1"),
       staff: () => router.push("/gym/staff?add=1"),
       attendance: () => router.push("/gym/attendance"),
     };

@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { ActivityIndicator, Text, View } from "react-native";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 
 import { FormAlert } from "@/components/FormAlert";
 import { PressableScale } from "@/components/PressableScale";
+import { AddBranchSheet } from "@/components/gym/AddBranchSheet";
+import { GradientFill } from "@/components/gym/GradientFill";
 import { GymIcon } from "@/components/gym/GymIcon";
 import { GymError, GymLoading } from "@/components/gym/GymStates";
 import { GymScreen } from "@/components/gym/GymScreen";
@@ -12,13 +14,16 @@ import { useGymSave } from "@/lib/gymForm";
 import { useGymData } from "@/lib/useGymData";
 import { useThemeColors } from "@/theme";
 
-// Gym admin › Branches (the ⇄ next to the location on Home): the gym's branches this account works
-// at, the open one ticked. Tapping another opens it everywhere (the server remembers the choice).
-// Edit this branch changes its name and place.
+// Gym admin › Branches (the ⇄ next to the location on Home; Home's + › Add Outlet opens it with
+// ?add=1): the gym's branches this account works at, the open one ticked. Tapping another opens
+// it everywhere (the server remembers the choice). Edit this branch changes its name and place;
+// Add branch (the gym admin only; the server refuses Staff) adds one with its name and location.
 export default function GymBranchesScreen() {
   const colors = useThemeColors();
+  const params = useLocalSearchParams<{ add?: string }>();
   const { result, retry, set } = useGymData(gymApi.branches);
   const [switching, setSwitching] = useState<number | null>(null);
+  const [adding, setAdding] = useState(params.add === "1");
   const { busy, error, save } = useGymSave((data: GymBranches) => {
     set(data);
     setSwitching(null);
@@ -66,11 +71,32 @@ export default function GymBranchesScreen() {
             })}
           </View>
           {error ? <FormAlert message={error} /> : null}
-          {result.data.branches.length === 1 && <Text className="gym-tx__meta">{"Your gym's other branches show here once the justFit team adds you to them."}</Text>}
+          {result.data.branches.length === 1 && (
+            <Text className="gym-tx__meta">
+              {result.data.access === "owner" ? "Add your gym's other branches here. Each has its own members, payments and QR code." : "Your gym's other branches show here once your gym admin adds you to them."}
+            </Text>
+          )}
+          {result.data.access === "owner" && (
+            <PressableScale onPress={() => setAdding(true)} haptic="tap" className="gym-btn" accessibilityRole="button" accessibilityLabel="Add branch">
+              <GradientFill radius={14} />
+              <GymIcon name="plus" size={18} color={colors.white} />
+              <Text className="gym-btn__label">Add branch</Text>
+            </PressableScale>
+          )}
           <PressableScale onPress={() => router.push("/gym/details")} className="gym-btn gym-btn--outline" accessibilityRole="button" accessibilityLabel="Edit this branch">
             <GymIcon name="pencil" size={15} color={colors.gymPrimary} />
             <Text className="gym-btn__label gym-btn__label--outline">Edit this branch</Text>
           </PressableScale>
+          {adding && result.data.access === "owner" && (
+            <AddBranchSheet
+              gym={result.data.gym}
+              onClose={() => setAdding(false)}
+              onSaved={(data) => {
+                set(data);
+                setAdding(false);
+              }}
+            />
+          )}
         </>
       )}
     </GymScreen>

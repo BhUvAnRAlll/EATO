@@ -161,7 +161,14 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
   `gym_attendance` (migrations `2026-11-18-gym-admin-role.sql`, `2026-11-19-gym-portal.sql`,
   `2026-11-20-gym-branches.sql`). Branches: `gym_brands` is the gym (Forma), each `gyms` row a
   branch (Tumkur); staff can be linked to several branches of one gym and switch (`/gym/branches`,
-  the server keeps the choice in `gym_staff.selected_at`). Payment kinds add `pt`; `sale` shows as
+  the server keeps the choice in `gym_staff.selected_at`). Since 2026-11-07 (the user's request)
+  the gym admin adds branches themselves: Branches › Add branch (and Home's + › Add Outlet,
+  `/gym/branches?add=1`) opens `AddBranchSheet` (branch name, then Location: area and city) →
+  `POST /api/gym/branches` (owner only, 10 an hour; `rules.branchBody`; `service.addBranch` inserts
+  the `gyms` row and the owner's `gym_staff` link in one transaction, refuses a name the gym already
+  has with 409, audits `gym.branch_add`; the open branch stays open). `GET /api/gym/branches` carries
+  `access` so Staff see no Add button. Branch details (`/gym/details`) edits only the branch's name,
+  area and city: the "Your name" field and `adminName` were removed the same day. Payment kinds add `pt`; `sale` shows as
   Product. Members have an optional `dob` for birthdays. Plans / Catalogue (`gym_catalog_items`,
   migration `2026-11-21-gym-catalog.sql`): each branch's membership plans (with months), PT
   packages, services and products with prices; the forms fill the price from it (`CatalogPicks`);

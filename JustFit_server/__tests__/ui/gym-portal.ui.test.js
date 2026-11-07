@@ -685,6 +685,20 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
     await h.expectPath("/gym/branches");
     await h.expectText("Kunigal branch");
     await snapshotAllWidths("gym-branches");
+    // Add branch: the sheet asks for the name and the location; the new branch joins the list
+    await clickLabel("Add branch");
+    await h.expectText("Another branch of Forma");
+    await page.setInput(h.input("For example: Kunigal"), "Gubbi");
+    await page.setInput(h.input("For example: Main Road"), "Market Road");
+    await page.setInput(h.input("For example: Tumakuru"), "Gubbi");
+    await snapshotAllWidths("gym-add-branch");
+    await clickLabel("Add Branch");
+    await h.expectText("Gubbi branch");
+    await h.expectText("Market Road, Gubbi");
+    const [[gubbi]] = await connection.query("SELECT g.id FROM gyms g JOIN gym_staff s ON s.gym_id = g.id AND s.kind = 'owner' WHERE g.name = 'Gubbi' AND s.user_id = ?", [identities.gym.id]);
+    assert.ok(gubbi, "the gym admin is linked to the new branch");
+    await connection.query("DELETE FROM gym_staff WHERE gym_id = ?", [gubbi.id]);
+    await connection.query("DELETE FROM gyms WHERE id = ?", [gubbi.id]);
     await clickLabel("Kunigal branch, Main Road, Kunigal");
     await h.expectPath("/gym");
     await page.waitFor(`!!document.querySelector(${JSON.stringify('[aria-label^="Kunigal branch, Main Road, Kunigal. Switch"]')})`, NAV_TIMEOUT, "Kunigal open on Home");

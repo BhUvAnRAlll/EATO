@@ -399,18 +399,18 @@ function gymBody(body, { creating }) {
   return out;
 }
 
-// Another branch of a gym, added by the justFit admin
+// Another branch of a gym: its name and location, as the justFit admin or the gym admin adds it
 function branchBody(body) {
   onlyKeys(body, ["branch", "area", "city"]);
   return branchFields(body, true);
 }
 
-// What a gym admin may change themselves: their branch's name and place, and their own name
+// What a gym admin may change themselves: their branch's name and place (their own name is no
+// longer here, 2026-11-07)
 function gymDetailsBody(body) {
-  onlyKeys(body, ["branch", "area", "city", "adminName"]);
+  onlyKeys(body, ["branch", "area", "city"]);
   const out = branchFields(body, false);
-  if (body.adminName !== undefined) out.adminName = requiredText(body.adminName, "your name", limits.name);
-  if (Object.keys(out).length === 0) throw new ValidationError("Change the branch name, its area or city, or your name.");
+  if (Object.keys(out).length === 0) throw new ValidationError("Change the branch name, its area or city.");
   return out;
 }
 

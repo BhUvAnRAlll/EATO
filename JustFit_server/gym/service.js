@@ -39,7 +39,22 @@ async function branches(pool, gym, userId) {
     `SELECT g.id, g.name, g.area, g.city FROM gym_staff s JOIN gyms g ON g.id = s.gym_id WHERE s.user_id = ? AND s.kind IN ${PORTAL_KINDS} ORDER BY g.name, g.id`,
     [userId],
   );
-  return { currentId: gym.id, gym: gym.brand, branches: rows.map((r) => ({ id: r.id, branch: r.name, area: r.area, city: r.city })) };
+  // access: owner (the gym admin, who may add a branch) or staff
+  return { currentId: gym.id, gym: gym.brand, access: gym.kind, branches: rows.map((r) => ({ id: r.id, branch: r.name, area: r.area, city: r.city })) };
+}
+
+// The gym admin adds another branch of their gym (its name and location) and is linked to it as
+// its gym admin in the same transaction; the branch that was open stays open. A name the gym
+// already uses is refused, and the justFit team sees the addition in their activity log.
+async function addBranch(pool, gym, userId, fields) {
+  await inTransaction(pool, async (db) => {
+    const [[taken]] = await db.query("SELECT id FROM gyms WHERE brand_id = ? AND name = ? LIMIT 1 FOR UPDATE", [gym.brand_id, fields.branch]);
+    if (taken) throw new ConflictError(`${gym.brand} already has a ${fields.branch} branch.`);
+    const [branch] = await db.query("INSERT INTO gyms (brand_id, name, area, city, created_by) VALUES (?, ?, ?, ?, ?)", [gym.brand_id, fields.branch, fields.area, fields.city, userId]);
+    await db.query("INSERT INTO gym_staff (user_id, gym_id, kind) VALUES (?, ?, 'owner')", [userId, branch.insertId]);
+    await audit(db, userId, "gym.branch_add", "gym", branch.insertId, `The gym admin added the ${fields.branch} branch to “${gym.brand}”`);
+  });
+  return branches(pool, gym, userId);
 }
 
 // Opens another of the account's branches; a branch they aren't linked to reads as missing
@@ -520,22 +535,16 @@ async function editEnquiry(pool, gymId, enquiryId, body) {
   return { enquiry: await enquiry(pool, gymId, enquiryId) };
 }
 
-// The gym admin changes their branch's name or place, or their own name, in one transaction.
-// A branch change is written to the admin audit log, so the justFit team can see who changed it.
+// The gym admin changes their branch's name or place, in one transaction. The change is written
+// to the admin audit log, so the justFit team can see who changed it.
 async function updateDetails(pool, gym, userId, fields) {
-  const { adminName, ...branchFields } = fields;
   await inTransaction(pool, async (db) => {
-    const keys = Object.keys(branchFields);
-    if (keys.length > 0) {
-      const columns = { branch: "name", area: "area", city: "city" };
-      await db.query(`UPDATE gyms SET ${keys.map((k) => `${columns[k]} = ?`).join(", ")} WHERE id = ?`, [...keys.map((k) => branchFields[k]), gym.id]);
-      await audit(db, userId, "gym.edit", "gym", gym.id, `The gym admin edited ${gym.brand}’s ${branchFields.branch ?? gym.branch} branch`);
-    }
-    if (adminName !== undefined) await db.query("UPDATE users SET full_name = ? WHERE id = ?", [adminName, userId]);
+    const keys = Object.keys(fields);
+    const columns = { branch: "name", area: "area", city: "city" };
+    await db.query(`UPDATE gyms SET ${keys.map((k) => `${columns[k]} = ?`).join(", ")} WHERE id = ?`, [...keys.map((k) => fields[k]), gym.id]);
+    await audit(db, userId, "gym.edit", "gym", gym.id, `The gym admin edited ${gym.brand}’s ${fields.branch ?? gym.branch} branch`);
   });
-  const updated = await staffGym(pool, userId);
-  const [[user]] = await pool.query("SELECT full_name FROM users WHERE id = ?", [userId]);
-  return { gym: gymInfo(updated), adminName: user.full_name ?? null };
+  return { gym: gymInfo(await staffGym(pool, userId)) };
 }
 
 // Every payment, newest first, a page at a time
@@ -627,6 +636,7 @@ module.exports = {
   gymInfo,
   nextMemberCode,
   branches,
+  addBranch,
   switchBranch,
   dashboard,
   members,

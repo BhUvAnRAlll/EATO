@@ -74,11 +74,12 @@ router.use(requireArea);
 // Staff / Admin Login (gym/staff.js): only the branch's gym admin (kind 'owner', linked by the
 // justFit Super Admin) sees and changes its team; Staff get a 403. Adding and removing have their
 // own hourly allowance.
-function requireGymOwner(req, res, next) {
+const ownerOnly = (message) => (req, res, next) => {
   if (req.gym.kind === "owner") return next();
   logSecurityEvent("admin.denied", { userId: req.userId, method: req.method, path: req.originalUrl?.split("?")[0] ?? req.path });
-  return res.status(403).json({ error: "Only the gym admin can manage the team." });
-}
+  return res.status(403).json({ error: message });
+};
+const requireGymOwner = ownerOnly("Only the gym admin can manage the team.");
 const staffLimit = limitPerUser(createRateLimiter({ limit: 30, windowMs: 60 * 60 * 1000 }));
 
 router.get("/staff", requireGymOwner, route(async (req, res) => {
@@ -130,6 +131,12 @@ router.get("/predictions/payments", route(async (req, res) => {
 // The account's branches, and switching to another one
 router.get("/branches", route(async (req, res) => {
   res.json(await service.branches(pool(req), req.gym, req.userId));
+}));
+// The gym admin adds a branch (its name and location) and is linked to it; Staff get a 403.
+// Branches are never deleted, so adding has a small allowance of its own.
+const branchLimit = limitPerUser(createRateLimiter({ limit: 10, windowMs: 60 * 60 * 1000 }));
+router.post("/branches", ownerOnly("Only the gym admin can add a branch."), branchLimit, smallBody, route(async (req, res) => {
+  res.status(201).json(await service.addBranch(pool(req), req.gym, req.userId, rules.branchBody(req.body)));
 }));
 router.post("/branch", smallBody, route(async (req, res) => {
   res.json(await service.switchBranch(pool(req), req.userId, rules.switchBody(req.body).branchId));

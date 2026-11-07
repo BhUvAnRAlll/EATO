@@ -71,7 +71,7 @@ describe("gym portal e2e: gyms, staff, members, money and attendance", () => {
     const problems = [];
     if (connection) {
       try {
-        const gymIds = [state.gymA, state.gymA2, state.gymB].filter(Boolean);
+        const gymIds = [state.gymA, state.gymA2, state.gymA3, state.gymB].filter(Boolean);
         if (gymIds.length) {
           const [brands] = await connection.query("SELECT DISTINCT brand_id FROM gyms WHERE id IN (?)", [gymIds]);
           for (const table of ["gym_attendance", "gym_payments", "gym_enquiry_contacts", "gym_enquiries", "gym_catalog_items", "gym_members", "gym_staff"]) await connection.query(`DELETE FROM \`${table}\` WHERE gym_id IN (?)`, [gymIds]);
@@ -390,17 +390,17 @@ describe("gym portal e2e: gyms, staff, members, money and attendance", () => {
     assert.equal((await gym.patch("/api/gym/enquiries/1%20OR%201=1", { status: "lost" })).status, 400);
   }));
 
-  it("9. a gym admin changes their gym's name and location, and their own name; the admin sees it", run(async () => {
+  it("9. a gym admin changes their branch's name and location (not their own name any more); the admin sees it", run(async () => {
     const gym = as("gymA");
-    const r = await gym.patch("/api/gym/details", { branch: "Tumkur Main", area: "SIT Road", city: "Tumakuru", adminName: "Arjun K" });
+    const r = await gym.patch("/api/gym/details", { branch: "Tumkur Main", area: "SIT Road", city: "Tumakuru" });
     assert.equal(r.status, 200, JSON.stringify(r.json));
-    assert.deepEqual(r.json, { gym: { name: "Forma", branch: "Tumkur Main", area: "SIT Road", city: "Tumakuru", branchCount: 1, access: "owner", areas: ALL_AREAS }, adminName: "Arjun K" });
+    assert.deepEqual(r.json, { gym: { name: "Forma", branch: "Tumkur Main", area: "SIT Road", city: "Tumakuru", branchCount: 1, access: "owner", areas: ALL_AREAS } });
     assert.equal((await gym.get("/api/gym/dashboard")).json.gym.area, "SIT Road");
     const detail = (await as("admin").get(`/api/admin/portal/gyms/${state.gymA}`)).json;
     assert.deepEqual([detail.gym.name, detail.gym.branch], ["Forma", "Tumkur Main"]);
-    assert.deepEqual(detail.staff.map((s) => s.name), ["Arjun K"]);
+    assert.deepEqual(detail.staff.map((s) => s.name), ["Arjun Kumar"], "their own name is untouched");
     assert.equal(await count("admin_audit_log", "admin_id = ? AND action = 'gym.edit' AND target_id = ?", [identities.gymA.id, String(state.gymA)]), 1);
-    for (const body of [{}, { gymId: state.gymB, branch: "Taken" }, { name: "Renamed" }, { city: "X" }, { adminName: "" }, { role: "admin" }]) {
+    for (const body of [{}, { gymId: state.gymB, branch: "Taken" }, { name: "Renamed" }, { city: "X" }, { adminName: "Arjun K" }, { role: "admin" }]) {
       assert.equal((await gym.patch("/api/gym/details", body)).status, 400, JSON.stringify(body));
     }
     assert.equal((await as("admin").get(`/api/admin/portal/gyms/${state.gymB}`)).json.gym.branch, "Indiranagar", "only their own branch changes");
@@ -433,6 +433,46 @@ describe("gym portal e2e: gyms, staff, members, money and attendance", () => {
     assert.equal((await gym.post("/api/gym/branch", { branchId: "1 OR 1=1" })).status, 400);
     assert.equal((await gym.post("/api/gym/branch", { branchId: state.gymA })).json.currentId, state.gymA, "back to Tumkur");
     assert.equal((await gym.get(`/api/gym/members/${state.asif}`)).status, 200);
+  }));
+
+  it("10b. the gym admin adds a branch themselves, with its location, and is its gym admin; Staff can't", run(async () => {
+    const gym = as("gymA");
+    const added = await gym.post("/api/gym/branches", { branch: "Gubbi", area: "Market Road", city: "Gubbi" });
+    assert.equal(added.status, 201, JSON.stringify(added.json));
+    assert.equal(added.json.currentId, state.gymA, "the open branch stays open");
+    assert.equal(added.json.access, "owner");
+    assert.deepEqual(added.json.branches.map((b) => [b.branch, b.area, b.city]), [["Gubbi", "Market Road", "Gubbi"], ["Kunigal", "Main Road", "Kunigal"], ["Tumkur Main", "SIT Road", "Tumakuru"]]);
+    state.gymA3 = added.json.branches.find((b) => b.branch === "Gubbi").id;
+    const [[link]] = await connection.query("SELECT kind FROM gym_staff WHERE user_id = ? AND gym_id = ?", [identities.gymA.id, state.gymA3]);
+    assert.equal(link?.kind, "owner", "linked to the new branch as its gym admin");
+    assert.equal((await connection.query("SELECT brand_id FROM gyms WHERE id = ?", [state.gymA3]))[0][0].brand_id, (await connection.query("SELECT brand_id FROM gyms WHERE id = ?", [state.gymA]))[0][0].brand_id, "a branch of the same gym");
+    assert.equal(await count("admin_audit_log", "admin_id = ? AND action = 'gym.branch_add' AND target_id = ?", [identities.gymA.id, String(state.gymA3)]), 1);
+    assert.equal((await gym.post("/api/gym/branch", { branchId: state.gymA3 })).json.currentId, state.gymA3, "and can open it");
+    assert.equal((await gym.get("/api/gym/dashboard")).json.gym.branchCount, 3);
+    assert.equal((await gym.post("/api/gym/branch", { branchId: state.gymA })).json.currentId, state.gymA, "back to Tumkur");
+    // Refused: the same name again, a missing location, extra fields, an SQL payload, a member
+    assert.equal((await gym.post("/api/gym/branches", { branch: "gubbi", area: "Elsewhere", city: "Gubbi" })).status, 409, "a name the gym already uses");
+    for (const body of [{}, { branch: "Sira" }, { branch: "Sira", area: "Main Road" }, { branch: "Sira", area: "Main Road", city: "Sira", gymId: state.gymB }, { branch: "Sira", area: "Main Road", city: "Sira", name: "Other" }, { branch: "X", area: "A", city: "B" }]) {
+      assert.equal((await gym.post("/api/gym/branches", body)).status, 400, JSON.stringify(body));
+    }
+    // An SQL payload is only text: the branch is saved under that odd name and the table is untouched
+    const odd = await gym.post("/api/gym/branches", { branch: "Sira'); DROP TABLE gyms; --", area: "Main Road", city: "Sira" });
+    assert.equal(odd.status, 201);
+    const oddId = odd.json.branches.find((b) => b.branch.startsWith("Sira'")).id;
+    assert.equal(await count("gyms", "id = ?", [oddId]), 1);
+    await connection.query("DELETE FROM gym_staff WHERE gym_id = ?", [oddId]);
+    await connection.query("DELETE FROM gyms WHERE id = ?", [oddId]);
+    assert.equal((await as("member").post("/api/gym/branches", { branch: "Sira", area: "Main Road", city: "Sira" })).status, 403);
+    // A Staff login (kind 'staff') at this branch is refused: flip the gym admin's own link for a moment
+    await connection.query("UPDATE gym_staff SET kind = 'staff' WHERE user_id = ? AND gym_id = ?", [identities.gymA.id, state.gymA]);
+    try {
+      const refused = await gym.post("/api/gym/branches", { branch: "Sira", area: "Main Road", city: "Sira" });
+      assert.equal(refused.status, 403);
+      assert.equal(refused.json.error, "Only the gym admin can add a branch.");
+    } finally {
+      await connection.query("UPDATE gym_staff SET kind = 'owner' WHERE user_id = ? AND gym_id = ?", [identities.gymA.id, state.gymA]);
+    }
+    assert.equal(await count("gyms", "name = 'Sira'", []), 0, "nothing was added by a refused request");
   }));
 
   it("11. Plans / Catalogue: each branch's own price list; services are recorded like products", run(async () => {

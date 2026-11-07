@@ -19,7 +19,8 @@ export type GymPayment = { id: number; kind: PaymentKind; title: string; detail:
 // name: the gym (brand, e.g. Forma); branch: this branch (e.g. Tumkur), where the numbers come from
 export type GymInfo = { name: string; branch: string; area: string; city: string };
 export type GymBranch = { id: number; branch: string; area: string; city: string };
-export type GymBranches = { currentId: number; gym: string; branches: GymBranch[] };
+// access: owner (the gym admin, who may add a branch) or staff
+export type GymBranches = { currentId: number; gym: string; access: "owner" | "staff"; branches: GymBranch[] };
 // What the signed-in person is at the open branch: the gym admin (owner, linked by the justFit
 // team) or Staff. Only the owner manages the team (Staff / Admin Login).
 export type GymAccess = "owner" | "staff";
@@ -202,9 +203,10 @@ export const gymApi = {
   addContact: (token: string | null, id: number, contact: { kind: ContactKind; outcome?: ContactOutcome }) =>
     call<{ enquiry: GymEnquiry }>(token, `/api/gym/enquiries/${id}/contacts`, "POST", contact),
   wallet: (token: string | null) => call<GymWallet>(token, "/api/gym/wallet"),
-  updateDetails: (token: string | null, fields: Partial<Omit<GymInfo, "name">> & { adminName?: string }) =>
-    call<{ gym: GymInfo; adminName: string | null }>(token, "/api/gym/details", "PATCH", fields),
+  updateDetails: (token: string | null, fields: Partial<Omit<GymInfo, "name">>) => call<{ gym: GymInfo }>(token, "/api/gym/details", "PATCH", fields),
   branches: (token: string | null) => call<GymBranches>(token, "/api/gym/branches"),
+  // The gym admin adds a branch of their gym (its name and location) and is linked to it
+  addBranch: (token: string | null, fields: Omit<GymInfo, "name">) => call<GymBranches>(token, "/api/gym/branches", "POST", fields),
   switchBranch: (token: string | null, branchId: number) => call<GymBranches>(token, "/api/gym/branch", "POST", { branchId }),
   team: (token: string | null) => call<GymTeam>(token, "/api/gym/staff"),
   // added: linked now (their role changed); invited: they join at their first sign-in

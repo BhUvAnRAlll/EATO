@@ -167,8 +167,10 @@ describe("gym rules: admissions, renewals, dues, sales, enquiries", () => {
     refuses(() => rules.gymBody({}, { creating: false }), /Change/);
     assert.deepEqual(rules.branchBody({ branch: "Kunigal", area: "Main Road", city: "Kunigal" }), { branch: "Kunigal", area: "Main Road", city: "Kunigal" });
     refuses(() => rules.branchBody({ branch: "Kunigal", area: "Main Road", city: "Kunigal", name: "Other" }), /fields/);
-    assert.deepEqual(rules.gymDetailsBody({ branch: "Tumkur", adminName: "Arjun" }), { branch: "Tumkur", adminName: "Arjun" });
+    assert.deepEqual(rules.gymDetailsBody({ branch: "Tumkur", city: "Tumakuru" }), { branch: "Tumkur", city: "Tumakuru" });
     refuses(() => rules.gymDetailsBody({ name: "Renamed gym" }), /fields/, "a gym admin can't rename the whole gym");
+    refuses(() => rules.gymDetailsBody({ branch: "Tumkur", adminName: "Arjun" }), /fields/, "the admin's name is no longer edited here");
+    refuses(() => rules.branchBody({ branch: "Gubbi" }), /area/, "a new branch needs its location");
     refuses(() => rules.gymDetailsBody({}), /Change/);
     assert.deepEqual(rules.switchBody({ branchId: 3 }), { branchId: 3 });
     for (const bad of [{ branchId: "3" }, { branchId: 0 }, { branchId: 1.5 }, { branchId: 3, userId: "x" }]) refuses(() => rules.switchBody(bad), /branch|fields/);
