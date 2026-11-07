@@ -162,7 +162,7 @@ const call = <T>(token: string | null, path: string, method: "GET" | "POST" | "P
 export const gymApi = {
   dashboard: (token: string | null) => call<GymDashboard>(token, "/api/gym/dashboard"),
   members: (token: string | null, filter: MemberFilter, search: string) =>
-    call<{ members: GymMember[]; gym: GymInfo }>(token, `/api/gym/members?filter=${filter}&search=${encodeURIComponent(search)}`),
+    call<{ members: GymMember[]; counts: Record<MemberFilter, number>; gym: GymInfo }>(token, `/api/gym/members?filter=${filter}&search=${encodeURIComponent(search)}`),
   nextCode: (token: string | null) => call<{ code: string }>(token, "/api/gym/members/next-code"),
   member: (token: string | null, id: number) => call<GymMemberDetail>(token, `/api/gym/members/${id}`),
   admit: (token: string | null, fields: AdmissionFields) => call<GymMemberDetail>(token, "/api/gym/members", "POST", fields),

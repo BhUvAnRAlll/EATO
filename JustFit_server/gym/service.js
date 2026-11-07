@@ -158,7 +158,27 @@ async function members(pool, gymId, { filter, search }, today) {
   if (filter === "expired") { where += " AND m.expires_on < ?"; params.push(today); }
   if (filter === "in_today") { where += " AND EXISTS (SELECT 1 FROM gym_attendance a WHERE a.member_id = m.id AND a.on_date = ?)"; params.push(today); }
   const [rows] = await pool.query(`SELECT ${MEMBER_COLUMNS} FROM gym_members m ${where} ORDER BY m.full_name, m.id LIMIT ?`, [...params, MEMBER_LIST_LIMIT]);
-  return { members: rows.map((r) => memberOf(r, today)) };
+  return { members: rows.map((r) => memberOf(r, today)), counts: await memberCounts(pool, gymId, found, today) };
+}
+
+// How many members each filter would list (within the same search), for the list's chips
+async function memberCounts(pool, gymId, found, today) {
+  const [[c]] = await pool.query(
+    `SELECT COUNT(*) AS all_members,
+            COALESCE(SUM(m.due_amount > 0), 0) AS due,
+            COALESCE(SUM(m.due_amount > 0 AND m.due_by < ?), 0) AS overdue,
+            COALESCE(SUM(m.expires_on = ?), 0) AS expiring,
+            COALESCE(SUM(m.expires_on BETWEEN ? AND ?), 0) AS expiring_soon,
+            COALESCE(SUM(m.expires_on < ?), 0) AS expired,
+            COALESCE(SUM(EXISTS (SELECT 1 FROM gym_attendance a WHERE a.member_id = m.id AND a.on_date = ?)), 0) AS in_today,
+            COALESCE(SUM(DATE_FORMAT(m.dob, '%m-%d') = ?), 0) AS birthday
+     FROM gym_members m WHERE m.gym_id = ?${found.sql}`,
+    [today, today, rules.addDays(today, 1), rules.addDays(today, 3), today, today, today.slice(5), gymId, ...found.params],
+  );
+  return {
+    all: Number(c.all_members), due: Number(c.due), overdue: Number(c.overdue), expiring: Number(c.expiring),
+    expiring_soon: Number(c.expiring_soon), expired: Number(c.expired), in_today: Number(c.in_today), birthday: Number(c.birthday),
+  };
 }
 
 async function memberRow(db, gymId, memberId, today, { lock = false } = {}) {

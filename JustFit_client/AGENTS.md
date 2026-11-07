@@ -265,13 +265,20 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
 - **Look:** `gym-*` tokens (the indigo-to-violet theme, this portal only) and `gym-*` utilities; the member app and the
   Super Admin stay red. No AI button (removed at the user's request).
 - **SMS to members (2026-11-04, the user's GymOps designs; real SMS approved by the user):**
-  Manage › Member follows the user's 2026-11-06 design (`MemberList`: the Members title with an
-  add button, the search bar with the sort button, the filters as chips, the chosen one on the
-  gradient with its count; a card per member with the photo spot on a violet panel, the name,
-  the ID and PT tag, a days-left pill (red once expired) and a payment-due pill, a status pill
-  (Active, Due, Expiring, Expired), ⋯, and two reminder buttons told apart by icon and tint: a
-  blue banknote for the due reminder when they owe, a violet bell for the membership reminder,
-  red once expired; a round + for Add Member). Send Bulk SMS (`BulkSmsSheet`, from Home's card,
+  Manage › Member follows the user's 2026-11-07 design (`MemberList`: the search bar with the
+  sort button, the filters as chips each with its count (`counts` comes with
+  `GET /api/gym/members`, within the same search); a card per member with the photo spot, the
+  name, the ID and PT tag, a status pill (Active green, Due or Expiring amber, Expired red) and
+  ⋯, a days-left pill (red once expired) and a red payment-due pill, then "Tap bell to send
+  reminder" with Collect (when they owe, opens `CollectDueSheet`) and the bell (red once
+  expired), which opens **Send Reminder** (`SendReminderSheet`, the user's 2026-11-07 design,
+  also behind the ⋯ sheet's Reminders): the member's card (status, days left, payment due,
+  plan), Send via tiles you can combine (WhatsApp; SMS; Notification shown as coming soon: no
+  push server), and the message from Use Template (payment due, membership expiry/expired, the
+  invoice when there is a payment), editable to 300 characters. An SMS goes through justFit
+  (1 credit, confirm) only while sending is on, credits are left and the text is still the
+  template word for word (the DLT route); otherwise, and for WhatsApp, the phone's own app opens
+  with the text, two apps one after the other as the app comes back; a square + for Add Member). Send Bulk SMS (`BulkSmsSheet`, from Home's card,
   the + sheet and the ☰ menu): Available Credits on a dark navy card, Buy Credits (says the
   justFit team adds them: no payments), Quick Actions Auto Reminders (switches for the expiry
   reminder 1 day before, expired 3 days after, weekly due, birthday wishes; each with a Preview),

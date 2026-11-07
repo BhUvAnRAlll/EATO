@@ -196,7 +196,12 @@ describe("gym portal e2e: gyms, staff, members, money and attendance", () => {
     // Past the date: overdue, and on the Overdue filter
     await connection.query("UPDATE gym_members SET due_by = ? WHERE id = ?", [rules.addDays(today, -1), state.asif]);
     assert.equal((await gym.get(`/api/gym/members/${state.asif}`)).json.member.overdue, true);
-    assert.deepEqual((await gym.get("/api/gym/members?filter=overdue")).json.members.map((m) => m.id), [state.asif]);
+    const overdue = await gym.get("/api/gym/members?filter=overdue");
+    assert.deepEqual(overdue.json.members.map((m) => m.id), [state.asif]);
+    // Every filter's count comes with the list, for the chips
+    assert.equal(overdue.json.counts.overdue, 1, "the overdue count");
+    assert.equal(overdue.json.counts.due >= 1, true, "the due count");
+    assert.equal(typeof overdue.json.counts.all, "number", "the total");
     // A part payment can set a new date for the rest
     const part = await gym.post(`/api/gym/members/${state.asif}/due`, { amount: 500, method: "cash", dueBy: rules.addDays(today, 5), paidOn: today });
     assert.deepEqual([part.json.member.due, part.json.member.dueBy, part.json.member.overdue], [1500, rules.addDays(today, 5), false]);

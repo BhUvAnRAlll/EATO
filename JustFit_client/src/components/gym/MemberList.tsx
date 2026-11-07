@@ -1,23 +1,22 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, FlatList, Modal, Platform, Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from "react-native";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { FlatList, Pressable, Platform, ScrollView, Text, TextInput, useWindowDimensions, View } from "react-native";
 import { router } from "expo-router";
 
 import { PressableScale } from "@/components/PressableScale";
 import { GymIcon } from "@/components/gym/GymIcon";
 import { MemberPhotoImage } from "@/components/gym/MemberPhotoImage";
-import type { GymIconName } from "@/constants/gymIcons";
 import { AddMemberSheet } from "@/components/gym/AddMemberSheet";
-import { ConfirmDialog } from "@/components/gym/ConfirmDialog";
+import { CollectDueSheet } from "@/components/gym/CollectDueSheet";
 import { GradientFill } from "@/components/gym/GradientFill";
 import { GymEmpty, GymError, GymLoading } from "@/components/gym/GymStates";
 import { GymSheet } from "@/components/gym/GymSheet";
 import { MemberActionsSheet } from "@/components/gym/MemberActionsSheet";
+import { SendReminderSheet, type ReminderKind } from "@/components/gym/SendReminderSheet";
 import { MEMBER_FILTERS, rupees } from "@/data/gymDashboard";
-import { gymApi, type GymInfo, type GymMember, type MemberFilter, type SmsKind } from "@/lib/gymApi";
+import { gymApi, type GymInfo, type GymMember, type MemberFilter } from "@/lib/gymApi";
 import { haptic } from "@/lib/haptics";
-import { SMS_KIND_LABEL, membershipKind, textFromPhone } from "@/lib/gymSms";
+import { memberStatus } from "@/lib/gymMember";
 import { listPerf } from "@/lib/listPerf";
-import { useSessionToken } from "@/lib/session";
 import { useGymData } from "@/lib/useGymData";
 import { useThemeColors } from "@/theme";
 
@@ -39,22 +38,18 @@ function daysText(days: number) {
   return { expired: false, text: `${days} ${days === 1 ? "day" : "days"} left` };
 }
 
-// A reminder about to be sent: who, which message, and the branch's balance
-type Pending = { member: GymMember; kind: SmsKind; credits: number };
-
-// Manage › Member (the user's design, 2026-11-06): the Members title with an add button, the
-// search bar with the sort button, the filters as chips (the chosen one carries its count), then
-// a card per member: the photo spot on a violet panel, the name, the ID (PT when on personal
-// training), a days-left pill (red once expired) and a payment-due pill, the status (Active,
-// Due, Expiring or Expired), ⋯ for their options, and two reminder buttons told apart by their
-// icon and tint: the due reminder (a banknote, blue; only when they owe) and the membership
-// reminder (a bell, violet; red once expired). Reminders go by SMS from justFit (1 credit each,
-// after a confirm); while sending is off the phone's own SMS app opens with the text written.
+// Manage › Member (the user's design, 2026-11-07): the search bar with the sort button, the
+// filters as chips (each with its count from the server), then a card per member: the photo spot,
+// the name, the ID (PT when on personal training) and the status (Active, Due, Expiring or
+// Expired) with ⋯ for their options; a days-left pill (red once expired) and a payment-due pill;
+// then "Tap bell to send reminder" with Collect (when they owe, opens Collect Payment Due) and the
+// bell, which sends the reminder that fits: expired, else due, else expiry (red once expired).
+// Reminders go by SMS from justFit (1 credit each, after a confirm); while sending is off the
+// phone's own SMS app opens with the text written.
 // In pick mode (from + › Renewal, Due payment or PT) tapping a member opens that form.
 export function MemberList({ pick = null, initialFilter = "all", focusSearch = false }: { pick?: MemberPick; initialFilter?: MemberFilter; focusSearch?: boolean }) {
   const colors = useThemeColors();
-  const getToken = useSessionToken();
-  // Narrow phones (under 360): no photo spot, no "Member" caption, tighter buttons
+  // Narrow phones (under 360): the status pill moves under the name, beside the days-left pill
   const narrow = useWindowDimensions().width < 360;
   const [filter, setFilter] = useState<MemberFilter>(initialFilter);
   const [sort, setSort] = useState<Sort>("name");
@@ -62,8 +57,8 @@ export function MemberList({ pick = null, initialFilter = "all", focusSearch = f
   const [search, setSearch] = useState("");
   const [sheet, setSheet] = useState<"sort" | "add" | null>(null);
   const [actions, setActions] = useState<GymMember | null>(null);
-  const [pending, setPending] = useState<Pending | null>(null);
-  const [busy, setBusy] = useState<number | null>(null);
+  const [collecting, setCollecting] = useState<GymMember | null>(null);
+  const [reminding, setReminding] = useState<{ member: GymMember; kind: ReminderKind } | null>(null);
 
   // Search after a short pause in typing
   useEffect(() => {
@@ -90,68 +85,18 @@ export function MemberList({ pick = null, initialFilter = "all", focusSearch = f
     else router.push({ pathname: "/gym/members/[id]", params: { id } });
   };
 
-  const say = (title: string, text: string) => {
-    if (Platform.OS === "web") globalThis.alert?.(`${title}\n\n${text}`);
-    else Alert.alert(title, text);
-  };
-
-  // A reminder button: check sending and credits first, then confirm (or open the SMS app)
-  const remind = async (member: GymMember, kind: SmsKind) => {
-    if (!gym || busy) return;
-    haptic.select();
-    setBusy(member.id);
-    const answer = await gymApi.sms(await getToken().catch(() => null));
-    setBusy(null);
-    if (!answer.ok || !answer.data.sending) return textFromPhone(member, gym, kind);
-    if (answer.data.credits < 1) return say("No SMS credits left", "Ask the justFit team to add more credits to send reminders.");
-    setPending({ member, kind, credits: answer.data.credits });
-  };
-
-  // A ref guard: a double tap on Send SMS in one frame would send (and pay for) it twice
-  const sendingRef = useRef(false);
-  const send = async () => {
-    if (!pending || sendingRef.current) return;
-    sendingRef.current = true;
-    const { member, kind } = pending;
-    setPending(null);
-    setBusy(member.id);
-    const answer = await gymApi.memberSms(await getToken().catch(() => null), member.id, kind);
-    sendingRef.current = false;
-    setBusy(null);
-    if (answer.ok) {
-      haptic.success();
-      say("Reminder sent", `${SMS_KIND_LABEL[kind]} sent to ${member.name}. ${answer.data.credits} ${answer.data.credits === 1 ? "credit" : "credits"} left.`);
-    } else say("Not sent", answer.error);
-  };
-
-  // A reminder button: its icon and tint say which reminder it sends
-  const remindBtn = (label: string, onPress: () => void, icon: GymIconName, tint: string, ground: string, id: number) => (
-    <PressableScale onPress={onPress} disabled={busy === id} className="gym-mcard__btn" style={{ backgroundColor: ground }} accessibilityRole="button" accessibilityLabel={label}>
-      <GymIcon name={icon} size={20} color={tint} />
-    </PressableScale>
-  );
+  const counts = result.state === "ready" ? result.data.counts : null;
 
   const header = (
     <View style={{ gap: 14, paddingBottom: 4 }}>
       {pick && <Text className="gym-tx__meta">{pick === "renewal" ? "Pick the member who is renewing." : pick === "pt" ? "Pick the member who is paying for personal training." : "Pick the member who is paying their due."}</Text>}
-      <View className="flex-row items-center" style={{ gap: 12 }}>
-        <View className="min-w-0 flex-1">
-          <Text className="gym-mlist__title" numberOfLines={1}>Members</Text>
-          <Text className="gym-mlist__sub" numberOfLines={1}>Manage your gym members</Text>
-        </View>
-        {!pick && (
-          <PressableScale onPress={() => setSheet("add")} haptic="tap" className="gym-mlist__square" accessibilityRole="button" accessibilityLabel="Add a new member">
-            <GymIcon name="user-plus" size={24} color={colors.gymPrimary} />
-          </PressableScale>
-        )}
-      </View>
       <View className="flex-row items-center" style={{ gap: 12 }}>
         <View className="gym-mlist__search flex-1">
           <GymIcon name="search" size={20} color={colors.gymFaint} />
           <TextInput
             value={typed}
             onChangeText={setTyped}
-            placeholder="Search member by name or ID"
+            placeholder="Search member by name or ID..."
             placeholderTextColor={colors.gymFaint}
             autoFocus={focusSearch}
             autoCorrect={false}
@@ -167,8 +112,7 @@ export function MemberList({ pick = null, initialFilter = "all", focusSearch = f
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingVertical: 2 }} accessibilityRole="tablist">
         {MEMBER_FILTERS.map((f) => {
           const selected = f.id === filter;
-          // Only the chosen filter's count is known: it is the list on screen
-          const count = selected && result.state === "ready" ? members.length : null;
+          const count = counts ? counts[f.id] : null;
           return (
             <PressableScale
               key={f.id}
@@ -176,13 +120,13 @@ export function MemberList({ pick = null, initialFilter = "all", focusSearch = f
               className={selected ? "gym-mlist__chip gym-mlist__chip--selected" : "gym-mlist__chip"}
               accessibilityRole="tab"
               accessibilityState={{ selected }}
-              accessibilityLabel={count === null ? filterTitle(f.id) : `${filterTitle(f.id)}, ${count}`}
+              accessibilityLabel={filterTitle(f.id)}
+              accessibilityValue={count === null ? undefined : { text: String(count) }}
             >
-              {selected && <GradientFill radius={999} />}
               <Text className={selected ? "gym-mlist__chip-label gym-mlist__chip-label--selected" : "gym-mlist__chip-label"}>{filterTitle(f.id)}</Text>
               {count !== null && (
-                <View className="gym-mlist__count">
-                  <Text className="gym-mlist__count-label">{count}</Text>
+                <View className={selected ? "gym-mlist__count gym-mlist__count--selected" : "gym-mlist__count"}>
+                  <Text className={selected ? "gym-mlist__count-label gym-mlist__count-label--selected" : "gym-mlist__count-label"}>{count}</Text>
                 </View>
               )}
             </PressableScale>
@@ -214,6 +158,7 @@ export function MemberList({ pick = null, initialFilter = "all", focusSearch = f
         {...listPerf}
         data={members}
         keyExtractor={(m) => String(m.id)}
+        style={{ backgroundColor: colors.gymCanvas }}
         contentContainerStyle={{ padding: 16, paddingBottom: 120, gap: 14 }}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
@@ -229,70 +174,89 @@ export function MemberList({ pick = null, initialFilter = "all", focusSearch = f
         }
         renderItem={({ item }) => {
           const days = daysText(item.daysLeft);
-          const kind = membershipKind(item);
-          const status = item.status === "expired"
-            ? { label: "Expired", color: colors.gymDanger, ground: colors.gymDangerSoft, hollow: false }
-            : item.due > 0
-              ? { label: "Due", color: colors.gymPrimaryText, ground: colors.gymPrimarySoft, hollow: true }
-              : item.status === "expiring"
-                ? { label: "Expiring", color: colors.gymWarning, ground: colors.gymWarningSoft, hollow: false }
-                : { label: "Active", color: colors.gymPrimaryText, ground: colors.gymPrimarySoft, hollow: false };
+          // The bell opens Send Reminder on the template that fits: expired first, then due, else expiry
+          const kind: ReminderKind = item.status === "expired" ? "expired" : item.due > 0 ? "due" : "expired";
+          const state = memberStatus(item);
+          const status = state.id === "expired"
+            ? { label: state.label, color: colors.gymDanger, ground: colors.gymDangerSoft }
+            : state.id === "active"
+              ? { label: state.label, color: colors.gymSuccess, ground: colors.gymSuccessSoft }
+              : { label: state.label, color: colors.gymWarning, ground: colors.gymWarningSoft };
+          const statusPill = (
+            <View className="gym-mcard__status" style={{ backgroundColor: status.ground }} accessibilityLabel={`Status: ${status.label}`}>
+              <View className="gym-mcard__dot" style={{ backgroundColor: status.color }} />
+              <Text className="gym-mcard__status-label" style={{ color: status.color }}>{status.label}</Text>
+            </View>
+          );
           return (
-            // The info opens the member; the status, ⋯ and the reminder buttons sit beside it (no button inside a button)
             <View className="gym-mcard">
-              <PressableScale
-                onPress={() => open(item)}
-                className="min-w-0 flex-1 flex-row items-center"
-                accessibilityRole="button"
-                accessibilityLabel={`${item.name}, ${item.code}${item.pt?.active ? ", on PT" : ""}, ${days.expired ? `expired ${days.text}` : days.text}${item.due > 0 ? `, ${rupees(item.due)} payment due` : ""}`}
-              >
-                {!narrow && (
-                  <View className="gym-mcard__side">
-                    <View className="gym-member-card__avatar">
-                      <GymIcon name="user" size={34} color={colors.white} />
-                      <MemberPhotoImage url={item.photoUrl} />
+              {/* The member's row opens them; the status, ⋯ and the footer's buttons sit outside it (no button inside a button) */}
+              <View className="flex-row items-center" style={{ gap: 10 }}>
+                <PressableScale
+                  onPress={() => open(item)}
+                  className="min-w-0 flex-1 flex-row items-center"
+                  style={{ gap: 12 }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${item.name}, ${item.code}${item.pt?.active ? ", on PT" : ""}, ${days.expired ? `expired ${days.text}` : days.text}${item.due > 0 ? `, ${rupees(item.due)} payment due` : ""}`}
+                >
+                  <View className="gym-mcard__avatar">
+                    <GymIcon name="user" size={28} color={colors.gymMuted} />
+                    <MemberPhotoImage url={item.photoUrl} />
+                  </View>
+                  <View className="min-w-0 flex-1" style={{ gap: 4 }}>
+                    <Text className="gym-mcard__name" numberOfLines={1}>{item.name}</Text>
+                    <View className="flex-row items-center" style={{ gap: 6 }}>
+                      <GymIcon name="id-card" size={16} color={colors.gymFaint} />
+                      <Text className="gym-mcard__code" numberOfLines={1} style={{ flexShrink: 1 }}>{item.code}</Text>
+                      {item.pt?.active && (
+                        <View className="gym-chip" style={{ borderColor: colors.gymSuccessLine, backgroundColor: colors.gymSuccessSoft }}>
+                          <Text className="gym-chip__label" style={{ color: colors.gymSuccess }}>PT</Text>
+                        </View>
+                      )}
                     </View>
                   </View>
-                )}
-                <View className="min-w-0 flex-1" style={{ gap: 8, paddingVertical: 14, paddingLeft: narrow ? 14 : 12 }}>
-                  <Text className="gym-mcard__name" numberOfLines={1}>{item.name}</Text>
-                  <View className="flex-row items-center" style={{ gap: 6 }}>
-                    <GymIcon name="id-card" size={16} color={colors.gymInkSoft} />
-                    <Text className="gym-mcard__code" numberOfLines={1} style={{ flexShrink: 1 }}>{item.code}</Text>
-                    {item.pt?.active && (
-                      <View className="gym-chip" style={{ borderColor: colors.gymSuccessLine, backgroundColor: colors.gymSuccessSoft }}>
-                        <Text className="gym-chip__label" style={{ color: colors.gymSuccess }}>PT</Text>
-                      </View>
-                    )}
-                  </View>
-                  <View className="flex-row flex-wrap" style={{ gap: 8 }}>
-                    <View className="gym-mcard__pill" style={days.expired ? { backgroundColor: colors.gymDangerSoft } : undefined}>
-                      <GymIcon name="calendar" size={15} color={days.expired ? colors.gymDanger : colors.gymPrimary} />
-                      <Text className="gym-mcard__pill-label" numberOfLines={1} style={days.expired ? { color: colors.gymDanger } : undefined}>{days.expired ? `Expired ${days.text}` : days.text}</Text>
-                    </View>
-                    {item.due > 0 && (
-                      <View className="gym-mcard__pill" style={item.overdue ? { backgroundColor: colors.gymDangerSoft } : undefined}>
-                        <GymIcon name="credit-card" size={15} color={item.overdue ? colors.gymDanger : colors.gymPrimary} />
-                        <Text className="gym-mcard__pill-label" numberOfLines={1} style={[{ flexShrink: 1 }, item.overdue && { color: colors.gymDanger }]}>{`${rupees(item.due)} payment due${item.overdue ? " · overdue" : ""}`}</Text>
-                      </View>
-                    )}
-                  </View>
-                </View>
-              </PressableScale>
-              {!pick && (
-                <View className="gym-mcard__right">
+                </PressableScale>
+                {!pick && (
                   <View className="flex-row items-center" style={{ gap: 2 }}>
-                    <View className="gym-mcard__status" style={{ backgroundColor: status.ground }} accessibilityLabel={`Status: ${status.label}`}>
-                      <View className="gym-mcard__dot" style={{ borderColor: status.color, backgroundColor: status.hollow ? "transparent" : status.color }} />
-                      <Text className="gym-mcard__status-label" style={{ color: status.color }}>{status.label}</Text>
-                    </View>
+                    {!narrow && statusPill}
                     <PressableScale onPress={() => setActions(item)} hitSlop={6} className="gym-plain-btn" style={{ width: 32 }} accessibilityRole="button" accessibilityLabel={`${item.name}: options`}>
-                      <GymIcon name="ellipsis" size={20} color={colors.gymInkSoft} />
+                      <GymIcon name="ellipsis" size={20} color={colors.gymFaint} />
                     </PressableScale>
                   </View>
+                )}
+              </View>
+              <View className="flex-row flex-wrap items-center" style={{ gap: 10 }}>
+                {!pick && narrow && statusPill}
+                <View className="gym-mcard__pill" style={days.expired ? { backgroundColor: colors.gymDangerSoft } : undefined}>
+                  <GymIcon name="calendar" size={16} color={days.expired ? colors.gymDanger : colors.gymPrimary} />
+                  <Text className="gym-mcard__pill-label" numberOfLines={1} style={days.expired ? { color: colors.gymDanger } : undefined}>{days.expired ? `Expired ${days.text}` : days.text}</Text>
+                </View>
+                {item.due > 0 && (
+                  <View className="gym-mcard__pill" style={{ backgroundColor: colors.gymDangerSoft }}>
+                    <GymIcon name="credit-card" size={16} color={colors.gymDanger} />
+                    <Text className="gym-mcard__pill-label" numberOfLines={1} style={{ flexShrink: 1, color: colors.gymDanger }}>{`${rupees(item.due)} payment due${item.overdue ? " · overdue" : ""}`}</Text>
+                  </View>
+                )}
+              </View>
+              {!pick && (
+                <View className="gym-mcard__foot">
+                  <Text className="gym-mcard__hint" numberOfLines={1} style={{ flexShrink: 1 }}>Tap bell to send reminder</Text>
                   <View className="flex-row items-center" style={{ gap: 8 }}>
-                    {item.due > 0 && remindBtn(`Send ${item.name} a due reminder`, () => remind(item, "due"), "banknote", colors.gymTileBlueIcon, colors.gymTileBlue, item.id)}
-                    {remindBtn(`Send ${item.name} ${kind === "expired" ? "an expired" : "an expiry"} reminder`, () => remind(item, kind), "bell-ring", kind === "expired" ? colors.gymDanger : colors.gymPrimary, kind === "expired" ? colors.gymDangerSoft : colors.gymPrimarySoft, item.id)}
+                    {item.due > 0 && (
+                      <PressableScale onPress={() => setCollecting(item)} haptic="tap" className="gym-mcard__collect" accessibilityRole="button" accessibilityLabel={`Collect ${rupees(item.due)} from ${item.name}`}>
+                        <GymIcon name="indian-rupee" size={15} color={colors.gymSuccess} />
+                        <Text className="gym-mcard__collect-label">Collect</Text>
+                      </PressableScale>
+                    )}
+                    <PressableScale
+                      onPress={() => { haptic.select(); setReminding({ member: item, kind }); }}
+                      className="gym-mcard__bell"
+                      style={item.status === "expired" ? { backgroundColor: colors.gymDangerSoft } : undefined}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Send ${item.name} ${item.status === "expired" ? "an expired" : kind === "due" ? "a due" : "an expiry"} reminder`}
+                    >
+                      <GymIcon name="bell" size={20} color={item.status === "expired" ? colors.gymDanger : colors.gymPrimary} />
+                    </PressableScale>
                   </View>
                 </View>
               )}
@@ -302,8 +266,8 @@ export function MemberList({ pick = null, initialFilter = "all", focusSearch = f
       />
       {!pick && (
         <View className="absolute" style={{ right: 16, bottom: 16 }}>
-          <PressableScale onPress={() => setSheet("add")} haptic="tap" className="gym-fab-round" accessibilityRole="button" accessibilityLabel="Add a member">
-            <GradientFill radius={26} />
+          <PressableScale onPress={() => setSheet("add")} haptic="tap" className="gym-fab" accessibilityRole="button" accessibilityLabel="Add a member">
+            <GradientFill radius={18} />
             <GymIcon name="plus" size={22} color={colors.white} />
           </PressableScale>
         </View>
@@ -319,19 +283,9 @@ export function MemberList({ pick = null, initialFilter = "all", focusSearch = f
         />
       )}
       {sheet === "sort" && choiceSheet("Sort members", SORTS, sort, setSort)}
+      {reminding && gym && <SendReminderSheet kind={reminding.kind} member={reminding.member} gym={gym} onClose={() => setReminding(null)} onSent={reload} />}
+      {collecting && gym && <CollectDueSheet member={collecting} gym={gym} onClose={() => setCollecting(null)} onSaved={() => { setCollecting(null); reload(); }} />}
       {actions && gym && <MemberActionsSheet member={actions} gym={gym} onClose={() => setActions(null)} onChanged={(detail) => { setActions(detail.member); reload(); }} />}
-      {pending && (
-        <Modal visible transparent animationType="none" onRequestClose={() => setPending(null)} statusBarTranslucent>
-          <ConfirmDialog
-            title={`Send ${SMS_KIND_LABEL[pending.kind].toLowerCase()}?`}
-            rows={[["To", pending.member.name], ["Cost", "1 credit"], ["Credits left", String(pending.credits)]]}
-            editLabel="Cancel"
-            confirmLabel="Send SMS"
-            onEdit={() => setPending(null)}
-            onConfirm={send}
-          />
-        </Modal>
-      )}
     </>
   );
 }

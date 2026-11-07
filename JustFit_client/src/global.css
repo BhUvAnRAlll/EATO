@@ -5688,27 +5688,15 @@
   justify-content: center;
 }
 
-/* Manage › Member (the user's design, 2026-11-06): the title row, the search bar with the sort
-   button, and the filter chips (the chosen one on the gradient, with its count) */
-@utility gym-mlist__title {
-  font-family: var(--font-sans-semibold);
-  font-size: 26px;
-  line-height: 32px;
-  color: var(--color-gym-ink);
-}
-
-@utility gym-mlist__sub {
-  font-family: var(--font-sans);
-  font-size: 15px;
-  line-height: 21px;
-  color: var(--color-gym-muted);
-}
-
+/* Manage › Member (the user's design, 2026-11-07): the search bar with the sort button, and the
+   filter chips, each with its count (the chosen one filled violet) */
 @utility gym-mlist__square {
   width: 56px;
   height: 56px;
   border-radius: 16px;
-  background-color: var(--color-gym-tile-violet-box);
+  border-width: 1px;
+  border-color: var(--color-gym-line);
+  background-color: var(--color-gym-page);
   align-items: center;
   justify-content: center;
 }
@@ -5721,25 +5709,25 @@
   padding-inline: 18px;
   border-radius: 999px;
   border-width: 1px;
-  border-color: var(--color-gym-tile-violet-line);
-  background-color: var(--color-gym-tile-violet);
+  border-color: var(--color-gym-line);
+  background-color: var(--color-gym-page);
 }
 
 @utility gym-mlist__chip {
   flex-direction: row;
   align-items: center;
   gap: 8px;
-  min-height: 42px;
-  padding-inline: 16px;
+  min-height: 44px;
+  padding-inline: 18px;
   border-radius: 999px;
   border-width: 1px;
-  border-color: var(--color-gym-tile-violet-line);
+  border-color: var(--color-gym-line);
   background-color: var(--color-gym-page);
-  overflow: hidden;
 }
 
 @utility gym-mlist__chip--selected {
-  border-color: var(--color-gym-primary);
+  border-color: var(--color-gym-grad-to);
+  background-color: var(--color-gym-grad-to);
 }
 
 @utility gym-mlist__chip-label {
@@ -5758,36 +5746,44 @@
   height: 24px;
   padding-inline: 7px;
   border-radius: 999px;
-  background-color: rgba(255, 255, 255, 0.28);
+  background-color: var(--color-gym-hairline);
   align-items: center;
   justify-content: center;
+}
+
+@utility gym-mlist__count--selected {
+  background-color: rgba(255, 255, 255, 0.28);
 }
 
 @utility gym-mlist__count-label {
   font-family: var(--font-sans-medium);
   font-size: 12px;
   line-height: 16px;
+  color: var(--color-gym-ink);
+}
+
+@utility gym-mlist__count-label--selected {
   color: var(--color-white);
 }
 
-/* A member's card: the photo spot on a violet panel, the name, ID and pills; on the right the
-   status, ⋯ and the two reminder buttons (each its own icon and tint) */
+/* A member's card: the photo spot, name, ID and status; the days-left and payment-due pills; a
+   footer with "Tap bell to send reminder", Collect and the bell */
 @utility gym-mcard {
-  flex-direction: row;
+  gap: 14px;
+  padding: 16px;
   border-radius: 20px;
   background-color: var(--color-gym-page);
   box-shadow: var(--shadow-gym-card);
-  overflow: hidden;
 }
 
-@utility gym-mcard__side {
-  width: 104px;
-  align-self: stretch;
+@utility gym-mcard__avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  overflow: hidden;
   align-items: center;
   justify-content: center;
-  border-top-right-radius: 48px;
-  border-bottom-right-radius: 48px;
-  background-color: var(--color-gym-tile-violet);
+  background-color: var(--color-gym-hairline);
 }
 
 @utility gym-mcard__name {
@@ -5798,36 +5794,10 @@
 }
 
 @utility gym-mcard__code {
-  font-family: var(--font-sans-medium);
+  font-family: var(--font-sans);
   font-size: 15px;
   line-height: 20px;
-  color: var(--color-gym-ink-soft);
-}
-
-@utility gym-mcard__pill {
-  flex-direction: row;
-  align-items: center;
-  gap: 6px;
-  min-height: 30px;
-  padding-inline: 10px;
-  border-radius: 10px;
-  background-color: var(--color-gym-tile-violet-box);
-}
-
-@utility gym-mcard__pill-label {
-  font-family: var(--font-sans-medium);
-  font-size: 13px;
-  line-height: 18px;
-  color: var(--color-gym-primary-text);
-}
-
-@utility gym-mcard__right {
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 12px;
-  padding-block: 12px;
-  padding-right: 12px;
-  padding-left: 4px;
+  color: var(--color-gym-muted);
 }
 
 @utility gym-mcard__status {
@@ -5840,10 +5810,9 @@
 }
 
 @utility gym-mcard__dot {
-  width: 9px;
-  height: 9px;
+  width: 8px;
+  height: 8px;
   border-radius: 999px;
-  border-width: 1.5px;
 }
 
 @utility gym-mcard__status-label {
@@ -5852,12 +5821,206 @@
   line-height: 18px;
 }
 
-@utility gym-mcard__btn {
-  width: 44px;
-  height: 44px;
+@utility gym-mcard__pill {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding-inline: 14px;
+  border-radius: 12px;
+  background-color: var(--color-gym-primary-soft);
+}
+
+@utility gym-mcard__pill-label {
+  font-family: var(--font-sans-medium);
+  font-size: 15px;
+  line-height: 20px;
+  color: var(--color-gym-primary-text);
+}
+
+@utility gym-mcard__foot {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 14px;
+  border-top-width: 1px;
+  border-color: var(--color-gym-hairline);
+}
+
+@utility gym-mcard__hint {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--color-gym-faint);
+}
+
+@utility gym-mcard__collect {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding-inline: 16px;
   border-radius: 999px;
+  background-color: var(--color-gym-success-soft);
+}
+
+@utility gym-mcard__collect-label {
+  font-family: var(--font-sans-semibold);
+  font-size: 15px;
+  line-height: 20px;
+  color: var(--color-gym-success);
+}
+
+@utility gym-mcard__bell {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
   align-items: center;
   justify-content: center;
+  background-color: var(--color-gym-primary-soft);
+}
+
+/* Send Reminder (the user's design, 2026-11-07): the bell header, the member's card with three
+   stats, the Send via tiles and the message box */
+@utility gym-remind__icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 18px;
+  background-color: var(--color-gym-primary-soft);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility gym-remind__member {
+  gap: 14px;
+  padding: 14px;
+  border-radius: 16px;
+  border-width: 1px;
+  border-color: var(--color-gym-line);
+  background-color: var(--color-gym-page);
+}
+
+@utility gym-remind__stats {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding-top: 14px;
+  border-top-width: 1px;
+  border-color: var(--color-gym-hairline);
+}
+
+/* Two stats a row on a phone (the third wraps), three on a wider sheet */
+@utility gym-remind__stat {
+  flex-grow: 1;
+  flex-basis: 45%;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px;
+  border-radius: 12px;
+  background-color: var(--color-gym-bar);
+}
+
+@utility gym-remind__stat-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background-color: var(--color-gym-primary-soft);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility gym-remind__stat-label {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--color-gym-muted);
+}
+
+@utility gym-remind__stat-value {
+  font-family: var(--font-sans-semibold);
+  font-size: 14px;
+  line-height: 19px;
+  color: var(--color-gym-primary-text);
+  flex-shrink: 1;
+}
+
+@utility gym-remind__heading {
+  font-family: var(--font-sans-semibold);
+  font-size: 17px;
+  line-height: 22px;
+  color: var(--color-gym-ink);
+}
+
+@utility gym-remind__tile {
+  flex: 1;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 16px;
+  border-width: 1.5px;
+  border-color: var(--color-gym-line);
+  background-color: var(--color-gym-page);
+}
+
+@utility gym-remind__tile--on {
+  border-color: var(--color-gym-grad-to);
+  background-color: var(--color-gym-tile-purple);
+}
+
+@utility gym-remind__tile-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  align-items: center;
+  justify-content: center;
+}
+
+@utility gym-remind__tile-label {
+  font-family: var(--font-sans-semibold);
+  font-size: 14px;
+  line-height: 19px;
+  color: var(--color-gym-ink);
+}
+
+@utility gym-remind__tick {
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  border-width: 1.5px;
+  border-color: var(--color-gym-line);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility gym-remind__tick--on {
+  border-color: var(--color-gym-grad-to);
+  background-color: var(--color-gym-grad-to);
+}
+
+@utility gym-remind__template {
+  font-family: var(--font-sans-semibold);
+  font-size: 15px;
+  line-height: 20px;
+  color: var(--color-gym-primary-text);
+}
+
+@utility gym-remind__box {
+  gap: 6px;
+  padding: 14px;
+  border-radius: 14px;
+  border-width: 1px;
+  border-color: var(--color-gym-line);
+  background-color: var(--color-gym-page);
+}
+
+@utility gym-remind__count {
+  align-self: flex-end;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--color-gym-muted);
 }
 
 /* Send Bulk SMS (the user's designs): the dark credits card, the Quick Actions rows, the Auto

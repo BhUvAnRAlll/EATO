@@ -337,17 +337,23 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
     await h.expectText("Transaction History");
     await snapshotAllWidths("gym-member-options");
     await h.settle();
-    // Send Due Reminder opens Send via: an SMS from justFit (no credits yet, so it can't be
-    // picked), the phone's SMS app or WhatsApp, with the message shown first
+    // Send Due Reminder opens Send Reminder: the member's card, the channels (WhatsApp picked;
+    // SMS goes from the phone while there are no credits; Notification coming soon) and the
+    // message filled from the Payment due template
     await clickLabel("Send Due Reminder");
-    await h.expectText("SEND VIA"); // the section title is upper-cased by its style
-    await h.expectText("A payment of ₹500 is due");
-    await waitLabel("SMS from justFit. No credits left");
-    assert.ok(await hasLabel("SMS app. Your phone's Messages, no credits"));
-    assert.ok(await hasLabel("WhatsApp. Opens WhatsApp with the message written"));
+    await h.expectText("Notify member about payment or membership");
+    await h.settle(); // the sheet slides in before its tiles can be tapped
+    await h.expectText("Payment Due");
+    await h.expectText("Select one or more channels");
+    assert.match(await page.evaluate(`document.querySelector('[aria-label="Message"]').value`), /A payment of ₹500 is due/);
+    assert.ok(await hasLabel("Notification, coming soon"));
+    await clickLabel("Send by SMS");
+    await h.expectText("No credits left: opens your phone's Messages app");
+    await clickLabel("Use Template");
+    await h.expectText("Membership expiry");
     await snapshotAllWidths("gym-send-via");
-    await clickLabel("Close");
-    await page.waitFor(`!(document.body.innerText || "").includes("SEND VIA")`, NAV_TIMEOUT, "the Send via sheet closes");
+    await clickLabel("Close Send Reminder");
+    await page.waitFor(`!(document.body.innerText || "").includes("Notify member about payment or membership")`, NAV_TIMEOUT, "the Send Reminder sheet closes");
     await h.settle();
     await clickLabel("Collect Payment Due : ₹500");
     await h.expectText("Partial due amount collection is also supported");
@@ -510,7 +516,16 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
     await h.expectText("₹1,500 payment due");
     await snapshotAllWidths("gym-manage-members");
     await stubAlerts();
+    // The bell opens Send Reminder on the expired template; SMS alone, through justFit (credits
+    // are left and the text is the template), after the confirm
     await clickLabel("Send Karthik Raja an expired reminder");
+    await h.expectText("Notify member about payment or membership");
+    await h.settle();
+    await clickLabel("Send by WhatsApp"); // off
+    await clickLabel("Send by SMS");
+    await h.expectText("Via justFit: 1 credit");
+    await snapshotAllWidths("gym-send-reminder");
+    await clickLabel("Send Reminder");
     await h.expectText("Send expired reminder?");
     await h.expectText("Credits left");
     await snapshotAllWidths("gym-sms-confirm");
@@ -525,7 +540,7 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
     await clickLabel("Expired");
     await page.waitFor(`!(document.body.innerText || "").includes("Mohammed Asif")`, NAV_TIMEOUT, "only expired members");
     await h.expectText("Karthik Raja");
-    await waitLabel("Expired, 1");
+    await page.waitFor(`(() => { const chip = document.querySelector('[role="tab"][aria-label="Expired"]'); return !!chip && (chip.textContent || "").replace(/\\s+/g, "") === "Expired1"; })()`, NAV_TIMEOUT, "the Expired chip counts 1");
     await clickLabel("All Members");
     await h.expectText("Mohammed Asif");
 
