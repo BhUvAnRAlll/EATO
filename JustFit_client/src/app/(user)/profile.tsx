@@ -25,6 +25,7 @@ const menu: { label: string; icon: Icon; href: Href }[] = [
   { label: "Orders", icon: { ios: "shippingbox", android: "inventory_2", web: "inventory_2" }, href: "/orders" },
   { label: "Delivery addresses", icon: { ios: "mappin.and.ellipse", android: "location_on", web: "location_on" }, href: "/addresses" },
   { label: "Notifications", icon: { ios: "bell", android: "notifications", web: "notifications" }, href: "/notifications" },
+  { label: "Gym membership", icon: { ios: "person.text.rectangle", android: "badge", web: "badge" }, href: "/membership" },
   { label: "Gym attendance", icon: { ios: "qrcode.viewfinder", android: "qr_code_scanner", web: "qr_code_scanner" }, href: "/attendance" },
 ];
 

@@ -4,13 +4,14 @@ import { router, useLocalSearchParams } from "expo-router";
 
 import { PressableScale } from "@/components/PressableScale";
 import { MemberList, isMemberFilter, type MemberPick } from "@/components/gym/MemberList";
+import { parseExpiringDays } from "@/data/gymDashboard";
 import { AddMemberSheet } from "@/components/gym/AddMemberSheet";
 import { GymScreen } from "@/components/gym/GymScreen";
 
 // Gym admin › Members (Home's cards, + › Renewal / Due payment / PT, search): the member list in
 // its own screen, opened on a filter or in pick mode
 export default function GymMembers() {
-  const params = useLocalSearchParams<{ filter?: string; pick?: string; focus?: string }>();
+  const params = useLocalSearchParams<{ filter?: string; days?: string; pick?: string; focus?: string }>();
   const [adding, setAdding] = useState(false);
   const pick: MemberPick = params.pick === "renewal" || params.pick === "due" || params.pick === "pt" ? params.pick : null;
   return (
@@ -25,7 +26,7 @@ export default function GymMembers() {
         ) : undefined
       }
     >
-      <MemberList pick={pick} initialFilter={isMemberFilter(params.filter) ? params.filter : "all"} focusSearch={params.focus === "search"} />
+      <MemberList pick={pick} initialFilter={isMemberFilter(params.filter) ? params.filter : "all"} initialDays={parseExpiringDays(params.days)} focusSearch={params.focus === "search"} />
       {adding && <AddMemberSheet onClose={() => setAdding(false)} onSaved={(detail) => { setAdding(false); router.push({ pathname: "/gym/members/[id]", params: { id: String(detail.member.id) } }); }} />}
     </GymScreen>
   );

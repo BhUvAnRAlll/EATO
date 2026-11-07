@@ -26,7 +26,9 @@ const AREA_OF_PATH = [
   [/^\/members\/[^/]+\/sms$/, "sms"],
   [/^\/members\/[^/]+\/(due|pt|sales|services)$/, "payments"],
   [/^\/members\/[^/]+\/check-(in|out)$/, "attendance"],
-  [/^\/(members|trainers)(\/|$)/, "members"],
+  // A payment's bill is attached from Add Member and seen on the member's page, so it goes with members
+  [/^\/payments\/[^/]+\/receipt$/, "members"],
+  [/^\/(members|trainers|pauses)(\/|$)/, "members"],
   [/^\/(payments|services|sales|wallet)(\/|$)/, "payments"],
   [/^\/enquiries(\/|$)/, "enquiries"],
   [/^\/catalog(\/|$)/, "catalog"],

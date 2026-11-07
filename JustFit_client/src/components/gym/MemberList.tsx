@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentRef } from "react";
 import { FlatList, Pressable, Platform, ScrollView, Text, TextInput, useWindowDimensions, View } from "react-native";
 import { router } from "expo-router";
 
@@ -12,7 +12,7 @@ import { GymEmpty, GymError, GymLoading } from "@/components/gym/GymStates";
 import { GymSheet } from "@/components/gym/GymSheet";
 import { MemberActionsSheet } from "@/components/gym/MemberActionsSheet";
 import { SendReminderSheet, type ReminderKind } from "@/components/gym/SendReminderSheet";
-import { MEMBER_FILTERS, rupees } from "@/data/gymDashboard";
+import { DEFAULT_EXPIRING_DAYS, EXPIRING_SOON_DAYS, MEMBER_FILTERS, expiringDaysLabel, expiringDaysText, rupees, type ExpiringDays } from "@/data/gymDashboard";
 import { gymApi, type GymInfo, type GymMember, type MemberFilter } from "@/lib/gymApi";
 import { haptic } from "@/lib/haptics";
 import { memberStatus } from "@/lib/gymMember";
@@ -46,12 +46,31 @@ function daysText(days: number) {
 // bell, which sends the reminder that fits: expired, else due, else expiry (red once expired).
 // Reminders go by SMS from justFit (1 credit each, after a confirm); while sending is off the
 // phone's own SMS app opens with the text written.
+// "Expiring soon" looks from tomorrow to a chosen number of days ahead (All, every plan still
+// running, then 3, 7, 15, 30: the day chips under the filters, shown only while that filter is
+// selected; a fresh list opens on All, Home's row on its 3 days). The chip reads "Expiring soon" alone (the user's request); its count
+// follows the picked days.
 // In pick mode (from + › Renewal, Due payment or PT) tapping a member opens that form.
-export function MemberList({ pick = null, initialFilter = "all", focusSearch = false }: { pick?: MemberPick; initialFilter?: MemberFilter; focusSearch?: boolean }) {
+export function MemberList({ pick = null, initialFilter = "all", initialDays = DEFAULT_EXPIRING_DAYS, focusSearch = false }: { pick?: MemberPick; initialFilter?: MemberFilter; initialDays?: ExpiringDays; focusSearch?: boolean }) {
   const colors = useThemeColors();
   // Narrow phones (under 360): the status pill moves under the name, beside the days-left pill
   const narrow = useWindowDimensions().width < 360;
   const [filter, setFilter] = useState<MemberFilter>(initialFilter);
+  const [days, setDays] = useState<ExpiringDays>(initialDays);
+  // The filter row opens with the chip the list was opened on (Home's Due, Expiring today,
+  // Expiring soon, Birthdays) in the middle of the row, its neighbours showing on both sides
+  // (the user's 2026-11-07 screenshot), so the selected filter is never off-screen or stuck at
+  // the edge. Each chip reports its x and width as it lays out, the row its width; the scroll
+  // happens once both are known. The ScrollView clamps the end itself, so the last chips stay
+  // flush right
+  const filterRow = useRef<ComponentRef<typeof ScrollView>>(null);
+  const chipBox = useRef<Partial<Record<MemberFilter, { x: number; width: number }>>>({});
+  const rowWidth = useRef(0);
+  const centerChip = (id: MemberFilter) => {
+    const chip = chipBox.current[id];
+    if (!chip || !rowWidth.current || !filterRow.current) return;
+    filterRow.current.scrollTo({ x: Math.max(0, chip.x + chip.width / 2 - rowWidth.current / 2), animated: false });
+  };
   const [sort, setSort] = useState<Sort>("name");
   const [typed, setTyped] = useState("");
   const [search, setSearch] = useState("");
@@ -66,7 +85,7 @@ export function MemberList({ pick = null, initialFilter = "all", focusSearch = f
     return () => clearTimeout(timer);
   }, [typed]);
 
-  const load = useCallback((token: string | null) => gymApi.members(token, filter, search), [filter, search]);
+  const load = useCallback((token: string | null) => gymApi.members(token, filter, search, days), [filter, search, days]);
   const { result, retry, reload } = useGymData(load);
   const gym: GymInfo | null = result.state === "ready" ? result.data.gym : null;
 
@@ -109,18 +128,26 @@ export function MemberList({ pick = null, initialFilter = "all", focusSearch = f
           <GymIcon name="sliders-horizontal" size={22} color={colors.gymPrimary} />
         </PressableScale>
       </View>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingVertical: 2 }} accessibilityRole="tablist">
+      <ScrollView
+        ref={filterRow}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{ gap: 10, paddingVertical: 2 }}
+        onLayout={(e) => { rowWidth.current = e.nativeEvent.layout.width; centerChip(initialFilter); }}
+        accessibilityRole="tablist"
+      >
         {MEMBER_FILTERS.map((f) => {
           const selected = f.id === filter;
           const count = counts ? counts[f.id] : null;
           return (
             <PressableScale
               key={f.id}
+              onLayout={(e) => { chipBox.current[f.id] = { x: e.nativeEvent.layout.x, width: e.nativeEvent.layout.width }; if (f.id === initialFilter) centerChip(f.id); }}
               onPress={() => { if (!selected) haptic.select(); setFilter(f.id); }}
               className={selected ? "gym-mlist__chip gym-mlist__chip--selected" : "gym-mlist__chip"}
               accessibilityRole="tab"
               accessibilityState={{ selected }}
-              accessibilityLabel={filterTitle(f.id)}
+              accessibilityLabel={f.id === "expiring_soon" ? `Expiring soon, ${expiringDaysText(days)}` : filterTitle(f.id)}
               accessibilityValue={count === null ? undefined : { text: String(count) }}
             >
               <Text className={selected ? "gym-mlist__chip-label gym-mlist__chip-label--selected" : "gym-mlist__chip-label"}>{filterTitle(f.id)}</Text>
@@ -133,6 +160,26 @@ export function MemberList({ pick = null, initialFilter = "all", focusSearch = f
           );
         })}
       </ScrollView>
+      {filter === "expiring_soon" && (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, alignItems: "center" }} accessibilityRole="radiogroup" accessibilityLabel="Plans ending within">
+          <Text className="gym-tx__meta">Ending in</Text>
+          {EXPIRING_SOON_DAYS.map((d) => {
+            const selected = d === days;
+            return (
+              <PressableScale
+                key={d}
+                onPress={() => { if (!selected) haptic.select(); setDays(d); }}
+                className={selected ? "gym-choice gym-choice--selected" : "gym-choice"}
+                accessibilityRole="radio"
+                accessibilityState={{ selected }}
+                accessibilityLabel={d === "all" ? "All plans still running" : `Next ${d} days`}
+              >
+                <Text className={selected ? "gym-choice__label gym-choice__label--selected" : "gym-choice__label"}>{expiringDaysLabel(d)}</Text>
+              </PressableScale>
+            );
+          })}
+        </ScrollView>
+      )}
     </View>
   );
 
@@ -169,7 +216,7 @@ export function MemberList({ pick = null, initialFilter = "all", focusSearch = f
           ) : result.state === "failed" ? (
             <GymError error={result.error} onRetry={retry} />
           ) : (
-            <GymEmpty icon="users" title={search || filter !== "all" ? "No members match" : "No members yet"} text={filter === "birthday" && !search ? "Add members' dates of birth to see their birthdays here." : search || filter !== "all" ? "Try another search or filter." : "Tap Add to record your first admission."} />
+            <GymEmpty icon="users" title={search || filter !== "all" ? "No members match" : "No members yet"} text={filter === "birthday" && !search ? "Add members' dates of birth to see their birthdays here." : filter === "expiring_soon" && !search ? (days === "all" ? "No plans are running past today." : `No plans end in the next ${days} days. Try a longer window.`) : search || filter !== "all" ? "Try another search or filter." : "Tap Add to record your first admission."} />
           )
         }
         renderItem={({ item }) => {

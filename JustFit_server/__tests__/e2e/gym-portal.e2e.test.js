@@ -293,13 +293,24 @@ describe("gym portal e2e: gyms, staff, members, money and attendance", () => {
     const home = (await gym.get("/api/gym/dashboard")).json;
     assert.deepEqual(home.revenue, { online: 3000 + 1500 + 6000, cash: 1000 + 500 + 3200 + 1500 });
     assert.deepEqual(home.stats, { admission: 2, renewal: 1, enquiry: 1, duePaid: 2, pt: 1, product: 1 });
-    assert.deepEqual(home.alerts, { dueMembers: 0, expiringToday: 0, attendance: 1, expiringSoon: 1, birthdays: 1, renewalRisk: 0 });
+    assert.deepEqual(home.alerts, { dueMembers: 0, expiringToday: 0, attendance: 1, expiringSoon: 1, birthdays: 1, renewalRisk: 0, pauseRequests: 0 });
     assert.deepEqual(home.recent.map((p) => p.kind), ["admission", "pt", "sale", "due", "due"], "the newest five");
 
     const list = async (query) => (await gym.get(`/api/gym/members${query}`)).json.members.map((m) => m.id);
     assert.deepEqual(await list(""), [state.kavya, state.asif], "only this gym's members");
     assert.deepEqual(await list("?filter=birthday"), [state.kavya]);
     assert.deepEqual(await list("?filter=expiring_soon"), [state.kavya]);
+    // Expiring soon's window follows the days asked for (Kavya's plan ends in 2 days, so she is
+    // listed at the default 3 above but not within 1); the chip's count uses the same window and
+    // the other counts are untouched. One call on gym A only: this account ends the suite a
+    // couple of calls under its 180-a-minute budget. The bounds (1 to 90) are unit-tested.
+    const soon = (await gym.get("/api/gym/members?filter=expiring_soon&days=1")).json;
+    assert.deepEqual([soon.members, soon.counts.expiring_soon, soon.counts.birthday], [[], 0, 1], "not within 1 day");
+    assert.equal((await as("gymB").get("/api/gym/members?filter=expiring_soon&days=91")).status, 400, "past 90 days");
+    // "all" is every plan still running: gym B's one member has a month to go, so 3 days misses him
+    const bAll = (await as("gymB").get("/api/gym/members?filter=expiring_soon&days=all")).json;
+    assert.deepEqual([bAll.members.map((m) => m.id), bAll.counts.expiring_soon], [[state.bMember], 1]);
+    assert.equal((await as("gymB").get("/api/gym/members?filter=expiring_soon")).json.counts.expiring_soon, 0, "not within the default 3 days");
     assert.deepEqual(await list("?filter=due"), []);
     assert.deepEqual(await list("?search=asif"), [state.asif]);
     assert.deepEqual(await list("?search=98765"), [state.asif], "by phone");

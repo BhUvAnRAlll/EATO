@@ -97,15 +97,46 @@ describe("attendance inputs", () => {
     assert.deepEqual(att.historyQuery({}, "2026-11-04"), { from: "2026-11-04", to: "2026-11-04", status: "all", search: "", memberId: null, page: 1 });
     assert.deepEqual(att.historyQuery({ from: "2026-11-01", to: "2026-11-04", status: "completed", search: "  Asif  K ", memberId: "12", page: "2" }, "2026-11-04"),
       { from: "2026-11-01", to: "2026-11-04", status: "completed", search: "Asif K", memberId: 12, page: 2 });
+    // Inside is today's visits only: the range is fixed to today whatever came with it
+    assert.deepEqual(att.historyQuery({ from: "2026-10-01", to: "2026-11-04", status: "inside" }, "2026-11-04"), { from: "2026-11-04", to: "2026-11-04", status: "inside", search: "", memberId: null, page: 1 });
     for (const q of [
       { from: "2026-11-05", to: "2026-11-04" }, { from: "2026-02-30" }, { from: "2024-01-01", to: "2026-11-04" }, { status: "deleted" },
       { status: "inside' OR '1'='1" }, { memberId: "1 OR 1=1" }, { page: "0" }, { search: "x".repeat(61) }, { sort: "id" },
     ]) assert.throws(() => att.historyQuery(q, "2026-11-04"), (e) => e.status === 400, JSON.stringify(q));
   });
 
+  it("counts down to the next midnight in India", () => {
+    const at = (iso) => Date.parse(iso);
+    assert.equal(att.msUntilIndiaMidnight(at("2026-11-07T18:29:59Z")), 1000); // 23:59:59 IST
+    assert.equal(att.msUntilIndiaMidnight(at("2026-11-07T18:30:00Z")), 86400000); // 00:00 IST: a whole day
+    assert.equal(att.msUntilIndiaMidnight(at("2026-11-07T09:54:00Z")), 8 * 3600000 + 36 * 60000); // 15:24 IST
+  });
+
   it("works out whole minutes", () => {
     assert.equal(att.durationMinutes("2026-11-04T10:00:00Z", "2026-11-04T11:15:29Z"), 75);
     assert.equal(att.durationMinutes("2026-11-04T10:00:00Z", "2026-11-04T09:00:00Z"), 0);
+  });
+});
+
+describe("attendance statistics charts", () => {
+  const ist = (day, hour) => Date.parse(`${day}T${String(hour).padStart(2, "0")}:00:00+05:30`);
+  it("counts today's check-ins by India hour, 5 am to 10 pm plus any outside hour with a visit", () => {
+    const quiet = att.chartHours([]);
+    assert.deepEqual([quiet.length, quiet[0].hour, quiet[quiet.length - 1].hour], [18, 5, 22]);
+    const hours = att.chartHours([ist("2026-11-07", 6), ist("2026-11-07", 6), ist("2026-11-07", 18), Date.parse("2026-11-07T17:30:00Z")]);
+    // 17:30 UTC is 11 pm in India: the chart stretches past 10 pm to that hour
+    assert.deepEqual([hours[0].hour, hours[hours.length - 1].hour, hours.length], [5, 23, 19]);
+    assert.deepEqual(hours.filter((h) => h.visits > 0), [{ hour: 6, visits: 2 }, { hour: 18, visits: 1 }, { hour: 23, visits: 1 }]);
+    const early = att.chartHours([ist("2026-11-07", 4)]);
+    assert.deepEqual([early[0], early.length], [{ hour: 4, visits: 1 }, 19]);
+  });
+  it("lays out one bar per day ending today, zero where nothing was recorded", () => {
+    const addDays = (iso, n) => new Date(Date.parse(`${iso}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
+    const week = att.chartDays(new Map([["2026-11-07", 3], ["2026-11-01", 1], ["2026-10-20", 9]]), "2026-11-07", 7, addDays);
+    assert.deepEqual(week.map((d) => d.day), ["2026-11-01", "2026-11-02", "2026-11-03", "2026-11-04", "2026-11-05", "2026-11-06", "2026-11-07"]);
+    assert.deepEqual(week.map((d) => d.visits), [1, 0, 0, 0, 0, 0, 3]);
+    const month = att.chartDays(new Map(), "2026-11-07", 30, addDays);
+    assert.deepEqual([month.length, month[0].day, month[29].day], [30, "2026-10-09", "2026-11-07"]);
   });
 });
 

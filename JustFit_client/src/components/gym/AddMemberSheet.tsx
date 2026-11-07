@@ -16,8 +16,8 @@ import { GymSheet } from "@/components/gym/GymSheet";
 import { MemberPhotoImage } from "@/components/gym/MemberPhotoImage";
 import { PlanLengthFields, durationValue } from "@/components/gym/PlanLengthFields";
 import { GENDER_LABEL, METHOD_LABEL, daysFromToday, initialsOf, phoneInput, pickable, planLabel, rupees, shortDate } from "@/data/gymDashboard";
-import { pickMemberPhoto, type MemberPhoto, type PhotoSource } from "@/lib/gymPhoto";
-import { comingSoon, notice } from "@/lib/gymPortal";
+import { pickMemberPhoto, pickReceiptImage, type MemberPhoto, type PhotoSource } from "@/lib/gymPhoto";
+import { notice } from "@/lib/gymPortal";
 import { gymApi, type CatalogItem, type Gender, type GymMemberDetail, type PayMethod } from "@/lib/gymApi";
 import { useGymSave } from "@/lib/gymForm";
 import { haptic } from "@/lib/haptics";
@@ -43,13 +43,16 @@ const numberOrBlank = (text: string) => (text.trim() === "" ? "" : Number(text))
 // Home › + › Add Member (the user's designs), in three steps:
 //   1. the profile: an optional photo (camera or library, cropped square), the Member ID the
 //      server will give them, name, mobile, gender
-//   2. optional fields: email, height, weight, address, notes, date of birth (attachments later)
+//   2. optional fields: email, height, weight, address, notes, date of birth
 //   3. the plan and payment: joining and payment dates, a plan from the catalogue (or a custom
-//      one, or Add New Plan), admission amount, discount, mode, what's payable and owed, the
-//      amount collected, the due date when something is owed, and Send Invoice
+//      one, or Add New Plan), mode, what's payable and owed, the amount collected, the due date
+//      when something is owed, Send Invoice, and Attach the payment bill: a photo of the plan
+//      payment's receipt (the admission and discount fields were removed on 2026-11-07 at the
+//      user's request: the plan's price is what's payable; the attachment moved here from step 2
+//      the same day, as the bill of this payment)
 // then "Please confirm the details". The server makes the ID and checks every field again. The
-// photo is uploaded once the member is saved; if only the photo fails, the member stays saved
-// and the gym admin is told.
+// photo and the bill are uploaded once the member is saved (the bill onto the admission payment);
+// if only those fail, the member stays saved and the gym admin is told.
 export function AddMemberSheet({ onClose, onSaved, initial }: { onClose: () => void; onSaved: (detail: GymMemberDetail) => void; initial?: { name: string; phone: string | null } }) {
   const colors = useThemeColors();
   const loadCode = useCallback((token: string | null) => gymApi.nextCode(token), []);
@@ -80,12 +83,12 @@ export function AddMemberSheet({ onClose, onSaved, initial }: { onClose: () => v
   const [planId, setPlanId] = useState<number | "custom" | null>(null);
   const [duration, setDuration] = useState("1");
   const [customFee, setCustomFee] = useState("");
-  const [admission, setAdmission] = useState("");
-  const [discount, setDiscount] = useState("");
   const [method, setMethod] = useState<PayMethod | "">("online");
   const [collected, setCollected] = useState("");
   const [dueBy, setDueBy] = useState<string | null>(daysFromToday(7));
   const [sendInvoice, setSendInvoice] = useState(false);
+  const [bill, setBill] = useState<MemberPhoto | null>(null);
+  const [billError, setBillError] = useState("");
   const [addingPlan, setAddingPlan] = useState(false);
   const [confirming, setConfirming] = useState(false);
 
@@ -118,13 +121,11 @@ export function AddMemberSheet({ onClose, onSaved, initial }: { onClose: () => v
   const chosen: CatalogItem | undefined = typeof planId === "number" ? plans.find((p) => p.id === planId) : undefined;
   const length = chosen?.duration ? chosen.duration : durationValue(duration);
   const planFee = chosen ? chosen.price : rupeesFromText(customFee);
-  const admissionNum = admission.trim() === "" ? 0 : rupeesFromText(admission);
-  const discountNum = discount.trim() === "" ? 0 : rupeesFromText(discount);
-  const payable = Number.isNaN(planFee) ? 0 : Math.max(0, planFee + admissionNum - discountNum);
+  const payable = Number.isNaN(planFee) ? 0 : planFee;
   const paidNum = rupeesFromText(collected);
   const due = Number.isNaN(paidNum) ? payable : Math.max(0, payable - paidNum);
   const planChosen = planId !== null && length !== null && planFee >= 1;
-  const amountsOk = planChosen && discountNum <= planFee + admissionNum && payable >= 1 && paidNum >= 1 && paidNum <= payable && method !== "";
+  const amountsOk = planChosen && payable >= 1 && paidNum >= 1 && paidNum <= payable && method !== "";
   const payReady = amountsOk && (due === 0 || dueBy !== null);
 
   const choosePhoto = async (source: PhotoSource) => {
@@ -136,20 +137,40 @@ export function AddMemberSheet({ onClose, onSaved, initial }: { onClose: () => v
     } else if ("error" in picked) setPhotoError(picked.error);
   };
 
+  const chooseBill = async (source: PhotoSource) => {
+    setBillError("");
+    const picked = await pickReceiptImage(source).catch(() => ({ ok: false as const, error: "That photo couldn't be read. Please try another." }));
+    if (picked.ok) {
+      haptic.select();
+      setBill(picked.photo);
+    } else if ("error" in picked) setBillError(picked.error);
+  };
+
   const submit = () => {
     setConfirming(false);
     save(async (token) => {
       const admitted = await gymApi.admit(token, {
         name: name.trim(), phone, dob: dob ?? "", gender,
         email: email.trim(), heightCm: heightNum === "" ? "" : heightNum, weightKg: weightNum === "" ? "" : weightNum, address: address.trim(), notes: notes.trim(),
-        duration: length ?? 1, fee: planFee, admissionFee: admissionNum, discount: discountNum, paid: paidNum, method: method || "online",
+        duration: length ?? 1, fee: planFee, paid: paidNum, method: method || "online",
         dueBy: due > 0 && dueBy ? dueBy : "", joinedOn, paidOn,
       });
-      if (!admitted.ok || !photo) return admitted;
-      const withPhoto = await gymApi.setPhoto(token, admitted.data.member.id, photo);
-      if (withPhoto.ok) return withPhoto;
-      notice("Member added", `${admitted.data.member.name} was added, but the photo couldn't be saved: ${withPhoto.error}`);
-      return admitted;
+      if (!admitted.ok) return admitted;
+      // The photo and the bill follow the member; a failure of either keeps the member saved
+      let detail = admitted;
+      const problems: string[] = [];
+      if (photo) {
+        const withPhoto = await gymApi.setPhoto(token, admitted.data.member.id, photo);
+        if (withPhoto.ok) detail = withPhoto;
+        else problems.push(`the photo couldn't be saved: ${withPhoto.error}`);
+      }
+      if (bill) {
+        const paymentId = admitted.data.payments.find((p) => p.kind === "admission")?.id;
+        const attached = paymentId ? await gymApi.setReceipt(token, paymentId, bill) : { ok: false as const, error: "the payment wasn't found" };
+        if (!attached.ok) problems.push(`the bill couldn't be attached: ${attached.error}`);
+      }
+      if (problems.length > 0) notice("Member added", `${admitted.data.member.name} was added, but ${problems.join(", and ")}`);
+      return detail;
     });
   };
   const rows: [string, string][] = [
@@ -159,6 +180,7 @@ export function AddMemberSheet({ onClose, onSaved, initial }: { onClose: () => v
     ["Payable", rupees(payable)],
     ["Collected", `${rupees(Number.isNaN(paidNum) ? 0 : paidNum)} · ${METHODS[method || "online"]}`],
     ...(due > 0 ? [["Due", `${rupees(due)}${dueBy ? ` by ${shortDate(dueBy)}` : ""}`] as [string, string]] : []),
+    ...(bill ? [["Payment bill", "Attached"] as [string, string]] : []),
   ];
 
   return (
@@ -249,13 +271,6 @@ export function AddMemberSheet({ onClose, onSaved, initial }: { onClose: () => v
           <GymField label="Address" icon="map-pin" value={address} onChangeText={setAddress} maxLength={200} placeholder="Address" />
           <GymField label="Notes" icon="notebook-pen" value={notes} onChangeText={setNotes} maxLength={300} placeholder="Notes" />
           <DateSelect label="Date of Birth" value={dob} onChange={setDob} min="1920-01-01" max={daysFromToday(0)} />
-          <View className="flex-row items-center" style={{ gap: 12 }}>
-            <Text className="gym-field__label" style={{ fontSize: 14 }}>Attachment</Text>
-            <PressableScale onPress={() => comingSoon("Attachments")} className="gym-choice flex-row items-center" style={{ gap: 8 }} accessibilityRole="button" accessibilityLabel="Attachment, coming soon">
-              <GymIcon name="image" size={16} color={colors.gymPrimary} />
-              <Text className="gym-choice__label">Select</Text>
-            </PressableScale>
-          </View>
           <StepButtons onBack={() => setStep(1)} label="Proceed" ready={detailsReady} onNext={() => setStep(3)} />
         </>
       )}
@@ -293,10 +308,6 @@ export function AddMemberSheet({ onClose, onSaved, initial }: { onClose: () => v
             </>
           )}
           {chosen && <Text className="gym-tx__meta">{`${chosen.name}: ${planLabel(length ?? 1)} · ${rupees(chosen.price)}`}</Text>}
-          <View className="flex-row" style={{ gap: 10 }}>
-            <View className="min-w-0 flex-1"><GymField label="Admission amount" icon="banknote" value={admission} onChangeText={(t) => setAdmission(amountInput(t))} keyboardType="number-pad" placeholder="Admission Amount" /></View>
-            <View className="min-w-0 flex-1"><GymField label="Discount amount" icon="tag" value={discount} onChangeText={(t) => setDiscount(amountInput(t))} keyboardType="number-pad" placeholder="Discount Amount" /></View>
-          </View>
           <ChipRow label="Mode" options={METHODS} value={method} onChange={(m) => setMethod(m)} />
           <View className="flex-row" style={{ gap: 12 }}>
             <View className="flex-1 items-center" style={{ gap: 6 }} accessible accessibilityLabel={`Amount payable ${rupees(payable)}`}>
@@ -308,9 +319,35 @@ export function AddMemberSheet({ onClose, onSaved, initial }: { onClose: () => v
               <View className="gym-amount-box"><Text className="gym-amount-box__value" style={{ color: due > 0 ? colors.gymDanger : colors.gymSuccess }}>{rupees(due)}</Text></View>
             </View>
           </View>
-          <GymField label="Amount collected" icon="indian-rupee" value={collected} onChangeText={(t) => setCollected(amountInput(t))} keyboardType="number-pad" placeholder="Amount Collected" hint={paidNum > payable ? "Can't be more than the amount payable." : discountNum > planFee + admissionNum ? "The discount can't be more than the plan and admission amounts." : undefined} />
+          <GymField label="Amount collected" icon="indian-rupee" value={collected} onChangeText={(t) => setCollected(amountInput(t))} keyboardType="number-pad" placeholder="Amount Collected" hint={paidNum > payable ? "Can't be more than the amount payable." : undefined} />
           {amountsOk && due > 0 && <DueByField value={dueBy} onChange={setDueBy} />}
           <CheckRow label="Send Invoice" checked={sendInvoice} onChange={setSendInvoice} />
+          <View style={{ gap: 8 }}>
+            <Text className="gym-field__label" style={{ fontSize: 14 }}>Attach the payment bill</Text>
+            <Text className="gym-tx__meta">{"A photo of this plan payment's receipt, kept with the payment."}</Text>
+            <View className="flex-row flex-wrap items-center" style={{ gap: 8 }}>
+              {bill && (
+                <View className="gym-item-image__thumb" accessible accessibilityLabel="Payment bill, chosen">
+                  <MemberPhotoImage uri={bill.previewUri} />
+                </View>
+              )}
+              <PressableScale onPress={() => chooseBill("camera")} className="gym-choice flex-row items-center" style={{ gap: 6 }} accessibilityRole="button" accessibilityLabel={bill ? "Retake the bill photo" : "Take a photo of the bill"}>
+                <GymIcon name="camera" size={16} color={colors.gymPrimary} />
+                <Text className="gym-choice__label">{bill ? "Retake" : "Camera"}</Text>
+              </PressableScale>
+              <PressableScale onPress={() => chooseBill("library")} className="gym-choice flex-row items-center" style={{ gap: 6 }} accessibilityRole="button" accessibilityLabel="Choose the bill from the gallery">
+                <GymIcon name="image" size={16} color={colors.gymPrimary} />
+                <Text className="gym-choice__label">Gallery</Text>
+              </PressableScale>
+              {bill && (
+                <PressableScale onPress={() => { setBill(null); setBillError(""); }} className="gym-choice flex-row items-center" style={{ gap: 6 }} accessibilityRole="button" accessibilityLabel="Remove the bill">
+                  <GymIcon name="x" size={16} color={colors.gymPrimary} />
+                  <Text className="gym-choice__label">Remove</Text>
+                </PressableScale>
+              )}
+            </View>
+            {billError ? <Text className="gym-tx__meta" style={{ color: colors.gymDanger }}>{billError}</Text> : null}
+          </View>
           {error ? <FormAlert message={error} /> : null}
           <StepButtons onBack={() => setStep(2)} label="Add Member" ready={payReady} busy={busy} onNext={() => setConfirming(true)} />
         </>

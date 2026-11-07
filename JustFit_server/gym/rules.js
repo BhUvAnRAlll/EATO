@@ -19,6 +19,9 @@ const MAX_PLAN_MONTHS = 24;
 const METHODS = ["online", "cash"];
 const SALE_KINDS = { supplement: "Supplement", merchandise: "Merchandise", other: "Product" };
 const MEMBER_FILTERS = ["all", "due", "overdue", "expiring", "expiring_soon", "expired", "birthday"];
+// "Expiring soon" looks from tomorrow to this many days ahead: 3 by default, the chips go to 30,
+// or "all" for every plan still running
+const EXPIRING_SOON_DAYS = { min: 1, max: 90, default: 3, all: "all" };
 const PAYMENT_KINDS = ["admission", "renewal", "due", "pt", "service", "sale"];
 
 const isPlainObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
@@ -368,7 +371,18 @@ function membersQuery(query = {}) {
   if (!MEMBER_FILTERS.includes(filter)) throw new ValidationError("Pick a filter: all, due, overdue, expiring, expiring soon, expired or birthdays.");
   const search = typeof query.search === "string" ? query.search.trim() : "";
   if (search.length > limits.search) throw new ValidationError(`Search for at most ${limits.search} characters.`);
-  return { filter, search };
+  return { filter, search, days: expiringDays(query.days) };
+}
+
+// How far ahead "Expiring soon" looks (the list's day chips): a whole number of days, 1 to 90,
+// or "all" (every plan that ends after today)
+function expiringDays(value) {
+  if (value === undefined || value === "") return EXPIRING_SOON_DAYS.default;
+  if (value === EXPIRING_SOON_DAYS.all) return EXPIRING_SOON_DAYS.all;
+  if (typeof value !== "string" || !/^[1-9][0-9]{0,2}$/.test(value) || Number(value) > EXPIRING_SOON_DAYS.max) {
+    throw new ValidationError(`Pick how many days ahead to look: ${EXPIRING_SOON_DAYS.min} to ${EXPIRING_SOON_DAYS.max}, or all.`);
+  }
+  return Number(value);
 }
 
 // Newest first, 50 at a time; `before` is the last id of the previous page
@@ -531,6 +545,8 @@ module.exports = {
   optionalDob,
   dueByDate,
   membersQuery,
+  expiringDays,
+  EXPIRING_SOON_DAYS,
   paymentsQuery,
   gymBody,
   branchBody,
@@ -542,6 +558,8 @@ module.exports = {
   todayInIndia,
   addMonths,
   addDays,
+  requiredText,
+  cleanText,
   planEnd,
   renewedUntil,
 };

@@ -12,9 +12,9 @@ import { EditProfileSheet } from "@/components/gym/EditProfileSheet";
 import { GradientFill } from "@/components/gym/GradientFill";
 import { GymSheet } from "@/components/gym/GymSheet";
 import { MemberSaleSheet } from "@/components/gym/MemberSaleSheet";
+import { PauseMembershipSheet } from "@/components/gym/PauseMembershipSheet";
 import { SendReminderSheet, type ReminderKind } from "@/components/gym/SendReminderSheet";
 import { initialsOf, planLabel, planStart, rupees, shortDate } from "@/data/gymDashboard";
-import { comingSoon } from "@/lib/gymPortal";
 import { call, daysLeftText, email, sms, whatsapp } from "@/lib/gymContact";
 import type { GymInfo, GymMember, GymMemberDetail, GymPayment } from "@/lib/gymApi";
 import { useThemeColors } from "@/theme";
@@ -37,6 +37,7 @@ export function MemberActionsSheet({ member, payments, gym, onClose, onChanged, 
   const [changingTrainer, setChangingTrainer] = useState(false);
   const [reminding, setReminding] = useState<ReminderKind | null>(null);
   const [editingProfile, setEditingProfile] = useState(false);
+  const [pausing, setPausing] = useState(false);
   const go = (href: Href) => { onClose(); onLeave?.(); router.push(href); };
   const openMember = () => (onMemberPage ? onClose() : go({ pathname: "/gym/members/[id]", params: { id: String(member.id) } }));
   const id = String(member.id);
@@ -52,7 +53,13 @@ export function MemberActionsSheet({ member, payments, gym, onClose, onChanged, 
     ...(member.due > 0 ? [{ label: `Collect Payment Due : ${rupees(member.due)}`, icon: "credit-card", tone: "danger", onPress: () => setCollecting(true) } as Row] : []),
     { label: "Renew Member", icon: "calendar-sync", onPress: () => go({ pathname: "/gym/members/[id]/renew", params: { id } }) },
     { label: "Edit Membership", icon: "square-pen", onPress: openMember },
-    { label: "Pause Membership", icon: "circle-pause", onPress: () => comingSoon("Pause Membership") },
+    // Pause Membership (2026-11-07): staff pause it here (Option B); a member's own request from
+    // the app waits on Pause requests; an approved pause shows its end
+    member.pause?.status === "pending"
+      ? { label: "Pause request waiting", icon: "circle-pause", onPress: () => go("/gym/pauses") }
+      : member.pause
+        ? { label: `Paused until ${shortDate(member.pause.until)}`, icon: "circle-pause", onPress: () => go("/gym/pauses?view=all") }
+        : { label: "Pause Membership", icon: "circle-pause", onPress: () => setPausing(true) },
     { label: "Transaction History", icon: "history", onPress: openMember },
   ];
   const sales: Row[] = [{ label: member.pt ? "Renew PT" : "Add PT", icon: "refresh-ccw", onPress: () => go({ pathname: "/gym/members/[id]/pt", params: { id } }) },
@@ -106,6 +113,7 @@ export function MemberActionsSheet({ member, payments, gym, onClose, onChanged, 
           {changingTrainer && <ChangeTrainerSheet member={member} onClose={() => setChangingTrainer(false)} onSaved={(detail) => { setChangingTrainer(false); onChanged(detail); }} />}
           {reminding && <SendReminderSheet kind={reminding} member={member} gym={gym} payment={payments?.[0]} onClose={() => setReminding(null)} />}
           {editingProfile && <EditProfileSheet member={member} onClose={() => setEditingProfile(false)} onSaved={(detail) => { setEditingProfile(false); onChanged(detail); }} />}
+          {pausing && <PauseMembershipSheet member={member} onClose={() => setPausing(false)} onSaved={(detail) => { setPausing(false); onChanged(detail); }} />}
           {collecting && <CollectDueSheet member={member} gym={gym} onClose={() => setCollecting(false)} onSaved={(detail) => { setCollecting(false); onChanged(detail); }} />}
         </>
       }

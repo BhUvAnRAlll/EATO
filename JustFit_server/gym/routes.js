@@ -10,7 +10,10 @@ const { createRateLimiter, limitPerUser } = require("../rateLimit");
 const attendance = require("./attendance");
 const attendanceRules = require("./attendanceRules");
 const catalogImages = require("./catalogImages");
+const paymentReceipts = require("./paymentReceipts");
 const photos = require("./photos");
+const pauses = require("./pauses");
+const pauseRules = require("./pauseRules");
 const predictions = require("./predictions");
 const predictionRules = require("./predictionRules");
 const service = require("./service");
@@ -28,7 +31,7 @@ const today = () => rules.todayInIndia();
 
 // Before the gym migrations (2026-11-19-gym-portal.sql up to 2026-11-29-gym-staff-logins.sql)
 // have run, say so instead of a 500
-const MIGRATION = "The gym portal needs its migrations (up to 2026-12-04-catalog-images) on this server.";
+const MIGRATION = "The gym portal needs its migrations (up to 2026-12-05-membership-pauses) on this server.";
 const route = (handler) => (req, res, next) =>
   handler(req, res, next).catch((error) => {
     if (["ER_NO_SUCH_TABLE", "ER_BAD_FIELD_ERROR"].includes(error?.code)) return res.status(503).json({ error: MIGRATION });
@@ -192,6 +195,23 @@ router.post("/members/:memberId/services", smallBody, route(async (req, res) => 
 }));
 // Staff check a member in or out by hand (members without the app); QR scans are in
 // gym/attendanceRoutes.js
+// Pause Membership: members' requests (Home › Needs attention › Pause requests), approving and
+// rejecting them, and a pause the staff record themselves (⋯ › Pause Membership, approved at
+// once). Decisions and pauses: 30 an hour per account.
+const pauseLimit = limitPerUser(createRateLimiter({ limit: 30, windowMs: 60 * 60 * 1000 }));
+router.get("/pauses", route(async (req, res) => {
+  res.json(await pauses.list(pool(req), req.gym.id, pauseRules.listQuery(req.query), today()));
+}));
+router.post("/pauses/:pauseId/approve", pauseLimit, smallBody, route(async (req, res) => {
+  res.json(await pauses.decide(pool(req), req.gym, req.userId, pauseRules.pauseId(req.params.pauseId), true, pauseRules.decisionBody(req.body), today()));
+}));
+router.post("/pauses/:pauseId/reject", pauseLimit, smallBody, route(async (req, res) => {
+  res.json(await pauses.decide(pool(req), req.gym, req.userId, pauseRules.pauseId(req.params.pauseId), false, pauseRules.decisionBody(req.body), today()));
+}));
+router.post("/members/:memberId/pause", pauseLimit, smallBody, route(async (req, res) => {
+  res.status(201).json(await pauses.staffPause(pool(req), req.gym, req.userId, rules.id(req.params.memberId), pauseRules.pauseBody(req.body, today(), { staff: true }), today()));
+}));
+
 router.post("/members/:memberId/check-in", route(async (req, res) => {
   const memberId = rules.id(req.params.memberId);
   const { alreadyIn } = await attendance.staffCheckIn(pool(req), req.gym.id, req.userId, memberId, today());
@@ -298,6 +318,36 @@ router.delete("/catalog/:itemId/image", imageRoute(async (req, res) => {
 }));
 router.get("/catalog/:itemId/image", imageRoute(async (req, res) => {
   catalogImages.send(res, await catalogImages.imageFile(pool(req), req.gym.id, rules.id(req.params.itemId, "item")));
+}));
+
+// The bill attached to a payment (gym/paymentReceipts.js): Add Member's "Attach the payment bill"
+// uploads a photo of the plan payment's receipt once the admission is saved. PUT { data: base64,
+// mediaType } adds or replaces it (checked from its bytes: JPEG, PNG or WebP, at most 3 MB) and
+// answers the payment, DELETE takes it off, GET reads it. Only this branch's payments; uploads
+// share the photos' hourly allowance. Its area is members (gym/staffRules.js): the bill is attached
+// from Add Member and seen on the member's page.
+const RECEIPT_MIGRATION = "Payment bills need the 2026-12-06-payment-receipts migration on this server.";
+const receiptRoute = (handler) => (req, res, next) =>
+  handler(req, res, next).catch((error) => {
+    if (["ER_NO_SUCH_TABLE", "ER_BAD_FIELD_ERROR"].includes(error?.code)) return res.status(503).json({ error: RECEIPT_MIGRATION });
+    next(error);
+  });
+const receiptBody = express.json({ limit: Math.ceil(paymentReceipts.receiptLimits.maxBytes * (4 / 3)) + 1024 });
+
+router.put("/payments/:paymentId/receipt", photoLimit, receiptBody, receiptRoute(async (req, res) => {
+  const paymentId = rules.id(req.params.paymentId, "payment");
+  const checked = paymentReceipts.checkReceipt(req.body);
+  if (!checked.ok) return res.status(checked.status).json({ error: checked.error });
+  await paymentReceipts.setReceipt(pool(req), req.gym.id, paymentId, checked);
+  res.json(await service.payment(pool(req), req.gym.id, paymentId));
+}));
+router.delete("/payments/:paymentId/receipt", receiptRoute(async (req, res) => {
+  const paymentId = rules.id(req.params.paymentId, "payment");
+  await paymentReceipts.removeReceipt(pool(req), req.gym.id, paymentId);
+  res.json(await service.payment(pool(req), req.gym.id, paymentId));
+}));
+router.get("/payments/:paymentId/receipt", receiptRoute(async (req, res) => {
+  paymentReceipts.send(res, await paymentReceipts.receiptFile(pool(req), req.gym.id, rules.id(req.params.paymentId, "payment")));
 }));
 
 // Send Bulk SMS (gym/sms.js): credits, Auto Reminders, Manual Send, a member's reminder, Message

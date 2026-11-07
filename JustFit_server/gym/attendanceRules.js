@@ -19,7 +19,9 @@ const GPS = {
   maxAheadMs: 60 * 1000, // phone clocks drift a little, never minutes ahead
 };
 const MIN_VISIT_MS = 60 * 1000; // a check-out within a minute of checking in is a double scan
-const STALE_VISIT_HOURS = 12; // an open visit older than this was never checked out
+// An open visit is closed as 'no_checkout' at midnight, India time, on the day it was opened
+// (2026-11-07, the user's rule; it was 12 hours after the check-in before): so 'inside' only ever
+// means today's visits.
 const STATUSES = ["inside", "completed", "no_checkout"];
 const SOURCES = ["qr", "staff"];
 const EXPORT_MAX_ROWS = 5000;
@@ -139,12 +141,14 @@ function day(value, label) {
 
 const dayGap = (from, to) => Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86400000);
 
-// The dashboard's history: a date range (default today), a status, a search, a member, a page
+// The dashboard's history: a date range (default today), a status, a search, a member, a page.
+// Inside is today's visits only (an open visit never outlives its day), so that status fixes the
+// range to today, whatever range came with it.
 function historyQuery(query = {}, today) {
   const allowed = ["from", "to", "status", "search", "memberId", "page"];
   if (Object.keys(query).some((key) => !allowed.includes(key))) throw new ValidationError("That request has fields we don't use.");
-  const to = query.to === undefined ? today : day(query.to, "end");
-  const from = query.from === undefined ? to : day(query.from, "start");
+  let to = query.to === undefined ? today : day(query.to, "end");
+  let from = query.from === undefined ? to : day(query.from, "start");
   if (from > to) throw new ValidationError("The start date must be on or before the end date.");
   if (dayGap(from, to) >= RANGE_MAX_DAYS) throw new ValidationError("Pick a range of at most one year.");
   let status = "all";
@@ -152,6 +156,7 @@ function historyQuery(query = {}, today) {
     if (![...STATUSES, "all"].includes(query.status)) throw new ValidationError("Pick inside, completed, no check-out or all.");
     status = query.status;
   }
+  if (status === "inside") { from = today; to = today; }
   let search = "";
   if (query.search !== undefined) {
     if (typeof query.search !== "string" || query.search.length > 60) throw new ValidationError("Keep the search to 60 characters.");
@@ -193,12 +198,42 @@ function toCsv(visits) {
   return `${lines.join("\r\n")}\r\n`;
 }
 
+// The Statistics chart (2026-11-07, the user's request: the graph follows the period). Today is
+// by hour, India time, from 5 am to 10 pm plus any earlier or later hour with a visit (the busy
+// hours card's convention); the last 7 and 30 days are one bar per day ending today.
+const CHART_HOURS = { from: 5, to: 22 };
+const IST_OFFSET_MS = 330 * 60 * 1000;
+const hourInIndia = (msValue) => new Date(Number(msValue) + IST_OFFSET_MS).getUTCHours();
+function chartHours(inMsList) {
+  const visits = new Array(24).fill(0);
+  for (const value of inMsList) visits[hourInIndia(value)] += 1;
+  const first = Math.min(CHART_HOURS.from, visits.findIndex((n) => n > 0) === -1 ? CHART_HOURS.from : visits.findIndex((n) => n > 0));
+  let last = CHART_HOURS.to;
+  for (let h = 23; h > CHART_HOURS.to; h -= 1) if (visits[h] > 0) { last = h; break; }
+  return Array.from({ length: last - first + 1 }, (_, i) => ({ hour: first + i, visits: visits[first + i] }));
+}
+// Milliseconds from `now` to the next midnight in India (never 0: at midnight itself, a full day)
+function msUntilIndiaMidnight(now = Date.now()) {
+  const sinceMidnight = (now + IST_OFFSET_MS) % 86400000;
+  return 86400000 - sinceMidnight;
+}
+
+function chartDays(byDay, today, days, addDays) {
+  return Array.from({ length: days }, (_, i) => {
+    const day = addDays(today, i - (days - 1));
+    return { day, visits: byDay.get(day) ?? 0 };
+  });
+}
+
 module.exports = {
+  CHART_HOURS,
+  chartHours,
+  chartDays,
   QR_PREFIX,
   RADIUS,
   GPS,
   MIN_VISIT_MS,
-  STALE_VISIT_HOURS,
+  msUntilIndiaMidnight,
   STATUSES,
   SOURCES,
   EXPORT_MAX_ROWS,

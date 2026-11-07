@@ -94,6 +94,13 @@ export default function GymMember() {
           <Text className="gym-tx__meta">{`Joined ${shortDate(member.joinedOn)} · ${member.visitsThisMonth} ${member.visitsThisMonth === 1 ? "visit" : "visits"} this month${member.lastVisit ? ` · last ${shortDate(member.lastVisit)}` : ""}`}</Text>
           <Text className="gym-tx__name" style={{ color: member.due > 0 ? colors.gymDanger : colors.gymSuccess }}>{member.due > 0 ? `Due ${rupees(member.due)}${member.dueBy ? ` · pay by ${shortDate(member.dueBy)}` : ""}` : "No dues"}</Text>
           {member.overdue ? <Text className="gym-tag__label" style={{ color: colors.gymDanger }}>Overdue: the payment date has passed</Text> : null}
+          {member.pause ? (
+            <Text className="gym-tag__label" style={{ color: member.pause.status === "pending" ? colors.gymWarning : colors.gymPrimaryText }} accessibilityLiveRegion="polite">
+              {member.pause.status === "pending"
+                ? `Pause requested: ${shortDate(member.pause.from)} to ${shortDate(member.pause.until)} (${member.pause.days} days), waiting for your answer`
+                : `${member.pausedNow ? "Paused" : "Pause"} ${shortDate(member.pause.from)} to ${shortDate(member.pause.until)} (${member.pause.days} days added to the plan)`}
+            </Text>
+          ) : null}
         </View>
         {/* The personal training they bought: the package, its dates and the trainer it's with */}
         {member.pt ? (

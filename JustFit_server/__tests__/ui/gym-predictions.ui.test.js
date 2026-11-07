@@ -148,7 +148,7 @@ describe("ui gym predictions: Likely to leave", () => {
     assert.equal(gym.status, 201, JSON.stringify(gym.json));
     state.gym = gym.json.gym.id;
     assert.equal((await apiAs("admin", "POST", `/api/admin/portal/gyms/${state.gym}/staff`, { phone: identities.gym.phone })).status, 201);
-    // Ravi: High (80); Sneha: Medium (50); Steady: Low, never listed
+    // Ravi: High (80); Sneha: Medium (50); Steady: Low (0), listed last since 2026-11-07
     state.ravi = await admit("Ravi Kumar", { expiresIn: 5, due: 800 });
     await visits(state.ravi, [12, 20, 40, 45]);
     state.sneha = await admit("Sneha R", { expiresIn: 6 });
@@ -198,7 +198,7 @@ describe("ui gym predictions: Likely to leave", () => {
     await h.expectText("Likely to leave");
   }));
 
-  it("2. the list: Ravi High 80 with his reasons, Sneha Medium 50, the steady member absent", run("predictions-list", async () => {
+  it("2. the list: Ravi High 80 with his reasons, Sneha Medium 50, the steady member Low 0 last", run("predictions-list", async () => {
     await h.expectText("Ravi Kumar");
     await h.expectText("High · 80");
     await h.expectText("Plan ends in 5 days · No visit in 12 days · ₹800 due");
@@ -206,10 +206,12 @@ describe("ui gym predictions: Likely to leave", () => {
     await h.expectText("Medium · 50");
     await h.expectText("Visits down from 8 to 3 a month");
     await h.expectText("Updated ");
-    await h.expectNoText("Steady Sam");
+    await h.expectText("Steady Sam");
+    await h.expectText("Low · 0");
+    await h.expectText("Nothing against them");
     const tabs = await page.evaluate(`[...document.querySelectorAll('[role="tab"]')].filter((e) => e.getClientRects().length > 0).map((e) => e.getAttribute("aria-label"))`);
-    assert.deepEqual(tabs, ["All, 2", "High, 1", "Medium, 1"]);
-    const order = await page.evaluate(`(document.body.innerText || "").indexOf("Ravi Kumar") < (document.body.innerText || "").indexOf("Sneha R")`);
+    assert.deepEqual(tabs, ["All, 3", "High, 1", "Medium, 1", "Low, 1"]);
+    const order = await page.evaluate(`(() => { const t = document.body.innerText || ""; return t.indexOf("Ravi Kumar") < t.indexOf("Sneha R") && t.indexOf("Sneha R") < t.indexOf("Steady Sam"); })()`);
     assert.equal(order, true, "highest risk first");
     assert.ok(await hasLabel("Send Ravi Kumar a renewal reminder"), "the bell opens Send Reminder");
     assert.equal(await hasLabel("Call Ravi Kumar"), false, "no Call button since the bell replaced it");
@@ -223,6 +225,9 @@ describe("ui gym predictions: Likely to leave", () => {
     await clickLabel("High, 1");
     await h.expectText("Ravi Kumar");
     await h.expectNoText("Sneha R");
+    await clickLabel("Low, 1");
+    await h.expectText("Steady Sam");
+    await h.expectNoText("Ravi Kumar");
     await clickLabel("Search members at risk");
     await page.setInput(h.input("Search by name, phone or ID"), "sneha");
     await h.expectText("No one matches");
@@ -233,7 +238,7 @@ describe("ui gym predictions: Likely to leave", () => {
     await h.expectNoText("Ravi Kumar");
     await clickLabel("Close search");
     await h.expectText("Ravi Kumar");
-    assert.ok(await hasLabel("All, 2"), "the full counts are back once the search is cleared");
+    assert.ok(await hasLabel("All, 3"), "the full counts are back once the search is cleared");
   }));
 
   it("4. ⋯ opens the member's usual options, and the ☰ menu has the entry", run("predictions-options", async () => {
@@ -255,10 +260,12 @@ describe("ui gym predictions: Likely to leave", () => {
     // the other two weeks had none: 1, 0, 1, 0 → about 1, busiest 7–8 am
     await page.navigate(`${expo.baseUrl}/gym/attendance`);
     await h.expectText("TOMORROW'S BUSY HOURS"); // the section title is upper-cased by its style
-    await h.expectText("About 1 check-in expected");
-    await h.expectText("7–8 am");
-    await h.expectText("Busiest · 1 expected");
-    await h.expectText("Average of the last 4 ");
+    // Plain words since 2026-11-07 (the user's request): what to expect, when it's busiest and quietest
+    await h.expectText("Expect about 1 check-in tomorrow");
+    await h.expectText("Busiest time");
+    await h.expectText("7–8 am · about 1 member");
+    await h.expectText("Quietest time");
+    await h.expectText("Based on the last 4 ");
     await snapshotScrolledTo("Tomorrow's busy hours", "gym-busy-hours");
   }));
 

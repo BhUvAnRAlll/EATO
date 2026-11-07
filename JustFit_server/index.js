@@ -44,6 +44,7 @@ const { workoutRouter } = require("./workout/routes");
 const { fitnessRouter } = require("./fitness/routes");
 const { gymRouter } = require("./gym/routes");
 const { attendanceRouter } = require("./gym/attendanceRoutes");
+const { membershipRouter } = require("./gym/membershipRoutes");
 const { trainerRouter, refuseTrainers } = require("./gym/trainerRoutes");
 const { deriveQrKey } = require("./gym/attendanceRules");
 const { adminPortalRouter } = require("./admin/routes");
@@ -108,7 +109,10 @@ const foodEstimateLimiter = createRateLimiter({ limit: 30, windowMs: 10 * 60 * 1
 const coachLimiter = createRateLimiter(rateLimits.standard); // the AI Coach: the intake answers and the plan
 const workoutLimiter = createRateLimiter(rateLimits.frequent); // the Fitness tab: plan, training day, history
 const analyticsLimiter = createRateLimiter(rateLimits.frequent); // the app's usage events, in small batches
-const gymLimiter = createRateLimiter(rateLimits.frequent); // the gym admin portal: dashboard, members, payments
+// The gym admin portal: dashboard, members, payments (GYM_REQUESTS_PER_MINUTE, default 180; the
+// test server raises it, as its portal suite makes every call of a busy day within a minute)
+const gymLimiter = createRateLimiter({ ...rateLimits.frequent, limit: Number(process.env.GYM_REQUESTS_PER_MINUTE) || rateLimits.frequent.limit });
+const membershipLimiter = createRateLimiter(rateLimits.frequent); // a member's gym memberships and pause requests
 const attendanceLimiter = createRateLimiter({ limit: 30, windowMs: 10 * 60 * 1000 }); // members' QR check-ins and check-outs
 
 // Phone sign-in (auth/routes.js): request and check a code, who am I, logout. The two sign-in
@@ -408,6 +412,9 @@ app.use("/api/gym", requireUser, limitPerUser(gymLimiter), gymRouter);
 // QR attendance for members (gym/attendanceRoutes.js): scan the gym's code to check in and out
 app.use("/api/attendance", requireUser, limitPerUser(attendanceLimiter), attendanceRouter);
 
+// A member's gym memberships and pause requests (gym/membershipRoutes.js)
+app.use("/api/membership", requireUser, limitPerUser(membershipLimiter), membershipRouter);
+
 // A gym trainer's PT clients (gym/trainerRoutes.js): trainers only, their own clients only
 app.use("/api/trainer", requireUser, limitPerUser(gymLimiter), trainerRouter);
 
@@ -451,6 +458,8 @@ coachChatHistory.startCleanup(pool);
 require("./fitness/youtubeRefresh").startRefresh(pool);
 // The gym portal's switched-on auto reminders: every hour in the daytime, while SMS sending is on
 require("./gym/sms").startReminders(pool, gymSms);
+// Gym visits nobody checked out of are closed as "no check-out" at midnight, India time
+require("./gym/attendance").startMidnightClose(pool);
 if (process.env.NODE_ENV !== "test") console.log(gymSms.enabled ? "Gym SMS: sending on" : `Gym SMS: off (${gymSms.reason})`);
 app.listen(port, "0.0.0.0", () => {
   console.log(`justFit server listening on http://localhost:${port}`);

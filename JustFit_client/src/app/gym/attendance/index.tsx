@@ -4,7 +4,7 @@ import { router } from "expo-router";
 
 import { FormAlert } from "@/components/FormAlert";
 import { PressableScale } from "@/components/PressableScale";
-import { BusyHoursCard } from "@/components/gym/BusyHoursCard";
+import { BusyHoursCard, hourTick } from "@/components/gym/BusyHoursCard";
 import { GymChips } from "@/components/gym/GymField";
 import { GymIcon } from "@/components/gym/GymIcon";
 import { GymError, GymLoading } from "@/components/gym/GymStates";
@@ -19,11 +19,20 @@ import { useGymData } from "@/lib/useGymData";
 import { useThemeColors } from "@/theme";
 
 type Period = "today" | "week" | "month";
+const PERIODS: { value: Period; label: string }[] = [
+  { value: "today", label: "Today" },
+  { value: "week", label: "Last 7 days" },
+  { value: "month", label: "Last 30 days" },
+];
 const WEEKDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const SHORT_MONTH = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const shortDate = (iso: string) => `${Number(iso.slice(8, 10))} ${SHORT_MONTH[Number(iso.slice(5, 7)) - 1]}`;
 
 // Gym admin › Attendance: who is inside now (with Check out for the front desk), today's
-// check-ins and completed visits, daily / weekly / monthly numbers, the last 7 days, tomorrow's
-// busy hours (the prediction, `BusyHoursCard`), then the history with its filters and CSV export.
+// check-ins and completed visits, the Statistics for Today / Last 7 days / Last 30 days with the
+// chart following the period (today by hour, the others a bar a day; 2026-11-07, the user's
+// request), tomorrow's busy hours (the prediction, `BusyHoursCard`), then the history with its
+// filters and CSV export.
 // Settings (location, radius) and the QR code are in the header. Every number is the server's
 // (GET /api/gym/attendance and /api/gym/predictions/busy-hours), read whenever the screen opens.
 export default function GymAttendance() {
@@ -68,7 +77,16 @@ export default function GymAttendance() {
   }
   const data: AttendanceSummary = result.data;
   const stats = data.stats[period];
-  const peak = Math.max(1, ...data.lastSevenDays.map((d) => d.visits));
+  // The chart for the period: today's check-ins by hour (the busiest hour full strength), else
+  // one bar a day with today's full strength. Wide charts drop the per-bar number and label
+  // every third hour or fifth day, as the busy hours card does.
+  const chart = period === "today"
+    ? data.charts.today.map((h) => ({ key: String(h.hour), visits: h.visits, tick: hourTick(h.hour), strong: h.visits > 0 && h.visits === Math.max(...data.charts.today.map((x) => x.visits)) }))
+    : data.charts[period].map((d) => ({ key: d.day, visits: d.visits, tick: period === "week" ? WEEKDAY[new Date(`${d.day}T00:00:00Z`).getUTCDay()] : shortDate(d.day), strong: d.day === data.today }));
+  const peak = Math.max(1, ...chart.map((c) => c.visits));
+  const chartTitle = period === "today" ? "Check-ins by hour, today" : period === "week" ? "Visits, last 7 days" : "Visits, last 30 days";
+  const every = period === "today" ? 3 : period === "month" ? 5 : 1;
+  const ticks = chart.filter((_, i) => i % every === 0).map((c, i, list) => ({ key: c.key, tick: c.tick, span: i === list.length - 1 ? chart.length - i * every : every }));
   const tiles = [
     { label: "Inside now", value: data.insideNow, icon: "user-check" as const, color: colors.gymSuccess, bg: colors.gymSuccessSoft },
     { label: "Check-ins today", value: data.stats.today.visits, icon: "log-in" as const, color: colors.gymPrimary, bg: colors.gymPrimarySoft },
@@ -114,7 +132,7 @@ export default function GymAttendance() {
 
       <Text className="gym-section-title" accessibilityRole="header">Statistics</Text>
       <View className="gym-dash-card" style={{ padding: 14, gap: 14 }}>
-        <GymChips options={[{ value: "today", label: "Daily" }, { value: "week", label: "Weekly" }, { value: "month", label: "Monthly" }]} value={period} onChange={setPeriod} />
+        <GymChips options={PERIODS} value={period} onChange={setPeriod} />
         <View className="flex-row">
           {[
             ["Visits", String(stats.visits)],
@@ -128,15 +146,21 @@ export default function GymAttendance() {
             </View>
           ))}
         </View>
-        <Text className="gym-tx__meta">Visits, last 7 days</Text>
-        <View className="gym-bars" accessible accessibilityLabel={`Visits in the last 7 days: ${data.lastSevenDays.map((d) => d.visits).join(", ")}`}>
-          {data.lastSevenDays.map((d) => (
-            <View key={d.day} className="gym-bars__col">
-              <Text className="gym-stat__label">{d.visits}</Text>
-              <View className="gym-bars__bar" style={{ height: `${Math.max(4, (d.visits / peak) * 60)}%`, opacity: d.day === data.today ? 1 : 0.45 }} />
-              <Text className="gym-stat__label">{WEEKDAY[new Date(`${d.day}T00:00:00Z`).getUTCDay()]}</Text>
-            </View>
-          ))}
+        <Text className="gym-tx__meta">{chartTitle}</Text>
+        <View accessible accessibilityLabel={`${chartTitle}, from ${chart[0]?.tick ?? ""}: ${chart.map((c) => c.visits).join(", ")}`}>
+          <View className="gym-bars" style={every > 1 ? { gap: 2 } : undefined}>
+            {chart.map((c) => (
+              <View key={c.key} className="gym-bars__col" style={every > 1 ? { gap: 2 } : undefined}>
+                <Text className="gym-stat__label" style={every > 1 ? { fontSize: 9, lineHeight: 11 } : undefined}>{every === 1 || c.visits > 0 ? String(c.visits) : " "}</Text>
+                <View className="gym-bars__bar" style={{ height: `${Math.max(4, (c.visits / peak) * 60)}%`, opacity: c.strong ? 1 : 0.45 }} />
+              </View>
+            ))}
+          </View>
+          <View className="flex-row" style={every > 1 ? { gap: 2, marginTop: 4 } : { gap: 6, marginTop: 4 }}>
+            {ticks.map((t) => (
+              <Text key={t.key} className="gym-stat__label" style={{ flex: t.span, fontSize: every > 1 ? 10 : 12, lineHeight: every > 1 ? 12 : 16, textAlign: every > 1 ? "left" : "center" }} numberOfLines={1}>{t.tick}</Text>
+            ))}
+          </View>
         </View>
       </View>
 

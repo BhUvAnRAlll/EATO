@@ -223,13 +223,12 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
     await clickLabel("Custom plan");
     await page.setInput(h.input("Duration (Eg. 6)"), "3");
     await page.setInput(h.input("Plan Fee (Eg. 1500)"), "4500");
-    await page.setInput(h.input("Admission Amount"), "500");
-    await page.setInput(h.input("Discount Amount"), "500");
     await clickLabel("CASH");
     await page.setInput(h.input("Amount Collected"), "4000");
-    await page.waitFor(`!!document.querySelector('[aria-label="Due amount ₹500"]')`, NAV_TIMEOUT, "4500 + 500 − 500 payable, 4000 collected: ₹500 due");
+    await page.waitFor(`!!document.querySelector('[aria-label="Due amount ₹500"]')`, NAV_TIMEOUT, "4500 payable, 4000 collected: ₹500 due");
     assert.ok(await page.evaluate(`!!document.querySelector('[aria-label="Amount payable ₹4,500"]')`));
     await h.expectText("Pay the rest by");
+    await h.expectText("Attach the payment bill");
     await snapshotAllWidths("gym-admission");
     // The button is at the bottom of a scrolling sheet: bring it into view and let it settle first
     await page.evaluate(`document.querySelector('[aria-label="Add Member"]').scrollIntoView({ block: "center" })`);
@@ -262,6 +261,14 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
     await h.expectText("INSIDE NOW (1)");
     await h.expectText("Ravi Shankar");
     await h.expectText("Set your gym's location and attendance radius first");
+    // Statistics: Today / Last 7 days / Last 30 days, the chart following the period (2026-11-07)
+    await h.expectText("Check-ins by hour, today");
+    await page.clickText("Last 7 days");
+    await h.expectText("Visits, last 7 days");
+    await page.clickText("Last 30 days");
+    await h.expectText("Visits, last 30 days");
+    await snapshotAllWidths("gym-attendance-stats-30-days");
+    await page.clickText("Today");
     assert.ok(await hasLabel("1 Inside now"));
     assert.ok(await hasLabel("1 Check-ins today"));
     await snapshotAllWidths("gym-attendance");
@@ -304,6 +311,19 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
     await page.waitFor(`!!document.querySelector('[aria-label^="Ravi Shankar, FOR-TUM-0002. Completed."]')`, NAV_TIMEOUT, "the completed visit in the history");
     assert.ok(await hasLabel("Export to CSV"));
     await clickLabel("Completed");
+    await h.expectText("1 visit");
+    // Inside selects Today and locks the other ranges (2026-11-07, the user's rule)
+    await clickLabel("7 days");
+    await page.waitFor(`document.querySelector('[aria-label="7 days"]').getAttribute("aria-checked") === "true"`, NAV_TIMEOUT, "7 days picked");
+    await clickLabel("Inside");
+    await page.waitFor(`document.querySelector('[aria-label="Today"]').getAttribute("aria-checked") === "true"`, NAV_TIMEOUT, "Inside switches the range to Today");
+    for (const label of ["7 days", "30 days", "Custom"]) {
+      assert.equal(await page.evaluate(`document.querySelector('[aria-label="${label}"]').getAttribute("aria-disabled")`), "true", `${label} can't be picked while Inside is`);
+    }
+    await h.expectText("No check-ins match these filters.");
+    await clickLabel("Completed");
+    // The web build drops aria-disabled when it's false, so it reads null here
+    assert.notEqual(await page.evaluate(`document.querySelector('[aria-label="7 days"]').getAttribute("aria-disabled")`), "true", "the ranges are back");
     await h.expectText("1 visit");
     await page.setInput(`input[placeholder="Search a member by name or ID"]`, "nobody-like-this");
     await h.expectText("No check-ins match these filters.");
@@ -384,6 +404,11 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
     await page.waitFor(`!!document.querySelector('[aria-label="Expiring soon, in the next 30 days"]')`, NAV_TIMEOUT, "the chip follows the pick");
     await h.expectText("Mohammed Asif");
     await snapshotAllWidths("gym-members-expiring-soon");
+    // All: every plan still running (Ravi's too)
+    await clickLabel("All plans still running");
+    await page.waitFor(`!!document.querySelector('[aria-label="Expiring soon, every plan still running"]')`, NAV_TIMEOUT, "the chip follows All");
+    await h.expectText("Ravi Shankar");
+    await h.expectText("Mohammed Asif");
     await connection.query("UPDATE gym_members SET expires_on = ? WHERE id = ?", [asifRow.expires_on, asifRow.id]);
     await page.navigate(`${expo.baseUrl}/gym/transactions`);
     await h.expectText("Ravi Shankar");

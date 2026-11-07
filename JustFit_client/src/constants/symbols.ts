@@ -138,6 +138,7 @@ export const materialSymbols: Record<string, AndroidSymbol> = {
   "mic.slash": "mic_off",
   "paperplane.fill": "send",
   pause: "pause",
+  "pause.circle": "pause_circle",
   "pause.fill": "pause",
   pencil: "edit",
   percent: "percent",

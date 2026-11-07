@@ -6,7 +6,7 @@
 // gym_members row at the scanned branch whose phone is the signed-in account's verified phone.
 // Neither a gym id nor a member id is ever taken from the request. A visit is one row of
 // gym_attendance: 'inside' while open (one open visit per member, enforced by a unique key),
-// 'completed' once checked out, 'no_checkout' when it was left open for 12 hours.
+// 'completed' once checked out, 'no_checkout' when it was still open at midnight (India time).
 const { NotFoundError, ConflictError, ForbiddenError } = require("../errors");
 const { getAccount } = require("../auth");
 const { logSecurityEvent } = require("../logging");
@@ -14,6 +14,7 @@ const { audit } = require("../admin/overview");
 const { inTransaction, gymInfo } = require("./service");
 const rules = require("./rules");
 const att = require("./attendanceRules");
+const pauses = require("./pauses");
 
 const IST_OFFSET_MS = 330 * 60 * 1000;
 // "2026-11-04 18:05" in India time, from epoch milliseconds
@@ -22,12 +23,34 @@ const ms = (column) => `CAST(UNIX_TIMESTAMP(${column}) * 1000 AS UNSIGNED)`;
 
 const NOT_VALID = "This QR code is no longer valid. Ask the front desk for the gym's current attendance QR code.";
 
-// Visits left open for 12 hours were never checked out; they stop counting as inside
-async function closeStale(db, where, params) {
-  await db.query(
-    `UPDATE gym_attendance SET status = 'no_checkout' WHERE status = 'inside' AND checked_in_at < NOW() - INTERVAL ${att.STALE_VISIT_HOURS} HOUR AND ${where}`,
-    params,
-  );
+// A visit still open at midnight (India time) was never checked out: from then on it is
+// 'no_checkout' and stops counting as inside. The sweep runs at midnight (startMidnightClose) and,
+// so nothing depends on the timer, before every read or write that looks at open visits.
+async function closeStale(db, where, params, today = rules.todayInIndia()) {
+  const [result] = await db.query(`UPDATE gym_attendance SET status = 'no_checkout' WHERE status = 'inside' AND on_date < ? AND ${where}`, [today, ...params]);
+  return result.affectedRows;
+}
+
+// Every branch's visits left open on an earlier day
+const closeOpenVisits = (db, today = rules.todayInIndia()) => closeStale(db, "1 = 1", [], today);
+
+// At startup, then at every midnight in India; never in tests, which call closeOpenVisits themselves
+function startMidnightClose(pool, { log = console, env = process.env, now = Date.now } = {}) {
+  if (env.NODE_ENV === "test") return () => {};
+  let timer = null;
+  const run = () =>
+    closeOpenVisits(pool, rules.todayInIndia(now()))
+      .then((closed) => { if (closed > 0) log.log(`Gym attendance: ${closed} ${closed === 1 ? "visit" : "visits"} closed as no check-out at midnight`); })
+      .catch((error) => log.error(`Gym attendance midnight close failed: ${error?.code ?? error?.name ?? "unknown"}`));
+  const schedule = () => {
+    // A few seconds past midnight, so the day has turned by the time the query runs
+    timer = setTimeout(() => { run(); schedule(); }, att.msUntilIndiaMidnight(now()) + 5000);
+    timer.unref?.();
+  };
+  const first = setTimeout(run, 0);
+  first.unref?.();
+  schedule();
+  return () => { clearTimeout(first); clearTimeout(timer); };
 }
 
 // ─── The admin's settings: location, radius, QR code ─────────────────────────────────────────
@@ -85,7 +108,7 @@ const isDuplicate = (error) => error?.code === "ER_DUP_ENTRY";
 async function staffCheckIn(pool, gymId, userId, memberId, today) {
   return inTransaction(pool, async (db) => {
     await lockMember(db, gymId, memberId);
-    await closeStale(db, "member_id = ?", [memberId]);
+    await closeStale(db, "member_id = ?", [memberId], today);
     if (await openVisit(db, memberId)) return { alreadyIn: true };
     try {
       await db.query(
@@ -150,9 +173,11 @@ async function resolveScan(db, userId, qrKey, qr, today, { lock = false } = {}) 
   if (!member) {
     throw new ForbiddenError(`You aren't a member at ${gym.brand} ${gym.branch} yet, or your membership has a different mobile number. Ask the front desk to add your sign-in number.`);
   }
+  // Pause Membership: an approved pause running today keeps the member out until it ends
+  const paused = await pauses.currentPause(db, member.id, today);
   return {
     gym: { id: gym.id, place, latitude: gym.latitude, longitude: gym.longitude, radiusM: gym.attendance_radius_m },
-    member: { id: member.id, code: member.member_code, name: member.full_name, expiresOn: member.expires_on, active: member.expires_on >= today && member.joined_on <= today },
+    member: { id: member.id, code: member.member_code, name: member.full_name, expiresOn: member.expires_on, pausedUntil: paused ? paused.until : null, active: member.expires_on >= today && member.joined_on <= today && !paused },
   };
 }
 
@@ -161,11 +186,11 @@ const prettyDate = (iso) => new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-
 // After scanning, before GPS: which gym, whether the member is in, and so whether this is a check-out
 async function scanPreview(pool, userId, qrKey, body, today) {
   const { gym, member } = await resolveScan(pool, userId, qrKey, body.qr, today);
-  await closeStale(pool, "member_id = ?", [member.id]);
+  await closeStale(pool, "member_id = ?", [member.id], today);
   const open = await openVisit(pool, member.id);
   return {
     gym: gym.place,
-    member: { name: member.name, code: member.code, expiresOn: member.expiresOn, active: member.active },
+    member: { name: member.name, code: member.code, expiresOn: member.expiresOn, active: member.active, pausedUntil: member.pausedUntil },
     radiusM: gym.radiusM,
     hasLocation: gym.latitude !== null,
     openVisit: open ? { checkedInAt: new Date(Number(open.in_ms)).toISOString() } : null,
@@ -186,13 +211,14 @@ async function memberCheckIn(pool, userId, qrKey, body, today) {
   const scanned = await resolveScan(pool, userId, qrKey, body.qr, today);
   const distance = checkPosition({ ...scanned.gym }, body.position, userId, false);
   if (!scanned.member.active) {
+    if (scanned.member.pausedUntil) throw new ForbiddenError(`Your membership is paused until ${prettyDate(scanned.member.pausedUntil)}. Ask the front desk if you'd like to end the pause early.`);
     throw new ForbiddenError(scanned.member.expiresOn < today
       ? `Your membership ended on ${prettyDate(scanned.member.expiresOn)}. Renew it at the front desk to check in.`
       : "Your membership hasn't started yet. Please check in at the front desk.");
   }
   return inTransaction(pool, async (db) => {
     const { gym, member } = await resolveScan(db, userId, qrKey, body.qr, today, { lock: true });
-    await closeStale(db, "member_id = ?", [member.id]);
+    await closeStale(db, "member_id = ?", [member.id], today);
     const open = await openVisit(db, member.id);
     const already = () => new ConflictError("You're already checked in. Scan the same QR code when you leave to check out.");
     if (open) throw already();
@@ -217,7 +243,7 @@ async function memberCheckOut(pool, userId, qrKey, body, today) {
   const distance = checkPosition({ ...scanned.gym }, body.position, userId, true);
   return inTransaction(pool, async (db) => {
     const { gym, member } = await resolveScan(db, userId, qrKey, body.qr, today, { lock: true });
-    await closeStale(db, "member_id = ?", [member.id]);
+    await closeStale(db, "member_id = ?", [member.id], today);
     const visit = await openVisit(db, member.id, { lock: true });
     if (!visit || visit.gym_id !== gym.id) throw new ConflictError("You haven't checked in here yet. Scan the QR code to check in first.");
     if (Date.now() - Number(visit.in_ms) < att.MIN_VISIT_MS) throw new ConflictError("You checked in less than a minute ago. Scan again when you leave.");
@@ -240,11 +266,11 @@ async function myVisits(pool, userId) {
   const account = await getAccount(userId, pool);
   if (!account.phone) return { visits: [] };
   const [rows] = await pool.query(
-    `SELECT a.id, a.status, ${ms("a.checked_in_at")} AS in_ms, ${ms("a.checked_out_at")} AS out_ms, a.duration_min, a.checked_in_at < NOW() - INTERVAL ${att.STALE_VISIT_HOURS} HOUR AS stale,
+    `SELECT a.id, a.status, ${ms("a.checked_in_at")} AS in_ms, ${ms("a.checked_out_at")} AS out_ms, a.duration_min, a.on_date < ? AS stale,
        b.name AS brand, g.name AS branch
      FROM gym_attendance a JOIN gym_members m ON m.id = a.member_id JOIN gyms g ON g.id = a.gym_id JOIN gym_brands b ON b.id = g.brand_id
      WHERE m.phone = ? ORDER BY a.checked_in_at DESC, a.id DESC LIMIT 20`,
-    [account.phone],
+    [rules.todayInIndia(), account.phone],
   );
   return {
     visits: rows.map((r) => ({
@@ -314,16 +340,23 @@ async function periodStats(pool, gymId, from, to) {
 }
 
 async function summary(pool, gym, today) {
-  await closeStale(pool, "gym_id = ?", [gym.id]);
+  await closeStale(pool, "gym_id = ?", [gym.id], today);
   const [inside] = await pool.query(
     `SELECT ${VISIT_COLUMNS} FROM gym_attendance a JOIN gym_members m ON m.id = a.member_id WHERE a.gym_id = ? AND a.status = 'inside' ORDER BY a.checked_in_at DESC LIMIT 200`,
     [gym.id],
   );
+  // The charts: today's check-ins by hour, and visits per day over the last 30 days
   const [days] = await pool.query(
     "SELECT DATE_FORMAT(on_date, '%Y-%m-%d') AS day, COUNT(*) AS visits FROM gym_attendance WHERE gym_id = ? AND on_date BETWEEN ? AND ? GROUP BY on_date",
-    [gym.id, rules.addDays(today, -6), today],
+    [gym.id, rules.addDays(today, -29), today],
   );
   const byDay = new Map(days.map((d) => [d.day, d.visits]));
+  const [todayRows] = await pool.query(`SELECT ${ms("checked_in_at")} AS in_ms FROM gym_attendance WHERE gym_id = ? AND on_date = ?`, [gym.id, today]);
+  const charts = {
+    today: att.chartHours(todayRows.map((r) => r.in_ms)),
+    week: att.chartDays(byDay, today, 7, rules.addDays),
+    month: att.chartDays(byDay, today, 30, rules.addDays),
+  };
   const [[place]] = await pool.query("SELECT latitude IS NOT NULL AS has_location, qr_version > 0 AS has_qr FROM gyms WHERE id = ?", [gym.id]);
   return {
     gym: gymInfo(gym),
@@ -331,15 +364,14 @@ async function summary(pool, gym, today) {
     setup: { location: Boolean(place.has_location), qr: Boolean(place.has_qr) },
     insideNow: inside.length,
     inside: inside.map(visitOf),
+    // Today, the last 7 days and the last 30 days (the month was the calendar month until 2026-11-07)
     stats: {
       today: await periodStats(pool, gym.id, today, today),
       week: await periodStats(pool, gym.id, rules.addDays(today, -6), today),
-      month: await periodStats(pool, gym.id, `${today.slice(0, 8)}01`, today),
+      month: await periodStats(pool, gym.id, rules.addDays(today, -29), today),
     },
-    lastSevenDays: Array.from({ length: 7 }, (_, i) => {
-      const day = rules.addDays(today, i - 6);
-      return { day, visits: byDay.get(day) ?? 0 };
-    }),
+    charts,
+    lastSevenDays: charts.week,
   };
 }
 
@@ -369,5 +401,7 @@ module.exports = {
   history,
   summary,
   exportCsv,
+  closeOpenVisits,
+  startMidnightClose,
   istStamp,
 };

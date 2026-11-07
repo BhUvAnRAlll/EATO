@@ -16,7 +16,7 @@ const RENEWAL = {
   lapsedGraceDays: 7, // members whose plan ended within this many days are still scored (they can be won back)
   levels: { high: 60, medium: 35 }, // the score at which a member is High / Medium; below Medium is Low
 };
-const LEVELS = ["all", "high", "medium"];
+const LEVELS = ["all", "high", "medium", "low"];
 
 const daysBetween = (fromIso, toIso) => Math.round((Date.parse(`${toIso}T00:00:00Z`) - Date.parse(`${fromIso}T00:00:00Z`)) / 86400000);
 const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
@@ -59,13 +59,14 @@ function renewalWindows(today) {
   };
 }
 
-// Which levels a list asks for: all (Medium and High), high or medium
-const showsLevel = (wanted, actual) => (wanted === "all" ? actual !== "low" : actual === wanted);
+// Which levels a list asks for: all (every scored member, Low included since 2026-11-07), high,
+// medium or low
+const showsLevel = (wanted, actual) => wanted === "all" || actual === wanted;
 
 // GET /api/gym/predictions/renewals?level=&search=
 function renewalsQuery(query = {}) {
   const wanted = query.level === undefined || query.level === "" ? "all" : query.level;
-  if (!LEVELS.includes(wanted)) throw new ValidationError("Pick a level: all, high or medium.");
+  if (!LEVELS.includes(wanted)) throw new ValidationError("Pick a level: all, high, medium or low.");
   const search = typeof query.search === "string" ? query.search.trim() : "";
   if (search.length > limits.search) throw new ValidationError(`Search for at most ${limits.search} characters.`);
   return { level: wanted, search };

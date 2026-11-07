@@ -15,6 +15,7 @@ const db = require("./test-db.js");
 const { startTestServer } = require("./server.js");
 const { identitiesFor, describeIdentityError } = require("./test-identities.js");
 const rules = require("../../gym/rules.js");
+const attendance = require("../../gym/attendance.js");
 const att = require("../../gym/attendanceRules.js");
 
 // Forma Tumkur's entrance; points north of it in metres (1° of latitude ≈ 111,195 m)
@@ -308,13 +309,24 @@ describe("gym QR attendance e2e: settings, scans, staff, dashboard and export", 
     assert.equal((await as("member").post(`/api/gym/members/${state.expired}/check-out`)).status, 403, "members aren't staff");
   }));
 
-  it("13. a visit left open 12 hours stops counting as inside and doesn't block the next check-in", run(async () => {
+  it("13. a visit still open at midnight becomes no check-out and doesn't block the next check-in", run(async () => {
     assert.equal((await as("gymA").post(`/api/gym/members/${state.expired}/check-in`)).status, 200);
-    await connection.query("UPDATE gym_attendance SET checked_in_at = NOW() - INTERVAL 13 HOUR WHERE member_id = ? AND status = 'inside'", [state.expired]);
+    // Opened yesterday (India's day), so midnight has passed; a long visit today is still inside
+    await connection.query("UPDATE gym_attendance SET on_date = ?, checked_in_at = NOW() - INTERVAL 13 HOUR WHERE member_id = ? AND status = 'inside'", [rules.addDays(today, -1), state.expired]);
     const summary = await as("gymA").get("/api/gym/attendance");
     assert.equal(summary.json.inside.some((v) => v.memberId === state.expired), false);
     const [[row]] = await connection.query("SELECT COUNT(*) AS n FROM gym_attendance WHERE member_id = ? AND status = 'no_checkout'", [state.expired]);
     assert.equal(row.n, 1);
+    // The midnight sweep itself: closes every branch's visits from earlier days, never today's
+    const [open] = await connection.query("SELECT COUNT(*) AS n FROM gym_attendance WHERE status = 'inside' AND on_date = ?", [today]);
+    assert.ok(open[0].n > 0, "today's open visits exist");
+    assert.equal(await attendance.closeOpenVisits(connection, today), 0, "nothing older is open");
+    const [stillOpen] = await connection.query("SELECT COUNT(*) AS n FROM gym_attendance WHERE status = 'inside' AND on_date = ?", [today]);
+    assert.equal(stillOpen[0].n, open[0].n);
+    // Inside is always today's: the history fixes the range to today for that status
+    const inside = await as("gymA").get(`/api/gym/attendance/visits?from=${rules.addDays(today, -30)}&status=inside`);
+    assert.equal(inside.status, 200);
+    assert.deepEqual([inside.json.from, inside.json.to], [today, today]);
     // Renewed, the member scans in: the forgotten visit doesn't block it
     await connection.query("UPDATE gym_members SET expires_on = ? WHERE id = ?", [rules.addDays(today, 30), state.expired]);
     assert.equal((await checkIn("expired", state.qrA, { latitude: 13.35, longitude: 77.11 })).status, 201);
@@ -326,10 +338,18 @@ describe("gym QR attendance e2e: settings, scans, staff, dashboard and export", 
     assert.equal(summary.json.insideNow, 2);
     assert.deepEqual(summary.json.inside.map((v) => v.memberName).sort(), ["Asif Khan", "Old Member"]);
     assert.equal(summary.json.stats.today.members, 2);
-    assert.equal(summary.json.stats.today.visits, 7);
+    assert.equal(summary.json.stats.today.visits, 6); // the no-check-out visit of 13 is yesterday's
     assert.equal(summary.json.stats.today.completed, 4);
+    assert.equal(summary.json.stats.week.visits, 7);
     assert.equal(summary.json.lastSevenDays.length, 7);
     assert.equal(summary.json.lastSevenDays[6].day, today);
+    // The Statistics chart follows the period: today by hour, then 7 and 30 days ending today
+    const { charts } = summary.json;
+    assert.equal(charts.today.reduce((n, h) => n + h.visits, 0), 6, "every check-in today is in an hour bar");
+    assert.deepEqual(charts.week, summary.json.lastSevenDays);
+    assert.deepEqual([charts.month.length, charts.month[29].day, charts.month[29].visits], [30, today, 6]);
+    assert.equal(charts.week[5].visits, 1, "yesterday's bar holds the visit closed at midnight");
+    assert.equal(summary.json.stats.month.visits >= summary.json.stats.week.visits, true, "30 days holds the 7");
     assert.deepEqual(summary.json.setup, { location: true, qr: true });
 
     const all = await as("gymA").get("/api/gym/attendance/visits");

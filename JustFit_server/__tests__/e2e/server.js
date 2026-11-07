@@ -20,6 +20,8 @@ const RELAXED_OTP = {
   OTP_IP_REQUEST_LIMIT: "100000", OTP_IP_VERIFY_LIMIT: "100000",
   // The gym team's hourly change budget (30 in production): the staff suite spends more than that
   GYM_STAFF_CHANGES_PER_HOUR: "1000",
+  GYM_PAUSE_REQUESTS_PER_HOUR: "1000",
+  GYM_REQUESTS_PER_MINUTE: "1000",
 };
 
 function portFree(port) {
@@ -78,6 +80,8 @@ async function startTestServer(env, { sms = "fake" } = {}) {
       ...(env.MEMBER_PHOTO_DIR ? { MEMBER_PHOTO_DIR: env.MEMBER_PHOTO_DIR } : {}),
       // and catalogue item images
       ...(env.CATALOG_IMAGE_DIR ? { CATALOG_IMAGE_DIR: env.CATALOG_IMAGE_DIR } : {}),
+      // and payment bills
+      ...(env.PAYMENT_RECEIPT_DIR ? { PAYMENT_RECEIPT_DIR: env.PAYMENT_RECEIPT_DIR } : {}),
       // The YouTube test points the video loader at a local fake API with a test key
       ...(env.YOUTUBE_API_URL ? { YOUTUBE_API_URL: env.YOUTUBE_API_URL, YOUTUBE_API_KEY: env.YOUTUBE_API_KEY } : {}),
     },

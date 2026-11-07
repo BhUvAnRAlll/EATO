@@ -19,7 +19,9 @@ export type CatalogKind = "plan" | "pt" | "service" | "product";
 // imageUrl: an optional picture or brochure photo, read with the session (null: none)
 export type CatalogItem = { id: number; kind: CatalogKind; name: string; duration: number | null; unit: PlanUnit | null; price: number; stock: number | null; imageUrl: string | null };
 export type PayMethod = "online" | "cash";
-export type GymPayment = { id: number; kind: PaymentKind; title: string; detail: string; method: PayMethod; amount: number; paidOn: string; memberId: number | null };
+// receiptUrl: the bill attached to the payment (Add Member › Attach the payment bill), read with the
+// session; the member's page carries it, the other payment lists don't
+export type GymPayment = { id: number; kind: PaymentKind; title: string; detail: string; method: PayMethod; amount: number; paidOn: string; memberId: number | null; receiptUrl?: string | null };
 // name: the gym (brand, e.g. Forma); branch: this branch (e.g. Tumkur), where the numbers come from
 export type GymInfo = { name: string; branch: string; area: string; city: string };
 export type GymBranch = { id: number; branch: string; area: string; city: string };
@@ -46,17 +48,17 @@ export type GymDashboard = {
   revenue: { online: number; cash: number };
   stats: { admission: number; renewal: number; enquiry: number; duePaid: number; pt: number; product: number };
   // renewalRisk: members at High renewal risk (Predictions › Likely to leave)
-  alerts: { dueMembers: number; expiringToday: number; attendance: number; expiringSoon: number; birthdays: number; renewalRisk: number };
+  alerts: { dueMembers: number; expiringToday: number; attendance: number; expiringSoon: number; birthdays: number; renewalRisk: number; pauseRequests: number };
   recent: GymPayment[];
 };
 
 // Predictions (rules on the branch's own records, no AI). A member's renewal risk: the points that
 // add up to the score, each with its reason; High 60+, Medium 35-59 (Low is never listed).
 export type RiskLevel = "high" | "medium" | "low";
-export type RiskListLevel = "all" | "high" | "medium";
+export type RiskListLevel = "all" | "high" | "medium" | "low";
 export type RenewalRisk = { score: number; level: RiskLevel; reasons: { points: number; text: string }[]; lastVisit: string | null; visitsLast: number; visitsPrior: number };
 export type RiskMember = GymMember & { risk: RenewalRisk };
-export type RenewalRisks = { gym: GymInfo; today: string; calculatedAt: string; counts: { high: number; medium: number }; members: RiskMember[] };
+export type RenewalRisks = { gym: GymInfo; today: string; calculatedAt: string; counts: { high: number; medium: number; low: number }; members: RiskMember[] };
 // Payment on time (prediction #2): a member with a due and how likely they are to pay it late.
 // unknown: nothing against them and no due payments on record yet
 export type PayLevel = "late" | "watch" | "on_time" | "unknown";
@@ -107,7 +109,23 @@ export type MemberDetails = { email: string | null; heightCm: number | null; wei
 export type MemberPt = { label: string; from: string; until: string; active: boolean; trainer: { id: string; name: string } | null };
 // The branch's trainers, for the PT form's picker and Change trainer
 export type GymTrainer = { id: string; name: string };
-export type GymMember = MemberDetails & { id: number; code: string; photoUrl: string | null; dueBy: string | null; overdue: boolean; daysLeft: number; pt: MemberPt | null; gender: Gender | null; name: string; phone: string | null; dob: string | null; birthdayToday: boolean; planLength: PlanLength; joinedOn: string; expiresOn: string; due: number; status: MemberStatus; inToday: boolean; insideNow: boolean };
+// Pause Membership: a member's open pause (pending from the app, or approved and not yet over)
+export type PauseStatus = "pending" | "approved" | "rejected" | "cancelled";
+export type MemberPause = { id: number; status: PauseStatus; by: "member" | "staff"; from: string; until: string; days: number; reason: string };
+// A request or pause on the gym's list, with the member it belongs to; wouldEndOn: where the
+// plan would end if a pending request is approved
+export type PauseRequest = MemberPause & {
+  note: string | null;
+  extendedDays: number | null;
+  requestedAt: string;
+  decidedAt: string | null;
+  member: { id: number; code: string; name: string; photoUrl: string | null; expiresOn: string; status: MemberStatus };
+  wouldEndOn: string | null;
+};
+export type PauseView = "pending" | "all";
+export type PauseList = { today: string; view: PauseView; counts: { pending: number }; pauses: PauseRequest[] };
+export type PauseFields = { from: string; until: string; reason: string };
+export type GymMember = MemberDetails & { id: number; code: string; photoUrl: string | null; dueBy: string | null; overdue: boolean; daysLeft: number; pt: MemberPt | null; gender: Gender | null; name: string; phone: string | null; dob: string | null; birthdayToday: boolean; planLength: PlanLength; joinedOn: string; expiresOn: string; due: number; status: MemberStatus; inToday: boolean; insideNow: boolean; pause: MemberPause | null; pausedNow: boolean };
 export type GymMemberDetail = { member: GymMember & { visitsThisMonth: number; lastVisit: string | null }; payments: GymPayment[]; alreadyIn?: boolean; durationMin?: number | null };
 export type MemberFilter = "all" | "due" | "overdue" | "expiring" | "expiring_soon" | "expired" | "birthday";
 // Enquiry follow-up: lost shows as "Not interested"; joined has the member they became
@@ -141,7 +159,8 @@ export type GymEnquiries = { today: string; enquiries: GymEnquiry[]; counts: Rec
 type Sums = { online: number; cash: number; total: number; byKind: Record<PaymentKind, number> };
 export type GymWallet = { today: Sums; month: Sums; due: { total: number; members: number } };
 
-// fee: the plan's price; admissionFee and discount change what's payable; paid is collected now
+// fee: the plan's price, which is what's payable (the server still accepts an optional
+// admissionFee and discount; the sheet stopped sending them on 2026-11-07); paid is collected now
 export type AdmissionFields = PlanMonths &
   Partial<{ [K in keyof MemberDetails]: MemberDetails[K] | "" }> & {
     name: string;
@@ -149,8 +168,8 @@ export type AdmissionFields = PlanMonths &
     dob: string;
     gender: Gender | "";
     fee: number;
-    admissionFee: number;
-    discount: number;
+    admissionFee?: number;
+    discount?: number;
     paid: number;
     method: PayMethod;
     dueBy: string;
@@ -168,8 +187,10 @@ const call = <T>(token: string | null, path: string, method: "GET" | "POST" | "P
 
 export const gymApi = {
   dashboard: (token: string | null) => call<GymDashboard>(token, "/api/gym/dashboard"),
-  members: (token: string | null, filter: MemberFilter, search: string) =>
-    call<{ members: GymMember[]; counts: Record<MemberFilter, number>; gym: GymInfo }>(token, `/api/gym/members?filter=${filter}&search=${encodeURIComponent(search)}`),
+  // `days` is how far ahead "expiring soon" looks (tomorrow to `days`, or "all" for every plan
+  // still running); the counts use it too
+  members: (token: string | null, filter: MemberFilter, search: string, days: number | "all" = 3) =>
+    call<{ members: GymMember[]; counts: Record<MemberFilter, number>; gym: GymInfo }>(token, `/api/gym/members?filter=${filter}&search=${encodeURIComponent(search)}&days=${days}`),
   nextCode: (token: string | null) => call<{ code: string }>(token, "/api/gym/members/next-code"),
   member: (token: string | null, id: number) => call<GymMemberDetail>(token, `/api/gym/members/${id}`),
   admit: (token: string | null, fields: AdmissionFields) => call<GymMemberDetail>(token, "/api/gym/members", "POST", fields),
@@ -178,6 +199,11 @@ export const gymApi = {
   removePhoto: (token: string | null, memberId: number) => call<GymMemberDetail>(token, `/api/gym/members/${memberId}/photo`, "DELETE"),
   editMember: (token: string | null, id: number, fields: { name?: string; phone?: string; dob?: string; gender?: Gender | "" } & Partial<{ [K in keyof MemberDetails]: MemberDetails[K] | "" }>) => call<GymMemberDetail>(token, `/api/gym/members/${id}`, "PATCH", fields),
   renew: (token: string | null, id: number, fields: RenewalFields) => call<GymMemberDetail>(token, `/api/gym/members/${id}/renew`, "POST", fields),
+  // Pause Membership: the requests, a decision on one, and a pause the staff record themselves
+  pauses: (token: string | null, view: PauseView) => call<PauseList>(token, `/api/gym/pauses?view=${view}`),
+  approvePause: (token: string | null, id: number, note?: string) => call<{ pause: PauseRequest }>(token, `/api/gym/pauses/${id}/approve`, "POST", note ? { note } : {}),
+  rejectPause: (token: string | null, id: number, note?: string) => call<{ pause: PauseRequest }>(token, `/api/gym/pauses/${id}/reject`, "POST", note ? { note } : {}),
+  pauseMember: (token: string | null, id: number, fields: PauseFields) => call<GymMemberDetail>(token, `/api/gym/members/${id}/pause`, "POST", fields),
   collectDue: (token: string | null, id: number, fields: { amount: number; method: PayMethod; dueBy?: string; paidOn?: string }) => call<GymMemberDetail>(token, `/api/gym/members/${id}/due`, "POST", fields),
   // trainerId: the trainer this PT is with, or null for none
   personalTraining: (token: string | null, id: number, fields: { package: string; amount: number; method: PayMethod; duration: number; startsOn?: string; endsOn?: string; trainerId: string | null }) => call<GymMemberDetail>(token, `/api/gym/members/${id}/pt`, "POST", fields),
@@ -199,6 +225,9 @@ export const gymApi = {
   // An item's picture (base64 and its type; the server checks both from the bytes), answered with the catalogue
   setItemImage: (token: string | null, id: number, image: { data: string; mediaType: string }) => call<{ items: CatalogItem[] }>(token, `/api/gym/catalog/${id}/image`, "PUT", { data: image.data, mediaType: image.mediaType }),
   removeItemImage: (token: string | null, id: number) => call<{ items: CatalogItem[] }>(token, `/api/gym/catalog/${id}/image`, "DELETE"),
+  // The bill attached to a payment: a photo of the receipt, checked again on the server from its bytes
+  setReceipt: (token: string | null, paymentId: number, image: { data: string; mediaType: string }) => call<{ payment: GymPayment }>(token, `/api/gym/payments/${paymentId}/receipt`, "PUT", { data: image.data, mediaType: image.mediaType }),
+  removeReceipt: (token: string | null, paymentId: number) => call<{ payment: GymPayment }>(token, `/api/gym/payments/${paymentId}/receipt`, "DELETE"),
   sale: (token: string | null, fields: { item: string; category: SaleCategory; amount: number; method: PayMethod }) => call<{ payment: GymPayment }>(token, "/api/gym/sales", "POST", fields),
   enquiries: (token: string | null, view: EnquiryView, search: string) =>
     call<GymEnquiries>(token, `/api/gym/enquiries?view=${view}&search=${encodeURIComponent(search)}`),
@@ -240,7 +269,7 @@ export const gymApi = {
 
 // ---- QR attendance ------------------------------------------------------------------------
 
-// inside: checked in, not out yet; no_checkout: left open for 12 hours
+// inside: checked in, not out yet (always today's); no_checkout: still open at midnight, India time
 export type VisitStatus = "inside" | "completed" | "no_checkout";
 // durationMin: so far while inside; null when never checked out. Times are ISO instants.
 export type GymVisit = {
@@ -265,9 +294,14 @@ export type AttendanceSummary = {
   setup: { location: boolean; qr: boolean };
   insideNow: number;
   inside: GymVisit[];
+  // today, the last 7 days and the last 30 days
   stats: { today: VisitStats; week: VisitStats; month: VisitStats };
-  lastSevenDays: { day: string; visits: number }[];
+  // The Statistics chart for each period: today by hour (India time), the others one bar a day
+  charts: { today: HourBar[]; week: DayBar[]; month: DayBar[] };
+  lastSevenDays: DayBar[];
 };
+export type DayBar = { day: string; visits: number };
+export type HourBar = { hour: number; visits: number };
 export type VisitQuery = { from: string; to: string; status: VisitStatus | "all"; search: string; memberId?: number; page?: number };
 export type VisitPage = { visits: GymVisit[]; total: number; page: number; pageSize: number; from: string; to: string };
 // qr.payload: the text the QR code carries (the branch and a signature; no member data)

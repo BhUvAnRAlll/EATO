@@ -93,10 +93,23 @@ export const MEMBER_FILTERS: { id: MemberFilter; label: string }[] = [
   { id: "due", label: "Due" },
   { id: "overdue", label: "Overdue" },
   { id: "expiring", label: "Expiring today" },
-  { id: "expiring_soon", label: "Expiring in 1-3 days" },
+  { id: "expiring_soon", label: "Expiring soon" },
   { id: "expired", label: "Expired" },
   { id: "birthday", label: "Birthdays today" },
 ];
+// How far ahead "Expiring soon" looks (every plan still running, or tomorrow to this many days):
+// the list's day chips, All first and selected by default (the user's request). Home's row
+// counts the next HOME_EXPIRING_DAYS and opens the list on them; the server accepts 1 to 90 or all.
+export const EXPIRING_SOON_DAYS = ["all", 3, 7, 15, 30] as const;
+export type ExpiringDays = (typeof EXPIRING_SOON_DAYS)[number];
+export const DEFAULT_EXPIRING_DAYS: ExpiringDays = "all";
+export const HOME_EXPIRING_DAYS: ExpiringDays = 3;
+export const isExpiringDays = (value: unknown): value is ExpiringDays => EXPIRING_SOON_DAYS.includes(value as ExpiringDays);
+// The days as they arrive in an address ("3", "all"): the matching constant, or undefined
+export const parseExpiringDays = (value: unknown): ExpiringDays | undefined => EXPIRING_SOON_DAYS.find((d) => String(d) === value);
+export const expiringDaysLabel = (days: ExpiringDays) => (days === "all" ? "All" : `${days} days`);
+// Spoken by a screen reader, and used by the chip's own label
+export const expiringDaysText = (days: ExpiringDays) => (days === "all" ? "every plan still running" : `in the next ${days} days`);
 
 export const GENDER_LABEL: Record<Gender, string> = { male: "Male", female: "Female", other: "Other" };
 

@@ -8,6 +8,7 @@ const { toE164 } = require("../auth/phone");
 const rules = require("./rules");
 const staffRules = require("./staffRules");
 const predictionRules = require("./predictionRules");
+const pauseRules = require("./pauseRules");
 const { audit } = require("../admin/overview");
 
 const DAY = (column) => `DATE_FORMAT(${column}, '%Y-%m-%d')`;
@@ -77,6 +78,33 @@ const paymentOf = (r) => ({
 });
 const PAYMENT_COLUMNS = `id, kind, title, detail, method, amount, ${DAY("paid_on")} AS paid_on, member_id`;
 
+// The bill attached to a payment (gym/paymentReceipts.js), read with the session; ?v= changes with
+// the file. The column arrives with migration 2026-12-06: before it every payment reads as having
+// no bill, so the member's page and every other payment read keep working
+const receiptUrl = (paymentId, key) => (key ? `/api/gym/payments/${paymentId}/receipt?v=${key.slice(0, 8)}` : null);
+async function receiptKeys(pool, gymId, ids) {
+  if (ids.length === 0) return new Map();
+  try {
+    const [rows] = await pool.query("SELECT id, receipt_key FROM gym_payments WHERE gym_id = ? AND id IN (?) AND receipt_key IS NOT NULL", [gymId, ids]);
+    return new Map(rows.map((r) => [r.id, r.receipt_key]));
+  } catch (error) {
+    if (error?.code === "ER_BAD_FIELD_ERROR") return new Map();
+    throw error;
+  }
+}
+async function paymentsWithReceipts(pool, gymId, rows) {
+  const keys = await receiptKeys(pool, gymId, rows.map((r) => r.id));
+  return rows.map((r) => ({ ...paymentOf(r), receiptUrl: receiptUrl(r.id, keys.get(r.id) ?? null) }));
+}
+
+// One of the branch's payments, with its bill (the answer to attaching or removing one)
+async function payment(pool, gymId, paymentId) {
+  const [[row]] = await pool.query(`SELECT ${PAYMENT_COLUMNS} FROM gym_payments WHERE id = ? AND gym_id = ?`, [paymentId, gymId]);
+  if (!row) throw new NotFoundError("That payment isn't at your gym.");
+  const [withReceipt] = await paymentsWithReceipts(pool, gymId, [row]);
+  return { payment: withReceipt };
+}
+
 const memberOf = (r, today) => ({
   id: r.id,
   code: r.member_code,
@@ -104,11 +132,23 @@ const memberOf = (r, today) => ({
   status: r.expires_on < today ? "expired" : r.expires_on === today ? "expiring" : "active",
   inToday: Boolean(r.in_today),
   insideNow: Boolean(r.inside_now),
+  // Pause Membership: the open pause (a request waiting, or an approved pause not yet over) and
+  // whether the membership is paused today
+  pause: openPauseOf(r.pause_json, today),
+  pausedNow: pauseRules.pausedOn(openPauseOf(r.pause_json, today), today),
 });
+// The newest pending or approved pause as the column's JSON (mysql2 may hand it over parsed or as text)
+function openPauseOf(json, today) {
+  if (!json) return null;
+  const p = typeof json === "string" ? JSON.parse(json) : json;
+  return pauseRules.isOpen(p, today) ? p : null;
+}
 const MEMBER_COLUMNS = `m.id, m.member_code, m.gender, m.email, m.height_cm, m.weight_kg, m.address, m.notes, m.photo_key, m.full_name, m.phone, ${DAY("m.dob")} AS dob, m.plan_months, m.plan_days, ${DAY("m.joined_on")} AS joined_on, ${DAY("m.expires_on")} AS expires_on, m.due_amount, ${DAY("m.due_by")} AS due_by, m.pt_label, ${DAY("m.pt_from")} AS pt_from, ${DAY("m.pt_until")} AS pt_until, m.pt_trainer_id,
   (SELECT u.full_name FROM users u WHERE u.id = m.pt_trainer_id) AS pt_trainer_name,
   EXISTS (SELECT 1 FROM gym_attendance a WHERE a.member_id = m.id AND a.on_date = ?) AS in_today,
-  EXISTS (SELECT 1 FROM gym_attendance a WHERE a.member_id = m.id AND a.status = 'inside' AND a.checked_in_at >= NOW() - INTERVAL 12 HOUR) AS inside_now`;
+  EXISTS (SELECT 1 FROM gym_attendance a WHERE a.member_id = m.id AND a.status = 'inside' AND a.checked_in_at >= NOW() - INTERVAL 12 HOUR) AS inside_now,
+  (SELECT JSON_OBJECT('id', p.id, 'status', p.status, 'by', p.requested_by, 'from', DATE_FORMAT(p.pause_from, '%Y-%m-%d'), 'until', DATE_FORMAT(p.pause_until, '%Y-%m-%d'), 'days', p.days, 'reason', p.reason)
+     FROM gym_membership_pauses p WHERE p.member_id = m.id AND p.status IN ('pending', 'approved') ORDER BY p.id DESC LIMIT 1) AS pause_json`;
 
 // Home: today's revenue by method, today's counts, what needs attention, the latest payments
 async function dashboard(pool, gym, today) {
@@ -131,8 +171,9 @@ async function dashboard(pool, gym, today) {
        (SELECT COUNT(*) FROM gym_members WHERE gym_id = ? AND expires_on = ?) AS expiring,
        (SELECT COUNT(DISTINCT member_id) FROM gym_attendance WHERE gym_id = ? AND on_date = ?) AS attendance,
        (SELECT COUNT(*) FROM gym_members WHERE gym_id = ? AND expires_on BETWEEN ? AND ?) AS expiring_soon,
-       (SELECT COUNT(*) FROM gym_members WHERE gym_id = ? AND DATE_FORMAT(dob, '%m-%d') = ?) AS birthdays`,
-    [gym.id, today, gym.id, gym.id, today, gym.id, today, gym.id, rules.addDays(today, 1), rules.addDays(today, 3), gym.id, today.slice(5)],
+       (SELECT COUNT(*) FROM gym_members WHERE gym_id = ? AND DATE_FORMAT(dob, '%m-%d') = ?) AS birthdays,
+       (SELECT COUNT(*) FROM gym_membership_pauses WHERE gym_id = ? AND status = 'pending') AS pause_requests`,
+    [gym.id, today, gym.id, gym.id, today, gym.id, today, gym.id, rules.addDays(today, 1), rules.addDays(today, 3), gym.id, today.slice(5), gym.id],
   );
   const [recent] = await pool.query(`SELECT ${PAYMENT_COLUMNS} FROM gym_payments WHERE gym_id = ? ORDER BY id DESC LIMIT 5`, [gym.id]);
   return {
@@ -140,7 +181,7 @@ async function dashboard(pool, gym, today) {
     today,
     revenue: { online: Number(money.online), cash: Number(money.cash) },
     stats: { admission: Number(money.admissions), renewal: Number(money.renewals), enquiry: counts.enquiries, duePaid: Number(money.due_paid), pt: Number(money.pt), product: Number(money.products) },
-    alerts: { dueMembers: counts.due_members, expiringToday: counts.expiring, attendance: counts.attendance, expiringSoon: counts.expiring_soon, birthdays: counts.birthdays },
+    alerts: { dueMembers: counts.due_members, expiringToday: counts.expiring, attendance: counts.attendance, expiringSoon: counts.expiring_soon, birthdays: counts.birthdays, pauseRequests: counts.pause_requests },
     recent: recent.map(paymentOf),
   };
 }
@@ -159,7 +200,10 @@ function memberSearch(search) {
   return { sql: " AND (m.full_name LIKE ? OR m.member_code LIKE ?)", params: [like, like] };
 }
 
-async function members(pool, gymId, { filter, search }, today) {
+// The last day "expiring soon" looks at: today + days, or (for "all") every plan still running
+const expiringUntil = (today, days) => (days === rules.EXPIRING_SOON_DAYS.all ? "9999-12-31" : rules.addDays(today, days));
+
+async function members(pool, gymId, { filter, search, days = rules.EXPIRING_SOON_DAYS.default }, today) {
   const params = [today, gymId];
   let where = "WHERE m.gym_id = ?";
   const found = memberSearch(search);
@@ -168,15 +212,16 @@ async function members(pool, gymId, { filter, search }, today) {
   if (filter === "due") where += " AND m.due_amount > 0";
   if (filter === "overdue") { where += " AND m.due_amount > 0 AND m.due_by < ?"; params.push(today); }
   if (filter === "expiring") { where += " AND m.expires_on = ?"; params.push(today); }
-  if (filter === "expiring_soon") { where += " AND m.expires_on BETWEEN ? AND ?"; params.push(rules.addDays(today, 1), rules.addDays(today, 3)); }
+  if (filter === "expiring_soon") { where += " AND m.expires_on BETWEEN ? AND ?"; params.push(rules.addDays(today, 1), expiringUntil(today, days)); }
   if (filter === "birthday") { where += " AND DATE_FORMAT(m.dob, '%m-%d') = ?"; params.push(today.slice(5)); }
   if (filter === "expired") { where += " AND m.expires_on < ?"; params.push(today); }
   const [rows] = await pool.query(`SELECT ${MEMBER_COLUMNS} FROM gym_members m ${where} ORDER BY m.full_name, m.id LIMIT ?`, [...params, MEMBER_LIST_LIMIT]);
-  return { members: rows.map((r) => memberOf(r, today)), counts: await memberCounts(pool, gymId, found, today) };
+  return { members: rows.map((r) => memberOf(r, today)), counts: await memberCounts(pool, gymId, found, today, days) };
 }
 
-// How many members each filter would list (within the same search), for the list's chips
-async function memberCounts(pool, gymId, found, today) {
+// How many members each filter would list (within the same search), for the list's chips;
+// "expiring soon" counts the window the caller asked for (tomorrow to `days` ahead, or all)
+async function memberCounts(pool, gymId, found, today, days) {
   const [[c]] = await pool.query(
     `SELECT COUNT(*) AS all_members,
             COALESCE(SUM(m.due_amount > 0), 0) AS due,
@@ -186,7 +231,7 @@ async function memberCounts(pool, gymId, found, today) {
             COALESCE(SUM(m.expires_on < ?), 0) AS expired,
             COALESCE(SUM(DATE_FORMAT(m.dob, '%m-%d') = ?), 0) AS birthday
      FROM gym_members m WHERE m.gym_id = ?${found.sql}`,
-    [today, today, rules.addDays(today, 1), rules.addDays(today, 3), today, today.slice(5), gymId, ...found.params],
+    [today, today, rules.addDays(today, 1), expiringUntil(today, days), today, today.slice(5), gymId, ...found.params],
   );
   return {
     all: Number(c.all_members), due: Number(c.due), overdue: Number(c.overdue), expiring: Number(c.expiring),
@@ -207,7 +252,7 @@ async function member(pool, gymId, memberId, today) {
     `SELECT COUNT(*) AS month, ${DAY("MAX(on_date)")} AS last FROM gym_attendance WHERE gym_id = ? AND member_id = ? AND on_date >= ?`,
     [gymId, memberId, `${today.slice(0, 8)}01`],
   );
-  return { member: { ...memberOf(row, today), visitsThisMonth: visits.month, lastVisit: visits.last ?? null }, payments: payments.map(paymentOf) };
+  return { member: { ...memberOf(row, today), visitsThisMonth: visits.month, lastVisit: visits.last ?? null }, payments: await paymentsWithReceipts(pool, gymId, payments) };
 }
 
 // One transaction: `work(connection)` runs between BEGIN and COMMIT, rolled back on any error
@@ -631,6 +676,7 @@ async function deleteItem(pool, gymId, itemId) {
 
 module.exports = {
   catalog,
+  payment,
   addItem,
   editItem,
   deleteItem,
@@ -662,6 +708,7 @@ module.exports = {
   memberOf,
   memberSearch,
   inTransaction,
+  memberRow,
   PAYMENT_COLUMNS,
   MEMBER_COLUMNS,
   MEMBER_LIST_LIMIT,

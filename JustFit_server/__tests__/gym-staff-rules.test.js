@@ -105,7 +105,7 @@ describe("gym staff rules: Role & Permission", () => {
       "/dashboard": null, "/branches": null, "/branch": null, "/details": null, "/staff": null, "/staff/u1/permissions": null,
       "/members": "members", "/members/next-code": "members", "/members/3": "members", "/members/3/renew": "members", "/members/3/photo": "members", "/members/3/trainer": "members", "/trainers": "members",
       "/members/3/due": "payments", "/members/3/pt": "payments", "/members/3/sales": "payments", "/members/3/services": "payments",
-      "/payments": "payments", "/sales": "payments", "/services": "payments", "/wallet": "payments",
+      "/payments": "payments", "/sales": "payments", "/services": "payments", "/wallet": "payments", "/payments/9/receipt": "members",
       "/members/3/sms": "sms", "/sms": "sms", "/sms/settings": "sms", "/sms/send": "sms", "/sms/logs": "sms",
       "/members/3/check-in": "attendance", "/members/3/check-out": "attendance", "/attendance": "attendance", "/attendance/qr": "attendance", "/attendance/export": "attendance",
       "/enquiries": "enquiries", "/enquiries/4": "enquiries", "/enquiries/4/contacts": "enquiries",

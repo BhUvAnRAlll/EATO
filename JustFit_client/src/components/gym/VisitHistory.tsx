@@ -77,6 +77,14 @@ export function VisitHistory({ memberId, refreshKey = 0, defaultRange = "today" 
     }
   };
 
+  // Inside means today's open visits (a visit still open at midnight is closed as no check-out),
+  // so picking Inside selects Today and the other ranges can't be picked until another status is
+  const pickStatus = (value: VisitStatus | "all") => {
+    setStatus(value);
+    if (value === "inside" && range !== "today") pickRange("today");
+  };
+  const ranges = RANGES.map((r) => ({ ...r, disabled: status === "inside" && r.value !== "today" }));
+
   const showMore = async () => {
     if (page.state !== "ready" || loadingMore) return;
     setLoadingMore(true);
@@ -102,14 +110,14 @@ export function VisitHistory({ memberId, refreshKey = 0, defaultRange = "today" 
 
   return (
     <View style={{ gap: 12 }}>
-      <GymChips options={RANGES} value={range} onChange={pickRange} />
+      <GymChips options={ranges} value={range} onChange={pickRange} />
       {range === "custom" && (
         <View style={{ gap: 8 }}>
           <DateSelect label="From" value={from} onChange={(day) => { setFrom(day); if (day > to) setTo(day); }} min={indiaDay(-365)} max={today} />
           <DateSelect label="To" value={to} onChange={(day) => { setTo(day); if (day < from) setFrom(day); }} min={indiaDay(-365)} max={today} />
         </View>
       )}
-      <GymChips options={STATUSES} value={status} onChange={setStatus} />
+      <GymChips options={STATUSES} value={status} onChange={pickStatus} />
       {memberId ? null : (
         <View className="gym-field--icon">
           <GymIcon name="search" size={18} color={colors.gymMuted} />

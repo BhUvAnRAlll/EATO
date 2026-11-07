@@ -1260,6 +1260,7 @@ CREATE TABLE gym_payments (
   amount      INT UNSIGNED NOT NULL,             -- rupees
   paid_on     DATE         NOT NULL,
   due_by      DATE         NULL,                 -- due payments: the date the due was to be paid by (migration 2026-12-02); NULL before it
+  receipt_key VARCHAR(64)  NULL,                 -- the bill's file name in PAYMENT_RECEIPT_DIR (gym/paymentReceipts.js, migration 2026-12-06); NULL: no bill
   created_by  VARCHAR(64)  NULL,
   created_at  TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   PRIMARY KEY (id),
@@ -1415,4 +1416,36 @@ CREATE TABLE gym_sms_log (
   CONSTRAINT fk_gym_sms_log_gym FOREIGN KEY (gym_id) REFERENCES gyms (id),
   CONSTRAINT fk_gym_sms_log_member FOREIGN KEY (member_id) REFERENCES gym_members (id),
   CONSTRAINT fk_gym_sms_log_by FOREIGN KEY (sent_by) REFERENCES users (id) ON DELETE SET NULL
+) ENGINE = InnoDB;
+
+-- Pause Membership (migration 2026-12-05-membership-pauses.sql): a member's pause request from
+-- the app (pending until the gym's staff approve or reject it) or a pause the staff recorded
+-- themselves (approved at once). An approved pause adds its days to the member's expires_on
+-- (kept in extended_days) and blocks QR check-ins while it runs.
+CREATE TABLE gym_membership_pauses (
+  id             INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  gym_id         INT UNSIGNED NOT NULL,
+  member_id      INT UNSIGNED NOT NULL,
+  requested_by   ENUM('member', 'staff') NOT NULL,
+  status         ENUM('pending', 'approved', 'rejected', 'cancelled') NOT NULL DEFAULT 'pending',
+  pause_from     DATE         NOT NULL,
+  pause_until    DATE         NOT NULL,              -- the last paused day
+  days           SMALLINT UNSIGNED NOT NULL,         -- pause_until - pause_from + 1, by the server
+  reason         VARCHAR(200) NOT NULL,
+  requester_id   VARCHAR(64)  NULL,                  -- the account that asked (the member's, or the staff login's)
+  decided_by     VARCHAR(64)  NULL,                  -- the staff login that approved or rejected
+  decided_at     TIMESTAMP    NULL,
+  decision_note  VARCHAR(200) NULL,
+  extended_days  SMALLINT UNSIGNED NULL,             -- days added to expires_on when approved
+  created_at     TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at     TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_gym_pauses_gym (gym_id, status, id),
+  KEY idx_gym_pauses_member (member_id, status, id),
+  CONSTRAINT fk_gym_pauses_gym FOREIGN KEY (gym_id) REFERENCES gyms (id),
+  CONSTRAINT fk_gym_pauses_member FOREIGN KEY (member_id) REFERENCES gym_members (id),
+  CONSTRAINT fk_gym_pauses_requester FOREIGN KEY (requester_id) REFERENCES users (id) ON DELETE SET NULL,
+  CONSTRAINT fk_gym_pauses_decided_by FOREIGN KEY (decided_by) REFERENCES users (id) ON DELETE SET NULL,
+  CONSTRAINT chk_gym_pauses_dates CHECK (pause_until >= pause_from),
+  CONSTRAINT chk_gym_pauses_days CHECK (days BETWEEN 1 AND 365)
 ) ENGINE = InnoDB;

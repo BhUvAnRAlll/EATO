@@ -217,12 +217,24 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
   removed at the user's request: Renewal, Due and PT are on a member's page).
   Add Member is a three-step sheet (`AddMemberSheet`, the user's designs): 1 the profile (the
   previewed Member ID `GET /api/gym/members/next-code`, name, mobile kept to 10 digits, gender);
-  2 optional fields (email, height, weight, address, notes, date of birth; Attachment is "coming
-  soon": storing files needs approval); 3 Joining Date and Payment Date, Available Plans from the
-  catalogue (or Custom, or Add New Plan in a CatalogSheet), Admission and Discount amounts, Mode,
-  Amount Payable (plan + admission − discount) and Due Amount, Amount Collected, the due date when
+  2 optional fields (email, height, weight, address, notes, date of birth); 3 Joining Date and Payment Date, Available Plans from the
+  catalogue (or Custom, or Add New Plan in a CatalogSheet), Mode, Amount Payable (the plan's
+  price; the Admission and Discount amount fields were removed on 2026-11-07 at the user's request,
+  the server still accepts them as optional) and Due Amount, Amount Collected, the due date when
   something is owed (`DueByField`: quick picks or `DateSelect`), Send Invoice (opens the phone's
-  share sheet with a receipt; justFit sends no SMS); then the confirm dialog. The plan starts on the
+  share sheet with a receipt; justFit sends no SMS); then the confirm dialog. **Attach the payment
+  bill (2026-11-07, the user's request; it replaced step 2's "Attachment, coming soon"):** a photo
+  of the plan payment's receipt (camera or gallery, any shape, `lib/gymPhoto.ts` `pickReceiptImage`,
+  a thumbnail and Remove once picked), uploaded after the member is saved onto the admission payment
+  through `PUT|DELETE|GET /api/gym/payments/:id/receipt` (`gym/paymentReceipts.js`: JPEG/PNG/WebP
+  from the bytes, 3 MB, 96-6000 px a side, the photos' hourly allowance; files in
+  `PAYMENT_RECEIPT_DIR`, default `uploads/payment-receipts`; `gym_payments.receipt_key` keeps only the
+  file name, read with the session by this branch's staff; area members, `staffRules.areaOfPath`).
+  A failed upload keeps the member saved and says so. The member's page's payment line shows a
+  Bill chip (`PaymentRow`) that opens the photo whole (`ReceiptViewer`); `receiptUrl` comes only
+  with the member's payments (`service.paymentsWithReceipts`, which reads as "no bill" before the
+  migration so every payment read keeps working). Migration `2026-12-06-payment-receipts.sql`;
+  before it attaching answers 503 naming it. Tests: `e2e/gym-payment-receipts.e2e.test.js`. The plan starts on the
   joining date; the payment is dated the payment date. Owed amounts carry `due_by`; past it a
   member is overdue (Members › Overdue). Migration `2026-11-23-member-details.sql` (also the PT period).
 - **Due members (2026-11-04, the user's designs):** Home's Due Members card opens `DueMembersSheet`
@@ -287,10 +299,16 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
   max 760 px; sections fade up once when the numbers first arrive, counts change with
   `AnimatedNumber`). **Expiring soon (2026-11-07, the user's request):** the window is a choice,
   not a fixed 1-3 days: Home's row counts the next 3 days and opens Members on
-  `?filter=expiring_soon&days=3`; on Members the "Expiring soon · N days" chip shows a row of day
-  chips (3, 7, 15, 30; `EXPIRING_SOON_DAYS` in `data/gymDashboard.ts`), and both the list and the
-  chip's count follow the pick (tomorrow to today + N; today's endings stay under Expiring today).
-  `GET /api/gym/members?days=` is a whole number 1-90, default 3, else 400 (`rules.expiringDays`);
+  `?filter=expiring_soon&days=3`; on Members the "Expiring soon" chip (that wording alone, no day
+  count in the label) shows a row of day chips under the filters, "Ending in" All, 3, 7, 15, 30 (All first and the
+  default on the Members screen; `EXPIRING_SOON_DAYS`, `DEFAULT_EXPIRING_DAYS` = all and
+  `HOME_EXPIRING_DAYS` = 3 in `data/gymDashboard.ts`; the filter row opens with the chip the list
+  opened on centred, its neighbours showing on both sides (2026-11-07, the user's screenshot;
+  it was pinned to the left edge before), so Home's Due, Expiring today, Expiring soon or
+  Birthdays are never off-screen), and both the list and the chip's count follow
+  the pick (tomorrow to today + N, or for All every plan that ends after today; today's endings
+  stay under Expiring today). `GET /api/gym/members?days=` is a whole number 1-90 or `all`,
+  default 3, else 400 (`rules.expiringDays`);
   nothing is stored, Home always shows 3 days. The other screens: + (`/gym/add`: admission, renewal, due payment, PT, product, enquiry), Members (search, filters, pick mode), a member's page (check in
   once a day, renew, collect due, edit), Transactions (View All, 50 a page), Enquiries (see below), Wallet tab
   (today, this month, owed). Admin: the Gyms tab, a gym's page,
@@ -361,9 +379,19 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
   that is fresh (2 min), precise (≤150 m), not mocked and within `gyms.attendance_radius_m`
   (default 100, 20-1000) of `gyms.latitude/longitude`. One open visit per member (unique key on
   the generated `open_member_id`); several visits a day; the server works out `duration_min`;
-  visits open 12 hours become `no_checkout`. Staff check in/out by hand stays (`in_source`/
+  a visit still open at midnight, India time, becomes `no_checkout` (2026-11-07, the user's rule;
+  it was 12 hours after the check-in before): `startMidnightClose` in `gym/attendance.js` sweeps
+  every branch at startup and at each India midnight, and every read or write that looks at open
+  visits closes earlier days' first, so Inside only ever means today. In the history, picking
+  Inside selects Today and the other ranges are disabled until another status is picked; the
+  server fixes the range to today for `status=inside` too (`historyQuery`). Staff check in/out by hand stays (`in_source`/
   `out_source` 'staff'). Admin screens: `app/gym/attendance/` (dashboard: inside now, today's
-  numbers, daily/weekly/monthly stats, 7-day bars, history with range/status/search and CSV
+  numbers, Statistics for Today / Last 7 days / Last 30 days (renamed from Daily / Weekly /
+  Monthly on 2026-11-07, the user's request; the month was the calendar month before) with the
+  chart following the period: today's check-ins by India hour (5 am to 10 pm plus any outside
+  hour with a visit), else a bar a day (`charts` on `GET /api/gym/attendance`, pure
+  `attendanceRules.chartHours` / `chartDays`; `lastSevenDays` stays as the 7-day chart), history
+  with range/status/search and CSV
   export; `settings.tsx`: name, map (`AttendanceMap`: react-native-maps, Google on Android with
   `GOOGLE_MAPS_ANDROID_API_KEY`, Google on iOS too with `GOOGLE_MAPS_IOS_API_KEY` (Apple Maps when
   it isn't set); both in `JustFit_client/.env` or the shell, read by `app.config.ts`, never
@@ -384,7 +412,10 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
   → `MemberActionsSheet`. Scoring (`gym/predictionRules.js`, pure, constants at the top): plan ends
   within 7 days or ended in the last 7 (+30), no visit for 10+ days (or never, 10+ days after
   joining) (+30), visits in the last 30 days at most half of the 30 before when those were 4+ (+20),
-  a payment due (+20), PT running (−15); High 60+, Medium 35–59, Low never listed; members whose
+  a payment due (+20), PT running (−15); High 60+, Medium 35–59, Low under 35. Since 2026-11-07
+  (the user's request) Low members are listed too (a green chip, "Nothing against them" when there
+  are no reasons; `?level=low`, `counts.low`), so the list is every scored member and only Home's
+  count stays High; members whose
   plan ended more than 7 days ago aren't scored. `gym/predictions.js` reads `gym_members` plus
   three attendance sub-selects (last visit, distinct visit days in each window) for the caller's
   branch and scores live on every read: nothing stored, no job, nothing sent by itself;
@@ -397,7 +428,10 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
   (`hourInIndia`), never the session's zone; only weeks on or after the branch's first attendance
   date count, and fewer than two of them gives `enough: false` and a "Not enough attendance data
   yet" card instead of a number. Bars from 5 am to 10 pm (plus any earlier/later hour with
-  visits), busiest and quietest hours, last week's total.
+  visits), busiest and quietest hours, last week's total. Since 2026-11-07 (the user's request)
+  the card is in plain words: "Expect about 3 check-ins tomorrow", "Busiest time 6–7 pm · about
+  2 members", "Quietest time 5–6 am · usually no one", the bars under "Expected check-ins, hour
+  by hour", and "Based on the last 4 Sundays. Last Sunday: 1 check-in."
   **#5 Month-end revenue (2026-11-06):** Wallet › "Expected by month end"
   (`components/gym/RevenueForecastCard.tsx`, `GET /api/gym/predictions/revenue`,
   `predictionRules.revenueForecast`): collected this month so far + plans ending between today and
@@ -434,6 +468,36 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
   `__tests__/gym-prediction-rules.test.js`, `e2e/gym-predictions.e2e.test.js`,
   `ui/gym-predictions.ui.test.js` (attendance rows are inserted with `FROM_UNIXTIME` at an
   India-time hour).
+- **Pause Membership (2026-11-07, the user's two workflows):** **Option A, member initiated:**
+  Profile › Gym membership (`app/(user)/membership/index.tsx`, `lib/membershipApi.ts`, words in
+  `lib/membershipText.ts`, pure and unit-tested) lists every membership on the account's verified
+  number (the gym and branch, Member ID, plan and dates, a badge: days left / Expires today /
+  Expired / Paused until …, dues, PT) and Pause Membership → `membership/pause.tsx`: first and last
+  paused day (`DatePickerSheet`, today to 60 days ahead, 1-90 days), a reason (3-200 characters),
+  "N days paused, your plan would then end on …", Send pause request. The card then says "Pause
+  requested … Waiting for <gym> to approve" with Cancel request; a rejection shows under Earlier
+  with the gym's note. **Option B, staff initiated:** a member's ⋯ › Membership › Pause Membership
+  (`components/gym/PauseMembershipSheet.tsx`: dates, up to 30 days back, reason, "Please confirm
+  the details") pauses at once. Staff answer members' requests on Home › Needs attention › Pause
+  requests (`app/gym/pauses.tsx`, Waiting / All; Approve and Reject ask for a second tap on the
+  card). An approved pause adds its days to `gym_members.expires_on` (kept in `extended_days`) and
+  QR check-in answers 403 "Your membership is paused until …" while it runs (`attendance.js`
+  `resolveScan`, `member.pausedUntil` on the scan preview). One open pause (pending, or approved and
+  not over) per member; a request can't start after the plan ends or on an expired plan. Server:
+  `gym/pauseRules.js` (pure), `gym/pauses.js`, member routes `GET /api/membership`,
+  `POST /api/membership/:id/pause`, `DELETE /api/membership/:id/pause/:pauseId`
+  (`gym/membershipRoutes.js`, the membership matched by the account's phone, 10 requests an hour,
+  `GYM_PAUSE_REQUESTS_PER_HOUR`; the portal's own budget is `GYM_REQUESTS_PER_MINUTE`, default 180,
+  and the test server raises both);
+  staff routes `GET /api/gym/pauses?view=pending|all`, `POST /api/gym/pauses/:id/approve|reject
+  { note? }`, `POST /api/gym/members/:id/pause` (area members, 30 an hour); `GymMember.pause` /
+  `pausedNow` and `alerts.pauseRequests` on the dashboard; audited `gym.pause_approve`,
+  `gym.pause_reject`, `gym.pause_add`. Table `gym_membership_pauses` (migration
+  `2026-12-05-membership-pauses.sql`; before it the portal and `/api/membership` answer 503 naming
+  it, and attendance treats everyone as unpaused). Not built: a push or in-app notification to the
+  member (Notifications is still a placeholder; the member sees the pause on Gym membership), ending
+  an approved pause early, pausing PT dates. Tests: `__tests__/gym-pause-rules.test.js`,
+  `e2e/gym-pauses.e2e.test.js`, the client's `lib/__tests__/membershipText.test.ts`.
 - **Tests:** `__tests__/gym-rules.test.js`, `gym-sms-rules.test.js`, `gym-attendance-rules.test.js`,
   `gym-staff-rules.test.js`, `e2e/gym-portal.e2e.test.js`, `e2e/gym-sms.e2e.test.js`,
   `e2e/gym-attendance.e2e.test.js`, `e2e/gym-staff.e2e.test.js`, `ui/gym-portal.ui.test.js`,

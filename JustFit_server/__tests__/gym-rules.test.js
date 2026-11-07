@@ -150,9 +150,15 @@ describe("gym rules: admissions, renewals, dues, sales, enquiries", () => {
   it("member edits, list filters, payment pages, ids", () => {
     assert.deepEqual(rules.memberEditBody({ phone: "" }), { phone: null });
     refuses(() => rules.memberEditBody({}), /Change the name/);
-    assert.deepEqual(rules.membersQuery({}), { filter: "all", search: "" });
-    assert.deepEqual(rules.membersQuery({ filter: "due", search: " asif " }), { filter: "due", search: "asif" });
+    assert.deepEqual(rules.membersQuery({}), { filter: "all", search: "", days: 3 });
+    assert.deepEqual(rules.membersQuery({ filter: "due", search: " asif " }), { filter: "due", search: "asif", days: 3 });
     refuses(() => rules.membersQuery({ filter: "everyone" }), /filter/);
+    // Expiring soon looks as many days ahead as the chips ask: 1 to 90, 3 when nothing is sent
+    assert.equal(rules.membersQuery({ filter: "expiring_soon", days: "30" }).days, 30);
+    assert.equal(rules.membersQuery({ filter: "expiring_soon", days: "" }).days, 3);
+    assert.equal(rules.membersQuery({ filter: "expiring_soon", days: "90" }).days, 90);
+    assert.equal(rules.membersQuery({ filter: "expiring_soon", days: "all" }).days, "all", "every plan still running");
+    for (const bad of ["0", "91", "999", "-3", "3.5", "seven", " 7", ["7"], 7, "ALL", "all "]) refuses(() => rules.membersQuery({ filter: "expiring_soon", days: bad }), /days ahead/);
     refuses(() => rules.membersQuery({ search: "x".repeat(61) }), /at most/);
     assert.deepEqual(rules.paymentsQuery({ kind: "sale", before: "40", today: "1" }), { kind: "sale", before: 40, today: true });
     assert.equal(rules.paymentsQuery({ kind: "pt" }).kind, "pt");

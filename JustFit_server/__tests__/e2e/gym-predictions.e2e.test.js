@@ -1,6 +1,7 @@
 // Gym predictions end to end: the renewal-risk list and Home's count, against the real Express
 // server and justfit_test. Two gyms; gym A gets members whose records should score High
-// (Ravi), Medium (Sneha), Low (steady, and one on PT) and one expired too long ago to be scored.
+// (Ravi), Medium (Sneha), Low (steady, and one on PT; listed too since 2026-11-07) and one expired
+// too long ago to be scored.
 // Attack paths: no session, member and admin roles, a gym admin with no gym, another gym's staff
 // (isolation), a bad level, SQL in the search, an oversized search.
 //
@@ -117,10 +118,10 @@ describe("gym predictions e2e: who may not renew, and tomorrow's busy hours", ()
     // Sneha: plan ends in 6 days, 8 visits the month before and 3 this month (last one 2 days ago) → 30 + 20 = 50, Medium
     state.sneha = await admit("Sneha R", { expiresIn: 6 });
     await visits(state.sneha, [2, 4, 6, 35, 36, 38, 40, 42, 44, 46, 48]);
-    // Steady: plan runs for months, came yesterday → 0, Low (not listed)
+    // Steady: plan runs for months, came yesterday → 0, Low
     state.steady = await admit("Steady Sam", { expiresIn: 90 });
     await visits(state.steady, [1, 3, 5, 33, 35]);
-    // On PT: plan ends in 3 days but PT is running → 30 − 15 = 15, Low (not listed)
+    // On PT: plan ends in 3 days but PT is running → 30 − 15 = 15, Low
     state.pt = await admit("Priya PT", { expiresIn: 3 });
     await visits(state.pt, [1]);
     assert.equal((await as("gymA").post(`/api/gym/members/${state.pt}/pt`, { package: "12 sessions", amount: 6000, method: "online", unit: "months", duration: 1 })).status, 200);
@@ -128,14 +129,15 @@ describe("gym predictions e2e: who may not renew, and tomorrow's busy hours", ()
     state.gone = await admit("Gone Guy", { expiresIn: -20 });
   }));
 
-  it("2. the list: Ravi High with his three reasons, Sneha Medium, nobody else", run(async () => {
+  it("2. the list: Ravi High with his three reasons, Sneha Medium, then the two Low members; the lapsed one is not scored", run(async () => {
     const r = await as("gymA").get("/api/gym/predictions/renewals");
     assert.equal(r.status, 200, JSON.stringify(r.json));
     assert.deepEqual([r.json.gym.name, r.json.gym.branch, r.json.gym.area, r.json.gym.city], ["Forma", "Tumkur", "Batawadi", "Tumakuru"]);
     assert.equal(r.json.today, today);
     assert.match(r.json.calculatedAt, /^\d{4}-\d{2}-\d{2}T/);
-    assert.deepEqual(r.json.counts, { high: 1, medium: 1 });
-    assert.deepEqual(r.json.members.map((m) => [m.name, m.risk.score, m.risk.level]), [["Ravi Kumar", 80, "high"], ["Sneha R", 50, "medium"]]);
+    assert.deepEqual(r.json.counts, { high: 1, medium: 1, low: 2 });
+    assert.deepEqual(r.json.members.map((m) => [m.name, m.risk.score, m.risk.level]), [["Ravi Kumar", 80, "high"], ["Sneha R", 50, "medium"], ["Priya PT", 15, "low"], ["Steady Sam", 0, "low"]], "highest first; Gone Guy is past the week of grace");
+    assert.deepEqual(r.json.members[3].risk.reasons, [], "a clean Low member has no reasons");
 
     const [ravi, sneha] = r.json.members;
     assert.deepEqual(ravi.risk.reasons, [{ points: 30, text: "Plan ends in 5 days" }, { points: 30, text: "No visit in 12 days" }, { points: 20, text: "₹800 due" }]);
@@ -154,7 +156,8 @@ describe("gym predictions e2e: who may not renew, and tomorrow's busy hours", ()
     const injected = await gym.get(`/api/gym/predictions/renewals?search=${encodeURIComponent("' OR 1=1 --")}`);
     assert.equal(injected.status, 200);
     assert.deepEqual(injected.json.members, [], "a search is only a bound value");
-    assert.equal((await gym.get("/api/gym/predictions/renewals?level=low")).status, 400, "Low is never listed");
+    assert.deepEqual((await gym.get("/api/gym/predictions/renewals?level=low")).json.members.map((m) => m.name), ["Priya PT", "Steady Sam"], "Low on its own");
+    assert.equal((await gym.get("/api/gym/predictions/renewals?level=none")).status, 400);
     assert.equal((await gym.get("/api/gym/predictions/renewals?level=1%20OR%201=1")).status, 400);
     assert.equal((await gym.get(`/api/gym/predictions/renewals?search=${"x".repeat(61)}`)).status, 400);
   }));
@@ -173,21 +176,21 @@ describe("gym predictions e2e: who may not renew, and tomorrow's busy hours", ()
     assert.equal((await as("loner").get("/api/gym/predictions/renewals")).status, 403, "a gym admin with no gym");
     const b = await as("gymB").get("/api/gym/predictions/renewals");
     assert.equal(b.status, 200);
-    assert.deepEqual([b.json.counts, b.json.members], [{ high: 0, medium: 0 }, []], "gym B never sees gym A's members");
+    assert.deepEqual([b.json.counts, b.json.members], [{ high: 0, medium: 0, low: 0 }, []], "gym B never sees gym A's members");
     assert.equal((await as("gymB").get("/api/gym/dashboard")).json.alerts.renewalRisk, 0);
   }));
 
-  it("6. once Ravi renews and pays, he leaves the list", run(async () => {
+  it("6. once Ravi renews and pays, he drops to Low", run(async () => {
     const renewed = await as("gymA").post(`/api/gym/members/${state.ravi}/renew`, { unit: "months", duration: 3, fee: 4500, paid: 4500, method: "cash" });
     assert.equal(renewed.status, 200, JSON.stringify(renewed.json));
     assert.equal(renewed.json.member.due, 800, "a renewal doesn't clear what was owed before");
     const renewedOnly = await as("gymA").get("/api/gym/predictions/renewals");
-    assert.deepEqual(renewedOnly.json.members.map((m) => [m.name, m.risk.score, m.risk.level]), [["Ravi Kumar", 50, "medium"], ["Sneha R", 50, "medium"]], "still no recent visit and ₹800 due: Medium");
+    assert.deepEqual(renewedOnly.json.members.slice(0, 2).map((m) => [m.name, m.risk.score, m.risk.level]), [["Ravi Kumar", 50, "medium"], ["Sneha R", 50, "medium"]], "still no recent visit and ₹800 due: Medium");
     assert.deepEqual(renewedOnly.json.members[0].risk.reasons.map((x) => x.text), ["No visit in 12 days", "₹800 due"]);
     assert.equal((await as("gymA").post(`/api/gym/members/${state.ravi}/due`, { amount: 800, method: "cash" })).status, 200);
     const paid = await as("gymA").get("/api/gym/predictions/renewals");
-    assert.deepEqual(paid.json.members.map((m) => m.name), ["Sneha R"], "only the old visit remains against Ravi, which is Low");
-    assert.deepEqual(paid.json.counts, { high: 0, medium: 1 });
+    assert.deepEqual(paid.json.members.map((m) => [m.name, m.risk.level]), [["Sneha R", "medium"], ["Ravi Kumar", "low"], ["Priya PT", "low"], ["Steady Sam", "low"]], "only the old visit remains against Ravi, which is Low");
+    assert.deepEqual(paid.json.counts, { high: 0, medium: 1, low: 3 });
   }));
 
   // Busy hours, at gym B (no attendance yet). Check-ins are inserted at an India-time hour

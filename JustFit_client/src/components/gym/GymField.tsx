@@ -35,24 +35,31 @@ export function GymField({ label, hint, style, icon, iconColor, ...inputProps }:
 }
 
 // One-of picker as chips (plan length, online or cash, a filter)
-export function GymChips<T extends string | number>({ label, options, value, onChange }: { label?: string; options: { value: T; label: string }[]; value: T; onChange: (value: T) => void }) {
+// A chip with `disabled` can't be picked for now (faded, and told to the screen reader)
+export function GymChips<T extends string | number>({ label, options, value, onChange }: { label?: string; options: { value: T; label: string; disabled?: boolean }[]; value: T; onChange: (value: T) => void }) {
   return (
     <View style={{ gap: 6 }}>
       {label ? <Text className="gym-field__label">{label}</Text> : null}
       <View className="flex-row flex-wrap" style={{ gap: 8 }} accessibilityRole="radiogroup">
         {options.map((option) => {
           const selected = option.value === value;
+          const disabled = option.disabled === true && !selected;
           return (
             <PressableScale
               key={String(option.value)}
               onPress={() => {
+                if (disabled) return;
                 if (!selected) haptic.select();
                 onChange(option.value);
               }}
+              disabled={disabled}
               className={selected ? "gym-choice gym-choice--selected" : "gym-choice"}
+              style={disabled ? { opacity: 0.4 } : undefined}
               accessibilityRole="radio"
               // A radio is read as checked or not (as the coach chips do; it reaches the web build too)
               aria-checked={selected}
+              aria-disabled={disabled}
+              accessibilityState={{ disabled }}
               accessibilityLabel={option.label}
             >
               <Text className={selected ? "gym-choice__label gym-choice__label--selected" : "gym-choice__label"}>{option.label}</Text>

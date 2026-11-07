@@ -4,7 +4,8 @@ import { photoTypeOf } from "@/lib/adminPrograms";
 
 // A picked image, ready to upload (the server checks the type and size again from the bytes) and
 // to show before it's saved: a member's photo from Add New Member (PUT /api/gym/members/:id/photo)
-// or a catalogue item's picture from Add Plan (PUT /api/gym/catalog/:id/image)
+// or a catalogue item's picture from Add Plan (PUT /api/gym/catalog/:id/image), or the plan payment's
+// bill from Add Member (PUT /api/gym/payments/:id/receipt)
 export type MemberPhoto = { data: string; mediaType: string; previewUri: string };
 export type PhotoSource = "camera" | "library";
 
@@ -24,6 +25,9 @@ export const pickMemberPhoto = (source: PhotoSource) => pickImage(source, { squa
 
 /** A catalogue item's picture or brochure photo: any shape, so a brochure page isn't cut */
 export const pickCatalogImage = (source: PhotoSource) => pickImage(source, { square: false, what: "the photo" });
+
+/** The plan payment's bill from Add Member (PUT /api/gym/payments/:id/receipt): any shape, a till slip is tall */
+export const pickReceiptImage = (source: PhotoSource) => pickImage(source, { square: false, what: "the bill" });
 
 async function pickImage(source: PhotoSource, { square, what }: { square: boolean; what: string }): Promise<Picked> {
   if (source === "camera") {

@@ -33,10 +33,12 @@ const scored = (row, today) => ({
   },
 });
 
-// GET /api/gym/predictions/renewals: Medium and High (or one level), highest score first
+// GET /api/gym/predictions/renewals: every scored member (or one level), highest score first.
+// Low members are listed too since 2026-11-07 (the user's request); Home's count stays High only.
 async function renewalRisks(pool, gym, { level, search }, today) {
   const all = (await memberFacts(pool, gym.id, search, today)).map((row) => scored(row, today));
-  const counts = { high: all.filter((m) => m.risk.level === "high").length, medium: all.filter((m) => m.risk.level === "medium").length };
+  const count = (wanted) => all.filter((m) => m.risk.level === wanted).length;
+  const counts = { high: count("high"), medium: count("medium"), low: count("low") };
   const members = all.filter((m) => rules.showsLevel(level, m.risk.level)).sort((a, b) => b.risk.score - a.risk.score || a.name.localeCompare(b.name));
   return { gym: service.gymInfo(gym), today, calculatedAt: new Date().toISOString(), counts, members };
 }

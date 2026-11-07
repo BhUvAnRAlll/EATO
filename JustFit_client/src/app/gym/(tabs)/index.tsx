@@ -18,7 +18,7 @@ import { GradientFill } from "@/components/gym/GradientFill";
 import { PaymentRow } from "@/components/gym/PaymentRow";
 import { RevenueCard } from "@/components/gym/RevenueCard";
 import { GymEmpty, GymError, GymLoading } from "@/components/gym/GymStates";
-import { greetingFor, initialsOf, type AddAction } from "@/data/gymDashboard";
+import { HOME_EXPIRING_DAYS, greetingFor, initialsOf, type AddAction } from "@/data/gymDashboard";
 import { comingSoon } from "@/lib/gymPortal";
 import { gymApi, type GymAccess, type StaffArea } from "@/lib/gymApi";
 import { useGymData } from "@/lib/useGymData";
@@ -104,9 +104,10 @@ export default function GymHome() {
     ? [
         { id: "due", value: data.alerts.dueMembers, label: "Due Members", tag: "Action", hint: "Payments to collect", tone: "danger", icon: "triangle-alert", href: "/gym/members?filter=due", area: "members" },
         { id: "risk", value: data.alerts.renewalRisk, label: "Likely to leave", tag: "Risk", hint: "High renewal risk, worth a call", tone: "danger", icon: "user-x", href: "/gym/predictions/renewals", area: "predictions" },
+        { id: "pauses", value: data.alerts.pauseRequests, label: "Pause requests", tag: "Review", hint: "Members asking to pause their plan", tone: "ink", icon: "circle-pause", href: "/gym/pauses", area: "members" },
         { id: "expiring", value: data.alerts.expiringToday, label: "Expiring Today", tag: "Urgent", hint: "Plans ending today", tone: "warning", icon: "clock", href: "/gym/members?filter=expiring", area: "members" },
         { id: "attendance", value: data.alerts.attendance, label: "Attendance", tag: "Live", hint: "Checked in today", tone: "primary", icon: "scan-qr-code", href: "/gym/attendance", area: "attendance" },
-        { id: "expiring-soon", value: data.alerts.expiringSoon, label: "Expiring in 1-3 days", tag: "Soon", hint: "Renewals coming up", tone: "warning", icon: "calendar-clock", href: "/gym/members?filter=expiring_soon", area: "members" },
+        { id: "expiring-soon", value: data.alerts.expiringSoon, label: "Expiring soon", tag: "Soon", hint: "Renewals coming up", tone: "warning", icon: "calendar-clock", href: `/gym/members?filter=expiring_soon&days=${HOME_EXPIRING_DAYS}`, area: "members" },
         { id: "birthdays", value: data.alerts.birthdays, label: "Birthdays Today", tag: "Wish", hint: "Send them a wish", tone: "success", icon: "cake", href: "/gym/members?filter=birthday", area: "members" },
       ] as const
     : []).filter((alert) => can(alert.area));

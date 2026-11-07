@@ -78,17 +78,20 @@ describe("renewal risk: windows, levels and the query", () => {
   it("which levels a list shows", () => {
     assert.equal(showsLevel("all", "high"), true);
     assert.equal(showsLevel("all", "medium"), true);
-    assert.equal(showsLevel("all", "low"), false, "Low never shows: the list is who needs attention");
+    assert.equal(showsLevel("all", "low"), true, "Low is listed too since 2026-11-07: every scored member shows");
     assert.equal(showsLevel("high", "medium"), false);
     assert.equal(showsLevel("medium", "medium"), true);
+    assert.equal(showsLevel("low", "low"), true);
+    assert.equal(showsLevel("low", "medium"), false);
   });
 
   it("the query: a level from the list and a bounded search", () => {
     assert.deepEqual(renewalsQuery({}), { level: "all", search: "" });
     assert.deepEqual(renewalsQuery({ level: "high", search: "  Ravi " }), { level: "high", search: "Ravi" });
     assert.deepEqual(renewalsQuery({ level: "medium", search: "' OR 1=1 --" }), { level: "medium", search: "' OR 1=1 --" }, "a search is only ever a bound parameter");
-    refuses(() => renewalsQuery({ level: "low" }), /all, high or medium/);
-    refuses(() => renewalsQuery({ level: "DROP TABLE" }), /all, high or medium/);
+    assert.deepEqual(renewalsQuery({ level: "low" }), { level: "low", search: "" });
+    refuses(() => renewalsQuery({ level: "none" }), /all, high, medium or low/);
+    refuses(() => renewalsQuery({ level: "DROP TABLE" }), /all, high, medium or low/);
     refuses(() => renewalsQuery({ search: "x".repeat(61) }), /at most 60/);
   });
 });

@@ -20,14 +20,18 @@ const LEVELS: { id: RiskListLevel; label: string }[] = [
   { id: "all", label: "All" },
   { id: "high", label: "High" },
   { id: "medium", label: "Medium" },
+  { id: "low", label: "Low" },
 ];
 const isLevel = (value: unknown): value is RiskListLevel => LEVELS.some((l) => l.id === value);
 const updatedAt = (iso: string) => new Date(iso).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" });
 
-// Gym admin › Likely to leave (Predictions, the first one): members who may not renew, highest
-// risk first. The server scores each member from the branch's own records (plan ending, no recent
-// visit, fewer visits, a payment due, PT) every time this opens: no AI, nothing stored, nothing
-// sent by itself. Each card shows the level, the score and the reasons; the bell opens Send
+// Gym admin › Likely to leave (Predictions, the first one): every member with a plan running (or
+// ended in the last week), highest risk first. The server scores each member from the branch's
+// own records (plan ending, no recent visit, fewer visits, a payment due, PT) every time this
+// opens: no AI, nothing stored, nothing sent by itself. High, Medium and Low are all listed since
+// 2026-11-07 (the user's request; Low was left off before), so staff see every member's standing;
+// Home's Needs attention still counts High only. Each card shows the level, the score and the
+// reasons (or "Nothing against them" for a clean Low); the bell opens Send
 // Reminder on the renewal template (WhatsApp, SMS; notifications coming soon, the same as every
 // other bell since 2026-11-07), and ⋯ opens the member's usual options.
 export default function RenewalRisks() {
@@ -50,7 +54,12 @@ export default function RenewalRisks() {
   const { result, retry, reload } = useGymData(load);
   const data = result.state === "ready" ? result.data : null;
 
-  const tone = (risk: RiskMember["risk"]) => (risk.level === "high" ? { ink: colors.gymDanger, bg: colors.gymDangerSoft, label: "High" } : { ink: colors.gymWarning, bg: colors.gymWarningSoft, label: "Medium" });
+  const tone = (risk: RiskMember["risk"]) =>
+    risk.level === "high"
+      ? { ink: colors.gymDanger, bg: colors.gymDangerSoft, label: "High" }
+      : risk.level === "medium"
+        ? { ink: colors.gymWarning, bg: colors.gymWarningSoft, label: "Medium" }
+        : { ink: colors.gymSuccess, bg: colors.gymSuccessSoft, label: "Low" };
 
   const header = (
     <View style={{ gap: 12, paddingBottom: 6 }}>
@@ -59,7 +68,7 @@ export default function RenewalRisks() {
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flex: 1 }} contentContainerStyle={{ gap: 8 }} accessibilityRole="tablist">
           {LEVELS.map((l) => {
             const selected = l.id === level;
-            const count = data ? (l.id === "all" ? data.counts.high + data.counts.medium : data.counts[l.id]) : undefined;
+            const count = data ? (l.id === "all" ? data.counts.high + data.counts.medium + data.counts.low : data.counts[l.id]) : undefined;
             return (
               <PressableScale
                 key={l.id}
@@ -95,7 +104,7 @@ export default function RenewalRisks() {
           />
         </View>
       )}
-      {data && <Text className="gym-tx__meta">{`Updated ${updatedAt(data.calculatedAt)} · High 60+, Medium 35 to 59`}</Text>}
+      {data && <Text className="gym-tx__meta">{`Updated ${updatedAt(data.calculatedAt)} · High 60+, Medium 35 to 59, Low under 35`}</Text>}
     </View>
   );
 
@@ -117,12 +126,12 @@ export default function RenewalRisks() {
           ) : search || level !== "all" ? (
             <GymEmpty icon="user-x" title="No one matches" text="Try another search or level." />
           ) : (
-            <GymEmpty icon="badge-check" title="No one at risk right now" text="Members whose plan is ending, who have stopped coming or who owe money will show here." />
+            <GymEmpty icon="badge-check" title="No one to score yet" text="Every member with a plan running, or ended in the last week, is scored here from their plan, visits and dues." />
           )
         }
         renderItem={({ item }) => {
           const t = tone(item.risk);
-          const reasons = item.risk.reasons.map((r) => r.text).join(" · ");
+          const reasons = item.risk.reasons.map((r) => r.text).join(" · ") || "Nothing against them";
           return (
             // The info opens the member; the buttons sit beside it (no button inside a button)
             <View className="gym-member-card">
