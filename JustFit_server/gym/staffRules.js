@@ -40,12 +40,18 @@ const KIND_LABEL = { owner: "Gym admin", staff: "Staff", trainer: "Trainer" };
 
 const isPlainObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
 
-// POST /api/gym/staff: { phone, kind }
+// POST /api/gym/staff: { phone, kind, branchId? }. branchId (2026-11-07): the branch to add them
+// to; left out, the open branch. staff.add checks it's a branch of this gym the caller manages.
 function addBody(body) {
   if (!isPlainObject(body)) throw new ValidationError("Send the details as JSON.");
-  if (Object.keys(body).some((key) => !["phone", "kind"].includes(key))) throw new ValidationError("That request has fields we don't use.");
+  if (Object.keys(body).some((key) => !["phone", "kind", "branchId"].includes(key))) throw new ValidationError("That request has fields we don't use.");
   if (!KINDS.includes(body.kind)) throw new ValidationError("Choose Staff or Trainer.");
-  return { phone: normalizePhone(body.phone), kind: body.kind };
+  const out = { phone: normalizePhone(body.phone), kind: body.kind };
+  if (body.branchId !== undefined && body.branchId !== null) {
+    if (!Number.isInteger(body.branchId) || body.branchId < 1 || body.branchId > 2147483647) throw new ValidationError("Pick one of your branches.");
+    out.branchId = body.branchId;
+  }
+  return out;
 }
 
 // PUT /api/gym/staff/:userId/permissions: { areas: ["members", ...] } (an empty list is allowed:

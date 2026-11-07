@@ -32,7 +32,8 @@ export type StaffKind = "staff" | "trainer";
 export type StaffArea = "members" | "payments" | "enquiries" | "catalog" | "attendance" | "sms" | "predictions";
 export type TeamMember = { id: string; name: string | null; phone: string | null; kind: "owner" | StaffKind; areas: StaffArea[]; addedAt: string | null; you: boolean };
 export type StaffInvite = { id: number; phone: string | null; kind: StaffKind; invitedAt: string | null };
-export type GymTeam = { gym: { name: string; branch: string }; team: TeamMember[]; invites: StaffInvite[] };
+// branches: the branches of this gym the caller is the gym admin of (the Add sheet's Branch chips)
+export type GymTeam = { gym: { id: number; name: string; branch: string }; branches: { id: number; branch: string }[]; team: TeamMember[]; invites: StaffInvite[] };
 
 export type GymDashboard = {
   // areas: what the signed-in login may use at this branch (Role & Permission), so the app hides the rest
@@ -210,7 +211,8 @@ export const gymApi = {
   switchBranch: (token: string | null, branchId: number) => call<GymBranches>(token, "/api/gym/branch", "POST", { branchId }),
   team: (token: string | null) => call<GymTeam>(token, "/api/gym/staff"),
   // added: linked now (their role changed); invited: they join at their first sign-in
-  addStaff: (token: string | null, phone: string, kind: StaffKind) => call<GymTeam & { result: "added" | "invited" }>(token, "/api/gym/staff", "POST", { phone, kind }),
+  // branchId: the branch to add them to (one the caller manages); the answer names it as `branch`
+  addStaff: (token: string | null, phone: string, kind: StaffKind, branchId: number) => call<GymTeam & { result: "added" | "invited"; branch: string }>(token, "/api/gym/staff", "POST", { phone, kind, branchId }),
   removeStaff: (token: string | null, userId: string) => call<GymTeam>(token, `/api/gym/staff/${encodeURIComponent(userId)}`, "DELETE"),
   // Role & Permission: the areas a Staff login may use at this branch (an empty list = Home only)
   setPermissions: (token: string | null, userId: string, areas: StaffArea[]) => call<GymTeam>(token, `/api/gym/staff/${encodeURIComponent(userId)}/permissions`, "PUT", { areas }),

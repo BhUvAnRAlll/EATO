@@ -1,4 +1,6 @@
 import googleLogo from "../../assets/images/google-logo.png";
+// The WhatsApp mark (the user's file, 2026-11-07), shown on every WhatsApp button in the gym portal
+import whatsappLogo from "../../assets/images/whatsapp-logo.png";
 import justfitLogo from "../../assets/images/justfit-logo.png";
 // The JUSTFIT word cropped from justfit-logo.png (not redrawn), for small headers
 import justfitWordmark from "../../assets/images/justfit-wordmark.png";
@@ -29,6 +31,7 @@ import type { CoachId } from "@/data/coach";
 
 export const images = {
   googleLogo,
+  whatsappLogo,
   justfitLogo,
   justfitWordmark,
   onboardingArtMeals,

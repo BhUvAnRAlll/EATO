@@ -80,7 +80,9 @@ const ownerOnly = (message) => (req, res, next) => {
   return res.status(403).json({ error: message });
 };
 const requireGymOwner = ownerOnly("Only the gym admin can manage the team.");
-const staffLimit = limitPerUser(createRateLimiter({ limit: 30, windowMs: 60 * 60 * 1000 }));
+// 30 team changes an hour per account (GYM_STAFF_CHANGES_PER_HOUR; the test server raises it, as it
+// does the OTP limits, because one suite adds and removes the same people many times)
+const staffLimit = limitPerUser(createRateLimiter({ limit: Number(process.env.GYM_STAFF_CHANGES_PER_HOUR) || 30, windowMs: 60 * 60 * 1000 }));
 
 router.get("/staff", requireGymOwner, route(async (req, res) => {
   res.json(await staff.team(pool(req), req.gym, req.userId));

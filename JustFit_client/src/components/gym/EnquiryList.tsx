@@ -8,6 +8,7 @@ import { EnquiryContactSheet } from "@/components/gym/EnquiryContactSheet";
 import { EnquirySheet } from "@/components/gym/EnquirySheet";
 import { GradientFill } from "@/components/gym/GradientFill";
 import { GymIcon } from "@/components/gym/GymIcon";
+import { WhatsAppMark } from "@/components/gym/WhatsAppMark";
 import { GymEmpty, GymError, GymLoading } from "@/components/gym/GymStates";
 import { ENQUIRY_STATUS_LABEL, ENQUIRY_VIEWS, INTEREST_LABEL, LEAD_LABEL, SOURCE_LABEL, contactText, followUpText, initialsOf, phoneText, shortDate } from "@/data/gymDashboard";
 import { gymApi, type EnquiryStatus, type EnquiryView, type GymEnquiry, type LeadLevel } from "@/lib/gymApi";
@@ -223,7 +224,7 @@ export function EnquiryList({ initialView = "open" }: { initialView?: EnquiryVie
                   )}
                   {item.phone && (
                     <PressableScale onPress={() => data && whatsappPhone(item.phone, enquiryFollowUp(item.name, data.gym))} hitSlop={6} className="gym-member-card__action" accessibilityRole="button" accessibilityLabel={`WhatsApp ${item.name}`}>
-                      <GymIcon name="message-circle" size={20} color={colors.gymTileGreenIcon} />
+                      <WhatsAppMark size={22} />
                     </PressableScale>
                   )}
                   {open && (

@@ -18,6 +18,8 @@ let currentOutbox = null;
 const RELAXED_OTP = {
   OTP_COOLDOWN_SECONDS: "0", OTP_PER_HOUR: "1000", OTP_PER_DAY: "10000", OTP_DAILY_SMS_CAP: "100000",
   OTP_IP_REQUEST_LIMIT: "100000", OTP_IP_VERIFY_LIMIT: "100000",
+  // The gym team's hourly change budget (30 in production): the staff suite spends more than that
+  GYM_STAFF_CHANGES_PER_HOUR: "1000",
 };
 
 function portFree(port) {

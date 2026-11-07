@@ -15,6 +15,9 @@ describe("gym staff rules", () => {
     for (const kind of ["owner", "admin", "gym_admin", "", undefined, "STAFF"]) assert.throws(() => rules.addBody({ phone: "9876543210", kind }), /Staff or Trainer/, String(kind));
     for (const phone of ["12345", "5876543210", "9876' OR 1=1 --", 9876543210, null]) assert.throws(() => rules.addBody({ phone, kind: "staff" }), { status: 400 }, String(phone));
     assert.throws(() => rules.addBody({ phone: "9876543210", kind: "staff", gymId: 2 }), /fields we don't use/);
+    assert.deepEqual(rules.addBody({ phone: "9876543210", kind: "staff", branchId: 7 }), { phone: "9876543210", kind: "staff", branchId: 7 }, "a branch to add them to");
+    assert.deepEqual(rules.addBody({ phone: "9876543210", kind: "staff", branchId: null }), { phone: "9876543210", kind: "staff" }, "null: the open branch");
+    for (const branchId of [0, -1, 1.5, "7", "7 OR 1=1", [], {}]) assert.throws(() => rules.addBody({ phone: "9876543210", kind: "staff", branchId }), /one of your branches/, JSON.stringify(branchId));
     assert.throws(() => rules.addBody({ phone: "9876543210", kind: "staff", role: "admin" }), /fields we don't use/);
     for (const body of [null, [], "9876543210"]) assert.throws(() => rules.addBody(body), /JSON/);
   });

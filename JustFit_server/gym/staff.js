@@ -20,8 +20,14 @@ async function team(pool, gym, callerId) {
     [gym.id],
   );
   const [invites] = await pool.query("SELECT id, phone, kind, created_at FROM gym_staff_invites WHERE gym_id = ? ORDER BY created_at, id", [gym.id]);
+  // The branches of this gym the caller is the gym admin of: the Add sheet's Branch chips
+  const [branches] = await pool.query(
+    "SELECT g.id, g.name FROM gym_staff s JOIN gyms g ON g.id = s.gym_id WHERE s.user_id = ? AND s.kind = 'owner' AND g.brand_id = ? ORDER BY g.name, g.id",
+    [callerId, gym.brand_id],
+  );
   return {
-    gym: { name: gym.brand, branch: gym.branch },
+    gym: { id: gym.id, name: gym.brand, branch: gym.branch },
+    branches: branches.map((b) => ({ id: b.id, branch: b.name })),
     team: people.map((p) => ({
       id: p.user_id,
       name: (p.full_name && p.full_name.trim()) || null,
@@ -52,16 +58,33 @@ async function link(db, userId, gymId, kind, currentRole) {
   if (currentRole !== role) await db.query("UPDATE users SET role = ? WHERE id = ?", [role, userId]);
 }
 
-// Adds a number as Staff or Trainer. Answers { result: "added" | "invited", ...team }
-async function add(pool, gym, callerId, { phone, kind }) {
-  const target = { id: gym.id, brandId: gym.brand_id };
-  const where = `${gym.brand}, ${gym.branch} branch`;
+// The branch someone is added to: the open one, or another branch of the same gym the caller is
+// the gym admin of (never a branch they only work at as Staff, never another gym's branch)
+async function ownedBranch(pool, callerId, gym, branchId) {
+  if (!branchId || branchId === gym.id) return gym;
+  const [[row]] = await pool.query(
+    `SELECT g.id, g.name AS branch, g.brand_id, b.name AS brand
+       FROM gym_staff s JOIN gyms g ON g.id = s.gym_id JOIN gym_brands b ON b.id = g.brand_id
+      WHERE s.user_id = ? AND s.gym_id = ? AND s.kind = 'owner' AND g.brand_id = ?`,
+    [callerId, branchId, gym.brand_id],
+  );
+  if (!row) throw new NotFoundError("That branch isn't one you manage.");
+  return row;
+}
+
+// Adds a number as Staff or Trainer at the open branch, or at `branchId` (another branch of this
+// gym the caller manages). Answers { result: "added" | "invited", branch, ...team } with the open
+// branch's team.
+async function add(pool, gym, callerId, { phone, kind, branchId }) {
+  const at = await ownedBranch(pool, callerId, gym, branchId);
+  const target = { id: at.id, brandId: at.brand_id };
+  const where = `${at.brand}, ${at.branch} branch`;
   const result = await inTransaction(pool, async (db) => {
     const [[account]] = await db.query("SELECT id, role FROM users WHERE verified_phone = ? FOR UPDATE", [phone]);
     if (account) {
       rules.checkJoin(account, await linksOf(db, account.id), target, kind);
-      await link(db, account.id, gym.id, kind, account.role);
-      await audit(db, callerId, "gym.staff_add", "gym", gym.id, `The gym admin added ${rules.KIND_LABEL[kind]} to ${where}`);
+      await link(db, account.id, at.id, kind, account.role);
+      await audit(db, callerId, "gym.staff_add", "gym", at.id, `The gym admin added ${rules.KIND_LABEL[kind]} to ${where}`);
       return "added";
     }
     const [invites] = await db.query(
@@ -71,15 +94,15 @@ async function add(pool, gym, callerId, { phone, kind }) {
     const problem = rules.inviteProblem(invites.map((i) => ({ gymId: i.gym_id, brandId: i.brand_id, kind: i.kind })), target, kind);
     if (problem) throw new ConflictError(problem);
     try {
-      await db.query("INSERT INTO gym_staff_invites (gym_id, phone, kind, invited_by) VALUES (?, ?, ?, ?)", [gym.id, phone, kind, callerId]);
+      await db.query("INSERT INTO gym_staff_invites (gym_id, phone, kind, invited_by) VALUES (?, ?, ?, ?)", [at.id, phone, kind, callerId]);
     } catch (error) {
       if (error?.code === "ER_DUP_ENTRY") throw new ConflictError("They've already been invited.");
       throw error;
     }
-    await audit(db, callerId, "gym.staff_invite", "gym", gym.id, `The gym admin invited ${rules.KIND_LABEL[kind]} to ${where}`);
+    await audit(db, callerId, "gym.staff_invite", "gym", at.id, `The gym admin invited ${rules.KIND_LABEL[kind]} to ${where}`);
     return "invited";
   });
-  return { result, ...(await team(pool, gym, callerId)) };
+  return { result, branch: at.branch, ...(await team(pool, gym, callerId)) };
 }
 
 // Takes someone off this branch's team. From their last branch they become a member again; a

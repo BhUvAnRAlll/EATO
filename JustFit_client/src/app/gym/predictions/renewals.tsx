@@ -5,6 +5,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { PressableScale } from "@/components/PressableScale";
 import { GradientFill } from "@/components/gym/GradientFill";
 import { GymIcon } from "@/components/gym/GymIcon";
+import { WhatsAppMark } from "@/components/gym/WhatsAppMark";
 import { GymScreen } from "@/components/gym/GymScreen";
 import { GymEmpty, GymError, GymLoading } from "@/components/gym/GymStates";
 import { MemberActionsSheet } from "@/components/gym/MemberActionsSheet";
@@ -157,7 +158,7 @@ export default function RenewalRisks() {
               </PressableScale>
               <View className="flex-row items-center" style={{ gap: 2 }}>
                 <PressableScale onPress={() => data && whatsapp(item, expiredReminder(item, data.gym))} hitSlop={6} className="gym-member-card__action" style={narrow ? { width: 28 } : undefined} accessibilityRole="button" accessibilityLabel={`WhatsApp ${item.name} a renewal reminder`}>
-                  <GymIcon name="message-circle" size={20} color={colors.gymInkSoft} />
+                  <WhatsAppMark size={22} />
                 </PressableScale>
                 <PressableScale onPress={() => call(item)} hitSlop={6} className="gym-member-card__action" style={narrow ? { width: 28 } : undefined} accessibilityRole="button" accessibilityLabel={`Call ${item.name}`}>
                   <GymIcon name="phone" size={20} color={colors.gymInkSoft} />

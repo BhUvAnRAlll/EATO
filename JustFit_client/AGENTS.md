@@ -118,7 +118,13 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
   (`gym.access`: owner or staff; Home's pill says ADMIN or STAFF). The app re-checks
   `/api/auth/me` when it comes to the front and after any 403 (`useAuthStore.recheck`,
   `onAccessDenied` in `lib/api.ts`), so a changed role switches the app without a restart.
-  App: `app/gym/staff.tsx`, `components/gym/AddStaffSheet.tsx`. Migration
+  App: `app/gym/staff.tsx`, `components/gym/AddStaffSheet.tsx`. Since 2026-11-07 the screen's Add is
+  the round + (`GymScreen`'s `floating`, as on Members) and the sheet has **Branch** chips: the open
+  branch pre-selected plus every other branch of this gym the caller is the gym admin of (`branches`
+  on `GET /api/gym/staff`); `POST /api/gym/staff` takes an optional `branchId`, checked in
+  `staff.ownedBranch` (another gym's branch or one the caller only works at answers 404), and the
+  answer's `branch` names where they were added. The hourly team-change budget is
+  `GYM_STAFF_CHANGES_PER_HOUR` (default 30; the test server sets 1000). Migration
   `2026-11-29-gym-staff-logins.sql` (the `trainer` role, `gym_staff.kind`, `gym_staff_invites`,
   `gym_members.pt_trainer_id`); before it the portal answers 503 naming it.
 - **Role & Permission (2026-11-06, the user's request):** the gym admin (owner only) chooses what
@@ -751,6 +757,10 @@ react-native-svg, no native rebuild) through `components/gym/GymIcon.tsx`, never
 Icons are named by their Lucide name (`<GymIcon name="users" size={18} color={colors.gymPrimary} />`)
 from the typed map in `constants/gymIcons.ts` (a new icon needs a line there); every icon has the
 same 1.75 px line (`absoluteStrokeWidth`). The member app and the Super Admin keep `SymbolView`.
+WhatsApp buttons (2026-11-07, the user's file) show the WhatsApp mark itself, never a line icon:
+`components/gym/WhatsAppMark.tsx` draws `images.whatsappLogo` (`assets/images/whatsapp-logo.png`,
+transparent corners) at the size given; the member ⋯ sheet, Send Reminder's tile, the enquiry
+contact log, enquiry cards and Likely to leave cards use it.
 
 ---
 

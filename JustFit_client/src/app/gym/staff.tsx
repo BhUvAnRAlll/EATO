@@ -7,6 +7,7 @@ import { FormAlert } from "@/components/FormAlert";
 import { PressableScale } from "@/components/PressableScale";
 import { AddStaffSheet } from "@/components/gym/AddStaffSheet";
 import { ConfirmDialog } from "@/components/gym/ConfirmDialog";
+import { GradientFill } from "@/components/gym/GradientFill";
 import { GymIcon } from "@/components/gym/GymIcon";
 import { GymSheet } from "@/components/gym/GymSheet";
 import { GymEmpty, GymError, GymLoading } from "@/components/gym/GymStates";
@@ -25,7 +26,8 @@ type Picked = { type: "member"; member: TeamMember } | { type: "invite"; invite:
 // Gym admin › ☰ › Staff / Admin Login (also Home › + › Add Staff / Admin Login, which opens the Add
 // sheet straight away with ?add=1). Only the branch's gym admin reaches it (the server answers Staff
 // with a 403). The team (the gym admin first, then Staff and Trainers) and the numbers invited that
-// haven't signed in yet; + adds someone, ⋯ removes them or cancels the invite.
+// haven't signed in yet; the round + (as on Members) adds someone, at this branch or another one
+// the gym admin manages; ⋯ removes them or cancels the invite.
 export default function GymStaffScreen() {
   const colors = useThemeColors();
   const params = useLocalSearchParams<{ add?: string }>();
@@ -57,9 +59,10 @@ export default function GymStaffScreen() {
     </PressableScale>
   );
 
-  const header = ready ? (
-    <PressableScale onPress={() => { setNotice(""); setAdding(true); }} hitSlop={8} accessibilityRole="button" accessibilityLabel="Add Staff or a Trainer">
-      <Text className="gym-link">Add</Text>
+  const fab = ready ? (
+    <PressableScale onPress={() => { setNotice(""); setAdding(true); }} haptic="tap" className="gym-fab" accessibilityRole="button" accessibilityLabel="Add Staff or a Trainer">
+      <GradientFill radius={18} />
+      <GymIcon name="plus" size={22} color={colors.white} />
     </PressableScale>
   ) : undefined;
 
@@ -70,7 +73,7 @@ export default function GymStaffScreen() {
       </GymScreen>
     );
   }
-  const { gym, team, invites } = result.data;
+  const { gym, branches, team, invites } = result.data;
   const branchLine = `${gym.name}, ${gym.branch}`;
   const others = team.filter((m) => m.kind !== "owner");
 
@@ -120,7 +123,7 @@ export default function GymStaffScreen() {
         : "Removing them takes them off this branch's team. If it's their only branch, the gym portal closes for them and they become a normal member again.";
 
   return (
-    <GymScreen title="Staff / Admin Login" right={header}>
+    <GymScreen title="Staff / Admin Login" floating={fab}>
       <Text className="gym-tx__meta">{`Add people to the ${gym.branch} branch by their mobile number. Staff open this gym portal; Trainers see their PT clients in the justFit app.`}</Text>
       {notice ? (
         <Animated.View entering={FadeInDown.duration(220).reduceMotion(ReduceMotion.System)} className="gym-note" accessibilityLiveRegion="polite">
@@ -132,7 +135,7 @@ export default function GymStaffScreen() {
       <Text className="gym-section-title" accessibilityRole="header">{`Team (${team.length})`}</Text>
       <View style={{ gap: 10 }}>{team.map(memberRow)}</View>
       {others.length === 0 && invites.length === 0 && (
-        <GymEmpty icon="users" title="No Staff or Trainers yet" text="Tap Add to give someone access by their mobile number." />
+        <GymEmpty icon="users" title="No Staff or Trainers yet" text="Tap + to give someone access by their mobile number." />
       )}
 
       {invites.length > 0 && (
@@ -144,13 +147,17 @@ export default function GymStaffScreen() {
 
       {adding && (
         <AddStaffSheet
-          branchLine={branchLine}
+          gymName={gym.name}
+          branches={branches}
+          currentId={gym.id}
           onClose={() => setAdding(false)}
-          onAdded={(data, outcome, kind) => {
+          onAdded={(data, outcome, kind, branch) => {
             set(data);
             setAdding(false);
             const label = kind === "staff" ? "Staff" : "a Trainer";
-            setNotice(outcome === "added" ? `Added as ${label}. Their app switches the next time they open it.` : `Invited as ${label}. They'll join your team when they first sign in to justFit with that number.`);
+            // Added at another branch: say so, since this list is the open branch's
+            const where = branch !== gym.branch ? ` at the ${branch} branch` : "";
+            setNotice(outcome === "added" ? `Added as ${label}${where}. Their app switches the next time they open it.` : `Invited as ${label}${where}. They'll join your team when they first sign in to justFit with that number.`);
           }}
         />
       )}

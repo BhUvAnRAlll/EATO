@@ -2,6 +2,7 @@ import { Pressable, Text, View } from "react-native";
 
 import { FormAlert } from "@/components/FormAlert";
 import { GymIcon } from "@/components/gym/GymIcon";
+import { WhatsAppMark } from "@/components/gym/WhatsAppMark";
 import { GymSheet } from "@/components/gym/GymSheet";
 import { gymApi, type ContactKind, type ContactOutcome, type GymEnquiry } from "@/lib/gymApi";
 import { useGymSave } from "@/lib/gymForm";
@@ -9,7 +10,7 @@ import { haptic } from "@/lib/haptics";
 import { useThemeColors } from "@/theme";
 import type { GymIconName } from "@/constants/gymIcons";
 
-type Option = { label: string; icon: GymIconName; kind: ContactKind; outcome?: ContactOutcome };
+type Option = { label: string; icon: GymIconName | "whatsapp"; kind: ContactKind; outcome?: ContactOutcome };
 // After a call the phone comes back to the app: just how it went
 const AFTER_CALL: Option[] = [
   { label: "Reached them", icon: "phone", kind: "call", outcome: "reached" },
@@ -18,8 +19,8 @@ const AFTER_CALL: Option[] = [
 // Logged by hand: a call, a WhatsApp message or a visit
 const ANY: Option[] = [
   ...AFTER_CALL,
-  { label: "Messaged on WhatsApp, they replied", icon: "message-circle", kind: "whatsapp", outcome: "reached" },
-  { label: "Messaged on WhatsApp, no reply", icon: "message-circle", kind: "whatsapp", outcome: "no_answer" },
+  { label: "Messaged on WhatsApp, they replied", icon: "whatsapp", kind: "whatsapp", outcome: "reached" },
+  { label: "Messaged on WhatsApp, no reply", icon: "whatsapp", kind: "whatsapp", outcome: "no_answer" },
   { label: "They visited the gym", icon: "store", kind: "visit" },
 ];
 
@@ -39,7 +40,7 @@ export function EnquiryContactSheet({ enquiry, afterCall, onClose, onSaved }: { 
       <View>
         {(afterCall ? AFTER_CALL : ANY).map((option) => (
           <Pressable key={option.label} onPress={() => log(option)} disabled={busy} className="gym-addrow" accessibilityRole="button" accessibilityLabel={option.label}>
-            <GymIcon name={option.icon} size={20} color={option.outcome === "no_answer" ? colors.gymDanger : colors.gymPrimary} />
+            {option.icon === "whatsapp" ? <WhatsAppMark size={22} /> : <GymIcon name={option.icon} size={20} color={option.outcome === "no_answer" ? colors.gymDanger : colors.gymPrimary} />}
             <Text className="gym-menu__label flex-1" numberOfLines={1}>{option.label}</Text>
           </Pressable>
         ))}

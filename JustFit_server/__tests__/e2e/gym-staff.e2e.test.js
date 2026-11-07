@@ -159,6 +159,32 @@ describe("gym staff e2e: Staff / Admin Login, invites and roles", () => {
     assert.equal(await roleOf(identities.member.id), "user", "Staff's add was refused");
   }));
 
+  it("3b. the gym admin adds someone at their other branch without switching; never at a branch they don't manage", run(async () => {
+    const team = await as("owner").get("/api/gym/staff");
+    assert.deepEqual(team.json.gym, { id: state.tumkur, name: "Forma", branch: "Tumkur" });
+    assert.deepEqual(team.json.branches.map((b) => b.branch).sort(), ["Kunigal", "Tumkur"], "the branches this gym admin manages");
+    // Invited at Kunigal while Tumkur is open: the invite row is Kunigal's, the answer names the branch
+    const away = freshPhone();
+    const invited = await as("owner").post("/api/gym/staff", { phone: away, kind: "staff", branchId: state.kunigal });
+    assert.equal(invited.status, 202, JSON.stringify(invited.json));
+    assert.equal(invited.json.branch, "Kunigal");
+    assert.equal(invited.json.invites.length, 0, "the open branch's list doesn't show it");
+    const [rows] = await connection.query("SELECT gym_id FROM gym_staff_invites WHERE phone = ?", [away]);
+    assert.deepEqual(rows.map((r) => r.gym_id), [state.kunigal]);
+    // Another gym's branch, and a branch id that isn't one: refused, nothing written; the other
+    // gym's admin can't reach Kunigal this way either
+    for (const [tag, branchId] of [["owner", state.other], ["owner", 999999], ["otherOwner", state.kunigal]]) {
+      const r = await as(tag).post("/api/gym/staff", { phone: freshPhone(), kind: "staff", branchId });
+      assert.equal(r.status, 404, `${tag} at branch ${branchId}: ${JSON.stringify(r.json)}`);
+    }
+    assert.equal((await connection.query("SELECT COUNT(*) AS n FROM gym_staff_invites WHERE gym_id = ?", [state.kunigal]))[0][0].n, 1, "only the gym admin's own invite at Kunigal");
+    assert.equal((await as("owner").post("/api/gym/staff", { phone: freshPhone(), kind: "staff", branchId: "7" })).status, 400, "a branch id must be a number");
+    assert.equal((await connection.query("SELECT COUNT(*) AS n FROM gym_staff_invites WHERE gym_id = ?", [state.other]))[0][0].n, 0, "nothing at the other gym");
+    // Staff can't use it either: the team routes stay the gym admin's
+    assert.equal((await as("staffer").post("/api/gym/staff", { phone: freshPhone(), kind: "staff", branchId: state.kunigal })).status, 403);
+    await connection.query("DELETE FROM gym_staff_invites WHERE phone = ?", [away]);
+  }));
+
   it("4. adding a member as Trainer makes them a trainer, who has no portal", run(async () => {
     const added = await as("owner").post("/api/gym/staff", { phone: identities.coach.phone, kind: "trainer" });
     assert.equal(added.status, 201, JSON.stringify(added.json));

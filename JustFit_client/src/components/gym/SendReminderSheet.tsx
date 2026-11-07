@@ -4,6 +4,7 @@ import { Alert, AppState, Platform, Text, TextInput, View } from "react-native";
 import { PressableScale } from "@/components/PressableScale";
 import { ConfirmDialog } from "@/components/gym/ConfirmDialog";
 import { GymIcon } from "@/components/gym/GymIcon";
+import { WhatsAppMark } from "@/components/gym/WhatsAppMark";
 import { GymPrimaryButton } from "@/components/gym/GymPrimaryButton";
 import { GymSheet } from "@/components/gym/GymSheet";
 import { MemberPhotoImage } from "@/components/gym/MemberPhotoImage";
@@ -151,7 +152,7 @@ export function SendReminderSheet({ kind, member, gym, payment, onClose, onSent 
     : state.id === "active" ? { color: colors.gymSuccess, ground: colors.gymSuccessSoft }
     : { color: colors.gymWarning, ground: colors.gymWarningSoft };
 
-  const tile = (channel: Channel | "notification", label: string, icon: GymIconName, iconColor: string, iconGround: string) => {
+  const tile = (channel: Channel | "notification", label: string, icon: GymIconName | "whatsapp", iconColor: string, iconGround: string) => {
     const soon = channel === "notification";
     const on = !soon && channels.has(channel);
     return (
@@ -167,7 +168,7 @@ export function SendReminderSheet({ kind, member, gym, payment, onClose, onSent 
       >
         <View className="flex-row items-start justify-between">
           <View className="gym-remind__tile-icon" style={{ backgroundColor: iconGround }}>
-            <GymIcon name={icon} size={24} color={iconColor} />
+            {icon === "whatsapp" ? <WhatsAppMark size={28} /> : <GymIcon name={icon} size={24} color={iconColor} />}
           </View>
           <View className={on ? "gym-remind__tick gym-remind__tick--on" : "gym-remind__tick"}>
             {on && <GymIcon name="check" size={13} color={colors.white} />}
@@ -257,7 +258,7 @@ export function SendReminderSheet({ kind, member, gym, payment, onClose, onSent 
           <Text className="gym-tx__meta">Select one or more channels</Text>
         </View>
         <View className="flex-row" style={{ gap: 10 }}>
-          {tile("whatsapp", "WhatsApp", "message-circle", colors.gymSuccess, colors.gymSuccessSoft)}
+          {tile("whatsapp", "WhatsApp", "whatsapp", colors.gymSuccess, colors.gymSuccessSoft)}
           {tile("sms", "SMS", "message-square-text", colors.gymPrimary, colors.gymPrimarySoft)}
           {tile("notification", "Notification", "bell", colors.gymPrimary, colors.gymPrimarySoft)}
         </View>

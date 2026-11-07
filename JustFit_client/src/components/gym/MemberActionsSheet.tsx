@@ -4,6 +4,7 @@ import { router, type Href } from "expo-router";
 
 import { PressableScale } from "@/components/PressableScale";
 import { GymIcon } from "@/components/gym/GymIcon";
+import { WhatsAppMark } from "@/components/gym/WhatsAppMark";
 import { MemberPhotoImage } from "@/components/gym/MemberPhotoImage";
 import { ChangeTrainerSheet } from "@/components/gym/ChangeTrainerSheet";
 import { CollectDueSheet } from "@/components/gym/CollectDueSheet";
@@ -74,9 +75,10 @@ export function MemberActionsSheet({ member, payments, gym, onClose, onChanged, 
       ))}
     </View>
   );
-  const contact = (label: string, icon: GymIconName, onPress: () => void) => (
+  // WhatsApp shows its own mark instead of a line icon
+  const contact = (label: string, icon: GymIconName | "whatsapp", onPress: () => void) => (
     <PressableScale key={label} onPress={onPress} className="gym-hero-btn" accessibilityRole="button" accessibilityLabel={`${label} ${member.name}`}>
-      <GymIcon name={icon} size={18} color={colors.white} />
+      {icon === "whatsapp" ? <WhatsAppMark size={22} /> : <GymIcon name={icon} size={18} color={colors.white} />}
     </PressableScale>
   );
   const period = (title: string, note: string, from: string, until: string, tag?: string) => (
@@ -123,7 +125,7 @@ export function MemberActionsSheet({ member, payments, gym, onClose, onChanged, 
         <View className="flex-row" style={{ gap: 8 }}>
           {contact("Call", "phone", () => call(member))}
           {contact("SMS", "message-square-text", () => sms(member))}
-          {contact("WhatsApp", "message-circle", () => whatsapp(member))}
+          {contact("WhatsApp", "whatsapp", () => whatsapp(member))}
           {contact("Email", "mail", () => email(member, `${gym.name} membership`))}
         </View>
         <View className="gym-member-hero__line" />
