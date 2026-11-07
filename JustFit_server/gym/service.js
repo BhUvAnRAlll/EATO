@@ -240,17 +240,19 @@ async function addPayment(db, gymId, userId, { memberId = null, kind, title, det
   return result.insertId;
 }
 
-// "3 Months", "15 Days"
+// "3 Months"; "15 Days" for a member whose plan was saved in days before 2026-11-07, and for a
+// PT whose picked end date isn't a whole number of months
 const planText = ({ duration, unit }) => `${duration} ${unit === "days" ? (duration === 1 ? "Day" : "Days") : duration === 1 ? "Month" : "Months"}`;
 // A PT payment's line: the package and how long it runs ("PT · 12 sessions · 1 Month"); when the
 // end date was picked by hand and isn't the duration's, the days between the two dates
 const ptDetail = (body, from, until) => {
   const days = Math.round((Date.parse(`${until}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86400000) + 1;
-  const length = until === rules.planEnd(from, body.duration, body.unit) ? planText(body) : planText({ duration: days, unit: "days" });
+  const length = until === rules.planEnd(from, body.duration) ? planText(body) : planText({ duration: days, unit: "days" });
   return `PT · ${body.package} · ${length}`.slice(0, 80);
 };
-// The members row's two length columns: one is set, the other NULL
-const planColumns = ({ duration, unit }) => (unit === "days" ? [null, duration] : [duration, null]);
+// The members row's two length columns: plan_months is set and plan_days NULL (day plans ended
+// on 2026-11-07; older rows may still carry plan_days, which the reads above still show)
+const planColumns = ({ duration }) => [duration, null];
 
 // The ID the next new member at this branch will get (a preview: the save makes the real one)
 async function nextMemberCode(pool, gym) {
@@ -269,7 +271,7 @@ async function admit(pool, gym, userId, body, today) {
       await db.query("UPDATE gyms SET next_member_no = next_member_no + 1 WHERE id = ?", [gymId]);
       const [result] = await db.query(
         "INSERT INTO gym_members (gym_id, member_code, full_name, phone, dob, gender, email, height_cm, weight_kg, address, notes, plan_months, plan_days, joined_on, expires_on, due_amount, due_by, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        [gymId, code, body.name, body.phone, body.dob, body.gender, body.email, body.heightCm, body.weightKg, body.address, body.notes, ...planColumns(body), body.joinedOn, rules.planEnd(body.joinedOn, body.duration, body.unit), body.due, body.dueBy, userId],
+        [gymId, code, body.name, body.phone, body.dob, body.gender, body.email, body.heightCm, body.weightKg, body.address, body.notes, ...planColumns(body), body.joinedOn, rules.planEnd(body.joinedOn, body.duration), body.due, body.dueBy, userId],
       );
       await addPayment(db, gymId, userId, { memberId: result.insertId, kind: "admission", title: body.name, detail: planText(body), method: body.method, amount: body.paid }, body.paidOn);
       return result.insertId;
@@ -289,7 +291,7 @@ async function renew(pool, gymId, userId, memberId, body, today) {
     if (due > rules.limits.amount) throw new ValidationError("That would make the due amount more than ₹10,00,000.");
     // A new amount owed takes the date given; otherwise an earlier one stays
     const dueBy = body.due > 0 ? body.dueBy : due > 0 ? row.due_by : null;
-    await db.query("UPDATE gym_members SET plan_months = ?, plan_days = ?, expires_on = ?, due_amount = ?, due_by = ? WHERE id = ? AND gym_id = ?", [...planColumns(body), rules.renewedUntil(row.expires_on, today, body.duration, body.unit), due, dueBy, memberId, gymId]);
+    await db.query("UPDATE gym_members SET plan_months = ?, plan_days = ?, expires_on = ?, due_amount = ?, due_by = ? WHERE id = ? AND gym_id = ?", [...planColumns(body), rules.renewedUntil(row.expires_on, today, body.duration), due, dueBy, memberId, gymId]);
     await addPayment(db, gymId, userId, { memberId, kind: "renewal", title: row.full_name, detail: planText(body), method: body.method, amount: body.paid }, today);
   });
   return member(pool, gymId, memberId, today);

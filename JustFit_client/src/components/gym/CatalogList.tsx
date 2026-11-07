@@ -21,6 +21,8 @@ import type { GymIconName } from "@/constants/gymIcons";
 // kind shown.
 type Pill = { icon: GymIconName; label: string; empty?: boolean };
 function pillOf(item: CatalogItem): Pill | null {
+  // Saved in days before 2026-11-07: shown as it is, with what to do to use it again
+  if (item.duration && item.unit === "days") return { icon: "clock", label: `${planLabel(item.duration, item.unit)} · set in months to use`, empty: true };
   if (item.duration && item.unit) return { icon: "clock", label: planLabel(item.duration, item.unit) };
   if (item.kind === "product" && item.stock !== null) {
     return { icon: "boxes", label: item.stock === 0 ? "Out of stock" : `${item.stock} in stock`, empty: item.stock === 0 };

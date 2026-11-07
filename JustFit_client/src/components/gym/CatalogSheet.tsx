@@ -11,7 +11,7 @@ import { GymSheet } from "@/components/gym/GymSheet";
 import { MemberPhotoImage } from "@/components/gym/MemberPhotoImage";
 import { PlanLengthFields, durationValue } from "@/components/gym/PlanLengthFields";
 import { CATALOG_KINDS, planLabel, rupees } from "@/data/gymDashboard";
-import { gymApi, type CatalogItem, type CatalogKind, type PlanUnit } from "@/lib/gymApi";
+import { gymApi, type CatalogItem, type CatalogKind } from "@/lib/gymApi";
 import { useGymSave } from "@/lib/gymForm";
 import { pickCatalogImage, type MemberPhoto, type PhotoSource } from "@/lib/gymPhoto";
 import { notice } from "@/lib/gymPortal";
@@ -20,7 +20,8 @@ import { useThemeColors } from "@/theme";
 const TITLE: Record<CatalogKind, string> = { plan: "Plan", pt: "PT Package", service: "Service", product: "Product" };
 
 // Plans / Catalogue › Add Plan (the user's design): a bottom sheet with the name, for a plan or a
-// PT package its Duration Type (Months or Days) and Duration, the amount, for a product how many
+// PT package its Duration in whole months (1-24; the Days option went on 2026-11-07, and an item
+// saved in days before that opens with the Duration empty, to be set in months), the amount, for a product how many
 // are in stock (optional: left empty, stock isn't counted), and an optional image or brochure photo
 // (camera or gallery, any shape; 2026-11-07). Editing an item opens the same sheet with Delete.
 // Saving first asks to confirm the details (Edit or Confirm), then calls back with the branch's
@@ -33,8 +34,7 @@ export function CatalogSheet({ kind, item, onClose, onSaved }: { kind: CatalogKi
   const isPlan = kind === "plan" || kind === "pt";
   const isProduct = kind === "product";
   const [name, setName] = useState(item?.name ?? "");
-  const [unit, setUnit] = useState<PlanUnit>(item?.unit ?? "months");
-  const [duration, setDuration] = useState(item?.duration ? String(item.duration) : "");
+  const [duration, setDuration] = useState(item?.duration && item.unit === "months" ? String(item.duration) : "");
   const [price, setPrice] = useState(item ? String(item.price) : "");
   const [stock, setStock] = useState(item?.stock !== null && item?.stock !== undefined ? String(item.stock) : "");
   // null: the image as it is; "remove": take the saved one off; a MemberPhoto: a new one to upload
@@ -44,7 +44,7 @@ export function CatalogSheet({ kind, item, onClose, onSaved }: { kind: CatalogKi
   const [confirming, setConfirming] = useState(false);
   const { busy, error, save } = useGymSave((data: { items: CatalogItem[] }) => onSaved(data.items));
 
-  const length = durationValue(duration, unit);
+  const length = durationValue(duration);
   const amount = rupeesFromText(price);
   const stockValue = stock === "" ? null : Number(stock);
   const ready = name.trim().length >= 2 && amount >= 1 && (!isPlan || length !== null) && (stockValue === null || stockValue <= 100000);
@@ -64,7 +64,7 @@ export function CatalogSheet({ kind, item, onClose, onSaved }: { kind: CatalogKi
       const fields = {
         name: name.trim(),
         price: amount,
-        ...(isPlan && length !== null ? { duration: length, unit } : {}),
+        ...(isPlan && length !== null ? { duration: length } : {}),
         // Cleared on an edit: no longer counted
         ...(isProduct && (stockValue !== null || item) ? { stock: stockValue ?? ("" as const) } : {}),
       };
@@ -81,7 +81,7 @@ export function CatalogSheet({ kind, item, onClose, onSaved }: { kind: CatalogKi
   };
   const rows: [string, string][] = [
     ["Name", name.trim()],
-    ...(isPlan && length !== null ? [["Duration", planLabel(length, unit)] as [string, string]] : []),
+    ...(isPlan && length !== null ? [["Duration", planLabel(length)] as [string, string]] : []),
     ["Amount", rupees(amount)],
     ...(isProduct ? [["Stock", stockValue === null ? "Not counted" : `${stockValue} in stock`] as [string, string]] : []),
     ...(image !== null || item?.imageUrl ? [["Image", image === "remove" ? "Removed" : image ? "Added" : "Kept"] as [string, string]] : []),
@@ -95,7 +95,7 @@ export function CatalogSheet({ kind, item, onClose, onSaved }: { kind: CatalogKi
       overlay={confirming ? <ConfirmDialog rows={rows} onEdit={() => setConfirming(false)} onConfirm={submit} /> : null}
     >
       <GymField label={`${TITLE[kind]} name`} icon="pencil-line" value={name} onChangeText={setName} maxLength={80} placeholder={`${TITLE[kind]} Name (Eg. ${kind === "plan" ? "6 Months" : meta.example})`} />
-      {isPlan && <PlanLengthFields unit={unit} onUnit={setUnit} duration={duration} onDuration={setDuration} />}
+      {isPlan && <PlanLengthFields duration={duration} onDuration={setDuration} />}
       <GymField label={`${TITLE[kind]} amount`} icon="banknote" value={price} onChangeText={(t) => setPrice(amountInput(t))} keyboardType="number-pad" placeholder={`${TITLE[kind]} Amount (Eg. 500)`} />
       {isProduct && (
         <GymField label="In stock" icon="boxes" value={stock} onChangeText={(t) => setStock(t.replace(/\D/g, "").slice(0, 6))} keyboardType="number-pad" placeholder="In Stock (Eg. 20, optional)" hint={stockValue !== null && stockValue > 100000 ? "Up to 1,00,000." : "Selling to a member takes them out of stock."} />

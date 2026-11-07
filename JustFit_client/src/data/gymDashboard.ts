@@ -71,7 +71,8 @@ export function dobInput(text: string) {
 // "3 Months", "15 Days"
 export const planLabel = (duration: number, unit: PlanUnit = "months") =>
   `${duration} ${unit === "days" ? (duration === 1 ? "Day" : "Days") : duration === 1 ? "Month" : "Months"}`;
-export const PLAN_LIMIT: Record<PlanUnit, number> = { months: 24, days: 365 };
+// A catalogue plan or PT package saved in days before then can't be picked until it's edited to months
+export const pickable = (item: { unit: PlanUnit | null }) => item.unit !== "days";
 
 export const KIND_LABEL: Record<PaymentKind, string> = { admission: "Admission", renewal: "Renewal", due: "Due Paid", pt: "PT", service: "Service", sale: "Product" };
 export const CATALOG_KINDS: { id: CatalogKind; label: string; noun: string; example: string }[] = [

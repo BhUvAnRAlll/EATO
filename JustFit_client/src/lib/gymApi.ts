@@ -7,8 +7,12 @@ import { apiFetch, type ApiResult } from "@/lib/api";
 // sale: a product (supplements, merchandise); pt: personal training; service: e.g. a steam bath
 export type PaymentKind = "admission" | "renewal" | "due" | "pt" | "service" | "sale";
 // How long a plan lasts: 1-24 months or 1-365 days
+// A plan's length as it was saved. New plans are whole months only (day plans ended on
+// 2026-11-07); "days" still arrives for members and catalogue items saved in days before that.
 export type PlanUnit = "months" | "days";
 export type PlanLength = { duration: number; unit: PlanUnit };
+// What the forms send: the length in whole months (1-24)
+export type PlanMonths = { duration: number };
 // Plans / Catalogue: the branch's price list (plans and PT packages have a duration and unit;
 // products may have a stock count, null when it isn't counted)
 export type CatalogKind = "plan" | "pt" | "service" | "product";
@@ -138,7 +142,7 @@ type Sums = { online: number; cash: number; total: number; byKind: Record<Paymen
 export type GymWallet = { today: Sums; month: Sums; due: { total: number; members: number } };
 
 // fee: the plan's price; admissionFee and discount change what's payable; paid is collected now
-export type AdmissionFields = PlanLength &
+export type AdmissionFields = PlanMonths &
   Partial<{ [K in keyof MemberDetails]: MemberDetails[K] | "" }> & {
     name: string;
     phone: string;
@@ -153,7 +157,7 @@ export type AdmissionFields = PlanLength &
     joinedOn: string;
     paidOn: string;
   };
-export type RenewalFields = PlanLength & { fee: number; paid: number; method: PayMethod; dueBy: string };
+export type RenewalFields = PlanMonths & { fee: number; paid: number; method: PayMethod; dueBy: string };
 export type SaleCategory = "supplement" | "merchandise" | "other";
 // Sell Product / Add Service from a member's ⋯: the server reads the price from the catalogue
 export type MemberSaleFields = { itemId: number; quantity?: number; discount: number; paid: number; method: PayMethod; paidOn: string; dueBy?: string };
@@ -176,7 +180,7 @@ export const gymApi = {
   renew: (token: string | null, id: number, fields: RenewalFields) => call<GymMemberDetail>(token, `/api/gym/members/${id}/renew`, "POST", fields),
   collectDue: (token: string | null, id: number, fields: { amount: number; method: PayMethod; dueBy?: string; paidOn?: string }) => call<GymMemberDetail>(token, `/api/gym/members/${id}/due`, "POST", fields),
   // trainerId: the trainer this PT is with, or null for none
-  personalTraining: (token: string | null, id: number, fields: { package: string; amount: number; method: PayMethod; unit: PlanUnit; duration: number; startsOn?: string; endsOn?: string; trainerId: string | null }) => call<GymMemberDetail>(token, `/api/gym/members/${id}/pt`, "POST", fields),
+  personalTraining: (token: string | null, id: number, fields: { package: string; amount: number; method: PayMethod; duration: number; startsOn?: string; endsOn?: string; trainerId: string | null }) => call<GymMemberDetail>(token, `/api/gym/members/${id}/pt`, "POST", fields),
   trainers: (token: string | null) => call<{ trainers: GymTrainer[] }>(token, "/api/gym/trainers"),
   setTrainer: (token: string | null, id: number, trainerId: string | null) => call<GymMemberDetail>(token, `/api/gym/members/${id}/trainer`, "POST", { trainerId }),
   sellToMember: (token: string | null, id: number, kind: "product" | "service", fields: MemberSaleFields) =>
@@ -189,8 +193,8 @@ export const gymApi = {
   },
   service: (token: string | null, fields: { item: string; amount: number; method: PayMethod }) => call<{ payment: GymPayment }>(token, "/api/gym/services", "POST", fields),
   catalog: (token: string | null) => call<{ items: CatalogItem[] }>(token, "/api/gym/catalog"),
-  addItem: (token: string | null, item: { kind: CatalogKind; name: string; duration?: number; unit?: PlanUnit; price: number; stock?: number | "" }) => call<{ items: CatalogItem[] }>(token, "/api/gym/catalog", "POST", item),
-  editItem: (token: string | null, id: number, fields: { name?: string; duration?: number; unit?: PlanUnit; price?: number; stock?: number | "" }) => call<{ items: CatalogItem[] }>(token, `/api/gym/catalog/${id}`, "PATCH", fields),
+  addItem: (token: string | null, item: { kind: CatalogKind; name: string; duration?: number; price: number; stock?: number | "" }) => call<{ items: CatalogItem[] }>(token, "/api/gym/catalog", "POST", item),
+  editItem: (token: string | null, id: number, fields: { name?: string; duration?: number; price?: number; stock?: number | "" }) => call<{ items: CatalogItem[] }>(token, `/api/gym/catalog/${id}`, "PATCH", fields),
   deleteItem: (token: string | null, id: number) => call<{ items: CatalogItem[] }>(token, `/api/gym/catalog/${id}`, "DELETE"),
   // An item's picture (base64 and its type; the server checks both from the bytes), answered with the catalogue
   setItemImage: (token: string | null, id: number, image: { data: string; mediaType: string }) => call<{ items: CatalogItem[] }>(token, `/api/gym/catalog/${id}/image`, "PUT", { data: image.data, mediaType: image.mediaType }),

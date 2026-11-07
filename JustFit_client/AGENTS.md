@@ -179,7 +179,7 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
   migration `2026-11-21-gym-catalog.sql`): each branch's membership plans (with months), PT
   packages, services and products with prices; the forms fill the price from it (`CatalogPicks`);
   payment kind `service` added. Adding or editing is the Add Plan bottom sheet (`CatalogSheet`:
-  name, Duration Type Months/Days and Duration for plans, amount, and since 2026-11-07 an optional
+  name, Duration in whole months for plans and PT packages, amount, and since 2026-11-07 an optional
   **Image or brochure**: camera or gallery, any shape, `lib/gymPhoto.ts` `pickCatalogImage`,
   uploaded after the item is saved through `PUT|DELETE|GET /api/gym/catalog/:id/image`
   (`gym/catalogImages.js`: JPEG/PNG/WebP from the bytes, 3 MB, 96-6000 px a side, the photos'
@@ -187,8 +187,18 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
   only `image_key`, read with the session by this branch's staff; deleting the item deletes the
   file; migration `2026-12-04-catalog-images.sql`, before it the catalogue answers 503 naming it);
   the card shows it as a thumbnail; a PDF brochure is not accepted, only a photo of it), then
-  "Please confirm the details" (Edit / Confirm). Plan lengths are 1-24 months or 1-365 days everywhere (catalogue,
-  admission, renewal; `gym_members.plan_days` beside `plan_months`). Since migration
+  "Please confirm the details" (Edit / Confirm). **Plan lengths are whole months, 1-24, everywhere
+  (2026-11-07, the user's request; they were months or 1-365 days before):** the Duration Type chips
+  are gone from the catalogue, Add Member, Renewal and PT (`PlanLengthFields` is the one Duration
+  field, `lib/gymDates.ts` `PLAN_MAX_MONTHS`), the forms send `duration` alone, and `rules.planLength`
+  refuses `unit: "days"` ("Plans are in whole months now") while a left-out or `"months"` unit is
+  accepted. No schema change: `gym_members.plan_days` and `gym_catalog_items.duration_unit` stay,
+  the server writes `plan_days` NULL and `duration_unit` 'months', and rows saved in days before
+  are still read and shown as they were ("15 Days"). A catalogue plan or PT package still in days is
+  listed with "set in months to use" (`CatalogList`), left out of the forms' chips (`pickable` in
+  `data/gymDashboard.ts`) and opens in the Edit sheet with its Duration empty. The catalogue chips
+  on Renewal, PT, Product and Service (`CatalogPicks`, `selected`) highlight the item picked
+  (2026-11-07, the user's request) until a field it filled in is edited by hand. Since migration
   `2026-11-24-catalog-stock.sql`, PT packages have a length too (cards show "1 Month"; picking one
   fills the PT period) and products an optional `stock` ("18 in stock"; empty = not counted).
   A member's ⋯ › Sales › Add Service / Sell Product (`MemberSaleSheet`, the GymOps designs):
@@ -228,8 +238,9 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
   for nothing. A PT payment records its period (`pt_label`, `pt_from`, `pt_until`; a renewal follows
   on from a running one). Since 2026-11-07 the PT form (`members/[id]/pt.tsx`) also has Start date
   and End date pickers beside the Duration: the start defaults to the follow-on day (or today), the
-  end to start + duration; picking an end date writes the Duration back (whole months, else days;
-  `lib/gymDates.ts`, pure and unit-tested, the server's month rules). The server takes optional
+  end to start + duration; an end date on a whole month writes the Duration back (`monthsBetween`),
+  any other end date is kept as picked with the Duration cleared (`lib/gymDates.ts`, pure and
+  unit-tested, the server's month rules). The server takes optional
   `startsOn` (a year back to 60 days ahead) and `endsOn` (never before the start, at most 24 months
   after) and settles them in `rules.ptPeriod`. A member's page shows the PT they bought under the
   plan block (`PT · <package>`, Active / Ended, the from and to dates, the trainer), and the PT

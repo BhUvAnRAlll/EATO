@@ -11,7 +11,7 @@ import { SaveButton } from "@/components/gym/SaveButton";
 import { METHOD_LABEL, daysFromToday, planLabel, rupees, shortDate } from "@/data/gymDashboard";
 import { DueByField } from "@/components/gym/DueByField";
 import { PlanLengthFields, durationValue } from "@/components/gym/PlanLengthFields";
-import { gymApi, type PayMethod, type PlanUnit } from "@/lib/gymApi";
+import { gymApi, type PayMethod } from "@/lib/gymApi";
 import { useGymSave } from "@/lib/gymForm";
 import { useGymData } from "@/lib/useGymData";
 
@@ -22,7 +22,8 @@ export default function GymRenew() {
   const memberId = Number(id);
   const load = useCallback((token: string | null) => gymApi.member(token, memberId), [memberId]);
   const { result, retry } = useGymData(load);
-  const [unit, setUnit] = useState<PlanUnit>("months");
+  // The catalogue plan picked, highlighted above the form; editing what it filled in clears it
+  const [picked, setPicked] = useState<number | null>(null);
   const [duration, setDuration] = useState("1");
   const [fee, setFee] = useState("");
   const [paid, setPaid] = useState("");
@@ -31,7 +32,7 @@ export default function GymRenew() {
   const { busy, error, save } = useGymSave(() => router.replace({ pathname: "/gym/members/[id]", params: { id: String(memberId) } }));
   const feeValue = rupeesFromText(fee);
   const paidValue = rupeesFromText(paid);
-  const length = durationValue(duration, unit);
+  const length = durationValue(duration);
   const leftOwed = feeValue >= 1 && paidValue >= 1 && paidValue < feeValue;
   const dueByIso = dueBy;
   const ready = (!leftOwed || dueByIso !== null) && length !== null && feeValue >= 1 && paidValue >= 1 && paidValue <= feeValue;
@@ -46,16 +47,16 @@ export default function GymRenew() {
             <Text className="gym-tx__name">{result.data.member.name}</Text>
             <Text className="gym-tx__meta">{`${planLabel(result.data.member.planLength.duration, result.data.member.planLength.unit)} · until ${shortDate(result.data.member.expiresOn)}${result.data.member.due > 0 ? ` · due ${rupees(result.data.member.due)}` : ""}`}</Text>
           </View>
-          <CatalogPicks kind="plan" label="From your plans" onPick={(item) => { if (item.duration && item.unit) { setUnit(item.unit); setDuration(String(item.duration)); } setFee(String(item.price)); setPaid(String(item.price)); }} />
-          <PlanLengthFields unit={unit} onUnit={setUnit} duration={duration} onDuration={setDuration} />
-          <GymField label="Plan fee (₹)" value={fee} onChangeText={(t) => setFee(amountInput(t))} keyboardType="number-pad" placeholder="4500" />
+          <CatalogPicks kind="plan" label="From your plans" selected={picked} onPick={(item) => { setPicked(item.id); if (item.duration) setDuration(String(item.duration)); setFee(String(item.price)); setPaid(String(item.price)); }} />
+          <PlanLengthFields duration={duration} onDuration={(t) => { setPicked(null); setDuration(t); }} />
+          <GymField label="Plan fee (₹)" value={fee} onChangeText={(t) => { setPicked(null); setFee(amountInput(t)); }} keyboardType="number-pad" placeholder="4500" />
           <GymField label="Paid now (₹)" value={paid} onChangeText={(t) => setPaid(amountInput(t))} keyboardType="number-pad" placeholder="3000" />
           <GymChips label="Paid by" options={(["online", "cash"] as const).map((m) => ({ value: m, label: METHOD_LABEL[m] }))} value={method} onChange={setMethod} />
           {leftOwed && <DueByField value={dueBy} onChange={setDueBy} />}
           {ready && feeValue > paidValue && <Text className="gym-tx__meta">{`${rupees(feeValue - paidValue)} will be added to their due${dueByIso ? `, due ${shortDate(dueByIso)}` : ""}.`}</Text>}
           {paidValue > feeValue && <Text className="gym-tx__meta">{"The amount paid can't be more than the plan fee."}</Text>}
           {error ? <FormAlert message={error} /> : null}
-          <SaveButton label="Save renewal" ready={ready} busy={busy} onPress={() => save((token) => gymApi.renew(token, memberId, { unit, duration: length ?? 1, fee: feeValue, paid: paidValue, method, dueBy: leftOwed && dueByIso ? dueByIso : "" }))} />
+          <SaveButton label="Save renewal" ready={ready} busy={busy} onPress={() => save((token) => gymApi.renew(token, memberId, { duration: length ?? 1, fee: feeValue, paid: paidValue, method, dueBy: leftOwed && dueByIso ? dueByIso : "" }))} />
         </>
       )}
     </GymScreen>

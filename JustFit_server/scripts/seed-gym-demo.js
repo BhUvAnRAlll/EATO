@@ -97,7 +97,6 @@ async function seed(db, gym) {
     { kind: "plan", name: "Quarterly (demo)", duration: 3, unit: "months", price: 4000 },
     { kind: "plan", name: "Half-yearly (demo)", duration: 6, unit: "months", price: 7000 },
     { kind: "plan", name: "Annual (demo)", duration: 12, unit: "months", price: 12000 },
-    { kind: "plan", name: "15-day trial (demo)", duration: 15, unit: "days", price: 800 },
     { kind: "pt", name: "PT 12 sessions (demo)", duration: 1, unit: "months", price: 3500 },
     { kind: "pt", name: "PT 3 months (demo)", duration: 3, unit: "months", price: 9000 },
     { kind: "service", name: "Diet consultation (demo)", price: 600 },
@@ -137,7 +136,7 @@ async function seed(db, gym) {
     { name: "Aditya Menon", gender: "male", joined: -2, months: 12, visits: "regular" },
     { name: "Shruti Bhat", gender: "female", joined: 0, months: 3, visits: "regular", due: 1000, dueBy: 7 },
     { name: "Harish Kulkarni", gender: "male", joined: 0, months: 1, visits: "none" },
-    { name: "Deepa Raj", gender: "female", joined: -75, days: 90, visits: "regular" },
+    { name: "Deepa Raj", gender: "female", joined: -75, months: 3, visits: "regular" },
     { name: "Sanjay Pillai", gender: "male", joined: -30, months: 2, visits: "regular", pt: [-30, 0], late: 2, due: 2200, dueBy: -1 },
     { name: "Nandini Rao", gender: "female", joined: -365, months: 12, visits: "regular", dob: bday(40, 0) },
   ];
@@ -147,7 +146,7 @@ async function seed(db, gym) {
   let phone = DEMO_PHONE_START;
   for (const m of members) {
     const joinedOn = d(m.joined);
-    const expiresOn = m.days ? addDays(joinedOn, m.days) : addMonths(joinedOn, m.months);
+    const expiresOn = addMonths(joinedOn, m.months);
     const code = rules.memberCode(gym.brand, gym.name, number++);
     const [res] = await db.query(
       `INSERT INTO gym_members (gym_id, member_code, full_name, phone, dob, gender, email, height_cm, weight_kg, notes, plan_months, plan_days, joined_on, expires_on, due_amount, due_by, pt_label, pt_from, pt_until, created_by)
@@ -155,13 +154,13 @@ async function seed(db, gym) {
       [
         gym.id, code, m.name, String(phone++), m.dob ?? null, m.gender, `${m.name.split(" ")[0].toLowerCase()}@demo.justfit.test`,
         m.gender === "female" ? 160 : 172, m.gender === "female" ? 58 : 72, `${TAG}: ${m.visits} visits`,
-        m.days ? null : m.months, m.days ?? null, joinedOn, expiresOn, m.due ?? 0, m.due ? d(m.dueBy) : null,
+        m.months, null, joinedOn, expiresOn, m.due ?? 0, m.due ? d(m.dueBy) : null,
         m.pt ? "PT 12 sessions" : null, m.pt ? d(m.pt[0]) : null, m.pt ? d(m.pt[1]) : null, by,
       ],
     );
     const id = res.insertId;
     ids.push({ id, ...m, joinedOn, expiresOn });
-    const planText = m.days ? `${m.days} Days` : plans[m.months];
+    const planText = plans[m.months];
     const method = (n) => (n % 2 ? "cash" : "online");
     // Admission when they joined, renewals every plan length since (for the 1-year members)
     await db.query(

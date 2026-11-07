@@ -229,16 +229,17 @@ describe("gym portal e2e: gyms, staff, members, money and attendance", () => {
     assert.equal(pt.status, 200, JSON.stringify(pt.json));
     assert.deepEqual([pt.json.payments[0].kind, pt.json.payments[0].detail, pt.json.payments[0].amount], ["pt", "PT · 12 sessions · 1 Month", 6000]);
     assert.deepEqual(pt.json.member.pt, { label: "12 sessions", from: today, until: rules.planEnd(today, 1), active: true, trainer: null }, "the PT period (no trainer picked)");
-    const again = await gym.post(`/api/gym/members/${state.asif}/pt`, { package: "8 sessions", amount: 1, method: "cash", unit: "days", duration: 10 });
-    assert.deepEqual([again.json.member.pt.label, again.json.member.pt.from, again.json.member.pt.until], ["8 sessions", rules.addDays(rules.planEnd(today, 1), 1), rules.addDays(rules.planEnd(today, 1), 10)], "a renewal follows on from the running period");
+    const again = await gym.post(`/api/gym/members/${state.asif}/pt`, { package: "8 sessions", amount: 1, method: "cash", duration: 1 });
+    assert.deepEqual([again.json.member.pt.label, again.json.member.pt.from, again.json.member.pt.until], ["8 sessions", rules.addDays(rules.planEnd(today, 1), 1), rules.planEnd(rules.addDays(rules.planEnd(today, 1), 1), 1)], "a renewal follows on from the running period (unit left out: months)");
+    assert.equal((await gym.post(`/api/gym/members/${state.asif}/pt`, { package: "8 sessions", amount: 1, method: "cash", unit: "days", duration: 10 })).status, 400, "PT in days is refused since 2026-11-07");
     // Start and end dates picked by hand: they replace the follow-on and the duration
-    const picked = await gym.post(`/api/gym/members/${state.asif}/pt`, { package: "6 sessions", amount: 1, method: "cash", unit: "days", duration: 10, startsOn: rules.addDays(today, 3), endsOn: rules.addDays(today, 47) });
+    const picked = await gym.post(`/api/gym/members/${state.asif}/pt`, { package: "6 sessions", amount: 1, method: "cash", unit: "months", duration: 1, startsOn: rules.addDays(today, 3), endsOn: rules.addDays(today, 47) });
     assert.equal(picked.status, 200, JSON.stringify(picked.json));
     assert.deepEqual([picked.json.member.pt.from, picked.json.member.pt.until], [rules.addDays(today, 3), rules.addDays(today, 47)], "the picked dates are saved");
     assert.equal(picked.json.payments[0].detail, "PT · 6 sessions · 45 Days", "the payment line says how long the picked dates run");
-    assert.equal((await gym.post(`/api/gym/members/${state.asif}/pt`, { package: "6 sessions", amount: 1, method: "cash", unit: "days", duration: 10, startsOn: rules.addDays(today, 3), endsOn: rules.addDays(today, 2) })).status, 400, "an end before the start");
-    assert.equal((await gym.post(`/api/gym/members/${state.asif}/pt`, { package: "6 sessions", amount: 1, method: "cash", unit: "days", duration: 10, startsOn: rules.addDays(today, 61) })).status, 400, "a start too far ahead");
-    assert.equal((await gym.post(`/api/gym/members/${state.asif}/pt`, { package: "6 sessions", amount: 1, method: "cash", unit: "days", duration: 10, startsOn: "2026-02-30' OR 1=1 --" })).status, 400, "not a date");
+    assert.equal((await gym.post(`/api/gym/members/${state.asif}/pt`, { package: "6 sessions", amount: 1, method: "cash", unit: "months", duration: 1, startsOn: rules.addDays(today, 3), endsOn: rules.addDays(today, 2) })).status, 400, "an end before the start");
+    assert.equal((await gym.post(`/api/gym/members/${state.asif}/pt`, { package: "6 sessions", amount: 1, method: "cash", unit: "months", duration: 1, startsOn: rules.addDays(today, 61) })).status, 400, "a start too far ahead");
+    assert.equal((await gym.post(`/api/gym/members/${state.asif}/pt`, { package: "6 sessions", amount: 1, method: "cash", unit: "months", duration: 1, startsOn: "2026-02-30' OR 1=1 --" })).status, 400, "not a date");
     await connection.query("DELETE FROM gym_payments WHERE member_id = ? AND amount = 1 AND kind = 'pt'", [state.asif]);
     assert.equal(typeof pt.json.member.daysLeft, "number");
     assert.equal((await gym.post(`/api/gym/members/${state.asif}/pt`, { package: "", amount: 6000, method: "online", unit: "months", duration: 1 })).status, 400);
@@ -497,20 +498,25 @@ describe("gym portal e2e: gyms, staff, members, money and attendance", () => {
     assert.equal((await gym.patch(`/api/gym/catalog/${items[3].id}`, { stock: 4 })).status, 400, "only products have stock");
     const pt = await gym.patch(`/api/gym/catalog/${items[2].id}`, { unit: "months", duration: 3 });
     assert.deepEqual(pt.json.items.find((i) => i.id === items[2].id).duration, 3, "a PT package's length can change");
-    // A day pass: plans in days sort first, and an admission on it ends after that many days
-    assert.equal((await gym.post("/api/gym/catalog", { kind: "plan", name: "15-day pass", unit: "days", duration: 15, price: 900 })).status, 201);
-    assert.equal((await gym.get("/api/gym/catalog")).json.items[0].name, "15-day pass");
-    for (const bad of [{ unit: "days", duration: 366 }, { unit: "months", duration: 25 }, { unit: "weeks", duration: 2 }, { unit: "days" }]) {
+    // Plans are in whole months only (day plans ended on 2026-11-07): a day pass is refused in
+    // the catalogue and at admission; `unit` may be left out of a months plan
+    for (const bad of [{ unit: "days", duration: 15 }, { unit: "days", duration: 366 }, { unit: "months", duration: 25 }, { unit: "weeks", duration: 2 }, { unit: "days" }]) {
       assert.equal((await gym.post("/api/gym/catalog", { kind: "plan", name: "Bad plan", price: 100, ...bad })).status, 400, JSON.stringify(bad));
     }
-    const pass = await gym.post("/api/gym/members", { name: "Day Pass", unit: "days", duration: 15, fee: 900, paid: 900, method: "cash" });
+    assert.equal((await gym.post("/api/gym/catalog", { kind: "plan", name: "Two months", duration: 2, price: 2800 })).status, 201, "unit left out: months");
+    assert.equal((await gym.get("/api/gym/catalog")).json.items.find((i) => i.name === "Two months").unit, "months");
+    const dayPass = await gym.post("/api/gym/members", { name: "Day Pass", unit: "days", duration: 15, fee: 900, paid: 900, method: "cash" });
+    assert.equal(dayPass.status, 400, JSON.stringify(dayPass.json));
+    assert.match(dayPass.json.error, /whole months now/);
+    const pass = await gym.post("/api/gym/members", { name: "Two Months", duration: 2, fee: 2800, paid: 2800, method: "cash" });
     assert.equal(pass.status, 201, JSON.stringify(pass.json));
-    assert.deepEqual(pass.json.member.planLength, { duration: 15, unit: "days" });
-    assert.equal(pass.json.member.expiresOn, rules.addDays(today, 14));
-    assert.equal(pass.json.payments[0].detail, "15 Days");
+    assert.deepEqual(pass.json.member.planLength, { duration: 2, unit: "months" });
+    assert.equal(pass.json.member.expiresOn, rules.planEnd(today, 2));
+    assert.equal(pass.json.payments[0].detail, "2 Months");
+    assert.equal((await gym.post(`/api/gym/members/${pass.json.member.id}/renew`, { unit: "days", duration: 7, fee: 500, paid: 500, method: "cash" })).status, 400, "a renewal in days is refused");
     const renewed = await gym.post(`/api/gym/members/${pass.json.member.id}/renew`, { unit: "months", duration: 1, fee: 1500, paid: 1500, method: "cash" });
     assert.deepEqual(renewed.json.member.planLength, { duration: 1, unit: "months" });
-    assert.equal(renewed.json.member.expiresOn, rules.planEnd(rules.addDays(today, 15), 1));
+    assert.equal(renewed.json.member.expiresOn, rules.planEnd(rules.addDays(rules.planEnd(today, 2), 1), 1));
     // Another gym's admin can't see, change or delete it
     const other = as("gymB");
     await connection.query("INSERT IGNORE INTO gym_staff (user_id, gym_id) VALUES (?, ?)", [identities.gymB.id, state.gymB]);

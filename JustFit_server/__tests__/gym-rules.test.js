@@ -20,9 +20,11 @@ describe("gym rules: admissions, renewals, dues, sales, enquiries", () => {
   it("refuses bad admissions", () => {
     const ok = { name: "Ravi", unit: "months", duration: 1, fee: 1500, paid: 1500, method: "cash" };
     refuses(() => rules.admissionBody({ ...ok, duration: 25 }), /1 to 24 months/);
-    refuses(() => rules.admissionBody({ ...ok, unit: "weeks" }), /months or days/);
-    assert.deepEqual(rules.planLength({ unit: "days", duration: 15 }), { unit: "days", duration: 15 });
-    refuses(() => rules.planLength({ unit: "days", duration: 366 }), /1 to 365 days/);
+    refuses(() => rules.admissionBody({ ...ok, unit: "weeks" }), /whole months now/);
+    // Day plans ended on 2026-11-07: days are refused, and `unit` may be left out
+    refuses(() => rules.planLength({ unit: "days", duration: 15 }), /whole months now/);
+    assert.deepEqual(rules.planLength({ duration: 15 }), { unit: "months", duration: 15 });
+    refuses(() => rules.planLength({ duration: 0 }), /1 to 24 months/);
     refuses(() => rules.admissionBody({ ...ok, paid: 2000 }), /more than the amount payable/);
     refuses(() => rules.admissionBody({ ...ok, paid: 0 }), /at least ₹1/);
     refuses(() => rules.admissionBody({ ...ok, fee: 1500.5 }), /whole rupees/);
@@ -78,7 +80,7 @@ describe("gym rules: admissions, renewals, dues, sales, enquiries", () => {
     refuses(() => rules.ptBody({ package: "12 sessions", amount: 6000, method: "online", ...month, gymId: 1 }), /fields/);
     refuses(() => rules.ptBody({ package: "12 sessions", amount: 6000, method: "online", ...month, trainerId: 1 }), /trainers/, "a trainer is an account id, not a number");
     refuses(() => rules.ptBody({ package: "x", amount: 6000, method: "online", ...month }), /PT package/);
-    refuses(() => rules.ptBody({ package: "12 sessions", amount: 6000, method: "online" }), /duration type/, "PT needs its period");
+    refuses(() => rules.ptBody({ package: "12 sessions", amount: 6000, method: "online" }), /1 to 24 months/, "PT needs its period");
     // Start and end dates picked by hand
     const ptToday = rules.todayInIndia();
     const base = { package: "12 sessions", amount: 6000, method: "online", ...month };
@@ -244,9 +246,6 @@ describe("gym rules: India's calendar", () => {
   });
 
   it("plans in days include their first day", () => {
-    assert.equal(rules.planEnd("2026-11-04", 15, "days"), "2026-11-18");
-    assert.equal(rules.planEnd("2026-11-04", 1, "days"), "2026-11-04", "a one-day pass ends the same day");
-    assert.equal(rules.renewedUntil("2026-11-10", "2026-11-04", 7, "days"), "2026-11-17");
   });
 
   it("a renewal follows on from the current plan, or starts today once it has ended", () => {

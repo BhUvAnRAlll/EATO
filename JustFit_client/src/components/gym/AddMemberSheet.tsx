@@ -15,10 +15,10 @@ import { GymPrimaryButton } from "@/components/gym/GymPrimaryButton";
 import { GymSheet } from "@/components/gym/GymSheet";
 import { MemberPhotoImage } from "@/components/gym/MemberPhotoImage";
 import { PlanLengthFields, durationValue } from "@/components/gym/PlanLengthFields";
-import { GENDER_LABEL, METHOD_LABEL, daysFromToday, initialsOf, phoneInput, planLabel, rupees, shortDate } from "@/data/gymDashboard";
+import { GENDER_LABEL, METHOD_LABEL, daysFromToday, initialsOf, phoneInput, pickable, planLabel, rupees, shortDate } from "@/data/gymDashboard";
 import { pickMemberPhoto, type MemberPhoto, type PhotoSource } from "@/lib/gymPhoto";
 import { comingSoon, notice } from "@/lib/gymPortal";
-import { gymApi, type CatalogItem, type Gender, type GymMemberDetail, type PayMethod, type PlanUnit } from "@/lib/gymApi";
+import { gymApi, type CatalogItem, type Gender, type GymMemberDetail, type PayMethod } from "@/lib/gymApi";
 import { useGymSave } from "@/lib/gymForm";
 import { haptic } from "@/lib/haptics";
 import { useGymData } from "@/lib/useGymData";
@@ -56,7 +56,8 @@ export function AddMemberSheet({ onClose, onSaved, initial }: { onClose: () => v
   const { result: code } = useGymData(loadCode);
   const loadCatalog = useCallback((token: string | null) => gymApi.catalog(token), []);
   const { result: catalog, set: setCatalog } = useGymData(loadCatalog);
-  const plans = catalog.state === "ready" ? catalog.data.items.filter((i) => i.kind === "plan") : [];
+  // The branch's membership plans; one still saved in days (before 2026-11-07) can't be picked
+  const plans = catalog.state === "ready" ? catalog.data.items.filter((i) => i.kind === "plan" && pickable(i)) : [];
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
   // Step 1
@@ -77,7 +78,6 @@ export function AddMemberSheet({ onClose, onSaved, initial }: { onClose: () => v
   const [joinedOn, setJoinedOn] = useState(daysFromToday(0));
   const [paidOn, setPaidOn] = useState(daysFromToday(0));
   const [planId, setPlanId] = useState<number | "custom" | null>(null);
-  const [unit, setUnit] = useState<PlanUnit>("months");
   const [duration, setDuration] = useState("1");
   const [customFee, setCustomFee] = useState("");
   const [admission, setAdmission] = useState("");
@@ -116,8 +116,7 @@ export function AddMemberSheet({ onClose, onSaved, initial }: { onClose: () => v
   const detailsReady = emailOk && heightOk && weightOk;
   // Step 3: the plan's length and price come from the chosen catalogue plan, or are typed
   const chosen: CatalogItem | undefined = typeof planId === "number" ? plans.find((p) => p.id === planId) : undefined;
-  const length = chosen?.duration && chosen.unit ? chosen.duration : durationValue(duration, unit);
-  const lengthUnit: PlanUnit = chosen?.unit ?? unit;
+  const length = chosen?.duration ? chosen.duration : durationValue(duration);
   const planFee = chosen ? chosen.price : rupeesFromText(customFee);
   const admissionNum = admission.trim() === "" ? 0 : rupeesFromText(admission);
   const discountNum = discount.trim() === "" ? 0 : rupeesFromText(discount);
@@ -143,7 +142,7 @@ export function AddMemberSheet({ onClose, onSaved, initial }: { onClose: () => v
       const admitted = await gymApi.admit(token, {
         name: name.trim(), phone, dob: dob ?? "", gender,
         email: email.trim(), heightCm: heightNum === "" ? "" : heightNum, weightKg: weightNum === "" ? "" : weightNum, address: address.trim(), notes: notes.trim(),
-        unit: lengthUnit, duration: length ?? 1, fee: planFee, admissionFee: admissionNum, discount: discountNum, paid: paidNum, method: method || "online",
+        duration: length ?? 1, fee: planFee, admissionFee: admissionNum, discount: discountNum, paid: paidNum, method: method || "online",
         dueBy: due > 0 && dueBy ? dueBy : "", joinedOn, paidOn,
       });
       if (!admitted.ok || !photo) return admitted;
@@ -156,7 +155,7 @@ export function AddMemberSheet({ onClose, onSaved, initial }: { onClose: () => v
   const rows: [string, string][] = [
     ["Name", name.trim()],
     ...(photo ? [["Photo", "Added"] as [string, string]] : []),
-    ["Plan", `${planLabel(length ?? 1, lengthUnit)} from ${shortDate(joinedOn)}`],
+    ["Plan", `${planLabel(length ?? 1)} from ${shortDate(joinedOn)}`],
     ["Payable", rupees(payable)],
     ["Collected", `${rupees(Number.isNaN(paidNum) ? 0 : paidNum)} · ${METHODS[method || "online"]}`],
     ...(due > 0 ? [["Due", `${rupees(due)}${dueBy ? ` by ${shortDate(dueBy)}` : ""}`] as [string, string]] : []),
@@ -289,11 +288,11 @@ export function AddMemberSheet({ onClose, onSaved, initial }: { onClose: () => v
           </PressableScale>
           {planId === "custom" && (
             <>
-              <PlanLengthFields unit={unit} onUnit={setUnit} duration={duration} onDuration={setDuration} />
+              <PlanLengthFields duration={duration} onDuration={setDuration} />
               <GymField label="Plan fee" icon="banknote" value={customFee} onChangeText={(t) => setCustomFee(amountInput(t))} keyboardType="number-pad" placeholder="Plan Fee (Eg. 1500)" />
             </>
           )}
-          {chosen && <Text className="gym-tx__meta">{`${chosen.name}: ${planLabel(length ?? 1, lengthUnit)} · ${rupees(chosen.price)}`}</Text>}
+          {chosen && <Text className="gym-tx__meta">{`${chosen.name}: ${planLabel(length ?? 1)} · ${rupees(chosen.price)}`}</Text>}
           <View className="flex-row" style={{ gap: 10 }}>
             <View className="min-w-0 flex-1"><GymField label="Admission amount" icon="banknote" value={admission} onChangeText={(t) => setAdmission(amountInput(t))} keyboardType="number-pad" placeholder="Admission Amount" /></View>
             <View className="min-w-0 flex-1"><GymField label="Discount amount" icon="tag" value={discount} onChangeText={(t) => setDiscount(amountInput(t))} keyboardType="number-pad" placeholder="Discount Amount" /></View>

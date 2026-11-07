@@ -13,8 +13,9 @@ const limits = {
   page: 50,
   catalog: 100, // items per branch
 };
-// A plan's length: whole months (1-24) or days (1-365)
-const PLAN_UNITS = { months: 24, days: 365 };
+// A plan's or PT package's length: whole months, 1-24. Day lengths were dropped on 2026-11-07
+// (the user's request); rows saved in days before that are still read as they are.
+const MAX_PLAN_MONTHS = 24;
 const METHODS = ["online", "cash"];
 const SALE_KINDS = { supplement: "Supplement", merchandise: "Merchandise", other: "Product" };
 const MEMBER_FILTERS = ["all", "due", "overdue", "expiring", "expiring_soon", "expired", "birthday"];
@@ -58,12 +59,12 @@ function method(value) {
   return value;
 }
 
-// { unit, duration } from a body's `unit` ("months" or "days") and `duration`
+// { unit: "months", duration } from a body's `duration` in whole months. `unit` may still be sent
+// (an older app build) and must say months; "days" is refused with a line that says what changed.
 function planLength(body) {
-  if (!Object.hasOwn(PLAN_UNITS, body.unit)) throw new ValidationError("Pick the duration type: months or days.");
-  const max = PLAN_UNITS[body.unit];
-  if (!Number.isInteger(body.duration) || body.duration < 1 || body.duration > max) throw new ValidationError(`Enter a duration of 1 to ${max} ${body.unit}.`);
-  return { unit: body.unit, duration: body.duration };
+  if (body.unit !== undefined && body.unit !== "months") throw new ValidationError("Plans are in whole months now: enter 1 to 24 months.");
+  if (!Number.isInteger(body.duration) || body.duration < 1 || body.duration > MAX_PLAN_MONTHS) throw new ValidationError(`Enter a duration of 1 to ${MAX_PLAN_MONTHS} months.`);
+  return { unit: "months", duration: body.duration };
 }
 
 // "" or missing → null; otherwise a real YYYY-MM-DD between 1920 and today
@@ -215,7 +216,7 @@ function duePaymentBody(body, today = todayInIndia()) {
 }
 
 // Personal training a member paid for: the package ("12 sessions", "1 month with Ravi") and the
-// period it covers (months or days). Optional dates: `startsOn` (a year back to two months
+// period it covers (whole months). Optional dates: `startsOn` (a year back to two months
 // ahead; left out, it follows on from a PT still running, or is today) and `endsOn` (left out,
 // the start plus the duration). ptPeriod() settles the two against the member's row.
 function ptBody(body, today = todayInIndia()) {
@@ -231,9 +232,9 @@ function ptBody(body, today = todayInIndia()) {
 // more than 24 months after it.
 function ptPeriod(pt, currentUntil, today) {
   const from = pt.startsOn ?? (currentUntil && currentUntil >= today ? addDays(currentUntil, 1) : today);
-  const until = pt.endsOn ?? planEnd(from, pt.duration, pt.unit);
+  const until = pt.endsOn ?? planEnd(from, pt.duration);
   if (until < from) throw new ValidationError("The end date can't be before the start date.");
-  if (until > planEnd(from, PLAN_UNITS.months, "months")) throw new ValidationError("Pick an end date within 24 months of the start date.");
+  if (until > planEnd(from, MAX_PLAN_MONTHS)) throw new ValidationError("Pick an end date within 24 months of the start date.");
   return { from, until };
 }
 
@@ -414,7 +415,7 @@ function gymDetailsBody(body) {
   return out;
 }
 
-// A catalogue item: a membership plan (with its length in months or days), a PT package (with a
+// A catalogue item: a membership plan (with its length in months), a PT package (with a
 // length too, so picking it fills the PT period), a service or a product (with how many are in
 // stock, or none to not count them), and its price
 const CATALOG_KINDS = ["plan", "pt", "service", "product"];
@@ -497,18 +498,18 @@ const addDays = (isoDate, count) => new Date(Date.parse(`${isoDate}T00:00:00Z`) 
 
 // A plan starting on `startDate` covers `count` months (up to the day before the same date) or
 // `count` days (the start day included)
-const planEnd = (startDate, count, unit = "months") => (unit === "days" ? addDays(startDate, count - 1) : addDays(addMonths(startDate, count), -1));
+const planEnd = (startDate, months) => addDays(addMonths(startDate, months), -1);
 
 // A renewal starts the day after the current plan ends, or today if it already ended
-function renewedUntil(expiresOn, today, count, unit = "months") {
+function renewedUntil(expiresOn, today, months) {
   const start = expiresOn >= today ? addDays(expiresOn, 1) : today;
-  return planEnd(start, count, unit);
+  return planEnd(start, months);
 }
 
 module.exports = {
   trainerBody,
   limits,
-  PLAN_UNITS,
+  MAX_PLAN_MONTHS,
   planLength,
   id,
   admissionBody,
