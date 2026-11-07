@@ -203,7 +203,9 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
   joining date; the payment is dated the payment date. Owed amounts carry `due_by`; past it a
   member is overdue (Members › Overdue). Migration `2026-11-23-member-details.sql` (also the PT period).
 - **Due members (2026-11-04, the user's designs):** Home's Due Members card opens `DueMembersSheet`
-  (Payment Due Members: ID, PT tag, days left, amount due; a WhatsApp due reminder, an SMS, ⋯).
+  (Payment Due Members: ID, PT tag, days left, amount due; the bell opens Send Reminder on the due
+  template (since 2026-11-07, the user's rule: every bell works the same way, WhatsApp / SMS /
+  Notification), ⋯).
   ⋯ (and the ⋯ on a member's page) opens `MemberActionsSheet`: the member's card on the gradient
   (Call, SMS, WhatsApp, Email; plan and PT with their dates), Attendance History, Reminders
   (due, expired, invoice), Membership (Collect Payment Due → `CollectDueSheet` with a collected date,
@@ -263,7 +265,7 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
   (today, this month, owed). Admin: the Gyms tab, a gym's page,
   New gym. Calls in `lib/gymApi.ts`, loading in `lib/useGymData.ts`, saves in `lib/gymForm.ts`.
 - **Enquiry follow-up (2026-11-05, chosen by the user):** Manage › Enquiry (`EnquiryList`; Home's
-  Enquiry tile and the ☰ menu open it; `/gym/enquiries` and `/gym/enquiry` only redirect there)
+  Enquiry tile opens it on the Today view (`?view=today`, 2026-11-07) and the ☰ menu on Open; `/gym/enquiries` and `/gym/enquiry` only redirect there)
   lists everyone who asked about joining: Today, Overdue, Open (new or follow-up), Joined, Not
   interested and All, each with its count, and search by name or number. Cards show the status,
   when to call back (red once overdue), interest and source, with Call and WhatsApp (the phone's
@@ -284,9 +286,10 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
   sort button, the filters as chips each with its count (`counts` comes with
   `GET /api/gym/members`, within the same search); a card per member with the photo spot, the
   name, the ID and PT tag, a status pill (Active green, Due or Expiring amber, Expired red) and
-  ⋯, a days-left pill (red once expired) and a red payment-due pill, then "Tap bell to send
-  reminder" with Collect (when they owe, opens `CollectDueSheet`) and the bell (red once
-  expired), which opens **Send Reminder** (`SendReminderSheet`, the user's 2026-11-07 design,
+  ⋯, then one line: a days-left pill (red once expired), a red payment-due pill, and at its end
+  Collect (when they owe, opens `CollectDueSheet`) and the bell (red once expired). The card was
+  compacted on 2026-11-07 at the user's request (44 px photo, 12 px padding, no footer or hint
+  line). The bell opens **Send Reminder** (`SendReminderSheet`, the user's 2026-11-07 design,
   also behind the ⋯ sheet's Reminders): the member's card (status, days left, payment due,
   plan), Send via tiles you can combine (WhatsApp; SMS; Notification shown as coming soon: no
   push server), and the message from Use Template (payment due, membership expiry/expired, the

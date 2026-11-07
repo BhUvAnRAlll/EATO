@@ -9,7 +9,8 @@ import { CatalogList } from "@/components/gym/CatalogList";
 import { EnquiryList } from "@/components/gym/EnquiryList";
 import { GymEmpty } from "@/components/gym/GymStates";
 import { MemberList } from "@/components/gym/MemberList";
-import type { StaffArea } from "@/lib/gymApi";
+import { ENQUIRY_VIEWS } from "@/data/gymDashboard";
+import type { EnquiryView, StaffArea } from "@/lib/gymApi";
 import { haptic } from "@/lib/haptics";
 import { useCan } from "@/store/gymAccess";
 
@@ -24,9 +25,9 @@ const TABS: { id: Tab; label: string; area?: StaffArea }[] = [
 const isTab = (v: unknown): v is Tab => typeof v === "string" && TABS.some((t) => t.id === v);
 
 // Gym admin › Manage (no title, at the user's request): Member, Plan / Catalogue, Enquiry and Expense under one tab. The ☰
-// menu opens it on a section (?tab=).
+// menu opens it on a section (?tab=); Home's Enquiry tile adds the list to open (?view=today).
 export default function GymManage() {
-  const params = useLocalSearchParams<{ tab?: string }>();
+  const params = useLocalSearchParams<{ tab?: string; view?: string }>();
   // The tab picked here, remembered against the link it was picked under: a new link from the ☰
   // menu (?tab=) wins over an earlier pick
   const [choice, setChoice] = useState<{ link: string | undefined; tab: Tab } | null>(null);
@@ -36,6 +37,8 @@ export default function GymManage() {
   // A tab this login can't open falls back to the first it can
   const tab: Tab = tabs.some((t) => t.id === wanted) ? wanted : (tabs[0]?.id ?? "expense");
   const setTab = (next: Tab) => setChoice({ link: params.tab, tab: next });
+  // The Enquiry list opens on the linked view; a new link re-keys it so the chip follows
+  const enquiryView: EnquiryView = ENQUIRY_VIEWS.some((v) => v.id === params.view) ? (params.view as EnquiryView) : "open";
 
   return (
     <View className="flex-1 bg-gym-page">
@@ -56,7 +59,7 @@ export default function GymManage() {
         <View className="flex-1">
           {tab === "member" && <MemberList />}
           {tab === "catalog" && <CatalogList />}
-          {tab === "enquiry" && <EnquiryList />}
+          {tab === "enquiry" && <EnquiryList key={enquiryView} initialView={enquiryView} />}
           {tab === "expense" && (
             <View className="p-4">
               <GymEmpty icon="receipt" title="Expenses are coming soon" text="Rent, salaries and other spending will be kept here." />

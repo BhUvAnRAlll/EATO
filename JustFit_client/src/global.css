@@ -5767,19 +5767,19 @@
 }
 
 /* A member's card: the photo spot, name, ID and status; the days-left and payment-due pills; a
-   footer with "Tap bell to send reminder", Collect and the bell */
+   pills line with Collect and the bell at its end (compact since 2026-11-07) */
 @utility gym-mcard {
-  gap: 14px;
-  padding: 16px;
+  gap: 10px;
+  padding: 12px;
   border-radius: 20px;
   background-color: var(--color-gym-page);
   box-shadow: var(--shadow-gym-card);
 }
 
 @utility gym-mcard__avatar {
-  width: 64px;
-  height: 64px;
-  border-radius: 16px;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
   overflow: hidden;
   align-items: center;
   justify-content: center;
@@ -5788,15 +5788,15 @@
 
 @utility gym-mcard__name {
   font-family: var(--font-sans-semibold);
-  font-size: 18px;
-  line-height: 24px;
+  font-size: 16px;
+  line-height: 22px;
   color: var(--color-gym-ink);
 }
 
 @utility gym-mcard__code {
   font-family: var(--font-sans);
-  font-size: 15px;
-  line-height: 20px;
+  font-size: 13px;
+  line-height: 18px;
   color: var(--color-gym-muted);
 }
 
@@ -5804,8 +5804,8 @@
   flex-direction: row;
   align-items: center;
   gap: 6px;
-  min-height: 30px;
-  padding-inline: 12px;
+  min-height: 26px;
+  padding-inline: 10px;
   border-radius: 999px;
 }
 
@@ -5817,65 +5817,48 @@
 
 @utility gym-mcard__status-label {
   font-family: var(--font-sans-medium);
-  font-size: 14px;
+  font-size: 13px;
   line-height: 18px;
 }
 
 @utility gym-mcard__pill {
   flex-direction: row;
   align-items: center;
-  gap: 8px;
-  min-height: 40px;
-  padding-inline: 14px;
-  border-radius: 12px;
+  gap: 6px;
+  min-height: 30px;
+  padding-inline: 10px;
+  border-radius: 10px;
   background-color: var(--color-gym-primary-soft);
 }
 
 @utility gym-mcard__pill-label {
   font-family: var(--font-sans-medium);
-  font-size: 15px;
-  line-height: 20px;
-  color: var(--color-gym-primary-text);
-}
-
-@utility gym-mcard__foot {
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding-top: 14px;
-  border-top-width: 1px;
-  border-color: var(--color-gym-hairline);
-}
-
-@utility gym-mcard__hint {
-  font-family: var(--font-sans);
   font-size: 13px;
   line-height: 18px;
-  color: var(--color-gym-faint);
+  color: var(--color-gym-primary-text);
 }
 
 @utility gym-mcard__collect {
   flex-direction: row;
   align-items: center;
-  gap: 6px;
-  min-height: 44px;
-  padding-inline: 16px;
+  gap: 4px;
+  min-height: 36px;
+  padding-inline: 12px;
   border-radius: 999px;
   background-color: var(--color-gym-success-soft);
 }
 
 @utility gym-mcard__collect-label {
   font-family: var(--font-sans-semibold);
-  font-size: 15px;
-  line-height: 20px;
+  font-size: 14px;
+  line-height: 18px;
   color: var(--color-gym-success);
 }
 
 @utility gym-mcard__bell {
-  width: 48px;
-  height: 48px;
-  border-radius: 14px;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
   align-items: center;
   justify-content: center;
   background-color: var(--color-gym-primary-soft);

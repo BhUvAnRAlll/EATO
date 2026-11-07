@@ -159,7 +159,7 @@ export function MemberList({ pick = null, initialFilter = "all", focusSearch = f
         data={members}
         keyExtractor={(m) => String(m.id)}
         style={{ backgroundColor: colors.gymCanvas }}
-        contentContainerStyle={{ padding: 16, paddingBottom: 120, gap: 14 }}
+        contentContainerStyle={{ padding: 16, paddingBottom: 120, gap: 10 }}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
         ListHeaderComponent={header}
@@ -195,18 +195,18 @@ export function MemberList({ pick = null, initialFilter = "all", focusSearch = f
                 <PressableScale
                   onPress={() => open(item)}
                   className="min-w-0 flex-1 flex-row items-center"
-                  style={{ gap: 12 }}
+                  style={{ gap: 10 }}
                   accessibilityRole="button"
                   accessibilityLabel={`${item.name}, ${item.code}${item.pt?.active ? ", on PT" : ""}, ${days.expired ? `expired ${days.text}` : days.text}${item.due > 0 ? `, ${rupees(item.due)} payment due` : ""}`}
                 >
                   <View className="gym-mcard__avatar">
-                    <GymIcon name="user" size={28} color={colors.gymMuted} />
+                    <GymIcon name="user" size={22} color={colors.gymMuted} />
                     <MemberPhotoImage url={item.photoUrl} />
                   </View>
-                  <View className="min-w-0 flex-1" style={{ gap: 4 }}>
+                  <View className="min-w-0 flex-1" style={{ gap: 2 }}>
                     <Text className="gym-mcard__name" numberOfLines={1}>{item.name}</Text>
                     <View className="flex-row items-center" style={{ gap: 6 }}>
-                      <GymIcon name="id-card" size={16} color={colors.gymFaint} />
+                      <GymIcon name="id-card" size={14} color={colors.gymFaint} />
                       <Text className="gym-mcard__code" numberOfLines={1} style={{ flexShrink: 1 }}>{item.code}</Text>
                       {item.pt?.active && (
                         <View className="gym-chip" style={{ borderColor: colors.gymSuccessLine, backgroundColor: colors.gymSuccessSoft }}>
@@ -225,41 +225,42 @@ export function MemberList({ pick = null, initialFilter = "all", focusSearch = f
                   </View>
                 )}
               </View>
-              <View className="flex-row flex-wrap items-center" style={{ gap: 10 }}>
-                {!pick && narrow && statusPill}
-                <View className="gym-mcard__pill" style={days.expired ? { backgroundColor: colors.gymDangerSoft } : undefined}>
-                  <GymIcon name="calendar" size={16} color={days.expired ? colors.gymDanger : colors.gymPrimary} />
-                  <Text className="gym-mcard__pill-label" numberOfLines={1} style={days.expired ? { color: colors.gymDanger } : undefined}>{days.expired ? `Expired ${days.text}` : days.text}</Text>
-                </View>
-                {item.due > 0 && (
-                  <View className="gym-mcard__pill" style={{ backgroundColor: colors.gymDangerSoft }}>
-                    <GymIcon name="credit-card" size={16} color={colors.gymDanger} />
-                    <Text className="gym-mcard__pill-label" numberOfLines={1} style={{ flexShrink: 1, color: colors.gymDanger }}>{`${rupees(item.due)} payment due${item.overdue ? " · overdue" : ""}`}</Text>
+              {/* One line: the days and due pills, then Collect and the bell at the end */}
+              <View className="flex-row items-center" style={{ gap: 8 }}>
+                <View className="min-w-0 flex-1 flex-row flex-wrap items-center" style={{ gap: 6 }}>
+                  {!pick && narrow && statusPill}
+                  <View className="gym-mcard__pill" style={days.expired ? { backgroundColor: colors.gymDangerSoft } : undefined}>
+                    <GymIcon name="calendar" size={14} color={days.expired ? colors.gymDanger : colors.gymPrimary} />
+                    <Text className="gym-mcard__pill-label" numberOfLines={1} style={days.expired ? { color: colors.gymDanger } : undefined}>{days.expired ? `Expired ${days.text}` : days.text}</Text>
                   </View>
-                )}
-              </View>
-              {!pick && (
-                <View className="gym-mcard__foot">
-                  <Text className="gym-mcard__hint" numberOfLines={1} style={{ flexShrink: 1 }}>Tap bell to send reminder</Text>
-                  <View className="flex-row items-center" style={{ gap: 8 }}>
+                  {item.due > 0 && (
+                    <View className="gym-mcard__pill" style={{ backgroundColor: colors.gymDangerSoft }}>
+                      <GymIcon name="credit-card" size={14} color={colors.gymDanger} />
+                      <Text className="gym-mcard__pill-label" numberOfLines={1} style={{ flexShrink: 1, color: colors.gymDanger }}>{`${rupees(item.due)} due${item.overdue ? " · overdue" : ""}`}</Text>
+                    </View>
+                  )}
+                </View>
+                {!pick && (
+                  <View className="flex-row items-center" style={{ gap: 6 }}>
                     {item.due > 0 && (
                       <PressableScale onPress={() => setCollecting(item)} haptic="tap" className="gym-mcard__collect" accessibilityRole="button" accessibilityLabel={`Collect ${rupees(item.due)} from ${item.name}`}>
-                        <GymIcon name="indian-rupee" size={15} color={colors.gymSuccess} />
+                        <GymIcon name="indian-rupee" size={14} color={colors.gymSuccess} />
                         <Text className="gym-mcard__collect-label">Collect</Text>
                       </PressableScale>
                     )}
                     <PressableScale
                       onPress={() => { haptic.select(); setReminding({ member: item, kind }); }}
                       className="gym-mcard__bell"
+                      hitSlop={6}
                       style={item.status === "expired" ? { backgroundColor: colors.gymDangerSoft } : undefined}
                       accessibilityRole="button"
                       accessibilityLabel={`Send ${item.name} ${item.status === "expired" ? "an expired" : kind === "due" ? "a due" : "an expiry"} reminder`}
                     >
-                      <GymIcon name="bell" size={20} color={item.status === "expired" ? colors.gymDanger : colors.gymPrimary} />
+                      <GymIcon name="bell" size={18} color={item.status === "expired" ? colors.gymDanger : colors.gymPrimary} />
                     </PressableScale>
                   </View>
-                </View>
-              )}
+                )}
+              </View>
             </View>
           );
         }}

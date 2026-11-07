@@ -7,8 +7,9 @@ import { MemberPhotoImage } from "@/components/gym/MemberPhotoImage";
 import { GymEmpty, GymError, GymLoading } from "@/components/gym/GymStates";
 import { GymSheet } from "@/components/gym/GymSheet";
 import { MemberActionsSheet } from "@/components/gym/MemberActionsSheet";
+import { SendReminderSheet } from "@/components/gym/SendReminderSheet";
 import { initialsOf, payChipText, rupees } from "@/data/gymDashboard";
-import { daysLeftText, dueReminder, sms, whatsapp } from "@/lib/gymContact";
+import { daysLeftText } from "@/lib/gymContact";
 import {
   gymApi,
   type DueMember,
@@ -19,8 +20,8 @@ import { useGymData } from "@/lib/useGymData";
 import { useThemeColors } from "@/theme";
 
 // Home › Due Members (the user's design): everyone who owes money, each with their ID (PT when on
-// personal training), days left on their plan and what they owe; a WhatsApp due reminder, an SMS,
-// and ⋯ (or the card) for their options. Since prediction #2 each row carries how likely they are
+// personal training), days left on their plan and what they owe; the bell opens Send Reminder
+// (WhatsApp, SMS; notifications coming soon) on the due template, ⋯ (or the card) their options. Since prediction #2 each row carries how likely they are
 // to pay late ("Likely late · 60" and why, from the server's rules), likeliest first.
 export function DueMembersSheet({
   gym,
@@ -38,6 +39,7 @@ export function DueMembersSheet({
   );
   const { result, retry, reload } = useGymData(load);
   const [open, setOpen] = useState<DueMember | null>(null);
+  const [reminding, setReminding] = useState<DueMember | null>(null);
   const payTone = (level: PayLevel) =>
     level === "late"
       ? { bg: colors.gymDangerSoft, ink: colors.gymDanger }
@@ -57,6 +59,15 @@ export function DueMembersSheet({
       onClose={onClose}
       stack={
         <>
+          {reminding && (
+            <SendReminderSheet
+              kind="due"
+              member={reminding}
+              gym={gym}
+              onClose={() => setReminding(null)}
+              onSent={reload}
+            />
+          )}
           {open && (
             <MemberActionsSheet
               member={open}
@@ -196,29 +207,15 @@ export function DueMembersSheet({
                   <GymIcon name="cake" size={18} color={colors.gymInkSoft} />
                 )}
                 <PressableScale
-                  onPress={() => whatsapp(m, dueReminder(m, gym))}
+                  onPress={() => setReminding(m)}
                   hitSlop={6}
                   className="gym-icon-btn"
                   style={btn}
                   accessibilityRole="button"
-                  accessibilityLabel={`Send ${m.name} a due reminder on WhatsApp`}
+                  accessibilityLabel={`Send ${m.name} a due reminder`}
                 >
                   <GymIcon
                     name="bell-ring"
-                    size={16}
-                    color={colors.gymInkSoft}
-                  />
-                </PressableScale>
-                <PressableScale
-                  onPress={() => sms(m, dueReminder(m, gym))}
-                  hitSlop={6}
-                  className="gym-icon-btn"
-                  style={btn}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Text ${m.name} a due reminder`}
-                >
-                  <GymIcon
-                    name="message-square"
                     size={16}
                     color={colors.gymInkSoft}
                   />

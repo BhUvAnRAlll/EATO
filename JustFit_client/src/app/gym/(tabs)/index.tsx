@@ -94,7 +94,7 @@ export default function GymHome() {
     ? [
         { id: "admission", value: data.stats.admission, label: "Admission", color: tile("Violet"), icon: "users", href: "/gym/transactions?kind=admission&today=1", area: "payments" },
         { id: "renewal", value: data.stats.renewal, label: "Renewal", color: tile("Orange"), icon: "refresh-ccw", href: "/gym/transactions?kind=renewal&today=1", area: "payments" },
-        { id: "enquiry", value: data.stats.enquiry, label: "Enquiry", color: tile("Blue"), icon: "message-circle-question", href: "/gym/manage?tab=enquiry", area: "enquiries" },
+        { id: "enquiry", value: data.stats.enquiry, label: "Enquiry", color: tile("Blue"), icon: "message-circle-question", href: "/gym/manage?tab=enquiry&view=today", area: "enquiries" },
         { id: "due-paid", value: data.stats.duePaid, label: "Due Paid", color: tile("Green"), icon: "indian-rupee", href: "/gym/transactions?kind=due&today=1", area: "payments" },
         { id: "pt", value: data.stats.pt, label: "PT", color: tile("Pink"), icon: "dumbbell", href: "/gym/transactions?kind=pt&today=1", area: "payments" },
         { id: "product", value: data.stats.product, label: "Product", color: tile("Purple"), icon: "package", href: "/gym/transactions?kind=sale&today=1", area: "payments" },
