@@ -16,7 +16,7 @@ const twelve = (h: number) => ((h % 12) === 0 ? 12 : h % 12);
 export const hourTick = (h: number) => `${twelve(h)}${meridiem(h)}`;
 export const hourRange = (h: number) => (meridiem(h) === meridiem(h + 1) ? `${twelve(h)}–${twelve(h + 1)} ${meridiem(h)}` : `${twelve(h)} ${meridiem(h)}–${twelve(h + 1)} ${meridiem(h + 1)}`);
 
-// QR Attendance › Tomorrow's busy hours: the server's forecast (GET /api/gym/predictions/busy-hours),
+// Attendance › Tomorrow's busy hours: the server's forecast (GET /api/gym/predictions/busy-hours),
 // the average of the same weekday over the last four weeks, hour by hour. Until the branch has two
 // such weeks of check-ins the card says so instead of guessing.
 export function BusyHoursCard({ result, onRetry }: { result: GymLoad<BusyHours>; onRetry: () => void }) {

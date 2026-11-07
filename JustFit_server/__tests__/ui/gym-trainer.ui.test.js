@@ -168,6 +168,11 @@ describe("ui gym trainers: the PT trainer picker and My Clients", () => {
   it("1. the PT form offers the branch's trainers, with the member's current one picked", run("trainer-pt", async () => {
     await viewport(390, 844);
     await signIn(identities.owner, "/gym");
+    // The member's page shows the PT they bought: the package, its dates and the trainer
+    await page.navigate(`${expo.baseUrl}/gym/members/${state.arjun}`);
+    await h.expectText("PT · 1 Month PT");
+    await h.expectText("Trainer: Ravi Shetty");
+    await snapshotAllWidths("gym-trainer-member");
     await page.navigate(`${expo.baseUrl}/gym/members/${state.arjun}/pt`);
     await h.expectText("Personal training payment");
     await h.expectText("No trainer");

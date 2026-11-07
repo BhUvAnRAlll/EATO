@@ -95,6 +95,17 @@ export default function GymMember() {
           <Text className="gym-tx__name" style={{ color: member.due > 0 ? colors.gymDanger : colors.gymSuccess }}>{member.due > 0 ? `Due ${rupees(member.due)}${member.dueBy ? ` · pay by ${shortDate(member.dueBy)}` : ""}` : "No dues"}</Text>
           {member.overdue ? <Text className="gym-tag__label" style={{ color: colors.gymDanger }}>Overdue: the payment date has passed</Text> : null}
         </View>
+        {/* The personal training they bought: the package, its dates and the trainer it's with */}
+        {member.pt ? (
+          <View className="gym-summary" accessibilityLabel={`Personal training: ${member.pt.label}, ${member.pt.active ? "active" : "ended"}, ${shortDate(member.pt.from)} to ${shortDate(member.pt.until)}${member.pt.trainer ? `, with ${member.pt.trainer.name}` : ""}`}>
+            <View className="flex-row items-center justify-between" style={{ gap: 8 }}>
+              <Text className="gym-tx__meta min-w-0 flex-1" numberOfLines={1}>{`PT · ${member.pt.label}`}</Text>
+              <Text className="gym-tag__label" style={{ color: member.pt.active ? colors.gymSuccess : colors.gymDanger }}>{member.pt.active ? "Active" : "Ended"}</Text>
+            </View>
+            <Text className="gym-tx__name">{`${shortDate(member.pt.from)} to ${shortDate(member.pt.until)}`}</Text>
+            <Text className="gym-tx__meta">{member.pt.trainer ? `Trainer: ${member.pt.trainer.name}` : "No trainer picked"}</Text>
+          </View>
+        ) : null}
       </View>
 
       {notice ? <Text className="gym-tx__meta" accessibilityLiveRegion="polite">{notice}</Text> : null}

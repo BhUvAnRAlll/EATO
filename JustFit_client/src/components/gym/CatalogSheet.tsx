@@ -1,25 +1,31 @@
 import { useState } from "react";
-import { Text } from "react-native";
+import { Text, View } from "react-native";
 
 import { FormAlert } from "@/components/FormAlert";
 import { PressableScale } from "@/components/PressableScale";
 import { ConfirmDialog } from "@/components/gym/ConfirmDialog";
+import { GymIcon } from "@/components/gym/GymIcon";
 import { GymField, amountInput, rupeesFromText } from "@/components/gym/GymField";
 import { GymPrimaryButton } from "@/components/gym/GymPrimaryButton";
 import { GymSheet } from "@/components/gym/GymSheet";
+import { MemberPhotoImage } from "@/components/gym/MemberPhotoImage";
 import { PlanLengthFields, durationValue } from "@/components/gym/PlanLengthFields";
 import { CATALOG_KINDS, planLabel, rupees } from "@/data/gymDashboard";
 import { gymApi, type CatalogItem, type CatalogKind, type PlanUnit } from "@/lib/gymApi";
 import { useGymSave } from "@/lib/gymForm";
+import { pickCatalogImage, type MemberPhoto, type PhotoSource } from "@/lib/gymPhoto";
+import { notice } from "@/lib/gymPortal";
 import { useThemeColors } from "@/theme";
 
 const TITLE: Record<CatalogKind, string> = { plan: "Plan", pt: "PT Package", service: "Service", product: "Product" };
 
 // Plans / Catalogue › Add Plan (the user's design): a bottom sheet with the name, for a plan or a
-// PT package its Duration Type (Months or Days) and Duration, the amount, and for a product how
-// many are in stock (optional: left empty, stock isn't counted). Editing an item opens the same sheet
-// with Delete. Saving first asks to confirm the details (Edit or Confirm), then calls back with
-// the branch's updated list.
+// PT package its Duration Type (Months or Days) and Duration, the amount, for a product how many
+// are in stock (optional: left empty, stock isn't counted), and an optional image or brochure photo
+// (camera or gallery, any shape; 2026-11-07). Editing an item opens the same sheet with Delete.
+// Saving first asks to confirm the details (Edit or Confirm), then calls back with the branch's
+// updated list. The image is uploaded once the item is saved (PUT /api/gym/catalog/:id/image); if
+// only the image fails, the item stays saved and the gym admin is told.
 export function CatalogSheet({ kind, item, onClose, onSaved }: { kind: CatalogKind; item: CatalogItem | null; onClose: () => void; onSaved: (items: CatalogItem[]) => void }) {
   const colors = useThemeColors();
   const meta = CATALOG_KINDS.find((k) => k.id === kind)!;
@@ -31,6 +37,9 @@ export function CatalogSheet({ kind, item, onClose, onSaved }: { kind: CatalogKi
   const [duration, setDuration] = useState(item?.duration ? String(item.duration) : "");
   const [price, setPrice] = useState(item ? String(item.price) : "");
   const [stock, setStock] = useState(item?.stock !== null && item?.stock !== undefined ? String(item.stock) : "");
+  // null: the image as it is; "remove": take the saved one off; a MemberPhoto: a new one to upload
+  const [image, setImage] = useState<MemberPhoto | "remove" | null>(null);
+  const [imageError, setImageError] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const { busy, error, save } = useGymSave((data: { items: CatalogItem[] }) => onSaved(data.items));
@@ -40,10 +49,18 @@ export function CatalogSheet({ kind, item, onClose, onSaved }: { kind: CatalogKi
   const stockValue = stock === "" ? null : Number(stock);
   const ready = name.trim().length >= 2 && amount >= 1 && (!isPlan || length !== null) && (stockValue === null || stockValue <= 100000);
   const title = `${item ? "Edit" : "Add"} ${TITLE[kind]}`;
+  const hasImage = image === "remove" ? false : image !== null || (item?.imageUrl ?? null) !== null;
+
+  const chooseImage = async (source: PhotoSource) => {
+    setImageError("");
+    const picked = await pickCatalogImage(source).catch(() => ({ ok: false as const, error: "That photo couldn't be read. Please try another." }));
+    if (picked.ok) setImage(picked.photo);
+    else if ("error" in picked) setImageError(picked.error);
+  };
 
   const submit = () => {
     setConfirming(false);
-    save((token) => {
+    save(async (token) => {
       const fields = {
         name: name.trim(),
         price: amount,
@@ -51,10 +68,24 @@ export function CatalogSheet({ kind, item, onClose, onSaved }: { kind: CatalogKi
         // Cleared on an edit: no longer counted
         ...(isProduct && (stockValue !== null || item) ? { stock: stockValue ?? ("" as const) } : {}),
       };
-      return item ? gymApi.editItem(token, item.id, fields) : gymApi.addItem(token, { kind, ...fields });
+      const saved = item ? await gymApi.editItem(token, item.id, fields) : await gymApi.addItem(token, { kind, ...fields });
+      if (!saved.ok || image === null) return saved;
+      // The item just saved: the one edited, or the newest with this name
+      const savedId = item?.id ?? saved.data.items.filter((i) => i.kind === kind && i.name === fields.name).sort((a, b) => b.id - a.id)[0]?.id;
+      if (savedId === undefined) return saved;
+      const withImage = image === "remove" ? await gymApi.removeItemImage(token, savedId) : await gymApi.setItemImage(token, savedId, image);
+      if (withImage.ok) return withImage;
+      notice(`${TITLE[kind]} saved`, `${fields.name} was saved, but the image couldn't be ${image === "remove" ? "removed" : "saved"}: ${withImage.error}`);
+      return saved;
     });
   };
-  const rows: [string, string][] = [["Name", name.trim()], ...(isPlan && length !== null ? [["Duration", planLabel(length, unit)] as [string, string]] : []), ["Amount", rupees(amount)], ...(isProduct ? [["Stock", stockValue === null ? "Not counted" : `${stockValue} in stock`] as [string, string]] : [])];
+  const rows: [string, string][] = [
+    ["Name", name.trim()],
+    ...(isPlan && length !== null ? [["Duration", planLabel(length, unit)] as [string, string]] : []),
+    ["Amount", rupees(amount)],
+    ...(isProduct ? [["Stock", stockValue === null ? "Not counted" : `${stockValue} in stock`] as [string, string]] : []),
+    ...(image !== null || item?.imageUrl ? [["Image", image === "remove" ? "Removed" : image ? "Added" : "Kept"] as [string, string]] : []),
+  ];
 
   return (
     <GymSheet
@@ -69,6 +100,31 @@ export function CatalogSheet({ kind, item, onClose, onSaved }: { kind: CatalogKi
       {isProduct && (
         <GymField label="In stock" icon="boxes" value={stock} onChangeText={(t) => setStock(t.replace(/\D/g, "").slice(0, 6))} keyboardType="number-pad" placeholder="In Stock (Eg. 20, optional)" hint={stockValue !== null && stockValue > 100000 ? "Up to 1,00,000." : "Selling to a member takes them out of stock."} />
       )}
+      <View style={{ gap: 8 }}>
+        <Text className="gym-field__label">Image or brochure (optional)</Text>
+        <View className="gym-item-image" accessible accessibilityLabel={hasImage ? "Item image, chosen" : "Item image, none yet"}>
+          <GymIcon name="image" size={28} color={colors.gymMuted} />
+          <Text className="gym-item-image__hint">A photo of the plan, a brochure or the product</Text>
+          {image === "remove" ? null : image ? <MemberPhotoImage uri={image.previewUri} /> : <MemberPhotoImage url={item?.imageUrl} />}
+        </View>
+        <View className="flex-row flex-wrap" style={{ gap: 8 }}>
+          <PressableScale onPress={() => chooseImage("camera")} className="gym-choice flex-row items-center" style={{ gap: 6 }} accessibilityRole="button" accessibilityLabel={hasImage ? "Retake the photo" : "Take a photo"}>
+            <GymIcon name="camera" size={16} color={colors.gymPrimary} />
+            <Text className="gym-choice__label">{hasImage ? "Retake" : "Camera"}</Text>
+          </PressableScale>
+          <PressableScale onPress={() => chooseImage("library")} className="gym-choice flex-row items-center" style={{ gap: 6 }} accessibilityRole="button" accessibilityLabel="Choose a photo from the gallery">
+            <GymIcon name="image" size={16} color={colors.gymPrimary} />
+            <Text className="gym-choice__label">Gallery</Text>
+          </PressableScale>
+          {hasImage && (
+            <PressableScale onPress={() => { setImage(item?.imageUrl ? "remove" : null); setImageError(""); }} className="gym-choice flex-row items-center" style={{ gap: 6 }} accessibilityRole="button" accessibilityLabel="Remove the image">
+              <GymIcon name="x" size={16} color={colors.gymPrimary} />
+              <Text className="gym-choice__label">Remove</Text>
+            </PressableScale>
+          )}
+        </View>
+        {imageError ? <Text className="gym-tx__meta" style={{ color: colors.gymDanger }}>{imageError}</Text> : null}
+      </View>
       {error ? <FormAlert message={error} /> : null}
       <GymPrimaryButton label={item ? "Save changes" : title} ready={ready} busy={busy} onPress={() => setConfirming(true)} />
       {item &&

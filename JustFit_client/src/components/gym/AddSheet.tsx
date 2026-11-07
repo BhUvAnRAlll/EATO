@@ -11,7 +11,7 @@ import { useThemeColors } from "@/theme";
 const AREA_FOR: Partial<Record<AddAction, StaffArea>> = { member: "members", plan: "catalog", enquiry: "enquiries", sms: "sms", attendance: "attendance" };
 
 // Home's + (the user's design): Add Member, Add Plan, Add Enquiry, Add Expense, Add Outlet, Add
-// Staff / Admin Login (the gym admin only: canManageTeam), Send Bulk SMS, QR Attendance. A Staff
+// Staff / Admin Login (the gym admin only: canManageTeam), Send Bulk SMS, Attendance. A Staff
 // login sees only the items of the areas the gym admin gave them.
 export function AddSheet({ onClose, onPick, canManageTeam }: { onClose: () => void; onPick: (action: AddAction) => void; canManageTeam: boolean }) {
   const colors = useThemeColors();

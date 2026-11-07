@@ -166,8 +166,15 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
   migration `2026-11-21-gym-catalog.sql`): each branch's membership plans (with months), PT
   packages, services and products with prices; the forms fill the price from it (`CatalogPicks`);
   payment kind `service` added. Adding or editing is the Add Plan bottom sheet (`CatalogSheet`:
-  name, Duration Type Months/Days and Duration for plans, amount), then "Please confirm the
-  details" (Edit / Confirm). Plan lengths are 1-24 months or 1-365 days everywhere (catalogue,
+  name, Duration Type Months/Days and Duration for plans, amount, and since 2026-11-07 an optional
+  **Image or brochure**: camera or gallery, any shape, `lib/gymPhoto.ts` `pickCatalogImage`,
+  uploaded after the item is saved through `PUT|DELETE|GET /api/gym/catalog/:id/image`
+  (`gym/catalogImages.js`: JPEG/PNG/WebP from the bytes, 3 MB, 96-6000 px a side, the photos'
+  hourly allowance; files in `CATALOG_IMAGE_DIR`, default `uploads/catalog-images`; the row keeps
+  only `image_key`, read with the session by this branch's staff; deleting the item deletes the
+  file; migration `2026-12-04-catalog-images.sql`, before it the catalogue answers 503 naming it);
+  the card shows it as a thumbnail; a PDF brochure is not accepted, only a photo of it), then
+  "Please confirm the details" (Edit / Confirm). Plan lengths are 1-24 months or 1-365 days everywhere (catalogue,
   admission, renewal; `gym_members.plan_days` beside `plan_months`). Since migration
   `2026-11-24-catalog-stock.sql`, PT packages have a length too (cards show "1 Month"; picking one
   fills the PT period) and products an optional `stock` ("18 in stock"; empty = not counted).
@@ -183,7 +190,7 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
   never repeated, kept when a name changes; searchable. Members also have an optional `gender`
   (there is no batch: removed at the user's request). Migration `2026-11-22-member-codes.sql`.
 - **Home's +** opens the + sheet (`AddSheet`: Add Member, Add Plan, Add Enquiry, Add Expense, Add
-  Outlet, Add Staff / Admin Login, Send Bulk SMS, QR Attendance; Record a payment was
+  Outlet, Add Staff / Admin Login, Send Bulk SMS, Attendance; Record a payment was
   removed at the user's request: Renewal, Due and PT are on a member's page).
   Add Member is a three-step sheet (`AddMemberSheet`, the user's designs): 1 the profile (the
   previewed Member ID `GET /api/gym/members/next-code`, name, mobile kept to 10 digits, gender);
@@ -204,7 +211,15 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
   Transaction History) and Sales (Renew PT). Messages open the phone's own apps with the text
   written (`lib/gymContact.ts`: `tel:`, `sms:`, `wa.me`, `mailto:`): justFit sends nothing and pays
   for nothing. A PT payment records its period (`pt_label`, `pt_from`, `pt_until`; a renewal follows
-  on from a running one). Sheets share
+  on from a running one). Since 2026-11-07 the PT form (`members/[id]/pt.tsx`) also has Start date
+  and End date pickers beside the Duration: the start defaults to the follow-on day (or today), the
+  end to start + duration; picking an end date writes the Duration back (whole months, else days;
+  `lib/gymDates.ts`, pure and unit-tested, the server's month rules). The server takes optional
+  `startsOn` (a year back to 60 days ahead) and `endsOn` (never before the start, at most 24 months
+  after) and settles them in `rules.ptPeriod`. A member's page shows the PT they bought under the
+  plan block (`PT · <package>`, Active / Ended, the from and to dates, the trainer), and the PT
+  payment line carries the length (`PT · 12 sessions · 1 Month`; the days between picked dates when
+  they aren't the duration's, `service.ptDetail`). Sheets share
   `GymSheet`; confirm dialogs `ConfirmDialog`; the main sheet button `GymPrimaryButton`. Member
   photos (approved, migration `2026-11-26-member-photos.sql`) are picked on Add Member and Edit
   Profile (`lib/gymPhoto.ts`, `PUT|DELETE|GET /api/gym/members/:id/photo`); without one the photo
@@ -232,7 +247,7 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
   Home open the side menu (`components/gym/GymMenu.tsx`): the account and branch, Manage items
   (Expenses, Reminder Templates: coming soon; Outlets = branches; Staff / Admin Login for the gym
   admin only), Other (Send
-  Bulk SMS opens its sheet; QR Attendance; Location & Attendance Settings) and Sign out. No subscription/Buy Now card (no
+  Bulk SMS opens its sheet; Attendance; Location & Attendance Settings) and Sign out. No subscription/Buy Now card (no
   billing in justFit yet).
   Money in whole rupees; "today" is India's date (`rules.todayInIndia`); gyms are never deleted
   and nothing cascades except `gym_staff` from users.
@@ -340,7 +355,7 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
   branch and scores live on every read: nothing stored, no job, nothing sent by itself;
   `calculatedAt` is the response time. Route `GET /api/gym/predictions/renewals?level=all|high|medium&search=`
   behind `requireGymStaff` (owner and Staff).
-  **#4 Busy hours (2026-11-06):** QR Attendance › "Tomorrow's busy hours" (`components/gym/BusyHoursCard.tsx`,
+  **#4 Busy hours (2026-11-06):** Attendance › "Tomorrow's busy hours" (`components/gym/BusyHoursCard.tsx`,
   `GET /api/gym/predictions/busy-hours`, `predictionRules.busyHours`): tomorrow's expected
   check-ins per hour = the average of the same weekday over the last four weeks, hour by hour,
   rounded; a member counts once per hour per day; the hour is India's from the check-in's epoch

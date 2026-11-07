@@ -206,7 +206,7 @@ describe("ui gym permissions: Role & Permission for Staff logins", () => {
     await h.settle();
     assert.equal(await hasLabel("Send Bulk SMS"), false, "no SMS in the menu");
     assert.equal(await hasLabel("Role & Permission"), false, "Staff don't set permissions");
-    assert.ok(await hasLabel("QR Attendance"), "Attendance stays");
+    assert.ok(await hasLabel("Attendance"), "Attendance stays");
     await snapshotAllWidths("gym-permissions-staff-menu");
     await clickLabel("Close menu");
     await h.settle(); // the menu slides out before the page is reloaded

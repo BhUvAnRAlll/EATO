@@ -5,6 +5,7 @@ import { PressableScale } from "@/components/PressableScale";
 import { GymIcon } from "@/components/gym/GymIcon";
 import { GymEmpty, GymError, GymLoading } from "@/components/gym/GymStates";
 import { GradientFill } from "@/components/gym/GradientFill";
+import { MemberPhotoImage } from "@/components/gym/MemberPhotoImage";
 import { CATALOG_KINDS, planLabel, rupees } from "@/data/gymDashboard";
 import { gymApi, type CatalogItem, type CatalogKind } from "@/lib/gymApi";
 import { CatalogSheet } from "@/components/gym/CatalogSheet";
@@ -14,9 +15,10 @@ import { useThemeColors } from "@/theme";
 import type { GymIconName } from "@/constants/gymIcons";
 
 // Manage › Plan / Catalogue: the branch's price list by kind (Membership, PT, Service, Product).
-// Each card (the GymOps designs) shows the name, a small pill (a plan's or PT package's length with
-// a clock, a product's stock with a box; services have none) and the price; tapping it opens the
-// Edit sheet; the + opens Add (CatalogSheet) for the kind shown.
+// Each card (the GymOps designs) shows the item's image when it has one (a thumbnail), the name, a
+// small pill (a plan's or PT package's length with a clock, a product's stock with a box; services
+// have none) and the price; tapping it opens the Edit sheet; the + opens Add (CatalogSheet) for the
+// kind shown.
 type Pill = { icon: GymIconName; label: string; empty?: boolean };
 function pillOf(item: CatalogItem): Pill | null {
   if (item.duration && item.unit) return { icon: "clock", label: planLabel(item.duration, item.unit) };
@@ -72,9 +74,14 @@ export function CatalogList() {
                   onPress={() => setSheet({ item })}
                   className="gym-plan"
                   accessibilityRole="button"
-                  accessibilityLabel={`${item.name}, ${pill ? `${pill.label}, ` : ""}${rupees(item.price)}. Edit`}
+                  accessibilityLabel={`${item.name}, ${pill ? `${pill.label}, ` : ""}${rupees(item.price)}${item.imageUrl ? ", with image" : ""}. Edit`}
                 >
-                  <View className="flex-row items-center justify-between">
+                  <View className="flex-row items-center justify-between" style={{ gap: 10 }}>
+                    {item.imageUrl && (
+                      <View className="gym-item-image__thumb">
+                        <MemberPhotoImage url={item.imageUrl} />
+                      </View>
+                    )}
                     <Text className="gym-plan__name" numberOfLines={1}>{item.name}</Text>
                     <GymIcon name="chevron-right" size={13} color={colors.gymInk} />
                   </View>

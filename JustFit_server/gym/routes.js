@@ -9,6 +9,7 @@ const { logSecurityEvent } = require("../logging");
 const { createRateLimiter, limitPerUser } = require("../rateLimit");
 const attendance = require("./attendance");
 const attendanceRules = require("./attendanceRules");
+const catalogImages = require("./catalogImages");
 const photos = require("./photos");
 const predictions = require("./predictions");
 const predictionRules = require("./predictionRules");
@@ -27,7 +28,7 @@ const today = () => rules.todayInIndia();
 
 // Before the gym migrations (2026-11-19-gym-portal.sql up to 2026-11-29-gym-staff-logins.sql)
 // have run, say so instead of a 500
-const MIGRATION = "The gym portal needs its migrations (up to 2026-12-02-gym-payment-due-by) on this server.";
+const MIGRATION = "The gym portal needs its migrations (up to 2026-12-04-catalog-images) on this server.";
 const route = (handler) => (req, res, next) =>
   handler(req, res, next).catch((error) => {
     if (["ER_NO_SUCH_TABLE", "ER_BAD_FIELD_ERROR"].includes(error?.code)) return res.status(503).json({ error: MIGRATION });
@@ -111,7 +112,7 @@ router.get("/dashboard", route(async (req, res) => {
 router.get("/predictions/renewals", route(async (req, res) => {
   res.json(await predictions.renewalRisks(pool(req), req.gym, predictionRules.renewalsQuery(req.query), today()));
 }));
-// Tomorrow's expected check-ins per hour, from the last four same weekdays (QR Attendance)
+// Tomorrow's expected check-ins per hour, from the last four same weekdays (Attendance)
 router.get("/predictions/busy-hours", route(async (req, res) => {
   res.json(await predictions.busyHours(pool(req), req.gym, today()));
 }));
@@ -259,7 +260,35 @@ router.patch("/catalog/:itemId", smallBody, route(async (req, res) => {
   res.json(await service.editItem(pool(req), req.gym.id, rules.id(req.params.itemId, "item"), rules.catalogBody(req.body, { creating: false })));
 }));
 router.delete("/catalog/:itemId", route(async (req, res) => {
-  res.json(await service.deleteItem(pool(req), req.gym.id, rules.id(req.params.itemId, "item")));
+  const { removedImage, ...answer } = await service.deleteItem(pool(req), req.gym.id, rules.id(req.params.itemId, "item"));
+  if (removedImage) await catalogImages.discard(removedImage);
+  res.json(answer);
+}));
+
+// An item's optional image (gym/catalogImages.js): PUT { data: base64, mediaType } adds or replaces
+// it (checked from its bytes: JPEG, PNG or WebP, at most 3 MB) and answers the catalogue, DELETE
+// takes it off, GET reads it. Only this branch's items; uploads share the photos' hourly allowance.
+const IMAGE_MIGRATION = "Catalogue images need the 2026-12-04-catalog-images migration on this server.";
+const imageRoute = (handler) => (req, res, next) =>
+  handler(req, res, next).catch((error) => {
+    if (["ER_NO_SUCH_TABLE", "ER_BAD_FIELD_ERROR"].includes(error?.code)) return res.status(503).json({ error: IMAGE_MIGRATION });
+    next(error);
+  });
+const imageBody = express.json({ limit: Math.ceil(catalogImages.imageLimits.maxBytes * (4 / 3)) + 1024 });
+
+router.put("/catalog/:itemId/image", photoLimit, imageBody, imageRoute(async (req, res) => {
+  const itemId = rules.id(req.params.itemId, "item");
+  const checked = catalogImages.checkItemImage(req.body);
+  if (!checked.ok) return res.status(checked.status).json({ error: checked.error });
+  await catalogImages.setImage(pool(req), req.gym.id, itemId, checked);
+  res.json(await service.catalog(pool(req), req.gym.id));
+}));
+router.delete("/catalog/:itemId/image", imageRoute(async (req, res) => {
+  await catalogImages.removeImage(pool(req), req.gym.id, rules.id(req.params.itemId, "item"));
+  res.json(await service.catalog(pool(req), req.gym.id));
+}));
+router.get("/catalog/:itemId/image", imageRoute(async (req, res) => {
+  catalogImages.send(res, await catalogImages.imageFile(pool(req), req.gym.id, rules.id(req.params.itemId, "item")));
 }));
 
 // Send Bulk SMS (gym/sms.js): credits, Auto Reminders, Manual Send, a member's reminder, Message

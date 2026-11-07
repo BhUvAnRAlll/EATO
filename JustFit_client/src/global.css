@@ -6488,3 +6488,32 @@
   border-width: 3px;
   border-color: var(--color-white);
 }
+
+/* Plans / Catalogue: Add Plan's optional image or brochure (a wide preview box with the buttons
+   under it) and the thumbnail on a catalogue card */
+@utility gym-item-image {
+  align-self: stretch;
+  height: 140px;
+  border-radius: 12px;
+  border-width: 1px;
+  border-color: var(--color-gym-line);
+  background-color: var(--color-gym-page);
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+@utility gym-item-image__hint {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--color-gym-muted);
+}
+
+@utility gym-item-image__thumb {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  background-color: var(--color-gym-bar);
+  overflow: hidden;
+}

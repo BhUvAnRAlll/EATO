@@ -1366,6 +1366,7 @@ CREATE TABLE gym_catalog_items (
   duration_unit  ENUM('months', 'days') NULL,       -- 1-24 months or 1-365 days
   price       INT UNSIGNED NOT NULL,                -- rupees
   stock       INT UNSIGNED NULL,                    -- products only: how many are left (NULL = not counted)
+  image_key   VARCHAR(64)  NULL,                    -- an optional picture or brochure photo (a file name in CATALOG_IMAGE_DIR; migration 2026-12-04)
   created_by  VARCHAR(64)  NULL,
   created_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

@@ -193,7 +193,14 @@ describe("gym portal e2e: gyms, staff, members, money and attendance", () => {
     assert.equal(renewed.json.member.due, 2000, "1500 still owed plus 500 from the renewal");
     assert.equal(renewed.json.member.dueBy, rules.addDays(today, 14), "the new amount owed takes the new date");
 
-    // Past the date: overdue, and on the Overdue filter
+    // On the pay-by date itself: still only Due (the whole day to pay), not Overdue
+    await connection.query("UPDATE gym_members SET due_by = ? WHERE id = ?", [today, state.asif]);
+    assert.equal((await gym.get(`/api/gym/members/${state.asif}`)).json.member.overdue, false, "due today is not overdue");
+    const dueToday = await gym.get("/api/gym/members?filter=overdue");
+    assert.deepEqual(dueToday.json.members, [], "not on the Overdue filter yet");
+    assert.equal(dueToday.json.counts.overdue, 0);
+    assert.deepEqual((await gym.get("/api/gym/members?filter=due")).json.members.map((m) => m.id), [state.asif], "but on Due");
+    // The day after the pay-by date: overdue, and on the Overdue filter
     await connection.query("UPDATE gym_members SET due_by = ? WHERE id = ?", [rules.addDays(today, -1), state.asif]);
     assert.equal((await gym.get(`/api/gym/members/${state.asif}`)).json.member.overdue, true);
     const overdue = await gym.get("/api/gym/members?filter=overdue");
@@ -220,10 +227,18 @@ describe("gym portal e2e: gyms, staff, members, money and attendance", () => {
 
     const pt = await gym.post(`/api/gym/members/${state.asif}/pt`, { package: "12 sessions", amount: 6000, method: "online", unit: "months", duration: 1 });
     assert.equal(pt.status, 200, JSON.stringify(pt.json));
-    assert.deepEqual([pt.json.payments[0].kind, pt.json.payments[0].detail, pt.json.payments[0].amount], ["pt", "PT · 12 sessions", 6000]);
+    assert.deepEqual([pt.json.payments[0].kind, pt.json.payments[0].detail, pt.json.payments[0].amount], ["pt", "PT · 12 sessions · 1 Month", 6000]);
     assert.deepEqual(pt.json.member.pt, { label: "12 sessions", from: today, until: rules.planEnd(today, 1), active: true, trainer: null }, "the PT period (no trainer picked)");
     const again = await gym.post(`/api/gym/members/${state.asif}/pt`, { package: "8 sessions", amount: 1, method: "cash", unit: "days", duration: 10 });
     assert.deepEqual([again.json.member.pt.label, again.json.member.pt.from, again.json.member.pt.until], ["8 sessions", rules.addDays(rules.planEnd(today, 1), 1), rules.addDays(rules.planEnd(today, 1), 10)], "a renewal follows on from the running period");
+    // Start and end dates picked by hand: they replace the follow-on and the duration
+    const picked = await gym.post(`/api/gym/members/${state.asif}/pt`, { package: "6 sessions", amount: 1, method: "cash", unit: "days", duration: 10, startsOn: rules.addDays(today, 3), endsOn: rules.addDays(today, 47) });
+    assert.equal(picked.status, 200, JSON.stringify(picked.json));
+    assert.deepEqual([picked.json.member.pt.from, picked.json.member.pt.until], [rules.addDays(today, 3), rules.addDays(today, 47)], "the picked dates are saved");
+    assert.equal(picked.json.payments[0].detail, "PT · 6 sessions · 45 Days", "the payment line says how long the picked dates run");
+    assert.equal((await gym.post(`/api/gym/members/${state.asif}/pt`, { package: "6 sessions", amount: 1, method: "cash", unit: "days", duration: 10, startsOn: rules.addDays(today, 3), endsOn: rules.addDays(today, 2) })).status, 400, "an end before the start");
+    assert.equal((await gym.post(`/api/gym/members/${state.asif}/pt`, { package: "6 sessions", amount: 1, method: "cash", unit: "days", duration: 10, startsOn: rules.addDays(today, 61) })).status, 400, "a start too far ahead");
+    assert.equal((await gym.post(`/api/gym/members/${state.asif}/pt`, { package: "6 sessions", amount: 1, method: "cash", unit: "days", duration: 10, startsOn: "2026-02-30' OR 1=1 --" })).status, 400, "not a date");
     await connection.query("DELETE FROM gym_payments WHERE member_id = ? AND amount = 1 AND kind = 'pt'", [state.asif]);
     assert.equal(typeof pt.json.member.daysLeft, "number");
     assert.equal((await gym.post(`/api/gym/members/${state.asif}/pt`, { package: "", amount: 6000, method: "online", unit: "months", duration: 1 })).status, 400);
@@ -284,7 +299,6 @@ describe("gym portal e2e: gyms, staff, members, money and attendance", () => {
     assert.deepEqual(await list(""), [state.kavya, state.asif], "only this gym's members");
     assert.deepEqual(await list("?filter=birthday"), [state.kavya]);
     assert.deepEqual(await list("?filter=expiring_soon"), [state.kavya]);
-    assert.deepEqual(await list("?filter=in_today"), [state.asif]);
     assert.deepEqual(await list("?filter=due"), []);
     assert.deepEqual(await list("?search=asif"), [state.asif]);
     assert.deepEqual(await list("?search=98765"), [state.asif], "by phone");

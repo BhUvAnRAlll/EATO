@@ -156,7 +156,6 @@ async function members(pool, gymId, { filter, search }, today) {
   if (filter === "expiring_soon") { where += " AND m.expires_on BETWEEN ? AND ?"; params.push(rules.addDays(today, 1), rules.addDays(today, 3)); }
   if (filter === "birthday") { where += " AND DATE_FORMAT(m.dob, '%m-%d') = ?"; params.push(today.slice(5)); }
   if (filter === "expired") { where += " AND m.expires_on < ?"; params.push(today); }
-  if (filter === "in_today") { where += " AND EXISTS (SELECT 1 FROM gym_attendance a WHERE a.member_id = m.id AND a.on_date = ?)"; params.push(today); }
   const [rows] = await pool.query(`SELECT ${MEMBER_COLUMNS} FROM gym_members m ${where} ORDER BY m.full_name, m.id LIMIT ?`, [...params, MEMBER_LIST_LIMIT]);
   return { members: rows.map((r) => memberOf(r, today)), counts: await memberCounts(pool, gymId, found, today) };
 }
@@ -170,14 +169,13 @@ async function memberCounts(pool, gymId, found, today) {
             COALESCE(SUM(m.expires_on = ?), 0) AS expiring,
             COALESCE(SUM(m.expires_on BETWEEN ? AND ?), 0) AS expiring_soon,
             COALESCE(SUM(m.expires_on < ?), 0) AS expired,
-            COALESCE(SUM(EXISTS (SELECT 1 FROM gym_attendance a WHERE a.member_id = m.id AND a.on_date = ?)), 0) AS in_today,
             COALESCE(SUM(DATE_FORMAT(m.dob, '%m-%d') = ?), 0) AS birthday
      FROM gym_members m WHERE m.gym_id = ?${found.sql}`,
-    [today, today, rules.addDays(today, 1), rules.addDays(today, 3), today, today, today.slice(5), gymId, ...found.params],
+    [today, today, rules.addDays(today, 1), rules.addDays(today, 3), today, today.slice(5), gymId, ...found.params],
   );
   return {
     all: Number(c.all_members), due: Number(c.due), overdue: Number(c.overdue), expiring: Number(c.expiring),
-    expiring_soon: Number(c.expiring_soon), expired: Number(c.expired), in_today: Number(c.in_today), birthday: Number(c.birthday),
+    expiring_soon: Number(c.expiring_soon), expired: Number(c.expired), birthday: Number(c.birthday),
   };
 }
 
@@ -229,6 +227,13 @@ async function addPayment(db, gymId, userId, { memberId = null, kind, title, det
 
 // "3 Months", "15 Days"
 const planText = ({ duration, unit }) => `${duration} ${unit === "days" ? (duration === 1 ? "Day" : "Days") : duration === 1 ? "Month" : "Months"}`;
+// A PT payment's line: the package and how long it runs ("PT · 12 sessions · 1 Month"); when the
+// end date was picked by hand and isn't the duration's, the days between the two dates
+const ptDetail = (body, from, until) => {
+  const days = Math.round((Date.parse(`${until}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86400000) + 1;
+  const length = until === rules.planEnd(from, body.duration, body.unit) ? planText(body) : planText({ duration: days, unit: "days" });
+  return `PT · ${body.package} · ${length}`.slice(0, 80);
+};
 // The members row's two length columns: one is set, the other NULL
 const planColumns = ({ duration, unit }) => (unit === "days" ? [null, duration] : [duration, null]);
 
@@ -297,9 +302,8 @@ async function collectDue(pool, gymId, userId, memberId, body, today) {
 async function personalTraining(pool, gymId, userId, memberId, body, today) {
   await inTransaction(pool, async (db) => {
     const row = await memberRow(db, gymId, memberId, today, { lock: true });
-    // A new PT period starts the day after a running one ends, or today
-    const from = row.pt_until && row.pt_until >= today ? rules.addDays(row.pt_until, 1) : today;
-    const until = rules.planEnd(from, body.duration, body.unit);
+    // The period: the dates picked, else the day after a running PT ends (or today) plus the duration
+    const { from, until } = rules.ptPeriod(body, row.pt_until, today);
     await db.query("UPDATE gym_members SET pt_label = ?, pt_from = ?, pt_until = ? WHERE id = ? AND gym_id = ?", [body.package, from, until, memberId, gymId]);
     // The trainer this PT is with (Staff / Admin Login's trainers): only one of this branch's;
     // null takes the trainer off; left out, the member keeps the one they have
@@ -310,7 +314,7 @@ async function personalTraining(pool, gymId, userId, memberId, body, today) {
       }
       await db.query("UPDATE gym_members SET pt_trainer_id = ? WHERE id = ? AND gym_id = ?", [body.trainerId, memberId, gymId]);
     }
-    await addPayment(db, gymId, userId, { memberId, kind: "pt", title: row.full_name, detail: `PT · ${body.package}`, method: body.method, amount: body.amount }, today);
+    await addPayment(db, gymId, userId, { memberId, kind: "pt", title: row.full_name, detail: ptDetail(body, from, until), method: body.method, amount: body.amount }, today);
   });
   return member(pool, gymId, memberId, today);
 }
@@ -572,11 +576,15 @@ async function wallet(pool, gymId, today) {
 
 // ---- Plans / Catalogue: the branch's price list ------------------------------------------
 
-const itemOf = (r) => ({ id: r.id, kind: r.kind, name: r.name, duration: r.duration ?? null, unit: r.duration_unit ?? null, price: r.price, stock: r.stock ?? null });
+// imageUrl: the item's optional picture (gym/catalogImages.js), read with the session; ?v= changes with the file
+const itemOf = (r) => ({
+  id: r.id, kind: r.kind, name: r.name, duration: r.duration ?? null, unit: r.duration_unit ?? null, price: r.price, stock: r.stock ?? null,
+  imageUrl: r.image_key ? `/api/gym/catalog/${r.id}/image?v=${r.image_key.slice(0, 8)}` : null,
+});
 const KIND_ORDER = "FIELD(kind, 'plan', 'pt', 'service', 'product'), duration_unit = 'months', IF(duration_unit = 'months', duration * 30, duration), price, name, id";
 
 async function catalog(pool, gymId) {
-  const [rows] = await pool.query(`SELECT id, kind, name, duration, duration_unit, price, stock FROM gym_catalog_items WHERE gym_id = ? ORDER BY ${KIND_ORDER}`, [gymId]);
+  const [rows] = await pool.query(`SELECT id, kind, name, duration, duration_unit, price, stock, image_key FROM gym_catalog_items WHERE gym_id = ? ORDER BY ${KIND_ORDER}`, [gymId]);
   return { items: rows.map(itemOf) };
 }
 
@@ -599,10 +607,15 @@ async function editItem(pool, gymId, itemId, fields) {
   return catalog(pool, gymId);
 }
 
+// Also says which image file the item had (removedImage), for the route to delete after the row is gone
 async function deleteItem(pool, gymId, itemId) {
-  const [result] = await pool.query("DELETE FROM gym_catalog_items WHERE id = ? AND gym_id = ?", [itemId, gymId]);
-  if (result.affectedRows === 0) throw new NotFoundError("That item isn't in your catalogue.");
-  return catalog(pool, gymId);
+  const removedImage = await inTransaction(pool, async (db) => {
+    const [[row]] = await db.query("SELECT image_key FROM gym_catalog_items WHERE id = ? AND gym_id = ? FOR UPDATE", [itemId, gymId]);
+    if (!row) throw new NotFoundError("That item isn't in your catalogue.");
+    await db.query("DELETE FROM gym_catalog_items WHERE id = ? AND gym_id = ?", [itemId, gymId]);
+    return row.image_key ?? null;
+  });
+  return { ...(await catalog(pool, gymId)), removedImage };
 }
 
 module.exports = {

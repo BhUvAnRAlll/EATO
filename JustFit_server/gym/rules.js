@@ -17,7 +17,7 @@ const limits = {
 const PLAN_UNITS = { months: 24, days: 365 };
 const METHODS = ["online", "cash"];
 const SALE_KINDS = { supplement: "Supplement", merchandise: "Merchandise", other: "Product" };
-const MEMBER_FILTERS = ["all", "due", "overdue", "expiring", "expiring_soon", "expired", "in_today", "birthday"];
+const MEMBER_FILTERS = ["all", "due", "overdue", "expiring", "expiring_soon", "expired", "birthday"];
 const PAYMENT_KINDS = ["admission", "renewal", "due", "pt", "service", "sale"];
 
 const isPlainObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
@@ -215,11 +215,26 @@ function duePaymentBody(body, today = todayInIndia()) {
 }
 
 // Personal training a member paid for: the package ("12 sessions", "1 month with Ravi") and the
-// period it covers (months or days, following on from a PT period still running)
-function ptBody(body) {
-  onlyKeys(body, ["package", "amount", "method", "unit", "duration", "trainerId"]);
+// period it covers (months or days). Optional dates: `startsOn` (a year back to two months
+// ahead; left out, it follows on from a PT still running, or is today) and `endsOn` (left out,
+// the start plus the duration). ptPeriod() settles the two against the member's row.
+function ptBody(body, today = todayInIndia()) {
+  onlyKeys(body, ["package", "amount", "method", "unit", "duration", "trainerId", "startsOn", "endsOn"]);
   const pt = { package: requiredText(body.package, "PT package", 60), amount: rupees(body.amount, "amount"), method: method(body.method), ...planLength(body) };
+  if (!blank(body.startsOn)) pt.startsOn = dateIn(body.startsOn, { from: addDays(today, -365), to: addDays(today, 60), message: "Pick a start date from a year ago to two months ahead." });
+  if (!blank(body.endsOn)) pt.endsOn = dateIn(body.endsOn, { from: addDays(today, -365), to: addDays(today, 60 + 2 * 366), message: "Pick an end date within 24 months of the start date." });
   return body.trainerId === undefined ? pt : { ...pt, trainerId: trainerId(body.trainerId) };
+}
+
+// The dates a PT payment covers: the picked start, else the day after a running PT ends, else
+// today; the picked end, else the start plus the duration. The end is never before the start or
+// more than 24 months after it.
+function ptPeriod(pt, currentUntil, today) {
+  const from = pt.startsOn ?? (currentUntil && currentUntil >= today ? addDays(currentUntil, 1) : today);
+  const until = pt.endsOn ?? planEnd(from, pt.duration, pt.unit);
+  if (until < from) throw new ValidationError("The end date can't be before the start date.");
+  if (until > planEnd(from, PLAN_UNITS.months, "months")) throw new ValidationError("Pick an end date within 24 months of the start date.");
+  return { from, until };
 }
 
 // The trainer a PT is with: an account id (the server checks it's this branch's trainer), or
@@ -349,7 +364,7 @@ function memberEditBody(body) {
 
 function membersQuery(query = {}) {
   const filter = query.filter === undefined || query.filter === "" ? "all" : query.filter;
-  if (!MEMBER_FILTERS.includes(filter)) throw new ValidationError("Pick a filter: all, due, overdue, expiring, expiring soon, expired, in today or birthdays.");
+  if (!MEMBER_FILTERS.includes(filter)) throw new ValidationError("Pick a filter: all, due, overdue, expiring, expiring soon, expired or birthdays.");
   const search = typeof query.search === "string" ? query.search.trim() : "";
   if (search.length > limits.search) throw new ValidationError(`Search for at most ${limits.search} characters.`);
   return { filter, search };
@@ -502,6 +517,7 @@ module.exports = {
   renewalBody,
   duePaymentBody,
   ptBody,
+  ptPeriod,
   serviceBody,
   saleBody,
   enquiryBody,

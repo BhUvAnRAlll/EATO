@@ -94,7 +94,6 @@ export const MEMBER_FILTERS: { id: MemberFilter; label: string }[] = [
   { id: "expiring", label: "Expiring today" },
   { id: "expiring_soon", label: "Expiring in 1-3 days" },
   { id: "expired", label: "Expired" },
-  { id: "in_today", label: "In today" },
   { id: "birthday", label: "Birthdays today" },
 ];
 
@@ -141,7 +140,7 @@ export const ADD_SHEET: { id: AddAction; label: string; icon: GymIconName }[] = 
   { id: "outlet", label: "Add Outlet", icon: "store" },
   { id: "staff", label: "Add Staff / Admin Login", icon: "user-plus" },
   { id: "sms", label: "Send Bulk SMS", icon: "message-square-more" },
-  { id: "attendance", label: "QR Attendance", icon: "qr-code" },
+  { id: "attendance", label: "Attendance", icon: "qr-code" },
 ];
 
 

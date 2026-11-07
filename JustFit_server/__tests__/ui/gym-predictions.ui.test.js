@@ -250,7 +250,7 @@ describe("ui gym predictions: Likely to leave", () => {
     await h.expectPath("/gym/predictions/renewals");
   }));
 
-  it("5. QR Attendance shows tomorrow's busy hours: the 7 am visits on the last same weekdays average to 1", run("predictions-busy", async () => {
+  it("5. Attendance shows tomorrow's busy hours: the 7 am visits on the last same weekdays average to 1", run("predictions-busy", async () => {
     // Tomorrow's weekday fell on today−6 (Sneha's visit) and today−20 (Ravi's), both at 7:15 am;
     // the other two weeks had none: 1, 0, 1, 0 → about 1, busiest 7–8 am
     await page.navigate(`${expo.baseUrl}/gym/attendance`);

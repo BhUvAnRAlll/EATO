@@ -21,7 +21,7 @@ import { useThemeColors } from "@/theme";
 type Period = "today" | "week" | "month";
 const WEEKDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-// Gym admin › QR Attendance: who is inside now (with Check out for the front desk), today's
+// Gym admin › Attendance: who is inside now (with Check out for the front desk), today's
 // check-ins and completed visits, daily / weekly / monthly numbers, the last 7 days, tomorrow's
 // busy hours (the prediction, `BusyHoursCard`), then the history with its filters and CSV export.
 // Settings (location, radius) and the QR code are in the header. Every number is the server's
@@ -61,7 +61,7 @@ export default function GymAttendance() {
 
   if (result.state !== "ready") {
     return (
-      <GymScreen title="QR Attendance" right={header}>
+      <GymScreen title="Attendance" right={header}>
         {result.state === "loading" ? <GymLoading label="Loading attendance" /> : <GymError error={result.error} onRetry={retry} />}
       </GymScreen>
     );
@@ -76,7 +76,7 @@ export default function GymAttendance() {
   ];
 
   return (
-    <GymScreen title="QR Attendance" right={header}>
+    <GymScreen title="Attendance" right={header}>
       {!data.setup.location || !data.setup.qr ? (
         <PressableScale onPress={() => router.push(data.setup.location ? "/gym/attendance/qr" : "/gym/attendance/settings")} className="gym-warning" accessibilityRole="button" accessibilityLabel={data.setup.location ? "Create the attendance QR code" : "Set the gym's location"}>
           <GymIcon name="triangle-alert" size={18} color={colors.gymWarning} />

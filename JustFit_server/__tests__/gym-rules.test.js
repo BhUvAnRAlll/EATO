@@ -79,6 +79,21 @@ describe("gym rules: admissions, renewals, dues, sales, enquiries", () => {
     refuses(() => rules.ptBody({ package: "12 sessions", amount: 6000, method: "online", ...month, trainerId: 1 }), /trainers/, "a trainer is an account id, not a number");
     refuses(() => rules.ptBody({ package: "x", amount: 6000, method: "online", ...month }), /PT package/);
     refuses(() => rules.ptBody({ package: "12 sessions", amount: 6000, method: "online" }), /duration type/, "PT needs its period");
+    // Start and end dates picked by hand
+    const ptToday = rules.todayInIndia();
+    const base = { package: "12 sessions", amount: 6000, method: "online", ...month };
+    assert.deepEqual(rules.ptBody({ ...base, startsOn: ptToday, endsOn: rules.addDays(ptToday, 9) }), { ...base, package: "12 sessions", startsOn: ptToday, endsOn: rules.addDays(ptToday, 9) });
+    assert.deepEqual(rules.ptBody({ ...base, startsOn: "", endsOn: null }), base, "blank dates are left out");
+    for (const bad of [rules.addDays(ptToday, -366), rules.addDays(ptToday, 61), "2026-02-30", "07-11-2026"]) refuses(() => rules.ptBody({ ...base, startsOn: bad }), /start date from a year ago to two months ahead/);
+    refuses(() => rules.ptBody({ ...base, endsOn: "2026-02-30" }), /end date within 24 months/);
+    // ptPeriod: the dates picked, else following on from a running PT, else today
+    const running = rules.addDays(ptToday, 20);
+    assert.deepEqual(rules.ptPeriod(rules.ptBody(base), running, ptToday), { from: rules.addDays(running, 1), until: rules.planEnd(rules.addDays(running, 1), 1) }, "follows on");
+    assert.deepEqual(rules.ptPeriod(rules.ptBody(base), rules.addDays(ptToday, -1), ptToday), { from: ptToday, until: rules.planEnd(ptToday, 1) }, "an ended PT: from today");
+    assert.deepEqual(rules.ptPeriod(rules.ptBody({ ...base, startsOn: ptToday }), running, ptToday), { from: ptToday, until: rules.planEnd(ptToday, 1) }, "a picked start wins over the follow-on");
+    assert.deepEqual(rules.ptPeriod(rules.ptBody({ ...base, startsOn: ptToday, endsOn: rules.addDays(ptToday, 44) }), null, ptToday), { from: ptToday, until: rules.addDays(ptToday, 44) }, "a picked end wins over the duration");
+    refuses(() => rules.ptPeriod(rules.ptBody({ ...base, startsOn: ptToday, endsOn: rules.addDays(ptToday, -1) }), null, ptToday), /before the start date/);
+    refuses(() => rules.ptPeriod(rules.ptBody({ ...base, startsOn: ptToday, endsOn: rules.addDays(rules.planEnd(ptToday, 24), 1) }), null, ptToday), /within 24 months/);
     const today = rules.todayInIndia();
     assert.equal(rules.duePaymentBody({ amount: 1, method: "cash" }).paidOn, today);
     assert.equal(rules.duePaymentBody({ amount: 1, method: "cash", paidOn: rules.addDays(today, -3) }).paidOn, rules.addDays(today, -3));

@@ -22,6 +22,7 @@ const { identitiesFor, describeIdentityError } = require("../e2e/test-identities
 const { startExpoWeb } = require("./expo-web.js");
 const { launchChrome, connect, openPage, CHROME } = require("./cdp.js");
 const { helpers, signInAs, NAV_TIMEOUT } = require("./onboarding-steps.js");
+const { png, body: imageBody } = require("../e2e/images.js");
 
 const EXPO_PORT = 8090;
 const EVIDENCE_DIR = path.join(os.tmpdir(), "justfit-ui-evidence");
@@ -31,7 +32,7 @@ const WIDTHS = [[320, 568], [390, 844], [430, 932]];
 describe("ui gym portal: live gym data, the forms, the guards and the Super Admin view", () => {
   const runId = crypto.randomBytes(4).toString("hex");
   let skipReason = null;
-  let env, connection, server, expo, chrome, client, page, testAccounts, h;
+  let env, connection, server, expo, chrome, client, page, testAccounts, h, imageDir;
   const identities = {};
   const sessions = {};
   const tokens = {};
@@ -94,7 +95,9 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
     try { connection = await db.connect(env); } catch (error) { skipReason = `test database unreachable (${error?.code ?? "refused"})`; return; }
     assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in justfit_test`);
     testAccounts = identitiesFor(env);
-    server = await startTestServer(env);
+    // Catalogue item images go to a throwaway folder, never the repo's uploads/
+    imageDir = fs.mkdtempSync(path.join(os.tmpdir(), "justfit-gym-ui-images-"));
+    server = await startTestServer({ ...env, CATALOG_IMAGE_DIR: imageDir });
     expo = await startExpoWeb({ port: EXPO_PORT, apiUrl: `http://localhost:${env.PORT}` });
     chrome = await launchChrome();
     client = await connect(chrome.browserWsUrl);
@@ -138,6 +141,7 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
     await step("stop Chrome", async () => { if (chrome) await chrome.close(); });
     await step("stop Expo web", async () => { if (expo) await expo.stop(); });
     await step("stop test server", async () => { if (server) await server.stop(); });
+    await step("remove the image folder", () => { if (imageDir) fs.rmSync(imageDir, { recursive: true, force: true }); });
     await step("rows", async () => {
       if (!connection) return;
       if (state.gym) {
@@ -194,7 +198,7 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
   it("2. + › Add Member: the profile with its automatic Member ID, then the plan, confirm, saved", run("gym-admission", async () => {
     await clickLabel("Add a member, plan, enquiry or payment");
     await h.expectText("Add Staff / Admin Login");
-    await h.expectText("QR Attendance");
+    await h.expectText("Attendance");
     assert.equal(await page.hasText("Biometric"), false, "no biometric attendance");
     await snapshotAllWidths("gym-add");
     await h.settle();
@@ -253,7 +257,7 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
     assert.ok(await hasLabel("2 Admission"));
   }));
 
-  it("3b. QR Attendance: the dashboard, location and radius, the QR code, a staff check-out and history", run("gym-attendance", async () => {
+  it("3b. Attendance: the dashboard, location and radius, the QR code, a staff check-out and history", run("gym-attendance", async () => {
     await page.navigate(`${expo.baseUrl}/gym/attendance`);
     await h.expectText("INSIDE NOW (1)");
     await h.expectText("Ravi Shankar");
@@ -423,11 +427,29 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
       { kind: "product", name: "Whey Protein 1kg", price: 3200, stock: 18 },
       { kind: "product", name: "Shaker Bottle", price: 350, stock: 40 },
     ]) assert.equal((await apiAs("gym", "POST", "/api/gym/catalog", item)).status, 201, JSON.stringify(item));
+    // The PT package gets a brochure photo (the sheet's picker can't be driven here, so by the API)
+    const ptItem = (await apiAs("gym", "GET", "/api/gym/catalog")).json.items.find((i) => i.name === "1 Month PT");
+    assert.equal((await apiAs("gym", "PUT", `/api/gym/catalog/${ptItem.id}/image`, imageBody(png(400, 240, [79, 70, 229]), "image/png"))).status, 200);
     await page.navigate(`${expo.baseUrl}/gym/manage?tab=catalog`);
     await h.expectText("Plan / Catalogue"); // Manage's top tabs (the screen has no title)
     await clickLabel("PT");
-    await page.waitFor(`!!document.querySelector('[aria-label="1 Month PT, 1 Month, ₹5,000. Edit"]')`, NAV_TIMEOUT, "the PT card with its length");
+    await page.waitFor(`!!document.querySelector('[aria-label="1 Month PT, 1 Month, ₹5,000, with image. Edit"]')`, NAV_TIMEOUT, "the PT card with its length and its image");
     await snapshotAllWidths("gym-catalog-pt");
+    // Edit shows the image with Retake, Gallery and Remove; Remove then Save takes it off
+    await clickLabel("1 Month PT, 1 Month, ₹5,000, with image. Edit");
+    await h.expectText("Image or brochure (optional)");
+    assert.ok(await hasLabel("Item image, chosen"), "the saved image shows on the sheet");
+    assert.ok(await hasLabel("Remove the image"));
+    await snapshotAllWidths("gym-edit-pt-image");
+    await clickLabel("Remove the image");
+    assert.ok(await hasLabel("Item image, none yet"), "removed on the sheet, not saved yet");
+    await clickLabel("Save changes");
+    await h.expectText("Please confirm the details");
+    await h.expectText("Removed");
+    await clickLabel("Confirm");
+    await page.waitFor(`!!document.querySelector('[aria-label="1 Month PT, 1 Month, ₹5,000. Edit"]')`, NAV_TIMEOUT, "the PT card without its image");
+    assert.equal((await apiAs("gym", "GET", "/api/gym/catalog")).json.items.find((i) => i.id === ptItem.id).imageUrl, null, "the image is gone on the server");
+    assert.equal(fs.readdirSync(imageDir).filter((f) => !f.startsWith(".")).length, 0, "and its file was deleted");
     await clickLabel("Service");
     await page.waitFor(`!!document.querySelector('[aria-label="Diet Consultation, ₹1,000. Edit"]')`, NAV_TIMEOUT, "the service card, no pill");
     await snapshotAllWidths("gym-catalog-service");

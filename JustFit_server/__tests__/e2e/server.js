@@ -74,6 +74,8 @@ async function startTestServer(env, { sms = "fake" } = {}) {
       ...(env.COVER_DIR ? { COVER_DIR: env.COVER_DIR } : {}),
       // and so do gym member photos
       ...(env.MEMBER_PHOTO_DIR ? { MEMBER_PHOTO_DIR: env.MEMBER_PHOTO_DIR } : {}),
+      // and catalogue item images
+      ...(env.CATALOG_IMAGE_DIR ? { CATALOG_IMAGE_DIR: env.CATALOG_IMAGE_DIR } : {}),
       // The YouTube test points the video loader at a local fake API with a test key
       ...(env.YOUTUBE_API_URL ? { YOUTUBE_API_URL: env.YOUTUBE_API_URL, YOUTUBE_API_KEY: env.YOUTUBE_API_KEY } : {}),
     },
