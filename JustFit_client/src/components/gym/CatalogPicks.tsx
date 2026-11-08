@@ -29,7 +29,7 @@ export function CatalogPicks({ kind, label, selected, onPick }: { kind: CatalogK
     <View style={{ gap: 6 }}>
       <Text className="gym-field__label">{label}</Text>
       {items.length === 0 ? (
-        <PressableScale onPress={() => router.push("/gym/manage?tab=catalog")} className="self-start" accessibilityRole="link" accessibilityLabel="Add prices in Plans / Catalogue">
+        <PressableScale onPress={() => router.push("/gym/catalog")} className="self-start" accessibilityRole="link" accessibilityLabel="Add prices in Plans / Catalogue">
           <Text className="gym-link" style={{ fontSize: 13 }}>Add prices in Plans / Catalogue</Text>
         </PressableScale>
       ) : (

@@ -437,7 +437,7 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
     await h.expectText("Sign out");
     await snapshotAllWidths("gym-menu");
     await clickLabel("Plans / Catalogue");
-    await h.expectPath("/gym/manage");
+    await h.expectPath("/gym/catalog");
   }));
 
   it("4c. Manage › Plan / Catalogue: add a plan, and the admission form offers it", run("gym-catalog", async () => {

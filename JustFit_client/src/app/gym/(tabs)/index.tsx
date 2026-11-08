@@ -61,11 +61,11 @@ export default function GymHome() {
     if (action === "sms") return void setTimeout(() => setSheet("sms"), 250);
     if (action === "enquiry") return void setTimeout(() => setSheet("enquiry"), 250);
     const go: Partial<Record<AddAction, () => void>> = {
-      plan: () => router.push("/gym/manage?tab=catalog"),
+      plan: () => router.push("/gym/catalog"),
       outlet: () => router.push("/gym/branches?add=1"),
       staff: () => router.push("/gym/staff?add=1"),
       attendance: () => router.push("/gym/attendance"),
-      expense: () => router.push("/gym/manage?tab=expense&add=1"),
+      expense: () => router.push("/gym/expenses?add=1"),
     };
     if (go[action]) go[action]!();
     else setTimeout(() => comingSoon("This"), 250);
@@ -94,7 +94,7 @@ export default function GymHome() {
     ? [
         { id: "admission", value: data.stats.admission, label: "Admission", color: tile("Violet"), icon: "users", href: "/gym/transactions?kind=admission&today=1", area: "payments" },
         { id: "renewal", value: data.stats.renewal, label: "Renewal", color: tile("Orange"), icon: "refresh-ccw", href: "/gym/transactions?kind=renewal&today=1", area: "payments" },
-        { id: "enquiry", value: data.stats.enquiry, label: "Enquiry", color: tile("Blue"), icon: "message-circle-question", href: "/gym/manage?tab=enquiry&view=today", area: "enquiries" },
+        { id: "enquiry", value: data.stats.enquiry, label: "Enquiry", color: tile("Blue"), icon: "message-circle-question", href: "/gym/enquiries?view=today", area: "enquiries" },
         { id: "due-paid", value: data.stats.duePaid, label: "Due Paid", color: tile("Green"), icon: "indian-rupee", href: "/gym/transactions?kind=due&today=1", area: "payments" },
         { id: "pt", value: data.stats.pt, label: "PT", color: tile("Pink"), icon: "dumbbell", href: "/gym/transactions?kind=pt&today=1", area: "payments" },
         { id: "product", value: data.stats.product, label: "Product", color: tile("Purple"), icon: "package", href: "/gym/transactions?kind=sale&today=1", area: "payments" },
@@ -278,7 +278,7 @@ export default function GymHome() {
           onSaved={() => {
             setSheet(null);
             reload();
-            router.push("/gym/manage?tab=enquiry");
+            router.push("/gym/enquiries");
           }}
         />
       )}

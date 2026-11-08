@@ -147,12 +147,22 @@ describe("ui gym expenses: Manage › Expense, the Add Expense sheet and Wallet'
     await h.expectText("Sign out");
     await h.settle();
     await clickLabel("Expenses");
-    await page.waitFor(`location.pathname === "/gym/manage"`, NAV_TIMEOUT, "Manage › Expenses");
+    await page.waitFor(`location.pathname === "/gym/expenses"`, NAV_TIMEOUT, "Expenses, over Home");
     await h.expectText("Nothing spent in");
     await h.expectText("Spent in");
     assert.ok(await hasLabel("Next month"), "the month picker");
     assert.ok(await hasLabel("Rent, 0"), "category chips with their counts");
     await snapshotAllWidths("gym-expenses-empty");
+    // Its own screen over Home (like Likely to leave): Back returns to Home, then reopen it
+    await clickLabel("Back");
+    await page.waitFor(`location.pathname === "/gym"`, NAV_TIMEOUT, "back on Home");
+    await h.expectText("Tumkur branch");
+    await clickLabel("Menu");
+    await h.expectText("Sign out");
+    await h.settle();
+    await clickLabel("Expenses");
+    await page.waitFor(`location.pathname === "/gym/expenses"`, NAV_TIMEOUT, "Expenses again");
+    await h.expectText("Nothing spent in");
   }));
 
   it("2. Add Expense: pick Rent, the amount and the mode, confirm; the card and the total follow", run("expenses-add", async () => {
@@ -209,7 +219,7 @@ describe("ui gym expenses: Manage › Expense, the Add Expense sheet and Wallet'
     await clickLabel("Add a member, plan, enquiry or payment");
     await h.settle(); // the + sheet slides up
     await clickLabel("Add Expense");
-    await page.waitFor(`location.pathname === "/gym/manage"`, NAV_TIMEOUT, "Manage › Expenses");
+    await page.waitFor(`location.pathname === "/gym/expenses"`, NAV_TIMEOUT, "Expenses, over Home");
     await h.expectText("Record money the outlet spent.");
   }));
 });

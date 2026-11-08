@@ -283,8 +283,12 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
   outlines and small text stay solid indigo (`gym-primary*`); never black.
 - **Navigation:** tabs Home · Manage · Wallet. Manage shows one section at a time with no top
   tabs (removed 2026-11-08, the user's request): the Manage tab always opens Members (`GymTabBar`
-  resets `?tab=`), its search bar at the top; Plans / Catalogue, Enquiries and Expenses open only from their links (`/gym/manage?tab=catalog|enquiry|expense`: the ☰ menu, Home's
-  tiles, + › Add Plan, + › Add Expense with `&add=1`) under a centred title (`gym-manage__title`). The ☰ (and the account button) on
+  resets `?tab=`), its search bar at the top. Since 2026-11-08 (the user's request, swipe-back) the
+  links open their own screens over Home instead of switching tabs, like Likely to leave, so the
+  back chevron, the iOS edge swipe and Android back return where they came from: `/gym/catalog`,
+  `/gym/enquiries` (`?view=`), `/gym/expenses` (`?add=1`) and `/gym/members` (the ☰ menu, Home's
+  tiles, + › Add Plan / Add Expense, the forms' "Add prices"), each in `GymSectionScreen` (back,
+  title, the area check). `/gym/manage?tab=catalog|enquiry|expense` still renders those sections. The ☰ (and the account button) on
   Home open the side menu (`components/gym/GymMenu.tsx`): the account and branch, Manage items
   (Expenses; Reminder Templates: coming soon; Outlets = branches; Staff / Admin Login for the gym
   admin only), Other (Send

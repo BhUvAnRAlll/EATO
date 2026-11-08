@@ -17,11 +17,11 @@ import type { GymIconName } from "@/constants/gymIcons";
 type MenuItem = { label: string; icon: GymIconName; href?: Href; action?: "sms"; ownerOnly?: boolean; area?: StaffArea };
 
 const MANAGE: MenuItem[] = [
-  { label: "Members", icon: "users", href: "/gym/manage?tab=member", area: "members" },
-  { label: "Plans / Catalogue", icon: "clipboard-list", href: "/gym/manage?tab=catalog", area: "catalog" },
-  { label: "Enquiries", icon: "messages-square", href: "/gym/manage?tab=enquiry", area: "enquiries" },
+  { label: "Members", icon: "users", href: "/gym/members", area: "members" },
+  { label: "Plans / Catalogue", icon: "clipboard-list", href: "/gym/catalog", area: "catalog" },
+  { label: "Enquiries", icon: "messages-square", href: "/gym/enquiries", area: "enquiries" },
   { label: "Likely to leave", icon: "user-x", href: "/gym/predictions/renewals", area: "predictions" },
-  { label: "Expenses", icon: "receipt", href: "/gym/manage?tab=expense", area: "expenses" },
+  { label: "Expenses", icon: "receipt", href: "/gym/expenses", area: "expenses" },
   { label: "Outlets", icon: "store", href: "/gym/branches" },
   { label: "Staff / Admin Login", icon: "user-cog", href: "/gym/staff", ownerOnly: true },
   { label: "Role & Permission", icon: "shield-check", href: "/gym/permissions", ownerOnly: true },
