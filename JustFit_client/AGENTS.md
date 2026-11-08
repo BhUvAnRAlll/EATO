@@ -292,7 +292,13 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
   Home open the side menu (`components/gym/GymMenu.tsx`): the account and branch, Manage items
   (Expenses; Reminder Templates: coming soon; Outlets = branches; Staff / Admin Login for the gym
   admin only), Other (Send
-  Bulk SMS opens its sheet; Attendance; Location & Attendance Settings) and Sign out. No subscription/Buy Now card (no
+  Bulk SMS opens its sheet; Attendance; Location & Attendance Settings; Settings) and Sign out.
+  **Settings (2026-11-08, the user's request):** ☰ › Settings (`app/gym/settings.tsx`) lists every
+  setting in one place, grouped Branch (Branch details, Invoice details & logo: gym admin only;
+  Outlets), Attendance (Location & Attendance, the QR code), Messages (SMS & auto reminders opens
+  `BulkSmsSheet`) and Team (Staff / Admin Login, Role & Permission: gym admin
+  only), then the account and Sign out. Rows open the existing screens; a row the login can't use
+  (`access` from `GET /api/gym/branches`, `useCan`) is hidden. No server change. No subscription/Buy Now card (no
   billing in justFit yet).
   Money in whole rupees; "today" is India's date (`rules.todayInIndia`); gyms are never deleted
   and nothing cascades except `gym_staff` from users.
