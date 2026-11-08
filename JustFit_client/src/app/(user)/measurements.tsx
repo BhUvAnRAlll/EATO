@@ -8,6 +8,7 @@ import { SkeletonCard } from "@/components/Skeleton";
 import { SetupField } from "@/components/setup/SetupField";
 import { SetupScreen } from "@/components/setup/SetupScreen";
 import { inRange, toNumberText } from "@/lib/numberInput";
+import { hud } from "@/lib/hud";
 import { fetchProfile, saveProfile, type SavedData } from "@/lib/profile";
 import { measurementSave, type MeasurementSave } from "@/lib/profileScan";
 import { SESSION_EXPIRED_MESSAGE, isSessionExpired, useSessionToken } from "@/lib/session";
@@ -64,6 +65,7 @@ export default function Measurements() {
     setIsBusy(false);
     if (!saved.ok) return setError(isSessionExpired(saved) ? SESSION_EXPIRED_MESSAGE : saved.error);
     track("weight_logged");
+    hud.success("Profile updated");
     router.back();
   };
 

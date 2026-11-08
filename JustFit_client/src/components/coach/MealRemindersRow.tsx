@@ -5,6 +5,7 @@ import { SymbolView } from "@/components/SymbolView";
 import type { CoachPlan } from "@/lib/coach";
 import { remindersOn, setRemindersOn } from "@/lib/mealReminders";
 import { useSwitchColors, useThemeColors } from "@/theme";
+import { haptic } from "@/lib/haptics";
 
 type Props = {
   plan: CoachPlan;
@@ -34,6 +35,7 @@ export function MealRemindersRow({ plan, date }: Props) {
   if (Platform.OS === "web") return null;
 
   const toggle = async (next: boolean) => {
+    haptic.select();
     setSaving(true);
     setOn(next);
     // The phone's notification service failing never leaves the switch stuck

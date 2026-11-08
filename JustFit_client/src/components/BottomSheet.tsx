@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Animated, Easing, Modal, Pressable, StyleSheet, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { HudHost } from "@/components/Hud";
 import { useThemeColors } from "@/theme";
 
 type BottomSheetProps = {
@@ -45,6 +46,7 @@ export function BottomSheet({ onClose, locked = false, children }: BottomSheetPr
           {children(dismiss)}
         </Animated.View>
       </View>
+      <HudHost />
     </Modal>
   );
 }

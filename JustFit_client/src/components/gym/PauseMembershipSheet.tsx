@@ -26,7 +26,7 @@ export function PauseMembershipSheet({ member, onClose, onSaved }: { member: Gym
   const [until, setUntil] = useState(daysFromToday(6));
   const [reason, setReason] = useState("");
   const [confirming, setConfirming] = useState(false);
-  const { busy, error, save } = useGymSave(onSaved);
+  const { busy, error, save } = useGymSave(onSaved, "Membership paused");
   const days = until >= from ? daysBetween(from, until) : 0;
   const trimmed = reason.trim();
   const ready = days >= 1 && days <= MAX_DAYS && trimmed.length >= 3 && from <= member.expiresOn;

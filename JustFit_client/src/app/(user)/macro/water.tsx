@@ -104,6 +104,7 @@ export default function Water() {
   };
 
   const toggleReminders = async (on: boolean) => {
+    haptic.select();
     if (!day) return;
     setError(null);
     setDay({ ...day, preferences: { ...day.preferences, remindersEnabled: on } });

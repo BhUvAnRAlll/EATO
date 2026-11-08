@@ -20,6 +20,7 @@ import {
   type VisceralStatus,
 } from "@/lib/bodyScanRules";
 import type { BodySegment, SegmentReading } from "@/lib/nutrition";
+import { hud } from "@/lib/hud";
 import { fetchProfile, saveProfile } from "@/lib/profile";
 import { bodyFatSave } from "@/lib/profileScan";
 import { SESSION_EXPIRED_MESSAGE, isSessionExpired, returnToSignIn, useSessionToken } from "@/lib/session";
@@ -181,6 +182,7 @@ export default function ScanReport() {
     setIsSaving(false);
     if (!saved.ok) return failSave(saved);
     acceptScan();
+    hud.success("Profile updated");
     router.dismissTo("/profile");
   };
 

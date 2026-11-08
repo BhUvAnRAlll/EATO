@@ -8,6 +8,7 @@ import { StatusBar } from "expo-status-bar";
 import * as SystemUI from "expo-system-ui";
 import { ActivityIndicator, AppState, View } from "react-native";
 
+import { HudHost } from "@/components/Hud";
 import { swipeBack } from "@/constants/navigation";
 import { fontFiles } from "@/constants/fonts";
 import { useAuthStore } from "@/store/auth";
@@ -98,6 +99,7 @@ function RootStack() {
         <Stack.Screen name="gym" />
       </Stack.Protected>
     </Stack>
+    <HudHost />
     </ThemeProvider>
   );
 }

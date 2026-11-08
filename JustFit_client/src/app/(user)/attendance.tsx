@@ -15,6 +15,7 @@ import { attendanceApi, looksLikeGymQr, type MyVisit, type ScanDone, type ScanPr
 import { STATUS_TEXT, clockTime, dayOf, durationText } from "@/lib/attendanceText";
 import { readGps } from "@/lib/gpsReading";
 import { haptic } from "@/lib/haptics";
+import { hud } from "@/lib/hud";
 import { useSessionToken } from "@/lib/session";
 import { useThemeColors } from "@/theme";
 
@@ -53,24 +54,29 @@ export default function GymAttendance() {
   // The whole check: the code → which gym and in or out → GPS → recorded
   const run = useCallback(async (qr: string) => {
     if (busy.current) return;
+    // A refusal shows its own card; the error buzz says so without looking
+    const fail = (failed: Extract<Step, { kind: "failed" }>) => {
+      haptic.error();
+      setStep(failed);
+    };
     busy.current = true;
     try {
       setStep({ kind: "working", label: "Checking the QR code…" });
       const token = await getToken().catch(() => null);
       const preview = await attendanceApi.scan(token, qr);
-      if (!preview.ok) return setStep({ kind: "failed", error: preview.error, qr: null });
+      if (!preview.ok) return fail({ kind: "failed", error: preview.error, qr: null });
       // Refusals the preview already shows: no need to ask for the location first
-      if (!preview.data.hasLocation) return setStep({ kind: "failed", error: "This gym hasn't set its location for QR attendance yet. Please check in at the front desk.", qr: null });
+      if (!preview.data.hasLocation) return fail({ kind: "failed", error: "This gym hasn't set its location for QR attendance yet. Please check in at the front desk.", qr: null });
       if (preview.data.nextAction === "check_in" && !preview.data.member.active) {
-        return setStep({ kind: "failed", error: "Your membership isn't active today. Renew it or check in at the front desk.", qr: null });
+        return fail({ kind: "failed", error: "Your membership isn't active today. Renew it or check in at the front desk.", qr: null });
       }
       setStep({ kind: "working", label: "Finding your location…", preview: preview.data });
       const gps = await readGps();
-      if (!gps.ok) return setStep({ kind: "failed", error: gps.message, qr, openSettings: gps.reason === "denied" && !gps.canAskAgain });
+      if (!gps.ok) return fail({ kind: "failed", error: gps.message, qr, openSettings: gps.reason === "denied" && !gps.canAskAgain });
       setStep({ kind: "working", label: preview.data.nextAction === "check_in" ? "Checking you in…" : "Checking you out…", preview: preview.data });
       const done = await attendanceApi.record(token, preview.data.nextAction, qr, gps.reading);
-      if (!done.ok) return setStep({ kind: "failed", error: done.error, qr });
-      haptic.success();
+      if (!done.ok) return fail({ kind: "failed", error: done.error, qr });
+      hud.success(done.data.action === "check_in" ? "Checked in" : "Checked out");
       setStep({ kind: "done", result: done.data });
       loadVisits();
     } finally {
@@ -100,6 +106,7 @@ export default function GymAttendance() {
       haptic.error();
       return setStep({ kind: "failed", error: "That isn't a justFit gym QR code. Scan the attendance QR code at your gym's front desk.", qr: null });
     }
+    haptic.select();
     run(data);
   };
 

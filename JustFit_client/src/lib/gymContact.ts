@@ -1,16 +1,16 @@
-import { Alert, Linking, Platform } from "react-native";
+import { Linking, Platform } from "react-native";
 
 import { planLabel, rupees, shortDate } from "@/data/gymDashboard";
 import type { GymInfo, GymMember, GymPayment } from "@/lib/gymApi";
+import { hud } from "@/lib/hud";
 import { fillTemplate, templateText, type CustomTemplates, type TemplateKind } from "@/lib/reminderTemplates";
 
 // Reaching a member from the gym portal: the phone's own Call, SMS, WhatsApp and Email apps, with
 // the message already written. justFit sends nothing itself (no SMS provider, no cost); the gym
 // admin reads the message and taps send.
 
-const noNumber = () => Alert.alert("No mobile number", "Add their mobile number to reach them.");
-const open = (url: string, what: string) =>
-  Linking.openURL(url).catch(() => Alert.alert(`Couldn't open ${what}`, `${what} isn't available on this phone.`));
+const noNumber = () => hud.error("No mobile number saved");
+const open = (url: string, what: string) => Linking.openURL(url).catch(() => hud.error(`Couldn't open ${what}`));
 
 // A number on its own (an enquiry), or a member's
 export function callPhone(phone: string | null) {
@@ -42,7 +42,7 @@ export function whatsapp(member: GymMember, text = "") {
 }
 
 export function emailTo(address: string | null, subject = "", body = "") {
-  if (!address) return Alert.alert("No email", "Add the member's email to write to them.");
+  if (!address) return hud.error("No email saved");
   open(`mailto:${address}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, "Mail");
 }
 

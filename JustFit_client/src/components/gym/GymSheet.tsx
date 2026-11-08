@@ -4,6 +4,7 @@ import { GestureDetector, GestureHandlerRootView, ScrollView, usePanGesture } fr
 import Animated, { FadeIn, ReduceMotion, SlideInDown, useAnimatedStyle, useSharedValue, withSpring, withTiming } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { HudHost } from "@/components/Hud";
 import { PressableScale } from "@/components/PressableScale";
 import { GymIcon } from "@/components/gym/GymIcon";
 import { useThemeColors } from "@/theme";
@@ -130,6 +131,7 @@ export function GymSheet({ title, subtitle, onClose, children, overlay, onBack, 
         </View>
       </Animated.View>
       {overlay}
+      <HudHost />
       {stack}
       </GestureHandlerRootView>
     </Modal>

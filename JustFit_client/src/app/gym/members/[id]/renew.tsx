@@ -31,7 +31,7 @@ export default function GymRenew() {
   const [dueBy, setDueBy] = useState<string | null>(() => daysFromToday(7));
   // Back to the member page that opened this form (it re-reads on focus); a second copy of it would
   // sit on top otherwise, and Back then showed the same member twice (QA 2026-11-07)
-  const { busy, error, save } = useGymSave(() => (router.canGoBack() ? router.back() : router.replace({ pathname: "/gym/members/[id]", params: { id: String(memberId) } })));
+  const { busy, error, save } = useGymSave(() => (router.canGoBack() ? router.back() : router.replace({ pathname: "/gym/members/[id]", params: { id: String(memberId) } })), "Membership renewed");
   const feeValue = rupeesFromText(fee);
   const paidValue = rupeesFromText(paid);
   const length = durationValue(duration);

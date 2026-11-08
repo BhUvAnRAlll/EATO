@@ -11,6 +11,7 @@ import { SymbolView } from "@/components/SymbolView";
 import { aiUsage, inr, type BudgetSettings, type BudgetView } from "@/lib/aiUsage";
 import { useSessionToken } from "@/lib/session";
 import { useThemeColors, useSwitchColors } from "@/theme";
+import { haptic } from "@/lib/haptics";
 
 type Load = { state: "loading" } | { state: "failed"; error: string } | { state: "ready"; data: BudgetView };
 
@@ -153,7 +154,7 @@ export default function AiBudgetScreen() {
                       <Text className="card__title">{item.label}</Text>
                       <Text className="meta-text">{item.note}</Text>
                     </View>
-                    <Switch {...switchColors} value={form[item.key]} onValueChange={(value) => setForm({ ...form, [item.key]: value })} disabled={saving} accessibilityLabel={item.label} />
+                    <Switch {...switchColors} value={form[item.key]} onValueChange={(value) => { haptic.select(); setForm({ ...form, [item.key]: value }); }} disabled={saving} accessibilityLabel={item.label} />
                   </View>
                 ))}
                 {note && <Text className={note.tone === "ok" ? "admin__success" : "macro__error"} accessibilityRole={note.tone === "ok" ? undefined : "alert"}>{note.text}</Text>}

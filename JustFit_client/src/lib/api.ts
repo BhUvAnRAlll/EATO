@@ -2,6 +2,7 @@ import Constants from "expo-constants";
 import { NativeModules } from "react-native";
 
 import { devServerHost, requireHttpsInRelease } from "@/lib/apiHost";
+import { hud } from "@/lib/hud";
 import { errorLine, readJson, serverProblem, TIMED_OUT, timeoutFor } from "@/lib/apiRules";
 
 // Port the justFit server (JustFit_server) listens on in development
@@ -85,6 +86,9 @@ export async function apiFetch<T>(path: string, options: ApiOptions = {}): Promi
     return { ok: true, data: body.value as T };
   } catch {
     if (controller.signal.aborted) return { ok: false, error: TIMED_OUT };
+    // A save that never left the phone: say so at once, wherever its own error line is. Reads
+    // stay quiet, as every screen shows its own "couldn't load" state with Try again
+    if ((options.method ?? "GET") !== "GET") hud.offline();
     return { ok: false, error: "Couldn't reach the server. Check your connection and try again." };
   } finally {
     clearTimeout(timer);

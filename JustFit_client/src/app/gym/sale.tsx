@@ -18,7 +18,7 @@ export default function GymSale() {
   const [category, setCategory] = useState<SaleCategory>("supplement");
   const [amount, setAmount] = useState("");
   const [method, setMethod] = useState<PayMethod>("cash");
-  const { busy, error, save } = useGymSave(() => router.replace("/gym"));
+  const { busy, error, save } = useGymSave(() => router.replace("/gym"), "Sale recorded");
   const value = rupeesFromText(amount);
   const ready = item.trim().length >= 2 && value >= 1;
   return (

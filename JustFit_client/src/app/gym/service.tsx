@@ -17,7 +17,7 @@ export default function GymService() {
   const [item, setItem] = useState("");
   const [amount, setAmount] = useState("");
   const [method, setMethod] = useState<PayMethod>("cash");
-  const { busy, error, save } = useGymSave(() => router.replace("/gym"));
+  const { busy, error, save } = useGymSave(() => router.replace("/gym"), "Service recorded");
   const value = rupeesFromText(amount);
   return (
     <GymScreen title="Service">

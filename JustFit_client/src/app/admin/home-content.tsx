@@ -12,6 +12,7 @@ import { destinations, quickActionIconKeys, type Meal, type QuickAction } from "
 import { adminHome, resolveImage, type HomeContentInput } from "@/lib/home";
 import { useSessionToken } from "@/lib/session";
 import { useThemeColors, useSwitchColors } from "@/theme";
+import { haptic } from "@/lib/haptics";
 
 const MAX_QUICK_ACTIONS = 6;
 const MAX_POPULAR = 10;
@@ -136,7 +137,7 @@ export default function AdminHomeContent() {
           <AdminField label="Today action" value={content.todayActionLabel} onChangeText={(todayActionLabel) => update({ todayActionLabel })} maxLength={30} />
           <View className="flex-row items-center justify-between">
             <Text className="auth__label">Show the Today section</Text>
-            <Switch {...switchColors} value={content.showTodaySection} onValueChange={(showTodaySection) => update({ showTodaySection })} />
+            <Switch {...switchColors} value={content.showTodaySection} onValueChange={(showTodaySection) => { haptic.select(); update({ showTodaySection }); }} />
           </View>
 
           <View className="flex-row items-center justify-between">

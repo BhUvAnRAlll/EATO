@@ -39,7 +39,7 @@ export function EditProfileSheet({ member, onClose, onSaved }: { member: GymMemb
   const [address, setAddress] = useState(member.address ?? "");
   const [notes, setNotes] = useState(member.notes ?? "");
   const [dob, setDob] = useState<string | null>(member.dob);
-  const { busy, error, save } = useGymSave(onSaved);
+  const { busy, error, save } = useGymSave(onSaved, "Profile updated");
 
   const phoneOk = phone.length === 0 || /^[6-9]\d{9}$/.test(phone);
   const emailOk = email.trim() === "" || /^[^\s@]+@[^\s@]+\.[A-Za-z]{2,}$/.test(email.trim());

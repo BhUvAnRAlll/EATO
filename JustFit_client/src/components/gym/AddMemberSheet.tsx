@@ -97,7 +97,7 @@ export function AddMemberSheet({ onClose, onSaved, initial }: { onClose: () => v
   const { busy, error, save } = useGymSave((detail: GymMemberDetail) => {
     onSaved(detail);
     if (sendInvoice) router.push({ pathname: "/gym/invoice", params: { memberId: String(detail.member.id) } });
-  });
+  }, "Member added");
 
   // Step 1
   const phoneOk = phone.length === 0 || /^[6-9]\d{9}$/.test(phone);

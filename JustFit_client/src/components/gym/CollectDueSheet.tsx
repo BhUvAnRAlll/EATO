@@ -25,7 +25,7 @@ export function CollectDueSheet({ member, gym, onClose, onSaved }: { member: Gym
   const { busy, error, save } = useGymSave((detail: GymMemberDetail) => {
     onSaved(detail);
     if (sendInvoice) router.push({ pathname: "/gym/invoice", params: { memberId: String(detail.member.id) } });
-  });
+  }, "Payment recorded");
   const value = rupeesFromText(amount);
   const part = value >= 1 && value < member.due;
   const ready = value >= 1 && value <= member.due && method !== "" && (!part || dueBy !== null);

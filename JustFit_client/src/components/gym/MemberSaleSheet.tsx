@@ -50,7 +50,7 @@ export function MemberSaleSheet({ kind, member, gym, onClose, onSaved }: { kind:
     onSaved(detail);
     // Send Invoice (2026-11-07): the Invoice screen for this sale, to share as a PDF
     if (sendInvoice) router.push({ pathname: "/gym/invoice", params: { memberId: String(detail.member.id) } });
-  });
+  }, isProduct ? "Sale recorded" : "Service added");
 
   const items = catalog.state === "ready" ? catalog.data.items.filter((i) => i.kind === kind) : [];
   const chosen = items.find((i) => i.id === itemId) ?? null;

@@ -6701,3 +6701,45 @@
   line-height: 20px;
   color: var(--color-white);
 }
+
+/* HUD feedback (components/Hud.tsx, 2026-11-08): a short message that hides itself. On iPhone a
+   small dark HUD in the middle of the screen; on Android and the web a Material snackbar */
+@utility hud {
+  background-color: var(--color-inverse);
+  box-shadow: var(--shadow-sheet);
+}
+
+@utility hud--centre {
+  align-items: center;
+  gap: 10px;
+  min-width: 148px;
+  max-width: 260px;
+  padding-block: 20px;
+  padding-inline: 24px;
+  border-radius: var(--radius-xl);
+}
+
+@utility hud--bar {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding-block: 12px;
+  padding-inline: 16px;
+  border-radius: var(--radius-sm);
+}
+
+@utility hud__label {
+  flex-shrink: 1;
+  font-family: var(--font-sans-medium);
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--color-on-inverse);
+}
+
+@utility hud__label--centre {
+  font-family: var(--font-sans-semibold);
+  font-size: 15px;
+  line-height: 22px;
+  text-align: center;
+}

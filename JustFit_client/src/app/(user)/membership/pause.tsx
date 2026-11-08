@@ -10,7 +10,7 @@ import { PrimaryButton } from "@/components/PrimaryButton";
 import { ScreenSkeleton } from "@/components/Skeleton";
 import { DatePickerSheet } from "@/components/setup/DatePickerSheet";
 import { SetupField } from "@/components/setup/SetupField";
-import { haptic } from "@/lib/haptics";
+import { hud } from "@/lib/hud";
 import { membershipApi, type Membership } from "@/lib/membershipApi";
 import { addDays, daysBetween, prettyDate } from "@/lib/membershipText";
 import { useSessionToken } from "@/lib/session";
@@ -71,7 +71,7 @@ export default function PauseMembership() {
     const answer = await membershipApi.requestPause(await getToken().catch(() => null), ready.membership.id, { from, until, reason: trimmed });
     setBusy(false);
     if (!answer.ok) return setError(answer.error);
-    haptic.success();
+    hud.success("Pause request sent");
     if (router.canGoBack()) router.back();
     else router.replace("/membership");
   };

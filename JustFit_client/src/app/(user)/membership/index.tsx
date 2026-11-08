@@ -10,7 +10,7 @@ import { PrimaryButton } from "@/components/PrimaryButton";
 import { usePullToRefresh } from "@/components/PullToRefresh";
 import { ScreenSkeleton } from "@/components/Skeleton";
 import { SymbolView } from "@/components/SymbolView";
-import { haptic } from "@/lib/haptics";
+import { hud } from "@/lib/hud";
 import { membershipApi, type Membership, type Memberships } from "@/lib/membershipApi";
 import { historyLine, membershipBadge, pauseLine, planText, prettyDate } from "@/lib/membershipText";
 import { useSessionToken } from "@/lib/session";
@@ -44,7 +44,7 @@ export default function GymMembership() {
     const answer = await membershipApi.cancelPause(await getToken().catch(() => null), m.id, m.pause.id);
     setCancelling(null);
     if (!answer.ok) return setCancelError({ id: m.id, error: answer.error });
-    haptic.success();
+    hud.success("Request cancelled");
     setResult((current) => (current.state === "ready" ? { state: "ready", data: { ...current.data, memberships: current.data.memberships.map((x) => (x.id === m.id ? answer.data : x)) } } : current));
   };
   const confirmCancel = (m: Membership) => {

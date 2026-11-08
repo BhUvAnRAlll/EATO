@@ -4,6 +4,7 @@ import { AdminField, ChoiceChips } from "@/components/admin/AdminField";
 import { LAYOUT_TEXT, type SectionFields } from "@/lib/adminPrograms";
 import type { SectionLayout } from "@/lib/fitness/catalog";
 import { useSwitchColors } from "@/theme";
+import { haptic } from "@/lib/haptics";
 
 type CategoryFormProps = {
   value: SectionFields;
@@ -30,7 +31,7 @@ export function CategoryForm({ value, onChange, disabled }: CategoryFormProps) {
             <Text className="card__title">Shown to members</Text>
             <Text className="meta-text">{value.published ? "On the Fitness tab" : "Hidden, with its programs"}</Text>
           </View>
-          <Switch value={value.published} disabled={disabled} onValueChange={(v) => set("published", v)} {...switchColors} accessibilityLabel="Category shown to members" />
+          <Switch value={value.published} disabled={disabled} onValueChange={(v) => { haptic.select(); set("published", v); }} {...switchColors} accessibilityLabel="Category shown to members" />
         </View>
       </View>
     </View>

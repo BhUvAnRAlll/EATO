@@ -7,6 +7,8 @@ import * as Haptics from "expo-haptics";
 //   haptic.success() a workout finished, a check-in done, a plan saved
 //   haptic.warning() something needs a second look (e.g. a destructive confirm)
 //   haptic.error()   a form or request failed
+// For a finished or failed action that also deserves a short message, use lib/hud.ts instead: it
+// plays the same buzz.
 // The web has no haptics, so every call is a no-op there. Calls closer together than
 // MIN_GAP_MS are dropped so a fast scroll through chips never turns into a buzz.
 const MIN_GAP_MS = 80;
