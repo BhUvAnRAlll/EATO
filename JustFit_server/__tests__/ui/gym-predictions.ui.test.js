@@ -303,7 +303,7 @@ describe("ui gym predictions: Likely to leave", () => {
     await h.expectText("Called back within 2 days");
     await h.expectText("Called, reached · ");
     // The edit sheet lists the contacts
-    await clickLabel("Kiran P, New, Hot · 70, Membership · Referral. Edit");
+    await clickLabel("Kiran P, New, Hot · 70, Membership · Referral, Referred by +91 90000 00099. Edit");
     await h.expectText("Contacts");
     await h.expectText("Called, reached");
     await snapshotAllWidths("gym-enquiry-contacts");
