@@ -1,6 +1,7 @@
 import { Platform, View } from "react-native";
 import { Stack } from "expo-router";
 
+import { swipeBack } from "@/constants/navigation";
 import { SessionExpiredBanner } from "@/components/SessionExpiredBanner";
 import { useThemeColors } from "@/theme";
 
@@ -15,6 +16,7 @@ export default function GymLayout() {
       <Stack
         screenOptions={{
           headerShown: false,
+          ...swipeBack,
           contentStyle: { backgroundColor: colors.gymPage },
           animation: Platform.OS === "android" ? "slide_from_right" : "default",
         }}

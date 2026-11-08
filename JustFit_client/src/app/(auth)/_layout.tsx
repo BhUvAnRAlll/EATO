@@ -1,5 +1,6 @@
 import { Stack } from "expo-router";
 
+import { swipeBack } from "@/constants/navigation";
 import { useThemeColors } from "@/theme";
 
 // Sign up and sign in share the same layout, so switching between them
@@ -10,6 +11,7 @@ export default function AuthLayout() {
     <Stack
       screenOptions={{
         headerShown: false,
+        ...swipeBack,
         animation: "fade",
         animationDuration: 250,
         contentStyle: { backgroundColor: colors.surface },

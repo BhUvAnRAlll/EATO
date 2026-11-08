@@ -1,6 +1,7 @@
 import { ActivityIndicator, View, Platform } from "react-native";
 import { Redirect, Stack } from "expo-router";
 
+import { swipeBack } from "@/constants/navigation";
 import { useAuthStore } from "@/store/auth";
 import { useThemeColors } from "@/theme";
 
@@ -28,6 +29,7 @@ export default function SetupLayout() {
     <Stack
       screenOptions={{
         headerShown: false,
+        ...swipeBack,
         contentStyle: { backgroundColor: colors.cream },
         // iOS keeps its native push and swipe back; Android slides the same way instead of
         // its default fade-up, so the app moves alike on both

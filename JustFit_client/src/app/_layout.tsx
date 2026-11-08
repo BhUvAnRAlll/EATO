@@ -8,6 +8,7 @@ import { StatusBar } from "expo-status-bar";
 import * as SystemUI from "expo-system-ui";
 import { ActivityIndicator, AppState, View } from "react-native";
 
+import { swipeBack } from "@/constants/navigation";
 import { fontFiles } from "@/constants/fonts";
 import { useAuthStore } from "@/store/auth";
 import { useThemeColors } from "@/theme";
@@ -83,6 +84,7 @@ function RootStack() {
     <Stack
       screenOptions={{
         headerShown: false,
+        ...swipeBack,
         contentStyle: { backgroundColor: colors.background },
       }}
     >
