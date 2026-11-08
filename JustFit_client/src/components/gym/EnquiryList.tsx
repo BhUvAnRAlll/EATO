@@ -13,6 +13,7 @@ import { GymEmpty, GymError, GymLoading } from "@/components/gym/GymStates";
 import { ENQUIRY_STATUS_LABEL, ENQUIRY_VIEWS, INTEREST_LABEL, LEAD_LABEL, SOURCE_LABEL, contactText, followUpText, initialsOf, phoneText, referrerText, shortDate } from "@/data/gymDashboard";
 import { gymApi, type EnquiryStatus, type EnquiryView, type GymEnquiry, type LeadLevel } from "@/lib/gymApi";
 import { callPhone, enquiryFollowUp, whatsappPhone } from "@/lib/gymContact";
+import { useReminderTemplates } from "@/lib/useReminderTemplates";
 import { notice } from "@/lib/gymPortal";
 import { haptic } from "@/lib/haptics";
 import { listPerf } from "@/lib/listPerf";
@@ -74,6 +75,8 @@ export function EnquiryList({ initialView = "open" }: { initialView?: EnquiryVie
 
   const load = useCallback((token: string | null) => gymApi.enquiries(token, view, search), [view, search]);
   const { result, retry, reload, refreshing, refresh } = useGymData(load);
+  // The branch's own follow-up wording (Reminder Templates) for the cards' WhatsApp
+  const templates = useReminderTemplates();
   const data = result.state === "ready" ? result.data : null;
 
   const leadTone = (level: LeadLevel) =>
@@ -226,7 +229,7 @@ export function EnquiryList({ initialView = "open" }: { initialView?: EnquiryVie
                     </PressableScale>
                   )}
                   {item.phone && (
-                    <PressableScale onPress={() => data && whatsappPhone(item.phone, enquiryFollowUp(item.name, data.gym))} hitSlop={6} className="gym-member-card__action" accessibilityRole="button" accessibilityLabel={`WhatsApp ${item.name}`}>
+                    <PressableScale onPress={() => data && whatsappPhone(item.phone, enquiryFollowUp(item.name, data.gym, templates))} hitSlop={6} className="gym-member-card__action" accessibilityRole="button" accessibilityLabel={`WhatsApp ${item.name}`}>
                       <WhatsAppMark size={22} />
                     </PressableScale>
                   )}

@@ -1,4 +1,5 @@
 import { apiFetch, type ApiResult } from "@/lib/api";
+import type { CustomTemplates, TemplateKind } from "@/lib/reminderTemplates";
 
 // The gym admin portal's calls (JustFit_server/gym, mounted at /api/gym) and the Super Admin's
 // Gyms (/api/admin/portal/gyms). The server reads the caller's role and gym on every request;
@@ -27,6 +28,8 @@ export type GymInfo = { name: string; branch: string; area: string; city: string
 // Invoices (2026-11-07): one payment's invoice, as the Invoice screen shows and shares it. billTo is
 // null for a sale at the counter; membership and balance are the member's standing today.
 // logoUrl: the gym's logo, read with the session (null: none); it is set through setLogo, not PATCH
+// Reminder Templates: the branch's own wording (null: the default); canEdit for the gym admin only
+export type GymTemplates = { templates: CustomTemplates; canEdit: boolean };
 export type InvoiceDetails = { address: string | null; phone: string | null; gstin: string | null; logoUrl: string | null };
 // What the gym admin types on Branch details › Invoice details (the logo is uploaded on its own)
 export type InvoiceDetailFields = Partial<Record<"address" | "phone" | "gstin", string>>;
@@ -306,6 +309,11 @@ export const gymApi = {
   memberInvoice: (token: string | null, memberId: number) => call<GymInvoice>(token, `/api/gym/members/${memberId}/invoice`),
   invoiceDetails: (token: string | null) => call<InvoiceDetails>(token, "/api/gym/invoice-details"),
   updateInvoiceDetails: (token: string | null, fields: InvoiceDetailFields) => call<InvoiceDetails>(token, "/api/gym/invoice-details", "PATCH", fields),
+  // Reminder Templates (gym/templates.js): every portal login reads them; the gym admin rewords
+  // one (saveTemplate) or puts it back to the default (resetTemplate)
+  templates: (token: string | null) => call<GymTemplates>(token, "/api/gym/templates"),
+  saveTemplate: (token: string | null, kind: TemplateKind, text: string) => call<GymTemplates>(token, `/api/gym/templates/${kind}`, "PUT", { text }),
+  resetTemplate: (token: string | null, kind: TemplateKind) => call<GymTemplates>(token, `/api/gym/templates/${kind}`, "DELETE"),
   // The gym's logo (gym/logos.js): printed at the top right of every invoice; the gym admin only
   setLogo: (token: string | null, image: { data: string; mediaType: string }) => call<InvoiceDetails>(token, "/api/gym/logo", "PUT", { data: image.data, mediaType: image.mediaType }),
   removeLogo: (token: string | null) => call<InvoiceDetails>(token, "/api/gym/logo", "DELETE"),

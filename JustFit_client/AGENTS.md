@@ -305,7 +305,7 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
   tiles, + › Add Plan / Add Expense, the forms' "Add prices"), each in `GymSectionScreen` (back,
   title, the area check). `/gym/manage?tab=catalog|enquiry|expense` still renders those sections. The ☰ (and the account button) on
   Home open the side menu (`components/gym/GymMenu.tsx`): the account and branch, Manage items
-  (Expenses; Reminder Templates: coming soon; Outlets = branches; Staff / Admin Login for the gym
+  (Expenses; Reminder Templates; Outlets = branches; Staff / Admin Login for the gym
   admin only), Other (Send
   Bulk SMS opens its sheet; Attendance; Location & Attendance Settings; Settings) and Sign out.
   **Settings (2026-11-08, the user's request):** ☰ › Settings (`app/gym/settings.tsx`) lists every
@@ -596,6 +596,26 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
   naming it and Wallet has no expense lines). Not built: recurring expenses, budgets, CSV export.
   Tests: `__tests__/gym-expense-rules.test.js`, `e2e/gym-expenses.e2e.test.js`,
   `ui/gym-expenses.ui.test.js`, the client's `data/__tests__/gymExpenses.test.ts`.
+- **Reminder Templates (2026-11-08, the user's plan):** ☰ › Reminder Templates (`app/gym/templates.tsx`)
+  lists the branch's four messages, Payment due, Membership expiring, Membership expired and Enquiry
+  follow-up, each filled in with a sample member and tagged Custom or Default. The gym admin edits one in
+  `TemplateSheet` (the text, up to 300 characters; chips that insert `{name}`, `{gym}`, `{amount}`,
+  `{dueBy}`, `{date}` or `{code}` where the kind allows; a live preview; Save; Reset to default, asked
+  once more); Staff read them only. The defaults and placeholder lists are in `lib/reminderTemplates.ts`
+  (pure, unit-tested; the defaults are the wording used before, so nothing changes until someone edits).
+  `gymContact`'s `dueReminder`, `expiredReminder` and `enquiryFollowUp` take the branch's templates
+  (`useReminderTemplates`, read once when Send Reminder or Enquiries opens; a failed read uses the
+  defaults). justFit's own SMS keep their DLT text: Send Reminder sends a custom template through the
+  phone's Messages app ("Your own template goes from your phone's Messages app"). Server
+  `gym/templateRules.js` (pure: the kinds, each kind's placeholders, 10-300 characters, no control
+  characters, no unknown placeholder or stray brace), `gym/templates.js`; routes `GET /api/gym/templates`
+  (every portal login, no area), `PUT|DELETE /api/gym/templates/:kind` (gym admin only, 30 an hour,
+  audited `gym.template_edit`). Table `gym_reminder_templates` (one row per branch and kind; migration
+  `2026-12-11-reminder-templates.sql`; before it the routes answer 503 naming it). Not built: birthday
+  and renewal templates (birthday goes only by justFit SMS; renewal reuses expiry / expired), templates
+  per gym rather than per branch. Tests: `__tests__/gym-template-rules.test.js`,
+  `e2e/gym-templates.e2e.test.js`, `ui/gym-templates.ui.test.js`, the client's
+  `lib/__tests__/reminderTemplates.test.ts`.
 - **Invoice template and gym logos (2026-11-08, the user's template):** the Invoice screen and the PDF
   follow the user's invoice template: "Invoice" with a red rule and the kind under it ("Membership
   Invoice", "Product Invoice"…), the gym's own logo at the top right (its initials on a red square

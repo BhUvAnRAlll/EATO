@@ -25,7 +25,7 @@ const MANAGE: MenuItem[] = [
   { label: "Outlets", icon: "store", href: "/gym/branches" },
   { label: "Staff / Admin Login", icon: "user-cog", href: "/gym/staff", ownerOnly: true },
   { label: "Role & Permission", icon: "shield-check", href: "/gym/permissions", ownerOnly: true },
-  { label: "Reminder Templates", icon: "message-square-text" },
+  { label: "Reminder Templates", icon: "message-square-text", href: "/gym/templates" },
 ];
 const OTHER: MenuItem[] = [
   { label: "Send Bulk SMS", icon: "message-square-more", action: "sms", area: "sms" },
@@ -36,7 +36,7 @@ const OTHER: MenuItem[] = [
 
 // The ☰ side menu over Home: who is signed in and their branch, Manage (Members, Plans /
 // Catalogue, Enquiries, Likely to leave = the renewal-risk prediction, Outlets = branches, Staff /
-// Admin Login and Role & Permission for the gym admin only; the rest are on their way), Other (Send Bulk SMS opens Home's sheet through onBulkSms; Attendance and
+// Admin Login and Role & Permission for the gym admin only, Reminder Templates), Other (Send Bulk SMS opens Home's sheet through onBulkSms; Attendance and
 // its settings; Settings, every setting in one list), and Sign out. A Staff login sees only the areas the gym admin gave them (useCan).
 export function GymMenu({ open, onClose, gymLine, onBulkSms, canManageTeam }: { open: boolean; onClose: () => void; gymLine: string | null; onBulkSms: () => void; canManageTeam: boolean }) {
   const colors = useThemeColors();

@@ -25,6 +25,8 @@ const predictionRules = require("./predictionRules");
 const service = require("./service");
 const rules = require("./rules");
 const sms = require("./sms");
+const templates = require("./templates");
+const templateRules = require("./templateRules");
 const staff = require("./staff");
 const staffRules = require("./staffRules");
 const trainer = require("./trainer");
@@ -417,6 +419,29 @@ router.delete("/logo", ownerOnly("Only the gym admin can change the logo."), log
 }));
 router.get("/logo", logoRoute(async (req, res) => {
   logos.send(res, await logos.logoFile(pool(req), req.gym.brand_id));
+}));
+
+// Reminder Templates (gym/templates.js, 2026-11-08): the branch's own wording for Send Reminder
+// and the enquiry WhatsApp button. Every portal login reads them (no area: the reminders are sent
+// from Members, Due Members, Likely to leave and Enquiries); only the gym admin rewords or resets
+// one, with its own hourly allowance. Before migration 2026-12-11 the routes say so.
+const TEMPLATE_MIGRATION = "Reminder Templates need the 2026-12-11-reminder-templates migration on this server.";
+const templateRoute = (handler) => (req, res, next) =>
+  handler(req, res, next).catch((error) => {
+    if (["ER_NO_SUCH_TABLE", "ER_BAD_FIELD_ERROR"].includes(error?.code)) return res.status(503).json({ error: TEMPLATE_MIGRATION });
+    next(error);
+  });
+const templateLimit = limitPerUser(createRateLimiter({ limit: 30, windowMs: 60 * 60 * 1000 }));
+const templateOwner = ownerOnly("Only the gym admin can change the reminder templates.");
+router.get("/templates", templateRoute(async (req, res) => {
+  res.json(await templates.list(pool(req), req.gym));
+}));
+router.put("/templates/:kind", templateOwner, templateLimit, smallBody, templateRoute(async (req, res) => {
+  const kind = templateRules.kindParam(req.params.kind);
+  res.json(await templates.save(pool(req), req.gym, req.userId, kind, templateRules.templateBody(kind, req.body).text));
+}));
+router.delete("/templates/:kind", templateOwner, templateLimit, templateRoute(async (req, res) => {
+  res.json(await templates.reset(pool(req), req.gym, req.userId, templateRules.kindParam(req.params.kind)));
 }));
 
 // Send Bulk SMS (gym/sms.js): credits, Auto Reminders, Manual Send, a member's reminder, Message

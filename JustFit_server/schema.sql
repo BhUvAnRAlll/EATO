@@ -1485,3 +1485,17 @@ CREATE TABLE gym_expenses (
   CONSTRAINT fk_gym_expenses_updated_by FOREIGN KEY (updated_by) REFERENCES users (id) ON DELETE SET NULL,
   CONSTRAINT chk_gym_expenses_amount CHECK (amount BETWEEN 1 AND 1000000)
 ) ENGINE = InnoDB;
+
+-- Reminder Templates (migration 2026-12-11-reminder-templates.sql): a branch's own wording for
+-- Send Reminder and the enquiry WhatsApp button. No row: justFit's default text. The app fills in
+-- the {placeholders}; justFit's own SMS keep the DLT texts (gym/smsRules.js).
+CREATE TABLE gym_reminder_templates (
+  gym_id      INT UNSIGNED NOT NULL,                -- the branch
+  kind        ENUM('due', 'expiry', 'expired', 'enquiry') NOT NULL,
+  body        VARCHAR(300) NOT NULL,                -- the text with its {placeholders}
+  updated_by  VARCHAR(64)  NULL,
+  updated_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (gym_id, kind),
+  CONSTRAINT fk_gym_reminder_templates_gym FOREIGN KEY (gym_id) REFERENCES gyms (id),
+  CONSTRAINT fk_gym_reminder_templates_updated_by FOREIGN KEY (updated_by) REFERENCES users (id) ON DELETE SET NULL
+) ENGINE = InnoDB;

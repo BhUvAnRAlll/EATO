@@ -2,6 +2,7 @@ import { Alert, Linking, Platform } from "react-native";
 
 import { planLabel, rupees, shortDate } from "@/data/gymDashboard";
 import type { GymInfo, GymMember, GymPayment } from "@/lib/gymApi";
+import { fillTemplate, templateText, type CustomTemplates, type TemplateKind } from "@/lib/reminderTemplates";
 
 // Reaching a member from the gym portal: the phone's own Call, SMS, WhatsApp and Email apps, with
 // the message already written. justFit sends nothing itself (no SMS provider, no cost); the gym
@@ -52,15 +53,20 @@ export function email(member: GymMember, subject = "", body = "") {
 const gymName = (gym: GymInfo) => `${gym.name} (${gym.branch})`;
 const firstName = (member: GymMember) => member.name.split(" ")[0];
 
-// The messages, in plain friendly English
-export function dueReminder(member: GymMember, gym: GymInfo) {
-  return `Hi ${firstName(member)}, this is ${gymName(gym)}. A payment of ${rupees(member.due)} is due${member.dueBy ? ` by ${shortDate(member.dueBy)}` : ""} for your membership (${member.code}). You can pay at the front desk or online. Thank you!`;
+// The messages, in plain friendly English: the branch's own wording from Reminder Templates when it
+// has one (`custom`), else justFit's default (lib/reminderTemplates.ts), with the member filled in
+export function dueReminder(member: GymMember, gym: GymInfo, custom?: CustomTemplates | null) {
+  return fillTemplate(templateText("due", custom), { ...memberValues(member, gym), amount: rupees(member.due), dueBy: member.dueBy ? `by ${shortDate(member.dueBy)}` : "" });
 }
 
-export function expiredReminder(member: GymMember, gym: GymInfo) {
-  const ended = member.daysLeft < 0;
-  return `Hi ${firstName(member)}, your ${gymName(gym)} membership ${ended ? "ended" : "ends"} on ${shortDate(member.expiresOn)}. Renew to keep training with us. See you soon!`;
+// Ending soon or already ended: the expiry or expired template, by the member's plan
+export function expiredReminder(member: GymMember, gym: GymInfo, custom?: CustomTemplates | null) {
+  return fillTemplate(templateText(membershipTemplate(member), custom), { ...memberValues(member, gym), date: shortDate(member.expiresOn) });
 }
+
+export const membershipTemplate = (member: GymMember): TemplateKind => (member.daysLeft < 0 ? "expired" : "expiry");
+
+const memberValues = (member: GymMember, gym: GymInfo) => ({ name: firstName(member), gym: gymName(gym), code: member.code });
 
 export function invoice(member: GymMember, gym: GymInfo, payment: GymPayment | undefined) {
   return [
@@ -73,8 +79,8 @@ export function invoice(member: GymMember, gym: GymInfo, payment: GymPayment | u
 }
 
 // A friendly follow-up to someone who asked about joining
-export function enquiryFollowUp(name: string, gym: GymInfo) {
-  return `Hi ${name.split(" ")[0]}, this is ${gymName(gym)}. Thanks for asking about joining us! Would you like to visit for a session this week? Reply here and we'll help you pick a plan.`;
+export function enquiryFollowUp(name: string, gym: GymInfo, custom?: CustomTemplates | null) {
+  return fillTemplate(templateText("enquiry", custom), { name: name.split(" ")[0], gym: gymName(gym) });
 }
 
 // "0 days left", "1 day left", "Expired 3 days ago", "Expires today"

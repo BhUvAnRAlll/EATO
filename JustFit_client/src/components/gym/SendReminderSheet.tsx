@@ -15,7 +15,9 @@ import { gymApi, type GymInfo, type GymMember, type GymPayment, type GymSms, typ
 import { memberStatus } from "@/lib/gymMember";
 import { SMS_KIND_LABEL, membershipKind } from "@/lib/gymSms";
 import { haptic } from "@/lib/haptics";
+import type { CustomTemplates } from "@/lib/reminderTemplates";
 import { useSessionToken } from "@/lib/session";
+import { useReminderTemplates } from "@/lib/useReminderTemplates";
 import { useThemeColors } from "@/theme";
 
 export type ReminderKind = "due" | "expired" | "invoice";
@@ -37,14 +39,23 @@ export function SendReminderSheet({ kind, member, gym, payment, onClose, onSent 
   const narrow = useWindowDimensions().width < 360;
   const stat = narrow ? { flexBasis: "100%" as const } : undefined;
   const getToken = useSessionToken();
-  const templates: { id: ReminderKind; label: string; text: string }[] = [
-    { id: "due", label: "Payment due", text: dueReminder(member, gym) },
-    { id: "expired", label: member.daysLeft < 0 ? "Membership expired" : "Membership expiry", text: expiredReminder(member, gym) },
+  // The branch's own wording from Reminder Templates once it arrives (null: justFit's defaults)
+  const custom = useReminderTemplates();
+  const listFor = (own: CustomTemplates | null): { id: ReminderKind; label: string; text: string }[] => [
+    { id: "due", label: "Payment due", text: dueReminder(member, gym, own) },
+    { id: "expired", label: member.daysLeft < 0 ? "Membership expired" : "Membership expiry", text: expiredReminder(member, gym, own) },
     ...(payment ? [{ id: "invoice" as const, label: "Invoice", text: invoice(member, gym, payment) }] : []),
   ];
-  const start = templates.find((t) => t.id === kind) ?? templates[0];
-  const [template, setTemplate] = useState<ReminderKind>(start.id);
-  const [text, setText] = useState(start.text);
+  const templates = listFor(custom);
+  // justFit's own wording: an SMS through justFit sends the DLT text, so only this one may go that way
+  const defaults = listFor(null);
+  const [template, setTemplate] = useState<ReminderKind>((templates.find((t) => t.id === kind) ?? templates[0]).id);
+  // What was typed over the template (null: the template as it is). The branch's templates arrive
+  // after the sheet opens, so an untouched message shows their wording as soon as they do.
+  const [draft, setDraft] = useState<string | null>(null);
+  const defaultText = defaults.find((t) => t.id === template)?.text;
+  const customText = templates.find((t) => t.id === template)?.text ?? "";
+  const text = draft ?? customText;
   const [picking, setPicking] = useState(false);
   const [channels, setChannels] = useState<Set<Channel>>(new Set(["whatsapp"]));
   const [confirming, setConfirming] = useState(false);
@@ -72,12 +83,14 @@ export function SendReminderSheet({ kind, member, gym, payment, onClose, onSent 
   };
   const viaApp = typeof status === "object" ? status : null;
   const smsKind: SmsKind | null = template === "due" ? "due" : template === "expired" ? membershipKind(member) : null;
-  const unedited = text === templates.find((t) => t.id === template)?.text;
-  const viaJustfit = channels.has("sms") && Boolean(viaApp?.sending && viaApp.credits > 0) && smsKind !== null && unedited;
+  const unedited = text === customText;
+  const ownWording = unedited && text !== defaultText;
+  const viaJustfit = channels.has("sms") && Boolean(viaApp?.sending && viaApp.credits > 0) && smsKind !== null && unedited && !ownWording;
   const smsNote = !channels.has("sms") ? null
     : status === "loading" ? "Checking justFit SMS credits…"
     : viaJustfit && viaApp ? `Via justFit: 1 credit · ${viaApp.credits} left`
     : !smsKind ? "An invoice goes from your phone's Messages app"
+    : ownWording ? "Your own template goes from your phone's Messages app"
     : !unedited ? "An edited message goes from your phone's Messages app"
     : status === "error" ? "Couldn't check credits: opens your phone's Messages app"
     : !viaApp?.sending ? "SMS sending is off: opens your phone's Messages app"
@@ -95,7 +108,7 @@ export function SendReminderSheet({ kind, member, gym, payment, onClose, onSent 
   const pickTemplate = (id: ReminderKind) => {
     haptic.select();
     setTemplate(id);
-    setText(templates.find((t) => t.id === id)?.text ?? "");
+    setDraft(null);
     setPicking(false);
   };
 
@@ -298,7 +311,7 @@ export function SendReminderSheet({ kind, member, gym, payment, onClose, onSent 
         <View className="gym-remind__box">
           <TextInput
             value={text}
-            onChangeText={(v) => setText(v.slice(0, MAX_CHARS))}
+            onChangeText={(v) => setDraft(v.slice(0, MAX_CHARS))}
             multiline
             maxLength={MAX_CHARS}
             textAlignVertical="top"

@@ -6486,6 +6486,7 @@
   overflow: hidden;
 }
 
+
 /* Role & Permission › a Staff login (2026-11-08, the user's reference): banners, search, tiles
    with a checkbox and their options, and the Save bar pinned under the list */
 @utility gym-perm-banner {
@@ -6606,6 +6607,71 @@
   border-top-width: 1px;
   border-color: var(--color-gym-line);
   background-color: var(--color-gym-page);
+}
+
+/* Reminder Templates (2026-11-08): a card per message with its icon, title, Custom / Default tag,
+   the filled-in preview and Edit; the note above the list; the preview box in the edit sheet */
+@utility gym-template {
+  gap: 12px;
+  padding: 16px;
+}
+
+@utility gym-template__icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background-color: var(--color-gym-primary-soft);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility gym-template__title {
+  font-family: var(--font-sans-semibold);
+  font-size: 15px;
+  line-height: 21px;
+  color: var(--color-gym-ink);
+}
+
+@utility gym-template__preview {
+  padding: 12px;
+  border-radius: 12px;
+  background-color: var(--color-gym-canvas);
+}
+
+@utility gym-template__preview-text {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 21px;
+  color: var(--color-gym-ink);
+}
+
+@utility gym-template__edit {
+  flex-direction: row;
+  align-items: center;
+  align-self: flex-start;
+  gap: 6px;
+  min-height: 36px;
+  padding-inline: 14px;
+  border-radius: var(--radius-pill);
+  border-width: 1px;
+  border-color: var(--color-gym-primary-line);
+}
+
+@utility gym-template__note {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background-color: var(--color-gym-primary-soft);
+}
+
+@utility gym-template__note-text {
+  flex: 1;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 19px;
+  color: var(--color-gym-ink);
 }
 
 /* Members › a card's plan pill beside the days left (2026-11-08): grey, so the days stay the accent */
