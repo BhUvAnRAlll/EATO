@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Text, View } from "react-native";
+import { useCallback, useRef, useState } from "react";
+import { RefreshControl, Text, View } from "react-native";
 import { router } from "expo-router";
 
 import { FormAlert } from "@/components/FormAlert";
@@ -16,6 +16,7 @@ import { gymApi, type AttendanceSummary } from "@/lib/gymApi";
 import { haptic } from "@/lib/haptics";
 import { useSessionToken } from "@/lib/session";
 import { useGymData } from "@/lib/useGymData";
+import { useCan } from "@/store/gymAccess";
 import { useThemeColors } from "@/theme";
 
 type Period = "today" | "week" | "month";
@@ -38,18 +39,31 @@ const shortDate = (iso: string) => `${Number(iso.slice(8, 10))} ${SHORT_MONTH[Nu
 export default function GymAttendance() {
   const colors = useThemeColors();
   const getToken = useSessionToken();
-  const { result, reload, retry } = useGymData(gymApi.attendance);
-  const busy = useGymData(gymApi.busyHours);
+  const { result, reload, retry, refreshing, refresh } = useGymData(gymApi.attendance);
+  // Role & Permission: busy hours are Predictions; a login without it isn't shown a card the server
+  // would refuse (QA 2026-11-07). A stable `load` per answer, as useGymData expects.
+  const canPredict = useCan()("predictions");
+  const loadBusy = useCallback((token: string | null) => (canPredict ? gymApi.busyHours(token) : Promise.resolve({ ok: false as const, error: "Your login doesn't include Predictions.", status: 403 })), [canPredict]);
+  const busy = useGymData(loadBusy);
   const [period, setPeriod] = useState<Period>("today");
   const [checkingOut, setCheckingOut] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
+  // A pull re-reads the history list too, not only the summary (QA 2026-11-07)
+  const refreshAll = async () => {
+    setRefreshKey((k) => k + 1);
+    await Promise.all([refresh(), canPredict ? busy.reload() : Promise.resolve()]);
+  };
 
+  // A ref, not state, so two taps in one frame can't send two check-outs
+  const checkingOutRef = useRef(false);
   const checkOut = async (memberId: number) => {
-    if (checkingOut) return;
+    if (checkingOutRef.current) return;
+    checkingOutRef.current = true;
     setCheckingOut(memberId);
     setError("");
     const answer = await gymApi.checkOut(await getToken().catch(() => null), memberId);
+    checkingOutRef.current = false;
     setCheckingOut(null);
     if (!answer.ok) return setError(answer.error);
     haptic.success();
@@ -94,7 +108,7 @@ export default function GymAttendance() {
   ];
 
   return (
-    <GymScreen title="Attendance" right={header}>
+    <GymScreen title="Attendance" right={header} refreshControl={<RefreshControl refreshing={refreshing} tintColor={colors.gymPrimary} onRefresh={refreshAll} />}>
       {!data.setup.location || !data.setup.qr ? (
         <PressableScale onPress={() => router.push(data.setup.location ? "/gym/attendance/qr" : "/gym/attendance/settings")} className="gym-warning" accessibilityRole="button" accessibilityLabel={data.setup.location ? "Create the attendance QR code" : "Set the gym's location"}>
           <GymIcon name="triangle-alert" size={18} color={colors.gymWarning} />
@@ -151,7 +165,7 @@ export default function GymAttendance() {
           <View className="gym-bars" style={every > 1 ? { gap: 2 } : undefined}>
             {chart.map((c) => (
               <View key={c.key} className="gym-bars__col" style={every > 1 ? { gap: 2 } : undefined}>
-                <Text className="gym-stat__label" style={every > 1 ? { fontSize: 9, lineHeight: 11 } : undefined}>{every === 1 || c.visits > 0 ? String(c.visits) : " "}</Text>
+                <Text className="gym-stat__label" style={every > 1 ? { fontSize: 9, lineHeight: 11 } : undefined} numberOfLines={1}>{every === 1 || c.visits > 0 ? String(c.visits) : " "}</Text>
                 <View className="gym-bars__bar" style={{ height: `${Math.max(4, (c.visits / peak) * 60)}%`, opacity: c.strong ? 1 : 0.45 }} />
               </View>
             ))}
@@ -164,8 +178,12 @@ export default function GymAttendance() {
         </View>
       </View>
 
-      <Text className="gym-section-title" accessibilityRole="header">{"Tomorrow's busy hours"}</Text>
-      <BusyHoursCard result={busy.result} onRetry={busy.retry} />
+      {canPredict && (
+        <>
+          <Text className="gym-section-title" accessibilityRole="header">{"Tomorrow's busy hours"}</Text>
+          <BusyHoursCard result={busy.result} onRetry={busy.retry} />
+        </>
+      )}
 
       <Text className="gym-section-title" accessibilityRole="header">Attendance history</Text>
       <VisitHistory refreshKey={refreshKey} />

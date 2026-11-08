@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AppState, FlatList, Platform, ScrollView, Text, TextInput, useWindowDimensions, View } from "react-native";
+import { AppState, FlatList, Platform, RefreshControl, ScrollView, Text, TextInput, useWindowDimensions, View } from "react-native";
 import { router } from "expo-router";
 
 import { PressableScale } from "@/components/PressableScale";
@@ -73,14 +73,14 @@ export function EnquiryList({ initialView = "open" }: { initialView?: EnquiryVie
   };
 
   const load = useCallback((token: string | null) => gymApi.enquiries(token, view, search), [view, search]);
-  const { result, retry, reload } = useGymData(load);
+  const { result, retry, reload, refreshing, refresh } = useGymData(load);
   const data = result.state === "ready" ? result.data : null;
 
   const leadTone = (level: LeadLevel) =>
     level === "hot"
       ? { bg: colors.gymSuccessSoft, line: colors.gymSuccessLine, ink: colors.gymSuccess }
       : level === "warm"
-        ? { bg: colors.gymWarningSoft, line: colors.gymWarningSoft, ink: colors.gymWarning }
+        ? { bg: colors.gymWarningSoft, line: colors.gymWarningLine, ink: colors.gymWarning }
         : { bg: colors.gymBar, line: colors.gymLine, ink: colors.gymMuted };
 
   // Saved in Add Member: mark the enquiry joined and link the member, then open them
@@ -148,6 +148,7 @@ export function EnquiryList({ initialView = "open" }: { initialView?: EnquiryVie
     <>
       <FlatList
         {...listPerf}
+        refreshControl={<RefreshControl refreshing={refreshing} tintColor={colors.gymPrimary} onRefresh={refresh} />}
         data={data?.enquiries ?? []}
         keyExtractor={(e) => String(e.id)}
         contentContainerStyle={{ padding: 16, paddingBottom: 120, gap: 14 }}

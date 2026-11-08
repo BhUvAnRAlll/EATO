@@ -8,7 +8,9 @@ import { router, useFocusEffect, type Href } from "expo-router";
 import { IconButton } from "@/components/IconButton";
 import { MetricCard } from "@/components/MetricCard";
 import { PrimaryButton } from "@/components/PrimaryButton";
+import { FormAlert } from "@/components/FormAlert";
 import { usePullToRefresh } from "@/components/PullToRefresh";
+import { SkeletonCard } from "@/components/Skeleton";
 import { accountContact } from "@/lib/me";
 import { fetchProfile, type SavedProfile } from "@/lib/profile";
 import { scanFieldsFromSaved } from "@/lib/profileScan";
@@ -137,8 +139,17 @@ export default function Profile() {
             </View>
           </View>
 
+          {/* Until the first read answers, the metric tiles are a skeleton rather than "—" and "Add",
+              which read as missing data; a failed first read says so and can be asked again */}
+          {saved === null && loadError === null && <View className="mt-3"><SkeletonCard tall /></View>}
+          {saved === null && loadError !== null && (
+            <View className="mt-3 gap-3">
+              <FormAlert message={loadError} />
+              <PrimaryButton label="Try again" onPress={() => { setLoadError(null); load(); }} />
+            </View>
+          )}
           {/* Body metrics: two per row, each in its own tone */}
-          <View className="mt-3 gap-3">
+          {saved !== null && <View className="mt-3 gap-3">
             <View className="flex-row gap-3">
               <MetricCard
                 tone="green"
@@ -179,7 +190,7 @@ export default function Profile() {
                 onPress={saved ? startScan : undefined}
               />
             </View>
-          </View>
+          </View>}
 
           {/* Body composition: the photo scan */}
           <View className="card mt-4 gap-3">
@@ -195,7 +206,7 @@ export default function Profile() {
             <Text className="type-caption text-muted">
               Two photos give you a full body composition report. Saving it updates your body fat % and your daily targets. Your photos are never stored.
             </Text>
-            {loadError && <Text className="type-caption text-muted">{loadError}</Text>}
+            {loadError && saved !== null && <Text className="type-caption text-muted">{loadError}</Text>}
             <PrimaryButton label="Scan Body" onPress={startScan} disabled={!saved} />
             {lastScan && (
               <Pressable onPress={() => router.push("/setup/scan-report?mode=view&from=profile")} accessibilityRole="button" hitSlop={8} className="self-center">

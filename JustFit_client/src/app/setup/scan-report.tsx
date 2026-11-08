@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import { SymbolView } from "@/components/SymbolView";
 import { Redirect, router, useLocalSearchParams } from "expo-router";
 
@@ -22,7 +22,7 @@ import {
 import type { BodySegment, SegmentReading } from "@/lib/nutrition";
 import { fetchProfile, saveProfile } from "@/lib/profile";
 import { bodyFatSave } from "@/lib/profileScan";
-import { SESSION_EXPIRED_MESSAGE, isSessionExpired, useSessionToken } from "@/lib/session";
+import { SESSION_EXPIRED_MESSAGE, isSessionExpired, returnToSignIn, useSessionToken } from "@/lib/session";
 import { useSetupStore } from "@/store/setup";
 import { useThemeColors } from "@/theme";
 
@@ -129,6 +129,14 @@ export default function ScanReport() {
   const [pendingSave, setPendingSave] = useState<Extract<ReturnType<typeof bodyFatSave>, { ok: true }> | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  // When the report was opened: fixed for its life, so the chip never ticks along with the clock
+  const [shownAt] = useState(() => new Date());
+  // A 401 while saving: these screens sit outside the member layout, so they offer sign-in themselves
+  const [sessionExpired, setSessionExpired] = useState(false);
+  const failSave = (result: { ok: false; error: string; status?: number }) => {
+    setSessionExpired(isSessionExpired(result));
+    setSaveError(isSessionExpired(result) ? SESSION_EXPIRED_MESSAGE : result.error);
+  };
 
   // Nothing to show (a reload or a direct link), or an incomplete result: back to where the scan started
   if (!result || !isCompleteEstimate(result)) return <Redirect href={home} />;
@@ -153,10 +161,11 @@ export default function ScanReport() {
   const prepareSave = async () => {
     if (isSaving) return;
     setSaveError(null);
+    setSessionExpired(false);
     setIsSaving(true);
     const current = await fetchProfile(await getToken());
     setIsSaving(false);
-    if (!current.ok) return setSaveError(isSessionExpired(current) ? SESSION_EXPIRED_MESSAGE : current.error);
+    if (!current.ok) return failSave(current);
     const save = bodyFatSave(current.data.profile, current.data.nutrition, bf);
     if (!save.ok) return setSaveError(save.error);
     setPendingSave(save);
@@ -166,10 +175,11 @@ export default function ScanReport() {
   const confirmSave = async () => {
     if (!pendingSave || isSaving) return;
     setSaveError(null);
+    setSessionExpired(false);
     setIsSaving(true);
     const saved = await saveProfile(await getToken(), pendingSave.body);
     setIsSaving(false);
-    if (!saved.ok) return setSaveError(isSessionExpired(saved) ? SESSION_EXPIRED_MESSAGE : saved.error);
+    if (!saved.ok) return failSave(saved);
     acceptScan();
     router.dismissTo("/profile");
   };
@@ -190,8 +200,13 @@ export default function ScanReport() {
       showProgress={!fromProfile}
     >
       {saveError && (
-        <View className="mb-3">
+        <View className="mb-3 gap-3">
           <FormAlert message={saveError} />
+          {sessionExpired && (
+            <Pressable onPress={() => returnToSignIn()} className="btn-outline" accessibilityRole="button">
+              <Text className="btn-outline__label">Sign in again</Text>
+            </Pressable>
+          )}
         </View>
       )}
       {pendingSave ? (
@@ -206,7 +221,7 @@ export default function ScanReport() {
       ) : (
         <View className="gap-3">
           <View className="report__chips">
-            {[scanTime.format(new Date()), `${r.sex === "male" ? "Male" : "Female"} · ${r.age} y`, `${r.heightCm} cm`, `${r.weightKg.toFixed(1)} kg`].map(
+            {[scanTime.format(shownAt), `${r.sex === "male" ? "Male" : "Female"} · ${r.age} y`, `${r.heightCm} cm`, `${r.weightKg.toFixed(1)} kg`].map(
               (chip) => (
                 <View key={chip} className="report__chip">
                   <Text className="report__chip-label">{chip}</Text>

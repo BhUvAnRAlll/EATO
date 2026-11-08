@@ -34,7 +34,7 @@ export default function AdminNewGym() {
           <Text className="screen-bar__title" accessibilityRole="header">New gym</Text>
           <View className="screen-bar__spacer" />
         </View>
-        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40, gap: 16 }} keyboardShouldPersistTaps="handled" keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}>
+        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40, gap: 16 }} keyboardShouldPersistTaps="handled" keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"} automaticallyAdjustKeyboardInsets>
           <AdminField label="Gym name" value={name} onChangeText={setName} maxLength={80} placeholder="For example: Forma" />
           <AdminField label="First branch" value={branch} onChangeText={setBranch} maxLength={80} placeholder="For example: Tumkur" />
           <AdminField label="Area" value={area} onChangeText={setArea} maxLength={80} placeholder="For example: SIT Road" />

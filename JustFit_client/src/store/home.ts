@@ -131,4 +131,4 @@ export const useHomeStore = create<HomeState>((set, get) => ({
 
 // The member's own numbers go with the account, and the next account loads afresh. The
 // promotions and labels are the same for everyone, so they stay.
-onAccountCleared(() => useHomeStore.setState({ nutrition: null, water: null, workout: null, activity: null, loading: false, error: null, loadedAt: null }));
+onAccountCleared(() => useHomeStore.setState({ nutrition: null, water: null, workout: null, activity: null, source: "default", loading: false, error: null, loadedAt: null }));

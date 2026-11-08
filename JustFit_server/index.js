@@ -129,7 +129,9 @@ app.get("/api/health", async (req, res) => {
     await pool.query("SELECT 1");
     res.json({ ok: true, database: "connected" });
   } catch (error) {
-    res.status(503).json({ ok: false, database: error.code ?? "unreachable" });
+    // Only that it is unreachable: the driver's error code (access denied, refused) is for the server log
+    logRequestError(req, error);
+    res.status(503).json({ ok: false, database: "unreachable" });
   }
 });
 

@@ -53,6 +53,7 @@ describe("gym staff e2e: Staff / Admin Login, invites and roles", () => {
     get: (route) => api("GET", route, tokens[tag]),
     post: (route, body) => api("POST", route, tokens[tag], body ?? {}),
     put: (route, body) => api("PUT", route, tokens[tag], body ?? {}),
+    patch: (route, body) => api("PATCH", route, tokens[tag], body ?? {}),
     del: (route) => api("DELETE", route, tokens[tag]),
   });
   const rules_areas = () => [...staffRules.AREAS];
@@ -157,6 +158,10 @@ describe("gym staff e2e: Staff / Admin Login, invites and roles", () => {
       assert.equal((await call).status, 403, "Staff can't manage the team");
     }
     assert.equal(await roleOf(identities.member.id), "user", "Staff's add was refused");
+    // Nor rename the branch: Branch details are the gym admin's (QA 2026-11-07)
+    const rename = await as("staffer").patch("/api/gym/details", { branch: "Renamed by Staff", area: "SIT Road", city: "Tumakuru" });
+    assert.equal(rename.status, 403, JSON.stringify(rename.json));
+    assert.match(rename.json.error, /gym admin/);
   }));
 
   it("3b. the gym admin adds someone at their other branch without switching; never at a branch they don't manage", run(async () => {
@@ -217,6 +222,16 @@ describe("gym staff e2e: Staff / Admin Login, invites and roles", () => {
       const refused = await call;
       assert.equal(refused.status, 403, area);
       assert.match(refused.json.error, new RegExp(area));
+    }
+    // Nor by spelling the path differently: a capital letter or a trailing slash is refused too
+    // (403 by the area, or 404 because the router takes exact paths only), never answered (QA 2026-11-07)
+    for (const [call, label] of [
+      [as("staffer").get("/api/gym/Payments"), "GET /Payments"], [as("staffer").get("/api/gym/payments/"), "GET /payments/"],
+      [as("staffer").post("/api/gym/members/1/due/", {}), "POST /members/1/due/"], [as("staffer").post("/api/gym/Sms/send", {}), "POST /Sms/send"],
+      [as("staffer").get("/api/gym/Attendance/export"), "GET /Attendance/export"], [as("staffer").get("/api/gym/WALLET"), "GET /WALLET"],
+    ]) {
+      const refused = await call;
+      assert.ok([403, 404].includes(refused.status), `${label}: ${refused.status} ${JSON.stringify(refused.json)}`);
     }
     assert.equal(await count("admin_audit_log", "admin_id = ? AND action = 'gym.staff_permissions'", [identities.owner.id]), 1);
 

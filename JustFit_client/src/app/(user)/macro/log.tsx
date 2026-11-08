@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
@@ -23,6 +23,8 @@ export default function LogFood() {
   const [hearted, setHearted] = useState<Set<string>>(new Set());
   const [openMeal, setOpenMeal] = useState<Meal | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // Hearts with a save on the way: a second tap on the same one sends nothing
+  const pending = useRef(new Set<string>());
   const today = todayIso();
   const forward = { slot: params.slot ?? "", hour: params.hour ?? "", minute: params.minute ?? "" };
 
@@ -45,11 +47,14 @@ export default function LogFood() {
   // The heart: updates at once, then follows the server's answer
   const toggleHeart = async (meal: Meal) => {
     const key = `meal:${meal.id}`;
+    if (pending.current.has(key)) return;
+    pending.current.add(key);
     const was = hearted.has(key);
     const flip = (on: boolean) => setHearted((current) => { const next = new Set(current); if (on) next.add(key); else next.delete(key); return next; });
     flip(!was);
     setNotice(null);
     const result = await macro.toggleFavorite(await getToken().catch(() => null), { name: meal.title, items: meal.items, sourceKey: key });
+    pending.current.delete(key);
     if (result.ok) flip(result.data.favorited);
     else {
       flip(was);

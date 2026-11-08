@@ -101,10 +101,41 @@ function connect(browserWsUrl) {
 async function openPage(client, url = "about:blank") {
   const { targetId } = await client.send("Target.createTarget", { url });
   const { sessionId } = await client.send("Target.attachToTarget", { targetId, flatten: true });
-  for (const domain of ["Page", "Runtime", "Network"]) await client.send(`${domain}.enable`, {}, sessionId);
+  for (const domain of ["Page", "Runtime", "Network", "Inspector"]) await client.send(`${domain}.enable`, {}, sessionId);
+  await client.send("Target.setDiscoverTargets", { discover: true }); // Target.targetCrashed carries the status (oom, killed)
   const requests = [];
-  client.on((msg) => { if (msg.sessionId === sessionId && msg.method === "Network.requestWillBeSent") requests.push(msg.params.request.url); });
+  // The page's last few uncaught errors, and whether its renderer died: a tab that crashed (out of
+  // memory, most often on this 8 GB Mac) answers nothing, so every wait would otherwise sit out
+  // its whole timeout and report a blank page. Found on 2026-11-07, when a full reload in the
+  // gym staff suite died that way twice and the failure read as a timeout with no evidence.
+  const pageErrors = [];
+  // Every alert / confirm / "leave this page?" the page opens, accepted at once: a dialog blocks
+  // the page's JavaScript until it is answered, so a run would otherwise freeze on it (the gym
+  // staff suite did, on a "coming soon" alert the menu's backdrop click landed on, 2026-11-07)
+  const dialogs = [];
+  let crashed = null;
+  client.on((msg) => {
+    if (msg.sessionId === sessionId && msg.method === "Page.javascriptDialogOpening") {
+      dialogs.push(`${msg.params.type} "${String(msg.params.message).replace(/\s+/g, " ").slice(0, 160)}"`);
+      client.send("Page.handleJavaScriptDialog", { accept: true }, sessionId).catch(() => {});
+    }
+    if (msg.sessionId === sessionId && msg.method === "Network.requestWillBeSent") requests.push(msg.params.request.url);
+    if (msg.sessionId === sessionId && msg.method === "Runtime.exceptionThrown") {
+      const d = msg.params.exceptionDetails;
+      pageErrors.push((d.exception && d.exception.description) || d.text || "exception");
+      if (pageErrors.length > 5) pageErrors.shift();
+    }
+    if (msg.sessionId === sessionId && msg.method === "Runtime.consoleAPICalled" && msg.params.type === "error") {
+      pageErrors.push(`console.error: ${msg.params.args.map((a) => a.value ?? a.description ?? a.type).join(" ").slice(0, 300)}`);
+      if (pageErrors.length > 5) pageErrors.shift();
+    }
+    if (msg.sessionId === sessionId && msg.method === "Inspector.targetCrashed") crashed ??= "the page's renderer crashed";
+    if (msg.method === "Target.targetCrashed" && msg.params.targetId === targetId) crashed ??= `the page's renderer crashed (${msg.params.status}, code ${msg.params.errorCode})`;
+    if (msg.sessionId === sessionId && msg.method === "Inspector.detached") crashed ??= `the page was detached (${msg.params.reason})`;
+  });
+  const crashError = () => new Error(`${crashed}${pageErrors.length > 0 ? `; last page errors: ${pageErrors.map((e) => e.split("\n")[0]).join(" | ")}` : ""}`);
   const evaluate = async (expression) => {
+    if (crashed) throw crashError();
     const { result, exceptionDetails } = await client.send("Runtime.evaluate", { expression, returnByValue: true, awaitPromise: true }, sessionId, { timeoutMs: EVALUATE_TIMEOUT_MS });
     if (exceptionDetails) throw new Error("evaluate failed: " + (exceptionDetails.text ?? "exception"));
     return result.value;
@@ -148,9 +179,20 @@ async function openPage(client, url = "about:blank") {
       const els = [...document.querySelectorAll('[aria-label=' + JSON.stringify(${JSON.stringify(label)}) + ']')].filter((e) => e.getClientRects().length > 0);
       const el = els[0]; if (!el) return null;
       el.scrollIntoView({ block: "center", inline: "nearest" });
-      const r = el.getBoundingClientRect(); const x = r.left + r.width / 2, y = r.top + r.height / 2;
-      const hit = document.elementFromPoint(x, y);
-      return { x, y, hittable: !!hit && (hit === el || el.contains(hit)) };
+      const r = el.getBoundingClientRect();
+      const own = (px, py) => { const hit = document.elementFromPoint(px, py); return !!hit && (hit === el || el.contains(hit)); };
+      let x = r.left + r.width / 2, y = r.top + r.height / 2;
+      // The centre may be covered by something drawn on top (a side menu's backdrop fills the
+      // screen under the menu panel): then any visible point of the element itself will do
+      if (!own(x, y)) {
+        const vw = window.innerWidth, vh = window.innerHeight;
+        outer: for (const fx of [0.96, 0.04, 0.85, 0.15, 0.7, 0.3]) for (const fy of [0.5, 0.25, 0.75, 0.1, 0.9]) {
+          const px = r.left + r.width * fx, py = r.top + r.height * fy;
+          if (px < 1 || py < 1 || px > vw - 1 || py > vh - 1) continue;
+          if (own(px, py)) { x = px; y = py; break outer; }
+        }
+      }
+      return { x, y, hittable: own(x, y) };
     })()`);
     let found = null;
     for (let attempt = 0; attempt < 40 && !(found && found.hittable); attempt++) {
@@ -176,18 +218,24 @@ async function openPage(client, url = "about:blank") {
   const hasText = (text) => evaluate(`(document.body && document.body.innerText || "").includes(${JSON.stringify(text)})`);
   const path = () => evaluate("location.pathname");
   return {
-    sessionId, targetId, requests,
+    sessionId, targetId, requests, pageErrors, dialogs,
     navigate: (to) => client.send("Page.navigate", { url: to }, sessionId),
     evaluate, clickAt, clickText, clickLabel, setInput, inputValue, hasText, path,
-    // Polls until the predicate (run in the page) is truthy
+    // Polls until the predicate (run in the page) is truthy; a crashed page fails at once
     async waitFor(expression, timeoutMs, label = expression) {
       const deadline = Date.now() + timeoutMs;
-      let last;
+      let last, lastError = null;
       while (Date.now() < deadline) {
-        try { last = await evaluate(expression); if (last) return last; } catch { /* page may be mid-navigation */ }
+        if (crashed) throw new Error(`${crashError().message}, while waiting for: ${label}`);
+        try { last = await evaluate(expression); lastError = null; if (last) return last; } catch (error) { lastError = error; /* page may be mid-navigation */ }
         await new Promise((r) => setTimeout(r, 500));
       }
-      throw new Error(`timed out waiting for: ${label}`);
+      // Say why the page never answered: a stuck page (every evaluation timing out) reads very
+      // differently from a page that answered but never showed the text
+      const why = lastError ? `; the last evaluation failed: ${lastError.message.split("\n")[0]}` : "";
+      const errors = pageErrors.length > 0 ? `; last page errors: ${pageErrors.map((e) => e.split("\n")[0]).join(" | ")}` : "";
+      const opened = dialogs.length > 0 ? `; dialogs the page opened (accepted): ${dialogs.slice(-3).join(" | ")}` : "";
+      throw new Error(`timed out waiting for: ${label}${why}${errors}${opened}`);
     },
     async screenshot(filePath) {
       const { data } = await client.send("Page.captureScreenshot", { format: "png" }, sessionId);

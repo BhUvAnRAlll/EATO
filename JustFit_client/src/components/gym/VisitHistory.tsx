@@ -85,13 +85,18 @@ export function VisitHistory({ memberId, refreshKey = 0, defaultRange = "today" 
   };
   const ranges = RANGES.map((r) => ({ ...r, disabled: status === "inside" && r.value !== "today" }));
 
+  const [moreError, setMoreError] = useState("");
   const showMore = async () => {
     if (page.state !== "ready" || loadingMore) return;
     setLoadingMore(true);
+    setMoreError("");
     const next = page.page + 1;
+    // The list this page belongs to: a filter changed meanwhile means the answer is for the old list
+    const call = latest.current;
     const answer = await gymApi.visits(await getToken().catch(() => null), filters(next));
     setLoadingMore(false);
-    if (!answer.ok) return setExportError(answer.error);
+    if (call !== latest.current) return;
+    if (!answer.ok) return setMoreError(answer.error);
     setPage((current) => {
       if (current.state !== "ready") return current;
       const visits = [...current.visits, ...answer.data.visits];
@@ -142,6 +147,7 @@ export function VisitHistory({ memberId, refreshKey = 0, defaultRange = "today" 
         </PressableScale>
       </View>
       {exportError ? <FormAlert message={exportError} /> : null}
+      {moreError ? <FormAlert message={moreError} /> : null}
 
       {page.state === "loading" && <ActivityIndicator color={colors.gymPrimary} accessibilityLabel="Loading attendance" />}
       {page.state === "failed" && <GymError error={page.error} onRetry={load} />}

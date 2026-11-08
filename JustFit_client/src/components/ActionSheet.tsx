@@ -1,4 +1,4 @@
-import { Modal, Pressable, Text } from "react-native";
+import { Modal, Pressable, Text, View } from "react-native";
 
 import { useThemeColors } from "@/theme";
 
@@ -11,8 +11,11 @@ export function ActionSheet({ visible, title, actions, onClose }: ActionSheetPro
   const colors = useThemeColors();
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable className="verify__backdrop" onPress={onClose} accessibilityLabel="Close">
-        <Pressable className="verify__sheet gap-2" onPress={() => {}} accessibilityViewIsModal accessible={false}>
+      {/* The backdrop is a sibling of the sheet, not its parent: a Pressable inside a Pressable
+          renders nested <button>s on the web */}
+      <View className="verify__backdrop">
+        <Pressable className="flex-1" onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" />
+        <View className="verify__sheet gap-2" accessibilityViewIsModal>
           {title && <Text className="setup__section mb-1 text-center">{title}</Text>}
           {actions.map((action) => (
             <Pressable
@@ -32,8 +35,8 @@ export function ActionSheet({ visible, title, actions, onClose }: ActionSheetPro
           <Pressable onPress={onClose} className="btn-forest mt-1" accessibilityRole="button">
             <Text className="btn-forest__label">Cancel</Text>
           </Pressable>
-        </Pressable>
-      </Pressable>
+        </View>
+      </View>
     </Modal>
   );
 }

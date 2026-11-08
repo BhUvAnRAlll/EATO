@@ -51,16 +51,20 @@ export function SetupScreen({
   const handleBack = () => {
     if (onBack) return onBack();
     if (!isFirst) return router.back();
-    Alert.alert("Leave setup?", "You'll be signed out and your answers so far won't be saved.", [
+    const question = "Leave setup?";
+    const detail = "You'll be signed out and your answers so far won't be saved.";
+    const leave = async () => {
+      await useAuthStore.getState().signOut(); // also clears the setup answers
+      router.replace("/sign-in");
+    };
+    // React Native's Alert does nothing on the web, so the browser asks there
+    if (Platform.OS === "web") {
+      if (globalThis.confirm?.(`${question} ${detail}`)) void leave();
+      return;
+    }
+    Alert.alert(question, detail, [
       { text: "Stay", style: "cancel" },
-      {
-        text: "Sign out",
-        style: "destructive",
-        onPress: async () => {
-          await useAuthStore.getState().signOut(); // also clears the setup answers
-          router.replace("/sign-in");
-        },
-      },
+      { text: "Sign out", style: "destructive", onPress: leave },
     ]);
   };
 

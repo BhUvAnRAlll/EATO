@@ -1,21 +1,21 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Text, View } from "react-native";
+import { Text, View } from "react-native";
 import { router } from "expo-router";
 
 import { FormAlert } from "@/components/FormAlert";
+import { PrimaryButton } from "@/components/PrimaryButton";
+import { SkeletonCard } from "@/components/Skeleton";
 import { SetupField } from "@/components/setup/SetupField";
 import { SetupScreen } from "@/components/setup/SetupScreen";
 import { inRange, toNumberText } from "@/lib/numberInput";
 import { fetchProfile, saveProfile, type SavedData } from "@/lib/profile";
 import { measurementSave, type MeasurementSave } from "@/lib/profileScan";
 import { SESSION_EXPIRED_MESSAGE, isSessionExpired, useSessionToken } from "@/lib/session";
-import { useThemeColors } from "@/theme";
 import { track } from "@/lib/analytics";
 
 // Profile › Edit: change height and weight after setup. Both feed the calorie calculation, so
 // the first tap shows what changes (including the daily target) and the second saves it.
 export default function Measurements() {
-  const colors = useThemeColors();
   const getToken = useSessionToken();
   const [data, setData] = useState<SavedData | null>(null);
   const [heightCm, setHeightCm] = useState("");
@@ -24,7 +24,8 @@ export default function Measurements() {
   const [error, setError] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
 
-  // The saved values fill the fields
+  // The saved values fill the fields; `attempt` re-runs the read from Try again
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     let active = true;
     (async () => {
@@ -38,7 +39,11 @@ export default function Measurements() {
     return () => {
       active = false;
     };
-  }, [getToken]);
+  }, [getToken, attempt]);
+  const retryLoad = () => {
+    setError(null);
+    setAttempt((n) => n + 1);
+  };
 
   const valid = inRange(heightCm, 100, 250) && inRange(weightKg, 30, 300);
 
@@ -90,7 +95,9 @@ export default function Measurements() {
           ))}
         </View>
       ) : data === null && !error ? (
-        <ActivityIndicator color={colors.leaf} />
+        <SkeletonCard />
+      ) : data === null ? (
+        <PrimaryButton label="Try again" onPress={retryLoad} />
       ) : (
         <View className="gap-3">
           <SetupField

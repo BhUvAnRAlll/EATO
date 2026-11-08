@@ -1,11 +1,12 @@
-import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View, Platform } from "react-native";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Pressable, ScrollView, Text, TextInput, View, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { SymbolView } from "@/components/SymbolView";
 import { router, useFocusEffect } from "expo-router";
 
 import { usePullToRefresh } from "@/components/PullToRefresh";
+import { ScreenSkeleton } from "@/components/Skeleton";
 import { Avatar } from "@/components/Avatar";
 import { DashedBlock } from "@/components/macro/DashedBlock";
 import { KIND_LABEL, adminPortal, type AdminUserRow, type UserFilter } from "@/lib/adminPortal";
@@ -23,6 +24,9 @@ const FILTERS: { value: UserFilter; label: string }[] = [
 
 type Load = { state: "loading" } | { state: "failed"; error: string } | { state: "ready"; users: AdminUserRow[] };
 
+// The server answers at most this many rows; past it the list says to search
+const PAGE_CAP = 200;
+
 export default function AdminUsers() {
   const colors = useThemeColors();
   const getToken = useSessionToken();
@@ -30,6 +34,8 @@ export default function AdminUsers() {
   const [search, setSearch] = useState("");
   const [query, setQuery] = useState("");
   const [load, setLoad] = useState<Load>({ state: "loading" });
+  // Only the newest read may land: an older search's answer arriving late can't overwrite it
+  const latest = useRef(0);
 
   // Search a moment after typing stops, not on every key
   useEffect(() => {
@@ -38,7 +44,9 @@ export default function AdminUsers() {
   }, [search]);
 
   const refresh = useCallback(async () => {
+    const call = ++latest.current;
     const result = await adminPortal.users(await getToken().catch(() => null), filter, query);
+    if (call !== latest.current) return;
     setLoad(result.ok ? { state: "ready", users: result.data.users } : { state: "failed", error: result.error });
   }, [getToken, filter, query]);
 
@@ -76,12 +84,14 @@ export default function AdminUsers() {
 
           <View className="px-5">
             {load.state === "loading" ? (
-              <View className="items-center py-16"><ActivityIndicator color={colors.leaf} /></View>
+              <ScreenSkeleton label="Loading users" />
             ) : load.state === "failed" ? (
               <DashedBlock icon={{ ios: "exclamationmark.triangle.fill", android: "warning", web: "warning" }} title="Could not load users" text={`${load.error.replace(/\.$/, "")}. Tap to try again.`} onPress={() => { setLoad({ state: "loading" }); refresh(); }} />
             ) : load.users.length === 0 ? (
               <DashedBlock icon={{ ios: "person.crop.circle.badge.questionmark", android: "person_search", web: "person_search" }} title="Nobody matches" text={query ? `No account matches "${query}".` : "No accounts in this group."} />
             ) : (
+              <View style={{ gap: 10 }}>
+                {load.users.length >= PAGE_CAP && <Text className="meta-text">{`Showing the first ${PAGE_CAP}. Search to narrow.`}</Text>}
               <View className="admin-list">
                 {load.users.map((u, i) => {
                   const detail = KIND_LABEL[u.kind];
@@ -102,6 +112,7 @@ export default function AdminUsers() {
                     </Pressable>
                   );
                 })}
+              </View>
               </View>
             )}
           </View>

@@ -7,6 +7,7 @@ import { GymChips, GymField } from "@/components/gym/GymField";
 import { GymIcon } from "@/components/gym/GymIcon";
 import { GymPrimaryButton } from "@/components/gym/GymPrimaryButton";
 import { GymSheet } from "@/components/gym/GymSheet";
+import { phoneInput } from "@/data/gymDashboard";
 import { gymApi, type GymTeam, type StaffKind } from "@/lib/gymApi";
 import { useGymSave } from "@/lib/gymForm";
 import { useThemeColors } from "@/theme";
@@ -52,6 +53,7 @@ export function AddStaffSheet({ gymName, branches, currentId, onClose, onAdded }
       title="Add Staff / Trainer"
       subtitle="Add someone to your team by their mobile number."
       onClose={onClose}
+      onDismissOverlay={() => setConfirming(false)}
       overlay={
         confirming ? (
           <ConfirmDialog
@@ -67,8 +69,8 @@ export function AddStaffSheet({ gymName, branches, currentId, onClose, onAdded }
         label="Mobile number"
         icon="phone"
         value={phone}
-        onChangeText={(t) => setPhone(t.replace(/\D/g, "").slice(0, 10))}
-        keyboardType="number-pad"
+        onChangeText={(t) => setPhone(phoneInput(t))}
+        keyboardType="phone-pad"
         textContentType="telephoneNumber"
         autoComplete="tel"
         placeholder="Mobile Number (10 digits)"

@@ -1,10 +1,11 @@
-import { useCallback, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
+import { useCallback, useRef, useState } from "react";
+import { Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { router, useFocusEffect } from "expo-router";
 
 import { usePullToRefresh } from "@/components/PullToRefresh";
+import { ScreenSkeleton } from "@/components/Skeleton";
 import { BarChart } from "@/components/admin/BarChart";
 import { DashedBlock } from "@/components/macro/DashedBlock";
 import { SymbolView } from "@/components/SymbolView";
@@ -29,9 +30,13 @@ export default function AiUsageScreen() {
   const getToken = useSessionToken();
   const [period, setPeriod] = useState<Period>("week");
   const [load, setLoad] = useState<Load>({ state: "loading" });
+  // Only the newest read may land: an older period's answer arriving late can't overwrite it
+  const latest = useRef(0);
 
   const refresh = useCallback(async (p: Period) => {
+    const call = ++latest.current;
     const result = await aiUsage.summary(await getToken().catch(() => null), p);
+    if (call !== latest.current) return;
     setLoad(result.ok ? { state: "ready", data: result.data } : { state: "failed", error: result.error });
   }, [getToken]);
 
@@ -65,10 +70,7 @@ export default function AiUsageScreen() {
 
         <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40, gap: 16 }} showsVerticalScrollIndicator={false} refreshControl={refreshControl}>
           {load.state === "loading" ? (
-            <View className="items-center gap-3 py-16">
-              <ActivityIndicator color={colors.leaf} />
-              <Text className="home__note">Loading</Text>
-            </View>
+            <ScreenSkeleton label="Loading AI usage" hero />
           ) : load.state === "failed" ? (
             <DashedBlock
               icon={{ ios: "exclamationmark.triangle.fill", android: "warning", web: "warning" }}

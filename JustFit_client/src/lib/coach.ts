@@ -66,7 +66,9 @@ export type WorkoutProposal = { weekdays: number[]; sessionMinutes: number; curr
 export type ChatProposals = { meals: MealProposal[]; workout: WorkoutProposal | null };
 export const CHAT_MAX_TEXT = 1000;
 
-const signedOut = <T>(): Promise<ApiResult<T>> => Promise.resolve({ ok: false, error: "Please sign in again." });
+// No session token on the phone: answered like the server's own 401, so a screen shows "Please
+// sign in again" instead of its offline line
+const signedOut = <T>(): Promise<ApiResult<T>> => Promise.resolve({ ok: false, error: "Please sign in again.", status: 401 });
 
 export const coachApi = {
   // A spoken question as a short clip (base64), for a phone whose own recogniser lacks the

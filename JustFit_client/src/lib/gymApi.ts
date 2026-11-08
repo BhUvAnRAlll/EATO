@@ -24,6 +24,21 @@ export type PayMethod = "online" | "cash";
 export type GymPayment = { id: number; kind: PaymentKind; title: string; detail: string; method: PayMethod; amount: number; paidOn: string; memberId: number | null; receiptUrl?: string | null };
 // name: the gym (brand, e.g. Forma); branch: this branch (e.g. Tumkur), where the numbers come from
 export type GymInfo = { name: string; branch: string; area: string; city: string };
+// Invoices (2026-11-07): one payment's invoice, as the Invoice screen shows and shares it. billTo is
+// null for a sale at the counter; membership and balance are the member's standing today.
+export type InvoiceDetails = { address: string | null; phone: string | null; gstin: string | null };
+export type GymInvoice = {
+  number: string;
+  date: string;
+  gym: GymInfo & InvoiceDetails;
+  billTo: { id: number; name: string; code: string; phone: string | null; email: string | null } | null;
+  item: { kind: PaymentKind; label: string; detail: string; title: string };
+  amount: number;
+  method: PayMethod;
+  paymentId: number;
+  membership: { plan: string | null; until: string; active: boolean } | null;
+  balance: { due: number; dueBy: string | null } | null;
+};
 export type GymBranch = { id: number; branch: string; area: string; city: string };
 // access: owner (the gym admin, who may add a branch) or staff
 export type GymBranches = { currentId: number; gym: string; access: "owner" | "staff"; branches: GymBranch[] };
@@ -126,8 +141,10 @@ export type PauseView = "pending" | "all";
 export type PauseList = { today: string; view: PauseView; counts: { pending: number }; pauses: PauseRequest[] };
 export type PauseFields = { from: string; until: string; reason: string };
 export type GymMember = MemberDetails & { id: number; code: string; photoUrl: string | null; dueBy: string | null; overdue: boolean; daysLeft: number; pt: MemberPt | null; gender: Gender | null; name: string; phone: string | null; dob: string | null; birthdayToday: boolean; planLength: PlanLength; joinedOn: string; expiresOn: string; due: number; status: MemberStatus; inToday: boolean; insideNow: boolean; pause: MemberPause | null; pausedNow: boolean };
-export type GymMemberDetail = { member: GymMember & { visitsThisMonth: number; lastVisit: string | null }; payments: GymPayment[]; alreadyIn?: boolean; durationMin?: number | null };
+// `gym` comes with GET /members/:id (the member's page needs it for messages); other answers leave it out
+export type GymMemberDetail = { member: GymMember & { visitsThisMonth: number; lastVisit: string | null }; payments: GymPayment[]; gym?: GymInfo; alreadyIn?: boolean; durationMin?: number | null };
 export type MemberFilter = "all" | "due" | "overdue" | "expiring" | "expiring_soon" | "expired" | "birthday";
+export type MemberSort = "name" | "days" | "due";
 // Enquiry follow-up: lost shows as "Not interested"; joined has the member they became
 export type EnquiryStatus = "new" | "follow_up" | "joined" | "lost";
 export type EnquiryInterest = "membership" | "pt" | "trial" | "other";
@@ -189,8 +206,13 @@ export const gymApi = {
   dashboard: (token: string | null) => call<GymDashboard>(token, "/api/gym/dashboard"),
   // `days` is how far ahead "expiring soon" looks (tomorrow to `days`, or "all" for every plan
   // still running); the counts use it too
-  members: (token: string | null, filter: MemberFilter, search: string, days: number | "all" = 3) =>
-    call<{ members: GymMember[]; counts: Record<MemberFilter, number>; gym: GymInfo }>(token, `/api/gym/members?filter=${filter}&search=${encodeURIComponent(search)}&days=${days}`),
+  // 50 members a page, in the chosen order (the server sorts, so every page follows it); `nextPage`
+  // is null on the last page
+  members: (token: string | null, filter: MemberFilter, search: string, days: number | "all" = 3, sort: MemberSort = "name", page = 1) =>
+    call<{ members: GymMember[]; counts: Record<MemberFilter, number>; gym: GymInfo; page: number; nextPage: number | null }>(
+      token,
+      `/api/gym/members?filter=${filter}&search=${encodeURIComponent(search)}&days=${days}&sort=${sort}&page=${page}`,
+    ),
   nextCode: (token: string | null) => call<{ code: string }>(token, "/api/gym/members/next-code"),
   member: (token: string | null, id: number) => call<GymMemberDetail>(token, `/api/gym/members/${id}`),
   admit: (token: string | null, fields: AdmissionFields) => call<GymMemberDetail>(token, "/api/gym/members", "POST", fields),
@@ -213,8 +235,9 @@ export const gymApi = {
     call<GymMemberDetail>(token, `/api/gym/members/${id}/${kind === "product" ? "sales" : "services"}`, "POST", fields),
   checkIn: (token: string | null, id: number) => call<GymMemberDetail>(token, `/api/gym/members/${id}/check-in`, "POST"),
   checkOut: (token: string | null, id: number) => call<GymMemberDetail>(token, `/api/gym/members/${id}/check-out`, "POST"),
-  payments: (token: string | null, query: { kind?: PaymentKind | null; before?: number | null; today?: boolean }) => {
-    const params = [query.kind ? `kind=${query.kind}` : "", query.before ? `before=${query.before}` : "", query.today ? "today=1" : ""].filter(Boolean).join("&");
+  // `day` (YYYY-MM-DD) narrows the list to one day's payments
+  payments: (token: string | null, query: { kind?: PaymentKind | null; before?: number | null; day?: string | null }) => {
+    const params = [query.kind ? `kind=${query.kind}` : "", query.before ? `before=${query.before}` : "", query.day ? `day=${query.day}` : ""].filter(Boolean).join("&");
     return call<{ payments: GymPayment[]; nextBefore: number | null }>(token, `/api/gym/payments${params ? `?${params}` : ""}`);
   },
   service: (token: string | null, fields: { item: string; amount: number; method: PayMethod }) => call<{ payment: GymPayment }>(token, "/api/gym/services", "POST", fields),
@@ -238,6 +261,11 @@ export const gymApi = {
     call<{ enquiry: GymEnquiry }>(token, `/api/gym/enquiries/${id}/contacts`, "POST", contact),
   wallet: (token: string | null) => call<GymWallet>(token, "/api/gym/wallet"),
   updateDetails: (token: string | null, fields: Partial<Omit<GymInfo, "name">>) => call<{ gym: GymInfo }>(token, "/api/gym/details", "PATCH", fields),
+  // Invoices: one payment's, or a member's latest payment's; the details printed on every invoice
+  invoice: (token: string | null, paymentId: number) => call<GymInvoice>(token, `/api/gym/payments/${paymentId}/invoice`),
+  memberInvoice: (token: string | null, memberId: number) => call<GymInvoice>(token, `/api/gym/members/${memberId}/invoice`),
+  invoiceDetails: (token: string | null) => call<InvoiceDetails>(token, "/api/gym/invoice-details"),
+  updateInvoiceDetails: (token: string | null, fields: Partial<Record<keyof InvoiceDetails, string>>) => call<InvoiceDetails>(token, "/api/gym/invoice-details", "PATCH", fields),
   branches: (token: string | null) => call<GymBranches>(token, "/api/gym/branches"),
   // The gym admin adds a branch of their gym (its name and location) and is linked to it
   addBranch: (token: string | null, fields: Omit<GymInfo, "name">) => call<GymBranches>(token, "/api/gym/branches", "POST", fields),

@@ -297,6 +297,13 @@ describe("gym portal e2e: gyms, staff, members, money and attendance", () => {
     assert.deepEqual(home.recent.map((p) => p.kind), ["admission", "pt", "sale", "due", "due"], "the newest five");
 
     const list = async (query) => (await gym.get(`/api/gym/members${query}`)).json.members.map((m) => m.id);
+    // Pages and sorts (2026-11-07): 50 a page, a page past the end is empty, bad values are 400
+    const first = (await gym.get("/api/gym/members")).json;
+    assert.deepEqual([first.page, first.nextPage], [1, null]);
+    assert.deepEqual(await list("?page=2"), []);
+    for (const q of ["?page=0", "?sort=random", "?sort=full_name%20DESC"]) assert.equal((await gym.get(`/api/gym/members${q}`)).status, 400, q);
+    const byDue = (await gym.get("/api/gym/members?sort=due")).json.members;
+    assert.ok(byDue.length > 1 && byDue[0].due >= byDue[byDue.length - 1].due, "highest due first");
     assert.deepEqual(await list(""), [state.kavya, state.asif], "only this gym's members");
     assert.deepEqual(await list("?filter=birthday"), [state.kavya]);
     assert.deepEqual(await list("?filter=expiring_soon"), [state.kavya]);
@@ -320,6 +327,11 @@ describe("gym portal e2e: gyms, staff, members, money and attendance", () => {
     const sales = (await gym.get("/api/gym/payments?kind=sale")).json;
     assert.deepEqual(sales.payments.map((p) => p.title), ["Whey Protein 1kg"]);
     assert.equal(sales.nextBefore, null);
+    // Transactions by day (2026-11-07): today's sale is there, yesterday has none, bad days are 400
+    assert.equal((await gym.get(`/api/gym/payments?kind=sale&day=${today}`)).json.payments.length, 1);
+    assert.equal((await gym.get(`/api/gym/payments?kind=sale&day=${rules.addDays(today, -1)}`)).json.payments.length, 0);
+    assert.equal((await gym.get("/api/gym/payments?kind=sale&today=1")).json.payments.length, 1, "older today=1 links still work");
+    for (const day of [rules.addDays(today, 1), "2026-02-30", "today", "2026-11-07'%20OR%201=1"]) assert.equal((await gym.get(`/api/gym/payments?day=${day}`)).status, 400, day);
     assert.equal((await gym.get("/api/gym/enquiries")).json.enquiries[0].name, "Priya");
 
     const wallet = (await gym.get("/api/gym/wallet")).json;

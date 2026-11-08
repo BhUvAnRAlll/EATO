@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { ActivityIndicator, Text, View } from "react-native";
+import { ActivityIndicator, RefreshControl, Text, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 
 import { FormAlert } from "@/components/FormAlert";
@@ -13,10 +13,11 @@ import { EditProfileSheet } from "@/components/gym/EditProfileSheet";
 import { MemberActionsSheet } from "@/components/gym/MemberActionsSheet";
 import { PaymentRow } from "@/components/gym/PaymentRow";
 import { GENDER_LABEL, STATUS_LABEL, initialsOf, planLabel, phoneText, rupees, shortDate } from "@/data/gymDashboard";
-import { gymApi, type GymMemberDetail } from "@/lib/gymApi";
+import { gymApi, type GymInfo, type GymMemberDetail } from "@/lib/gymApi";
 import { durationText } from "@/lib/attendanceText";
 import { useGymSave } from "@/lib/gymForm";
 import { useGymData } from "@/lib/useGymData";
+import { useCan } from "@/store/gymAccess";
 import { useThemeColors } from "@/theme";
 
 // Gym admin › a member: their plan, what they owe, visits, Check in / Check out, Renew, Collect due,
@@ -24,16 +25,21 @@ import { useThemeColors } from "@/theme";
 
 export default function GymMember() {
   const colors = useThemeColors();
+  // Role & Permission: a Staff login sees only the actions its areas allow, as Home does (the
+  // server refuses the rest regardless; a shown button that answers 403 only confused, QA 2026-11-07)
+  const can = useCan();
   const { id } = useLocalSearchParams<{ id: string }>();
   const memberId = Number(id);
   const load = useCallback((token: string | null) => gymApi.member(token, memberId), [memberId]);
-  const { result, retry, set } = useGymData(load);
+  const { result, retry, set, refreshing, refresh } = useGymData(load);
   const [notice, setNotice] = useState("");
   const [editing, setEditing] = useState(false);
-  // The options sheet (reminders, collect due, renew), and the gym for its messages
+  // The options sheet (reminders, collect due, renew), and the gym for its messages: it comes
+  // with the member (GET /members/:id) and is kept when a later answer (a check-in) leaves it out
   const [options, setOptions] = useState(false);
-  const { result: dash } = useGymData(gymApi.dashboard);
-  const gym = dash.state === "ready" ? dash.data.gym : null;
+  const [gym, setGym] = useState<GymInfo | null>(null);
+  const gymNow = result.state === "ready" ? result.data.gym ?? null : null;
+  if (gymNow && gymNow !== gym) setGym(gymNow); // kept from the latest answer that carried it (the lint rule prefers this to an effect)
   const checkIn = useGymSave((data: GymMemberDetail) => {
     set(data);
     if (data.durationMin !== undefined) setNotice(`Checked out · ${durationText(data.durationMin ?? 0)} workout.`);
@@ -53,6 +59,7 @@ export default function GymMember() {
   return (
     <GymScreen
       title={member.name}
+      refreshControl={<RefreshControl refreshing={refreshing} tintColor={colors.gymPrimary} onRefresh={refresh} />}
       right={
         gym ? (
           <PressableScale onPress={() => setOptions(true)} className="gym-icon-btn" accessibilityRole="button" accessibilityLabel={`${member.name}: options`}>
@@ -118,7 +125,7 @@ export default function GymMember() {
       {notice ? <Text className="gym-tx__meta" accessibilityLiveRegion="polite">{notice}</Text> : null}
       {checkIn.error ? <FormAlert message={checkIn.error} /> : null}
       {/* Staff check-in and check-out (members with the app scan the QR code instead) */}
-      <PressableScale
+      {can("attendance") && <PressableScale
         onPress={() => checkIn.save((token) => (member.insideNow ? gymApi.checkOut(token, memberId) : gymApi.checkIn(token, memberId)))}
         disabled={checkIn.busy}
         haptic="tap"
@@ -130,18 +137,23 @@ export default function GymMember() {
         {!member.insideNow && <GradientFill radius={14} />}
         {checkIn.busy ? <ActivityIndicator size="small" color={member.insideNow ? colors.gymPrimary : colors.white} /> : <GymIcon name={member.insideNow ? "log-out" : "log-in"} size={18} color={member.insideNow ? colors.gymPrimary : colors.white} />}
         <Text className={member.insideNow ? "gym-btn__label gym-btn__label--outline" : "gym-btn__label"}>{member.insideNow ? "Check out" : "Check in"}</Text>
-      </PressableScale>
-      <PressableScale onPress={() => router.push({ pathname: "/gym/attendance/member/[id]", params: { id: String(memberId), name: member.name } })} className="flex-row items-center self-start" style={{ gap: 6 }} accessibilityRole="button" accessibilityLabel="Attendance history">
-        <GymIcon name="history" size={15} color={colors.gymPrimary} />
-        <Text className="gym-link">Attendance history</Text>
-      </PressableScale>
+      </PressableScale>}
+      {can("attendance") && (
+        <PressableScale onPress={() => router.push({ pathname: "/gym/attendance/member/[id]", params: { id: String(memberId), name: member.name } })} className="flex-row items-center self-start" style={{ gap: 6 }} accessibilityRole="button" accessibilityLabel="Attendance history">
+          <GymIcon name="history" size={15} color={colors.gymPrimary} />
+          <Text className="gym-link">Attendance history</Text>
+        </PressableScale>
+      )}
       <View className="flex-row flex-wrap" style={{ gap: 10 }}>
+        {can("payments") && (
         <PressableScale onPress={() => router.push({ pathname: "/gym/members/[id]/pt", params: { id: String(memberId) } })} className="gym-btn gym-btn--outline flex-1" accessibilityRole="button" accessibilityLabel="Personal training payment">
           <Text className="gym-btn__label gym-btn__label--outline">PT</Text>
         </PressableScale>
+        )}
         <PressableScale onPress={() => router.push({ pathname: "/gym/members/[id]/renew", params: { id: String(memberId) } })} className="gym-btn gym-btn--outline flex-1" accessibilityRole="button" accessibilityLabel="Renew plan">
           <Text className="gym-btn__label gym-btn__label--outline">Renew</Text>
         </PressableScale>
+        {can("payments") && (
         <PressableScale
           onPress={() => router.push({ pathname: "/gym/members/[id]/due", params: { id: String(memberId) } })}
           disabled={member.due === 0}
@@ -152,10 +164,11 @@ export default function GymMember() {
         >
           <Text className="gym-btn__label gym-btn__label--outline" numberOfLines={1}>Pay due</Text>
         </PressableScale>
+        )}
       </View>
 
       <Text className="gym-section-title" accessibilityRole="header">Payments</Text>
-      {payments.length === 0 ? <Text className="gym-tx__meta">No payments yet.</Text> : <View style={{ gap: 10 }}>{payments.map((p) => <PaymentRow key={p.id} payment={p} />)}</View>}
+      {payments.length === 0 ? <Text className="gym-tx__meta">No payments yet.</Text> : <View style={{ gap: 10 }}>{payments.map((p) => <PaymentRow key={p.id} payment={p} invoice />)}</View>}
     </GymScreen>
   );
 }

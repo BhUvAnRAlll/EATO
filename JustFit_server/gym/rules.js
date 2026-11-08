@@ -366,12 +366,22 @@ function memberEditBody(body) {
   return out;
 }
 
+// The member list: a filter, a search, the Expiring soon window, a sort and a page (50 a page,
+// since 2026-11-07; the list was capped at 200 with no next page before)
+const MEMBER_SORTS = ["name", "days", "due"];
 function membersQuery(query = {}) {
   const filter = query.filter === undefined || query.filter === "" ? "all" : query.filter;
   if (!MEMBER_FILTERS.includes(filter)) throw new ValidationError("Pick a filter: all, due, overdue, expiring, expiring soon, expired or birthdays.");
   const search = typeof query.search === "string" ? query.search.trim() : "";
   if (search.length > limits.search) throw new ValidationError(`Search for at most ${limits.search} characters.`);
-  return { filter, search, days: expiringDays(query.days) };
+  const sort = query.sort === undefined || query.sort === "" ? "name" : query.sort;
+  if (!MEMBER_SORTS.includes(sort)) throw new ValidationError("Sort by name, days left or payment due.");
+  let page = 1;
+  if (query.page !== undefined && query.page !== "") {
+    if (typeof query.page !== "string" || !/^[1-9]\d{0,3}$/.test(query.page)) throw new ValidationError("That page isn't valid.");
+    page = Number(query.page);
+  }
+  return { filter, search, days: expiringDays(query.days), sort, page };
 }
 
 // How far ahead "Expiring soon" looks (the list's day chips): a whole number of days, 1 to 90,
@@ -386,12 +396,15 @@ function expiringDays(value) {
 }
 
 // Newest first, 50 at a time; `before` is the last id of the previous page
-function paymentsQuery(query = {}) {
+// Transactions: a type, a page, and one day (`day`, a year back to today; `today=1` still means
+// today for older links). Without either the list spans every day.
+function paymentsQuery(query = {}, today = todayInIndia()) {
   const kind = query.kind === undefined || query.kind === "" ? null : query.kind;
   if (kind !== null && !PAYMENT_KINDS.includes(kind)) throw new ValidationError("Pick a type: admission, renewal, due, PT, service or product.");
   const before = query.before === undefined || query.before === "" ? null : id(String(query.before), "page");
-  const today = query.today === "1";
-  return { kind, before, today };
+  const picked = dateIn(query.day, { from: addDays(today, -365), to: today, fallback: null, message: "Pick a day from a year ago to today." });
+  const day = picked ?? (query.today === "1" ? today : null);
+  return { kind, before, day };
 }
 
 // A branch's name and where it is
@@ -551,6 +564,7 @@ module.exports = {
   gymBody,
   branchBody,
   gymDetailsBody,
+  onlyKeys,
   switchBody,
   catalogBody,
   memberSaleBody,

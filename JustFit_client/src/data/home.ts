@@ -30,7 +30,7 @@ export const destinations = Object.keys(destinationRoutes) as Destination[];
 
 // The route for a destination key the server sent, or null for anything unknown
 export function routeFor(destination: string): Href | null {
-  return destination in destinationRoutes ? destinationRoutes[destination as Destination] : null;
+  return Object.hasOwn(destinationRoutes, destination) ? destinationRoutes[destination as Destination] : null;
 }
 
 // Icons a quick-action card may show, with the tint and soft container colour of each

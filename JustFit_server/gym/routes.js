@@ -11,6 +11,8 @@ const attendance = require("./attendance");
 const attendanceRules = require("./attendanceRules");
 const catalogImages = require("./catalogImages");
 const paymentReceipts = require("./paymentReceipts");
+const invoices = require("./invoices");
+const invoiceRules = require("./invoiceRules");
 const photos = require("./photos");
 const pauses = require("./pauses");
 const pauseRules = require("./pauseRules");
@@ -24,7 +26,10 @@ const staffRules = require("./staffRules");
 const trainer = require("./trainer");
 const smsRules = require("./smsRules");
 
-const router = express.Router();
+// Exact paths only: Express would otherwise match /Payments or /payments/ to the /payments route,
+// while the Role & Permission map (staffRules.areaOfPath) read them as no area at all, so a Staff
+// login could reach an area it wasn't given by changing a letter's case or adding a slash (QA, 2026-11-07)
+const router = express.Router({ caseSensitive: true, strict: true });
 const smallBody = express.json({ limit: "4kb" });
 const pool = (req) => req.app.locals.pool;
 const today = () => rules.todayInIndia();
@@ -147,8 +152,9 @@ router.post("/branch", smallBody, route(async (req, res) => {
   res.json(await service.switchBranch(pool(req), req.userId, rules.switchBody(req.body).branchId));
 }));
 
-// The branch's name and place, and the gym admin's own name
-router.patch("/details", smallBody, route(async (req, res) => {
+// The branch's name and place: the gym admin's alone, like adding a branch (QA 2026-11-07: Staff
+// could rename the branch before, and the audit line credited the gym admin)
+router.patch("/details", ownerOnly("Only the gym admin can change the branch details."), smallBody, route(async (req, res) => {
   res.json(await service.updateDetails(pool(req), req.gym, req.userId, rules.gymDetailsBody(req.body)));
 }));
 
@@ -163,7 +169,9 @@ router.get("/members/next-code", route(async (req, res) => {
   res.json(await service.nextMemberCode(pool(req), req.gym));
 }));
 router.get("/members/:memberId", route(async (req, res) => {
-  res.json(await service.member(pool(req), req.gym.id, rules.id(req.params.memberId), today()));
+  // The gym comes along (its name and branch for the member's messages), so the member's page
+  // doesn't read the whole dashboard for it (2026-11-07)
+  res.json({ ...(await service.member(pool(req), req.gym.id, rules.id(req.params.memberId), today())), gym: service.gymInfo(req.gym) });
 }));
 router.patch("/members/:memberId", smallBody, route(async (req, res) => {
   res.json(await service.editMember(pool(req), req.gym.id, rules.id(req.params.memberId), rules.memberEditBody(req.body), today()));
@@ -252,7 +260,7 @@ router.get("/members/:memberId/photo", photoRoute(async (req, res) => {
 }));
 
 router.get("/payments", route(async (req, res) => {
-  res.json(await service.payments(pool(req), req.gym.id, rules.paymentsQuery(req.query), today()));
+  res.json(await service.payments(pool(req), req.gym.id, rules.paymentsQuery(req.query, today())));
 }));
 router.post("/services", smallBody, route(async (req, res) => {
   res.status(201).json(await service.service(pool(req), req.gym.id, req.userId, rules.serviceBody(req.body), today()));
@@ -348,6 +356,29 @@ router.delete("/payments/:paymentId/receipt", receiptRoute(async (req, res) => {
 }));
 router.get("/payments/:paymentId/receipt", receiptRoute(async (req, res) => {
   paymentReceipts.send(res, await paymentReceipts.receiptFile(pool(req), req.gym.id, rules.id(req.params.paymentId, "payment")));
+}));
+
+// Invoices (gym/invoices.js, 2026-11-07): one payment's invoice for the Invoice screen (the
+// member's ⋯ › Send Invoice opens their latest payment's; a payment's Invoice chip opens its own),
+// and Branch details › Invoice details (address, phone, GSTIN; the gym admin only). Area members,
+// like the bill. Before migration 2026-12-07 the routes say so instead of a 500.
+const INVOICE_MIGRATION = "Invoices need the 2026-12-07-gym-invoices migration on this server.";
+const invoiceRoute = (handler) => (req, res, next) =>
+  handler(req, res, next).catch((error) => {
+    if (["ER_NO_SUCH_TABLE", "ER_BAD_FIELD_ERROR"].includes(error?.code)) return res.status(503).json({ error: INVOICE_MIGRATION });
+    next(error);
+  });
+router.get("/payments/:paymentId/invoice", invoiceRoute(async (req, res) => {
+  res.json(await invoices.invoice(pool(req), req.gym, { paymentId: rules.id(req.params.paymentId, "payment") }, today()));
+}));
+router.get("/members/:memberId/invoice", invoiceRoute(async (req, res) => {
+  res.json(await invoices.invoice(pool(req), req.gym, { memberId: rules.id(req.params.memberId) }, today()));
+}));
+router.get("/invoice-details", invoiceRoute(async (req, res) => {
+  res.json(await invoices.invoiceDetails(pool(req), req.gym.id));
+}));
+router.patch("/invoice-details", ownerOnly("Only the gym admin can change the invoice details."), smallBody, invoiceRoute(async (req, res) => {
+  res.json(await invoices.updateInvoiceDetails(pool(req), req.gym, req.userId, invoiceRules.invoiceDetailsBody(req.body)));
 }));
 
 // Send Bulk SMS (gym/sms.js): credits, Auto Reminders, Manual Send, a member's reminder, Message

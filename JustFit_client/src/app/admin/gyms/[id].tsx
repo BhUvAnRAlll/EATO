@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, Text, View, Platform } from "react-native";
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { router, useLocalSearchParams } from "expo-router";
@@ -9,7 +9,8 @@ import { ScreenSkeleton } from "@/components/Skeleton";
 import { SymbolView } from "@/components/SymbolView";
 import { AdminField } from "@/components/admin/AdminField";
 import { DashedBlock } from "@/components/macro/DashedBlock";
-import { KIND_LABEL, METHOD_LABEL, phoneText, rupees, shortDate } from "@/data/gymDashboard";
+import { KIND_LABEL, METHOD_LABEL, phoneInput, phoneText, rupees, shortDate } from "@/data/gymDashboard";
+import type { ApiResult } from "@/lib/api";
 import { adminGyms, type AdminGymDetail } from "@/lib/gymApi";
 import { useGymSave } from "@/lib/gymForm";
 import { useGymData } from "@/lib/useGymData";
@@ -23,9 +24,14 @@ const back = () => (router.canGoBack() ? router.back() : router.replace("/admin/
 export default function AdminGymDetailScreen() {
   const colors = useThemeColors();
   const { id } = useLocalSearchParams<{ id: string }>();
+  // The id from the address, which may be anything (letters, a list): only a whole number is asked for
   const gymId = Number(id);
-  const load = useCallback((token: string | null) => adminGyms.detail(token, gymId), [gymId]);
-  const { result, retry, set } = useGymData(load);
+  const invalidId = !Number.isInteger(gymId) || gymId < 1;
+  const load = useCallback(
+    (token: string | null): Promise<ApiResult<AdminGymDetail>> => (invalidId ? Promise.resolve({ ok: false, error: "That gym id isn't valid." }) : adminGyms.detail(token, gymId)),
+    [gymId, invalidId],
+  );
+  const { result, retry, set, refreshing, refresh } = useGymData(load);
   const [phone, setPhone] = useState("");
   const [editing, setEditing] = useState(false);
   const [fields, setFields] = useState({ name: "", branch: "", area: "", city: "" });
@@ -65,7 +71,14 @@ export default function AdminGymDetailScreen() {
           </View>
           <View className="screen-bar__spacer" />
         </View>
-        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40, gap: 16 }} keyboardShouldPersistTaps="handled" keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          contentContainerStyle={{ padding: 16, paddingBottom: 40, gap: 16 }}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+          automaticallyAdjustKeyboardInsets
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.leaf} colors={[colors.leaf]} progressBackgroundColor={colors.surface} />}
+        >
           {result.state === "loading" && <ScreenSkeleton label="Loading the gym" />}
           {result.state === "failed" && (
             <DashedBlock icon={{ ios: "exclamationmark.triangle.fill", android: "warning", web: "warning" }} title="Could not load the gym" text={`${result.error.replace(/\.$/, "")}. Tap to try again.`} onPress={retry} />
@@ -119,10 +132,11 @@ export default function AdminGymDetailScreen() {
                       style={{ opacity: [newBranch.branch, newBranch.area, newBranch.city].every((v) => v.trim().length >= 2) ? 1 : 0.5 }}
                       accessibilityRole="button"
                       accessibilityLabel="Save branch"
+                      accessibilityState={{ busy: addBranch.busy }}
                     >
-                      <Text className="btn-forest__label">Add branch</Text>
+                      {addBranch.busy ? <ActivityIndicator size="small" color={colors.onPrimary} /> : <Text className="btn-forest__label">Add branch</Text>}
                     </Pressable>
-                    <Pressable onPress={() => setNewBranch(null)} className="btn-outline" style={{ paddingHorizontal: 18 }} accessibilityRole="button" accessibilityLabel="Cancel">
+                    <Pressable onPress={() => setNewBranch(null)} disabled={addBranch.busy} className="btn-outline" style={{ paddingHorizontal: 18 }} accessibilityRole="button" accessibilityLabel="Cancel">
                       <Text className="btn-outline__label">Cancel</Text>
                     </Pressable>
                   </View>
@@ -142,11 +156,11 @@ export default function AdminGymDetailScreen() {
                         <Text className="meta-text">{phoneText(m.phone)}</Text>
                       </View>
                       {removing === m.id ? (
-                        <View className="flex-row" style={{ gap: 12 }}>
-                          <Pressable onPress={() => unlink.save((token) => adminGyms.unlinkStaff(token, gymId, m.id))} disabled={unlink.busy} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Yes, remove ${m.name}`}>
-                            <Text className="meta-text" style={{ color: colors.danger }}>Remove</Text>
+                        <View className="flex-row items-center" style={{ gap: 12 }}>
+                          <Pressable onPress={() => unlink.save((token) => adminGyms.unlinkStaff(token, gymId, m.id))} disabled={unlink.busy} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Yes, remove ${m.name}`} accessibilityState={{ busy: unlink.busy }}>
+                            {unlink.busy ? <ActivityIndicator size="small" color={colors.danger} /> : <Text className="meta-text" style={{ color: colors.danger }}>Remove</Text>}
                           </Pressable>
-                          <Pressable onPress={() => setRemoving(null)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Keep">
+                          <Pressable onPress={() => setRemoving(null)} disabled={unlink.busy} hitSlop={8} accessibilityRole="button" accessibilityLabel="Keep" style={{ opacity: unlink.busy ? 0.5 : 1 }}>
                             <Text className="meta-text">Keep</Text>
                           </Pressable>
                         </View>
@@ -164,12 +178,13 @@ export default function AdminGymDetailScreen() {
                 label="Link a gym admin"
                 hint="Their sign-in mobile number. The account needs the gym_admin role first (npm run set-role)."
                 value={phone}
-                onChangeText={(t) => setPhone(t.replace(/[^0-9+ ]/g, "").slice(0, 15))}
+                onChangeText={(t) => setPhone(phoneInput(t))}
                 keyboardType="phone-pad"
-                placeholder="96065 77501"
+               
+                placeholder="9606577501"
               />
               {link.error ? <FormAlert message={link.error} /> : null}
-              <Pressable onPress={() => link.save((token) => adminGyms.linkStaff(token, gymId, phone.trim()))} disabled={phone.replace(/\D/g, "").length < 10 || link.busy} className="btn-outline" style={{ opacity: phone.replace(/\D/g, "").length < 10 || link.busy ? 0.5 : 1 }} accessibilityRole="button" accessibilityLabel="Link gym admin">
+              <Pressable onPress={() => link.save((token) => adminGyms.linkStaff(token, gymId, phone))} disabled={phone.length < 10 || link.busy} className="btn-outline" style={{ opacity: phone.length < 10 || link.busy ? 0.5 : 1 }} accessibilityRole="button" accessibilityLabel="Link gym admin">
                 {link.busy && <ActivityIndicator size="small" color={colors.leaf} />}
                 <Text className="btn-outline__label">Link gym admin</Text>
               </Pressable>
@@ -229,10 +244,10 @@ export default function AdminGymDetailScreen() {
                   <AdminField label="City" value={fields.city} onChangeText={(city) => setFields((f) => ({ ...f, city }))} maxLength={60} />
                   {edit.error ? <FormAlert message={edit.error} /> : null}
                   <View className="flex-row" style={{ gap: 10 }}>
-                    <Pressable onPress={() => edit.save((token) => adminGyms.update(token, gymId, { name: fields.name.trim(), branch: fields.branch.trim(), area: fields.area.trim(), city: fields.city.trim() }))} disabled={edit.busy} className="btn-forest flex-1" accessibilityRole="button" accessibilityLabel="Save gym details">
-                      <Text className="btn-forest__label">Save</Text>
+                    <Pressable onPress={() => edit.save((token) => adminGyms.update(token, gymId, { name: fields.name.trim(), branch: fields.branch.trim(), area: fields.area.trim(), city: fields.city.trim() }))} disabled={edit.busy} className="btn-forest flex-1" style={{ opacity: edit.busy ? 0.7 : 1 }} accessibilityRole="button" accessibilityLabel="Save gym details" accessibilityState={{ busy: edit.busy }}>
+                      {edit.busy ? <ActivityIndicator size="small" color={colors.onPrimary} /> : <Text className="btn-forest__label">Save</Text>}
                     </Pressable>
-                    <Pressable onPress={() => setEditing(false)} className="btn-outline" style={{ paddingHorizontal: 18 }} accessibilityRole="button" accessibilityLabel="Cancel">
+                    <Pressable onPress={() => setEditing(false)} disabled={edit.busy} className="btn-outline" style={{ paddingHorizontal: 18 }} accessibilityRole="button" accessibilityLabel="Cancel">
                       <Text className="btn-outline__label">Cancel</Text>
                     </Pressable>
                   </View>

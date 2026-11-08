@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
-import { Share, Text, View } from "react-native";
+import { Text, View } from "react-native";
+import { router } from "expo-router";
 
 import { FormAlert } from "@/components/FormAlert";
 import { PressableScale } from "@/components/PressableScale";
@@ -15,7 +16,7 @@ import { GymPrimaryButton } from "@/components/gym/GymPrimaryButton";
 import { GymSheet } from "@/components/gym/GymSheet";
 import { MemberPhotoImage } from "@/components/gym/MemberPhotoImage";
 import { PlanLengthFields, durationValue } from "@/components/gym/PlanLengthFields";
-import { GENDER_LABEL, METHOD_LABEL, daysFromToday, initialsOf, phoneInput, pickable, planLabel, rupees, shortDate } from "@/data/gymDashboard";
+import { GENDER_LABEL, daysFromToday, initialsOf, phoneInput, pickable, planLabel, rupees, shortDate } from "@/data/gymDashboard";
 import { pickMemberPhoto, pickReceiptImage, type MemberPhoto, type PhotoSource } from "@/lib/gymPhoto";
 import { notice } from "@/lib/gymPortal";
 import { gymApi, type CatalogItem, type Gender, type GymMemberDetail, type PayMethod } from "@/lib/gymApi";
@@ -56,9 +57,9 @@ const numberOrBlank = (text: string) => (text.trim() === "" ? "" : Number(text))
 export function AddMemberSheet({ onClose, onSaved, initial }: { onClose: () => void; onSaved: (detail: GymMemberDetail) => void; initial?: { name: string; phone: string | null } }) {
   const colors = useThemeColors();
   const loadCode = useCallback((token: string | null) => gymApi.nextCode(token), []);
-  const { result: code } = useGymData(loadCode);
+  const { result: code, retry: retryCode } = useGymData(loadCode);
   const loadCatalog = useCallback((token: string | null) => gymApi.catalog(token), []);
-  const { result: catalog, set: setCatalog } = useGymData(loadCatalog);
+  const { result: catalog, set: setCatalog, retry: retryCatalog } = useGymData(loadCatalog);
   // The branch's membership plans; one still saved in days (before 2026-11-07) can't be picked
   const plans = catalog.state === "ready" ? catalog.data.items.filter((i) => i.kind === "plan" && pickable(i)) : [];
 
@@ -92,19 +93,10 @@ export function AddMemberSheet({ onClose, onSaved, initial }: { onClose: () => v
   const [addingPlan, setAddingPlan] = useState(false);
   const [confirming, setConfirming] = useState(false);
 
-  const share = (detail: GymMemberDetail) => {
-    const m = detail.member;
-    const lines = [
-      `${m.name} (${m.code})`,
-      `Plan: ${planLabel(m.planLength.duration, m.planLength.unit)}, until ${shortDate(m.expiresOn)}`,
-      ...(detail.payments[0] ? [`Paid: ${rupees(detail.payments[0].amount)} (${METHOD_LABEL[detail.payments[0].method]}) on ${shortDate(detail.payments[0].paidOn)}`] : []),
-      m.due > 0 ? `Due: ${rupees(m.due)}${m.dueBy ? ` by ${shortDate(m.dueBy)}` : ""}` : "Paid in full",
-    ];
-    Share.share({ message: `Membership receipt\n${lines.join("\n")}` }).catch(() => {});
-  };
+  // Send Invoice (2026-11-07): the admission's Invoice screen opens once the member is saved
   const { busy, error, save } = useGymSave((detail: GymMemberDetail) => {
-    if (sendInvoice) share(detail);
     onSaved(detail);
+    if (sendInvoice) router.push({ pathname: "/gym/invoice", params: { memberId: String(detail.member.id) } });
   });
 
   // Step 1
@@ -188,7 +180,8 @@ export function AddMemberSheet({ onClose, onSaved, initial }: { onClose: () => v
       title="Add New Member"
       subtitle="Add member profile."
       onClose={onClose}
-      overlay={confirming ? <ConfirmDialog rows={rows} onEdit={() => setConfirming(false)} onConfirm={submit} /> : null}
+      overlay={confirming ? <ConfirmDialog rows={rows} onEdit={() => setConfirming(false)} onConfirm={submit} busy={busy} /> : null}
+      onDismissOverlay={() => setConfirming(false)}
       stack={
         <>
           {addingPlan && (
@@ -233,7 +226,12 @@ export function AddMemberSheet({ onClose, onSaved, initial }: { onClose: () => v
             {photoError ? <Text className="gym-tx__meta text-center" style={{ color: colors.gymDanger }}>{photoError}</Text> : null}
           </View>
           <View style={{ gap: 6 }}>
-            <GymField label="Member ID" icon="id-card" value={code.state === "ready" ? code.data.code : ""} placeholder="Member ID" editable={false} />
+            <GymField label="Member ID" icon="id-card" value={code.state === "ready" ? code.data.code : ""} placeholder={code.state === "loading" ? "Finding the next ID…" : "Member ID"} editable={false} />
+            {code.state === "failed" && (
+              <PressableScale onPress={retryCode} className="flex-row items-center" style={{ gap: 6, paddingLeft: 6 }} accessibilityRole="button" accessibilityLabel="Try reading the Member ID again">
+                <Text className="gym-tx__meta" style={{ color: colors.gymDanger }}>{`${code.error} Tap to try again.`}</Text>
+              </PressableScale>
+            )}
             {code.state === "ready" && (
               <View className="flex-row items-center" style={{ gap: 6, paddingLeft: 6 }}>
                 <GymIcon name="badge-check" size={16} color={colors.gymSuccess} />
@@ -281,7 +279,12 @@ export function AddMemberSheet({ onClose, onSaved, initial }: { onClose: () => v
             <View className="min-w-0 flex-1"><DateSelect label="Joining Date" value={joinedOn} onChange={setJoinedOn} min={daysFromToday(-365)} max={daysFromToday(60)} stacked /></View>
             <View className="min-w-0 flex-1"><DateSelect label="Payment Date" value={paidOn} onChange={setPaidOn} min={daysFromToday(-365)} max={daysFromToday(0)} stacked /></View>
           </View>
-          <Text className="gym-field__label" style={{ fontSize: 14 }}>{`Available Plans (${plans.length})`}</Text>
+          <Text className="gym-field__label" style={{ fontSize: 14 }}>{catalog.state === "loading" ? "Available Plans (loading…)" : `Available Plans (${plans.length})`}</Text>
+          {catalog.state === "failed" && (
+            <PressableScale onPress={retryCatalog} accessibilityRole="button" accessibilityLabel="Try loading the plans again">
+              <Text className="gym-tx__meta" style={{ color: colors.gymDanger }}>{`${catalog.error} Tap to try again.`}</Text>
+            </PressableScale>
+          )}
           <View className="flex-row flex-wrap" style={{ gap: 8 }} accessibilityRole="radiogroup">
             {plans.map((p) => {
               const selected = p.id === planId;

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentRef } from "react";
-import { FlatList, Pressable, Platform, ScrollView, Text, TextInput, useWindowDimensions, View } from "react-native";
+import { ActivityIndicator, FlatList, Platform, Pressable, RefreshControl, ScrollView, Text, TextInput, useWindowDimensions, View } from "react-native";
 import { router } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { PressableScale } from "@/components/PressableScale";
 import { GymIcon } from "@/components/gym/GymIcon";
@@ -13,19 +14,20 @@ import { GymSheet } from "@/components/gym/GymSheet";
 import { MemberActionsSheet } from "@/components/gym/MemberActionsSheet";
 import { SendReminderSheet, type ReminderKind } from "@/components/gym/SendReminderSheet";
 import { DEFAULT_EXPIRING_DAYS, EXPIRING_SOON_DAYS, MEMBER_FILTERS, expiringDaysLabel, expiringDaysText, rupees, type ExpiringDays } from "@/data/gymDashboard";
-import { gymApi, type GymInfo, type GymMember, type MemberFilter } from "@/lib/gymApi";
+import { gymApi, type GymInfo, type GymMember, type MemberFilter, type MemberSort } from "@/lib/gymApi";
 import { haptic } from "@/lib/haptics";
 import { memberStatus } from "@/lib/gymMember";
 import { listPerf } from "@/lib/listPerf";
+import { useSessionToken } from "@/lib/session";
 import { useGymData } from "@/lib/useGymData";
+import { useCan } from "@/store/gymAccess";
 import { useThemeColors } from "@/theme";
 
 export const isMemberFilter = (value: unknown): value is MemberFilter => typeof value === "string" && MEMBER_FILTERS.some((f) => f.id === value);
 
 export type MemberPick = "renewal" | "due" | "pt" | null;
 
-type Sort = "name" | "days" | "due";
-const SORTS: { id: Sort; label: string }[] = [
+const SORTS: { id: MemberSort; label: string }[] = [
   { id: "name", label: "Name (A to Z)" },
   { id: "days", label: "Days left (fewest first)" },
   { id: "due", label: "Payment due (highest first)" },
@@ -53,6 +55,9 @@ function daysText(days: number) {
 // In pick mode (from + › Renewal, Due payment or PT) tapping a member opens that form.
 export function MemberList({ pick = null, initialFilter = "all", initialDays = DEFAULT_EXPIRING_DAYS, focusSearch = false }: { pick?: MemberPick; initialFilter?: MemberFilter; initialDays?: ExpiringDays; focusSearch?: boolean }) {
   const colors = useThemeColors();
+  const insets = useSafeAreaInsets();
+  // Role & Permission: Collect is for logins with Payments (the server refuses the rest anyway)
+  const can = useCan();
   // Narrow phones (under 360): the status pill moves under the name, beside the days-left pill
   const narrow = useWindowDimensions().width < 360;
   const [filter, setFilter] = useState<MemberFilter>(initialFilter);
@@ -71,7 +76,7 @@ export function MemberList({ pick = null, initialFilter = "all", initialDays = D
     if (!chip || !rowWidth.current || !filterRow.current) return;
     filterRow.current.scrollTo({ x: Math.max(0, chip.x + chip.width / 2 - rowWidth.current / 2), animated: false });
   };
-  const [sort, setSort] = useState<Sort>("name");
+  const [sort, setSort] = useState<MemberSort>("name");
   const [typed, setTyped] = useState("");
   const [search, setSearch] = useState("");
   const [sheet, setSheet] = useState<"sort" | "add" | null>(null);
@@ -85,16 +90,33 @@ export function MemberList({ pick = null, initialFilter = "all", initialDays = D
     return () => clearTimeout(timer);
   }, [typed]);
 
-  const load = useCallback((token: string | null) => gymApi.members(token, filter, search, days), [filter, search, days]);
-  const { result, retry, reload } = useGymData(load);
+  // Pages (2026-11-07): the first page comes with the filters' answer, Show more appends the next
+  // ones; an answer for an earlier filter, search or sort is dropped, never appended
+  const [more, setMore] = useState<{ items: GymMember[]; next: number | null; loading: boolean; error: string }>({ items: [], next: null, loading: false, error: "" });
+  const listKey = useRef(0);
+  const load = useCallback(
+    async (token: string | null) => {
+      const key = ++listKey.current;
+      const answer = await gymApi.members(token, filter, search, days, sort, 1);
+      if (answer.ok && key === listKey.current) setMore({ items: [], next: answer.data.nextPage, loading: false, error: "" });
+      return answer;
+    },
+    [filter, search, days, sort],
+  );
+  const { result, retry, reload, refreshing, refresh } = useGymData(load);
+  const getToken = useSessionToken();
   const gym: GymInfo | null = result.state === "ready" ? result.data.gym : null;
 
-  const members = useMemo(() => {
-    const list = result.state === "ready" ? [...result.data.members] : [];
-    if (sort === "days") list.sort((a, b) => a.daysLeft - b.daysLeft);
-    if (sort === "due") list.sort((a, b) => b.due - a.due);
-    return list;
-  }, [result, sort]);
+  const members = useMemo(() => (result.state === "ready" ? [...result.data.members, ...more.items] : []), [result, more.items]);
+
+  const showMore = async () => {
+    if (more.loading || !more.next) return;
+    const key = listKey.current;
+    setMore((m) => ({ ...m, loading: true, error: "" }));
+    const answer = await gymApi.members(await getToken().catch(() => null), filter, search, days, sort, more.next);
+    if (key !== listKey.current) return;
+    setMore((m) => (answer.ok ? { items: [...m.items, ...answer.data.members], next: answer.data.nextPage, loading: false, error: "" } : { ...m, loading: false, error: answer.error }));
+  };
 
   const open = (member: GymMember) => {
     const id = String(member.id);
@@ -209,7 +231,21 @@ export function MemberList({ pick = null, initialFilter = "all", initialDays = D
         contentContainerStyle={{ padding: 16, paddingBottom: 120, gap: 10 }}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+        refreshControl={<RefreshControl refreshing={refreshing} tintColor={colors.gymPrimary} onRefresh={refresh} />}
         ListHeaderComponent={header}
+        ListFooterComponent={
+          more.next || more.error ? (
+            <View style={{ gap: 8, paddingTop: 4 }}>
+              {more.error ? <Text className="gym-tx__meta">{more.error}</Text> : null}
+              {more.next ? (
+                <PressableScale onPress={showMore} className="gym-btn gym-btn--outline" accessibilityRole="button" accessibilityLabel="Show more members">
+                  {more.loading && <ActivityIndicator size="small" color={colors.gymPrimary} />}
+                  <Text className="gym-btn__label gym-btn__label--outline">Show more</Text>
+                </PressableScale>
+              ) : null}
+            </View>
+          ) : undefined
+        }
         ListEmptyComponent={
           result.state === "loading" ? (
             <GymLoading label="Loading members" />
@@ -289,7 +325,7 @@ export function MemberList({ pick = null, initialFilter = "all", initialDays = D
                 </View>
                 {!pick && (
                   <View className="flex-row items-center" style={{ gap: 6 }}>
-                    {item.due > 0 && (
+                    {item.due > 0 && can("payments") && (
                       <PressableScale onPress={() => setCollecting(item)} haptic="tap" className="gym-mcard__collect" accessibilityRole="button" accessibilityLabel={`Collect ${rupees(item.due)} from ${item.name}`}>
                         <GymIcon name="indian-rupee" size={14} color={colors.gymSuccess} />
                         <Text className="gym-mcard__collect-label">Collect</Text>
@@ -313,7 +349,7 @@ export function MemberList({ pick = null, initialFilter = "all", initialDays = D
         }}
       />
       {!pick && (
-        <View className="absolute" style={{ right: 16, bottom: 16 }}>
+        <View className="absolute" style={{ right: 16, bottom: 16 + insets.bottom }}>
           <PressableScale onPress={() => setSheet("add")} haptic="tap" className="gym-fab" accessibilityRole="button" accessibilityLabel="Add a member">
             <GradientFill radius={18} />
             <GymIcon name="plus" size={22} color={colors.white} />

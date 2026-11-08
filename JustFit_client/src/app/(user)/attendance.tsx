@@ -8,6 +8,8 @@ import { CameraView, useCameraPermissions, type BarcodeScanningResult } from "ex
 import { FormAlert } from "@/components/FormAlert";
 import { IconButton } from "@/components/IconButton";
 import { PrimaryButton } from "@/components/PrimaryButton";
+import { usePullToRefresh } from "@/components/PullToRefresh";
+import { SkeletonCard } from "@/components/Skeleton";
 import { SymbolView } from "@/components/SymbolView";
 import { attendanceApi, looksLikeGymQr, type MyVisit, type ScanDone, type ScanPreview } from "@/lib/attendanceApi";
 import { STATUS_TEXT, clockTime, dayOf, durationText } from "@/lib/attendanceText";
@@ -46,6 +48,7 @@ export default function GymAttendance() {
     setVisits(answer.ok ? { state: "ready", visits: answer.data.visits } : { state: "failed", error: answer.error });
   }, [getToken]);
   useFocusEffect(useCallback(() => { loadVisits(); }, [loadVisits]));
+  const { refreshControl } = usePullToRefresh(loadVisits);
 
   // The whole check: the code → which gym and in or out → GPS → recorded
   const run = useCallback(async (qr: string) => {
@@ -130,7 +133,7 @@ export default function GymAttendance() {
             <Text className="card__subtitle text-center">{"Point the camera at the QR code at your gym's front desk."}</Text>
           </View>
         ) : (
-          <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 48, gap: 16 }}>
+          <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 48, gap: 16 }} refreshControl={refreshControl}>
             {step.kind === "home" && (
               <View className="card items-center" style={{ gap: 12 }}>
                 <View className="card__icon">
@@ -167,8 +170,13 @@ export default function GymAttendance() {
             )}
 
             <Text className="card__title" accessibilityRole="header">Your recent visits</Text>
-            {visits.state === "loading" && <ActivityIndicator color={colors.leaf} accessibilityLabel="Loading your visits" />}
-            {visits.state === "failed" && <FormAlert message={visits.error} />}
+            {visits.state === "loading" && <SkeletonCard lines={3} />}
+            {visits.state === "failed" && (
+              <View style={{ gap: 12 }}>
+                <FormAlert message={visits.error} />
+                <PrimaryButton label="Try again" onPress={() => { setVisits({ state: "loading" }); loadVisits(); }} />
+              </View>
+            )}
             {visits.state === "ready" &&
               (visits.visits.length === 0 ? (
                 <Text className="card__subtitle">No visits yet. Your check-ins will show here.</Text>

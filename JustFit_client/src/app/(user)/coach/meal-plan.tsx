@@ -1,5 +1,5 @@
-import { useCallback, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, Text, View, type ScrollViewInstance } from "react-native";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, Text, View, type ScrollViewInstance } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { router, useFocusEffect } from "expo-router";
@@ -9,6 +9,7 @@ import { CoachButton } from "@/components/coach/CoachButton";
 import { MealRemindersRow } from "@/components/coach/MealRemindersRow";
 import { PlanTimeline } from "@/components/coach/PlanTimeline";
 import { usePullToRefresh } from "@/components/PullToRefresh";
+import { ScreenSkeleton } from "@/components/Skeleton";
 import { coaches } from "@/data/coach";
 import { track } from "@/lib/analytics";
 import { haptic } from "@/lib/haptics";
@@ -35,6 +36,11 @@ export default function MealPlanScreen() {
   const start = useCoachIntakeStore((state) => state.start);
   const [loaded, setLoaded] = useState<{ intake: Intake | null; prefill: IntakePrefill } | null>(null);
   const [plan, setPlan] = useState<PlanState | null>(null);
+  // The plan as it is now, for a save that lands after a reload (updaters stay pure)
+  const planRef = useRef<PlanState | null>(null);
+  useEffect(() => {
+    planRef.current = plan;
+  }, [plan]);
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [logging, setLogging] = useState<string | null>(null);
@@ -42,11 +48,15 @@ export default function MealPlanScreen() {
   const [adjusting, setAdjusting] = useState(false);
   // The page scrolls down to the Adjust Plan options when they open (they sit under the banner at the bottom)
   const scroll = useRef<ScrollViewInstance>(null);
+  // Only the newest read's answer is shown (a pull during the focus read never puts an older answer over a newer one)
+  const latest = useRef(0);
 
   const load = useCallback(async () => {
+    const request = ++latest.current;
     setError(null);
     const token = await getToken().catch(() => null);
     const [intake, planResult] = await Promise.all([coachApi.intake(token), coachApi.plan(token, todayIso())]);
+    if (request !== latest.current) return;
     if (!intake.ok) return setError(intake.status ? intake.error : OFFLINE);
     if (!planResult.ok) return setError(planResult.status ? planResult.error : OFFLINE);
     setLoaded(intake.data);
@@ -64,7 +74,8 @@ export default function MealPlanScreen() {
   const { refreshControl } = usePullToRefresh(load);
 
   const logMeal = async (mealId: string) => {
-    if (logging) return;
+    // Not while the plan is being remade: the meal may not be in the new plan
+    if (logging || making) return;
     setActionError(null);
     setLogging(mealId);
     const result = await coachApi.logMeal(await getToken().catch(() => null), mealId, todayIso());
@@ -74,8 +85,10 @@ export default function MealPlanScreen() {
       return setActionError(result.status ? result.error : OFFLINE);
     }
     haptic.success();
-    // The logged meal's reminder is dropped (the others stay)
-    const next = plan?.plan ? { ...plan, plan: { ...plan.plan, meals: plan.plan.meals.map((m) => (m.id === mealId ? { ...m, logged: true } : m)) } } : plan;
+    // Marked on the plan as it is now (not as it was when the tap came), so a reload or a swap
+    // that landed meanwhile is kept; the logged meal's reminder is dropped (the others stay)
+    const current = planRef.current;
+    const next = current?.plan ? { ...current, plan: { ...current.plan, meals: current.plan.meals.map((m) => (m.id === mealId ? { ...m, logged: true } : m)) } } : current;
     setPlan(next);
     syncMealReminders(next?.plan ?? null, todayIso()).catch(() => {});
   };
@@ -96,6 +109,22 @@ export default function MealPlanScreen() {
     if (!result.ok) return setActionError(result.status ? result.error : OFFLINE);
     setPlan(result.data);
     syncMealReminders(result.data.plan, todayIso()).catch(() => {});
+  };
+
+  // Remaking a plan is a paid AI call that replaces every meal, so it asks first (React Native's
+  // Alert does nothing on the web, so the browser asks there)
+  const confirmRegenerate = () => {
+    if (making) return;
+    const question = "Regenerate your meal plan?";
+    const detail = "Your coach writes a new day of meals; today's plan is replaced.";
+    if (Platform.OS === "web") {
+      if (globalThis.confirm?.(`${question} ${detail}`)) regenerate();
+      return;
+    }
+    Alert.alert(question, detail, [
+      { text: "Cancel", style: "cancel" },
+      { text: "Regenerate", onPress: regenerate },
+    ]);
   };
 
   const editAnswers = () => {
@@ -128,11 +157,7 @@ export default function MealPlanScreen() {
         </View>
 
         <ScrollView ref={scroll} contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 32, gap: 16 }} showsVerticalScrollIndicator={false} refreshControl={refreshControl}>
-          {!plan && !error && (
-            <View className="items-center py-16">
-              <ActivityIndicator color={colors.leaf} />
-            </View>
-          )}
+          {!plan && !error && <ScreenSkeleton cards={3} label="Loading your meal plan" />}
 
           {error && (
             <View className="coach__card items-center">
@@ -155,7 +180,7 @@ export default function MealPlanScreen() {
 
           {plan?.plan && (
             <>
-              <PlanTimeline plan={plan.plan} logging={logging} onLog={logMeal} onSwap={swapMeal} />
+              <PlanTimeline plan={plan.plan} logging={logging} onLog={logMeal} onSwap={swapMeal} busy={making} />
 
               <MealRemindersRow plan={plan.plan} date={todayIso()} />
 
@@ -177,7 +202,7 @@ export default function MealPlanScreen() {
                     <SymbolView name={{ ios: "bubble.left.fill", android: "chat", web: "chat" }} size={18} tintColor={colors.leaf} />
                     <Text className="list-row__label">Ask my coach to adjust a meal</Text>
                   </Pressable>
-                  <Pressable onPress={() => { setAdjusting(false); regenerate(); }} disabled={making} className="list-row" accessibilityRole="button" accessibilityLabel="Regenerate the plan with AI Coach">
+                  <Pressable onPress={() => { setAdjusting(false); confirmRegenerate(); }} disabled={making} className="list-row" accessibilityRole="button" accessibilityLabel="Regenerate the plan with AI Coach">
                     <SymbolView name={{ ios: "sparkles", android: "auto_awesome", web: "auto_awesome" }} size={18} tintColor={colors.leaf} />
                     <Text className="list-row__label">{making ? "Regenerating…" : "Regenerate with AI Coach"}</Text>
                   </Pressable>

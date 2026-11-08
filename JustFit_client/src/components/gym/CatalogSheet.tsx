@@ -93,6 +93,7 @@ export function CatalogSheet({ kind, item, onClose, onSaved }: { kind: CatalogKi
       subtitle={`${item ? "Change" : "Add"} a ${meta.noun} for the outlet.`}
       onClose={onClose}
       overlay={confirming ? <ConfirmDialog rows={rows} onEdit={() => setConfirming(false)} onConfirm={submit} /> : null}
+      onDismissOverlay={() => setConfirming(false)}
     >
       <GymField label={`${TITLE[kind]} name`} icon="pencil-line" value={name} onChangeText={setName} maxLength={80} placeholder={`${TITLE[kind]} Name (Eg. ${kind === "plan" ? "6 Months" : meta.example})`} />
       {isPlan && <PlanLengthFields duration={duration} onDuration={setDuration} />}

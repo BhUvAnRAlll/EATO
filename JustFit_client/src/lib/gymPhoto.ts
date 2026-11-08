@@ -1,3 +1,4 @@
+import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
 
 import { photoTypeOf } from "@/lib/adminPrograms";
@@ -10,6 +11,10 @@ export type MemberPhoto = { data: string; mediaType: string; previewUri: string 
 export type PhotoSource = "camera" | "library";
 
 export const MEMBER_PHOTO_MAX_BYTES = 3 * 1024 * 1024;
+// Photos are shrunk on the phone before upload (2026-11-07): a member's square photo to 512 px
+// (the list shows it at 44 px), a brochure or bill to 1600 px on its long side (still readable)
+export const MEMBER_PHOTO_SIDE = 512;
+export const IMAGE_LONG_SIDE = 1600;
 const PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
 type Picked = { ok: true; photo: MemberPhoto } | { ok: false; error: string } | { ok: false; cancelled: true };
 
@@ -38,12 +43,29 @@ async function pickImage(source: PhotoSource, { square, what }: { square: boolea
   const result = source === "camera" ? await ImagePicker.launchCameraAsync(options) : await ImagePicker.launchImageLibraryAsync(options);
   if (result.canceled) return { ok: false, cancelled: true };
   const asset = result.assets[0];
+  const small = await shrink(asset, square ? MEMBER_PHOTO_SIDE : IMAGE_LONG_SIDE);
   // The web picker may give a data: URL instead of base64
   const dataUrl = /^data:([^;]+);base64,(.+)$/.exec(asset.uri ?? "");
-  const data = asset.base64 ?? dataUrl?.[2] ?? null;
+  const data = small?.data ?? asset.base64 ?? dataUrl?.[2] ?? null;
   if (!data) return { ok: false, error: "That photo couldn't be read. Please try another." };
   const mediaType = photoTypeOf(data);
   if (!mediaType || !PHOTO_TYPES.includes(mediaType)) return { ok: false, error: "Choose a JPEG, PNG or WebP photo." };
   if (base64Bytes(data) > MEMBER_PHOTO_MAX_BYTES) return { ok: false, error: "That photo is too large (max 3 MB). Try another." };
-  return { ok: true, photo: { data, mediaType, previewUri: asset.uri } };
+  return { ok: true, photo: { data, mediaType, previewUri: small?.uri ?? asset.uri } };
+}
+
+// The picked image no larger than `side` on its longer edge, as a JPEG with its base64; null when
+// it's already small enough or when shrinking fails (the original is used then, checked as before)
+async function shrink(asset: ImagePicker.ImagePickerAsset, side: number): Promise<{ data: string; uri: string } | null> {
+  const { width, height, uri } = asset;
+  if (!uri || !width || !height || Math.max(width, height) <= side) return null;
+  try {
+    const context = ImageManipulator.manipulate(uri);
+    context.resize(width >= height ? { width: side, height: null } : { width: null, height: side });
+    const image = await context.renderAsync();
+    const saved = await image.saveAsync({ format: SaveFormat.JPEG, compress: 0.8, base64: true });
+    return saved.base64 ? { data: saved.base64, uri: saved.uri } : null;
+  } catch {
+    return null;
+  }
 }

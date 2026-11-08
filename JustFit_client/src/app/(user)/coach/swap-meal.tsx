@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Animated, Easing, Pressable, ScrollView, Text, View } from "react-native";
+import { useCallback, useRef, useState } from "react";
+import { ActivityIndicator, Animated, Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 
+import { SkeletonCard, SkeletonPulse } from "@/components/Skeleton";
 import { SymbolView } from "@/components/SymbolView";
 import { track } from "@/lib/analytics";
 import { coachApi, type MealOption, type MealPreference, type PlanItem, type PlanMeal, type PlanSlot, type Totals } from "@/lib/coach";
@@ -58,30 +59,12 @@ function MacroChips({ totals }: { totals: Totals }) {
   );
 }
 
-// Three grey cards that breathe while the coach thinks
+// Three grey cards that breathe while the coach thinks (the app's shared skeleton)
 function Skeleton() {
-  const [pulse] = useState(() => new Animated.Value(0.45));
-  useEffect(() => {
-    const loop = Animated.loop(Animated.sequence([
-      Animated.timing(pulse, { toValue: 1, duration: 700, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-      Animated.timing(pulse, { toValue: 0.45, duration: 700, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-    ]));
-    loop.start();
-    return () => loop.stop();
-  }, [pulse]);
   return (
-    <View style={{ gap: 12 }} accessibilityLabel="Finding options for you" accessibilityRole="progressbar">
-      {[0, 1, 2].map((i) => (
-        <Animated.View key={i} className="swap__card" style={{ opacity: pulse }}>
-          <View className="swap__skeleton" style={{ height: 20, width: "55%" }} />
-          <View className="swap__skeleton" style={{ height: 14, width: "90%" }} />
-          <View className="flex-row" style={{ gap: 8 }}>
-            {[0, 1, 2].map((j) => <View key={j} className="swap__skeleton" style={{ height: 30, width: 58 }} />)}
-          </View>
-          <View className="swap__skeleton" style={{ height: 48, borderRadius: 999 }} />
-        </Animated.View>
-      ))}
-    </View>
+    <SkeletonPulse label="Finding options for you" className="gap-3">
+      {[0, 1, 2].map((i) => <SkeletonCard key={i} lines={3} />)}
+    </SkeletonPulse>
   );
 }
 
@@ -188,7 +171,9 @@ function OptionCard({ option, chosen, busy, replacing, onReplace }: { option: Me
 // amounts before it goes in.
 export default function SwapMealScreen() {
   const colors = useThemeColors();
-  const { mealId } = useLocalSearchParams<{ mealId: string }>();
+  const params = useLocalSearchParams<{ mealId?: string | string[] }>();
+  // A link param may arrive as an array (the same key twice): the first value is the one meant
+  const mealId = Array.isArray(params.mealId) ? params.mealId[0] : params.mealId;
   const getToken = useSessionToken();
   const [meal, setMeal] = useState<PlanMeal | null>(null);
   const [options, setOptions] = useState<MealOption[] | null>(null);

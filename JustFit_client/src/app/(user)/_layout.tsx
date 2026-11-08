@@ -1,6 +1,5 @@
-import { useEffect } from "react";
 import { Platform, View } from "react-native";
-import { router, Stack, usePathname } from "expo-router";
+import { Redirect, Stack, usePathname } from "expo-router";
 
 import { SessionExpiredBanner } from "@/components/SessionExpiredBanner";
 import { useThemeColors } from "@/theme";
@@ -15,12 +14,10 @@ const NOT_FOR_TRAINERS = /^\/(coach|workout|fitness)(\/|$)/;
 export default function UserLayout() {
   const colors = useThemeColors();
   // A trainer who reaches a Coach or Fitness screen anyway (a link, an old reminder, a promotion)
-  // is sent Home
+  // is sent Home before the screen renders, so it never shows for a frame or calls the server
   const pathname = usePathname();
   const trainer = useAuthStore((state) => state.user?.role === "trainer");
-  useEffect(() => {
-    if (trainer && NOT_FOR_TRAINERS.test(pathname)) router.replace("/home");
-  }, [trainer, pathname]);
+  if (trainer && NOT_FOR_TRAINERS.test(pathname)) return <Redirect href="/home" />;
   return (
     <View style={{ flex: 1 }}>
       <Stack

@@ -5,6 +5,7 @@ import { StatusBar } from "expo-status-bar";
 import { router, useFocusEffect } from "expo-router";
 
 import { usePullToRefresh } from "@/components/PullToRefresh";
+import { ScreenSkeleton } from "@/components/Skeleton";
 import { SymbolView } from "@/components/SymbolView";
 import { DashedBlock } from "@/components/macro/DashedBlock";
 import { adminPrograms, LAYOUT_TEXT, type AdminSection } from "@/lib/adminPrograms";
@@ -66,10 +67,7 @@ export default function AdminCategoriesScreen() {
           {error && <Text className="meta-text" style={{ color: colors.danger }}>{error}</Text>}
 
           {load.state === "loading" ? (
-            <View className="items-center gap-3 py-16">
-              <ActivityIndicator color={colors.leaf} />
-              <Text className="home__note">Loading</Text>
-            </View>
+            <ScreenSkeleton label="Loading categories" />
           ) : load.state === "failed" ? (
             <DashedBlock icon={{ ios: "exclamationmark.triangle.fill", android: "warning", web: "warning" }} title="Could not load categories" text={`${load.error.replace(/\.$/, "")}. Tap to try again.`} onPress={() => { setLoad({ state: "loading" }); refresh(); }} />
           ) : (

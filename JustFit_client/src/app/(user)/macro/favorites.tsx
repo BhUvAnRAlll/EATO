@@ -8,12 +8,13 @@ import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 
 import { DashedBlock } from "@/components/macro/DashedBlock";
 import { FoodCard } from "@/components/macro/FoodCard";
+import { LoadError } from "@/components/macro/LoadError";
 import { MacroHeader } from "@/components/macro/MacroHeader";
 import { Segmented } from "@/components/macro/Segmented";
 import { usePullToRefresh } from "@/components/PullToRefresh";
 import { loggedAtFor, macro, slotForNow, slotInfo, slots, todayIso, type Favorite, type Slot } from "@/lib/macro";
 import { useSessionToken } from "@/lib/session";
-import { useMacroStore } from "@/store/macro";
+import { logDate } from "@/store/macro";
 import { useThemeColors } from "@/theme";
 
 // Pick a food hearted earlier and log it in one tap. Reached through Add meal → Log food (the
@@ -23,7 +24,6 @@ export default function Favorites() {
   const params = useLocalSearchParams<{ slot?: string; hour?: string; minute?: string }>();
   const getToken = useSessionToken();
   const { width } = useWindowDimensions();
-  const selectedDate = useMacroStore((state) => state.selectedDate);
   const upstreamSlot = slots.includes(params.slot as Slot) ? (params.slot as Slot) : null;
   const [favorites, setFavorites] = useState<Favorite[] | null>(null);
   const [selected, setSelected] = useState<Favorite | null>(null);
@@ -34,6 +34,7 @@ export default function Favorites() {
   const cardWidth = Math.min(200, Math.floor((width - 32 - 12) / 2));
 
   const load = useCallback(async () => {
+    setError(null);
     const result = await macro.favorites(await getToken().catch(() => null));
     if (result.ok) setFavorites(result.data.favorites);
     else setError(result.error);
@@ -63,12 +64,14 @@ export default function Favorites() {
   const logIt = async () => {
     if (!selected || saving) return;
     setError(null);
-    if (selectedDate !== todayIso()) return setError("Meals can only be logged for today.");
+    // The selected day, followed to the new today when midnight passed since it was picked
+    const date = logDate();
+    if (date !== todayIso()) return setError("Meals can only be logged for today.");
     setSaving(true);
     const result = await macro.logFavorite(await getToken().catch(() => null), selected.id, {
-      date: selectedDate,
+      date,
       slot: upstreamSlot ?? slot,
-      loggedAt: loggedAtFor(selectedDate, params.hour, params.minute),
+      loggedAt: loggedAtFor(date, params.hour, params.minute),
     });
     setSaving(false);
     if (!result.ok) return setError(result.status ? result.error : "Could not log that favourite.");
@@ -82,8 +85,8 @@ export default function Favorites() {
         <MacroHeader title="Favourites" />
         {favorites === null ? (
           error ? (
-            <View className="flex-1 items-center justify-center">
-              <Text className="macro__error px-5 text-center" accessibilityRole="alert">{error}</Text>
+            <View className="px-4 pt-2">
+              <LoadError title="Couldn't load your favourites" message={error} onRetry={load} />
             </View>
           ) : (
             <View className="px-4 pt-2">

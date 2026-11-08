@@ -341,23 +341,30 @@ async function periodStats(pool, gymId, from, to) {
 
 async function summary(pool, gym, today) {
   await closeStale(pool, "gym_id = ?", [gym.id], today);
-  const [inside] = await pool.query(
-    `SELECT ${VISIT_COLUMNS} FROM gym_attendance a JOIN gym_members m ON m.id = a.member_id WHERE a.gym_id = ? AND a.status = 'inside' ORDER BY a.checked_in_at DESC LIMIT 200`,
-    [gym.id],
-  );
-  // The charts: today's check-ins by hour, and visits per day over the last 30 days
-  const [days] = await pool.query(
-    "SELECT DATE_FORMAT(on_date, '%Y-%m-%d') AS day, COUNT(*) AS visits FROM gym_attendance WHERE gym_id = ? AND on_date BETWEEN ? AND ? GROUP BY on_date",
-    [gym.id, rules.addDays(today, -29), today],
-  );
+  // Every read of the dashboard at once (2026-11-07): who is inside, the charts' rows, the setup
+  // flags, and the stats for today, the last 7 days and the last 30 days
+  const [[inside], [days], [todayRows], [[place]], statsToday, statsWeek, statsMonth] = await Promise.all([
+    pool.query(
+      `SELECT ${VISIT_COLUMNS} FROM gym_attendance a JOIN gym_members m ON m.id = a.member_id WHERE a.gym_id = ? AND a.status = 'inside' ORDER BY a.checked_in_at DESC LIMIT 200`,
+      [gym.id],
+    ),
+    // The charts: today's check-ins by hour, and visits per day over the last 30 days
+    pool.query(
+      "SELECT DATE_FORMAT(on_date, '%Y-%m-%d') AS day, COUNT(*) AS visits FROM gym_attendance WHERE gym_id = ? AND on_date BETWEEN ? AND ? GROUP BY on_date",
+      [gym.id, rules.addDays(today, -29), today],
+    ),
+    pool.query(`SELECT ${ms("checked_in_at")} AS in_ms FROM gym_attendance WHERE gym_id = ? AND on_date = ?`, [gym.id, today]),
+    pool.query("SELECT latitude IS NOT NULL AS has_location, qr_version > 0 AS has_qr FROM gyms WHERE id = ?", [gym.id]),
+    periodStats(pool, gym.id, today, today),
+    periodStats(pool, gym.id, rules.addDays(today, -6), today),
+    periodStats(pool, gym.id, rules.addDays(today, -29), today),
+  ]);
   const byDay = new Map(days.map((d) => [d.day, d.visits]));
-  const [todayRows] = await pool.query(`SELECT ${ms("checked_in_at")} AS in_ms FROM gym_attendance WHERE gym_id = ? AND on_date = ?`, [gym.id, today]);
   const charts = {
     today: att.chartHours(todayRows.map((r) => r.in_ms)),
     week: att.chartDays(byDay, today, 7, rules.addDays),
     month: att.chartDays(byDay, today, 30, rules.addDays),
   };
-  const [[place]] = await pool.query("SELECT latitude IS NOT NULL AS has_location, qr_version > 0 AS has_qr FROM gyms WHERE id = ?", [gym.id]);
   return {
     gym: gymInfo(gym),
     today,
@@ -365,11 +372,7 @@ async function summary(pool, gym, today) {
     insideNow: inside.length,
     inside: inside.map(visitOf),
     // Today, the last 7 days and the last 30 days (the month was the calendar month until 2026-11-07)
-    stats: {
-      today: await periodStats(pool, gym.id, today, today),
-      week: await periodStats(pool, gym.id, rules.addDays(today, -6), today),
-      month: await periodStats(pool, gym.id, rules.addDays(today, -29), today),
-    },
+    stats: { today: statsToday, week: statsWeek, month: statsMonth },
     charts,
     lastSevenDays: charts.week,
   };

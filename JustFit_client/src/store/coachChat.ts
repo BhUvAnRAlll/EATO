@@ -8,7 +8,7 @@ import { newId, track } from "@/lib/analytics";
 
 // One line on screen: a saved message, a coach reply (with any plan changes it recommends), or a
 // failed send (shown, never saved; tapping it sends it again). `clientId` names the send.
-export type ChatTurn = ChatLine & { id: string; clientId?: string; failed?: boolean; proposals?: ChatProposals };
+export type ChatTurn = ChatLine & { id: string; clientId?: string; failed?: boolean; proposals?: ChatProposals; createdAt?: string };
 
 // Where one proposal stands: being applied, applied (a meal keeps its undo option), or failed
 export type ProposalState = { status: "busy" | "applied" | "failed"; undoId?: string; error?: string };
@@ -39,14 +39,20 @@ export const proposalKey = (turnId: string, what: string) => `${turnId}:${what}`
 let nextId = 1;
 const unreachable = "Could not reach justFit. Check your connection and try again.";
 
-// A saved message on screen. A reply's Apply cards are only offered on the day it was written:
-// they change today's plan, and an older one may name a meal that isn't in it any more.
+// A saved message on screen (the screen decides, as it draws, whether its Apply cards still apply)
 const toTurn = (message: ChatMessage): ChatTurn => ({
   id: message.id,
   role: message.role,
   text: message.text,
-  ...(message.proposals && isoOf(new Date(message.createdAt)) === todayIso() ? { proposals: message.proposals } : {}),
+  createdAt: message.createdAt,
+  ...(message.proposals ? { proposals: message.proposals } : {}),
 });
+
+// A reply's Apply cards are only offered on the day it was written: they change today's plan, and
+// an older one may name a meal that isn't in it any more. Checked at render time (against `today`
+// as the screen has it), so a card from yesterday goes once midnight has passed.
+export const proposalsFor = (turn: ChatTurn, today: string): ChatProposals | undefined =>
+  turn.proposals && turn.createdAt && isoOf(new Date(turn.createdAt)) === today ? turn.proposals : undefined;
 
 // The coach chat. The conversation is saved on the server for 7 days, read once when the chat
 // first opens in this app session (load), then kept here: each answered send comes back as saved
@@ -100,7 +106,9 @@ export const useCoachChatStore = create<CoachChatState>((set, get) => {
     // never answered twice); it and its error leave the screen and the new attempt goes at the end
     retry: async (getToken, turnId) => {
       const turn = get().turns.find((t) => t.id === turnId);
-      if (!turn?.failed || turn.role !== "member" || !turn.clientId || get().sending) return;
+      // Checked here as well as in send: once the failed bubbles are taken off, a send that bails
+      // (the conversation not shown yet) would leave the message gone
+      if (!turn?.failed || turn.role !== "member" || !turn.clientId || get().sending || get().status !== "ready") return;
       set({ turns: get().turns.filter((t) => t.clientId !== turn.clientId) });
       await get().send(getToken, turn.text, turn.clientId);
     },

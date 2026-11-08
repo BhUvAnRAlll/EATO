@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, Switch, Text, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { Pressable, Switch, Text, View } from "react-native";
 import { Image } from "expo-image";
 import { SymbolView } from "@/components/SymbolView";
 import { router } from "expo-router";
 
 import { FormAlert } from "@/components/FormAlert";
+import { ScreenSkeleton } from "@/components/Skeleton";
 import { AdminButton, AdminScreen } from "@/components/admin/AdminScreen";
 import { AdminField, ChoiceChips } from "@/components/admin/AdminField";
 import { destinations, quickActionIconKeys, type Meal, type QuickAction } from "@/data/home";
@@ -28,6 +29,10 @@ export default function AdminHomeContent() {
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
+  // Try again after a failed first read runs the effect once more
+  const [attempt, setAttempt] = useState(0);
+  // A ref, not the state: two taps in one frame both see saving === false
+  const running = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -44,7 +49,7 @@ export default function AdminHomeContent() {
     return () => {
       cancelled = true;
     };
-  }, [getToken]);
+  }, [getToken, attempt]);
 
   const update = (changes: Partial<HomeContentInput>) => {
     setSaved(false);
@@ -89,11 +94,17 @@ export default function AdminHomeContent() {
   };
 
   const save = async () => {
-    if (!content) return;
+    if (!content || running.current) return;
+    running.current = true;
     setSaving(true);
     setError(null);
-    const result = await adminHome.saveHomeContent(await getToken(), content);
-    setSaving(false);
+    let result: Awaited<ReturnType<typeof adminHome.saveHomeContent>>;
+    try {
+      result = await adminHome.saveHomeContent(await getToken(), content);
+    } finally {
+      running.current = false;
+      setSaving(false);
+    }
     if (!result.ok) return setError(result.error);
     setSaved(true);
   };
@@ -103,7 +114,14 @@ export default function AdminHomeContent() {
   return (
     <AdminScreen title="Home screen settings" headerRight={<AdminButton label={saving ? "Saving…" : "Save"} variant="primary" onPress={save} disabled={saving || !content} />}>
       {!content ? (
-        error ? <FormAlert message={error} /> : <ActivityIndicator color={colors.leaf} className="mt-6" />
+        error ? (
+          <View className="gap-3">
+            <FormAlert message={error} />
+            <AdminButton label="Try again" onPress={() => { setError(null); setAttempt((n) => n + 1); }} />
+          </View>
+        ) : (
+          <ScreenSkeleton label="Loading the home screen settings" />
+        )
       ) : (
         <View className="gap-5">
           {error && <FormAlert message={error} />}

@@ -18,6 +18,9 @@ import { useThemeColors } from "@/theme";
 // ?add=1): the gym's branches this account works at, the open one ticked. Tapping another opens
 // it everywhere (the server remembers the choice). Edit this branch changes its name and place;
 // Add branch (the gym admin only; the server refuses Staff) adds one with its name and location.
+// Back to wherever this opened from; a deep link has nothing behind it, so Home then
+const leave = () => (router.canGoBack() ? router.back() : router.replace("/gym"));
+
 export default function GymBranchesScreen() {
   const colors = useThemeColors();
   const params = useLocalSearchParams<{ add?: string }>();
@@ -27,7 +30,7 @@ export default function GymBranchesScreen() {
   const { busy, error, save } = useGymSave((data: GymBranches) => {
     set(data);
     setSwitching(null);
-    router.back();
+    leave();
   });
 
   return (
@@ -43,7 +46,7 @@ export default function GymBranchesScreen() {
                 <PressableScale
                   key={b.id}
                   onPress={() => {
-                    if (current) return router.back();
+                    if (current) return leave();
                     setSwitching(b.id);
                     save((token) => gymApi.switchBranch(token, b.id));
                   }}
@@ -83,10 +86,13 @@ export default function GymBranchesScreen() {
               <Text className="gym-btn__label">Add branch</Text>
             </PressableScale>
           )}
-          <PressableScale onPress={() => router.push("/gym/details")} className="gym-btn gym-btn--outline" accessibilityRole="button" accessibilityLabel="Edit this branch">
-            <GymIcon name="pencil" size={15} color={colors.gymPrimary} />
-            <Text className="gym-btn__label gym-btn__label--outline">Edit this branch</Text>
-          </PressableScale>
+          {/* Branch details are the gym admin's (the server refuses Staff too) */}
+          {result.data.access === "owner" && (
+            <PressableScale onPress={() => router.push("/gym/details")} className="gym-btn gym-btn--outline" accessibilityRole="button" accessibilityLabel="Edit this branch">
+              <GymIcon name="pencil" size={15} color={colors.gymPrimary} />
+              <Text className="gym-btn__label gym-btn__label--outline">Edit this branch</Text>
+            </PressableScale>
+          )}
           {adding && result.data.access === "owner" && (
             <AddBranchSheet
               gym={result.data.gym}

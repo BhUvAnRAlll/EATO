@@ -227,7 +227,10 @@ describe("ui gym staff: Staff / Admin Login and the live role switch", () => {
     await h.expectText("Plans / Catalogue");
     assert.equal(await hasLabel("Staff / Admin Login"), false, "Staff don't manage the team");
     await snapshotAllWidths("gym-staff-portal-menu");
-    await clickLabel("Close menu");
+    // The backdrop fills the screen under the menu panel, so its centre is a menu row (for a Staff
+    // login, Expenses: a "coming soon" alert that froze this suite on 2026-11-07); the harness's
+    // own click finds a point of the backdrop the panel doesn't cover
+    await page.clickLabel("Close menu");
 
     // Opening the team by its address anyway: the server says no
     await page.navigate(`${expo.baseUrl}/gym/staff`);

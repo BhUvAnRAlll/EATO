@@ -115,11 +115,13 @@ export function DueMembersSheet({
               reasons: m.payment.reasons.map((r) => r.text).join(" · "),
             };
             return (
+              // The card is a View: the bell and ⋯ are buttons beside the member's own button, never
+              // inside it (nested buttons break on the web, QA 2026-11-07)
+              <View key={m.id} className="gym-card flex-row items-center" style={{ gap: narrow ? 6 : 12, padding: narrow ? 10 : 14 }}>
               <PressableScale
-                key={m.id}
                 onPress={() => setOpen(m)}
-                className="gym-card flex-row items-center"
-                style={{ gap: narrow ? 6 : 12, padding: narrow ? 10 : 14 }}
+                className="flex-row items-center min-w-0 flex-1"
+                style={{ gap: narrow ? 6 : 12 }}
                 accessibilityRole="button"
                 accessibilityLabel={`${m.name}, ${m.code}${m.pt?.active ? ", on PT" : ""}, ${daysLeftText(m.daysLeft)}, ${rupees(m.due)} payment due${m.overdue ? ", overdue" : ""}, ${pay.text}`}
               >
@@ -203,6 +205,7 @@ export function DueMembersSheet({
                     >{`${rupees(m.due)} ${narrow ? "due" : "payment due"}${m.overdue ? " · overdue" : ""}`}</Text>
                   </View>
                 </View>
+                </PressableScale>
                 {m.birthdayToday && (
                   <GymIcon name="cake" size={18} color={colors.gymInkSoft} />
                 )}
@@ -234,7 +237,7 @@ export function DueMembersSheet({
                     color={colors.gymInkSoft}
                   />
                 </PressableScale>
-              </PressableScale>
+              </View>
             );
           })
         ))}

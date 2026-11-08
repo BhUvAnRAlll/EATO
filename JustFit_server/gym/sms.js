@@ -125,12 +125,15 @@ async function overview(pool, gym, sender, today) {
 }
 
 async function updateSettings(pool, gym, userId, changes, sender, today) {
-  for (const [kind, enabled] of Object.entries(changes)) {
-    await pool.query(
-      "INSERT INTO gym_sms_settings (gym_id, kind, enabled, updated_by) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE enabled = VALUES(enabled), updated_by = VALUES(updated_by)",
-      [gym.id, kind, enabled ? 1 : 0, userId],
-    );
-  }
+  // All the switches in one transaction: a failure part-way leaves none of them changed
+  await inTransaction(pool, async (db) => {
+    for (const [kind, enabled] of Object.entries(changes)) {
+      await db.query(
+        "INSERT INTO gym_sms_settings (gym_id, kind, enabled, updated_by) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE enabled = VALUES(enabled), updated_by = VALUES(updated_by)",
+        [gym.id, kind, enabled ? 1 : 0, userId],
+      );
+    }
+  });
   return overview(pool, gym, sender, today);
 }
 

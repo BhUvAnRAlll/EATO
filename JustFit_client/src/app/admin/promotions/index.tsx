@@ -1,10 +1,11 @@
 import { useCallback, useState } from "react";
-import { ActivityIndicator, Pressable, Text, useWindowDimensions, View } from "react-native";
+import { Pressable, Text, useWindowDimensions, View } from "react-native";
 import { Image } from "expo-image";
 import { SymbolView } from "@/components/SymbolView";
 import { router, useFocusEffect } from "expo-router";
 
 import { FormAlert } from "@/components/FormAlert";
+import { ScreenSkeleton } from "@/components/Skeleton";
 import { AdminButton, AdminScreen } from "@/components/admin/AdminScreen";
 import { PromotionSlide } from "@/components/home/PromotionSlide";
 import type { Promotion } from "@/data/home";
@@ -23,7 +24,8 @@ const statusBadge: Record<Promotion["effectiveStatus"], { badge: string; text: s
 
 // Home Screen & Promotions: every promotion with its status and order, and the actions
 // an admin needs (new, edit, preview, publish/disable, reorder, delete with confirmation).
-export default function AdminPromotions() {
+// `tab` when it is the Content tab's root (no back arrow).
+export default function AdminPromotions({ tab = false }: { tab?: boolean }) {
   const colors = useThemeColors();
   const getToken = useSessionToken();
   const { width } = useWindowDimensions();
@@ -69,13 +71,15 @@ export default function AdminPromotions() {
     run((token) => adminHome.reorderPromotions(token, ids));
   };
 
-  const previewWidth = width - 32;
+  // The screen's gutter (16 each side) and the row's padding (12 each side)
+  const previewWidth = width - 32 - 24;
 
   return (
     <AdminScreen
       title="Home Screen & Promotions"
       headerRight={<AdminButton label="New" variant="primary" onPress={() => router.push("/admin/promotions/new")} />}
       onRefresh={load}
+      hideBack={tab}
     >
       <Pressable onPress={() => router.push("/admin/home-content")} className="card mb-4 flex-row items-center gap-3" accessibilityRole="button">
         <View className="card__icon">
@@ -98,7 +102,11 @@ export default function AdminPromotions() {
       )}
 
       {promotions === null ? (
-        <ActivityIndicator color={colors.leaf} className="mt-6" />
+        error ? (
+          <AdminButton label="Try again" onPress={load} />
+        ) : (
+          <ScreenSkeleton label="Loading promotions" />
+        )
       ) : promotions.length === 0 ? (
         <View className="home__empty mx-0">
           <Text className="card__title">No promotions yet</Text>

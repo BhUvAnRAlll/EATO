@@ -1,10 +1,12 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 
 import { CategoryForm } from "@/components/admin/CategoryForm";
+import { usePullToRefresh } from "@/components/PullToRefresh";
+import { ScreenSkeleton } from "@/components/Skeleton";
 import { SymbolView } from "@/components/SymbolView";
 import { DashedBlock } from "@/components/macro/DashedBlock";
 import { adminPrograms, type AdminSection, type SectionFields } from "@/lib/adminPrograms";
@@ -15,6 +17,7 @@ type Load = { state: "loading" } | { state: "failed"; error: string } | { state:
 
 const back = () => (router.canGoBack() ? router.back() : router.replace("/admin/categories"));
 const fieldsOf = (s: AdminSection): SectionFields => ({ title: s.title, note: s.note, layout: s.layout, published: s.published });
+const sameFields = (a: SectionFields, b: SectionFields) => (Object.keys(a) as (keyof SectionFields)[]).every((k) => a[k] === b[k]);
 
 // Super Admin › Programs › Categories › one category: its name, line, cards and whether members see
 // it (Save). A category the admin made can be deleted once no program is in it; the built-in six
@@ -27,6 +30,18 @@ export default function AdminCategoryScreen() {
   const [form, setForm] = useState<SectionFields | null>(null);
   const [busy, setBusy] = useState<"save" | "delete" | null>(null);
   const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null);
+  // The fields the form was last set from, and the form as it is: a read (coming back, a pull)
+  // only replaces the form when nothing has been edited in it
+  const saved = useRef<SectionFields | null>(null);
+  const formNow = useRef<SectionFields | null>(null);
+  const changeForm = (next: SectionFields | null) => {
+    formNow.current = next;
+    setForm(next);
+  };
+  const show = (section: AdminSection) => {
+    saved.current = fieldsOf(section);
+    changeForm(saved.current);
+  };
 
   const refresh = useCallback(async () => {
     const result = await adminPrograms.sections(await getToken().catch(() => null));
@@ -34,8 +49,14 @@ export default function AdminCategoryScreen() {
     const section = result.data.sections.find((s) => s.id === String(id));
     if (!section) return setLoad({ state: "failed", error: "That category doesn't exist." });
     setLoad({ state: "ready", section });
-    setForm(fieldsOf(section));
+    const edited = formNow.current && saved.current && !sameFields(formNow.current, saved.current);
+    if (!edited) {
+      saved.current = fieldsOf(section);
+      formNow.current = saved.current;
+      setForm(saved.current);
+    }
   }, [getToken, id]);
+  const { refreshControl } = usePullToRefresh(refresh);
 
   useFocusEffect(
     useCallback(() => {
@@ -51,7 +72,7 @@ export default function AdminCategoryScreen() {
     setBusy(null);
     if (!result.ok) return setMessage({ text: result.error, error: true });
     setLoad({ state: "ready", section: { ...section, ...result.data } });
-    setForm(fieldsOf(result.data));
+    show(result.data);
     setMessage({ text: "Saved.", error: false });
   };
 
@@ -93,11 +114,11 @@ export default function AdminCategoryScreen() {
             <DashedBlock icon={{ ios: "exclamationmark.triangle.fill", android: "warning", web: "warning" }} title="Could not load the category" text={`${load.error.replace(/\.$/, "")}. Tap to try again.`} onPress={() => { setLoad({ state: "loading" }); refresh(); }} />
           </View>
         ) : load.state === "loading" || !form ? (
-          <View className="items-center py-16"><ActivityIndicator color={colors.leaf} /></View>
+          <View className="px-4"><ScreenSkeleton cards={2} label="Loading the category" /></View>
         ) : (
-          <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 48, gap: 16 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}>
+          <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 48, gap: 16 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"} automaticallyAdjustKeyboardInsets refreshControl={refreshControl}>
             {message && <Text className="meta-text" style={{ color: message.error ? colors.danger : colors.success }}>{message.text}</Text>}
-            <CategoryForm value={form} onChange={setForm} disabled={busy !== null} />
+            <CategoryForm value={form} onChange={changeForm} disabled={busy !== null} />
             <Pressable onPress={() => save(load.section)} disabled={busy !== null} className="btn-forest" style={{ opacity: busy ? 0.7 : 1 }} accessibilityRole="button" accessibilityLabel="Save category">
               {busy === "save" ? <ActivityIndicator size="small" color={colors.onPrimary} /> : <Text className="btn-forest__label">Save</Text>}
             </Pressable>

@@ -32,5 +32,6 @@ export function useGymSave<T>(done: (data: T) => void) {
     haptic.success();
     done(result.data);
   };
-  return { busy, error, save };
+  const clearError = () => setError("");
+  return { busy, error, save, clearError };
 }

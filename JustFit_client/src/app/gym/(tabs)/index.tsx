@@ -55,9 +55,9 @@ export default function GymHome() {
   // The + sheet, or Add New Member opened from it
   const [sheet, setSheet] = useState<"add" | "member" | "due" | "sms" | "enquiry" | null>(null);
   const pick = (action: AddAction) => {
-    setSheet(action === "member" ? "member" : null);
-    if (action === "member") return;
-    // Send Bulk SMS opens once the + sheet has gone
+    setSheet(null);
+    // The next sheet opens once the + sheet has gone: iOS can drop a Modal shown while another closes
+    if (action === "member") return void setTimeout(() => setSheet("member"), 250);
     if (action === "sms") return void setTimeout(() => setSheet("sms"), 250);
     if (action === "enquiry") return void setTimeout(() => setSheet("enquiry"), 250);
     const go: Partial<Record<AddAction, () => void>> = {

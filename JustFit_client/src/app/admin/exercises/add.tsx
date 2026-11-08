@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { ActivityIndicator, Platform, Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
@@ -26,18 +26,27 @@ export default function AddExercisesScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<DraftResult | null>(null);
+  // A ref, not the state: two taps in one frame both see busy === false (two paid AI calls)
+  const running = useRef(false);
 
   const ask = async () => {
+    if (running.current) return;
     const text = request.trim();
     if (text.length < 3) {
       setError("Describe the exercises to add, for example \"10 home yoga stretches\".");
       return;
     }
+    running.current = true;
     setBusy(true);
     setError(null);
     setResult(null);
-    const answer = await adminExercises.draft(await getToken().catch(() => null), text, count);
-    setBusy(false);
+    let answer: Awaited<ReturnType<typeof adminExercises.draft>>;
+    try {
+      answer = await adminExercises.draft(await getToken().catch(() => null), text, count);
+    } finally {
+      running.current = false;
+      setBusy(false);
+    }
     if (answer.ok) setResult(answer.data);
     else setError(answer.error);
   };
@@ -55,7 +64,7 @@ export default function AddExercisesScreen() {
         </View>
 
         <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40, gap: 16 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled"
-            keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}>
+            keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"} automaticallyAdjustKeyboardInsets>
           <Text className="meta-text">The AI writes each exercise with its details and steps. Ones already in the library are left out. New exercises go live at once, so members can get them in their next plan.</Text>
 
           <AdminField label="What should the AI add?" value={request} onChangeText={setRequest} placeholder="For example: yoga stretches for cool-down" maxLength={200} multiline editable={!busy} accessibilityLabel="What the AI should add" />

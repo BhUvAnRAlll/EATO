@@ -1,5 +1,6 @@
 import { useEffect, useEffectEvent, useState, type CSSProperties } from "react";
 import { Modal, Platform, Pressable, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import DateTimePicker, { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
 
 import { PrimaryButton } from "@/components/PrimaryButton";
@@ -86,6 +87,7 @@ function DoneButton({ variant, disabled, onPress }: { variant?: "app" | "gym"; d
 }
 
 function WebDateSheet({ title, value, minimumDate, maximumDate, onSelect, onClose, variant }: DatePickerSheetProps) {
+  const insets = useSafeAreaInsets();
   const colors = useThemeColors();
   const [draft, setDraft] = useState(dateInputValue(value));
   const selectedDate = parseDateInput(draft);
@@ -99,7 +101,8 @@ function WebDateSheet({ title, value, minimumDate, maximumDate, onSelect, onClos
   return (
     <View className="verify__backdrop">
       <Pressable className="flex-1" onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" />
-      <View className="verify__sheet">
+      {/* The sheet's own padding plus the home indicator, so Done never sits on it */}
+      <View className="verify__sheet" style={{ paddingBottom: 32 + insets.bottom }}>
         <View className="flex-row items-center justify-between">
           <Text className="setup__title">{title}</Text>
           <Pressable onPress={onClose} hitSlop={12} accessibilityRole="button">
@@ -129,13 +132,15 @@ function WebDateSheet({ title, value, minimumDate, maximumDate, onSelect, onClos
 }
 
 function IosDateSheet({ title, value, minimumDate, maximumDate, onSelect, onClose, variant }: DatePickerSheetProps) {
+  const insets = useSafeAreaInsets();
   const colors = useThemeColors();
   const [draft, setDraft] = useState(value);
 
   return (
     <View className="verify__backdrop">
       <Pressable className="flex-1" onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" />
-      <View className="verify__sheet">
+      {/* The sheet's own padding plus the home indicator, so Done never sits on it */}
+      <View className="verify__sheet" style={{ paddingBottom: 32 + insets.bottom }}>
         <View className="flex-row items-center justify-between">
           <Text className="setup__title">{title}</Text>
           <Pressable onPress={onClose} hitSlop={12} accessibilityRole="button">

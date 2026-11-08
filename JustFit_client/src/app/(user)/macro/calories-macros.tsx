@@ -104,6 +104,8 @@ export default function CaloriesMacros() {
           <>
             <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24, gap: 16 }} showsVerticalScrollIndicator={false} refreshControl={refreshControl}>
               <Segmented options={periods} value={period} onChange={setPeriod} label="Period" />
+              {/* A read that failed with numbers already on screen says so, instead of showing them as if fresh */}
+              {loadError && <Text className="macro__error" accessibilityRole="alert">{loadError}</Text>}
               {notice && <Text className="macro__error" accessibilityRole="alert">{notice}</Text>}
               <SplitCard totals={summary.avg} targets={summary.targets} size={ringSize} stroke={stroke} />
               <MacroTiles totals={summary.avg} targets={summary.targets} />

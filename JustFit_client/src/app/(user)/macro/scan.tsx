@@ -6,12 +6,13 @@ import { SymbolView } from "@/components/SymbolView";
 import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
 
+import { FormAlert } from "@/components/FormAlert";
 import { MacroHeader } from "@/components/macro/MacroHeader";
 import { Segmented } from "@/components/macro/Segmented";
 import { pickScanPhoto, type PhotoSource, type ScanPhoto } from "@/lib/bodyScan";
 import { loggedAtFor, macro, slotForNow, slotInfo, slots, todayIso, whole, type MealItem, type Slot } from "@/lib/macro";
 import { useSessionToken } from "@/lib/session";
-import { useMacroStore } from "@/store/macro";
+import { logDate } from "@/store/macro";
 import { useThemeColors, Palette } from "@/theme";
 import { track } from "@/lib/analytics";
 import { haptic } from "@/lib/haptics";
@@ -41,9 +42,10 @@ export default function ScanFood() {
   const colors = useThemeColors();
   const params = useLocalSearchParams<{ slot?: string; hour?: string; minute?: string }>();
   const getToken = useSessionToken();
-  const selectedDate = useMacroStore((state) => state.selectedDate);
   const [photo, setPhoto] = useState<ScanPhoto | null>(null);
   const [hint, setHint] = useState("");
+  // The camera or the library is open: a second tap on either button opens nothing
+  const [picking, setPicking] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [title, setTitle] = useState("");
   const [rows, setRows] = useState<Row[] | null>(null);
@@ -63,15 +65,22 @@ export default function ScanFood() {
   };
 
   const pick = async (source: PhotoSource) => {
+    if (picking) return;
+    setPicking(true);
     setError(null);
-    const picked = await pickScanPhoto(source);
-    if (!picked.ok) {
-      if ("error" in picked) setError(picked.error);
-      return;
+    try {
+      const picked = await pickScanPhoto(source);
+      if (!picked.ok) {
+        if ("error" in picked) setError(picked.error);
+        return;
+      }
+      setPhoto(picked.photo);
+      setRows(null);
+      setPicking(false);
+      await scan(picked.photo);
+    } finally {
+      setPicking(false);
     }
-    setPhoto(picked.photo);
-    setRows(null);
-    await scan(picked.photo);
   };
 
   const startOver = () => {
@@ -89,15 +98,17 @@ export default function ScanFood() {
   const save = async () => {
     if (saving || !rows) return;
     setError(null);
-    if (selectedDate !== todayIso()) return setError("Meals can only be logged for today.");
+    // The selected day, followed to the new today when midnight passed since it was picked
+    const date = logDate();
+    if (date !== todayIso()) return setError("Meals can only be logged for today.");
     if (rows.length === 0) return setError("Keep at least one food, or scan again.");
     if (!title.trim()) return setError("Give the meal a name.");
     setSaving(true);
     const result = await macro.logMeal(await getToken().catch(() => null), {
-      date: selectedDate,
+      date,
       slot,
       title: title.trim(),
-      loggedAt: loggedAtFor(selectedDate, params.hour, params.minute), // the time chosen on Add meal, or now
+      loggedAt: loggedAtFor(date, params.hour, params.minute), // the time chosen on Add meal, or now
       source: "manual",
       items: rows.map((row) => ({ name: row.name, quantity: row.quantity, unit: row.unit, kcal: num(row.kcal), proteinG: num(row.proteinG), carbsG: num(row.carbsG), fatG: num(row.fatG) })),
     });
@@ -126,14 +137,18 @@ export default function ScanFood() {
                   <Text className="card__title text-center">Photograph your meal</Text>
                   <Text className="placeholder__text">Shoot from above in good light, with the whole plate in view.</Text>
                 </View>
-                <View className="gap-2">
-                  <Text className="setup__section">Note (optional)</Text>
-                  <View className="setup__field">
-                    <SymbolView name={{ ios: "text.bubble", android: "chat", web: "chat" }} size={18} tintColor={colors.muted} />
-                    <TextInput className="setup__field-input min-w-0 flex-1" value={hint} onChangeText={setHint} placeholder="2 rotis, paneer butter masala" placeholderTextColor={colors.faint} maxLength={200} accessibilityLabel="Note about the food" />
-                  </View>
-                </View>
               </>
+            )}
+
+            {/* The note stays until an estimate arrives, so Try again after a failed read can go with a better one */}
+            {!rows && (
+              <View className="gap-2">
+                <Text className="setup__section">Note (optional)</Text>
+                <View className="setup__field">
+                  <SymbolView name={{ ios: "text.bubble", android: "chat", web: "chat" }} size={18} tintColor={colors.muted} />
+                  <TextInput className="setup__field-input min-w-0 flex-1" value={hint} onChangeText={setHint} placeholder="2 rotis, paneer butter masala" placeholderTextColor={colors.faint} maxLength={200} editable={!scanning} accessibilityLabel="Note about the food" />
+                </View>
+              </View>
             )}
 
             {scanning && (
@@ -211,11 +226,11 @@ export default function ScanFood() {
                 </View>
               </>
             )}
-
-            {error && <Text className="macro__error" accessibilityRole="alert">{error}</Text>}
           </ScrollView>
 
           <View className="gap-3 px-5 pb-3 pt-2">
+            {/* Right above the buttons, never at the end of the scroll */}
+            {error && <FormAlert message={error} />}
             {rows ? (
               <>
                 <Pressable onPress={save} disabled={saving} className="btn-forest" style={{ opacity: saving ? 0.7 : 1 }} accessibilityRole="button" accessibilityLabel="Add to my day">
@@ -237,11 +252,11 @@ export default function ScanFood() {
               </>
             ) : !photo ? (
               <>
-                <Pressable onPress={() => pick("camera")} className="btn-forest" accessibilityRole="button">
+                <Pressable onPress={() => pick("camera")} disabled={picking} className="btn-forest" style={{ opacity: picking ? 0.7 : 1 }} accessibilityRole="button" accessibilityState={{ disabled: picking }}>
                   <SymbolView name={{ ios: "camera.fill", android: "photo_camera", web: "photo_camera" }} size={16} tintColor={colors.white} />
                   <Text className="btn-forest__label">Take photo</Text>
                 </Pressable>
-                <Pressable onPress={() => pick("library")} className="btn-outline" accessibilityRole="button">
+                <Pressable onPress={() => pick("library")} disabled={picking} className="btn-outline" accessibilityRole="button" accessibilityState={{ disabled: picking }}>
                   <Text className="btn-outline__label">Choose from library</Text>
                 </Pressable>
               </>

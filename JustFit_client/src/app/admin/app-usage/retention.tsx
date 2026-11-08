@@ -1,10 +1,11 @@
-import { useCallback, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
+import { useCallback, useRef, useState } from "react";
+import { Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { router, useFocusEffect } from "expo-router";
 
 import { usePullToRefresh } from "@/components/PullToRefresh";
+import { ScreenSkeleton } from "@/components/Skeleton";
 import { DashedBlock } from "@/components/macro/DashedBlock";
 import { SymbolView } from "@/components/SymbolView";
 import { appUsage, cohortText, type CohortUnit, type Retention } from "@/lib/appUsage";
@@ -16,6 +17,11 @@ type Load = { state: "loading" } | { state: "failed"; error: string } | { state:
 const back = () => (router.canGoBack() ? router.back() : router.replace("/admin/app-usage"));
 const units: CohortUnit[] = ["week", "month"];
 const UNIT_LABEL: Record<CohortUnit, string> = { week: "By week joined", month: "By month joined" };
+// The four number columns: narrow enough to leave the cohort label room at 320 px
+// Narrow enough that the cohort name keeps about 70 px at 320 (four 44 px columns left it 44,
+// so "Cohort" and "Week of…" broke mid-word, QA 2026-11-07)
+const COLUMN = 40;
+const TABLE_GAP = 6;
 
 // Super Admin › App Usage › Retention: members grouped by when they joined, and what share of
 // each group came back on or after day 1, 7 and 30, plus how each group's activity fell away
@@ -25,9 +31,13 @@ export default function RetentionScreen() {
   const getToken = useSessionToken();
   const [unit, setUnit] = useState<CohortUnit>("week");
   const [load, setLoad] = useState<Load>({ state: "loading" });
+  // Only the newest read may land: an older grouping's answer arriving late can't overwrite it
+  const latest = useRef(0);
 
   const refresh = useCallback(async (u: CohortUnit) => {
+    const call = ++latest.current;
     const result = await appUsage.retention(await getToken().catch(() => null), u);
+    if (call !== latest.current) return;
     setLoad(result.ok ? { state: "ready", data: result.data } : { state: "failed", error: result.error });
   }, [getToken]);
 
@@ -68,10 +78,7 @@ export default function RetentionScreen() {
           </View>
 
           {load.state === "loading" ? (
-            <View className="items-center gap-3 py-16">
-              <ActivityIndicator color={colors.leaf} />
-              <Text className="home__note">Loading</Text>
-            </View>
+            <ScreenSkeleton label="Loading retention" />
           ) : load.state === "failed" ? (
             <DashedBlock icon={{ ios: "exclamationmark.triangle.fill", android: "warning", web: "warning" }} title="Could not load retention" text={`${load.error.replace(/\.$/, "")}. Tap to try again.`} onPress={() => { setLoad({ state: "loading" }); refresh(unit); }} />
           ) : load.data.cohorts.length === 0 ? (
@@ -81,18 +88,18 @@ export default function RetentionScreen() {
               <Text className="home__note">Of the members who joined in each period, the share who did anything in the app on or after that many days later. A dash: too soon to know.</Text>
 
               <View className="admin-list">
-                <View className="admin-row admin-row--divided" style={{ paddingVertical: 8 }}>
-                  <Text className="admin-stat__label flex-1">Cohort</Text>
-                  <Text className="admin-stat__label" style={{ width: 52, textAlign: "right" }}>Joined</Text>
-                  {load.data.days.map((d) => <Text key={d} className="admin-stat__label" style={{ width: 52, textAlign: "right" }}>{`Day ${d}`}</Text>)}
+                <View className="admin-row admin-row--divided" style={{ paddingVertical: 8, gap: TABLE_GAP }}>
+                  <Text className="admin-stat__label min-w-0 flex-1">Cohort</Text>
+                  <Text className="admin-stat__label" style={{ width: COLUMN, textAlign: "right" }}>Joined</Text>
+                  {load.data.days.map((d) => <Text key={d} className="admin-stat__label" style={{ width: COLUMN, textAlign: "right" }}>{`Day ${d}`}</Text>)}
                 </View>
                 {load.data.cohorts.map((c) => (
-                  <View key={c.cohort} className="admin-row admin-row--divided" style={{ paddingVertical: 10 }} accessibilityLabel={`${cohortText(c.cohort, load.data.unit)}: ${c.joined} joined, day 1 ${pct(c.retention.day1)}, day 7 ${pct(c.retention.day7)}, day 30 ${pct(c.retention.day30)}`}>
-                    <Text className="ai-kv__key flex-1" numberOfLines={1}>{cohortText(c.cohort, load.data.unit)}</Text>
-                    <Text className="ai-kv__value" style={{ width: 52, textAlign: "right" }}>{c.joined}</Text>
-                    <Text className="ai-kv__value" style={{ width: 52, textAlign: "right" }}>{pct(c.retention.day1)}</Text>
-                    <Text className="ai-kv__value" style={{ width: 52, textAlign: "right" }}>{pct(c.retention.day7)}</Text>
-                    <Text className="ai-kv__value" style={{ width: 52, textAlign: "right" }}>{pct(c.retention.day30)}</Text>
+                  <View key={c.cohort} className="admin-row admin-row--divided" style={{ paddingVertical: 10, gap: TABLE_GAP }} accessibilityLabel={`${cohortText(c.cohort, load.data.unit)}: ${c.joined} joined, day 1 ${pct(c.retention.day1)}, day 7 ${pct(c.retention.day7)}, day 30 ${pct(c.retention.day30)}`}>
+                    <Text className="ai-kv__key min-w-0 flex-1" numberOfLines={2}>{cohortText(c.cohort, load.data.unit)}</Text>
+                    <Text className="ai-kv__value" style={{ width: COLUMN, textAlign: "right" }}>{c.joined}</Text>
+                    <Text className="ai-kv__value" style={{ width: COLUMN, textAlign: "right" }}>{pct(c.retention.day1)}</Text>
+                    <Text className="ai-kv__value" style={{ width: COLUMN, textAlign: "right" }}>{pct(c.retention.day7)}</Text>
+                    <Text className="ai-kv__value" style={{ width: COLUMN, textAlign: "right" }}>{pct(c.retention.day30)}</Text>
                   </View>
                 ))}
               </View>

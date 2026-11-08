@@ -8,11 +8,13 @@ import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 
 import { DashedBlock } from "@/components/macro/DashedBlock";
 import { FoodCard } from "@/components/macro/FoodCard";
+import { LoadError } from "@/components/macro/LoadError";
 import { MacroHeader } from "@/components/macro/MacroHeader";
 import { Segmented } from "@/components/macro/Segmented";
+import { usePullToRefresh } from "@/components/PullToRefresh";
 import { dayLabel, loggedAtFor, macro, slotForNow, slotInfo, slots, todayIso, type Meal, type Slot } from "@/lib/macro";
 import { useSessionToken } from "@/lib/session";
-import { useMacroStore } from "@/store/macro";
+import { logDate } from "@/store/macro";
 import { useThemeColors } from "@/theme";
 import { track } from "@/lib/analytics";
 
@@ -24,7 +26,6 @@ export default function RepeatMeal() {
   const params = useLocalSearchParams<{ slot?: string; hour?: string; minute?: string }>();
   const getToken = useSessionToken();
   const { width } = useWindowDimensions();
-  const selectedDate = useMacroStore((state) => state.selectedDate);
   const upstreamSlot = slots.includes(params.slot as Slot) ? (params.slot as Slot) : null;
   const [recent, setRecent] = useState<Meal[] | null>(null);
   const [selected, setSelected] = useState<Meal | null>(null);
@@ -34,31 +35,34 @@ export default function RepeatMeal() {
   const today = todayIso();
   const cardWidth = Math.min(200, Math.floor((width - 32 - 12) / 2));
 
+  const load = useCallback(async () => {
+    setError(null);
+    const result = await macro.recent(await getToken().catch(() => null), todayIso(), 12);
+    if (result.ok) setRecent(result.data.meals);
+    else setError(result.error);
+  }, [getToken]);
+
   useFocusEffect(
     useCallback(() => {
-      let cancelled = false;
-      (async () => {
-        const result = await macro.recent(await getToken().catch(() => null), todayIso(), 12);
-        if (cancelled) return;
-        if (result.ok) setRecent(result.data.meals);
-        else setError(result.error);
-      })();
-      return () => {
-        cancelled = true;
-      };
-    }, [getToken]),
+      load();
+    }, [load]),
   );
+
+  // A pull reads the recent meals again
+  const { refreshControl } = usePullToRefresh(load);
 
   const repeat = async () => {
     if (!selected || saving) return;
     setError(null);
-    if (selectedDate !== todayIso()) return setError("Meals can only be logged for today.");
+    // The selected day, followed to the new today when midnight passed since it was picked
+    const date = logDate();
+    if (date !== todayIso()) return setError("Meals can only be logged for today.");
     setSaving(true);
     const result = await macro.logMeal(await getToken().catch(() => null), {
-      date: selectedDate,
+      date,
       slot: upstreamSlot ?? slot,
       title: selected.title,
-      loggedAt: loggedAtFor(selectedDate, params.hour, params.minute),
+      loggedAt: loggedAtFor(date, params.hour, params.minute),
       source: "repeat",
       items: selected.items,
     });
@@ -75,8 +79,8 @@ export default function RepeatMeal() {
         <MacroHeader title="Repeat a meal" />
         {recent === null ? (
           error ? (
-            <View className="flex-1 items-center justify-center">
-              <Text className="macro__error px-5 text-center" accessibilityRole="alert">{error}</Text>
+            <View className="px-4 pt-2">
+              <LoadError title="Couldn't load your recent meals" message={error} onRetry={load} />
             </View>
           ) : (
             <View className="px-4 pt-2">
@@ -85,7 +89,7 @@ export default function RepeatMeal() {
           )
         ) : (
           <>
-            <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24, gap: 16 }} showsVerticalScrollIndicator={false}>
+            <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24, gap: 16 }} showsVerticalScrollIndicator={false} refreshControl={refreshControl}>
               <Text className="home__lead">Anything from the last 3 days — pick one to log it again today.</Text>
               {recent.length === 0 ? (
                 <DashedBlock icon={{ ios: "arrow.clockwise", android: "refresh", web: "refresh" }} title="Nothing to repeat yet" text="Meals you log in the last 3 days will show up here." />

@@ -5,11 +5,12 @@ import { StatusBar } from "expo-status-bar";
 import { SymbolView } from "@/components/SymbolView";
 import { router, useLocalSearchParams } from "expo-router";
 
+import { FormAlert } from "@/components/FormAlert";
 import { MacroHeader } from "@/components/macro/MacroHeader";
 import { Segmented } from "@/components/macro/Segmented";
 import { kcalOf, loggedAtFor, macro, macrosAgree, slotForNow, slotInfo, slots, todayIso, whole, type Slot } from "@/lib/macro";
 import { useSessionToken } from "@/lib/session";
-import { useMacroStore } from "@/store/macro";
+import { logDate } from "@/store/macro";
 import { useThemeColors, Palette } from "@/theme";
 import { fonts } from "@/constants/fonts";
 import { track } from "@/lib/analytics";
@@ -77,7 +78,6 @@ export default function ManualEntry() {
   const colors = useThemeColors();
   const params = useLocalSearchParams<{ slot?: string; hour?: string; minute?: string }>();
   const getToken = useSessionToken();
-  const selectedDate = useMacroStore((state) => state.selectedDate);
   const [foods, setFoods] = useState<FoodDraft[]>(() => [emptyFood()]);
   const [mealName, setMealName] = useState("");
   const [slot, setSlot] = useState<Slot>(slots.includes(params.slot as Slot) ? (params.slot as Slot) : slotForNow());
@@ -120,7 +120,9 @@ export default function ManualEntry() {
     // A ref, not the state: two taps in one frame both still see saving === false
     if (savingRef.current) return;
     setError(null);
-    if (selectedDate !== todayIso()) return setError("Meals can only be logged for today.");
+    // The selected day, followed to the new today when midnight passed since it was picked
+    const date = logDate();
+    if (date !== todayIso()) return setError("Meals can only be logged for today.");
     for (const [i, f] of foods.entries()) {
       const which = several ? `food ${i + 1}` : "the food";
       if (!f.name.trim()) return setError(several ? `Give ${which} a name.` : "Give the food a name.");
@@ -130,10 +132,10 @@ export default function ManualEntry() {
     savingRef.current = true;
     setSaving(true);
     const result = await macro.logMeal(await getToken().catch(() => null), {
-      date: selectedDate,
+      date,
       slot,
       title,
-      loggedAt: loggedAtFor(selectedDate, params.hour, params.minute), // the time chosen on Add meal, or now
+      loggedAt: loggedAtFor(date, params.hour, params.minute), // the time chosen on Add meal, or now
       source: "manual",
       items: foods.map((f) => {
         const amount = toNumber(f.quantity);
@@ -207,11 +209,11 @@ export default function ManualEntry() {
               <Text className="setup__section">Add to</Text>
               <Segmented options={slots.map((s) => ({ value: s, label: slotInfo[s].label }))} value={slot} onChange={setSlot} label="Meal slot" />
             </View>
-
-            {error && <Text className="macro__error" accessibilityRole="alert">{error}</Text>}
           </ScrollView>
 
-          <View className="px-5 pb-3 pt-2">
+          <View className="gap-3 px-5 pb-3 pt-2">
+            {/* Right above the button that was tapped, never at the end of the scroll */}
+            {error && <FormAlert message={error} />}
             <Pressable onPress={save} disabled={saving} className="btn-forest" style={{ opacity: saving ? 0.7 : 1 }} accessibilityRole="button" accessibilityLabel="Save meal">
               {saving ? <ActivityIndicator color={colors.white} /> : <SymbolView name={{ ios: "checkmark", android: "check", web: "check" }} size={16} tintColor={colors.white} />}
               <Text className="btn-forest__label">{several ? `Save meal · ${foods.length} foods` : "Save meal"}</Text>
@@ -284,11 +286,14 @@ function FoodFields({ food, index, several, onChange, onEstimate, onRemove }: { 
 
       <View className="gap-2">
         <Text className="setup__section">Amount</Text>
-        <View className="flex-row items-center gap-3">
-          <View className="setup__field min-w-0 flex-1">
+        {/* The unit control grows from 170 and the amount field from 100; on a 320 screen they
+            share the row, and when the row is narrower still the control wraps under the field
+            rather than clipping "pieces" */}
+        <View className="flex-row flex-wrap items-center gap-3">
+          <View className="setup__field min-w-0" style={{ flexGrow: 1, flexBasis: 100 }}>
             <TextInput className="setup__field-input min-w-0 flex-1" value={food.quantity} onChangeText={(t) => onChange((f) => withAmount(f, numeric(t), f.unit))} placeholder={food.unit === "piece" ? "2" : "150"} placeholderTextColor={colors.faint} keyboardType="decimal-pad" accessibilityLabel={`${tag}Quantity`.trim()} />
           </View>
-          <View style={{ width: 170 }}>
+          <View style={{ flexGrow: 1, flexBasis: 170 }}>
             <Segmented options={unitsFor(listed).map((u) => ({ value: u, label: UNIT_LABEL[u] }))} value={food.unit} onChange={(unit) => onChange((f) => withAmount(f, f.quantity, unit))} label={`${tag}Serving unit`.trim()} />
           </View>
         </View>

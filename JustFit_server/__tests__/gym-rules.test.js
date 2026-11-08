@@ -150,8 +150,10 @@ describe("gym rules: admissions, renewals, dues, sales, enquiries", () => {
   it("member edits, list filters, payment pages, ids", () => {
     assert.deepEqual(rules.memberEditBody({ phone: "" }), { phone: null });
     refuses(() => rules.memberEditBody({}), /Change the name/);
-    assert.deepEqual(rules.membersQuery({}), { filter: "all", search: "", days: 3 });
-    assert.deepEqual(rules.membersQuery({ filter: "due", search: " asif " }), { filter: "due", search: "asif", days: 3 });
+    assert.deepEqual(rules.membersQuery({}), { filter: "all", search: "", days: 3, sort: "name", page: 1 });
+    assert.deepEqual(rules.membersQuery({ filter: "due", search: " asif " }), { filter: "due", search: "asif", days: 3, sort: "name", page: 1 });
+    assert.deepEqual(rules.membersQuery({ sort: "due", page: "3" }), { filter: "all", search: "", days: 3, sort: "due", page: 3 });
+    for (const q of [{ sort: "random" }, { sort: "full_name DESC" }, { page: "0" }, { page: "x" }, { page: "10000" }]) assert.throws(() => rules.membersQuery(q), (e) => e.status === 400, JSON.stringify(q));
     refuses(() => rules.membersQuery({ filter: "everyone" }), /filter/);
     // Expiring soon looks as many days ahead as the chips ask: 1 to 90, 3 when nothing is sent
     assert.equal(rules.membersQuery({ filter: "expiring_soon", days: "30" }).days, 30);
@@ -160,9 +162,11 @@ describe("gym rules: admissions, renewals, dues, sales, enquiries", () => {
     assert.equal(rules.membersQuery({ filter: "expiring_soon", days: "all" }).days, "all", "every plan still running");
     for (const bad of ["0", "91", "999", "-3", "3.5", "seven", " 7", ["7"], 7, "ALL", "all "]) refuses(() => rules.membersQuery({ filter: "expiring_soon", days: bad }), /days ahead/);
     refuses(() => rules.membersQuery({ search: "x".repeat(61) }), /at most/);
-    assert.deepEqual(rules.paymentsQuery({ kind: "sale", before: "40", today: "1" }), { kind: "sale", before: 40, today: true });
-    assert.equal(rules.paymentsQuery({ kind: "pt" }).kind, "pt");
-    refuses(() => rules.paymentsQuery({ kind: "refund" }), /type/);
+    assert.deepEqual(rules.paymentsQuery({ kind: "sale", before: "40", today: "1" }, "2026-11-07"), { kind: "sale", before: 40, day: "2026-11-07" });
+    assert.deepEqual(rules.paymentsQuery({ day: "2026-10-30" }, "2026-11-07"), { kind: null, before: null, day: "2026-10-30" });
+    assert.equal(rules.paymentsQuery({ kind: "pt" }, "2026-11-07").day, null);
+    refuses(() => rules.paymentsQuery({ kind: "refund" }, "2026-11-07"), /type/);
+    for (const day of ["2026-11-08", "2025-11-06", "2026-02-30", "yesterday", "2026-11-07' OR 1=1"]) refuses(() => rules.paymentsQuery({ day }, "2026-11-07"), /day/);
     refuses(() => rules.paymentsQuery({ before: "1 OR 1=1" }), /page/);
     assert.equal(rules.id("12"), 12);
     for (const bad of ["0", "-1", "1.5", "abc", "1;DROP", "12345678901", undefined]) refuses(() => rules.id(bad), /doesn't exist/);

@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, Text, TextInput, View, useWindowDimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
@@ -7,6 +7,7 @@ import { router, useFocusEffect } from "expo-router";
 import { TrendChart } from "@/components/admin/TrendChart";
 import { DashedBlock } from "@/components/macro/DashedBlock";
 import { usePullToRefresh } from "@/components/PullToRefresh";
+import { ScreenSkeleton } from "@/components/Skeleton";
 import { SymbolView } from "@/components/SymbolView";
 import { FEATURE_ICON, MODULE_ICON, RANK_LIMIT, SCREEN_ICON, SCREEN_LABEL } from "@/data/appUsage";
 import { appUsage, changeText, dayName, durationText, isIsoDate, rangeText, RANGE_LABEL, RANGE_OPTIONS, type FeatureUsage, type UsageQuery, type UsageRange, type UsageSummary } from "@/lib/appUsage";
@@ -30,6 +31,8 @@ export default function AppUsageScreen() {
   const [load, setLoad] = useState<Load>({ state: "loading" });
   const [exporting, setExporting] = useState<string | null>(null);
   const [exportNote, setExportNote] = useState<string | null>(null);
+  // Only the newest read may land: an older range's answer arriving late can't overwrite it
+  const latest = useRef(0);
 
   // Export: the same numbers as a CSV file, with the range the screen shows. On a phone the file
   // is written to the app's cache (a share sheet needs expo-sharing, not installed).
@@ -50,7 +53,9 @@ export default function AppUsageScreen() {
   };
 
   const refresh = useCallback(async (q: UsageQuery) => {
+    const call = ++latest.current;
     const result = await appUsage.summary(await getToken().catch(() => null), q);
+    if (call !== latest.current) return;
     setLoad(result.ok ? { state: "ready", data: result.data } : { state: "failed", error: result.error });
   }, [getToken]);
 
@@ -69,7 +74,11 @@ export default function AppUsageScreen() {
 
   const pick = (range: UsageRange) => {
     if (range === "custom") {
-      setQuery({ range: "custom", from: isIsoDate(custom.from) ? custom.from : undefined, to: isIsoDate(custom.to) ? custom.to : undefined });
+      const from = isIsoDate(custom.from) ? custom.from : undefined;
+      const to = isIsoDate(custom.to) ? custom.to : undefined;
+      setQuery({ range: "custom", from, to });
+      // Dates typed earlier load at once, so the old range's numbers don't stay up meanwhile
+      if (from && to) setLoad({ state: "loading" });
       return;
     }
     setQuery({ range });
@@ -121,10 +130,7 @@ export default function AppUsageScreen() {
           )}
 
           {query.range === "custom" && !(query.from && query.to) ? null : load.state === "loading" ? (
-            <View className="items-center gap-3 py-16">
-              <ActivityIndicator color={colors.leaf} />
-              <Text className="home__note">Loading</Text>
-            </View>
+            <ScreenSkeleton label="Loading app usage" hero />
           ) : load.state === "failed" ? (
             <DashedBlock
               icon={{ ios: "exclamationmark.triangle.fill", android: "warning", web: "warning" }}

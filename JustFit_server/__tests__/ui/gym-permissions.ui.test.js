@@ -208,7 +208,10 @@ describe("ui gym permissions: Role & Permission for Staff logins", () => {
     assert.equal(await hasLabel("Role & Permission"), false, "Staff don't set permissions");
     assert.ok(await hasLabel("Attendance"), "Attendance stays");
     await snapshotAllWidths("gym-permissions-staff-menu");
-    await clickLabel("Close menu");
+    // The backdrop fills the screen under the menu panel, so its centre is a menu row (for a Staff
+    // login, Expenses: a "coming soon" alert that froze this suite on 2026-11-07); the harness's
+    // own click finds a point of the backdrop the panel doesn't cover
+    await page.clickLabel("Close menu");
     await h.settle(); // the menu slides out before the page is reloaded
 
     await page.navigate(`${expo.baseUrl}/gym/wallet`);

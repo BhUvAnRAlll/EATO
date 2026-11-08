@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Text, useWindowDimensions, View } from "react-native";
 import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
 
 import { FormAlert } from "@/components/FormAlert";
+import { ScreenSkeleton } from "@/components/Skeleton";
 import { AdminButton, AdminScreen } from "@/components/admin/AdminScreen";
 import { AdminField, ChoiceChips } from "@/components/admin/AdminField";
 import { PromotionSlide } from "@/components/home/PromotionSlide";
@@ -60,6 +61,10 @@ export default function EditPromotion() {
   const [endsText, setEndsText] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  // Try again after a failed first read runs the effect once more
+  const [attempt, setAttempt] = useState(0);
+  // A ref, not the state: two taps in one frame both see saving === false
+  const running = useRef(false);
 
   useEffect(() => {
     if (isNew || invalidId) return;
@@ -78,7 +83,7 @@ export default function EditPromotion() {
     return () => {
       cancelled = true;
     };
-  }, [isNew, invalidId, promotionId, getToken]);
+  }, [isNew, invalidId, promotionId, getToken, attempt]);
 
   const update = (changes: Partial<PromotionFields>) => setFields((current) => (current ? { ...current, ...changes } : current));
 
@@ -114,15 +119,22 @@ export default function EditPromotion() {
   };
 
   const save = async (status: PromotionStatus) => {
+    if (running.current) return;
     const prepared = prepare(status);
     if (!prepared.ok) return setError(prepared.error);
+    running.current = true;
     setSaving(true);
     setError(null);
-    const token = await getToken();
-    const result = isNew
-      ? await adminHome.createPromotion(token, prepared.fields)
-      : await adminHome.updatePromotion(token, promotionId, prepared.fields);
-    setSaving(false);
+    let result: Awaited<ReturnType<typeof adminHome.updatePromotion>>;
+    try {
+      const token = await getToken();
+      result = isNew
+        ? await adminHome.createPromotion(token, prepared.fields)
+        : await adminHome.updatePromotion(token, promotionId, prepared.fields);
+    } finally {
+      running.current = false;
+      setSaving(false);
+    }
     if (!result.ok) return setError(result.error);
     router.back();
   };
@@ -136,7 +148,14 @@ export default function EditPromotion() {
       {invalidId ? (
         <FormAlert message="That promotion id isn't valid." />
       ) : !fields ? (
-        error ? <FormAlert message={error} /> : <ActivityIndicator color={colors.leaf} className="mt-6" />
+        error ? (
+          <View className="gap-3">
+            <FormAlert message={error} />
+            <AdminButton label="Try again" onPress={() => { setError(null); setAttempt((n) => n + 1); }} />
+          </View>
+        ) : (
+          <ScreenSkeleton label="Loading the promotion" />
+        )
       ) : (
         <View className="gap-5">
           {preview && (

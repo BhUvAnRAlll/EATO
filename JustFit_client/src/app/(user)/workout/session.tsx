@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Keyboard, Pressable, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
+import { FormAlert } from "@/components/FormAlert";
 import { SymbolView } from "@/components/SymbolView";
 import { router, useLocalSearchParams } from "expo-router";
 import { useKeepAwake } from "expo-keep-awake";
-import * as Haptics from "expo-haptics";
 
 import { isValidIso, todayIso } from "@/lib/macro";
 import { useSessionToken } from "@/lib/session";
@@ -25,6 +25,8 @@ import { haptic } from "@/lib/haptics";
 type Load =
   | { state: "loading" }
   | { state: "empty"; title: string; text: string | null }
+  // The session could not be started (offline, a limit, the server down): every set would fail to save
+  | { state: "failed"; error: string }
   | { state: "ready"; day: TrainingDay; logId: string | null; completed: boolean; logged: Set<string> };
 
 const icon = {
@@ -43,14 +45,15 @@ export default function SessionPlayer() {
   const colors = useThemeColors();
   useKeepAwake();
   const params = useLocalSearchParams<{ date?: string; exercise?: string }>();
-  const today = todayIso();
+  // Read once: a player still running at midnight keeps its day instead of being unmounted
+  const [today] = useState(todayIso);
   const date = isValidIso(params.date) ? params.date : today;
   const getToken = useSessionToken();
   const insets = useSafeAreaInsets();
   const [load, setLoad] = useState<Load>({ state: "loading" });
   const [error, setError] = useState<string | null>(null);
-  // Start the session exactly once, even if this effect runs twice
-  const started = useRef(false);
+  // Bumped by Retry when the session could not be started
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -64,25 +67,33 @@ export default function SessionPlayer() {
       const day = home.data.day;
       const completed = home.data.status === "completed";
       let logId: string | null = null;
-      if (!completed && !started.current) {
-        started.current = true;
+      let startError: string | null = null;
+      if (!completed) {
+        // Starting is idempotent on the server: a second call picks up the running log
         const start = await workoutApi.startSession(token, date, today);
         if (cancelled) return;
         if (start.ok) {
           logId = start.data.log.id;
           if (start.data.created) track("workout_started");
-        } else setError("Could not start the session");
+        } else startError = start.error || "Could not start the session";
       }
       const progress = await workoutApi.session(token, date, today);
       if (cancelled) return;
       if (progress.ok && progress.data.log && !logId && progress.data.log.status === "in_progress") logId = progress.data.log.id;
+      // Without a log every set would fail to save and Finish could never work: say so instead of playing
+      if (!completed && !logId) return setLoad({ state: "failed", error: startError ?? "Could not start the session" });
       const logged = new Set(progress.ok ? progress.data.sets.map((s) => setKey(s.dayExerciseId, s.setIndex)) : []);
       setLoad({ state: "ready", day, logId, completed, logged });
     })();
     return () => {
       cancelled = true;
     };
-  }, [date, today, getToken]);
+  }, [date, today, getToken, attempt]);
+
+  const retry = () => {
+    setLoad({ state: "loading" });
+    setAttempt((n) => n + 1);
+  };
 
   const leave = () => (router.canGoBack() ? router.back() : router.replace({ pathname: "/workout/day", params: { date } }));
 
@@ -105,6 +116,17 @@ export default function SessionPlayer() {
           {load.text && <Text className="player__caption text-center">{load.text}</Text>}
           <Pressable onPress={leave} className="player__button self-stretch" accessibilityRole="button" accessibilityLabel="Back">
             <Text className="player__button-label">Back</Text>
+          </Pressable>
+        </View>
+      ) : load.state === "failed" ? (
+        <View className="player__column justify-center gap-4">
+          <Text className="player__name text-center">Could not start the session</Text>
+          <FormAlert message={load.error} />
+          <Pressable onPress={retry} className="player__button" accessibilityRole="button" accessibilityLabel="Retry">
+            <Text className="player__button-label">Retry</Text>
+          </Pressable>
+          <Pressable onPress={leave} className="player__round self-center" hitSlop={8} accessibilityRole="button" accessibilityLabel="Back">
+            <SymbolView name={icon.back} size={18} tintColor={colors.white} />
           </Pressable>
         </View>
       ) : (
@@ -183,7 +205,7 @@ function Player({ day, logId, completed, initialLogged, startExercise, getToken,
     const result = await workoutApi.completeSession(token, logId);
     finishingRef.current = false;
     setFinishing(false);
-    if (!result.ok) return onError("Could not finish the session");
+    if (!result.ok) return onError(result.error || "Could not finish the session");
     track("workout_completed");
     haptic.success();
     onError(null);
@@ -208,7 +230,7 @@ function Player({ day, logId, completed, initialLogged, startExercise, getToken,
     }
     const key = setKey(step.exerciseId, step.setIndex);
     const entry = step.durationSec !== null ? { durationSec: step.durationSec } : { reps, ...(weightKg !== undefined ? { weightKg } : {}) };
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    haptic.tap();
     setLogged((prev) => new Set(prev).add(key));
     if (!logId) onError("Could not save that set");
     else {
@@ -221,7 +243,7 @@ function Player({ day, logId, completed, initialLogged, startExercise, getToken,
             without.delete(key);
             return without;
           });
-          onError("Could not save that set");
+          onError(result.error || "Could not save that set");
         }
       });
     }
@@ -299,7 +321,8 @@ function Player({ day, logId, completed, initialLogged, startExercise, getToken,
         </Pressable>
       </View>
 
-      <View className="flex-1 justify-center gap-6">
+      {/* A tap on the open area closes the keyboard (the decimal pad has no Done key on iOS) */}
+      <Pressable onPress={Keyboard.dismiss} className="flex-1 justify-center gap-6" accessible={false}>
         <View className="gap-1">
           <Text className="player__overline">{step.kind === "rest" ? "Rest" : `Set ${step.setIndex + 1} of ${step.setCount}`}</Text>
           <Text className="player__name" numberOfLines={1}>{exercise.name}</Text>
@@ -347,17 +370,18 @@ function Player({ day, logId, completed, initialLogged, startExercise, getToken,
                   onChangeText={setWeight}
                   keyboardType="decimal-pad"
                   maxLength={6}
+                  returnKeyType="done"
                   placeholder="Optional"
                   placeholderTextColor="rgba(255,255,255,0.45)"
                   accessibilityLabel="Weight in kg (optional)"
-                  style={{ width: 96, height: 40, paddingHorizontal: 12, borderRadius: 12, backgroundColor: "rgba(255,255,255,0.14)", color: colors.white, fontSize: 16, fontFamily: fonts.semibold, textAlign: "right" }}
+                  style={{ width: 96, minHeight: 40, paddingHorizontal: 12, borderRadius: 12, backgroundColor: "rgba(255,255,255,0.14)", color: colors.white, fontSize: 16, fontFamily: fonts.semibold, textAlign: "right" }}
                 />
                 <Text className="player__caption">kg</Text>
               </View>
             </View>
           </View>
         )}
-      </View>
+      </Pressable>
 
       {/* Next up */}
       <View className="player__card">

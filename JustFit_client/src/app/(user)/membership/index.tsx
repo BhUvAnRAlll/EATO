@@ -26,7 +26,7 @@ export default function GymMembership() {
   const colors = useThemeColors();
   const getToken = useSessionToken();
   const [result, setResult] = useState<Load>({ state: "loading" });
-  const [cancelError, setCancelError] = useState<string | null>(null);
+  const [cancelError, setCancelError] = useState<{ id: number; error: string } | null>(null);
   const [cancelling, setCancelling] = useState<number | null>(null);
 
   const load = useCallback(async () => {
@@ -43,7 +43,7 @@ export default function GymMembership() {
     setCancelError(null);
     const answer = await membershipApi.cancelPause(await getToken().catch(() => null), m.id, m.pause.id);
     setCancelling(null);
-    if (!answer.ok) return setCancelError(answer.error);
+    if (!answer.ok) return setCancelError({ id: m.id, error: answer.error });
     haptic.success();
     setResult((current) => (current.state === "ready" ? { state: "ready", data: { ...current.data, memberships: current.data.memberships.map((x) => (x.id === m.id ? answer.data : x)) } } : current));
   };
@@ -139,7 +139,7 @@ export default function GymMembership() {
                         </Text>
                       </View>
                     )}
-                    {cancelError && cancelling === null && m.pause?.status === "pending" && <FormAlert message={cancelError} />}
+                    {cancelError?.id === m.id && cancelling === null && m.pause?.status === "pending" && <FormAlert message={cancelError.error} />}
 
                     {/* Earlier pauses and answers */}
                     {m.history.filter((p) => p.id !== m.pause?.id).length > 0 && (

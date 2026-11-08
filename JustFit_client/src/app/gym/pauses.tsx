@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { FlatList, ScrollView, Text, View } from "react-native";
+import { FlatList, RefreshControl, ScrollView, Text, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 
 import { FormAlert } from "@/components/FormAlert";
@@ -35,13 +35,17 @@ export default function PauseRequests() {
   // The card whose Approve or Reject is waiting for a second tap
   const [deciding, setDeciding] = useState<{ id: number; approve: boolean } | null>(null);
   const load = useCallback((token: string | null) => gymApi.pauses(token, view), [view]);
-  const { result, retry, set } = useGymData(load);
+  const { result, retry, update, refreshing, refresh } = useGymData(load);
   const data = result.state === "ready" ? result.data : null;
+  // The answer is applied to whatever the list shows then (a pull to refresh may have replaced
+  // the one the tap saw), so nothing older is written back (QA 2026-11-07)
   const { busy, error, save } = useGymSave(({ pause }: { pause: PauseRequest }) => {
     setDeciding(null);
-    if (!data) return;
-    const pauses = view === "pending" ? data.pauses.filter((p) => p.id !== pause.id) : data.pauses.map((p) => (p.id === pause.id ? pause : p));
-    set({ ...data, pauses, counts: { pending: Math.max(0, data.counts.pending - 1) } });
+    update((current) => ({
+      ...current,
+      pauses: view === "pending" ? current.pauses.filter((p) => p.id !== pause.id) : current.pauses.map((p) => (p.id === pause.id ? pause : p)),
+      counts: { pending: Math.max(0, current.counts.pending - 1) },
+    }));
   });
 
   const decide = (pause: PauseRequest, approve: boolean) => {
@@ -78,6 +82,7 @@ export default function PauseRequests() {
     <GymScreen title="Pause requests" scroll={false}>
       <FlatList
         {...listPerf}
+        refreshControl={<RefreshControl refreshing={refreshing} tintColor={colors.gymPrimary} onRefresh={refresh} />}
         data={data?.pauses ?? []}
         keyExtractor={(p) => String(p.id)}
         contentContainerStyle={{ padding: 16, paddingBottom: 48, gap: 14 }}
@@ -130,9 +135,10 @@ export default function PauseRequests() {
                 <View className="flex-row" style={{ gap: 8 }}>
                   <PressableScale onPress={() => decide(item, false)} haptic="tap" className="gym-btn gym-btn--outline flex-1" style={asking && !asking.approve ? { borderColor: colors.gymDanger } : undefined} accessibilityRole="button" accessibilityLabel={asking && !asking.approve ? `Confirm: reject ${item.member.name}'s pause` : `Reject ${item.member.name}'s pause`}>
                     <GymIcon name="x" size={16} color={colors.gymDanger} />
-                    <Text className="gym-btn__label gym-btn__label--outline" style={{ color: colors.gymDanger }}>{asking && !asking.approve ? "Tap again to reject" : "Reject"}</Text>
+                    <Text className="gym-btn__label gym-btn__label--outline" style={{ color: colors.gymDanger }}>{busy && asking && !asking.approve ? "Rejecting…" : asking && !asking.approve ? "Tap again to reject" : "Reject"}</Text>
                   </PressableScale>
                   <PressableScale onPress={() => decide(item, true)} haptic="tap" className="gym-btn flex-1" accessibilityRole="button" accessibilityLabel={asking?.approve ? `Confirm: approve ${item.member.name}'s pause` : `Approve ${item.member.name}'s pause`}>
+                    <GradientFill radius={14} />
                     <GymIcon name="check" size={16} color={colors.white} />
                     <Text className="gym-btn__label">{busy && asking?.approve ? "Approving…" : asking?.approve ? "Tap again to approve" : "Approve"}</Text>
                   </PressableScale>

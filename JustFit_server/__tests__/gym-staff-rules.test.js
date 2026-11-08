@@ -105,7 +105,7 @@ describe("gym staff rules: Role & Permission", () => {
       "/dashboard": null, "/branches": null, "/branch": null, "/details": null, "/staff": null, "/staff/u1/permissions": null,
       "/members": "members", "/members/next-code": "members", "/members/3": "members", "/members/3/renew": "members", "/members/3/photo": "members", "/members/3/trainer": "members", "/trainers": "members",
       "/members/3/due": "payments", "/members/3/pt": "payments", "/members/3/sales": "payments", "/members/3/services": "payments",
-      "/payments": "payments", "/sales": "payments", "/services": "payments", "/wallet": "payments", "/payments/9/receipt": "members",
+      "/payments": "payments", "/sales": "payments", "/services": "payments", "/wallet": "payments", "/payments/9/receipt": "members", "/payments/9/invoice": "members", "/members/3/invoice": "members",
       "/members/3/sms": "sms", "/sms": "sms", "/sms/settings": "sms", "/sms/send": "sms", "/sms/logs": "sms",
       "/members/3/check-in": "attendance", "/members/3/check-out": "attendance", "/attendance": "attendance", "/attendance/qr": "attendance", "/attendance/export": "attendance",
       "/enquiries": "enquiries", "/enquiries/4": "enquiries", "/enquiries/4/contacts": "enquiries",
@@ -114,6 +114,11 @@ describe("gym staff rules: Role & Permission", () => {
     };
     for (const [path, area] of Object.entries(cases)) assert.equal(rules.areaOfPath(path), area, path);
     assert.equal(rules.areaOfPath("/membersx"), null, "a prefix is not a match");
+    // A changed case or a trailing slash reads as the same area (QA 2026-11-07: the router used to
+    // accept both while the map read them as "no area", so Staff could reach any area that way)
+    for (const [path, area] of [["/Payments", "payments"], ["/payments/", "payments"], ["/members/5/due/", "payments"], ["/Members/5/DUE", "payments"], ["/SMS/send/", "sms"], ["/Attendance/export", "attendance"]]) {
+      assert.equal(rules.areaOfPath(path), area, path);
+    }
   });
 
   it("whose permissions may be changed: a Staff login other than yourself", () => {

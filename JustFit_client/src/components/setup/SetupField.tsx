@@ -1,4 +1,4 @@
-import { Pressable, Text, TextInput, View, type TextInputProps } from "react-native";
+import { Keyboard, Pressable, Text, TextInput, View, type TextInputProps } from "react-native";
 import { SymbolView } from "@/components/SymbolView";
 
 import type { Icon } from "@/types/profile";
@@ -70,5 +70,11 @@ export function SetupField({
     </View>
   );
 
-  return onPress ? <Pressable onPress={onPress} accessibilityRole="button">{content}</Pressable> : content;
+  // A picker row puts the keyboard away first (taps persist on these screens), so its sheet
+  // never opens underneath a keyboard left up by the field typed in before
+  const openPicker = () => {
+    Keyboard.dismiss();
+    onPress?.();
+  };
+  return onPress ? <Pressable onPress={openPicker} accessibilityRole="button">{content}</Pressable> : content;
 }

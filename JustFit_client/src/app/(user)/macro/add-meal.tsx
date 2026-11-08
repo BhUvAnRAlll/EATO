@@ -49,7 +49,9 @@ export default function AddMeal() {
   };
 
   const loggedSlots = new Set(day?.meals.map((m) => m.slot));
-  const remaining = day?.targets ? Math.max(0, day.targets.kcal - day.totals.kcal) : 0;
+  // "N kcal left today" only once today's day has loaded with a target: never a 0 before the
+  // read, without a target, or for another day
+  const remaining = day?.targets && day.date === selectedDate && selectedDate === todayIso() ? Math.max(0, day.targets.kcal - day.totals.kcal) : null;
 
   return (
     <View className="flex-1 bg-cream">
@@ -110,10 +112,12 @@ export default function AddMeal() {
             </ScrollView>
           </View>
 
-          <View className="setup__note">
-            <SymbolView name={{ ios: "sparkles", android: "auto_awesome", web: "auto_awesome" }} size={22} tintColor={colors.leaf} />
-            <Text className="setup__note-text flex-1 self-center">You have {whole(remaining).toLocaleString("en-IN")} kcal left today.</Text>
-          </View>
+          {remaining !== null && (
+            <View className="setup__note">
+              <SymbolView name={{ ios: "sparkles", android: "auto_awesome", web: "auto_awesome" }} size={22} tintColor={colors.leaf} />
+              <Text className="setup__note-text flex-1 self-center">You have {whole(remaining).toLocaleString("en-IN")} kcal left today.</Text>
+            </View>
+          )}
         </ScrollView>
 
         <View className="px-5 pb-3 pt-2">

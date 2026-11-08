@@ -39,7 +39,9 @@ export type WaterDay = {
 export type FoodScan = { title: string; items: MealItem[] };
 export type Favorite = { id: string; name: string; sourceKey: string | null; items: MealItem[]; totals: Totals; createdAt: string };
 
-const signedOut = <T>(): Promise<ApiResult<T>> => Promise.resolve({ ok: false, error: "Please sign in again." });
+// No session token on the phone: answered like the server's own 401, so a screen shows "Please
+// sign in again" (and the session banner's path applies) instead of its offline line
+const signedOut = <T>(): Promise<ApiResult<T>> => Promise.resolve({ ok: false, error: "Please sign in again.", status: 401 });
 const query = (params: Record<string, string | number>) =>
   "?" + Object.entries(params).map(([key, value]) => `${key}=${encodeURIComponent(String(value))}`).join("&");
 

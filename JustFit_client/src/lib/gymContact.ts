@@ -26,19 +26,27 @@ export function call(member: GymMember) {
   callPhone(member.phone);
 }
 
-export function sms(member: GymMember, text = "") {
-  if (!member.phone) return noNumber();
+export function smsPhone(phone: string | null, text = "") {
+  if (!phone) return noNumber();
   // iOS reads the text after "&body=", Android after "?body="
-  open(`sms:${member.phone}${Platform.OS === "ios" ? "&" : "?"}body=${encodeURIComponent(text)}`, "Messages");
+  open(`sms:${phone}${Platform.OS === "ios" ? "&" : "?"}body=${encodeURIComponent(text)}`, "Messages");
+}
+
+export function sms(member: GymMember, text = "") {
+  smsPhone(member.phone, text);
 }
 
 export function whatsapp(member: GymMember, text = "") {
   whatsappPhone(member.phone, text);
 }
 
+export function emailTo(address: string | null, subject = "", body = "") {
+  if (!address) return Alert.alert("No email", "Add the member's email to write to them.");
+  open(`mailto:${address}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, "Mail");
+}
+
 export function email(member: GymMember, subject = "", body = "") {
-  if (!member.email) return Alert.alert("No email", "Add the member's email to write to them.");
-  open(`mailto:${member.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, "Mail");
+  emailTo(member.email, subject, body);
 }
 
 const gymName = (gym: GymInfo) => `${gym.name} (${gym.branch})`;

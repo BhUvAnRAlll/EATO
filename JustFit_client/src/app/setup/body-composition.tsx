@@ -1,4 +1,4 @@
-import { Pressable, Text, View } from "react-native";
+import { Alert, Platform, Pressable, Text, View } from "react-native";
 import { SymbolView } from "@/components/SymbolView";
 import { router } from "expo-router";
 
@@ -13,6 +13,19 @@ export default function BodyComposition() {
   const colors = useThemeColors();
   const { profile, scan, removeScan } = useSetupStore();
   const scanned = profile.bodyFatPercent !== "";
+  // Remove throws the scan result away: ask first (React Native's Alert does nothing on the web)
+  const confirmRemove = () => {
+    const question = "Remove your scan result?";
+    const detail = "Your targets will be estimated without a body fat %.";
+    if (Platform.OS === "web") {
+      if (globalThis.confirm?.(`${question} ${detail}`)) removeScan();
+      return;
+    }
+    Alert.alert(question, detail, [
+      { text: "Keep", style: "cancel" },
+      { text: "Remove", style: "destructive", onPress: removeScan },
+    ]);
+  };
 
   return (
     <SetupScreen
@@ -43,7 +56,7 @@ export default function BodyComposition() {
             <Pressable onPress={() => router.push("/setup/scan-guide")} accessibilityRole="button" hitSlop={8}>
               <Text className="auth__link">Scan again</Text>
             </Pressable>
-            <Pressable onPress={removeScan} accessibilityRole="button" hitSlop={8}>
+            <Pressable onPress={confirmRemove} accessibilityRole="button" hitSlop={8}>
               <Text className="auth__link">Remove</Text>
             </Pressable>
           </View>

@@ -28,12 +28,14 @@ type Props = {
   // The meal being swapped for a new dish right now, if any (no Swap buttons without onSwap)
   swapping?: string | null;
   onSwap?: (mealId: string) => void;
+  // The whole plan is being remade: every Swap and Log Meal waits
+  busy?: boolean;
 };
 
 const SLOT: Record<PlanSlot, string> = { breakfast: "Breakfast", morning_snack: "Morning snack", lunch: "Lunch", evening_snack: "Evening snack", dinner: "Dinner" };
 
-// "13:30" → "1:30 PM": the plan keeps 24-hour times
-function planTime(time: string) {
+// "13:30" → "1:30 PM": the plan keeps 24-hour times (the chat's Apply cards use it too)
+export function planTime(time: string) {
   const [h, m] = time.split(":").map(Number);
   return Number.isFinite(h) && Number.isFinite(m) ? timeLabel(h, m) : time;
 }
@@ -43,10 +45,10 @@ const LABEL_IN = FadeIn.duration(180).reduceMotion(ReduceMotion.System);
 
 // One plan meal on the shared meal card: Swap (before it's logged) and Log Meal as its buttons,
 // View meal opening the foods with their amounts and the coach's tip from the bottom
-function MealEntry({ meal, logging, onLog, swapping, onSwap, onDetails }: { meal: PlanMeal; logging: string | null; onLog: (id: string) => void; swapping?: string | null; onSwap?: (id: string) => void; onDetails: () => void }) {
+function MealEntry({ meal, logging, onLog, swapping, onSwap, remaking, onDetails }: { meal: PlanMeal; logging: string | null; onLog: (id: string) => void; swapping?: string | null; onSwap?: (id: string) => void; remaking?: boolean; onDetails: () => void }) {
   const colors = useThemeColors();
-  // Busy while any meal is being swapped or logged: one change at a time
-  const busy = logging !== null || (swapping ?? null) !== null;
+  // Busy while any meal is being swapped or logged, or the plan remade: one change at a time
+  const busy = logging !== null || (swapping ?? null) !== null || remaking === true;
   return (
     <MealCard
       label={SLOT[meal.slot]}
@@ -162,13 +164,13 @@ function PlanMealSheet({ meal, onClose }: { meal: PlanMeal; onClose: () => void 
 
 // The meal plan: the coach's meals in time order, each on the shared meal card with Swap and
 // Log Meal. The workout is not on it (the AI Coach tab shows it as a row).
-export function PlanTimeline({ plan, logging, onLog, swapping, onSwap }: Props) {
+export function PlanTimeline({ plan, logging, onLog, swapping, onSwap, busy }: Props) {
   const [openId, setOpenId] = useState<string | null>(null);
   const open = plan.meals.find((m) => m.id === openId) ?? null;
   return (
     <View style={{ gap: 16 }}>
       {plan.meals.map((meal) => (
-        <MealEntry key={meal.id} meal={meal} logging={logging} onLog={onLog} swapping={swapping} onSwap={onSwap} onDetails={() => setOpenId(meal.id)} />
+        <MealEntry key={meal.id} meal={meal} logging={logging} onLog={onLog} swapping={swapping} onSwap={onSwap} remaking={busy} onDetails={() => setOpenId(meal.id)} />
       ))}
       {open && <PlanMealSheet key={open.id} meal={open} onClose={() => setOpenId(null)} />}
     </View>

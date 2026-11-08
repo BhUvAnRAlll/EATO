@@ -86,6 +86,7 @@ export default function NutritionTargets() {
   const getToken = useSessionToken();
   // The server rejected the session: offer the way back to sign-in instead of a dead retry
   const [sessionExpired, setSessionExpired] = useState(false);
+  const [finished, setFinished] = useState(false);
   const { profile, calorieOverride, setCalorieOverride, reset } = useSetupStore();
 
   // Only for gender "other"/"unspecified": the estimate the user picks (never chosen for them)
@@ -185,8 +186,11 @@ export default function NutritionTargets() {
     }
     // The server has saved it: the account is now complete, under the name just given
     useAuthStore.getState().updateUser({ profileComplete: true, fullName: profile.fullName.trim() });
-    reset();
+    // `finished` hides the calculator's alerts: the cleared answers would otherwise read as missing
+    // (and buzz an error) in the frame between leaving and the reset
+    setFinished(true);
     goHome();
+    reset();
   };
 
   return (
@@ -199,7 +203,19 @@ export default function NutritionTargets() {
       canContinue={canFinish}
       loading={isSaving}
     >
-      {result.status === "invalid" && (
+      {/* A failed Finish is reported at the top, where it is seen: the button is in the footer and
+          the content above it can be long */}
+      {error && (
+        <View className="mb-3">
+          <FormAlert message={error} />
+          {sessionExpired && (
+            <Pressable onPress={() => returnToSignIn()} className="btn-outline mt-3" accessibilityRole="button">
+              <Text className="btn-outline__label">Sign in again</Text>
+            </Pressable>
+          )}
+        </View>
+      )}
+      {result.status === "invalid" && !finished && (
         <View className="gap-2">
           {result.issues.map((issue) => (
             <FormAlert key={issue.field} message={issue.message} />
@@ -352,16 +368,6 @@ export default function NutritionTargets() {
         </View>
       )}
 
-      {error && (
-        <View className="mt-3">
-          <FormAlert message={error} />
-          {sessionExpired && (
-            <Pressable onPress={() => returnToSignIn()} className="btn-outline mt-3" accessibilityRole="button">
-              <Text className="btn-outline__label">Sign in again</Text>
-            </Pressable>
-          )}
-        </View>
-      )}
     </SetupScreen>
   );
 }

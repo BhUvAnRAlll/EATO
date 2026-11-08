@@ -7,6 +7,7 @@ import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 
 import { ActionSheet } from "@/components/ActionSheet";
 import { DashedBlock } from "@/components/macro/DashedBlock";
+import { PressableScale } from "@/components/PressableScale";
 import { usePullToRefresh } from "@/components/PullToRefresh";
 import { WorkoutSheet } from "@/components/workout/WorkoutSheet";
 import { isValidIso, longDate } from "@/lib/macro";
@@ -60,6 +61,8 @@ export default function TrainingDayScreen() {
   const [ending, setEnding] = useState<"ask" | "busy" | null>(null);
   const [endError, setEndError] = useState<string | null>(null);
   const latest = useRef(0);
+  // A second tap on Start Workout while the player is opening would push it twice
+  const navigating = useRef(false);
 
   const refresh = useCallback(async () => {
     const request = ++latest.current;
@@ -80,6 +83,7 @@ export default function TrainingDayScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      navigating.current = false;
       refresh();
     }, [refresh]),
   );
@@ -120,7 +124,11 @@ export default function TrainingDayScreen() {
   const { plan, day, status, logId } = load;
   // Today's session that isn't finished can be started (or picked up) from any exercise
   const canStart = isToday && status !== "completed";
-  const play = (exerciseId?: string) => router.push({ pathname: "/workout/session", params: exerciseId ? { date, exercise: exerciseId } : { date } });
+  const play = (exerciseId?: string) => {
+    if (navigating.current) return;
+    navigating.current = true;
+    router.push({ pathname: "/workout/session", params: exerciseId ? { date, exercise: exerciseId } : { date } });
+  };
   const endSession = async () => {
     if (!logId) return setEndError("Could not end the session. Try again.");
     setEnding("busy");
@@ -129,7 +137,7 @@ export default function TrainingDayScreen() {
     const result = await workoutApi.abandonSession(token, logId);
     if (!result.ok) {
       setEnding("ask");
-      return setEndError("Could not end the session. Try again.");
+      return setEndError(result.error || "Could not end the session. Try again.");
     }
     setEnding(null);
     refresh();
@@ -376,7 +384,7 @@ function Footer({ status, isToday, date, today, onPlay, onEnd }: FooterProps) {
   const colors = useThemeColors();
   if (isToday && status === "completed") {
     return (
-      <View className="h-control-lg flex-row items-center justify-center gap-2 rounded-full" style={{ backgroundColor: colors.successSoft }}>
+      <View className="min-h-control-lg flex-row items-center justify-center gap-2 rounded-full" style={{ backgroundColor: colors.successSoft }}>
         <SymbolView name={{ ios: "checkmark.circle.fill", android: "check_circle", web: "check_circle" }} size={18} tintColor={colors.success} />
         <Text className="type-subhead" style={{ color: colors.success }}>Completed</Text>
       </View>
@@ -395,9 +403,9 @@ function Footer({ status, isToday, date, today, onPlay, onEnd }: FooterProps) {
   }
   return (
     <View className="gap-2">
-      <Pressable onPress={onPlay} className="btn-forest" accessibilityRole="button" accessibilityLabel={label}>
+      <PressableScale onPress={onPlay} haptic="tap" className="btn-forest" accessibilityRole="button" accessibilityLabel={label}>
         <Text className="btn-forest__label">{label}</Text>
-      </Pressable>
+      </PressableScale>
       {status === "in_progress" && onEnd && (
         <Pressable onPress={onEnd} className="btn-outline" accessibilityRole="button" accessibilityLabel="End session">
           <Text className="btn-outline__label">End session</Text>
@@ -407,20 +415,25 @@ function Footer({ status, isToday, date, today, onPlay, onEnd }: FooterProps) {
   );
 }
 
+// The backdrop is a sibling of the sheet, not its parent: a button inside a button breaks on web
 function HowToSheet({ exercise, onClose }: { exercise: DayExercise | null; onClose: () => void }) {
+  const insets = useSafeAreaInsets();
   return (
     <Modal visible={exercise !== null} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable className="verify__backdrop" onPress={onClose} accessibilityLabel="Close">
-        <Pressable className="verify__sheet gap-3" onPress={() => {}} accessibilityViewIsModal accessible={false}>
+      <View className="verify__backdrop">
+        <Pressable className="flex-1" onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" />
+        <View className="verify__sheet gap-3" style={{ maxHeight: "80%", paddingBottom: Math.max(insets.bottom, 16) + 8 }} accessibilityViewIsModal>
           <Text className="setup__section text-center">{exercise ? `How to do it: ${exercise.name}` : ""}</Text>
-          {exercise?.instructions.map((line, i) => (
-            <Text key={i} className="type-body text-forest-ink">{`${i + 1}. ${line}`}</Text>
-          ))}
-          <Pressable onPress={onClose} className="btn-forest mt-1" accessibilityRole="button">
+          <ScrollView contentContainerStyle={{ gap: 12 }} showsVerticalScrollIndicator={false}>
+            {exercise?.instructions.map((line, i) => (
+              <Text key={i} className="type-body text-forest-ink">{`${i + 1}. ${line}`}</Text>
+            ))}
+          </ScrollView>
+          <PressableScale onPress={onClose} className="btn-forest mt-1" accessibilityRole="button">
             <Text className="btn-forest__label">Done</Text>
-          </Pressable>
-        </Pressable>
-      </Pressable>
+          </PressableScale>
+        </View>
+      </View>
     </Modal>
   );
 }

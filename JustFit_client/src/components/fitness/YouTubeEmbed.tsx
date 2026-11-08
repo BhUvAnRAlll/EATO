@@ -2,6 +2,7 @@ import type { ComponentType } from "react";
 import { Linking, NativeModules, TurboModuleRegistry, View } from "react-native";
 
 import { embedUrl, validLink, watchUrl, type YouTubeLink } from "./youtube";
+import { useThemeColors } from "@/theme";
 
 // The web view is native code: an app built before it was added doesn't have it, and importing
 // it there throws. So it's loaded only when the build has it; without it the player is left out
@@ -23,8 +24,8 @@ const APP_ORIGIN = "https://com.bhuvii3.justfit";
 // Only YouTube's own player (and the Google pages it loads inside itself) may load in the frame
 const PLAYER_HOSTS = /^https:\/\/([a-z0-9-]+\.)*(youtube-nocookie\.com|youtube\.com|google\.com|googlevideo\.com|ytimg\.com|gstatic\.com|doubleclick\.net)(\/|$)/i;
 
-const page = (src: string) => `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1">
-<style>html,body{margin:0;height:100%;background:#000}iframe{border:0;width:100%;height:100%}</style></head>
+const page = (src: string, background: string) => `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>html,body{margin:0;height:100%;background:${background}}iframe{border:0;width:100%;height:100%}</style></head>
 <body><iframe src="${src}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></body></html>`;
 
 /**
@@ -34,6 +35,7 @@ const page = (src: string) => `<!DOCTYPE html><html><head><meta name="viewport" 
  * the browser instead of inside justFit.
  */
 export function YouTubeEmbed({ link, title }: { link: YouTubeLink; title: string }) {
+  const colors = useThemeColors();
   if (!WebView || !validLink(link)) return null;
   const leave = (request: { url: string; isTopFrame?: boolean }) => {
     const { url } = request;
@@ -45,7 +47,7 @@ export function YouTubeEmbed({ link, title }: { link: YouTubeLink; title: string
   return (
     <View className="overflow-hidden rounded-2xl bg-black" style={{ aspectRatio: 16 / 9 }} accessibilityLabel={`${title} on YouTube`}>
       <WebView
-        source={{ html: page(embedUrl(link)), baseUrl: APP_ORIGIN }}
+        source={{ html: page(embedUrl(link), colors.black), baseUrl: APP_ORIGIN }}
         originWhitelist={["*"]}
         onShouldStartLoadWithRequest={leave}
         setSupportMultipleWindows={false}
@@ -56,7 +58,7 @@ export function YouTubeEmbed({ link, title }: { link: YouTubeLink; title: string
         javaScriptCanOpenWindowsAutomatically={false}
         scrollEnabled={false}
         bounces={false}
-        style={{ backgroundColor: "#000" }}
+        style={{ backgroundColor: colors.black }}
       />
     </View>
   );

@@ -60,9 +60,10 @@ export default function DailyCalories() {
     if (router.canGoBack()) router.back();
   };
 
-  // The day on screen must be the selected one; the previous day stays, dimmed, while it loads
+  // The day on screen must be the selected one; the previous day stays, dimmed, while it loads.
+  // A read that failed with a day already on screen says so under the header and lifts the dimming.
   const showing = day;
-  const switching = day !== null && day.date !== selectedDate;
+  const switching = day !== null && day.date !== selectedDate && !loadError;
 
   return (
     <View className="flex-1 bg-cream">
@@ -90,6 +91,7 @@ export default function DailyCalories() {
         ) : (
           <>
             <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24, gap: 16, opacity: switching ? 0.55 : 1 }} showsVerticalScrollIndicator={false} refreshControl={refreshControl}>
+              {loadError && <Text className="macro__error" accessibilityRole="alert">{loadError}</Text>}
               <Hero day={showing} />
               {water && water.date === showing.date && <WaterCard water={water} />}
               <MacrosCard day={showing} />

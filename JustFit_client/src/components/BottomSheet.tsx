@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Animated, Easing, Modal, Pressable, StyleSheet, useWindowDimensions, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useThemeColors } from "@/theme";
 
@@ -16,6 +17,9 @@ type BottomSheetProps = {
 export function BottomSheet({ onClose, locked = false, children }: BottomSheetProps) {
   const colors = useThemeColors();
   const { height } = useWindowDimensions();
+  // The sheet's own bottom padding (verify__sheet, 32) plus the home indicator's height, so the
+  // last row never sits under it
+  const insets = useSafeAreaInsets();
   // 1 = off screen below, 0 = fully up
   const [slide] = useState(() => new Animated.Value(1));
   const [closing, setClosing] = useState(false);
@@ -36,7 +40,7 @@ export function BottomSheet({ onClose, locked = false, children }: BottomSheetPr
         <Animated.View style={[StyleSheet.absoluteFill, { opacity: slide.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }) }]}>
           <Pressable className="verify__backdrop" onPress={locked ? undefined : dismiss} accessibilityLabel="Close" />
         </Animated.View>
-        <Animated.View className="verify__sheet" style={{ maxHeight: "86%", paddingTop: 12, transform: [{ translateY: Animated.multiply(slide, height) }] }} accessibilityViewIsModal>
+        <Animated.View className="verify__sheet" style={{ maxHeight: "86%", paddingTop: 12, paddingBottom: 32 + insets.bottom, transform: [{ translateY: Animated.multiply(slide, height) }] }} accessibilityViewIsModal>
           <View className="mb-4 self-center rounded-pill" style={{ width: 40, height: 5, backgroundColor: colors.lineStrong }} />
           {children(dismiss)}
         </Animated.View>

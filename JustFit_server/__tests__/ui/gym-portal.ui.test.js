@@ -72,8 +72,18 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
     const response = await fetch(`${server.baseUrl}${route}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
     return { status: response.status, json: await response.json().catch(() => null) };
   };
+  // The element must hold still between two reads (a viewport change for the screenshots, or a
+  // sheet still sliding in, moves it: a click at the first position then landed beside it, so
+  // Female and Close Send Reminder went unheard, QA 2026-11-07)
   const clickLabel = async (label) => {
-    const pos = await page.waitFor(`(() => { const el = [...document.querySelectorAll('[aria-label]')].filter((e) => e.getClientRects().length > 0 && e.getAttribute("aria-label") === ${JSON.stringify(label)})[0]; if (!el) return null; el.scrollIntoView({ block: "center" }); const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`, NAV_TIMEOUT, `element labelled ${label}`);
+    const locate = `(() => { const el = [...document.querySelectorAll('[aria-label]')].filter((e) => e.getClientRects().length > 0 && e.getAttribute("aria-label") === ${JSON.stringify(label)})[0]; if (!el) return null; el.scrollIntoView({ block: "center" }); const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`;
+    let pos = await page.waitFor(locate, NAV_TIMEOUT, `element labelled ${label}`);
+    for (let attempt = 0; attempt < 20; attempt++) {
+      await new Promise((r) => setTimeout(r, 150));
+      const again = await page.evaluate(locate);
+      if (again && Math.abs(again.x - pos.x) < 1 && Math.abs(again.y - pos.y) < 1) break;
+      pos = again ?? pos;
+    }
     await page.clickAt(pos.x, pos.y);
   };
   const hasLabel = (label) => page.evaluate(`!!document.querySelector(${JSON.stringify(`[aria-label="${label}"]`)})`);

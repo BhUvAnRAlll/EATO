@@ -19,6 +19,13 @@ describe("voiceEngineFor", () => {
     assert.equal(voiceEngineFor("en-IN", []), "phone");
   });
 
+  it("sends every language to the server once the phone lists its languages and has none of ours", () => {
+    // A phone with a recogniser that only knows other languages; a phone with no recogniser at all
+    // is decided by useVoiceInput before this rule is asked (engine "server" off the web)
+    assert.equal(voiceEngineFor("en-IN", ["fr-FR", "de-DE"]), "server");
+    assert.equal(voiceEngineFor("kn-IN", ["fr-FR"]), "server");
+  });
+
   it("uses the phone for a language it lists, whatever the tag's shape, and the server for one it leaves out", () => {
     const iphone = ["en-IN", "hi_IN", "ta-IN", "fr-FR"];
     assert.equal(voiceEngineFor("en-IN", iphone), "phone");

@@ -21,6 +21,9 @@ type GymSheetProps = {
   // presents a Modal from the nearest view controller, and a sibling Modal would be presented
   // from the screen's controller, which is already presenting this sheet, so it never shows.
   stack?: ReactNode;
+  // Closes the overlay (a confirm dialog) instead of the sheet: Android's back button and the
+  // backdrop then take one step back, not the whole form away (QA 2026-11-07)
+  onDismissOverlay?: () => void;
 };
 
 // The gym portal's bottom sheet (the user's designs): dimmed page, a white sheet rising from the
@@ -31,7 +34,9 @@ const CLOSE_DISTANCE = 120;
 const CLOSE_VELOCITY = 600; // points a second
 const HANDLE_HEIGHT = 30;
 
-export function GymSheet({ title, subtitle, onClose, children, overlay, onBack, stack }: GymSheetProps) {
+export function GymSheet({ title, subtitle, onClose, children, overlay, onBack, stack, onDismissOverlay }: GymSheetProps) {
+  // With an overlay up, a step back closes the overlay; without one, the sheet
+  const requestClose = overlay && onDismissOverlay ? onDismissOverlay : onClose;
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
@@ -39,6 +44,10 @@ export function GymSheet({ title, subtitle, onClose, children, overlay, onBack, 
   // left above (so it never slides under the top of the screen or leaves a see-through gap)
   const [keyboard, setKeyboard] = useState(0);
   useEffect(() => {
+    // A sheet opens with no field focused, so a keyboard still up belongs to whatever is under it
+    // (another sheet's field) and would cover this one: put it away (2026-11-07, the user's
+    // screenshots: dialogs and second sheets opened over the keyboard on every screen)
+    Keyboard.dismiss();
     const show = Keyboard.addListener(Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow", (e) => setKeyboard(e.endCoordinates.height));
     const hide = Keyboard.addListener(Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide", () => setKeyboard(0));
     return () => {
@@ -83,11 +92,11 @@ export function GymSheet({ title, subtitle, onClose, children, overlay, onBack, 
   });
 
   return (
-    <Modal visible transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>
+    <Modal visible transparent animationType="none" onRequestClose={requestClose} statusBarTranslucent>
       {/* A Modal is its own native window: gestures inside it need their own root view */}
       <GestureHandlerRootView style={{ flex: 1 }}>
       <Animated.View entering={FadeIn.duration(160).reduceMotion(ReduceMotion.System)} style={{ flex: 1, backgroundColor: "rgba(17, 24, 39, 0.45)" }}>
-        <Pressable style={{ flex: 1 }} onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" />
+        <Pressable style={{ flex: 1 }} onPress={requestClose} accessibilityRole="button" accessibilityLabel="Close" />
         <View style={{ marginBottom: keyboard }}>
           <GestureDetector gesture={pan}>
           <Animated.View entering={SlideInDown.duration(260).reduceMotion(ReduceMotion.System)} className="gym-sheet" style={[{ paddingBottom: bottomPad, maxHeight: sheetMax }, dragStyle]} accessibilityViewIsModal>

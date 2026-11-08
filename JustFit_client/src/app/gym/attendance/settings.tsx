@@ -18,6 +18,9 @@ import { useGymData } from "@/lib/useGymData";
 import { useThemeColors } from "@/theme";
 
 const PRESETS = [50, 100, 150, 200, 500];
+// A keyboard with digits, a dot and a minus: iOS has one; Android's numeric pad has the signs too
+// ("numbers-and-punctuation" is iOS-only and gave Android the full keyboard, QA 2026-11-07)
+const COORD_KEYBOARD = Platform.select({ ios: "numbers-and-punctuation" as const, default: "numeric" as const });
 const coordText = (n: number) => n.toFixed(6);
 // A typed coordinate, or null when it isn't one
 const parseCoord = (text: string, max: number) => {
@@ -104,16 +107,22 @@ function SettingsForm({ settings, onSaved }: { settings: AttendanceSettings; onS
     setSaving(true);
     setError("");
     const token = await getToken().catch(() => null);
+    // The place first (every attendance login may save it), then the name (the gym admin's alone:
+    // a Staff login's rename is refused without undoing the place)
+    const answer = await gymApi.saveAttendancePlace(token, { ...place, radiusM });
+    if (!answer.ok) {
+      setSaving(false);
+      return setError(answer.error);
+    }
     if (branch.trim() !== settings.gym.branch) {
       const renamed = await gymApi.updateDetails(token, { branch: branch.trim() });
       if (!renamed.ok) {
         setSaving(false);
-        return setError(renamed.error);
+        onSaved(answer.data);
+        return setError(`The location and radius were saved. The name wasn't: ${renamed.error}`);
       }
     }
-    const answer = await gymApi.saveAttendancePlace(token, { ...place, radiusM });
     setSaving(false);
-    if (!answer.ok) return setError(answer.error);
     haptic.success();
     onSaved(answer.data);
     setSaved(`Saved: ${coordText(place.latitude)}, ${coordText(place.longitude)} · ${radiusM} m radius`);
@@ -162,10 +171,10 @@ function SettingsForm({ settings, onSaved }: { settings: AttendanceSettings; onS
 
       <View className="flex-row" style={{ gap: 10 }}>
         <View className="flex-1">
-          <GymField label="Latitude" value={lat} onChangeText={(t) => { setLat(t.replace(/[^0-9.-]/g, "").slice(0, 12)); setSaved(""); }} onEndEditing={() => place && setFocus({ place, radiusM: radiusOk ? radiusM : settings.radiusM })} keyboardType="numbers-and-punctuation" placeholder="13.339200" hint={lat && latitude === null ? "Between -90 and 90" : undefined} />
+          <GymField label="Latitude" value={lat} onChangeText={(t) => { setLat(t.replace(/[^0-9.-]/g, "").slice(0, 12)); setSaved(""); }} onEndEditing={() => place && setFocus({ place, radiusM: radiusOk ? radiusM : settings.radiusM })} keyboardType={COORD_KEYBOARD} placeholder="13.339200" hint={lat && latitude === null ? "Between -90 and 90" : undefined} />
         </View>
         <View className="flex-1">
-          <GymField label="Longitude" value={lng} onChangeText={(t) => { setLng(t.replace(/[^0-9.-]/g, "").slice(0, 12)); setSaved(""); }} onEndEditing={() => place && setFocus({ place, radiusM: radiusOk ? radiusM : settings.radiusM })} keyboardType="numbers-and-punctuation" placeholder="77.101200" hint={lng && longitude === null ? "Between -180 and 180" : undefined} />
+          <GymField label="Longitude" value={lng} onChangeText={(t) => { setLng(t.replace(/[^0-9.-]/g, "").slice(0, 12)); setSaved(""); }} onEndEditing={() => place && setFocus({ place, radiusM: radiusOk ? radiusM : settings.radiusM })} keyboardType={COORD_KEYBOARD} placeholder="77.101200" hint={lng && longitude === null ? "Between -180 and 180" : undefined} />
         </View>
       </View>
 

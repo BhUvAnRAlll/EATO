@@ -82,6 +82,7 @@ export default function PersonalDetails() {
           value={profile.heightCm}
           onChangeText={(text) => update({ heightCm: toNumberText(text) })}
           keyboardType="number-pad"
+          invalid={profile.heightCm !== "" && !inRange(profile.heightCm, 100, 250)}
         />
         <SetupField
           label="Gender (optional)"
@@ -98,7 +99,9 @@ export default function PersonalDetails() {
           value={profile.weightKg}
           onChangeText={(text) => update({ weightKg: toNumberText(text, true) })}
           keyboardType="decimal-pad"
+          invalid={profile.weightKg !== "" && !inRange(profile.weightKg, 30, 300)}
         />
+        <Text className="setup__card-text -mt-1.5 px-1">Height 100–250 cm, weight 30–300 kg.</Text>
         <View className="gap-1.5">
           <SetupField
             label="Mobile number"

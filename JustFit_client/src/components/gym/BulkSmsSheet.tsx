@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Alert, Platform, Switch, Text, View } from "react-native";
 import Animated, { FadeIn, ReduceMotion } from "react-native-reanimated";
 
@@ -66,11 +66,15 @@ export function BulkSmsSheet({ onClose }: { onClose: () => void }) {
     }
   };
 
+  // A ref, not state: two taps on Send in the same frame would start two sends (QA 2026-11-07)
+  const sendingRef = useRef(false);
   const send = async () => {
-    if (!group) return;
+    if (!group || sendingRef.current) return;
+    sendingRef.current = true;
     setConfirming(false);
     setSending(true);
     const answer = await gymApi.smsSend(await getToken().catch(() => null), group);
+    sendingRef.current = false;
     setSending(false);
     if (!answer.ok) return say("Not sent", answer.error);
     haptic.success();
@@ -121,7 +125,7 @@ export function BulkSmsSheet({ onClose }: { onClose: () => void }) {
   ) : null;
 
   return (
-    <GymSheet title={titles[page][0]} subtitle={titles[page][1]} onClose={onClose} onBack={page === "home" ? undefined : back} overlay={overlay}>
+    <GymSheet title={titles[page][0]} subtitle={titles[page][1]} onClose={onClose} onBack={page === "home" ? undefined : back} overlay={overlay} onDismissOverlay={() => setConfirming(false)}>
       {result.state === "loading" && <GymLoading label="Loading SMS" />}
       {result.state === "failed" && <GymError error={result.error} onRetry={retry} />}
 

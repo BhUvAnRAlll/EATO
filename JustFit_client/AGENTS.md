@@ -221,8 +221,8 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
   catalogue (or Custom, or Add New Plan in a CatalogSheet), Mode, Amount Payable (the plan's
   price; the Admission and Discount amount fields were removed on 2026-11-07 at the user's request,
   the server still accepts them as optional) and Due Amount, Amount Collected, the due date when
-  something is owed (`DueByField`: quick picks or `DateSelect`), Send Invoice (opens the phone's
-  share sheet with a receipt; justFit sends no SMS); then the confirm dialog. **Attach the payment
+  something is owed (`DueByField`: quick picks or `DateSelect`), Send Invoice (opens the new
+  member's Invoice screen once saved, see Invoices below); then the confirm dialog. **Attach the payment
   bill (2026-11-07, the user's request; it replaced step 2's "Attachment, coming soon"):** a photo
   of the plan payment's receipt (camera or gallery, any shape, `lib/gymPhoto.ts` `pickReceiptImage`,
   a thumbnail and Remove once picked), uploaded after the member is saved onto the admission payment
@@ -310,7 +310,10 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
   stay under Expiring today). `GET /api/gym/members?days=` is a whole number 1-90 or `all`,
   default 3, else 400 (`rules.expiringDays`);
   nothing is stored, Home always shows 3 days. The other screens: + (`/gym/add`: admission, renewal, due payment, PT, product, enquiry), Members (search, filters, pick mode), a member's page (check in
-  once a day, renew, collect due, edit), Transactions (View All, 50 a page), Enquiries (see below), Wallet tab
+  once a day, renew, collect due, edit), Transactions (View All, 50 a page; one day at a time: a
+  Date picker, today to start, a year back at most, replaced the Any day / Today chips on
+  2026-11-07 at the user's request; `GET /api/gym/payments?day=YYYY-MM-DD`, `today=1` still
+  means today), Enquiries (see below), Wallet tab
   (today, this month, owed). Admin: the Gyms tab, a gym's page,
   New gym. Calls in `lib/gymApi.ts`, loading in `lib/useGymData.ts`, saves in `lib/gymForm.ts`.
 - **Enquiry follow-up (2026-11-05, chosen by the user):** Manage › Enquiry (`EnquiryList`; Home's
@@ -498,6 +501,68 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
   member (Notifications is still a placeholder; the member sees the pause on Gym membership), ending
   an approved pause early, pausing PT dates. Tests: `__tests__/gym-pause-rules.test.js`,
   `e2e/gym-pauses.e2e.test.js`, the client's `lib/__tests__/membershipText.test.ts`.
+- **Invoices (2026-11-07, the user's request; expo-print approved):** every gym payment has an
+  invoice of its own. `gyms.next_invoice_no` is the branch's running number (like Member IDs) and
+  `gym_payments.invoice_no` (unique per branch) is taken with the counter locked when the payment
+  is saved (`service.addPayment`; a counter sale opens its own transaction); a payment saved before
+  the migration has none and is numbered the first time its invoice opens (`gym/invoices.js`
+  `numberPayment`), so a number never changes or repeats. The number reads
+  `INV-FOR-TUM-0001` (`invoiceRules.invoiceNumber`). The Invoice screen (`app/gym/invoice.tsx`,
+  `?paymentId=` or `?memberId=` for the member's latest payment) is a white card: the gym on the
+  gradient (branch, area and city, then the address, phone and GSTIN when set) with the number and
+  date, Bill to (name, Member ID, phone; "Walk-in customer" for a counter sale), the one item
+  (`ITEM_LABEL`: Membership, Membership renewal, Due payment, Personal training, Service, Product,
+  with the payment's detail), Paid · mode, Balance due (red; the member's due today with its date)
+  or "Nil · Paid in full", and the membership's standing today. **Share PDF** builds an A4 PDF on
+  the phone (`expo-print` `printToFileAsync` from `lib/gymInvoice.ts` `invoiceHtml`, pure and
+  unit-tested; the file is renamed `INV-…-<member code>.pdf` and handed to `expo-sharing`; on the web
+  the HTML opens in a new tab to print); WhatsApp, SMS and Email open the phone's apps with the
+  invoice as text (`invoiceText`); justFit sends nothing. Opened from the ⋯ sheet's Send Invoice,
+  the Invoice chip on a payment (`PaymentRow` `invoice`, on the member's page and Transactions), and
+  the Send Invoice tick on Add Member, Collect Due, Add Service and Sell Product (it opens the
+  screen once saved; the old plain-text shares are gone). **Invoice details:** Branch details
+  (gym admin only) › Invoice details: address (160), mobile number and GSTIN, each optional, an
+  empty field clears it (`GET|PATCH /api/gym/invoice-details`, owner only for PATCH, audited
+  `gym.edit`; `invoiceRules.invoiceDetailsBody`). Routes `GET /api/gym/payments/:id/invoice` and
+  `GET /api/gym/members/:id/invoice` (area members, like the bill). Migration
+  `2026-12-07-gym-invoices.sql`; before it the invoice routes answer 503 naming it and payments
+  keep saving without a number. Tests: `__tests__/gym-invoice-rules.test.js`,
+  `e2e/gym-invoices.e2e.test.js`, `ui/gym-invoice.ui.test.js`, the client's
+  `lib/__tests__/gymInvoice.test.ts`. **Keyboard (2026-11-07, the user's screenshot):** `GymSheet`
+  dismisses the keyboard when it opens and `ConfirmDialog` when it appears, so a second sheet or a
+  "Please confirm the details" dialog never opens under the keyboard on any screen.
+- **Performance pass (2026-11-07, the user's "fix all"):** the member list is paged, 50 a page
+  (`GET /api/gym/members?sort=name|days|due&page=N` → `page`, `nextPage`; `rules.membersQuery`,
+  `MEMBER_ORDER` in `service.js`): the sort runs on the server so every page follows it, and
+  `MemberList` appends pages with Show more (the 200 cap with no next page is gone). The dashboard,
+  the attendance summary, the member's page and the member list send their independent queries
+  together (`Promise.all`). `GET /members/:id` carries `gym`, so the member's page no longer reads
+  the dashboard for it. `useGymData` returns `refreshing` / `refresh` and Members, Transactions,
+  Attendance, Wallet, Enquiry, Pause requests, Likely to leave and a member's page have pull to
+  refresh (Home already had it). Photos are shrunk on the phone before upload
+  (`expo-image-manipulator`, approved: a member's photo to 512 px, a brochure or bill to 1600 px on
+  the long side, JPEG 0.8; `lib/gymPhoto.ts` `shrink`, the original is used if shrinking fails).
+  The ⋯ sheet's Edit Membership opens the Edit Profile sheet (the user's request).
+- **QA pass (2026-11-07, the user's handed-over end-to-end run; fixes only, no restyling):** the gym
+  router is `express.Router({ caseSensitive: true, strict: true })` and `staffRules.areaOfPath` reads
+  the path lower-cased without a trailing slash: Express used to match `/Payments` and `/payments/`
+  to the `/payments` route while the area map read them as "no area", so a Staff login could reach
+  any area that way (`gym-staff-rules.test.js`, `gym-staff.e2e` cover it). `PATCH /details` is
+  `ownerOnly` (Branches shows Edit this branch to the gym admin only). `useGymData` shows loading
+  for a new query (a changed `load`: another filter, day or search) and reports that query's own
+  failure, keeping the old answer only on a refresh of the same query; `update(fn)` changes the
+  shown answer functionally. `GymScreen` wraps its scroll in a `KeyboardAvoidingView` (iOS) and
+  leaves room under the content for `floating`. `GymSheet` takes `onDismissOverlay`: Android back
+  and the backdrop close a confirm dialog first, not the whole form; `ConfirmDialog` takes `busy`.
+  `PaymentRow` is a View with the row's button and the Invoice / Bill chips on a line under it
+  (never a button inside a button). The member page, the ⋯ sheet, the member list's Collect,
+  Wallet's forecast and due card and Attendance's busy hours follow `useCan`. Add Member, Send
+  Reminder and Bulk SMS guard double taps with refs. `lib/api.ts` exports `reportRefusal` for
+  requests made outside `apiFetch` (the CSV export). Member app: `SetupScreen`'s Back on step 1 asks
+  through the browser on the web; `SetupField` pickers dismiss the keyboard; `scan-report` offers
+  Sign in again on a 401; `body-scan` ignores Back while scanning; Home shows a skeleton until the
+  first numbers arrive; `store/macro.ts` `logDate()` rolls a "today" selection past midnight
+  (`lib/macroDateRules.ts`); the trainer guard in `(user)/_layout.tsx` is a `<Redirect>`.
 - **Tests:** `__tests__/gym-rules.test.js`, `gym-sms-rules.test.js`, `gym-attendance-rules.test.js`,
   `gym-staff-rules.test.js`, `e2e/gym-portal.e2e.test.js`, `e2e/gym-sms.e2e.test.js`,
   `e2e/gym-attendance.e2e.test.js`, `e2e/gym-staff.e2e.test.js`, `ui/gym-portal.ui.test.js`,

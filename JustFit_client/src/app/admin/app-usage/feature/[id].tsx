@@ -1,10 +1,11 @@
-import { useCallback, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
+import { useCallback, useRef, useState } from "react";
+import { Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 
 import { usePullToRefresh } from "@/components/PullToRefresh";
+import { ScreenSkeleton } from "@/components/Skeleton";
 import { BarChart } from "@/components/admin/BarChart";
 import { DashedBlock } from "@/components/macro/DashedBlock";
 import { SymbolView } from "@/components/SymbolView";
@@ -26,10 +27,14 @@ export default function FeatureDetailScreen() {
   const getToken = useSessionToken();
   const [range, setRange] = useState<UsageRange>("30d");
   const [load, setLoad] = useState<Load>({ state: "loading" });
+  // Only the newest read may land: an older range's answer arriving late can't overwrite it
+  const latest = useRef(0);
 
   const refresh = useCallback(async (r: UsageRange) => {
     if (!id) return;
+    const call = ++latest.current;
     const result = await appUsage.feature(await getToken().catch(() => null), id, { range: r });
+    if (call !== latest.current) return;
     setLoad(result.ok ? { state: "ready", data: result.data } : { state: "failed", error: result.error });
   }, [getToken, id]);
 
@@ -67,10 +72,7 @@ export default function FeatureDetailScreen() {
           </View>
 
           {load.state === "loading" ? (
-            <View className="items-center gap-3 py-16">
-              <ActivityIndicator color={colors.leaf} />
-              <Text className="home__note">Loading</Text>
-            </View>
+            <ScreenSkeleton label="Loading the feature" hero />
           ) : load.state === "failed" ? (
             <DashedBlock icon={{ ios: "exclamationmark.triangle.fill", android: "warning", web: "warning" }} title="Could not load this feature" text={`${load.error.replace(/\.$/, "")}. Tap to try again.`} onPress={() => { setLoad({ state: "loading" }); refresh(range); }} />
           ) : !load.data.tracked || !load.data.current || !load.data.previous || !load.data.series ? (

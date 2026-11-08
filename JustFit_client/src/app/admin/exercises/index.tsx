@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { router, useFocusEffect } from "expo-router";
 
 import { usePullToRefresh } from "@/components/PullToRefresh";
+import { ScreenSkeleton } from "@/components/Skeleton";
 import { DashedBlock } from "@/components/macro/DashedBlock";
 import { SymbolView } from "@/components/SymbolView";
 import { adminExercises, MUSCLE_GROUPS, MUSCLE_LABEL, type ExerciseFilters, type ExerciseList, type MuscleGroup, type VideoFilter } from "@/lib/adminExercises";
@@ -40,6 +41,8 @@ export default function ExercisesScreen() {
   const filterKey = `${video}|${group}|${show}|${search}`;
   const [paging, setPaging] = useState({ key: filterKey, rows: PAGE });
   const shown = paging.key === filterKey ? paging.rows : PAGE;
+  // Only the newest read may land: an older filter's answer arriving late can't overwrite it
+  const latest = useRef(0);
 
   // The search applies a moment after typing stops
   useEffect(() => {
@@ -48,7 +51,9 @@ export default function ExercisesScreen() {
   }, [typed]);
 
   const refresh = useCallback(async () => {
+    const call = ++latest.current;
     const result = await adminExercises.list(await getToken().catch(() => null), { search, group, video, show });
+    if (call !== latest.current) return;
     setLoad(result.ok ? { state: "ready", data: result.data } : { state: "failed", error: result.error });
   }, [getToken, search, group, video, show]);
 
@@ -111,10 +116,7 @@ export default function ExercisesScreen() {
           </ScrollView>
 
           {load.state === "loading" ? (
-            <View className="items-center gap-3 py-16">
-              <ActivityIndicator color={colors.leaf} />
-              <Text className="home__note">Loading</Text>
-            </View>
+            <ScreenSkeleton label="Loading exercises" />
           ) : load.state === "failed" ? (
             <DashedBlock icon={{ ios: "exclamationmark.triangle.fill", android: "warning", web: "warning" }} title="Could not load exercises" text={`${load.error.replace(/\.$/, "")}. Tap to try again.`} onPress={() => { setLoad({ state: "loading" }); refresh(); }} />
           ) : load.data.exercises.length === 0 ? (

@@ -75,8 +75,8 @@ describe("cross-origin policy", () => {
 
 describe("security log", () => {
   it("masks a phone number down to its last 4 digits", () => {
-    assert.equal(maskPhone("+919113956439"), "+91******6439");
-    assert.equal(maskPhone("9113956439"), "911***6439");
+    assert.equal(maskPhone("+919113956439"), "*********6439");
+    assert.equal(maskPhone("9113956439"), "******6439", "a 10-digit number shows its last 4 digits only");
     assert.equal(maskPhone(undefined), "unknown");
     assert.equal(maskPhone("12"), "unknown");
   });

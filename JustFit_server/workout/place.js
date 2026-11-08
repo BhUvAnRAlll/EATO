@@ -88,7 +88,22 @@ async function saveEquipment(pool, userId, { home, center }) {
     const [stale] = await conn.query(`SELECT id FROM workout_days WHERE user_id = ? AND place IS NOT NULL${live}`, [userId]);
     const candidates = stale.map((d) => d.id);
     if (candidates.length === 0) return;
-    await conn.query("DELETE FROM workout_day_overrides WHERE user_id = ? AND day_id IN (?) AND on_date >= CURDATE()", [userId, candidates]);
+    // A date still to come that ran an adapted day goes back to the day it was adapted from, as
+    // switching back does: pointed at it when the date isn't that day's own weekday (a moved
+    // session), otherwise with no override at all. Deleting the override outright lost a session
+    // moved onto that date (QA 2026-11-07: a plan with no session on a weekend day).
+    const [pointing] = await conn.query(
+      `SELECT o.on_date, DATE_FORMAT(o.on_date, '%Y-%m-%d') AS date, d.variant_of, b.weekday
+         FROM workout_day_overrides o
+         JOIN workout_days d ON d.id = o.day_id AND d.user_id = o.user_id
+         LEFT JOIN workout_days b ON b.id = d.variant_of AND b.user_id = d.user_id
+        WHERE o.user_id = ? AND o.day_id IN (?) AND o.on_date >= CURDATE()`,
+      [userId, candidates],
+    );
+    for (const row of pointing) {
+      if (row.variant_of && row.weekday !== weekdayOf(row.date)) await plans.pointDate(conn, userId, row.date, row.variant_of);
+      else await conn.query("DELETE FROM workout_day_overrides WHERE user_id = ? AND on_date = ?", [userId, row.date]);
+    }
     // Still used by a past date (a missed session in the history) or a log (a session trained there)
     const [used] = await conn.query(
       `SELECT d.id FROM workout_days d WHERE d.user_id = ? AND d.id IN (?) AND (

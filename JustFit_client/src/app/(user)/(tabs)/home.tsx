@@ -13,7 +13,9 @@ import { TodayMealCard } from "@/components/home/TodayMealCard";
 import { TodayRingsCard } from "@/components/home/TodayRingsCard";
 import { WeeklyActivityCard } from "@/components/home/WeeklyActivityCard";
 import { WorkoutHeroCard } from "@/components/home/WorkoutHeroCard";
+import { LoadError } from "@/components/macro/LoadError";
 import { usePullToRefresh } from "@/components/PullToRefresh";
+import { SkeletonCard } from "@/components/Skeleton";
 import { routeFor, sampleNutrition, sampleTodayOrder } from "@/data/home";
 import { formatShortDate } from "@/lib/date";
 import { todayIso } from "@/lib/macro";
@@ -35,7 +37,7 @@ const GAP = 8;
 export default function Home() {
   const { width } = useWindowDimensions();
   const getToken = useSessionToken();
-  const { promotions, content, nutrition, water, workout, activity, load, refreshIntake } = useHomeStore();
+  const { promotions, content, nutrition, water, workout, activity, load, refreshIntake, loading, error, source } = useHomeStore();
   const cart = useCartStore();
   const [favorites, setFavorites] = useState<string[]>([]);
 
@@ -122,9 +124,15 @@ export default function Home() {
             onProfilePress={() => router.push("/profile")}
           />
 
-          {/* Today: calories, protein and water against their targets */}
+          {/* Today: calories, protein and water against their targets. Until the first read answers
+              the card is a skeleton: the bundled sample said "couldn't be loaded" on every cold start */}
           <View className="mt-4 px-4">
-            <TodayRingsCard heading={content.nutritionHeading} nutrition={nutrition ?? sampleNutrition} water={water} width={contentWidth} onOpen={() => router.navigate("/macro")} />
+            {nutrition === null && source === "default" && (loading || error === null) ? (
+              <SkeletonCard tall />
+            ) : (
+              <TodayRingsCard heading={content.nutritionHeading} nutrition={nutrition ?? sampleNutrition} water={water} width={contentWidth} onOpen={() => router.navigate("/macro")} />
+            )}
+            {error && !loading && <LoadError title="Home couldn't load" message={error} onRetry={reload} />}
           </View>
 
           {/* Today's workout (only with a plan) */}

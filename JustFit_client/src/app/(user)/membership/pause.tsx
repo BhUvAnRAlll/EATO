@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { ScrollView, Text, View } from "react-native";
+import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
@@ -95,7 +95,8 @@ export default function PauseMembership() {
             </View>
           </View>
         ) : (
-          <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 48, gap: 16 }} keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive" showsVerticalScrollIndicator={false}>
+          <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+          <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 48, gap: 16 }} keyboardShouldPersistTaps="handled" keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"} showsVerticalScrollIndicator={false}>
             <View className="card" style={{ gap: 4 }}>
               <Text className="card__title">{`${result.membership.gym.name} · ${result.membership.gym.branch}`}</Text>
               <Text className="card__subtitle">{`Your plan ends on ${prettyDate(result.membership.expiresOn)}. A pause of up to ${maxDays} days adds those days to it once the gym approves.`}</Text>
@@ -142,6 +143,7 @@ export default function PauseMembership() {
             <PrimaryButton label="Send pause request" onPress={submit} disabled={!valid} loading={busy} />
             <Text className="type-caption text-muted text-center">{"Nothing changes until the gym approves. You can cancel the request while it's waiting."}</Text>
           </ScrollView>
+          </KeyboardAvoidingView>
         )}
 
         {ready && (

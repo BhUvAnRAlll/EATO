@@ -28,6 +28,8 @@ const AREA_OF_PATH = [
   [/^\/members\/[^/]+\/check-(in|out)$/, "attendance"],
   // A payment's bill is attached from Add Member and seen on the member's page, so it goes with members
   [/^\/payments\/[^/]+\/receipt$/, "members"],
+  // An invoice is sent from the member's ⋯ sheet and their page, so it goes with members too
+  [/^\/payments\/[^/]+\/invoice$/, "members"],
   [/^\/(members|trainers|pauses)(\/|$)/, "members"],
   [/^\/(payments|services|sales|wallet)(\/|$)/, "payments"],
   [/^\/enquiries(\/|$)/, "enquiries"],
@@ -71,14 +73,24 @@ function permissionsBody(body) {
 function areasOf(row) {
   if (row.kind === "owner") return [...AREAS];
   if (row.kind !== "staff") return [];
-  const saved = typeof row.permissions === "string" ? JSON.parse(row.permissions) : row.permissions;
+  let saved = row.permissions;
+  if (typeof saved === "string") {
+    try {
+      saved = JSON.parse(saved);
+    } catch {
+      return []; // a corrupt value (only ever written with JSON.stringify) locks the login down, never 500s every request
+    }
+  }
   if (!Array.isArray(saved)) return [...AREAS];
   return AREAS.filter((a) => saved.includes(a));
 }
 
-// The area a request under /api/gym needs, or null when every portal login may make it
+// The area a request under /api/gym needs, or null when every portal login may make it. The path
+// is read lower-cased and without a trailing slash, so a spelling the router might still accept
+// can never read as "no area" (the gym router is strict too; this is the second lock)
 function areaOfPath(path) {
-  const found = AREA_OF_PATH.find(([pattern]) => pattern.test(path));
+  const normalised = String(path).toLowerCase().replace(/\/+$/, "") || "/";
+  const found = AREA_OF_PATH.find(([pattern]) => pattern.test(normalised));
   return found ? found[1] : null;
 }
 

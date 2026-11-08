@@ -24,7 +24,8 @@ const supported = Platform.OS !== "web";
 // never routed as given
 const REMINDER_ROUTE = "/coach/meal-plan";
 
-export type ReminderSetting = "on" | "off" | "denied";
+// "failed": the phone's notification service didn't answer (the switch goes back, the row says so)
+export type ReminderSetting = "on" | "off" | "denied" | "failed";
 
 export async function remindersOn(): Promise<boolean> {
   if (!supported) return false;
@@ -53,13 +54,17 @@ export async function setRemindersOn(on: boolean, plan: CoachPlan | null, date: 
     await cancelMealReminders();
     return "off";
   }
-  await ensureChannel();
-  const current = await Notifications.getPermissionsAsync();
-  const granted = current.granted || (current.canAskAgain && (await Notifications.requestPermissionsAsync()).granted);
-  if (!granted) return "denied";
-  await SecureStore.setItemAsync(KEY, "on");
-  await syncMealReminders(plan, date);
-  return "on";
+  try {
+    await ensureChannel();
+    const current = await Notifications.getPermissionsAsync();
+    const granted = current.granted || (current.canAskAgain && (await Notifications.requestPermissionsAsync()).granted);
+    if (!granted) return "denied";
+    await SecureStore.setItemAsync(KEY, "on");
+    await syncMealReminders(plan, date);
+    return "on";
+  } catch {
+    return "failed";
+  }
 }
 
 // Today's reminders, from the plan as it is now: everything scheduled before is replaced, so a

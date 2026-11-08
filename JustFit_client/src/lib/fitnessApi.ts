@@ -3,8 +3,9 @@ import { PROGRAMS, SECTION_LAYOUT, SECTION_NOTE, SECTION_ORDER, SECTION_TITLE, t
 import type { Place } from "@/lib/workoutApi";
 
 // The Fitness tab's programs (JustFit_server/fitness/routes.js, under /api/fitness). Every
-// program is free. When the server can't be reached the tab shows the starter catalog
-// (src/lib/fitness/catalog.ts) as cards marked `offline`, which can't be opened until it's back.
+// program is free. When the server can't be reached at all the tab shows the starter catalog
+// (src/lib/fitness/catalog.ts) as cards marked `offline`, which can't be opened until it's back;
+// an answer the server did give (a limit, maintenance) is shown as it is.
 
 export type ProgramCardData = {
   id: string;
@@ -99,8 +100,10 @@ export const fitnessApi = {
     const params = `place=${place}${search ? `&search=${encodeURIComponent(search)}` : ""}`;
     const result = await apiFetch<ProgramList>(`/api/fitness/programs?${params}`, { token });
     if (result.ok) return result;
-    // Signed out or refused: say so; anything else (offline, server down) shows the catalog
-    if (result.status === 401 || result.status === 403 || result.status === 400) return result;
+    // The server answered (401, 429, 503, ...): its own words reach the member. Only when it
+    // couldn't be reached at all (no status: offline, timed out; or a gateway's 502 / 504 while
+    // the server behind it is down) does the catalog stand in
+    if (result.status !== undefined && result.status !== 502 && result.status !== 504) return result;
     return { ok: true, data: offlineList(place, search) };
   },
   async program(token: string | null, id: string): Promise<ApiResult<ProgramDetail>> {

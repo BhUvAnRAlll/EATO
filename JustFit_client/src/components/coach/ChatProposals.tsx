@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
 import Animated, { FadeIn, LayoutAnimationConfig, ReduceMotion } from "react-native-reanimated";
 
+import { planTime } from "@/components/coach/PlanTimeline";
 import { PressableScale } from "@/components/PressableScale";
 import { SymbolView } from "@/components/SymbolView";
 import type { ChatProposals as Proposals, MealProposal, PlanSlot, WorkoutProposal } from "@/lib/coach";
@@ -76,7 +77,7 @@ function MealCard({ turnId, proposal }: { turnId: string; proposal: MealProposal
   const foods = option.items.map((i) => i.name).join(", ");
   return (
     <View className="coach__meal-card" style={{ gap: 8 }}>
-      <Text className="coach__slot-pill-label">{`${SLOT[proposal.slot]} · ${proposal.time}`}</Text>
+      <Text className="coach__slot-pill-label">{`${SLOT[proposal.slot]} · ${planTime(proposal.time)}`}</Text>
       <Text className="coach__hint" numberOfLines={1} style={{ textDecorationLine: "line-through" }}>{proposal.current.name}</Text>
       <Text className="coach__meal-name" numberOfLines={2}>{option.name}</Text>
       {foods !== option.name && <Text className="coach__meal-ings" numberOfLines={2}>{foods}</Text>}

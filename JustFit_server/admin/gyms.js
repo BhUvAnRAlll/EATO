@@ -148,7 +148,12 @@ async function linkStaff(pool, adminId, gymId, phone) {
   if (current.some((c) => c.id === gymId)) throw new ConflictError("That account already works at this branch.");
   const other = current.find((c) => c.brand_id !== gym.brand_id);
   if (other) throw new ConflictError(`That account works at “${other.brand}”. Remove it there first.`);
-  await pool.query("INSERT INTO gym_staff (user_id, gym_id) VALUES (?, ?)", [user.id, gymId]);
+  try {
+    await pool.query("INSERT INTO gym_staff (user_id, gym_id) VALUES (?, ?)", [user.id, gymId]);
+  } catch (error) {
+    if (error?.code === "ER_DUP_ENTRY") throw new ConflictError("That account already works at this branch."); // two admins linked it at once
+    throw error;
+  }
   await audit(pool, adminId, "gym.staff_add", "gym", gymId, `Added a gym admin to “${gym.brand}”, ${gym.branch} branch`);
 }
 

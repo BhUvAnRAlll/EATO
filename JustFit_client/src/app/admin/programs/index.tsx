@@ -1,10 +1,11 @@
 import { useCallback, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { router, useFocusEffect } from "expo-router";
 
 import { usePullToRefresh } from "@/components/PullToRefresh";
+import { ScreenSkeleton } from "@/components/Skeleton";
 import { SymbolView } from "@/components/SymbolView";
 import { ProgramArt } from "@/components/fitness/ProgramArt";
 import { DashedBlock } from "@/components/macro/DashedBlock";
@@ -64,12 +65,11 @@ export default function AdminProgramsScreen() {
           </Pressable>
 
           {load.state === "loading" ? (
-            <View className="items-center gap-3 py-16">
-              <ActivityIndicator color={colors.leaf} />
-              <Text className="home__note">Loading</Text>
-            </View>
+            <ScreenSkeleton label="Loading programs" />
           ) : load.state === "failed" ? (
             <DashedBlock icon={{ ios: "exclamationmark.triangle.fill", android: "warning", web: "warning" }} title="Could not load programs" text={`${load.error.replace(/\.$/, "")}. Tap to try again.`} onPress={() => { setLoad({ state: "loading" }); refresh(); }} />
+          ) : load.programs.length === 0 ? (
+            <DashedBlock icon={{ ios: "figure.run", android: "directions_run", web: "directions_run" }} title="No programs yet" text="Tap New program to write the first one for the Fitness tab." onPress={() => router.push("/admin/programs/new")} />
           ) : (
             (sections ?? SECTION_ORDER.map((id) => ({ id, title: SECTION_TITLE[id], published: true }))).map((section) => {
               const items = load.programs.filter((p) => p.section === section.id);

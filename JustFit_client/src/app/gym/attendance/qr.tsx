@@ -81,7 +81,7 @@ export default function GymAttendanceQr() {
             <Text className="gym-qr__title">{`${gym.name} · ${gym.branch}`}</Text>
             <QRCode value={qr.payload} size={240} color={colors.black} backgroundColor={colors.white} quietZone={12} ecl="M" getRef={Platform.OS === "web" ? undefined : (c: QrRef | null) => { qrRef.current = c; }} />
             <Text className="gym-tx__name text-center">Scan with the justFit app to check in and check out</Text>
-            <Text className="gym-tx__meta text-center">{`Code ${qr.version} · made ${shortDate(indiaDay(0, Date.parse(qr.madeAt)))}`}</Text>
+            <Text className="gym-tx__meta text-center">{Number.isFinite(Date.parse(qr.madeAt)) ? `Code ${qr.version} · made ${shortDate(indiaDay(0, Date.parse(qr.madeAt)))}` : `Code ${qr.version}`}</Text>
           </View>
           {shareError ? <FormAlert message={shareError} /> : null}
           {make.error ? <FormAlert message={make.error} /> : null}

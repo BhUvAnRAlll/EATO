@@ -1,13 +1,21 @@
-import { Text, View } from "react-native";
+import { useEffect } from "react";
+import { Keyboard, Text, View } from "react-native";
 import Animated, { FadeIn, ReduceMotion } from "react-native-reanimated";
 
 import { PressableScale } from "@/components/PressableScale";
 
 // "Please confirm the details" (the user's design): the rows about to be saved, with Edit (back to
 // the form) and Confirm. Drawn over a GymSheet through its `overlay`. Other confirmations (sending
-// SMS) pass their own title and button words.
-type ConfirmDialogProps = { rows: [string, string][]; onEdit: () => void; onConfirm: () => void; title?: string; editLabel?: string; confirmLabel?: string };
-export function ConfirmDialog({ rows, onEdit, onConfirm, title = "Please confirm the details", editLabel = "Edit", confirmLabel = "Confirm" }: ConfirmDialogProps) {
+// SMS) pass their own title and button words. The keyboard goes down as the dialog opens (fixed
+// 2026-11-07, the user's screenshot: Pause Membership's dialog opened over the keyboard, which hid
+// Edit and Confirm when the reason field still had focus).
+// `busy`: the confirmed action is running, so neither button takes another tap (a paid SMS was
+// sendable twice with two quick taps, QA 2026-11-07)
+type ConfirmDialogProps = { rows: [string, string][]; onEdit: () => void; onConfirm: () => void; title?: string; editLabel?: string; confirmLabel?: string; busy?: boolean };
+export function ConfirmDialog({ rows, onEdit, onConfirm, title = "Please confirm the details", editLabel = "Edit", confirmLabel = "Confirm", busy = false }: ConfirmDialogProps) {
+  useEffect(() => {
+    Keyboard.dismiss();
+  }, []);
   return (
     <Animated.View entering={FadeIn.duration(140).reduceMotion(ReduceMotion.System)} className="gym-confirm" accessibilityViewIsModal>
       <View className="gym-confirm__card">
@@ -16,16 +24,16 @@ export function ConfirmDialog({ rows, onEdit, onConfirm, title = "Please confirm
           {rows.map(([label, value]) => (
             <View key={label} className="flex-row items-center justify-between" style={{ gap: 12 }} accessible accessibilityLabel={`${label}: ${value}`}>
               <Text className="gym-confirm__label">{label}</Text>
-              <Text className="gym-confirm__value" numberOfLines={1}>{value}</Text>
+              <Text className="gym-confirm__value" style={{ flexShrink: 1, textAlign: "right" }} numberOfLines={3}>{value}</Text>
             </View>
           ))}
         </View>
         <View className="flex-row justify-end" style={{ gap: 8 }}>
-          <PressableScale onPress={onEdit} className="gym-confirm__action" accessibilityRole="button" accessibilityLabel={editLabel}>
+          <PressableScale onPress={onEdit} disabled={busy} className="gym-confirm__action" accessibilityRole="button" accessibilityLabel={editLabel}>
             <Text className="gym-confirm__action-label">{editLabel}</Text>
           </PressableScale>
-          <PressableScale onPress={onConfirm} haptic="tap" className="gym-confirm__action" accessibilityRole="button" accessibilityLabel={confirmLabel}>
-            <Text className="gym-confirm__action-label">{confirmLabel}</Text>
+          <PressableScale onPress={onConfirm} disabled={busy} haptic="tap" className="gym-confirm__action" style={busy ? { opacity: 0.5 } : undefined} accessibilityRole="button" accessibilityLabel={confirmLabel} accessibilityState={{ disabled: busy, busy }}>
+            <Text className="gym-confirm__action-label">{busy ? `${confirmLabel}…` : confirmLabel}</Text>
           </PressableScale>
         </View>
       </View>

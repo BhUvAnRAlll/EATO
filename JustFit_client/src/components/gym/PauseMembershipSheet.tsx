@@ -47,6 +47,7 @@ export function PauseMembershipSheet({ member, onClose, onSaved }: { member: Gym
       title="Pause Membership"
       subtitle={`${member.name} · ${member.code}`}
       onClose={onClose}
+      onDismissOverlay={() => setConfirming(false)}
       overlay={
         confirming ? (
           <ConfirmDialog

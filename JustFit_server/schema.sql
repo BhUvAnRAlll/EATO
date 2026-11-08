@@ -1153,7 +1153,11 @@ CREATE TABLE gyms (                               -- one branch of a gym brand
   name        VARCHAR(80)  NOT NULL,              -- the branch's name, e.g. Tumkur
   area        VARCHAR(80)  NOT NULL,
   city        VARCHAR(60)  NOT NULL,
+  address     VARCHAR(160) NULL,                   -- Invoice details (migration 2026-12-07): printed on invoices, all optional
+  phone       CHAR(10)     NULL,
+  gstin       CHAR(15)     NULL,
   next_member_no INT UNSIGNED NOT NULL DEFAULT 1,  -- the branch's next member ID number
+  next_invoice_no INT UNSIGNED NOT NULL DEFAULT 1, -- the branch's next invoice number (migration 2026-12-07)
   sms_credits INT UNSIGNED NOT NULL DEFAULT 0,     -- SMS to members it can still send (1 credit = 1 SMS)
   latitude    DECIMAL(9,6) NULL,                   -- QR attendance (2026-11-27): the entrance, picked on the map
   longitude   DECIMAL(9,6) NULL,
@@ -1261,9 +1265,11 @@ CREATE TABLE gym_payments (
   paid_on     DATE         NOT NULL,
   due_by      DATE         NULL,                 -- due payments: the date the due was to be paid by (migration 2026-12-02); NULL before it
   receipt_key VARCHAR(64)  NULL,                 -- the bill's file name in PAYMENT_RECEIPT_DIR (gym/paymentReceipts.js, migration 2026-12-06); NULL: no bill
+  invoice_no  INT UNSIGNED NULL,                 -- the branch's running invoice number (migration 2026-12-07); NULL: numbered when its invoice is first opened
   created_by  VARCHAR(64)  NULL,
   created_at  TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   PRIMARY KEY (id),
+  UNIQUE KEY uq_gym_payments_invoice (gym_id, invoice_no),
   KEY idx_gym_payments_day (gym_id, paid_on),
   KEY idx_gym_payments_member (member_id),
   CONSTRAINT fk_gym_payments_gym FOREIGN KEY (gym_id) REFERENCES gyms (id),

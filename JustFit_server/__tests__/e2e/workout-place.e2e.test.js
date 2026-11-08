@@ -187,7 +187,9 @@ describe("workout e2e: At home / At center", () => {
     assert.equal(await overrideOf(past), state.variantId, "the past date still points at the day it ran");
     const [[kept]] = await connection.query("SELECT retired_at FROM workout_days WHERE id = ?", [state.variantId]);
     assert.ok(kept?.retired_at, "the old home version is kept, retired");
-    assert.equal(await overrideOf(TODAY), null, "today no longer runs the old home version");
+    // Today no longer runs the old home version: a plan weekday needs no override, a session
+    // moved onto today (a weekend) is pointed back at the day it was adapted from
+    assert.equal(await overrideOf(TODAY), state.ownWeekday ? null : state.baseId, "today no longer runs the old home version");
 
     // At home again: a new version for the new equipment, never the retired one
     const again = await setPlace(tokens.a, { today: TODAY, place: "home" });

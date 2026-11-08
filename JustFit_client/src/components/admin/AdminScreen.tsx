@@ -15,24 +15,28 @@ type AdminScreenProps = {
   headerRight?: ReactNode;
   // Reads the screen's data again when it is pulled down (screens that only show a form leave it out)
   onRefresh?: () => Promise<unknown>;
+  // A tab root has no back arrow, and its bottom edge is the tab bar's (no safe-area inset there)
+  hideBack?: boolean;
   children: ReactNode;
 };
 
 const none = async () => {};
 
 // Shared frame for the admin screens: back arrow, title, scrolling content (pull to refresh with onRefresh)
-export function AdminScreen({ title, subtitle, headerRight, onRefresh, children }: AdminScreenProps) {
+export function AdminScreen({ title, subtitle, headerRight, onRefresh, hideBack = false, children }: AdminScreenProps) {
   const colors = useThemeColors();
   const { refreshControl } = usePullToRefresh(onRefresh ?? none);
   return (
     <View className="flex-1 bg-cream">
       <StatusBar style="auto" />
-      <SafeAreaView style={{ flex: 1 }}>
+      <SafeAreaView style={{ flex: 1 }} edges={hideBack ? ["top", "left", "right"] : undefined}>
         <View className="h-12 flex-row items-center px-5">
-          <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Back">
-            <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={20} tintColor={colors.forestInk} />
-          </Pressable>
-          <Text className="type-subhead ml-3 flex-1 text-forest-ink" numberOfLines={1}>
+          {!hideBack && (
+            <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Back">
+              <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={20} tintColor={colors.forestInk} />
+            </Pressable>
+          )}
+          <Text className={hideBack ? "type-subhead flex-1 text-forest-ink" : "type-subhead ml-3 flex-1 text-forest-ink"} numberOfLines={1}>
             {title}
           </Text>
           {headerRight}
@@ -40,7 +44,7 @@ export function AdminScreen({ title, subtitle, headerRight, onRefresh, children 
 
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
           <ScrollView
-            contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 32 }}
+            contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: hideBack ? 110 : 32 }}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
             showsVerticalScrollIndicator={false}

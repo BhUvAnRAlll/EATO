@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { FlatList, Platform, ScrollView, Text, TextInput, useWindowDimensions, View } from "react-native";
+import { FlatList, Platform, RefreshControl, ScrollView, Text, TextInput, useWindowDimensions, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 
 import { PressableScale } from "@/components/PressableScale";
@@ -23,7 +23,7 @@ const LEVELS: { id: RiskListLevel; label: string }[] = [
   { id: "low", label: "Low" },
 ];
 const isLevel = (value: unknown): value is RiskListLevel => LEVELS.some((l) => l.id === value);
-const updatedAt = (iso: string) => new Date(iso).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" });
+const updatedAt = (iso: string) => new Date(iso).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit", timeZone: "Asia/Kolkata" });
 
 // Gym admin › Likely to leave (Predictions, the first one): every member with a plan running (or
 // ended in the last week), highest risk first. The server scores each member from the branch's
@@ -51,7 +51,7 @@ export default function RenewalRisks() {
   }, [typed]);
 
   const load = useCallback((token: string | null) => gymApi.renewalRisks(token, level, search), [level, search]);
-  const { result, retry, reload } = useGymData(load);
+  const { result, retry, reload, refreshing, refresh } = useGymData(load);
   const data = result.state === "ready" ? result.data : null;
 
   const tone = (risk: RiskMember["risk"]) =>
@@ -112,6 +112,7 @@ export default function RenewalRisks() {
     <GymScreen title="Likely to leave" scroll={false}>
       <FlatList
         {...listPerf}
+        refreshControl={<RefreshControl refreshing={refreshing} tintColor={colors.gymPrimary} onRefresh={refresh} />}
         data={data?.members ?? []}
         keyExtractor={(m) => String(m.id)}
         contentContainerStyle={{ padding: 16, paddingBottom: 48, gap: 14 }}

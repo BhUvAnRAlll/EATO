@@ -5,6 +5,7 @@ import { StatusBar } from "expo-status-bar";
 import { router, useFocusEffect } from "expo-router";
 
 import { usePullToRefresh } from "@/components/PullToRefresh";
+import { ScreenSkeleton } from "@/components/Skeleton";
 import { DashedBlock } from "@/components/macro/DashedBlock";
 import { SymbolView } from "@/components/SymbolView";
 import { aiUsage, inr, type BudgetSettings, type BudgetView } from "@/lib/aiUsage";
@@ -73,6 +74,9 @@ export default function AiBudgetScreen() {
 
   const save = async () => {
     if (!form || saving) return;
+    // An empty field is a mistake, not ₹0 (which would turn the threshold alerts off)
+    if (limitText.trim() === "") return setNote({ tone: "error", text: "Enter the monthly limit in rupees (0 turns the threshold alerts off)." });
+    if (rateText.trim() === "") return setNote({ tone: "error", text: "Enter the exchange rate in rupees per US dollar." });
     const limit = Number(limitText.replace(/[^0-9.]/g, ""));
     const rate = Number(rateText.replace(/[^0-9.]/g, ""));
     if (!Number.isFinite(limit) || limit < 0) return setNote({ tone: "error", text: "Enter the monthly limit in rupees, 0 or more." });
@@ -108,9 +112,9 @@ export default function AiBudgetScreen() {
         </View>
 
         <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40, gap: 16 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled"
-            keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"} refreshControl={refreshControl}>
+            keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"} automaticallyAdjustKeyboardInsets refreshControl={refreshControl}>
           {load.state === "loading" ? (
-            <View className="items-center py-16"><ActivityIndicator color={colors.leaf} /></View>
+            <ScreenSkeleton label="Loading the budget" />
           ) : load.state === "failed" ? (
             <DashedBlock icon={{ ios: "exclamationmark.triangle.fill", android: "warning", web: "warning" }} title="Could not load the budget" text={`${load.error.replace(/\.$/, "")}. Tap to try again.`} onPress={() => { setLoad({ state: "loading" }); refresh(); }} />
           ) : form && (
@@ -209,11 +213,11 @@ function Utilization({ data }: { data: BudgetView }) {
       <View className="ai-bar mt-1">
         <View className={over ? "ai-bar__fill ai-bar__fill--danger" : warn ? "ai-bar__fill ai-bar__fill--warning" : "ai-bar__fill"} style={{ width: `${Math.min(month.percent, 100)}%` }} />
       </View>
-      <View className="mt-2 flex-row justify-between">
+      <View className="mt-2 flex-row flex-wrap justify-between" style={{ gap: 8 }}>
         {[["Spent this month", inr(month.spentInr)], ["Monthly budget", inr(month.monthlyLimitInr)], ["Remaining budget", inr(month.remainingInr)]].map(([label, value]) => (
-          <View key={label}>
+          <View key={label} className="min-w-0 flex-1" style={{ minWidth: 88 }}>
             <Text className="admin-stat__label">{label}</Text>
-            <Text className="ai-money">{value}</Text>
+            <Text className="ai-money" numberOfLines={1} adjustsFontSizeToFit>{value}</Text>
           </View>
         ))}
       </View>

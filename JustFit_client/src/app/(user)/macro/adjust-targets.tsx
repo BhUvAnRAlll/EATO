@@ -1,11 +1,12 @@
 import { useCallback, useState } from "react";
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { ScreenSkeleton } from "@/components/Skeleton";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { SymbolView } from "@/components/SymbolView";
 import { router, useFocusEffect } from "expo-router";
 
+import { LoadError } from "@/components/macro/LoadError";
 import { MacroHeader } from "@/components/macro/MacroHeader";
 import { kcalOf, macro, macrosAgree, whole, type TargetStatus } from "@/lib/macro";
 import { useSessionToken } from "@/lib/session";
@@ -39,24 +40,22 @@ export default function AdjustTargets() {
   const [busy, setBusy] = useState<"save" | "reset" | null>(null);
 
   // The fields are filled from the saved target once, so a later reload never overwrites typing
+  const load = useCallback(async () => {
+    setError(null);
+    const result = await macro.targets(await getToken().catch(() => null));
+    if (!result.ok) return setError(result.error);
+    setStatus(result.data);
+    if (!seeded && result.data.status === "ready") {
+      setKcal(String(result.data.kcal));
+      setGrams({ proteinG: String(result.data.proteinG), carbsG: String(result.data.carbsG), fatG: String(result.data.fatG) });
+      setSeeded(true);
+    }
+  }, [getToken, seeded]);
+
   useFocusEffect(
     useCallback(() => {
-      let cancelled = false;
-      (async () => {
-        const result = await macro.targets(await getToken().catch(() => null));
-        if (cancelled) return;
-        if (!result.ok) return setError(result.error);
-        setStatus(result.data);
-        if (!seeded && result.data.status === "ready") {
-          setKcal(String(result.data.kcal));
-          setGrams({ proteinG: String(result.data.proteinG), carbsG: String(result.data.carbsG), fatG: String(result.data.fatG) });
-          setSeeded(true);
-        }
-      })();
-      return () => {
-        cancelled = true;
-      };
-    }, [getToken, seeded]),
+      load();
+    }, [load]),
   );
 
   // The Home tab's Today's Macros reads the target too: refresh it on the next visit
@@ -89,6 +88,22 @@ export default function AdjustTargets() {
     done();
   };
 
+  // Resetting throws the member's own numbers away, so it asks first (React Native's Alert does
+  // nothing on the web, so the browser asks there)
+  const confirmReset = () => {
+    if (busy) return;
+    const question = "Reset to the calculated target?";
+    const detail = "The calories and macros you set by hand are replaced by justFit's calculation from your profile.";
+    if (Platform.OS === "web") {
+      if (globalThis.confirm?.(`${question} ${detail}`)) reset();
+      return;
+    }
+    Alert.alert(question, detail, [
+      { text: "Cancel", style: "cancel" },
+      { text: "Reset", style: "destructive", onPress: reset },
+    ]);
+  };
+
   const typedKcal = toNumber(kcal);
   const anyMacro = macroFields(colors).some((f) => grams[f.key].trim() !== "");
   const macroKcal = Math.round(kcalOf({ proteinG: toNumber(grams.proteinG), carbsG: toNumber(grams.carbsG), fatG: toNumber(grams.fatG) }));
@@ -101,8 +116,8 @@ export default function AdjustTargets() {
 
         {status === null ? (
           error ? (
-            <View className="flex-1 items-center justify-center">
-              <Text className="macro__error px-5 text-center" accessibilityRole="alert">{error}</Text>
+            <View className="px-4 pt-2">
+              <LoadError title="Couldn't load your targets" message={error} onRetry={load} />
             </View>
           ) : (
             <View className="px-4 pt-2">
@@ -183,7 +198,7 @@ export default function AdjustTargets() {
               {error && <Text className="macro__error" accessibilityRole="alert">{error}</Text>}
 
               {status.canReset && (
-                <Pressable onPress={reset} disabled={busy !== null} className="flex-row items-center justify-center gap-2 py-2" accessibilityRole="button" accessibilityLabel="Reset to calculated">
+                <Pressable onPress={confirmReset} disabled={busy !== null} className="flex-row items-center justify-center gap-2 py-2" accessibilityRole="button" accessibilityLabel="Reset to calculated">
                   {busy === "reset" ? <ActivityIndicator color={colors.leaf} /> : <SymbolView name={{ ios: "arrow.counterclockwise", android: "restart_alt", web: "restart_alt" }} size={16} tintColor={colors.leaf} />}
                   <Text className="auth__link">Reset to calculated{status.calculated ? ` (${status.calculated.kcal.toLocaleString("en-IN")} kcal)` : ""}</Text>
                 </Pressable>

@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Linking, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
@@ -88,10 +88,14 @@ export default function ProgramScreen() {
   const getToken = useSessionToken();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [load, setLoad] = useState<Load>({ state: "loading" });
+  const latest = useRef(0);
 
+  // A re-read on focus that fails keeps the program already on screen; a stale answer is dropped
   const refresh = useCallback(async () => {
+    const request = ++latest.current;
     const result = await fitnessApi.program(await getToken().catch(() => null), String(id));
-    setLoad(result.ok ? { state: "ready", program: result.data } : { state: "failed", error: result.error });
+    if (request !== latest.current) return;
+    setLoad((current) => (result.ok ? { state: "ready", program: result.data } : current.state === "ready" ? current : { state: "failed", error: result.error }));
   }, [getToken, id]);
 
   useFocusEffect(

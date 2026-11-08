@@ -5,6 +5,8 @@ import { StatusBar } from "expo-status-bar";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 
 import { DashedBlock } from "@/components/macro/DashedBlock";
+import { usePullToRefresh } from "@/components/PullToRefresh";
+import { ScreenSkeleton } from "@/components/Skeleton";
 import { SymbolView } from "@/components/SymbolView";
 import { adminExercises, DIFFICULTY_LABEL, MUSCLE_LABEL, type AdminExercise } from "@/lib/adminExercises";
 import { useSessionToken } from "@/lib/session";
@@ -37,6 +39,7 @@ export default function ExerciseDetailScreen() {
       refresh();
     }, [refresh]),
   );
+  const { refreshControl } = usePullToRefresh(refresh);
 
   const setArchived = async (archived: boolean) => {
     setSaving(true);
@@ -72,16 +75,13 @@ export default function ExerciseDetailScreen() {
         </View>
 
         {load.state === "loading" ? (
-          <View className="items-center gap-3 py-16">
-            <ActivityIndicator color={colors.leaf} />
-            <Text className="home__note">Loading</Text>
-          </View>
+          <View className="px-4"><ScreenSkeleton label="Loading the exercise" /></View>
         ) : load.state === "failed" ? (
           <View className="px-4">
             <DashedBlock icon={{ ios: "exclamationmark.triangle.fill", android: "warning", web: "warning" }} title="Could not load the exercise" text={`${load.error.replace(/\.$/, "")}. Tap to try again.`} onPress={() => { setLoad({ state: "loading" }); refresh(); }} />
           </View>
         ) : (
-          <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40, gap: 16 }} showsVerticalScrollIndicator={false}>
+          <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40, gap: 16 }} showsVerticalScrollIndicator={false} refreshControl={refreshControl}>
             <View style={{ gap: 4 }}>
               <Text className="type-headline text-forest-ink">{load.exercise.name}</Text>
               <Text className="meta-text">{`${MUSCLE_LABEL[load.exercise.muscleGroup]} · ${load.exercise.equipment || "Bodyweight"} · ${DIFFICULTY_LABEL[load.exercise.difficulty]}`}</Text>

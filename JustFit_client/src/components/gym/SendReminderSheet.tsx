@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Alert, AppState, Platform, Text, TextInput, View } from "react-native";
+import { Alert, AppState, Platform, Text, TextInput, useWindowDimensions, View } from "react-native";
 
 import { PressableScale } from "@/components/PressableScale";
 import { ConfirmDialog } from "@/components/gym/ConfirmDialog";
@@ -32,6 +32,10 @@ const MAX_CHARS = 300;
 // opens WhatsApp. Two phone apps open one after the other: the second when you come back.
 export function SendReminderSheet({ kind, member, gym, payment, onClose, onSent }: { kind: ReminderKind; member: GymMember; gym: GymInfo; payment?: GymPayment; onClose: () => void; onSent?: () => void }) {
   const colors = useThemeColors();
+  // Under 360 pt each stat takes the whole row: at a 45% share "Membership" and "Expires today"
+  // were cut short (QA 2026-11-07, the 320 screenshots)
+  const narrow = useWindowDimensions().width < 360;
+  const stat = narrow ? { flexBasis: "100%" as const } : undefined;
   const getToken = useSessionToken();
   const templates: { id: ReminderKind; label: string; text: string }[] = [
     { id: "due", label: "Payment due", text: dueReminder(member, gym) },
@@ -136,11 +140,15 @@ export function SendReminderSheet({ kind, member, gym, payment, onClose, onSent 
     }
     openApps(apps);
   };
+  // A ref, not state: two taps in the same frame both read `sending` as false (QA 2026-11-07)
+  const sendingRef = useRef(false);
   const sendViaJustfit = async () => {
-    if (!smsKind || sending) return;
+    if (!smsKind || sendingRef.current) return;
+    sendingRef.current = true;
     setSending(true);
     setConfirming(false);
     const answer = await gymApi.memberSms(await getToken().catch(() => null), member.id, smsKind);
+    sendingRef.current = false;
     setSending(false);
     if (!answer.ok) return say("Not sent", answer.error);
     say("Reminder sent", `${SMS_KIND_LABEL[smsKind]} sent to ${member.name}. ${answer.data.credits} ${answer.data.credits === 1 ? "credit" : "credits"} left.`);
@@ -174,8 +182,8 @@ export function SendReminderSheet({ kind, member, gym, payment, onClose, onSent 
             {on && <GymIcon name="check" size={13} color={colors.white} />}
           </View>
         </View>
-        <Text className="gym-remind__tile-label" numberOfLines={1}>{label}</Text>
-        {soon && <Text className="gym-tx__meta" numberOfLines={1}>Coming soon</Text>}
+        <Text className="gym-remind__tile-label" numberOfLines={2}>{label}</Text>
+        {soon && <Text className="gym-tx__meta" numberOfLines={2}>Coming soon</Text>}
       </PressableScale>
     );
   };
@@ -183,6 +191,7 @@ export function SendReminderSheet({ kind, member, gym, payment, onClose, onSent 
   return (
     <GymSheet
       onClose={onClose}
+      onDismissOverlay={() => setConfirming(false)}
       overlay={
         confirming && viaApp && smsKind ? (
           <ConfirmDialog
@@ -216,7 +225,7 @@ export function SendReminderSheet({ kind, member, gym, payment, onClose, onSent 
             <MemberPhotoImage url={member.photoUrl} />
           </View>
           <View className="min-w-0 flex-1" style={{ gap: 4 }}>
-            <Text className="gym-mcard__name" numberOfLines={1}>{member.name}</Text>
+            <Text className="gym-mcard__name" numberOfLines={2}>{member.name}</Text>
             <View className="flex-row items-center" style={{ gap: 6 }}>
               <GymIcon name="id-card" size={16} color={colors.gymFaint} />
               <Text className="gym-mcard__code" numberOfLines={1} style={{ flexShrink: 1 }}>{member.code}</Text>
@@ -228,21 +237,21 @@ export function SendReminderSheet({ kind, member, gym, payment, onClose, onSent 
           </View>
         </View>
         <View className="gym-remind__stats">
-          <View className="gym-remind__stat">
+          <View className="gym-remind__stat" style={stat}>
             <View className="gym-remind__stat-icon" style={member.daysLeft < 0 ? { backgroundColor: colors.gymDangerSoft } : undefined}><GymIcon name="calendar" size={18} color={member.daysLeft < 0 ? colors.gymDanger : colors.gymPrimary} /></View>
             <View className="min-w-0 flex-1">
               <Text className="gym-remind__stat-label" numberOfLines={1}>Membership</Text>
-              <Text className="gym-remind__stat-value" numberOfLines={1} style={member.daysLeft < 0 ? { color: colors.gymDanger } : undefined}>{daysLeftText(member.daysLeft)}</Text>
+              <Text className="gym-remind__stat-value" numberOfLines={2} style={member.daysLeft < 0 ? { color: colors.gymDanger } : undefined}>{daysLeftText(member.daysLeft)}</Text>
             </View>
           </View>
-          <View className="gym-remind__stat">
+          <View className="gym-remind__stat" style={stat}>
             <View className="gym-remind__stat-icon" style={member.due > 0 ? { backgroundColor: colors.gymDangerSoft } : undefined}><GymIcon name="credit-card" size={18} color={member.due > 0 ? colors.gymDanger : colors.gymFaint} /></View>
             <View className="min-w-0 flex-1">
               <Text className="gym-remind__stat-label" numberOfLines={1}>Payment Due</Text>
-              <Text className="gym-remind__stat-value" numberOfLines={1} style={{ color: member.due > 0 ? colors.gymDanger : colors.gymFaint }}>{member.due > 0 ? rupees(member.due) : "None"}</Text>
+              <Text className="gym-remind__stat-value" numberOfLines={2} style={{ color: member.due > 0 ? colors.gymDanger : colors.gymFaint }}>{member.due > 0 ? rupees(member.due) : "None"}</Text>
             </View>
           </View>
-          <View className="gym-remind__stat">
+          <View className="gym-remind__stat" style={stat}>
             <View className="gym-remind__stat-icon"><GymIcon name="layers" size={18} color={colors.gymPrimary} /></View>
             <View className="min-w-0 flex-1">
               <Text className="gym-remind__stat-label" numberOfLines={1}>Plan</Text>

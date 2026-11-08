@@ -378,7 +378,7 @@
 }
 
 @utility auth__field {
-  height: var(--spacing-control-lg);
+  min-height: var(--spacing-control-lg);
   padding-inline: var(--spacing-lg);
   border-radius: var(--radius-md);
   border-width: 1px;
@@ -391,7 +391,7 @@
 
 @utility auth__input {
   flex: 1;
-  height: 100%;
+  align-self: stretch;
   font-family: var(--font-sans);
   font-size: 15px;
   color: var(--color-forest-ink);
@@ -511,7 +511,7 @@
 
 @utility verify__cell {
   flex: 1;
-  height: 56px;
+  min-height: 56px;
   border-radius: var(--radius-md);
   border-width: 1px;
   border-color: var(--color-line);
@@ -5743,7 +5743,7 @@
 
 @utility gym-mlist__count {
   min-width: 24px;
-  height: 24px;
+  min-height: 24px;
   padding-inline: 7px;
   border-radius: 999px;
   background-color: var(--color-gym-hairline);

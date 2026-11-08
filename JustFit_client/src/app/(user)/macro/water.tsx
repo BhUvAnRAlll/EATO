@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Animated, Pressable, ScrollView, Switch, Text, useWindowDimensions, View } from "react-native";
+import { ActivityIndicator, Alert, Animated, Modal, Platform, Pressable, ScrollView, Switch, Text, useWindowDimensions, View } from "react-native";
 import { ScreenSkeleton } from "@/components/Skeleton";
 import { LoadError } from "@/components/macro/LoadError";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -13,7 +13,7 @@ import { MonthCalendarSheet } from "@/components/macro/MonthCalendarSheet";
 import { usePullToRefresh } from "@/components/PullToRefresh";
 import { clockTime, hourLabel, litres, longDate, macro, todayIso, type WaterDay, type WaterEntry } from "@/lib/macro";
 import { useSessionToken } from "@/lib/session";
-import { useMacroStore } from "@/store/macro";
+import { logDate, useMacroStore } from "@/store/macro";
 import { useThemeColors, useSwitchColors } from "@/theme";
 import { track } from "@/lib/analytics";
 import { haptic } from "@/lib/haptics";
@@ -63,9 +63,12 @@ export default function Water() {
 
   const log = async (amountMl: number, source: "quick_add" | "custom", label?: string) => {
     if (busy) return;
+    // The selected day, followed to the new today when midnight passed since it was picked
+    const date = logDate();
+    if (date !== todayIso()) return setError("Water can only be logged for today.");
     setBusy(true);
     setError(null);
-    const result = await macro.logWater(await getToken().catch(() => null), { date: selectedDate, amountMl, source, label });
+    const result = await macro.logWater(await getToken().catch(() => null), { date, amountMl, source, label });
     setBusy(false);
     if (!result.ok) return setError(`Could not log water. ${result.status ? result.error : "Please check your connection and try again."}`);
     track("water_logged", { source });
@@ -84,6 +87,22 @@ export default function Water() {
     load();
   };
 
+  // Removing an entry can't be undone, so it asks first (React Native's Alert does nothing on
+  // the web, so the browser asks there)
+  const confirmRemove = (entry: WaterEntry) => {
+    if (removing.current.has(entry.id)) return;
+    const question = `Remove ${entry.amountMl} ml?`;
+    const detail = `${entryTitle(entry)} at ${clockTime(entry.loggedAt)} is taken off today's log.`;
+    if (Platform.OS === "web") {
+      if (globalThis.confirm?.(`${question} ${detail}`)) remove(entry);
+      return;
+    }
+    Alert.alert(question, detail, [
+      { text: "Cancel", style: "cancel" },
+      { text: "Remove", style: "destructive", onPress: () => remove(entry) },
+    ]);
+  };
+
   const toggleReminders = async (on: boolean) => {
     if (!day) return;
     setError(null);
@@ -95,7 +114,9 @@ export default function Water() {
     }
   };
 
-  const switching = day !== null && day.date !== selectedDate;
+  // The previous day stays, dimmed, while another loads; a read that failed with a day already on
+  // screen says so under the header and lifts the dimming
+  const switching = day !== null && day.date !== selectedDate && !loadError;
 
   return (
     <View className="flex-1 bg-cream">
@@ -121,6 +142,7 @@ export default function Water() {
           </View>
         ) : (
           <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 110, gap: 16, opacity: switching ? 0.55 : 1 }} showsVerticalScrollIndicator={false} refreshControl={refreshControl}>
+            {loadError && <Text className="macro__error" accessibilityRole="alert">{loadError}</Text>}
             <ProgressCard day={day} isToday={isToday} />
 
             {isToday && (
@@ -176,7 +198,7 @@ export default function Water() {
                     </View>
                     <Text className="macro__kcal">{entry.amountMl} ml</Text>
                     {isToday && (
-                      <Pressable onPress={() => remove(entry)} hitSlop={10} className="h-8 w-8 items-center justify-center" accessibilityRole="button" accessibilityLabel={`Remove ${entry.amountMl} ml`}>
+                      <Pressable onPress={() => confirmRemove(entry)} hitSlop={10} className="h-8 w-8 items-center justify-center" accessibilityRole="button" accessibilityLabel={`Remove ${entry.amountMl} ml`}>
                         <SymbolView name={{ ios: "xmark", android: "close", web: "close" }} size={14} tintColor={colors.faint} />
                       </Pressable>
                     )}
@@ -281,41 +303,43 @@ function QuickTile({ title, subtitle, quiet = false, compact, disabled, onPress 
   );
 }
 
-// Any amount from 10 ml to 3 L: a 50 ml stepper starting at 300 ml, and quick chips. Drawn in
-// the screen's own tree, so it sits above the floating button.
+// Any amount from 10 ml to 3 L: a 50 ml stepper starting at 300 ml, and quick chips. A Modal, so
+// Android's Back closes the sheet instead of leaving the screen.
 function CustomSheet({ busy, onClose, onAdd }: { busy: boolean; onClose: () => void; onAdd: (ml: number) => void }) {
   const colors = useThemeColors();
   const [amount, setAmount] = useState(300);
   const step = (delta: number) => setAmount((current) => Math.min(3000, Math.max(10, current + delta)));
   return (
-    <View className="confirm__backdrop" accessibilityViewIsModal>
-      <Pressable style={{ flex: 1 }} onPress={busy ? undefined : onClose} accessibilityLabel="Close" accessibilityRole="button" />
-      <View className="confirm__sheet gap-4">
-        <Text className="setup__section text-center">Add water</Text>
-        <View className="flex-row items-center justify-center gap-6">
-          <Pressable onPress={() => step(-50)} className="home__icon-button" accessibilityRole="button" accessibilityLabel="50 ml less">
-            <SymbolView name={{ ios: "minus", android: "remove", web: "remove" }} size={18} tintColor={colors.forestInk} />
-          </Pressable>
-          <Text className="macro__hero-number" accessibilityLabel={`${amount} millilitres`}>{amount} ml</Text>
-          <Pressable onPress={() => step(50)} className="home__icon-button" accessibilityRole="button" accessibilityLabel="50 ml more">
-            <SymbolView name={{ ios: "plus", android: "add", web: "add" }} size={18} tintColor={colors.forestInk} />
-          </Pressable>
-        </View>
-        <View className="flex-row flex-wrap justify-center gap-2">
-          {CHIPS.map((ml) => (
-            <Pressable key={ml} onPress={() => setAmount(ml)} className={amount === ml ? "setup__chip setup__chip--selected" : "setup__chip"} accessibilityRole="button">
-              <Text className={amount === ml ? "setup__chip-label setup__chip-label--selected" : "setup__chip-label"}>{ml >= 1000 ? `${ml / 1000} L` : `${ml} ml`}</Text>
+    <Modal visible transparent animationType="fade" statusBarTranslucent onRequestClose={busy ? undefined : onClose}>
+      <View className="confirm__backdrop" accessibilityViewIsModal>
+        <Pressable style={{ flex: 1 }} onPress={busy ? undefined : onClose} accessibilityLabel="Close" accessibilityRole="button" />
+        <View className="confirm__sheet gap-4">
+          <Text className="setup__section text-center">Add water</Text>
+          <View className="flex-row items-center justify-center gap-6">
+            <Pressable onPress={() => step(-50)} className="home__icon-button" accessibilityRole="button" accessibilityLabel="50 ml less">
+              <SymbolView name={{ ios: "minus", android: "remove", web: "remove" }} size={18} tintColor={colors.forestInk} />
             </Pressable>
-          ))}
+            <Text className="macro__hero-number" accessibilityLabel={`${amount} millilitres`}>{amount} ml</Text>
+            <Pressable onPress={() => step(50)} className="home__icon-button" accessibilityRole="button" accessibilityLabel="50 ml more">
+              <SymbolView name={{ ios: "plus", android: "add", web: "add" }} size={18} tintColor={colors.forestInk} />
+            </Pressable>
+          </View>
+          <View className="flex-row flex-wrap justify-center gap-2">
+            {CHIPS.map((ml) => (
+              <Pressable key={ml} onPress={() => setAmount(ml)} className={amount === ml ? "setup__chip setup__chip--selected" : "setup__chip"} accessibilityRole="button">
+                <Text className={amount === ml ? "setup__chip-label setup__chip-label--selected" : "setup__chip-label"}>{ml >= 1000 ? `${ml / 1000} L` : `${ml} ml`}</Text>
+              </Pressable>
+            ))}
+          </View>
+          <Pressable onPress={() => onAdd(amount)} disabled={busy} className="btn-forest" style={{ opacity: busy ? 0.7 : 1 }} accessibilityRole="button" accessibilityLabel={`Add ${amount} ml`}>
+            {busy && <ActivityIndicator color={colors.white} />}
+            <Text className="btn-forest__label">Add {amount} ml</Text>
+          </Pressable>
+          <Pressable onPress={onClose} disabled={busy} className="btn-outline" accessibilityRole="button">
+            <Text className="btn-outline__label">Cancel</Text>
+          </Pressable>
         </View>
-        <Pressable onPress={() => onAdd(amount)} disabled={busy} className="btn-forest" style={{ opacity: busy ? 0.7 : 1 }} accessibilityRole="button" accessibilityLabel={`Add ${amount} ml`}>
-          {busy && <ActivityIndicator color={colors.white} />}
-          <Text className="btn-forest__label">Add {amount} ml</Text>
-        </Pressable>
-        <Pressable onPress={onClose} disabled={busy} className="btn-outline" accessibilityRole="button">
-          <Text className="btn-outline__label">Cancel</Text>
-        </Pressable>
       </View>
-    </View>
+    </Modal>
   );
 }

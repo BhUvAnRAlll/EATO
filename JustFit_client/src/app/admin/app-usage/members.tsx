@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View, Platform } from "react-native";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Pressable, ScrollView, Text, TextInput, View, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { router, useFocusEffect } from "expo-router";
 
 import { usePullToRefresh } from "@/components/PullToRefresh";
+import { ScreenSkeleton } from "@/components/Skeleton";
 import { DashedBlock } from "@/components/macro/DashedBlock";
 import { SymbolView } from "@/components/SymbolView";
 import { appUsage, MEMBER_SORT_LABEL, MEMBER_SORTS, type MemberList, type MemberSort } from "@/lib/appUsage";
@@ -26,6 +27,8 @@ export default function MembersUsageScreen() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [load, setLoad] = useState<Load>({ state: "loading" });
+  // Only the newest read may land: an older page's answer arriving late can't overwrite it
+  const latest = useRef(0);
 
   // The search applies a moment after typing stops
   useEffect(() => {
@@ -34,7 +37,9 @@ export default function MembersUsageScreen() {
   }, [typed]);
 
   const refresh = useCallback(async () => {
+    const call = ++latest.current;
     const result = await appUsage.members(await getToken().catch(() => null), { sort, search, page });
+    if (call !== latest.current) return;
     setLoad(result.ok ? { state: "ready", data: result.data } : { state: "failed", error: result.error });
   }, [getToken, sort, search, page]);
 
@@ -80,10 +85,7 @@ export default function MembersUsageScreen() {
           </View>
 
           {load.state === "loading" ? (
-            <View className="items-center gap-3 py-16">
-              <ActivityIndicator color={colors.leaf} />
-              <Text className="home__note">Loading</Text>
-            </View>
+            <ScreenSkeleton label="Loading members" />
           ) : load.state === "failed" ? (
             <DashedBlock icon={{ ios: "exclamationmark.triangle.fill", android: "warning", web: "warning" }} title="Could not load members" text={`${load.error.replace(/\.$/, "")}. Tap to try again.`} onPress={() => { setLoad({ state: "loading" }); refresh(); }} />
           ) : load.data.members.length === 0 ? (
@@ -96,7 +98,7 @@ export default function MembersUsageScreen() {
                   <View key={m.id} className={i > 0 ? "admin-row admin-row--divided" : "admin-row"} accessibilityLabel={`${m.name}: last active ${m.lastActive ?? "never"}, ${m.interactions} interactions over ${m.activeDays} active days${m.sessions !== null ? `, ${m.sessions} sessions` : ""}${m.mostUsed ? `, most used ${m.mostUsed.label}` : ""}`}>
                     <View className="min-w-0 flex-1" style={{ gap: 2 }}>
                       <View className="ai-kv">
-                        <Text className="card__title" numberOfLines={1}>{m.name}</Text>
+                        <Text className="card__title min-w-0 flex-1" numberOfLines={1}>{m.name}</Text>
                         <Text className="ai-kv__value">{m.lastActive ? `Active ${m.lastActive}` : "Never active"}</Text>
                       </View>
                       <Text className="meta-text" numberOfLines={1}>{`${m.interactions} interactions · ${m.activeDays} active ${m.activeDays === 1 ? "day" : "days"}${m.sessions !== null ? ` · ${m.sessions} sessions` : ""}`}</Text>

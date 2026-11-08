@@ -19,7 +19,13 @@ export async function pickScanPhoto(source: PhotoSource): Promise<PickResult> {
     if (!permission.granted) return { ok: false, error: "Allow camera access in Settings to take your photos." };
   }
   const options: ImagePicker.ImagePickerOptions = { mediaTypes: ["images"], quality: 0.6, base64: true };
-  const result = source === "camera" ? await ImagePicker.launchCameraAsync(options) : await ImagePicker.launchImageLibraryAsync(options);
+  let result: ImagePicker.ImagePickerResult;
+  try {
+    result = source === "camera" ? await ImagePicker.launchCameraAsync(options) : await ImagePicker.launchImageLibraryAsync(options);
+  } catch {
+    // No camera on this device or simulator, or the picker refused to open
+    return { ok: false, error: source === "camera" ? "The camera couldn't be opened. Try choosing a photo instead." : "Your photos couldn't be opened. Please try again." };
+  }
   if (result.canceled) return { ok: false, cancelled: true };
 
   const asset = result.assets[0];

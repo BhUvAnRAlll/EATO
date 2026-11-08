@@ -14,7 +14,15 @@ import { useGymData } from "@/lib/useGymData";
 // months. Nothing in the catalogue yet: a link to Plans / Catalogue.
 export function CatalogPicks({ kind, label, selected, onPick }: { kind: CatalogKind; label: string; selected: number | null; onPick: (item: CatalogItem) => void }) {
   const load = useCallback((token: string | null) => gymApi.catalog(token), []);
-  const { result } = useGymData(load);
+  const { result, retry } = useGymData(load);
+  // A failed read says so (it rendered nothing before, so the form looked as if the catalogue was empty)
+  if (result.state === "failed") {
+    return (
+      <PressableScale onPress={retry} className="self-start" accessibilityRole="button" accessibilityLabel={`${label}: ${result.error} Tap to try again`}>
+        <Text className="gym-tx__meta">{`${label}: ${result.error} Tap to try again.`}</Text>
+      </PressableScale>
+    );
+  }
   if (result.state !== "ready") return null;
   const items = result.data.items.filter((i) => i.kind === kind && pickable(i));
   return (

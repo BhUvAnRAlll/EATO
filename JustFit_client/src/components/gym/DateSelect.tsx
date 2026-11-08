@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Text, View } from "react-native";
+import { Keyboard, Text, View } from "react-native";
 
 import { PressableScale } from "@/components/PressableScale";
 import { GymIcon } from "@/components/gym/GymIcon";
@@ -21,7 +21,7 @@ export function DateSelect({ label, value, onChange, min, max, stacked = false }
   return (
     <View className={stacked ? "" : "flex-row items-center"} style={{ gap: stacked ? 8 : 12 }}>
       <Text className="gym-field__label" style={{ fontSize: 14 }}>{label}</Text>
-      <PressableScale onPress={() => setOpen(true)} className="gym-choice flex-row items-center self-start" style={{ gap: 8 }} accessibilityRole="button" accessibilityLabel={`${label}: ${value ? shortDate(value) : "not set"}. Select`}>
+      <PressableScale onPress={() => { Keyboard.dismiss(); setOpen(true); }} className="gym-choice flex-row items-center self-start" style={{ gap: 8 }} accessibilityRole="button" accessibilityLabel={`${label}: ${value ? shortDate(value) : "not set"}. Select`}>
         <GymIcon name="calendar" size={16} color={colors.gymPrimary} />
         <Text className="gym-choice__label">{value ? shortDate(value) : "Select"}</Text>
       </PressableScale>

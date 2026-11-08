@@ -12,7 +12,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import { StatusBar } from "expo-status-bar";
 import { SymbolView } from "@/components/SymbolView";
-import { router } from "expo-router";
+import { router, useIsFocused } from "expo-router";
+import { useReducedMotion } from "react-native-reanimated";
 
 import { BrandWordmark } from "@/components/BrandWordmark";
 import { onboardingSlides, type OnboardingSlide } from "@/data/onboarding";
@@ -35,6 +36,9 @@ export default function Onboarding() {
   const { width } = useWindowDimensions();
   const listRef = useRef<FlatList<OnboardingSlide>>(null);
   const [index, setIndex] = useState(0);
+  // The slides hold still with Reduce Motion on, and stop once Sign up is open over this screen
+  const reduceMotion = useReducedMotion();
+  const focused = useIsFocused();
   // Each slide is given the list's measured height: a horizontal list doesn't stretch its
   // items vertically on every platform, and the art's flex: 1 needs a definite column height
   const [listHeight, setListHeight] = useState(0);
@@ -61,6 +65,7 @@ export default function Onboarding() {
       }, SLIDE_ANIMATION_MS);
       return () => clearTimeout(timer);
     }
+    if (reduceMotion || !focused) return;
     const timer = setTimeout(() => goToSlide(index + 1), AUTO_ADVANCE_MS);
     return () => clearTimeout(timer);
   });

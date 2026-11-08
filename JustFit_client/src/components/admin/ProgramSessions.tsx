@@ -2,26 +2,32 @@ import { useState } from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
 
 import { AdminField } from "@/components/admin/AdminField";
+import { FormAlert } from "@/components/FormAlert";
 import { SymbolView } from "@/components/SymbolView";
 import { watchUrl } from "@/components/fitness/youtube";
 import type { SessionFields } from "@/lib/adminPrograms";
 import type { ProgramSession } from "@/lib/fitnessApi";
 import { useThemeColors } from "@/theme";
 
+// What a save came to: the form closes on ok, shows the error otherwise (an empty error means
+// nothing happened, as when a second tap was ignored)
+export type SessionOutcome = { ok: true } | { ok: false; error: string };
+
 type ProgramSessionsProps = {
   sessions: ProgramSession[];
   // A session change is running (the buttons wait)
   busy: boolean;
   disabled?: boolean;
-  onAdd: (session: SessionFields) => void;
-  onEdit: (sessionId: string, session: SessionFields) => void;
+  onAdd: (session: SessionFields) => Promise<SessionOutcome>;
+  onEdit: (sessionId: string, session: SessionFields) => Promise<SessionOutcome>;
   onDelete: (sessionId: string) => void;
   onMove: (sessionId: string, direction: "up" | "down") => void;
 };
 
 // Admin › Programs › a program's sessions: each one's title, minutes and YouTube video, with ↑ ↓ to
 // reorder, Edit (title, minutes, video link) and Delete (asked twice). Add session opens the same
-// form. Videos are YouTube links, embedded in the app; there is no uploading.
+// form, which stays open (with what was typed and the server's error) until a save goes through.
+// Videos are YouTube links, embedded in the app; there is no uploading.
 export function ProgramSessions({ sessions, busy, disabled, onAdd, onEdit, onDelete, onMove }: ProgramSessionsProps) {
   const colors = useThemeColors();
   // The session being edited ("new" for Add session), and the one asking "Delete?"
@@ -39,7 +45,11 @@ export function ProgramSessions({ sessions, busy, disabled, onAdd, onEdit, onDel
               initial={{ title: s.title, minutes: s.minutes, youtube: watchUrl({ kind: "video", id: s.video.id }) }}
               busy={busy}
               onCancel={() => setEditing(null)}
-              onSave={(fields) => { setEditing(null); onEdit(s.id, fields); }}
+              onSave={async (fields) => {
+                const outcome = await onEdit(s.id, fields);
+                if (outcome.ok) setEditing(null);
+                return outcome;
+              }}
             />
           ) : (
             <>
@@ -79,7 +89,16 @@ export function ProgramSessions({ sessions, busy, disabled, onAdd, onEdit, onDel
       ))}
       {editing === "new" ? (
         <View className="fitness-session">
-          <SessionForm initial={{ title: "", minutes: 15, youtube: "" }} busy={busy} onCancel={() => setEditing(null)} onSave={(fields) => { setEditing(null); onAdd(fields); }} />
+          <SessionForm
+            initial={{ title: "", minutes: 15, youtube: "" }}
+            busy={busy}
+            onCancel={() => setEditing(null)}
+            onSave={async (fields) => {
+              const outcome = await onAdd(fields);
+              if (outcome.ok) setEditing(null);
+              return outcome;
+            }}
+          />
         </View>
       ) : (
         <Pressable onPress={() => { setDeleting(null); setEditing("new"); }} disabled={off} className="btn-outline flex-row items-center justify-center" style={{ gap: 8, opacity: off ? 0.7 : 1 }} accessibilityRole="button" accessibilityLabel="Add session">
@@ -93,12 +112,19 @@ export function ProgramSessions({ sessions, busy, disabled, onAdd, onEdit, onDel
 
 // A session's title, minutes and YouTube video link (all three needed). The server checks every
 // field again.
-function SessionForm({ initial, busy, onSave, onCancel }: { initial: SessionFields; busy: boolean; onSave: (fields: SessionFields) => void; onCancel: () => void }) {
+function SessionForm({ initial, busy, onSave, onCancel }: { initial: SessionFields; busy: boolean; onSave: (fields: SessionFields) => Promise<SessionOutcome>; onCancel: () => void }) {
   const [title, setTitle] = useState(initial.title);
   const [minutes, setMinutes] = useState(String(initial.minutes));
   const [youtube, setYoutube] = useState(initial.youtube);
+  const [error, setError] = useState("");
+  const colors = useThemeColors();
   const n = Number.parseInt(minutes, 10);
   const ready = title.trim().length >= 2 && Number.isInteger(n) && n >= 5 && n <= 120 && youtube.trim().length > 0;
+  const save = async () => {
+    setError("");
+    const outcome = await onSave({ title: title.trim(), minutes: n, youtube: youtube.trim() });
+    if (!outcome.ok && outcome.error) setError(outcome.error);
+  };
   return (
     <View className="gap-3">
       <AdminField label="Session title" value={title} onChangeText={setTitle} maxLength={60} placeholder="For example: Day 1: gentle core" />
@@ -114,9 +140,10 @@ function SessionForm({ initial, busy, onSave, onCancel }: { initial: SessionFiel
         autoCorrect={false}
         keyboardType="url"
       />
+      {error ? <FormAlert message={error} /> : null}
       <View className="flex-row gap-2">
-        <Pressable onPress={() => onSave({ title: title.trim(), minutes: n, youtube: youtube.trim() })} disabled={!ready || busy} className="btn-forest flex-1" style={{ opacity: ready && !busy ? 1 : 0.5 }} accessibilityRole="button" accessibilityLabel="Save session">
-          <Text className="btn-forest__label">Save session</Text>
+        <Pressable onPress={save} disabled={!ready || busy} className="btn-forest flex-1" style={{ opacity: ready && !busy ? 1 : 0.5 }} accessibilityRole="button" accessibilityLabel="Save session">
+          {busy ? <ActivityIndicator size="small" color={colors.onPrimary} /> : <Text className="btn-forest__label">Save session</Text>}
         </Pressable>
         <Pressable onPress={onCancel} className="btn-outline" style={{ paddingHorizontal: 18 }} accessibilityRole="button" accessibilityLabel="Cancel">
           <Text className="btn-outline__label">Cancel</Text>

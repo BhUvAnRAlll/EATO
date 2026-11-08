@@ -38,6 +38,7 @@ export function VerificationModal({ visible, title, destination, onClose, onComp
   const [isChecking, setIsChecking] = useState(false);
 
   const handleChange = async (text: string) => {
+    if (isChecking) return; // the field stays editable (toggling it blurs the keyboard on Android), so ignore typing meanwhile
     const digits = codeInput(text);
     setCode(digits);
     setError(null);
@@ -109,7 +110,6 @@ export function VerificationModal({ visible, title, destination, onClose, onComp
               <TextInput
                 value={code}
                 onChangeText={handleChange}
-                editable={!isChecking}
                 keyboardType="number-pad"
                 textContentType="oneTimeCode"
                 autoComplete="one-time-code"

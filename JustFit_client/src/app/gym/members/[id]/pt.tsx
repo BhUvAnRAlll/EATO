@@ -40,7 +40,9 @@ export default function GymPersonalTraining() {
   const [endPick, setEndPick] = useState<string | null>(null);
   // The trainer picked here; until one is picked, the member's current trainer
   const [trainer, setTrainer] = useState<string | null>(null);
-  const { busy, error, save } = useGymSave(() => router.replace({ pathname: "/gym/members/[id]", params: { id: String(memberId) } }));
+  // Back to the member page that opened this form (it re-reads on focus); a second copy of it would
+  // sit on top otherwise, and Back then showed the same member twice (QA 2026-11-07)
+  const { busy, error, save } = useGymSave(() => (router.canGoBack() ? router.back() : router.replace({ pathname: "/gym/members/[id]", params: { id: String(memberId) } })));
   const value = rupeesFromText(amount);
   const length = durationValue(duration);
 
@@ -93,7 +95,7 @@ export default function GymPersonalTraining() {
             <GymField label="Amount (₹)" value={amount} onChangeText={(t) => { setPicked(null); setAmount(amountInput(t)); }} keyboardType="number-pad" placeholder="6000" />
             <GymChips label="Paid by" options={(["online", "cash"] as const).map((m) => ({ value: m, label: METHOD_LABEL[m] }))} value={method} onChange={setMethod} />
             {error ? <FormAlert message={error} /> : null}
-            <SaveButton label="Save PT payment" ready={ready} busy={busy} onPress={() => save((token) => gymApi.personalTraining(token, memberId, { package: pack.trim(), amount: value, method, duration: length ?? 1, startsOn: start, endsOn: end ?? start, trainerId: (trainer ?? result.data.member.pt?.trainer?.id ?? "") || null }))} />
+            <SaveButton label="Save PT payment" ready={ready} busy={busy} onPress={() => save((token) => gymApi.personalTraining(token, memberId, { package: pack.trim(), amount: value, method, duration: length ?? 1, ...(startPick !== null ? { startsOn: start } : {}), ...(endPick !== null && end !== null ? { endsOn: end } : {}), trainerId: (trainer ?? result.data.member.pt?.trainer?.id ?? "") || null }))} />
           </>
         );
       })()}

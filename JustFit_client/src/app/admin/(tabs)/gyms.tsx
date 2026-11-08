@@ -1,4 +1,4 @@
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { router } from "expo-router";
@@ -15,12 +15,16 @@ import { useThemeColors } from "@/theme";
 // A branch opens its page (money, dues, attendance, staff, other branches); New gym creates one.
 export default function AdminGyms() {
   const colors = useThemeColors();
-  const { result, retry } = useGymData(adminGyms.list);
+  const { result, retry, refreshing, refresh } = useGymData(adminGyms.list);
   return (
     <View className="flex-1 bg-cream">
       <StatusBar style="auto" />
       <SafeAreaView style={{ flex: 1 }} edges={["top", "left", "right"]}>
-        <ScrollView contentContainerStyle={{ paddingBottom: 110, gap: 14 }} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          contentContainerStyle={{ paddingBottom: 110, gap: 14 }}
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.leaf} colors={[colors.leaf]} progressBackgroundColor={colors.surface} />}
+        >
           <View className="flex-row items-end px-5 pt-2">
             <View className="flex-1">
               <Text className="type-overline text-muted">justFit admin</Text>

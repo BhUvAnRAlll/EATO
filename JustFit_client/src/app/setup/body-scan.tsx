@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { Image } from "expo-image";
 import { SymbolView } from "@/components/SymbolView";
@@ -75,10 +75,18 @@ export default function BodyScan() {
   const [isScanning, setIsScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sessionExpired, setSessionExpired] = useState(false);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
 
   const pick = async (view: ScanView, source: PhotoSource) => {
     setError(null);
     const picked = await pickScanPhoto(source);
+    if (!mounted.current) return;
     if (!picked.ok) {
       if ("error" in picked) setError(picked.error);
       return;
@@ -100,6 +108,7 @@ export default function BodyScan() {
     if (!photos.front || !photos.side) return setError("Add both photos first.");
     setIsScanning(true);
     const result = await requestBodyScan({ front: photos.front, side: photos.side }, inputs.inputs, await getToken());
+    if (!mounted.current) return; // the user left while the scan ran: nothing to show
     setIsScanning(false);
     if (!result.ok) {
       if (isSessionExpired(result)) setSessionExpired(true);
@@ -112,7 +121,11 @@ export default function BodyScan() {
 
   // Back to Body composition: the previous screen (the instructions replaced themselves with
   // this one), or after a direct link or a reload with no history, the step itself
-  const leave = () => (router.canGoBack() ? router.back() : router.replace(fromProfile ? "/profile" : "/setup/body-composition"));
+  const leave = () => {
+    if (isScanning) return; // the answer would open the report over whatever Back went to
+    if (router.canGoBack()) router.back();
+    else router.replace(fromProfile ? "/profile" : "/setup/body-composition");
+  };
 
   const bothPhotos = photos.front !== undefined && photos.side !== undefined;
 
@@ -123,7 +136,7 @@ export default function BodyScan() {
       subtitle="Two photos give you a body composition report. We never store them."
       onNext={scan}
       nextLabel="Scan"
-      canContinue={bothPhotos && !isScanning}
+      canContinue={bothPhotos}
       loading={isScanning}
       onBack={leave}
       showProgress={!fromProfile}

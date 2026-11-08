@@ -20,6 +20,7 @@ export function MealRemindersRow({ plan, date }: Props) {
   const switchColors = useSwitchColors();
   const [on, setOn] = useState(false);
   const [denied, setDenied] = useState(false);
+  const [failed, setFailed] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -35,10 +36,12 @@ export function MealRemindersRow({ plan, date }: Props) {
   const toggle = async (next: boolean) => {
     setSaving(true);
     setOn(next);
-    const result = await setRemindersOn(next, plan, date);
+    // The phone's notification service failing never leaves the switch stuck
+    const result = await setRemindersOn(next, plan, date).catch((): "failed" => "failed");
     setSaving(false);
     setOn(result === "on");
     setDenied(result === "denied");
+    setFailed(result === "failed");
   };
 
   return (
@@ -54,6 +57,7 @@ export function MealRemindersRow({ plan, date }: Props) {
             <Text className="home__note mt-0.5" style={{ color: colors.danger }}>Notifications are off for justFit. Turn them on in Settings.</Text>
           </Pressable>
         )}
+        {failed && <Text className="home__note mt-0.5" style={{ color: colors.danger }} accessibilityRole="alert">Couldn&apos;t set up reminders just now. Try again.</Text>}
       </View>
       <Switch {...switchColors} value={on} disabled={saving} onValueChange={toggle} accessibilityLabel="Meal reminders" />
     </View>

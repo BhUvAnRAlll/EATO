@@ -2,6 +2,9 @@
 // rules (predictionRules.js). Nothing is stored and nothing is sent: a list is worked out when
 // it is asked for, from gym_members and gym_attendance, for the caller's branch only.
 const service = require("./service");
+
+// The predictions list every scored member at once (no pages): at most this many rows
+const PREDICTION_LIST_LIMIT = 200;
 const rules = require("./predictionRules");
 const { addDays } = require("./rules");
 
@@ -18,7 +21,7 @@ async function memberFacts(pool, gymId, search, today) {
      FROM gym_members m
      WHERE m.gym_id = ? AND m.expires_on >= ?${found.sql}
      ORDER BY m.full_name, m.id LIMIT ?`,
-    [today, w.lastFrom, today, w.priorFrom, w.priorTo, gymId, w.scoredFrom, ...found.params, service.MEMBER_LIST_LIMIT],
+    [today, w.lastFrom, today, w.priorFrom, w.priorTo, gymId, w.scoredFrom, ...found.params, PREDICTION_LIST_LIMIT],
   );
   return rows;
 }
@@ -92,7 +95,7 @@ async function paymentRisks(pool, gym, { search }, today) {
   const found = service.memberSearch(search);
   const [rows] = await pool.query(
     `SELECT ${service.MEMBER_COLUMNS} FROM gym_members m WHERE m.gym_id = ? AND m.due_amount > 0${found.sql} ORDER BY m.full_name, m.id LIMIT ?`,
-    [today, gym.id, ...found.params, service.MEMBER_LIST_LIMIT],
+    [today, gym.id, ...found.params, PREDICTION_LIST_LIMIT],
   );
   const history = new Map();
   if (rows.length > 0) {

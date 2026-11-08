@@ -55,8 +55,9 @@ export function useVoiceInput() {
   const setChosen = useVoiceInputStore((state) => state.setLanguage);
   const language = resolveVoiceLanguage(chosen, VOICE_LANGUAGES);
   const languageLabel = VOICE_LANGUAGES.find((l) => l.code === language)?.label ?? "English";
-  // The server path needs a recorder, which the web build doesn't offer; the phone path needs a recogniser
-  const engine: VoiceEngine = Platform.OS === "web" ? "phone" : voiceEngineFor(language, supportedLocales);
+  // The server path needs a recorder, which the web build doesn't offer; the phone path needs a
+  // recogniser, so a phone without one records a clip for every language
+  const engine: VoiceEngine = Platform.OS === "web" ? "phone" : !phoneEngine ? "server" : voiceEngineFor(language, supportedLocales);
   const supported = phoneEngine || Platform.OS !== "web";
   const clip = useVoiceClip();
   const getToken = useSessionToken();
@@ -155,7 +156,8 @@ export function useVoiceInput() {
     try {
       const recorded = await clip.stop();
       if (!recorded) return fail("no-speech");
-      const result = await coachApi.voice(await getToken(), { ...recorded, language });
+      // A token that can't be read answers as signed out (one line under the box), never a crash
+      const result = await coachApi.voice(await getToken().catch(() => null), { ...recorded, language });
       if (!result.ok) {
         setError({ message: result.error, settings: false });
         haptic.error();

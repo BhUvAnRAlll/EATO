@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Text } from "react-native";
+import { router } from "expo-router";
 
 import { FormAlert } from "@/components/FormAlert";
 import { DateSelect } from "@/components/gym/DateSelect";
@@ -9,12 +10,12 @@ import { GymField, amountInput, rupeesFromText } from "@/components/gym/GymField
 import { GymPrimaryButton } from "@/components/gym/GymPrimaryButton";
 import { GymSheet } from "@/components/gym/GymSheet";
 import { daysFromToday, rupees, shortDate } from "@/data/gymDashboard";
-import { invoice, whatsapp } from "@/lib/gymContact";
 import { gymApi, type GymInfo, type GymMember, type GymMemberDetail, type PayMethod } from "@/lib/gymApi";
 import { useGymSave } from "@/lib/gymForm";
 
 // Collect Due (the user's design): the collected date, the amount (all of what's owed to start; a
-// part is fine, with a date for the rest), the mode and Send Invoice (WhatsApp with a receipt)
+// part is fine, with a date for the rest), the mode and Send Invoice (opens the payment's Invoice
+// screen once it's saved, 2026-11-07)
 export function CollectDueSheet({ member, gym, onClose, onSaved }: { member: GymMember; gym: GymInfo; onClose: () => void; onSaved: (detail: GymMemberDetail) => void }) {
   const [paidOn, setPaidOn] = useState(daysFromToday(0));
   const [amount, setAmount] = useState(String(member.due));
@@ -22,8 +23,8 @@ export function CollectDueSheet({ member, gym, onClose, onSaved }: { member: Gym
   const [dueBy, setDueBy] = useState<string | null>(member.dueBy);
   const [sendInvoice, setSendInvoice] = useState(false);
   const { busy, error, save } = useGymSave((detail: GymMemberDetail) => {
-    if (sendInvoice) whatsapp(detail.member, invoice(detail.member, gym, detail.payments[0]));
     onSaved(detail);
+    if (sendInvoice) router.push({ pathname: "/gym/invoice", params: { memberId: String(detail.member.id) } });
   });
   const value = rupeesFromText(amount);
   const part = value >= 1 && value < member.due;

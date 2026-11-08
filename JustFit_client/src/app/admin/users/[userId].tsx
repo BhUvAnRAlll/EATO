@@ -1,11 +1,12 @@
 import { useCallback, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { SymbolView } from "@/components/SymbolView";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 
 import { usePullToRefresh } from "@/components/PullToRefresh";
+import { ScreenSkeleton } from "@/components/Skeleton";
 import { Avatar } from "@/components/Avatar";
 import { DashedBlock } from "@/components/macro/DashedBlock";
 import { KIND_LABEL, adminPortal, type AdminUser } from "@/lib/adminPortal";
@@ -60,7 +61,7 @@ export default function AdminUserDetail() {
             {error ? (
               <DashedBlock icon={{ ios: "person.slash", android: "person_off", web: "person_off" }} title="Can't open this account" text={`${error.replace(/\.$/, "")}. Tap to try again.`} onPress={load} />
             ) : (
-              <View className="items-center py-16"><ActivityIndicator color={colors.leaf} /></View>
+              <ScreenSkeleton cards={2} label="Loading the account" />
             )}
           </View>
         ) : (

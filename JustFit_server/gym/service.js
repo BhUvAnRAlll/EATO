@@ -12,7 +12,8 @@ const pauseRules = require("./pauseRules");
 const { audit } = require("../admin/overview");
 
 const DAY = (column) => `DATE_FORMAT(${column}, '%Y-%m-%d')`;
-const MEMBER_LIST_LIMIT = 200;
+// The member list's orders (Manage › Member's sort sheet), fragments from this list only
+const MEMBER_ORDER = { name: "m.full_name, m.id", days: "m.expires_on, m.full_name, m.id", due: "m.due_amount DESC, m.full_name, m.id" };
 
 // The branch a staff account is working at (the one they last switched to), or null
 // Only the portal's people: the gym admin (owner) and Staff. A trainer's branches aren't portal
@@ -152,7 +153,8 @@ const MEMBER_COLUMNS = `m.id, m.member_code, m.gender, m.email, m.height_cm, m.w
 
 // Home: today's revenue by method, today's counts, what needs attention, the latest payments
 async function dashboard(pool, gym, today) {
-  const [[money]] = await pool.query(
+  // Three independent reads, sent together (2026-11-07)
+  const [[[money]], [[counts]], [recent]] = await Promise.all([pool.query(
     `SELECT
        COALESCE(SUM(CASE WHEN method = 'online' THEN amount END), 0) AS online,
        COALESCE(SUM(CASE WHEN method = 'cash' THEN amount END), 0) AS cash,
@@ -163,8 +165,7 @@ async function dashboard(pool, gym, today) {
        COALESCE(SUM(kind = 'sale'), 0) AS products
      FROM gym_payments WHERE gym_id = ? AND paid_on = ?`,
     [gym.id, today],
-  );
-  const [[counts]] = await pool.query(
+  ), pool.query(
     `SELECT
        (SELECT COUNT(*) FROM gym_enquiries WHERE gym_id = ? AND enquired_on = ?) AS enquiries,
        (SELECT COUNT(*) FROM gym_members WHERE gym_id = ? AND due_amount > 0) AS due_members,
@@ -174,8 +175,7 @@ async function dashboard(pool, gym, today) {
        (SELECT COUNT(*) FROM gym_members WHERE gym_id = ? AND DATE_FORMAT(dob, '%m-%d') = ?) AS birthdays,
        (SELECT COUNT(*) FROM gym_membership_pauses WHERE gym_id = ? AND status = 'pending') AS pause_requests`,
     [gym.id, today, gym.id, gym.id, today, gym.id, today, gym.id, rules.addDays(today, 1), rules.addDays(today, 3), gym.id, today.slice(5), gym.id],
-  );
-  const [recent] = await pool.query(`SELECT ${PAYMENT_COLUMNS} FROM gym_payments WHERE gym_id = ? ORDER BY id DESC LIMIT 5`, [gym.id]);
+  ), pool.query(`SELECT ${PAYMENT_COLUMNS} FROM gym_payments WHERE gym_id = ? ORDER BY id DESC LIMIT 5`, [gym.id])]);
   return {
     gym: gymInfo(gym),
     today,
@@ -203,7 +203,7 @@ function memberSearch(search) {
 // The last day "expiring soon" looks at: today + days, or (for "all") every plan still running
 const expiringUntil = (today, days) => (days === rules.EXPIRING_SOON_DAYS.all ? "9999-12-31" : rules.addDays(today, days));
 
-async function members(pool, gymId, { filter, search, days = rules.EXPIRING_SOON_DAYS.default }, today) {
+async function members(pool, gymId, { filter, search, days = rules.EXPIRING_SOON_DAYS.default, sort = "name", page = 1 }, today) {
   const params = [today, gymId];
   let where = "WHERE m.gym_id = ?";
   const found = memberSearch(search);
@@ -215,8 +215,14 @@ async function members(pool, gymId, { filter, search, days = rules.EXPIRING_SOON
   if (filter === "expiring_soon") { where += " AND m.expires_on BETWEEN ? AND ?"; params.push(rules.addDays(today, 1), expiringUntil(today, days)); }
   if (filter === "birthday") { where += " AND DATE_FORMAT(m.dob, '%m-%d') = ?"; params.push(today.slice(5)); }
   if (filter === "expired") { where += " AND m.expires_on < ?"; params.push(today); }
-  const [rows] = await pool.query(`SELECT ${MEMBER_COLUMNS} FROM gym_members m ${where} ORDER BY m.full_name, m.id LIMIT ?`, [...params, MEMBER_LIST_LIMIT]);
-  return { members: rows.map((r) => memberOf(r, today)), counts: await memberCounts(pool, gymId, found, today, days) };
+  // 50 a page (one more row tells whether there is a next page), the counts fetched alongside
+  const size = rules.limits.page;
+  const [[rows], counts] = await Promise.all([
+    pool.query(`SELECT ${MEMBER_COLUMNS} FROM gym_members m ${where} ORDER BY ${MEMBER_ORDER[sort] ?? MEMBER_ORDER.name} LIMIT ? OFFSET ?`, [...params, size + 1, (page - 1) * size]),
+    memberCounts(pool, gymId, found, today, days),
+  ]);
+  const list = rows.slice(0, size);
+  return { members: list.map((r) => memberOf(r, today)), counts, page, nextPage: rows.length > size ? page + 1 : null };
 }
 
 // How many members each filter would list (within the same search), for the list's chips;
@@ -247,11 +253,13 @@ async function memberRow(db, gymId, memberId, today, { lock = false } = {}) {
 
 async function member(pool, gymId, memberId, today) {
   const row = await memberRow(pool, gymId, memberId, today);
-  const [payments] = await pool.query(`SELECT ${PAYMENT_COLUMNS} FROM gym_payments WHERE gym_id = ? AND member_id = ? ORDER BY id DESC LIMIT 20`, [gymId, memberId]);
-  const [[visits]] = await pool.query(
-    `SELECT COUNT(*) AS month, ${DAY("MAX(on_date)")} AS last FROM gym_attendance WHERE gym_id = ? AND member_id = ? AND on_date >= ?`,
-    [gymId, memberId, `${today.slice(0, 8)}01`],
-  );
+  const [[payments], [[visits]]] = await Promise.all([
+    pool.query(`SELECT ${PAYMENT_COLUMNS} FROM gym_payments WHERE gym_id = ? AND member_id = ? ORDER BY id DESC LIMIT 20`, [gymId, memberId]),
+    pool.query(
+      `SELECT COUNT(*) AS month, ${DAY("MAX(on_date)")} AS last FROM gym_attendance WHERE gym_id = ? AND member_id = ? AND on_date >= ?`,
+      [gymId, memberId, `${today.slice(0, 8)}01`],
+    ),
+  ]);
   return { member: { ...memberOf(row, today), visitsThisMonth: visits.month, lastVisit: visits.last ?? null }, payments: await paymentsWithReceipts(pool, gymId, payments) };
 }
 
@@ -277,10 +285,29 @@ const SAME_PHONE = "A member with that phone number is already at your gym.";
 // dueBy (due payments only): the date the due was to be paid by, kept for the payment-on-time
 // prediction. Written only when there is one, so every other payment keeps working before
 // migration 2026-12-02-gym-payment-due-by.sql has run.
-async function addPayment(db, gymId, userId, { memberId = null, kind, title, detail, method, amount, dueBy = null }, today) {
+// invoiceNo (2026-11-07): the branch's next invoice number, taken with the counter row locked, so
+// every payment has an invoice of its own from the moment it is saved. A counter sale arrives with
+// the pool, so it opens a transaction of its own first. Before migration 2026-12-07-gym-invoices.sql
+// there is no counter: the payment is saved without a number and gets one the first time its
+// invoice is opened (gym/invoices.js).
+async function nextInvoiceNo(db, gymId) {
+  try {
+    const [[row]] = await db.query("SELECT next_invoice_no FROM gyms WHERE id = ? FOR UPDATE", [gymId]);
+    await db.query("UPDATE gyms SET next_invoice_no = next_invoice_no + 1 WHERE id = ?", [gymId]);
+    return row.next_invoice_no;
+  } catch (error) {
+    if (error?.code === "ER_BAD_FIELD_ERROR") return null;
+    throw error;
+  }
+}
+async function addPayment(db, gymId, userId, payment, today) {
+  if (typeof db.getConnection === "function") return inTransaction(db, (connection) => addPayment(connection, gymId, userId, payment, today));
+  const { memberId = null, kind, title, detail, method, amount, dueBy = null } = payment;
   const columns = ["gym_id", "member_id", "kind", "title", "detail", "method", "amount", "paid_on", "created_by"];
   const values = [gymId, memberId, kind, title, detail, method, amount, today, userId];
   if (dueBy) { columns.push("due_by"); values.push(dueBy); }
+  const invoiceNo = await nextInvoiceNo(db, gymId);
+  if (invoiceNo) { columns.push("invoice_no"); values.push(invoiceNo); }
   const [result] = await db.query(`INSERT INTO gym_payments (${columns.join(", ")}) VALUES (${columns.map(() => "?").join(", ")})`, values);
   return result.insertId;
 }
@@ -595,11 +622,11 @@ async function updateDetails(pool, gym, userId, fields) {
 }
 
 // Every payment, newest first, a page at a time
-async function payments(pool, gymId, { kind, before, today: todayOnly }, today) {
+async function payments(pool, gymId, { kind, before, day }) {
   const params = [gymId];
   let where = "WHERE gym_id = ?";
   if (kind) { where += " AND kind = ?"; params.push(kind); }
-  if (todayOnly) { where += " AND paid_on = ?"; params.push(today); }
+  if (day) { where += " AND paid_on = ?"; params.push(day); }
   if (before) { where += " AND id < ?"; params.push(before); }
   const [rows] = await pool.query(`SELECT ${PAYMENT_COLUMNS} FROM gym_payments ${where} ORDER BY id DESC LIMIT ?`, [...params, rules.limits.page + 1]);
   const page = rows.slice(0, rules.limits.page);
@@ -711,6 +738,5 @@ module.exports = {
   memberRow,
   PAYMENT_COLUMNS,
   MEMBER_COLUMNS,
-  MEMBER_LIST_LIMIT,
   DAY,
 };

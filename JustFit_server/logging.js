@@ -42,10 +42,11 @@ function logSecurityEvent(event, details = {}) {
   console.warn(JSON.stringify({ at: new Date().toISOString(), security: event, ...details }));
 }
 
-// A phone number for a log line: only its last 4 digits ("+91******6439")
+// A phone number for a log line: only its last 4 digits ("*********6439"; a 10-digit number used
+// to keep its first 3 as well, 7 of 10 digits in the log, QA 2026-11-07)
 function maskPhone(phone) {
   if (typeof phone !== "string" || phone.length < 4) return "unknown";
-  return `${phone.slice(0, 3)}${"*".repeat(Math.max(0, phone.length - 7))}${phone.slice(-4)}`;
+  return `${"*".repeat(phone.length - 4)}${phone.slice(-4)}`;
 }
 
 module.exports = { describeError, logRequestError, logSecurityEvent, maskPhone };

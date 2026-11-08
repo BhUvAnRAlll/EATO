@@ -66,8 +66,11 @@ function CalendarBody({ visible, selectedDate, today, onPick, onClose }: MonthCa
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable className="verify__backdrop" onPress={onClose} accessibilityLabel="Close">
-        <Pressable className="verify__sheet gap-4" onPress={() => {}} accessibilityViewIsModal accessible={false}>
+      {/* The backdrop is a sibling of the sheet, not its parent: a Pressable inside a Pressable
+          renders nested <button>s on the web */}
+      <View className="verify__backdrop">
+        <Pressable className="flex-1" onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" />
+        <View className="verify__sheet gap-4" accessibilityViewIsModal>
           <View className="flex-row items-center justify-between">
             <Text className="type-headline text-forest-ink">Jump to a day</Text>
             <Pressable onPress={onClose} hitSlop={10} accessibilityRole="button">
@@ -127,8 +130,8 @@ function CalendarBody({ visible, selectedDate, today, onPick, onClose }: MonthCa
               </View>
             ))}
           </View>
-        </Pressable>
-      </Pressable>
+        </View>
+      </View>
     </Modal>
   );
 }

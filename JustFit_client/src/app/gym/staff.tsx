@@ -37,11 +37,16 @@ export default function GymStaffScreen() {
   const [picked, setPicked] = useState<Picked | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [notice, setNotice] = useState("");
-  const { busy, error, save } = useGymSave((data: GymTeam) => {
+  const { busy, error, save, clearError } = useGymSave((data: GymTeam) => {
     set(data);
     setConfirming(false);
     setPicked(null);
   });
+  // One person's failed Remove isn't shown when the next person's sheet opens (QA 2026-11-07)
+  const open = (next: Picked | null) => {
+    clearError();
+    setPicked(next);
+  };
 
   const ready = result.state === "ready";
 
@@ -92,7 +97,7 @@ export default function GymStaffScreen() {
           </View>
           {m.kind === "staff" ? <Text className="gym-tx__meta" numberOfLines={1}>{`Can open: ${areasLine(m.areas)}`}</Text> : null}
         </View>
-        {m.kind !== "owner" && more(`${name}: options`, () => setPicked({ type: "member", member: m }))}
+        {m.kind !== "owner" && more(`${name}: options`, () => open({ type: "member", member: m }))}
       </View>
     );
   };
@@ -108,7 +113,7 @@ export default function GymStaffScreen() {
           <Text className="gym-tx__meta">Waiting for first sign-in</Text>
         </View>
       </View>
-      {more(`Invite to ${i.phone ?? "a number"}: options`, () => setPicked({ type: "invite", invite: i }))}
+      {more(`Invite to ${i.phone ?? "a number"}: options`, () => open({ type: "invite", invite: i }))}
     </View>
   );
 
@@ -167,6 +172,7 @@ export default function GymStaffScreen() {
           title={pickedName}
           subtitle={picked.type === "member" ? `${KIND_LABEL[picked.member.kind]} · ${picked.member.phone ?? ""}` : `Invited as ${KIND_LABEL[picked.invite.kind]}`}
           onClose={() => { setPicked(null); setConfirming(false); }}
+          onDismissOverlay={() => setConfirming(false)}
           overlay={
             confirming ? (
               <ConfirmDialog

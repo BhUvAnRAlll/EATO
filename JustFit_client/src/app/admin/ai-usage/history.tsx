@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View, Platform } from "react-native";
+import { Pressable, ScrollView, Text, TextInput, View, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { router } from "expo-router";
 
 import { usePullToRefresh } from "@/components/PullToRefresh";
+import { ScreenSkeleton } from "@/components/Skeleton";
 import { DashedBlock } from "@/components/macro/DashedBlock";
 import { SymbolView } from "@/components/SymbolView";
 import { FEATURE_SHORT, PROVIDER_LABEL, STATUS_LABEL } from "@/data/aiUsage";
@@ -120,7 +121,7 @@ export default function AiUsageHistory() {
           <Chips label="Sort" options={SORTS} value={filters.sort} onPick={(id) => change({ sort: id as HistorySort })} />
 
           {load.state === "loading" ? (
-            <View className="items-center py-12"><ActivityIndicator color={colors.leaf} /></View>
+            <ScreenSkeleton label="Loading the history" />
           ) : load.state === "failed" ? (
             <DashedBlock icon={{ ios: "exclamationmark.triangle.fill", android: "warning", web: "warning" }} title="Could not load the history" text={`${load.error.replace(/\.$/, "")}. Tap to try again.`} onPress={() => change({})} />
           ) : load.data.rows.length === 0 ? (
@@ -137,7 +138,7 @@ export default function AiUsageHistory() {
                     accessibilityLabel={`${when(row.at)}, ${FEATURE_SHORT[row.feature]}, ${row.userName ?? row.userId ?? "no account"}, ${row.model}, ${row.totalTokens} tokens, ${inr(row.costInr)}, ${STATUS_LABEL[row.status]}`}
                   >
                     <View className="ai-kv">
-                      <Text className="card__title" numberOfLines={1}>{`${when(row.at)} · ${FEATURE_SHORT[row.feature]}`}</Text>
+                      <Text className="card__title min-w-0 flex-1" numberOfLines={1}>{`${when(row.at)} · ${FEATURE_SHORT[row.feature]}`}</Text>
                       <View className="workout__pill" style={{ backgroundColor: row.status === "ok" ? colors.successSoft : row.status === "failed" ? colors.dangerSoft : colors.warningSoft }}>
                         <Text className="workout__pill-label" style={{ color: colors.ink }}>{STATUS_LABEL[row.status]}</Text>
                       </View>

@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
 import { Text, View } from "react-native";
+import { router } from "expo-router";
 
 import { FormAlert } from "@/components/FormAlert";
 import { PressableScale } from "@/components/PressableScale";
@@ -14,7 +15,6 @@ import { GymPrimaryButton } from "@/components/gym/GymPrimaryButton";
 import { GymSheet } from "@/components/gym/GymSheet";
 import { GymError, GymLoading } from "@/components/gym/GymStates";
 import { daysFromToday, rupees } from "@/data/gymDashboard";
-import { invoice, whatsapp } from "@/lib/gymContact";
 import { gymApi, type GymInfo, type GymMember, type GymMemberDetail, type PayMethod } from "@/lib/gymApi";
 import { useGymSave } from "@/lib/gymForm";
 import { haptic } from "@/lib/haptics";
@@ -47,8 +47,9 @@ export function MemberSaleSheet({ kind, member, gym, onClose, onSaved }: { kind:
   const [sendInvoice, setSendInvoice] = useState(false);
   const [adding, setAdding] = useState(false);
   const { busy, error, save } = useGymSave((detail: GymMemberDetail) => {
-    if (sendInvoice) whatsapp(detail.member, invoice(detail.member, gym, detail.payments[0]));
     onSaved(detail);
+    // Send Invoice (2026-11-07): the Invoice screen for this sale, to share as a PDF
+    if (sendInvoice) router.push({ pathname: "/gym/invoice", params: { memberId: String(detail.member.id) } });
   });
 
   const items = catalog.state === "ready" ? catalog.data.items.filter((i) => i.kind === kind) : [];
@@ -129,7 +130,7 @@ export function MemberSaleSheet({ kind, member, gym, onClose, onSaved }: { kind:
       {isProduct && (
         <View className="flex-row items-start" style={{ gap: 10 }}>
           <View className="min-w-0 flex-1">
-            <GymField label="Quantity" icon={MONEY} value={quantity} onChangeText={(t) => setQuantity(t.replace(/\D/g, "").slice(0, 3))} keyboardType="number-pad" placeholder="Quantity" hint={quantityHint} />
+            <GymField label="Quantity" icon="boxes" value={quantity} onChangeText={(t) => setQuantity(t.replace(/\D/g, "").slice(0, 3))} keyboardType="number-pad" placeholder="Quantity" hint={quantityHint} />
           </View>
           <View className="min-w-0 flex-1">
             <GymField label="In stock" icon="boxes" value={chosen ? (chosen.stock === null ? "Not counted" : String(chosen.stock)) : "-"} placeholder="In Stock" editable={false} style={{ color: colors.gymMuted }} />

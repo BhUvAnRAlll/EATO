@@ -46,6 +46,13 @@ export function onAccessDenied(handler: (() => void) | null): void {
   accessDenied = handler;
 }
 
+// A refusal from a request made outside apiFetch (the CSV download) is reported the same way, so a
+// 401 offers sign-in and a 403 re-checks the account there too (QA 2026-11-07)
+export function reportRefusal(status: number, token: string | null | undefined, path: string): void {
+  if (status === 401 && token && !path.startsWith("/api/auth/")) sessionRejected?.(token);
+  if (status === 403 && token) accessDenied?.();
+}
+
 // Calls the justFit server. JSON in, JSON out, one friendly error line on failure.
 export async function apiFetch<T>(path: string, options: ApiOptions = {}): Promise<ApiResult<T>> {
   const headers: Record<string, string> = {};
@@ -64,8 +71,7 @@ export async function apiFetch<T>(path: string, options: ApiOptions = {}): Promi
     });
     const body = readJson(await response.text());
     if (!response.ok) {
-      if (response.status === 401 && options.token && !path.startsWith("/api/auth/")) sessionRejected?.(options.token);
-      if (response.status === 403 && options.token) accessDenied?.();
+      reportRefusal(response.status, options.token, path);
       const retryAfter = Number(response.headers.get("retry-after"));
       return {
         ok: false,

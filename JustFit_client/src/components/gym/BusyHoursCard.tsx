@@ -88,7 +88,7 @@ export function BusyHoursCard({ result, onRetry }: { result: GymLoad<BusyHours>;
         <View className="gym-bars" style={{ height: 80 }}>
           {d.hours.map((h) => (
             <View key={h.hour} className="gym-bars__col" style={{ gap: 2 }}>
-              <Text className="gym-stat__label" style={{ fontSize: 9, lineHeight: 11 }}>{h.expected > 0 ? String(h.expected) : " "}</Text>
+              <Text className="gym-stat__label" style={{ fontSize: 9, lineHeight: 11 }} numberOfLines={1}>{h.expected > 0 ? String(h.expected) : " "}</Text>
               <View className="gym-bars__bar" style={{ height: `${Math.max(4, (h.expected / peak) * 70)}%`, opacity: d.busiest && h.hour === d.busiest.hour ? 1 : 0.45 }} />
             </View>
           ))}

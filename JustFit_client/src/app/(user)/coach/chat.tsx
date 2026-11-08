@@ -1,9 +1,9 @@
-import { Fragment, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View, type ScrollViewInstance } from "react-native";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
+import { ActivityIndicator, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View, type ScrollViewInstance } from "react-native";
 import Animated, { FadeIn, FadeInDown, ReduceMotion } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 
 import { SymbolView } from "@/components/SymbolView";
 import { ChatProposals } from "@/components/coach/ChatProposals";
@@ -14,11 +14,12 @@ import { TypingDots } from "@/components/motion/TypingDots";
 import { coachPrompts, coaches, type CoachId } from "@/data/coach";
 import { fonts } from "@/constants/fonts";
 import { CHAT_MAX_TEXT } from "@/lib/coach";
+import { todayIso } from "@/lib/macro";
 import { useSessionToken } from "@/lib/session";
 import { useNewKeys } from "@/lib/useNewKeys";
 import { useVoiceInput } from "@/lib/useVoiceInput";
 import { mergeTranscript } from "@/lib/voiceInputRules";
-import { useCoachChatStore } from "@/store/coachChat";
+import { proposalsFor, useCoachChatStore } from "@/store/coachChat";
 import { useThemeColors } from "@/theme";
 
 // A bubble that's new on screen: the member's rises in from the ask box, the coach's fades up
@@ -29,6 +30,10 @@ const CARDS_IN = FadeInDown.duration(320).reduceMotion(ReduceMotion.System);
 
 // A turn's identity on screen: a sent message keeps its clientId once it comes back saved
 const keyOf = (turn: { id: string; role: string; clientId?: string }) => (turn.role === "member" && turn.clientId ? turn.clientId : turn.id);
+// A link param may arrive as an array (the same key twice): the first value is the one meant
+const one = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value);
+// Back to where the chat was opened from; opened cold (a link), the Coach tab
+const back = () => (router.canGoBack() ? router.back() : router.replace("/coach"));
 
 // Chat with the AI coach. Opened from the Coach tab's ask box (with what was typed, or a
 // suggestion chip, as `q`, sent once the saved conversation is shown), or from the Macro tab's
@@ -41,7 +46,11 @@ const keyOf = (turn: { id: string; role: string; clientId?: string }) => (turn.r
 // transcribes; the words go into the box for the member to read, fix and send.
 export default function CoachChat() {
   const colors = useThemeColors();
-  const { q, draft, name, coach } = useLocalSearchParams<{ q?: string; draft?: string; name?: string; coach?: string }>();
+  const params = useLocalSearchParams<{ q?: string | string[]; draft?: string | string[]; name?: string | string[]; coach?: string | string[] }>();
+  const q = one(params.q);
+  const draft = one(params.draft);
+  const name = one(params.name);
+  const coach = one(params.coach);
   const getToken = useSessionToken();
   const turns = useCoachChatStore((state) => state.turns);
   const sending = useCoachChatStore((state) => state.sending);
@@ -56,6 +65,19 @@ export default function CoachChat() {
   const [text, setText] = useState(() => (draft ?? "").slice(0, CHAT_MAX_TEXT));
   const scroll = useRef<ScrollViewInstance>(null);
   const sentQuery = useRef(false);
+  // Today as the screen has it, read again each time the chat comes into view: a reply's Apply
+  // cards are only offered on the day it was written, so yesterday's go once midnight has passed
+  const [today, setToday] = useState(todayIso);
+  useFocusEffect(
+    useCallback(() => {
+      setToday(todayIso());
+    }, []),
+  );
+  // The keyboard rising pushes the list up: the newest lines follow it instead of sliding under the box
+  useEffect(() => {
+    const sub = Keyboard.addListener(Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow", () => scroll.current?.scrollToEnd({ animated: true }));
+    return () => sub.remove();
+  }, []);
   // What arrived after the saved conversation was shown animates in; a reply that just came back
   // is written in word by word, and its Apply cards follow once it's whole
   const added = useNewKeys(turns.map(keyOf), status === "ready");
@@ -123,7 +145,7 @@ export default function CoachChat() {
       <StatusBar style="auto" />
       <SafeAreaView style={{ flex: 1 }} edges={["top", "left", "right", "bottom"]}>
         <View className="flex-row items-center gap-3 px-4 pb-3 pt-2">
-          <Pressable onPress={() => router.back()} className="coach__circle-btn" accessibilityRole="button" accessibilityLabel="Back">
+          <Pressable onPress={back} className="coach__circle-btn" accessibilityRole="button" accessibilityLabel="Back">
             <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={18} tintColor={colors.forestInk} />
           </Pressable>
           {coachId && <CoachAvatar coach={coachId} size={40} />}
@@ -174,42 +196,45 @@ export default function CoachChat() {
               </View>
             )}
 
-            {turns.map((turn) => (
-              <Fragment key={keyOf(turn)}>
-                {turn.role === "member" && turn.failed ? (
-                  // Not sent: tapping it sends it again
-                  <Pressable onPress={() => retry(getToken, turn.id)} disabled={sending} accessibilityRole="button" accessibilityLabel={`Not sent. Send again: ${turn.text}`}>
-                    <View className="coach__bubble coach__bubble--me coach__bubble--failed">
-                      <Text className="coach__bubble-text coach__bubble-text--me">{turn.text}</Text>
-                    </View>
-                    <Text className="coach__hint mt-1 self-end">Not sent · Tap to try again</Text>
-                  </Pressable>
-                ) : (
-                  <Animated.View
-                    entering={added.has(keyOf(turn)) ? (turn.role === "member" ? SENT_IN : REPLY_IN) : undefined}
-                    className={["coach__bubble", turn.role === "member" && "coach__bubble--me", turn.failed && "coach__bubble--failed"].filter(Boolean).join(" ")}
-                  >
-                    {turn.role === "member" ? (
-                      <Text className="coach__bubble-text coach__bubble-text--me">{turn.text}</Text>
-                    ) : (
-                      <RevealText
-                        className="coach__bubble-text"
-                        text={turn.text}
-                        animate={added.has(keyOf(turn)) && !turn.failed}
-                        onDone={() => setWritten((done) => (done.has(turn.id) ? done : new Set(done).add(turn.id)))}
-                      />
-                    )}
-                  </Animated.View>
-                )}
-                {/* Plan changes the reply recommends, each with an Apply button; for a new reply
-                    they slide in once it has been written out */}
-                {turn.proposals && (!added.has(keyOf(turn)) || written.has(turn.id)) && (
-                  <Animated.View entering={added.has(keyOf(turn)) ? CARDS_IN : undefined}>
-                    <ChatProposals turnId={turn.id} proposals={turn.proposals} />
-                  </Animated.View>
-                )}
-              </Fragment>
-            ))}
+            {turns.map((turn) => {
+              const proposals = proposalsFor(turn, today);
+              return (
+                <Fragment key={keyOf(turn)}>
+                  {turn.role === "member" && turn.failed ? (
+                    // Not sent: tapping it sends it again
+                    <Pressable onPress={() => retry(getToken, turn.id)} disabled={sending} accessibilityRole="button" accessibilityLabel={`Not sent. Send again: ${turn.text}`}>
+                      <View className="coach__bubble coach__bubble--me coach__bubble--failed">
+                        <Text className="coach__bubble-text coach__bubble-text--me">{turn.text}</Text>
+                      </View>
+                      <Text className="coach__hint mt-1 self-end">Not sent · Tap to try again</Text>
+                    </Pressable>
+                  ) : (
+                    <Animated.View
+                      entering={added.has(keyOf(turn)) ? (turn.role === "member" ? SENT_IN : REPLY_IN) : undefined}
+                      className={["coach__bubble", turn.role === "member" && "coach__bubble--me", turn.failed && "coach__bubble--failed"].filter(Boolean).join(" ")}
+                    >
+                      {turn.role === "member" ? (
+                        <Text className="coach__bubble-text coach__bubble-text--me">{turn.text}</Text>
+                      ) : (
+                        <RevealText
+                          className="coach__bubble-text"
+                          text={turn.text}
+                          animate={added.has(keyOf(turn)) && !turn.failed}
+                          onDone={() => setWritten((done) => (done.has(turn.id) ? done : new Set(done).add(turn.id)))}
+                        />
+                      )}
+                    </Animated.View>
+                  )}
+                  {/* Plan changes the reply recommends, each with an Apply button; for a new reply
+                      they slide in once it has been written out */}
+                  {proposals && (!added.has(keyOf(turn)) || written.has(turn.id)) && (
+                    <Animated.View entering={added.has(keyOf(turn)) ? CARDS_IN : undefined}>
+                      <ChatProposals turnId={turn.id} proposals={proposals} />
+                    </Animated.View>
+                  )}
+                </Fragment>
+              );
+            })}
 
             {sending && (
               <Animated.View entering={TYPING_IN} className="coach__bubble" accessibilityLabel={`${coachName} is typing`}>

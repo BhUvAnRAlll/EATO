@@ -85,7 +85,9 @@ export default function FitnessSearchScreen() {
           </View>
         </View>
 
-        {results === null ? (
+        {loading && !results?.length ? (
+          <View className="items-center py-16"><ActivityIndicator color={colors.leaf} /></View>
+        ) : results === null ? (
           <View className="gap-3 px-4 pt-2">
             <Text className="setup__section">Try</Text>
             <View className="flex-row flex-wrap gap-2">
@@ -96,8 +98,6 @@ export default function FitnessSearchScreen() {
               ))}
             </View>
           </View>
-        ) : loading && results.length === 0 ? (
-          <View className="items-center py-16"><ActivityIndicator color={colors.leaf} /></View>
         ) : results.length === 0 ? (
           <View className="px-4 pt-2">
             <DashedBlock icon={{ ios: "magnifyingglass", android: "search", web: "search" }} title={error ? "Search isn't working right now" : "No programs found"} text={error ?? `Nothing matches "${typed.trim()}" ${place === "home" ? "at home" : "at the center"}. Try another word or place.`} />

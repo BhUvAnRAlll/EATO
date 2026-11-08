@@ -1,4 +1,5 @@
 import { Modal, Pressable, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { SymbolView } from "@/components/SymbolView";
 
 import type { Option } from "@/types/profile";
@@ -16,11 +17,13 @@ type SelectSheetProps<T extends string> = {
 // Bottom sheet with a list of options; picking one closes it
 export function SelectSheet<T extends string>({ visible, title, options, selected, onSelect, onClose }: SelectSheetProps<T>) {
   const colors = useThemeColors();
+  const insets = useSafeAreaInsets();
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View className="verify__backdrop">
         <Pressable className="flex-1" onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" />
-        <View className="verify__sheet">
+        {/* The sheet's own padding plus the home indicator, so the last option never sits on it */}
+        <View className="verify__sheet" style={{ paddingBottom: 32 + insets.bottom }}>
           <Text className="setup__title">{title}</Text>
           <View className="mt-4 gap-2">
             {options.map((option) => {

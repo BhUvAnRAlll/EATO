@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { ScreenSkeleton } from "@/components/Skeleton";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -80,22 +80,29 @@ function CoachScreen() {
   const [changing, setChanging] = useState(false);
   const [savingCoach, setSavingCoach] = useState(false);
   const [coachError, setCoachError] = useState<string | null>(null);
+  // Only the newest read's answer is shown (a pull during the focus read never puts an older answer over a newer one)
+  const latest = useRef(0);
 
   // Today's workout; a failure here only hides the workout row, never the tab
   const loadWorkout = useCallback(async (token: string | null, today: string) => {
+    const request = latest.current;
     const home = await workoutApi.home(token, today, weekOf(today), today);
+    if (request !== latest.current) return;
     if (!home.ok || home.data.plan === null) return setWorkout(null);
     setWorkout({ plan: home.data.plan, status: home.data.status, day: home.data.day, week: home.data.week });
   }, []);
 
   const load = useCallback(async () => {
+    const request = ++latest.current;
     setError(null);
     const token = await getToken().catch(() => null);
     const today = todayIso();
     const result = await coachApi.intake(token);
+    if (request !== latest.current) return;
     if (!result.ok) return setError(result.status ? result.error : OFFLINE);
     if (result.data.intake) {
       const [planResult] = await Promise.all([coachApi.plan(token, today), loadWorkout(token, today)]);
+      if (request !== latest.current) return;
       if (!planResult.ok) return setError(planResult.status ? planResult.error : OFFLINE);
       setPlan(planResult.data);
       syncMealReminders(planResult.data.plan, today).catch(() => {});

@@ -6,7 +6,7 @@ const assert = require("node:assert/strict");
 const { describe, it } = require("node:test");
 
 const { checkFoodPhoto, normalizeFoodScan, scanFood, scanLimits, FoodScanError } = require("../macro/foodScan.js");
-const { validateMeal, limits } = require("../macro/validate.js");
+const { validateMeal, limits, appToday } = require("../macro/validate.js");
 const { uploadLimits } = require("../bodyComposition/upload.js");
 
 const toBase64 = (bytes, padTo = 0) => {
@@ -62,7 +62,8 @@ describe("Food scan clean-up (server)", () => {
     });
     assert.equal(scan.title, "Idli and sambar");
     assert.equal(scan.items[0].kcal, 174.3);
-    const meal = validateMeal({ date: new Date().toISOString().slice(0, 10), slot: "breakfast", title: scan.title, loggedAt: Date.now(), items: scan.items }, Date.now());
+    // The app's today (India), not the UTC date: the two differ between midnight and 05:30 IST
+    const meal = validateMeal({ date: appToday(), slot: "breakfast", title: scan.title, loggedAt: Date.now(), items: scan.items }, Date.now());
     assert.equal(meal.items.length, 2);
   });
 

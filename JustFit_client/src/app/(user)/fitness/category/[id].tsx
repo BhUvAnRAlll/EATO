@@ -26,7 +26,9 @@ export default function FitnessCategoryScreen() {
   const params = useLocalSearchParams<{ id: string; place?: string; title?: string }>();
   const place = params.place === "center" ? "center" : "home";
   const { width } = useWindowDimensions();
-  const cardWidth = Math.floor((Math.min(width, 600) - GUTTER * 2 - GAP) / 2);
+  // The grid stays centred on a wide screen (two cards never stretch past 600)
+  const gridWidth = Math.min(width, 600);
+  const cardWidth = Math.floor((gridWidth - GUTTER * 2 - GAP) / 2);
   const [load, setLoad] = useState<Load>({ state: "loading" });
 
   const refresh = useCallback(async () => {
@@ -75,6 +77,7 @@ export default function FitnessCategoryScreen() {
             data={section.programs}
             keyExtractor={(p) => p.id}
             numColumns={2}
+            style={{ alignSelf: "center", width: gridWidth }}
             columnWrapperStyle={{ gap: GAP }}
             contentContainerStyle={{ paddingHorizontal: GUTTER, paddingTop: 4, paddingBottom: 40, gap: GAP }}
             showsVerticalScrollIndicator={false}

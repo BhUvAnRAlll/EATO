@@ -31,8 +31,8 @@ const SILHOUETTE_RATIO = 501 / 900;
 const PANEL_RATIO = 1.02;
 
 const ratingColors = (colors: Palette): Record<SegmentRating, string> => ({
-  normal: "#2F9E4F",
-  under: "#F08A3E",
+  normal: colors.success,
+  under: colors.warning,
   over: colors.danger,
 });
 const ratingLabels: Record<SegmentRating, string> = { normal: "Normal", under: "Under", over: "Over" };

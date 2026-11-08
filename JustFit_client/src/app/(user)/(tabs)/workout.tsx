@@ -6,9 +6,9 @@ import { StatusBar } from "expo-status-bar";
 import { SymbolView } from "@/components/SymbolView";
 import { Redirect, router, useFocusEffect } from "expo-router";
 import { useAuthStore } from "@/store/auth";
-import * as Haptics from "expo-haptics";
 
 import { BottomSheet } from "@/components/BottomSheet";
+import { FormAlert } from "@/components/FormAlert";
 import { IconButton } from "@/components/IconButton";
 import { FitnessCategorySection } from "@/components/fitness/FitnessCategorySection";
 import { FitnessHeader } from "@/components/fitness/FitnessHeader";
@@ -17,6 +17,7 @@ import { ProgramCard } from "@/components/ProgramCard";
 import { usePullToRefresh } from "@/components/PullToRefresh";
 import { WorkoutSheet } from "@/components/workout/WorkoutSheet";
 import { CENTER_KIT_LABEL, HOME_KIT_LABEL, fitnessApi, type CenterKit, type Equipment, type HomeKit, type ProgramCardData, type ProgramList, type ProgramSection } from "@/lib/fitnessApi";
+import { haptic } from "@/lib/haptics";
 import { addDays, dateOf, longDate, todayIso } from "@/lib/macro";
 import { useSessionToken } from "@/lib/session";
 import {
@@ -84,9 +85,11 @@ function WorkoutHubScreen() {
   const [locationOpen, setLocationOpen] = useState(false);
   const latest = useRef(0);
   const latestPrograms = useRef(0);
+  // Building a plan is a paid AI call: one at a time, shared by overlapping refreshes
+  const ensuring = useRef<ReturnType<typeof workoutApi.ensurePlan> | null>(null);
 
-  // The plan, this week and the last seven days. With no plan yet one is built from the
-  // profile first (a member should never meet an empty workout tab).
+  // The plan, this week and the last seven days (AT CENTER only: AT HOME never asks for it). With
+  // no plan yet one is built from the profile first (a member should never meet an empty workout tab).
   const refresh = useCallback(async () => {
     const request = ++latest.current;
     const today = todayIso();
@@ -94,7 +97,8 @@ function WorkoutHubScreen() {
     let home = await workoutApi.home(token, today, weekOf(today), today);
     if (home.ok && home.data.plan === null) {
       if (request === latest.current) setLoad({ state: "building" });
-      const ensured = await workoutApi.ensurePlan(token, today);
+      if (!ensuring.current) ensuring.current = workoutApi.ensurePlan(token, today).finally(() => { ensuring.current = null; });
+      const ensured = await ensuring.current;
       if (!ensured.ok) {
         if (request === latest.current) setLoad({ state: "failed", error: ensured.error });
         return;
@@ -116,19 +120,21 @@ function WorkoutHubScreen() {
     setPrograms(result.ok ? { state: "ready", list: result.data } : { state: "failed", error: result.error });
   }, [getToken]);
 
+  // Only what the view shows is loaded: AT HOME the programs, AT CENTER the plan
   useEffect(() => {
-    loadPrograms(place);
+    if (place === "home") loadPrograms("home");
   }, [place, loadPrograms]);
 
   useFocusEffect(
     useCallback(() => {
-      refresh();
-    }, [refresh]),
+      if (place === "center") refresh();
+    }, [place, refresh]),
   );
 
-  // A pull reads the plan, the week, the last seven days and the programs again
+  // A pull reads the view shown again: the plan, the week and the last seven days, or the programs
   const reloadAll = useCallback(async () => {
-    await Promise.all([refresh(), loadPrograms(place)]);
+    if (place === "center") await refresh();
+    else await loadPrograms("home");
   }, [refresh, loadPrograms, place]);
   const { refreshControl } = usePullToRefresh(reloadAll);
 
@@ -165,8 +171,8 @@ function WorkoutHubScreen() {
 
   // AT HOME / AT CENTER: the programs or the plan
   const pickPlace = (next: Place) => {
-    Haptics.selectionAsync().catch(() => {});
-    setPrograms({ state: "loading" });
+    haptic.select();
+    if (next === "home") setPrograms({ state: "loading" });
     setPlace(next);
   };
 
@@ -261,7 +267,7 @@ function Ready({ home, history, showAll, onToggleAll, openDay, ask }: ReadyProps
         <Pressable
           onPress={() => openDay(today)}
           className="workout__hero"
-          style={{ height: 232 }}
+          style={{ minHeight: 232 }}
           accessibilityRole="button"
           accessibilityLabel={`Today: ${day.title}, ${day.minutes} min, ${day.exerciseCount} exercises. ${action}`}
         >
@@ -316,7 +322,7 @@ function Ready({ home, history, showAll, onToggleAll, openDay, ask }: ReadyProps
               <Pressable
                 key={date}
                 onPress={() => {
-                  if (!isToday) Haptics.selectionAsync().catch(() => {});
+                  if (!isToday) haptic.select();
                   tapDay(date, dayStatus);
                 }}
                 className={isToday ? "workout__tile workout__tile--today" : "workout__tile"}
@@ -414,6 +420,8 @@ function LocationSheet({ onClose, onSaved }: { onClose: () => void; onSaved: () 
   const [center, setCenter] = useState<CenterKit>("full_gym");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Bumped by Try again when the equipment could not be read
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     let live = true;
@@ -428,7 +436,12 @@ function LocationSheet({ onClose, onSaved }: { onClose: () => void; onSaved: () 
     return () => {
       live = false;
     };
-  }, [getToken]);
+  }, [getToken, attempt]);
+
+  const retry = () => {
+    setError(null);
+    setAttempt((n) => n + 1);
+  };
 
   const save = async (dismiss: () => void) => {
     setSaving(true);
@@ -456,6 +469,13 @@ function LocationSheet({ onClose, onSaved }: { onClose: () => void; onSaved: () 
           </View>
           {!equipment && !error ? (
             <View className="items-center py-8"><ActivityIndicator color={colors.leaf} /></View>
+          ) : !equipment && error ? (
+            <View className="gap-3">
+              <FormAlert message={error} />
+              <Pressable onPress={retry} className="btn-outline" accessibilityRole="button" accessibilityLabel="Try again">
+                <Text className="btn-outline__label">Try again</Text>
+              </Pressable>
+            </View>
           ) : equipment ? (
             <>
               <View className="gap-2">
@@ -478,7 +498,7 @@ function LocationSheet({ onClose, onSaved }: { onClose: () => void; onSaved: () 
               </View>
             </>
           ) : null}
-          {error && <Text className="meta-text" style={{ color: colors.danger }}>{error}</Text>}
+          {equipment && error && <FormAlert message={error} />}
           <Pressable onPress={() => save(dismiss)} disabled={saving || !equipment} className="btn-forest" style={{ opacity: saving || !equipment ? 0.6 : 1 }} accessibilityRole="button" accessibilityState={{ disabled: saving || !equipment }}>
             {saving ? <ActivityIndicator size="small" color={colors.onPrimary} /> : <Text className="btn-forest__label">Save</Text>}
           </Pressable>
