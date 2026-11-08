@@ -7,6 +7,7 @@
 const { NotFoundError } = require("../errors");
 const { audit } = require("../admin/overview");
 const invoiceRules = require("./invoiceRules");
+const logos = require("./logos");
 const { inTransaction } = require("./service");
 
 const DAY = (column) => `DATE_FORMAT(${column}, '%Y-%m-%d')`;
@@ -48,14 +49,21 @@ async function invoice(pool, gym, { paymentId = null, memberId = null }, today) 
     throw new NotFoundError("No payments yet, so there's no invoice to send.");
   }
   const invoiceNo = row.invoice_no ?? (await numberPayment(pool, gym.id, row.id));
-  const details = await invoiceDetails(pool, gym.id);
-  return invoiceRules.invoiceOf({ payment: { ...row, invoice_no: invoiceNo }, member: memberOf(row), gym: { ...gym, ...details }, today });
+  const [details, logoDataUrl] = await Promise.all([branchDetails(pool, gym.id), logos.logoDataUrl(pool, gym.brand_id)]);
+  return invoiceRules.invoiceOf({ payment: { ...row, invoice_no: invoiceNo }, member: memberOf(row), gym: { ...gym, ...details, logoDataUrl }, today });
 }
 
-// Branch details › Invoice details: what's printed on every invoice
-async function invoiceDetails(pool, gymId) {
+// The branch's own invoice lines
+async function branchDetails(pool, gymId) {
   const [[row]] = await pool.query("SELECT address, phone, gstin FROM gyms WHERE id = ?", [gymId]);
   return { address: row?.address ?? null, phone: row?.phone ?? null, gstin: row?.gstin ?? null };
+}
+
+// Branch details › Invoice details: what's printed on every invoice, and whether the gym has a
+// logo (logoUrl: the route the app reads it from with the session, or null)
+async function invoiceDetails(pool, gym) {
+  const [details, withLogo] = await Promise.all([branchDetails(pool, gym.id), logos.hasLogo(pool, gym.brand_id)]);
+  return { ...details, logoUrl: withLogo ? "/api/gym/logo" : null };
 }
 
 async function updateInvoiceDetails(pool, gym, userId, fields) {
@@ -64,7 +72,7 @@ async function updateInvoiceDetails(pool, gym, userId, fields) {
     await db.query(`UPDATE gyms SET ${keys.map((k) => `${k} = ?`).join(", ")} WHERE id = ?`, [...keys.map((k) => fields[k]), gym.id]);
     await audit(db, userId, "gym.edit", "gym", gym.id, `The gym admin edited the invoice details of ${gym.brand}’s ${gym.branch} branch`);
   });
-  return invoiceDetails(pool, gym.id);
+  return invoiceDetails(pool, gym);
 }
 
 module.exports = { invoice, invoiceDetails, updateInvoiceDetails, nextInvoiceNo };

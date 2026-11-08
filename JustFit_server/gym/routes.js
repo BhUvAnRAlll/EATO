@@ -10,6 +10,7 @@ const { createRateLimiter, limitPerUser } = require("../rateLimit");
 const attendance = require("./attendance");
 const attendanceRules = require("./attendanceRules");
 const catalogImages = require("./catalogImages");
+const logos = require("./logos");
 const paymentReceipts = require("./paymentReceipts");
 const invoices = require("./invoices");
 const invoiceRules = require("./invoiceRules");
@@ -40,8 +41,11 @@ const MIGRATION = "The gym portal needs its migrations (up to 2026-12-05-members
 const route = (handler) => (req, res, next) =>
   handler(req, res, next).catch((error) => {
     if (["ER_NO_SUCH_TABLE", "ER_BAD_FIELD_ERROR"].includes(error?.code)) return res.status(503).json({ error: MIGRATION });
+// Saving a referral before its migration names that migration (enquiries are read without it)
+const REFERRER_MIGRATION = "Referrals need the 2026-12-09-enquiry-referrer migration on this server.";
     next(error);
   });
+    if (error?.code === "ER_BAD_FIELD_ERROR" && String(error.sqlMessage ?? "").includes("referred_by_phone")) return res.status(503).json({ error: REFERRER_MIGRATION });
 
 // 403 unless the caller is a gym admin or Staff linked to a gym (a trainer's link doesn't count)
 async function requireGymStaff(req, res, next) {
@@ -375,7 +379,7 @@ router.get("/members/:memberId/invoice", invoiceRoute(async (req, res) => {
   res.json(await invoices.invoice(pool(req), req.gym, { memberId: rules.id(req.params.memberId) }, today()));
 }));
 router.get("/invoice-details", invoiceRoute(async (req, res) => {
-  res.json(await invoices.invoiceDetails(pool(req), req.gym.id));
+  res.json(await invoices.invoiceDetails(pool(req), req.gym));
 }));
 router.patch("/invoice-details", ownerOnly("Only the gym admin can change the invoice details."), smallBody, invoiceRoute(async (req, res) => {
   res.json(await invoices.updateInvoiceDetails(pool(req), req.gym, req.userId, invoiceRules.invoiceDetailsBody(req.body)));
@@ -384,6 +388,32 @@ router.patch("/invoice-details", ownerOnly("Only the gym admin can change the in
 // Send Bulk SMS (gym/sms.js): credits, Auto Reminders, Manual Send, a member's reminder, Message
 // Logs. Sending costs the branch's credits, so sends have their own small budget per account.
 const SMS_MIGRATION = "SMS needs the 2026-11-25-gym-sms migration on this server.";
+// The gym's logo (gym/logos.js, 2026-11-08): printed at the top right of every invoice. PUT
+// { data: base64, mediaType } adds or replaces it (checked from its bytes: JPEG, PNG or WebP, at
+// most 2 MB; the gym admin only, the photos' hourly allowance) and answers the Invoice details,
+// DELETE takes it off, GET reads it (every portal login, for the Invoice details preview). It is
+// the gym's, not the branch's, so every branch prints the same logo. No area, like Invoice details.
+const LOGO_MIGRATION = "Gym logos need the 2026-12-08-gym-logos migration on this server.";
+const logoRoute = (handler) => (req, res, next) =>
+  handler(req, res, next).catch((error) => {
+    if (["ER_NO_SUCH_TABLE", "ER_BAD_FIELD_ERROR"].includes(error?.code)) return res.status(503).json({ error: LOGO_MIGRATION });
+    next(error);
+  });
+const logoBody = express.json({ limit: Math.ceil(logos.logoLimits.maxBytes * (4 / 3)) + 1024 });
+router.put("/logo", ownerOnly("Only the gym admin can change the logo."), photoLimit, logoBody, logoRoute(async (req, res) => {
+  const checked = logos.checkLogo(req.body);
+  if (!checked.ok) return res.status(checked.status).json({ error: checked.error });
+  await logos.setLogo(pool(req), req.gym, req.userId, checked);
+  res.json(await invoices.invoiceDetails(pool(req), req.gym));
+}));
+router.delete("/logo", ownerOnly("Only the gym admin can change the logo."), logoRoute(async (req, res) => {
+  await logos.removeLogo(pool(req), req.gym, req.userId);
+  res.json(await invoices.invoiceDetails(pool(req), req.gym));
+}));
+router.get("/logo", logoRoute(async (req, res) => {
+  logos.send(res, await logos.logoFile(pool(req), req.gym.brand_id));
+}));
+
 const smsRoute = (handler) => (req, res, next) =>
   handler(req, res, next).catch((error) => {
     if (["ER_NO_SUCH_TABLE", "ER_BAD_FIELD_ERROR"].includes(error?.code)) return res.status(503).json({ error: SMS_MIGRATION });

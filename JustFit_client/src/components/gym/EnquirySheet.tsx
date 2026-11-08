@@ -9,7 +9,7 @@ import { GymField } from "@/components/gym/GymField";
 import { GymIcon } from "@/components/gym/GymIcon";
 import { GymPrimaryButton } from "@/components/gym/GymPrimaryButton";
 import { GymSheet } from "@/components/gym/GymSheet";
-import { ENQUIRY_STATUS_LABEL, INTEREST_LABEL, LEAD_LABEL, SOURCE_LABEL, contactText, daysFromToday, phoneInput, shortDate } from "@/data/gymDashboard";
+import { ENQUIRY_STATUS_LABEL, INTEREST_LABEL, LEAD_LABEL, SOURCE_LABEL, contactText, daysFromToday, phoneInput, referrerText, shortDate } from "@/data/gymDashboard";
 import { gymApi, type EnquiryInterest, type EnquirySource, type EnquiryStatus, type GymEnquiry } from "@/lib/gymApi";
 import { useGymSave } from "@/lib/gymForm";
 import { haptic } from "@/lib/haptics";
@@ -25,7 +25,8 @@ const QUICK = [
 const STATUSES: Partial<Record<EnquiryStatus, string>> = { new: ENQUIRY_STATUS_LABEL.new, follow_up: ENQUIRY_STATUS_LABEL.follow_up, lost: ENQUIRY_STATUS_LABEL.lost };
 
 // Manage › Enquiry › + (Add Enquiry) or an enquiry's ⋯ (edit): the name and mobile, what they're
-// interested in, how they found the gym, a note, and the day to call them back (quick picks or
+// interested in, how they found the gym (a referral also takes the mobile number of the person
+// who referred them, 2026-11-08), a note, and the day to call them back (quick picks or
 // any date). Editing adds the status (New, Follow-up, Not interested) and Convert to member,
 // which opens Add Member with their name and number; once saved there the enquiry is Joined.
 export function EnquirySheet({ enquiry, onClose, onSaved, onConvert, onOpenMember }: {
@@ -40,6 +41,7 @@ export function EnquirySheet({ enquiry, onClose, onSaved, onConvert, onOpenMembe
   const [phone, setPhone] = useState(enquiry?.phone?.replace(/^\+91/, "") ?? "");
   const [interest, setInterest] = useState<EnquiryInterest | "">(enquiry?.interest ?? "");
   const [source, setSource] = useState<EnquirySource | "">(enquiry?.source ?? "");
+  const [referredBy, setReferredBy] = useState(enquiry?.referredBy?.phone.replace(/^\+91/, "") ?? "");
   const [note, setNote] = useState(enquiry?.note ?? "");
   const [followUpOn, setFollowUpOn] = useState<string | null>(enquiry?.followUpOn ?? null);
   const [status, setStatus] = useState<EnquiryStatus>(enquiry?.status ?? "new");
@@ -47,11 +49,17 @@ export function EnquirySheet({ enquiry, onClose, onSaved, onConvert, onOpenMembe
 
   const joined = enquiry?.status === "joined";
   const phoneOk = phone.length === 0 || /^[6-9]\d{9}$/.test(phone);
-  const ready = name.trim().length >= 2 && phoneOk;
+  // A referral needs the referrer's number, and it can't be their own
+  const referral = source === "referral";
+  const referrerValid = /^[6-9]\d{9}$/.test(referredBy);
+  const referrerSelf = referrerValid && referredBy === phone;
+  const referrerOk = !referral || (referrerValid && !referrerSelf);
+  const referrerHint = !referral || referredBy.length === 0 ? undefined : !referrerValid ? "Enter a 10-digit mobile number starting with 6, 7, 8 or 9." : referrerSelf ? "That's their own number. Enter the number of the person who referred them." : undefined;
+  const ready = name.trim().length >= 2 && phoneOk && referrerOk;
 
   const submit = () =>
     save((token) => {
-      const fields = { name: name.trim(), phone, note: note.trim(), interest, source, followUpOn: followUpOn ?? "" };
+      const fields = { name: name.trim(), phone, note: note.trim(), interest, source, followUpOn: followUpOn ?? "", referredBy: referral ? referredBy : "" };
       if (!enquiry) return gymApi.addEnquiry(token, fields);
       return gymApi.editEnquiry(token, enquiry.id, joined ? fields : { ...fields, status });
     });
@@ -71,6 +79,16 @@ export function EnquirySheet({ enquiry, onClose, onSaved, onConvert, onOpenMembe
       <GymField label="Mobile number (optional)" icon="phone" value={phone} onChangeText={(t) => setPhone(phoneInput(t))} maxLength={16} keyboardType="phone-pad" placeholder="Mobile Number" hint={phoneOk ? undefined : "Enter a 10-digit mobile number starting with 6, 7, 8 or 9."} />
       <ChipRow label="Interested in" options={INTEREST_LABEL} value={interest} onChange={setInterest} clearable />
       <ChipRow label="Came from" options={SOURCE_LABEL} value={source} onChange={setSource} clearable />
+      {referral && (
+        <View style={{ gap: 4 }}>
+          <GymField label="Referred by, mobile number" icon="user-plus" value={referredBy} onChangeText={(t) => setReferredBy(phoneInput(t))} maxLength={16} keyboardType="phone-pad" placeholder="Referred by (mobile number)" hint={referrerHint} />
+          {enquiry?.referredBy && enquiry.referredBy.phone.replace(/^\+91/, "") === referredBy ? (
+            <Text className="gym-tx__meta">{referrerText(enquiry.referredBy)}</Text>
+          ) : (
+            <Text className="gym-tx__meta">{"Who sent them? If they're a member here, their name shows on the enquiry."}</Text>
+          )}
+        </View>
+      )}
       <GymField label="Note (optional)" value={note} onChangeText={setNote} maxLength={200} placeholder="Evening timings? Budget? Goal?" multiline style={{ minHeight: 72, textAlignVertical: "top" }} />
 
       {!joined && (

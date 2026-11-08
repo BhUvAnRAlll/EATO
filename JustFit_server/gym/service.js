@@ -486,6 +486,24 @@ const ENQUIRY_VIEW_SQL = {
   lost: "e.status = 'lost'",
   all: "1 = 1",
 };
+// Who referred them (migration 2026-12-09): the number, and the branch's member with that number
+// when there is one (read live: a name changed later shows the new name). Before the migration the
+// enquiries are read without it (selectEnquiries), so the lists keep working.
+const REFERRER_COLUMNS = "e.referred_by_phone, r.id AS referrer_id, r.full_name AS referrer_name, r.member_code AS referrer_code";
+const REFERRER_JOIN = "LEFT JOIN gym_members r ON r.gym_id = e.gym_id AND r.phone = e.referred_by_phone";
+async function selectEnquiries(db, tail, params) {
+  try {
+    const [rows] = await db.query(`SELECT ${ENQUIRY_COLUMNS}, ${REFERRER_COLUMNS} FROM gym_enquiries e LEFT JOIN gym_members m ON m.id = e.member_id ${REFERRER_JOIN} ${tail}`, params);
+    return rows;
+  } catch (error) {
+    if (error?.code !== "ER_BAD_FIELD_ERROR" || !String(error.sqlMessage ?? "").includes("referred_by_phone")) throw error;
+    const [rows] = await db.query(`SELECT ${ENQUIRY_COLUMNS} FROM gym_enquiries e LEFT JOIN gym_members m ON m.id = e.member_id ${tail}`, params);
+    return rows;
+  }
+}
+const referrerOf = (r) =>
+  r.referred_by_phone ? { phone: toE164(r.referred_by_phone), member: r.referrer_id ? { id: r.referrer_id, name: r.referrer_name, code: r.referrer_code } : null } : null;
+
 // contacts: every contact attempt, oldest first; lead: the conversion score (null once closed)
 const enquiryOf = (r, contacts = [], today = rules.todayInIndia()) => ({
   id: r.id,
@@ -496,6 +514,7 @@ const enquiryOf = (r, contacts = [], today = rules.todayInIndia()) => ({
   followUpOn: r.follow_up_on,
   interest: r.interest,
   source: r.source,
+  referredBy: referrerOf(r),
   member: r.member_id ? { id: r.member_id, code: r.member_code } : null,
   enquiredOn: r.enquired_on,
   contacts: contacts.map((c) => ({ id: c.id, kind: c.kind, outcome: c.outcome, on: c.contacted_on })),
@@ -518,10 +537,7 @@ async function contactsOf(db, gymId, enquiryIds) {
 }
 
 async function enquiry(db, gymId, enquiryId, today = rules.todayInIndia()) {
-  const [[row]] = await db.query(
-    `SELECT ${ENQUIRY_COLUMNS} FROM gym_enquiries e LEFT JOIN gym_members m ON m.id = e.member_id WHERE e.id = ? AND e.gym_id = ?`,
-    [enquiryId, gymId],
-  );
+  const [row] = await selectEnquiries(db, "WHERE e.id = ? AND e.gym_id = ?", [enquiryId, gymId]);
   if (!row) throw new NotFoundError("That enquiry doesn't exist.");
   return enquiryOf(row, (await contactsOf(db, gymId, [row.id])).get(row.id), today);
 }
@@ -535,10 +551,12 @@ async function addContact(pool, gymId, userId, enquiryId, { kind, outcome }, tod
 }
 
 async function addEnquiry(pool, gymId, userId, body, today) {
+  // The referrer's column is written only for a referral, so other enquiries save before its migration
+  const referral = body.referredBy ? { columns: ", referred_by_phone", marks: ", ?", values: [body.referredBy] } : { columns: "", marks: "", values: [] };
   const [result] = await pool.query(
-    `INSERT INTO gym_enquiries (gym_id, full_name, phone, note, status, follow_up_on, interest, source, enquired_on, created_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [gymId, body.name, body.phone, body.note, body.followUpOn ? "follow_up" : "new", body.followUpOn, body.interest, body.source, today, userId],
+    `INSERT INTO gym_enquiries (gym_id, full_name, phone, note, status, follow_up_on, interest, source, enquired_on, created_by${referral.columns})
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?${referral.marks})`,
+    [gymId, body.name, body.phone, body.note, body.followUpOn ? "follow_up" : "new", body.followUpOn, body.interest, body.source, today, userId, ...referral.values],
   );
   return { enquiry: await enquiry(pool, gymId, result.insertId) };
 }
@@ -562,10 +580,7 @@ async function enquiries(pool, gymId, { view, search }, today) {
   }
   // Due lists: the longest-waiting call-back first; the rest: newest enquiry first
   const order = view === "today" || view === "overdue" ? "e.follow_up_on, e.id" : "e.id DESC";
-  const [rows] = await pool.query(
-    `SELECT ${ENQUIRY_COLUMNS} FROM gym_enquiries e LEFT JOIN gym_members m ON m.id = e.member_id ${where} ORDER BY ${order} LIMIT ?`,
-    [...params, ENQUIRY_LIST_LIMIT],
-  );
+  const rows = await selectEnquiries(pool, `${where} ORDER BY ${order} LIMIT ?`, [...params, ENQUIRY_LIST_LIMIT]);
   const contacts = await contactsOf(pool, gymId, rows.map((r) => r.id));
   const list = rows.map((r) => enquiryOf(r, contacts.get(r.id), today));
   // Open: the hottest first (the conversion score), newest among equals
@@ -596,7 +611,23 @@ async function editEnquiry(pool, gymId, enquiryId, body) {
     const [[member]] = await pool.query("SELECT id FROM gym_members WHERE id = ? AND gym_id = ?", [body.memberId, gymId]);
     if (!member) throw new NotFoundError("That member isn't at this branch.");
   }
-  const columns = { name: "full_name", phone: "phone", note: "note", interest: "interest", source: "source", followUpOn: "follow_up_on", status: "status", memberId: "member_id" };
+  // A referral needs who referred them; a change to the source or the referrer is checked against
+  // what the enquiry ends up with (an older referral saved without a number can still be edited
+  // otherwise). Another source clears the referrer.
+  const finalSource = body.source !== undefined ? body.source : current.source;
+  const currentReferrer = current.referredBy ? current.referredBy.phone.replace(/^\+91/, "") : null;
+  if (body.source !== undefined || body.referredBy !== undefined) {
+    const referredBy = finalSource === "referral" ? (body.referredBy !== undefined ? body.referredBy : currentReferrer) : null;
+    const problem = rules.referrerProblem({ source: finalSource, referredBy, phone: body.phone !== undefined ? body.phone : current.phone?.replace(/^\+91/, "") ?? null });
+    if (problem) throw new ValidationError(problem);
+    body = { ...body, referredBy };
+  }
+  // The referrer's column is written only when it changes, so other edits work before its migration
+  if (body.referredBy !== undefined && body.referredBy === currentReferrer) {
+    const { referredBy: _unchanged, ...rest } = body;
+    body = rest;
+  }
+  const columns = { name: "full_name", phone: "phone", note: "note", interest: "interest", source: "source", followUpOn: "follow_up_on", status: "status", memberId: "member_id", referredBy: "referred_by_phone" };
   const fields = { ...body };
   if (fields.followUpOn && fields.status === undefined && current.status === "new") fields.status = "follow_up";
   // Moved off joined: no longer linked to a member

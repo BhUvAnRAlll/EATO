@@ -2,7 +2,7 @@
 // isolated test server and the justfit_test database. A justFit admin's gym (created through the
 // API) with a payment and a sale; its gym admin signs in onto Home showing those numbers, records
 // an admission through the form, checks the member in, and reads Transactions, Wallet and
-// the ☰ menu; Manage › Plan / Catalogue adds a plan the admission form then offers; Manage ›
+// the ☰ menu; Manage › Plans / Catalogue adds a plan the admission form then offers; Manage ›
 // Member sends a reminder SMS and Send Bulk SMS runs Auto Reminders, Manual Send and Message Logs
 // on the fake SMS provider; the guards keep gym admins, members and admins in their own portals; the admin sees
 // the gym's numbers on Gyms and the gym's page. Screenshots at three widths.
@@ -441,7 +441,7 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
   }));
 
   it("4c. Manage › Plan / Catalogue: add a plan, and the admission form offers it", run("gym-catalog", async () => {
-    await h.expectText("Plan / Catalogue"); // Manage's top tabs (the screen has no title)
+    await h.expectText("Plans / Catalogue"); // the section's title (Manage has no top tabs)
     await h.expectText("No membership plans yet");
     await clickLabel("Add a membership plan");
     await h.expectText("Add a membership plan for the outlet.");
@@ -480,7 +480,7 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
     const ptItem = (await apiAs("gym", "GET", "/api/gym/catalog")).json.items.find((i) => i.name === "1 Month PT");
     assert.equal((await apiAs("gym", "PUT", `/api/gym/catalog/${ptItem.id}/image`, imageBody(png(400, 240, [79, 70, 229]), "image/png"))).status, 200);
     await page.navigate(`${expo.baseUrl}/gym/manage?tab=catalog`);
-    await h.expectText("Plan / Catalogue"); // Manage's top tabs (the screen has no title)
+    await h.expectText("Plans / Catalogue"); // the section's title (Manage has no top tabs)
     await clickLabel("PT");
     await page.waitFor(`!!document.querySelector('[aria-label="1 Month PT, 1 Month, ₹5,000, with image. Edit"]')`, NAV_TIMEOUT, "the PT card with its length and its image");
     await snapshotAllWidths("gym-catalog-pt");
@@ -580,8 +580,9 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
     const alerted = (text) => page.waitFor(`(window.__alerts || []).some((m) => m.includes(${JSON.stringify(text)}))`, NAV_TIMEOUT, `an alert saying ${text}`);
 
     await page.navigate(`${expo.baseUrl}/gym/manage`);
-    await h.expectText("Plan / Catalogue"); // Manage's top tabs (the screen has no title)
     await h.expectText("All Members");
+    // Members opens on its own: no top tabs for the other sections, and no section title
+    await page.waitFor(`!document.body.innerText.includes("Plan / Catalogue") && !document.body.innerText.includes("Plans / Catalogue")`, NAV_TIMEOUT, "Members without the Manage top tabs");
     await h.expectText("Karthik Raja");
     await h.expectText("6 days ago");
     await h.expectText("₹1,500 due");
@@ -683,7 +684,19 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
     await page.setInput(h.input("Name (Eg. Priya)"), "Priya Sharma");
     await page.setInput(h.input("Mobile Number"), "9123456780");
     await clickLabel("PT");
+    // Referral asks who referred them, and Save waits for a real number (2026-11-08)
+    const saveDisabled = () => page.evaluate(`document.querySelector('[aria-label="Save enquiry"]').getAttribute("aria-disabled") === "true"`);
+    await clickLabel("Referral");
+    await page.waitFor(`!!document.querySelector('input[placeholder="Referred by (mobile number)"]')`, NAV_TIMEOUT, "the referrer's number field");
+    assert.equal(await saveDisabled(), true, "a referral needs the referrer's number");
+    await page.setInput(h.input("Referred by (mobile number)"), "9123456780");
+    await h.expectText("That's their own number");
+    assert.equal(await saveDisabled(), true, "not their own number");
+    await page.setInput(h.input("Referred by (mobile number)"), "9876500011");
+    await page.waitFor(`document.querySelector('[aria-label="Save enquiry"]').getAttribute("aria-disabled") !== "true"`, NAV_TIMEOUT, "Save ready with a referrer");
+    await snapshotAllWidths("gym-enquiry-referral");
     await clickLabel("Instagram");
+    await page.waitFor(`!document.querySelector('input[placeholder="Referred by (mobile number)"]')`, NAV_TIMEOUT, "another source hides the field");
     await page.setInput('textarea[placeholder="Evening timings? Budget? Goal?"]', "Evenings after 6");
     await clickLabel("Follow up today");
     await snapshotAllWidths("gym-enquiry-add");

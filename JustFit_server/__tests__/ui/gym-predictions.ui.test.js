@@ -285,7 +285,7 @@ describe("ui gym predictions: Likely to leave", () => {
 
   it("7. Manage › Enquiry: the Hot / Warm / Cold chip with its reasons, and logging a contact moves it", run("predictions-enquiry", async () => {
     // Kiran: a referral who walked in → 50, Warm
-    const added = await apiAs("gym", "POST", "/api/gym/enquiries", { name: "Kiran P", phone: "9000000001", source: "referral", interest: "membership" });
+    const added = await apiAs("gym", "POST", "/api/gym/enquiries", { name: "Kiran P", phone: "9000000001", source: "referral", referredBy: "9000000099", interest: "membership" });
     assert.equal(added.status, 201, JSON.stringify(added.json));
     await apiAs("gym", "POST", `/api/gym/enquiries/${added.json.enquiry.id}/contacts`, { kind: "visit" });
     await page.navigate(`${expo.baseUrl}/gym/manage?tab=enquiry`);

@@ -10,7 +10,7 @@ import { GradientFill } from "@/components/gym/GradientFill";
 import { GymIcon } from "@/components/gym/GymIcon";
 import { WhatsAppMark } from "@/components/gym/WhatsAppMark";
 import { GymEmpty, GymError, GymLoading } from "@/components/gym/GymStates";
-import { ENQUIRY_STATUS_LABEL, ENQUIRY_VIEWS, INTEREST_LABEL, LEAD_LABEL, SOURCE_LABEL, contactText, followUpText, initialsOf, phoneText, shortDate } from "@/data/gymDashboard";
+import { ENQUIRY_STATUS_LABEL, ENQUIRY_VIEWS, INTEREST_LABEL, LEAD_LABEL, SOURCE_LABEL, contactText, followUpText, initialsOf, phoneText, referrerText, shortDate } from "@/data/gymDashboard";
 import { gymApi, type EnquiryStatus, type EnquiryView, type GymEnquiry, type LeadLevel } from "@/lib/gymApi";
 import { callPhone, enquiryFollowUp, whatsappPhone } from "@/lib/gymContact";
 import { notice } from "@/lib/gymPortal";
@@ -171,6 +171,7 @@ export function EnquiryList({ initialView = "open" }: { initialView?: EnquiryVie
           const follow = open && item.followUpOn && data ? followUpText(item.followUpOn, data.today) : null;
           const followColor = follow?.tone === "overdue" ? colors.gymDanger : follow?.tone === "today" ? colors.gymWarning : colors.gymInkSoft;
           const about = [item.interest ? INTEREST_LABEL[item.interest] : null, item.source ? SOURCE_LABEL[item.source] : null].filter(Boolean).join(" · ");
+          const referrer = referrerText(item.referredBy);
           const tone = statusTone(item.status);
           const lead = item.lead ? { ...leadTone(item.lead.level), text: `${LEAD_LABEL[item.lead.level]} · ${item.lead.score}`, reasons: item.lead.reasons.map((r) => r.text).join(" · ") } : null;
           const lastContact = item.contacts.length > 0 ? item.contacts[item.contacts.length - 1] : null;
@@ -182,7 +183,7 @@ export function EnquiryList({ initialView = "open" }: { initialView?: EnquiryVie
                 className="min-w-0 flex-1 flex-row items-center"
                 style={{ gap: 12 }}
                 accessibilityRole="button"
-                accessibilityLabel={`${item.name}, ${ENQUIRY_STATUS_LABEL[item.status]}${lead ? `, ${lead.text}` : ""}${follow ? `, ${follow.text}` : ""}${about ? `, ${about}` : ""}${item.member ? `, joined as ${item.member.code}` : ""}. Edit`}
+                accessibilityLabel={`${item.name}, ${ENQUIRY_STATUS_LABEL[item.status]}${lead ? `, ${lead.text}` : ""}${follow ? `, ${follow.text}` : ""}${about ? `, ${about}` : ""}${referrer ? `, ${referrer}` : ""}${item.member ? `, joined as ${item.member.code}` : ""}. Edit`}
               >
                 {!narrow && (
                   <View className="gym-avatar">
@@ -211,6 +212,7 @@ export function EnquiryList({ initialView = "open" }: { initialView?: EnquiryVie
                   ) : null}
                   {item.member ? <Text className="gym-member-card__line" numberOfLines={1} style={{ color: colors.gymSuccess }}>{`Joined as ${item.member.code}`}</Text> : null}
                   {about ? <Text className="gym-tx__meta" numberOfLines={1}>{about}</Text> : null}
+                  {referrer ? <Text className="gym-tx__meta" numberOfLines={2}>{referrer}</Text> : null}
                   {item.note ? <Text className="gym-tx__meta" numberOfLines={2}>{item.note}</Text> : null}
                   <Text className="gym-tx__meta" numberOfLines={1}>{`Asked on ${shortDate(item.enquiredOn)}`}</Text>
                   {lastContact ? <Text className="gym-tx__meta" numberOfLines={2}>{`Last contact: ${contactText(lastContact)}`}</Text> : null}

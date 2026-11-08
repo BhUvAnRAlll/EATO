@@ -334,6 +334,16 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
 - **Look:** `gym-*` tokens (the indigo-to-violet theme, this portal only) and `gym-*` utilities; the member app and the
   Super Admin stay red. No AI button (removed at the user's request).
 - **SMS to members (2026-11-04, the user's GymOps designs; real SMS approved by the user):**
+  **Referrals (2026-11-08, the user's request):** when Came from is Referral, `EnquirySheet` shows
+  "Referred by (mobile number)", required (10 digits, not the enquirer's own); Save waits for it.
+  Stored in `gym_enquiries.referred_by_phone` (migration `2026-12-09-enquiry-referrer.sql`). Every
+  enquiry answer carries `referredBy: { phone, member }`: `member` is this branch's member with that
+  number (a live join on `uq_gym_members_phone`, never another gym's), so the card says "Referred by
+  Ravi Kumar (FOR-TUM-0003)" or the number (`referrerText`). Rules: `rules.enquiryBody` drops the
+  number for other sources; `service.editEnquiry` checks only when the source or the referrer
+  changes (older referrals without a number stay editable), clears it when the source moves off
+  Referral, and writes the column only when it changes. Before the migration, enquiries are read
+  without it (`selectEnquiries`) and saving a referral answers 503 naming it.
   Manage › Member follows the user's 2026-11-07 design (`MemberList`: the search bar with the
   sort button, the filters as chips each with its count (`counts` comes with
   `GET /api/gym/members`, within the same search); a card per member with the photo spot, the
@@ -534,6 +544,26 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
 - **Performance pass (2026-11-07, the user's "fix all"):** the member list is paged, 50 a page
   (`GET /api/gym/members?sort=name|days|due&page=N` → `page`, `nextPage`; `rules.membersQuery`,
   `MEMBER_ORDER` in `service.js`): the sort runs on the server so every page follows it, and
+- **Invoice template and gym logos (2026-11-08, the user's template):** the Invoice screen and the PDF
+  follow the user's invoice template: "Invoice" with a red rule and the kind under it ("Membership
+  Invoice", "Product Invoice"…), the gym's own logo at the top right (its initials on a red square
+  when it has none), Invoice No / Invoice Date / Due Date (the balance's due date, else the invoice's
+  date), Member Details and Plan Details cards (PT, Service or Product Details for those payments),
+  the item table with a red header, Subtotal and the Total Amount on a pink band, the Balance Due,
+  Payment Details with a green Paid badge, the signature line and the gym's footer (place, phone,
+  GSTIN). The screen stacks it for a phone; the PDF is one A4 page. The words and rows come from
+  `lib/gymInvoice.ts` (`detailRows`, `dueDate`, `invoiceSubtitle`, `itemDescription`, pure and
+  unit-tested) for both. The template's GST, discount, second line, QR and transaction ID are left
+  out: justFit records none of them. **Logo:** each gym prints its own: Branch details › Invoice
+  details › Logo (camera or gallery, shrunk to 512 px, `pickLogoImage`) saves at once through
+  `PUT|DELETE /api/gym/logo` (gym admin only, the photos' hourly allowance, audited `gym.edit`);
+  `GET /api/gym/logo` reads it for any portal login. It belongs to the gym (`gym_brands.logo_key`), so
+  every branch prints the same one. `gym/logos.js`: JPEG/PNG/WebP from the bytes, 2 MB, 64-4000 px a
+  side, files in `GYM_LOGO_DIR` (default `uploads/gym-logos`); the invoice answer carries it as
+  `gym.logoDataUrl` and the app puts only an image data URL into the PDF (`safeLogo`). Invoice details
+  carry `logoUrl`. Migration `2026-12-08-gym-logos.sql`; before it invoices have no logo and the logo
+  routes answer 503 naming it. Tests: `e2e/gym-invoices.e2e.test.js` (4b), `ui/gym-invoice.ui.test.js`
+  (1b), `gym-invoice-rules.test.js`, the client's `lib/__tests__/gymInvoice.test.ts`.
   `MemberList` appends pages with Show more (the 200 cap with no next page is gone). The dashboard,
   the attendance summary, the member's page and the member list send their independent queries
   together (`Promise.all`). `GET /members/:id` carries `gym`, so the member's page no longer reads

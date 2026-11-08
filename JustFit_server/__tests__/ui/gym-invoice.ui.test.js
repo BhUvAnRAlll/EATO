@@ -1,7 +1,9 @@
 // The Invoice screen in the real Expo web build against the isolated test server and the
-// justfit_test database. The gym admin opens a payment's invoice (the number, Bill to, the item,
-// the balance), the member's page carries an Invoice chip that opens it, and Branch details has
-// the Invoice details form. Screenshots at three widths.
+// justfit_test database. The gym admin opens a payment's invoice laid out like the user's template
+// (the number and dates, Member and Plan Details, the item table, the totals, Payment Details,
+// the signature line and the gym's footer), the gym's logo appears at the top right once uploaded,
+// the member's page carries an Invoice chip that opens it, and Branch details has the Invoice
+// details form with the Logo picker. Screenshots at three widths.
 //
 //   yarn test:ui      (needs JustFit_server/.env.test and Google Chrome; otherwise skipped)
 //   JUSTFIT_SCREENSHOT_DIR=<dir> saves screenshots of each screen at three widths
@@ -18,6 +20,7 @@ const { identitiesFor, describeIdentityError } = require("../e2e/test-identities
 const { startExpoWeb } = require("./expo-web.js");
 const { launchChrome, connect, openPage, CHROME } = require("./cdp.js");
 const { helpers, signInAs, NAV_TIMEOUT } = require("./onboarding-steps.js");
+const { png, body } = require("../e2e/images.js");
 
 const EXPO_PORT = 8090;
 const EVIDENCE_DIR = path.join(os.tmpdir(), "justfit-ui-evidence");
@@ -83,7 +86,8 @@ describe("ui gym invoice: a payment's invoice, the member's Invoice chip, Invoic
     try { connection = await db.connect(env); } catch (error) { skipReason = `test database unreachable (${error?.code ?? "refused"})`; return; }
     assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT, `schema.sql should create ${db.SCHEMA_TABLE_COUNT} tables in justfit_test`);
     testAccounts = identitiesFor(env);
-    server = await startTestServer(env);
+    state.logoDir = fs.mkdtempSync(path.join(os.tmpdir(), "justfit-gym-logo-ui-"));
+    server = await startTestServer({ ...env, GYM_LOGO_DIR: state.logoDir });
     expo = await startExpoWeb({ port: EXPO_PORT, apiUrl: `http://localhost:${env.PORT}` });
     chrome = await launchChrome();
     client = await connect(chrome.browserWsUrl);
@@ -120,6 +124,7 @@ describe("ui gym invoice: a payment's invoice, the member's Invoice chip, Invoic
     await step("stop Chrome", async () => { if (chrome) await chrome.close(); });
     await step("stop Expo web", async () => { if (expo) await expo.stop(); });
     await step("stop test server", async () => { if (server) await server.stop(); });
+    await step("logo folder", async () => { if (state.logoDir) fs.rmSync(state.logoDir, { recursive: true, force: true }); });
     await step("rows", async () => {
       if (!connection) return;
       if (state.gym) {
@@ -143,25 +148,49 @@ describe("ui gym invoice: a payment's invoice, the member's Invoice chip, Invoic
     if (problems.length > 0) throw new Error(`cleanup incomplete: ${problems.join("; ")}`);
   });
 
-  it("1. the invoice of the admission payment: the gym with its details, the number, Bill to, the item and the balance", run("invoice", async () => {
+  it("1. the invoice of the admission payment, laid out like the template: the number and dates, the cards, the item, the totals and the gym's footer", run("invoice", async () => {
     await viewport(390, 844);
     await signIn(identities.owner, "/gym");
     await h.expectText("Tumkur branch");
     await page.navigate(`${expo.baseUrl}/gym/invoice?paymentId=${state.payment}`);
     await h.expectText("INV-FOR-TUM-0001");
+    await h.expectText("Membership Invoice");
+    assert.ok(await hasLabel("Forma, no logo yet"), "no logo yet: the gym's initials in the corner");
+    await h.expectText("Member Details");
     await h.expectText("Ravi Kumar");
-    await h.expectText(`Member ID ${state.code} · +91 91234 56789`);
-    await h.expectText("GSTIN 29ABCDE1234F1Z5");
+    await h.expectText(state.code);
+    await h.expectText("+91 91234 56789");
+    await h.expectText("Plan Details");
     await h.expectText("3 Months");
-    await h.expectText("Paid · Cash");
+    await h.expectText("Active");
+    await h.expectText("Membership – 3 Months");
+    await h.expectText("Subtotal");
+    await h.expectText("Total Amount");
     await h.expectText("₹4,000");
-    await h.expectText("Balance due by 15 Jan 2027");
+    await h.expectText("Balance Due");
+    await h.expectText("by 15 Jan 2027");
     await h.expectText("₹500");
+    await h.expectText("Payment Details");
+    await h.expectText("Cash");
+    await h.expectText("Paid");
+    await h.expectText("Authorized Signature");
+    await h.expectText("GSTIN 29ABCDE1234F1Z5");
+    await h.expectText("12, 1st Main Road, SS Puram");
     assert.ok(await hasLabel("Share PDF"), "Share PDF");
     assert.ok(await hasLabel("WhatsApp the invoice"), "WhatsApp");
     assert.ok(await hasLabel("SMS the invoice"), "SMS");
     assert.equal(await hasLabel("Email the invoice"), false, "no email on record, no Email button");
     await snapshotAllWidths("gym-invoice");
+  }));
+
+  it("1b. once the gym admin uploads a logo, it sits at the top right of the invoice", run("invoice-logo", async () => {
+    const set = await apiAs("owner", "PUT", "/api/gym/logo", body(png(240, 96, [212, 0, 5]), "image/png"));
+    assert.equal(set.status, 200, JSON.stringify(set.json));
+    await page.navigate(`${expo.baseUrl}/gym/invoice?paymentId=${state.payment}`);
+    await h.expectText("INV-FOR-TUM-0001");
+    await page.waitFor(`[...document.querySelectorAll('[aria-label]')].some((e) => e.getAttribute("aria-label") === "Forma logo")`, NAV_TIMEOUT, "the gym's logo in the corner");
+    assert.equal(await hasLabel("Forma, no logo yet"), false);
+    await snapshotAllWidths("gym-invoice-logo");
   }));
 
   it("2. the member's page has an Invoice chip on the payment, and it opens the same invoice", run("invoice-chip", async () => {
@@ -175,6 +204,9 @@ describe("ui gym invoice: a payment's invoice, the member's Invoice chip, Invoic
   it("3. Branch details carries the Invoice details form with what was saved", run("invoice-details", async () => {
     await page.navigate(`${expo.baseUrl}/gym/details`);
     await h.expectText("Printed on every invoice");
+    await h.expectText("Logo (optional)");
+    await page.waitFor(`[...document.querySelectorAll('[aria-label]')].some((e) => e.getAttribute("aria-label") === "Gym logo, chosen")`, NAV_TIMEOUT, "the logo spot shows the uploaded logo");
+    assert.ok(await hasLabel("Remove the logo"), "Remove is offered once there is a logo");
     assert.equal(await page.evaluate(`[...document.querySelectorAll("input")].map((i) => i.value).includes("29ABCDE1234F1Z5")`), true, "the GSTIN is filled in");
     assert.equal(await page.evaluate(`document.querySelector('[aria-label="Save invoice details"]').getAttribute("aria-disabled")`), "true", "Save waits for a change");
     await snapshotAllWidths("gym-invoice-details");

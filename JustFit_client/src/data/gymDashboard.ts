@@ -19,6 +19,10 @@ export const shortDate = (iso: string) => new Date(`${iso}T00:00:00`).toLocaleDa
 // "+919123456789" → "+91 91234 56789"
 export const phoneText = (e164: string | null) => (e164 && /^\+91\d{10}$/.test(e164) ? `+91 ${e164.slice(3, 8)} ${e164.slice(8)}` : e164 ?? "");
 
+// "Referred by Ravi Kumar (FOR-TUM-0003)" when the referrer is a member here, else their number
+export const referrerText = (referredBy: { phone: string; member: { name: string; code: string } | null } | null) =>
+  referredBy ? `Referred by ${referredBy.member ? `${referredBy.member.name} (${referredBy.member.code})` : phoneText(referredBy.phone)}` : null;
+
 // What someone types or pastes into a mobile number field, kept to the 10 digits: "+91 98765 43210",
 // "098765 43210" and "9876543210" all become "9876543210"; it never grows past 10
 export function phoneInput(text: string) {

@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { daysFromToday, dobFromText, dobInput, followUpText, phoneInput, todayIso } from "../gymDashboard.ts";
+import { daysFromToday, dobFromText, dobInput, followUpText, phoneInput, referrerText, todayIso } from "../gymDashboard.ts";
 
 describe("gym portal inputs", () => {
   it("mobile numbers keep to 10 digits, whatever is typed or pasted", () => {
@@ -41,5 +41,13 @@ describe("gym portal inputs", () => {
     assert.equal(followUpText("2026-12-01", today).tone, "later");
     assert.match(followUpText("2026-12-01", today).text, /^Follow up on 1 Dec 2026$/);
     assert.deepEqual(followUpText("2027-01-01", "2026-12-31"), { tone: "later", text: "Follow up tomorrow" }, "across a year end");
+  });
+});
+
+describe("referrerText", () => {
+  it("names a member referrer, else shows the number, and nothing without a referral", () => {
+    assert.equal(referrerText({ phone: "+919876543210", member: { name: "Ravi Kumar", code: "FOR-TUM-0003" } }), "Referred by Ravi Kumar (FOR-TUM-0003)");
+    assert.equal(referrerText({ phone: "+919876543210", member: null }), "Referred by +91 98765 43210");
+    assert.equal(referrerText(null), null);
   });
 });

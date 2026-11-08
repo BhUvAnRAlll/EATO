@@ -1,22 +1,29 @@
 import { useState } from "react";
-import { Text } from "react-native";
+import { Text, View } from "react-native";
 import { router } from "expo-router";
 
 import { FormAlert } from "@/components/FormAlert";
 import { GymField } from "@/components/gym/GymField";
+import { GymIcon } from "@/components/gym/GymIcon";
 import { GymError, GymLoading } from "@/components/gym/GymStates";
+import { MemberPhotoImage } from "@/components/gym/MemberPhotoImage";
+import { PressableScale } from "@/components/PressableScale";
 import { GymScreen } from "@/components/gym/GymScreen";
 import { SaveButton } from "@/components/gym/SaveButton";
 import { phoneInput } from "@/data/gymDashboard";
-import { gymApi, type GymDashboard, type InvoiceDetails } from "@/lib/gymApi";
+import { gymApi, type GymDashboard, type InvoiceDetailFields, type InvoiceDetails } from "@/lib/gymApi";
 import { useGymSave } from "@/lib/gymForm";
+import { pickLogoImage, type PhotoSource } from "@/lib/gymPhoto";
+import { useThemeColors } from "@/theme";
 import { useGymData } from "@/lib/useGymData";
 
 // Gym admin › Branch details: the open branch's name, area and city (shown on Home's header). The
 // gym's own name is the justFit team's to change. They see every change on the branch's page and
 // in their activity log. (The admin's own name was removed from here on 2026-11-07.) Under it,
 // for the gym admin only, Invoice details (2026-11-07): the address, mobile number and GSTIN
-// printed on every invoice, each optional, saved on their own.
+// printed on every invoice, each optional, saved on their own, and (2026-11-08, the user's
+// request) the gym's logo, printed at the top right of every invoice: picked from the camera or
+// the gallery, shrunk on the phone and uploaded at once (PUT /api/gym/logo); Remove takes it off.
 export default function GymDetails() {
   const { result, retry } = useGymData(gymApi.dashboard);
   return (
@@ -41,6 +48,7 @@ function InvoiceDetailsForm() {
 }
 
 function InvoiceFields({ saved }: { saved: InvoiceDetails }) {
+  const colors = useThemeColors();
   const [address, setAddress] = useState(saved.address ?? "");
   const [phone, setPhone] = useState(saved.phone ?? "");
   const [gstin, setGstin] = useState(saved.gstin ?? "");
@@ -50,10 +58,37 @@ function InvoiceFields({ saved }: { saved: InvoiceDetails }) {
     setCurrent(data);
     setDone(true);
   });
+  // The logo saves on its own, as soon as it is picked. logoVersion changes the preview's URL so a
+  // replaced logo isn't served from the image cache; the server ignores the query.
+  const [logoVersion, setLogoVersion] = useState(0);
+  const [logoNote, setLogoNote] = useState("");
+  const [logoError, setLogoError] = useState("");
+  const logoSave = useGymSave((data: InvoiceDetails) => {
+    setCurrent(data);
+    setLogoVersion((v) => v + 1);
+    setLogoNote(data.logoUrl ? "Logo saved. It prints at the top right of every invoice." : "Logo removed.");
+  });
+  const chooseLogo = async (source: PhotoSource) => {
+    if (logoSave.busy) return;
+    setLogoError("");
+    setLogoNote("");
+    const picked = await pickLogoImage(source);
+    if (!picked.ok) {
+      if (!("cancelled" in picked)) setLogoError(picked.error);
+      return;
+    }
+    logoSave.save((token) => gymApi.setLogo(token, { data: picked.photo.data, mediaType: picked.photo.mediaType }));
+  };
+  const removeLogo = () => {
+    if (logoSave.busy) return;
+    setLogoError("");
+    setLogoNote("");
+    logoSave.save((token) => gymApi.removeLogo(token));
+  };
 
   // Only what changed is sent; an emptied field clears it
   const cleanGstin = gstin.replace(/\s+/g, "").toUpperCase();
-  const changes: Partial<Record<keyof InvoiceDetails, string>> = {};
+  const changes: InvoiceDetailFields = {};
   if (address.trim() !== (current.address ?? "")) changes.address = address.trim();
   if (phone.trim() !== (current.phone ?? "")) changes.phone = phone.trim();
   if (cleanGstin !== (current.gstin ?? "")) changes.gstin = cleanGstin;
@@ -71,6 +106,35 @@ function InvoiceFields({ saved }: { saved: InvoiceDetails }) {
       {error ? <FormAlert message={error} /> : null}
       {done && !error ? <Text className="gym-tx__meta" style={{ textAlign: "center" }}>Saved. New invoices carry these details.</Text> : null}
       <SaveButton label="Save invoice details" ready={ready} busy={busy} onPress={() => save((token) => gymApi.updateInvoiceDetails(token, changes))} />
+
+      <View style={{ gap: 8, marginTop: 8 }}>
+        <Text className="gym-field__label">Logo (optional)</Text>
+        <Text className="gym-tx__meta">Printed at the top right of every invoice, for every branch of your gym. {"Without one, the invoice shows your gym's initials."}</Text>
+        <View className="gym-item-image" accessible accessibilityLabel={current.logoUrl ? "Gym logo, chosen" : "Gym logo, none yet"}>
+          <GymIcon name="image" size={28} color={colors.gymMuted} />
+          <Text className="gym-item-image__hint">{"Your gym's logo"}</Text>
+          <MemberPhotoImage url={current.logoUrl ? `${current.logoUrl}?v=${logoVersion}` : null} fit="contain" />
+        </View>
+        <View className="flex-row flex-wrap" style={{ gap: 8 }}>
+          <PressableScale onPress={() => chooseLogo("camera")} disabled={logoSave.busy} className="gym-choice flex-row items-center" style={{ gap: 6 }} accessibilityRole="button" accessibilityLabel={current.logoUrl ? "Retake the logo" : "Take a photo of the logo"}>
+            <GymIcon name="camera" size={16} color={colors.gymPrimary} />
+            <Text className="gym-choice__label">{current.logoUrl ? "Retake" : "Camera"}</Text>
+          </PressableScale>
+          <PressableScale onPress={() => chooseLogo("library")} disabled={logoSave.busy} className="gym-choice flex-row items-center" style={{ gap: 6 }} accessibilityRole="button" accessibilityLabel="Choose the logo from the gallery">
+            <GymIcon name="image" size={16} color={colors.gymPrimary} />
+            <Text className="gym-choice__label">Gallery</Text>
+          </PressableScale>
+          {current.logoUrl && (
+            <PressableScale onPress={removeLogo} disabled={logoSave.busy} className="gym-choice flex-row items-center" style={{ gap: 6 }} accessibilityRole="button" accessibilityLabel="Remove the logo">
+              <GymIcon name="x" size={16} color={colors.gymPrimary} />
+              <Text className="gym-choice__label">Remove</Text>
+            </PressableScale>
+          )}
+        </View>
+        {logoSave.busy ? <Text className="gym-tx__meta">Saving the logo…</Text> : null}
+        {logoError || logoSave.error ? <Text className="gym-tx__meta" style={{ color: colors.gymDanger }}>{logoError || logoSave.error}</Text> : null}
+        {logoNote && !logoSave.busy && !logoSave.error ? <Text className="gym-tx__meta">{logoNote}</Text> : null}
+      </View>
     </>
   );
 }

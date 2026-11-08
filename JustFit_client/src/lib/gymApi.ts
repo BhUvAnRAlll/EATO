@@ -26,11 +26,15 @@ export type GymPayment = { id: number; kind: PaymentKind; title: string; detail:
 export type GymInfo = { name: string; branch: string; area: string; city: string };
 // Invoices (2026-11-07): one payment's invoice, as the Invoice screen shows and shares it. billTo is
 // null for a sale at the counter; membership and balance are the member's standing today.
-export type InvoiceDetails = { address: string | null; phone: string | null; gstin: string | null };
+// logoUrl: the gym's logo, read with the session (null: none); it is set through setLogo, not PATCH
+export type InvoiceDetails = { address: string | null; phone: string | null; gstin: string | null; logoUrl: string | null };
+// What the gym admin types on Branch details › Invoice details (the logo is uploaded on its own)
+export type InvoiceDetailFields = Partial<Record<"address" | "phone" | "gstin", string>>;
 export type GymInvoice = {
   number: string;
   date: string;
-  gym: GymInfo & InvoiceDetails;
+  // gym.logoDataUrl: the gym's logo for the top right corner, as a data URL (null: none)
+  gym: GymInfo & Omit<InvoiceDetails, "logoUrl"> & { logoDataUrl: string | null };
   billTo: { id: number; name: string; code: string; phone: string | null; email: string | null } | null;
   item: { kind: PaymentKind; label: string; detail: string; title: string };
   amount: number;
@@ -166,12 +170,16 @@ export type GymEnquiry = {
   followUpOn: string | null;
   interest: EnquiryInterest | null;
   source: EnquirySource | null;
+  // A referral: who referred them (their number) and, when that number is one of the branch's
+  // members, that member (2026-11-08)
+  referredBy: { phone: string; member: { id: number; name: string; code: string } | null } | null;
   member: { id: number; code: string } | null;
   enquiredOn: string;
   contacts: EnquiryContact[];
   lead: EnquiryLead | null;
 };
-export type EnquiryFields = { name: string; phone: string; note: string; interest: EnquiryInterest | ""; source: EnquirySource | ""; followUpOn: string | "" };
+// referredBy: the referrer's 10-digit number, sent with a referral ("" otherwise)
+export type EnquiryFields = { name: string; phone: string; note: string; interest: EnquiryInterest | ""; source: EnquirySource | ""; followUpOn: string | ""; referredBy: string };
 export type GymEnquiries = { today: string; enquiries: GymEnquiry[]; counts: Record<EnquiryView, number>; gym: GymInfo };
 type Sums = { online: number; cash: number; total: number; byKind: Record<PaymentKind, number> };
 export type GymWallet = { today: Sums; month: Sums; due: { total: number; members: number } };
@@ -265,7 +273,10 @@ export const gymApi = {
   invoice: (token: string | null, paymentId: number) => call<GymInvoice>(token, `/api/gym/payments/${paymentId}/invoice`),
   memberInvoice: (token: string | null, memberId: number) => call<GymInvoice>(token, `/api/gym/members/${memberId}/invoice`),
   invoiceDetails: (token: string | null) => call<InvoiceDetails>(token, "/api/gym/invoice-details"),
-  updateInvoiceDetails: (token: string | null, fields: Partial<Record<keyof InvoiceDetails, string>>) => call<InvoiceDetails>(token, "/api/gym/invoice-details", "PATCH", fields),
+  updateInvoiceDetails: (token: string | null, fields: InvoiceDetailFields) => call<InvoiceDetails>(token, "/api/gym/invoice-details", "PATCH", fields),
+  // The gym's logo (gym/logos.js): printed at the top right of every invoice; the gym admin only
+  setLogo: (token: string | null, image: { data: string; mediaType: string }) => call<InvoiceDetails>(token, "/api/gym/logo", "PUT", { data: image.data, mediaType: image.mediaType }),
+  removeLogo: (token: string | null) => call<InvoiceDetails>(token, "/api/gym/logo", "DELETE"),
   branches: (token: string | null) => call<GymBranches>(token, "/api/gym/branches"),
   // The gym admin adds a branch of their gym (its name and location) and is linked to it
   addBranch: (token: string | null, fields: Omit<GymInfo, "name">) => call<GymBranches>(token, "/api/gym/branches", "POST", fields),

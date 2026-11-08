@@ -31,6 +31,13 @@ describe("gym invoice rules", () => {
     refuses(() => rules.invoiceDetailsBody("nope"), /JSON/);
   });
 
+  it("carries the gym's logo when it has one, and null when not", () => {
+    const payment = { id: 1, kind: "sale", title: "Whey", detail: "Supplement", method: "cash", amount: 100, paid_on: "2026-11-08", invoice_no: 1 };
+    const gym = { brand: "Forma", branch: "Tumkur", area: "SS Puram", city: "Tumkur" };
+    assert.equal(rules.invoiceOf({ payment, member: null, gym: { ...gym, logoDataUrl: "data:image/png;base64,AAAA" }, today: "2026-11-08" }).gym.logoDataUrl, "data:image/png;base64,AAAA");
+    assert.equal(rules.invoiceOf({ payment, member: null, gym, today: "2026-11-08" }).gym.logoDataUrl, null);
+  });
+
   it("one payment's invoice: the number, the member, the item, the standing today", () => {
     const gym = { brand: "Forma", branch: "Tumkur", area: "SS Puram", city: "Tumkur", address: "12, 1st Main", phone: "9876543210", gstin: null };
     const payment = { id: 41, kind: "admission", title: "Ravi", detail: "3 Months", method: "cash", amount: 4500, paid_on: "2026-11-07", member_id: 3, invoice_no: 7 };
@@ -38,7 +45,7 @@ describe("gym invoice rules", () => {
     assert.deepEqual(rules.invoiceOf({ payment, member, gym, today: "2026-11-07" }), {
       number: "INV-FOR-TUM-0007",
       date: "2026-11-07",
-      gym: { name: "Forma", branch: "Tumkur", area: "SS Puram", city: "Tumkur", address: "12, 1st Main", phone: "9876543210", gstin: null },
+      gym: { name: "Forma", branch: "Tumkur", area: "SS Puram", city: "Tumkur", address: "12, 1st Main", phone: "9876543210", gstin: null, logoDataUrl: null },
       billTo: { id: 3, name: "Ravi", code: "FOR-TUM-0003", phone: "9123456789", email: null },
       item: { kind: "admission", label: "Membership", detail: "3 Months", title: "Ravi" },
       amount: 4500,

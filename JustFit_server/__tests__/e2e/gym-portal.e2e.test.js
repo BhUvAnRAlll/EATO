@@ -414,6 +414,39 @@ describe("gym portal e2e: gyms, staff, members, money and attendance", () => {
     assert.equal((await gym.patch("/api/gym/enquiries/1%20OR%201=1", { status: "lost" })).status, 400);
   }));
 
+  it("7c. a referral takes the referrer's number; a member of this branch with that number is named, never another gym's", run(async () => {
+    const gym = as("gymA");
+    assert.equal((await gym.post("/api/gym/enquiries", { name: "Ref Needed", source: "referral" })).status, 400, "a referral needs the number");
+    assert.equal((await gym.post("/api/gym/enquiries", { name: "Ref Bad", source: "referral", referredBy: "12345" })).status, 400);
+    assert.equal((await gym.post("/api/gym/enquiries", { name: "Ref Self", phone: "9111111111", source: "referral", referredBy: "9111111111" })).status, 400, "not their own number");
+
+    // Mohammed Asif (9876543210) is a member at gym A; gym B has a member with the same number
+    const byMember = await gym.post("/api/gym/enquiries", { name: "Sneha R", phone: "9111111112", source: "referral", referredBy: "+91 98765 43210" });
+    assert.equal(byMember.status, 201, JSON.stringify(byMember.json));
+    assert.deepEqual(byMember.json.enquiry.referredBy, { phone: "+919876543210", member: { id: state.asif, name: "Mohammed Asif K", code: byMember.json.enquiry.referredBy.member.code } }, "named as gym A's member");
+    assert.notEqual(byMember.json.enquiry.referredBy.member.id, state.bMember, "never gym B's member with the same number");
+
+    const byStranger = await gym.post("/api/gym/enquiries", { name: "Vikram", source: "referral", referredBy: "9000000001" });
+    assert.equal(byStranger.status, 201);
+    assert.deepEqual(byStranger.json.enquiry.referredBy, { phone: "+919000000001", member: null }, "a number that isn't a member is kept as a number");
+    assert.equal((await gym.post("/api/gym/enquiries", { name: "Walk In", source: "walk_in", referredBy: "9000000001" })).json.enquiry.referredBy, null, "other sources carry no referrer");
+
+    const id = byStranger.json.enquiry.id;
+    assert.equal((await gym.patch(`/api/gym/enquiries/${id}`, { referredBy: "" })).status, 400, "a referral can't lose its number");
+    assert.equal((await gym.patch(`/api/gym/enquiries/${id}`, { referredBy: "9876543210" })).json.enquiry.referredBy.member.id, state.asif, "changed to a member's number");
+    assert.equal((await gym.patch(`/api/gym/enquiries/${id}`, { note: "Called back" })).status, 200, "other edits leave it");
+    const moved = await gym.patch(`/api/gym/enquiries/${id}`, { source: "instagram" });
+    assert.equal(moved.json.enquiry.referredBy, null, "another source clears it");
+    assert.equal((await connection.query("SELECT referred_by_phone FROM gym_enquiries WHERE id = ?", [id]))[0][0].referred_by_phone, null);
+    assert.equal((await gym.patch(`/api/gym/enquiries/${id}`, { source: "referral" })).status, 400, "back to referral needs the number again");
+    assert.equal((await gym.patch(`/api/gym/enquiries/${id}`, { source: "referral", referredBy: "9000000002" })).json.enquiry.referredBy.phone, "+919000000002");
+
+    // An older referral saved without a number can still be edited otherwise
+    const [old] = await connection.query("INSERT INTO gym_enquiries (gym_id, full_name, source, enquired_on) VALUES (?, 'Old Referral', 'referral', ?)", [state.gymA, today]);
+    assert.equal((await gym.patch(`/api/gym/enquiries/${old.insertId}`, { status: "lost" })).status, 200);
+    assert.equal((await gym.patch(`/api/gym/enquiries/${old.insertId}`, { referredBy: "9000000003" })).json.enquiry.referredBy.phone, "+919000000003");
+  }));
+
   it("9. a gym admin changes their branch's name and location (not their own name any more); the admin sees it", run(async () => {
     const gym = as("gymA");
     const r = await gym.patch("/api/gym/details", { branch: "Tumkur Main", area: "SIT Road", city: "Tumakuru" });

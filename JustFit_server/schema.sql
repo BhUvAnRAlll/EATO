@@ -1140,6 +1140,7 @@ CREATE TABLE analytics_sessions (
 CREATE TABLE gym_brands (
   id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
   name        VARCHAR(80)  NOT NULL,              -- the gym's name, e.g. Forma
+  logo_key    VARCHAR(64)  NULL,                  -- the logo's file name in GYM_LOGO_DIR (gym/logos.js, migration 2026-12-08); NULL: no logo
   created_by  VARCHAR(64)  NULL,
   created_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -1290,6 +1291,7 @@ CREATE TABLE gym_enquiries (
   follow_up_on DATE         NULL,
   interest     ENUM('membership', 'pt', 'trial', 'other') NULL,
   source       ENUM('walk_in', 'call', 'whatsapp', 'instagram', 'referral', 'other') NULL,
+  referred_by_phone CHAR(10) NULL,                -- a referral: who referred them (migration 2026-12-09-enquiry-referrer.sql)
   member_id    INT UNSIGNED NULL,
   enquired_on  DATE         NOT NULL,
   created_by   VARCHAR(64)  NULL,
@@ -1301,7 +1303,8 @@ CREATE TABLE gym_enquiries (
   CONSTRAINT fk_gym_enquiries_gym FOREIGN KEY (gym_id) REFERENCES gyms (id),
   CONSTRAINT fk_gym_enquiries_member FOREIGN KEY (member_id) REFERENCES gym_members (id),
   CONSTRAINT fk_gym_enquiries_created_by FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL,
-  CONSTRAINT chk_gym_enquiries_phone CHECK (phone IS NULL OR phone REGEXP '^[6-9][0-9]{9}$')
+  CONSTRAINT chk_gym_enquiries_phone CHECK (phone IS NULL OR phone REGEXP '^[6-9][0-9]{9}$'),
+  CONSTRAINT chk_gym_enquiries_referrer CHECK (referred_by_phone IS NULL OR referred_by_phone REGEXP '^[6-9][0-9]{9}$')
 ) ENGINE = InnoDB;
 
 -- Enquiry contacts (migration 2026-11-30-gym-enquiry-contacts.sql): one row per contact attempt

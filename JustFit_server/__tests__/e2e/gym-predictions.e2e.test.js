@@ -302,7 +302,7 @@ describe("gym predictions e2e: who may not renew, and tomorrow's busy hours", ()
 
   it("11. enquiries: each open one carries its Hot / Warm / Cold score; logging contacts moves it; Open is hottest first", run(async () => {
     const gym = as("gymB");
-    const kiran = (await gym.post("/api/gym/enquiries", { name: "Kiran P", phone: "9000000001", source: "referral", interest: "membership" })).json.enquiry;
+    const kiran = (await gym.post("/api/gym/enquiries", { name: "Kiran P", phone: "9000000001", source: "referral", referredBy: "9000000099", interest: "membership" })).json.enquiry;
     assert.deepEqual([kiran.lead, kiran.contacts], [{ score: 30, level: "warm", reasons: [{ points: 30, text: "Referral" }] }, []], "a referral starts Warm at 30");
     const deepa = (await gym.post("/api/gym/enquiries", { name: "Deepa N", phone: "9000000002", source: "instagram" })).json.enquiry;
     assert.deepEqual(deepa.lead, { score: 0, level: "cold", reasons: [] });

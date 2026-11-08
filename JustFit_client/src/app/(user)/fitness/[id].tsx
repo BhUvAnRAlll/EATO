@@ -72,7 +72,7 @@ function InfoStrip({ program }: { program: ProgramDetail }) {
             <SymbolView name={item.icon} size={18} tintColor={colors.leaf} />
           </View>
           <Text className="program-info__title" numberOfLines={1}>{item.title}</Text>
-          <Text className="program-info__note" numberOfLines={1}>{item.note}</Text>
+          <Text className="program-info__note text-center" numberOfLines={2}>{item.note}</Text>
         </View>
       ))}
     </View>

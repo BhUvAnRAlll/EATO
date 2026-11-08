@@ -101,16 +101,33 @@ describe("gym rules: admissions, renewals, dues, sales, enquiries", () => {
     assert.equal(rules.duePaymentBody({ amount: 1, method: "cash", paidOn: rules.addDays(today, -3) }).paidOn, rules.addDays(today, -3));
     refuses(() => rules.duePaymentBody({ amount: 1, method: "cash", paidOn: rules.addDays(today, 1) }), /collected date/);
     refuses(() => rules.saleBody({ item: "Whey", category: "__proto__", amount: 3200, method: "cash" }), /what was sold/);
-    assert.deepEqual(rules.enquiryBody({ name: "Priya", phone: "", note: "  Evening batch?  " }), { name: "Priya", phone: null, note: "Evening batch?", interest: null, source: null, followUpOn: null });
+    assert.deepEqual(rules.enquiryBody({ name: "Priya", phone: "", note: "  Evening batch?  " }), { name: "Priya", phone: null, note: "Evening batch?", interest: null, source: null, followUpOn: null, referredBy: null });
     assert.equal(rules.enquiryBody({ name: "Priya" }).note, null);
     // QA 2026-11-04: a note that isn't text was saved as "object Object"
     for (const note of [{ a: 1 }, ["x"], 42, true]) assert.throws(() => rules.enquiryBody({ name: "Priya", note }), /note as text/);
   });
 
+  it("a referral takes the referrer's mobile number; other sources carry none", () => {
+    assert.equal(rules.enquiryBody({ name: "Priya", phone: "9123456780", source: "referral", referredBy: "+91 98765 43210" }).referredBy, "9876543210", "cleaned to 10 digits");
+    refuses(() => rules.enquiryBody({ name: "Priya", source: "referral" }), /who referred them/);
+    refuses(() => rules.enquiryBody({ name: "Priya", source: "referral", referredBy: "" }), /who referred them/);
+    refuses(() => rules.enquiryBody({ name: "Priya", source: "referral", referredBy: "12345" }), /referrer's 10-digit/);
+    refuses(() => rules.enquiryBody({ name: "Priya", source: "referral", referredBy: "9876' OR 1=1 --" }), /referrer's 10-digit/);
+    refuses(() => rules.enquiryBody({ name: "Priya", source: "referral", referredBy: { phone: "9876543210" } }), /referrer's 10-digit/);
+    refuses(() => rules.enquiryBody({ name: "Priya", phone: "9123456780", source: "referral", referredBy: "9123456780" }), /can't be the same number/);
+    assert.equal(rules.enquiryBody({ name: "Priya", source: "walk_in", referredBy: "9876543210" }).referredBy, null, "dropped for another source");
+    assert.equal(rules.enquiryBody({ name: "Priya", referredBy: "garbage" }).referredBy, null, "not even read without referral");
+    assert.equal(rules.enquiryEditBody({ referredBy: "9876543210" }).referredBy, "9876543210");
+    assert.equal(rules.enquiryEditBody({ referredBy: "" }).referredBy, null);
+    refuses(() => rules.enquiryEditBody({ referredBy: "123" }), /referrer's 10-digit/);
+    assert.equal(rules.referrerProblem({ source: "walk_in", referredBy: null, phone: null }), null);
+    assert.equal(rules.referrerProblem({ source: "referral", referredBy: "9876543210", phone: "9123456780" }), null);
+  });
+
   it("enquiry follow-up: interest, source, the call-back day, status and the member they became", () => {
     const today = "2026-11-05";
     const full = rules.enquiryBody({ name: "Priya", phone: "9123456780", note: "Evenings", interest: "pt", source: "instagram", followUpOn: "2026-11-06" }, today);
-    assert.deepEqual(full, { name: "Priya", phone: "9123456780", note: "Evenings", interest: "pt", source: "instagram", followUpOn: "2026-11-06" });
+    assert.deepEqual(full, { name: "Priya", phone: "9123456780", note: "Evenings", interest: "pt", source: "instagram", followUpOn: "2026-11-06", referredBy: null });
     assert.equal(rules.enquiryBody({ name: "Priya", interest: "", source: "", followUpOn: "" }, today).followUpOn, null, "blank means none");
     refuses(() => rules.enquiryBody({ name: "Priya", interest: "yoga" }, today), /interested in/);
     refuses(() => rules.enquiryBody({ name: "Priya", source: "__proto__" }, today), /found the gym/);

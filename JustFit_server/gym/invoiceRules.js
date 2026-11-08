@@ -59,7 +59,8 @@ function invoiceOf({ payment, member, gym, today }) {
   return {
     number,
     date: payment.paid_on,
-    gym: { name: gym.brand, branch: gym.branch, area: gym.area, city: gym.city, address: gym.address ?? null, phone: gym.phone ?? null, gstin: gym.gstin ?? null },
+    // logoDataUrl: the gym's logo for the top right corner (gym/logos.js), null when it has none
+    gym: { name: gym.brand, branch: gym.branch, area: gym.area, city: gym.city, address: gym.address ?? null, phone: gym.phone ?? null, gstin: gym.gstin ?? null, logoDataUrl: gym.logoDataUrl ?? null },
     billTo,
     item: { kind: payment.kind, label: ITEM_LABEL[payment.kind] ?? "Payment", detail: payment.detail, title: payment.title },
     amount: payment.amount,

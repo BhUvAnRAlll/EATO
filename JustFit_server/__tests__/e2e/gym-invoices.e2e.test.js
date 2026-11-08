@@ -5,22 +5,27 @@
 // invoice opens and keeps it, and Invoice details (address, phone, GSTIN) are the gym admin's
 // alone and print on the next invoice. Attack paths: no session, a member account, another gym's
 // payment and member ids (404), Staff without the Members area (403), SQL in the ids, bad GSTINs
-// and unexpected fields (400).
+// and unexpected fields (400). The gym's logo (gym/logos.js): the gym admin uploads, replaces and
+// removes it, the invoice carries it as a data URL, Staff and members can't change it.
 //
 //   yarn test:e2e      (needs JustFit_server/.env.test; otherwise every test is skipped)
 const assert = require("node:assert/strict");
 const { describe, it, before, after } = require("node:test");
 const crypto = require("node:crypto");
+const fs = require("node:fs");
+const os = require("node:os");
+const path = require("node:path");
 
 const db = require("./test-db.js");
 const { startTestServer } = require("./server.js");
 const { identitiesFor, describeIdentityError } = require("./test-identities.js");
 const rules = require("../../gym/rules.js");
+const { png, body } = require("./images.js");
 
 describe("gym invoices e2e: numbers, reads, Invoice details, and only at the payment's gym", () => {
   const runId = crypto.randomBytes(4).toString("hex");
   let skipReason = null;
-  let env, connection, server, testAccounts;
+  let env, connection, server, testAccounts, logoDir;
   const identities = {};
   const tokens = {};
   const state = {};
@@ -31,10 +36,13 @@ describe("gym invoices e2e: numbers, reads, Invoice details, and only at the pay
     if (token) headers.Authorization = `Bearer ${token}`;
     if (payload !== undefined) headers["Content-Type"] = "application/json";
     const response = await fetch(`${server.baseUrl}${route}`, { method, headers, body: payload === undefined ? undefined : JSON.stringify(payload) });
+    const type = response.headers.get("content-type") ?? "";
+    if (type.startsWith("image/")) return { status: response.status, type, bytes: Buffer.from(await response.arrayBuffer()) };
     let json = null;
     try { json = await response.json(); } catch { /* empty */ }
     return { status: response.status, json };
   };
+  const logoFiles = () => fs.readdirSync(logoDir).filter((f) => !f.startsWith("."));
   const run = (fn) => async (t) => { if (skipReason) return t.skip(skipReason); await fn(); };
 
   before(async () => {
@@ -44,7 +52,8 @@ describe("gym invoices e2e: numbers, reads, Invoice details, and only at the pay
     try { connection = await db.connect(env); } catch (error) { skipReason = `test database unreachable (${error?.code ?? "refused"})`; return; }
     assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT);
     testAccounts = identitiesFor(env);
-    server = await startTestServer(env);
+    logoDir = fs.mkdtempSync(path.join(os.tmpdir(), "justfit-gym-logos-e2e-"));
+    server = await startTestServer({ ...env, GYM_LOGO_DIR: logoDir });
     try {
       for (const [tag, role] of [["admin", "admin"], ["gymA", "gym_admin"], ["gymB", "gym_admin"], ["staffA", "user"], ["member", "user"]]) {
         identities[tag] = await testAccounts.createIdentity(runId, tag, { role });
@@ -81,6 +90,7 @@ describe("gym invoices e2e: numbers, reads, Invoice details, and only at the pay
     }
     if (server) await server.stop();
     if (connection) await connection.end();
+    if (logoDir) fs.rmSync(logoDir, { recursive: true, force: true });
     if (problems.length > 0) throw new Error(`cleanup incomplete: ${problems.join("; ")}`);
   });
 
@@ -120,7 +130,7 @@ describe("gym invoices e2e: numbers, reads, Invoice details, and only at the pay
     assert.deepEqual(byPayment.json, {
       number: "INV-FOR-TUM-0001",
       date: today,
-      gym: { name: "Forma", branch: "Tumkur", area: "Tumkur", city: "Bengaluru", address: null, phone: null, gstin: null },
+      gym: { name: "Forma", branch: "Tumkur", area: "Tumkur", city: "Bengaluru", address: null, phone: null, gstin: null, logoDataUrl: null },
       billTo: { id: state.ravi, name: "Ravi Kumar", code: state.raviCode, phone: "9123456789", email: "ravi@example.com" },
       item: { kind: "admission", label: "Membership", detail: "3 Months", title: "Ravi Kumar" },
       amount: 4000,
@@ -169,15 +179,15 @@ describe("gym invoices e2e: numbers, reads, Invoice details, and only at the pay
 
   it("4. Invoice details: the gym admin's alone, cleaned, cleared by an empty field, printed on the next invoice", run(async () => {
     const empty = await api("GET", "/api/gym/invoice-details", tokens.gymA);
-    assert.deepEqual(empty.json, { address: null, phone: null, gstin: null });
+    assert.deepEqual(empty.json, { address: null, phone: null, gstin: null, logoUrl: null });
     const set = await api("PATCH", "/api/gym/invoice-details", tokens.gymA, { address: " 12, 1st Main Road,  SS Puram ", phone: "+91 98765 43210", gstin: "29abcde1234f1z5" });
     assert.equal(set.status, 200, JSON.stringify(set.json));
-    assert.deepEqual(set.json, { address: "12, 1st Main Road, SS Puram", phone: "9876543210", gstin: "29ABCDE1234F1Z5" });
+    assert.deepEqual(set.json, { address: "12, 1st Main Road, SS Puram", phone: "9876543210", gstin: "29ABCDE1234F1Z5", logoUrl: null });
     const invoice = await api("GET", `/api/gym/payments/${state.raviAdmission}/invoice`, tokens.gymA);
-    assert.deepEqual(invoice.json.gym, { name: "Forma", branch: "Tumkur", area: "Tumkur", city: "Bengaluru", address: "12, 1st Main Road, SS Puram", phone: "9876543210", gstin: "29ABCDE1234F1Z5" });
+    assert.deepEqual(invoice.json.gym, { name: "Forma", branch: "Tumkur", area: "Tumkur", city: "Bengaluru", address: "12, 1st Main Road, SS Puram", phone: "9876543210", gstin: "29ABCDE1234F1Z5", logoDataUrl: null });
     assert.equal((await api("GET", `/api/gym/payments/${state.bhavanaAdmission}/invoice`, tokens.gymB)).json.gym.gstin, null, "another branch's invoices are untouched");
     const cleared = await api("PATCH", "/api/gym/invoice-details", tokens.gymA, { gstin: "" });
-    assert.deepEqual(cleared.json, { address: "12, 1st Main Road, SS Puram", phone: "9876543210", gstin: null });
+    assert.deepEqual(cleared.json, { address: "12, 1st Main Road, SS Puram", phone: "9876543210", gstin: null, logoUrl: null });
     const [[audit]] = await connection.query("SELECT COUNT(*) AS n FROM admin_audit_log WHERE admin_id = ? AND action = 'gym.edit'", [identities.gymA.id]);
     assert.equal(audit.n, 2, "each change is in the activity log");
 
@@ -188,6 +198,53 @@ describe("gym invoices e2e: numbers, reads, Invoice details, and only at the pay
     assert.equal((await api("PATCH", "/api/gym/invoice-details", tokens.staffA, { address: "Staff" })).status, 403, "Staff can't change them");
     assert.equal((await api("GET", "/api/gym/invoice-details", tokens.staffA)).status, 200, "but can read them");
     assert.equal((await api("PATCH", "/api/gym/invoice-details", tokens.member, { address: "x" })).status, 403);
+  }));
+
+  it("4b. the gym's logo: the gym admin uploads, replaces and removes it; the invoice carries it; Staff and members can't change it", run(async () => {
+    assert.deepEqual(logoFiles(), [], "no file before an upload");
+    const refusedStaff = await api("PUT", "/api/gym/logo", tokens.staffA, body(png(200, 80), "image/png"));
+    assert.equal(refusedStaff.status, 403, "Staff can't set the logo");
+    assert.equal((await api("PUT", "/api/gym/logo", tokens.member, body(png(200, 80), "image/png"))).status, 403);
+    assert.equal((await api("PUT", "/api/gym/logo", null, body(png(200, 80), "image/png"))).status, 401);
+    assert.equal((await api("GET", "/api/gym/logo", tokens.gymA)).status, 404, "no logo yet");
+
+    assert.equal((await api("PUT", "/api/gym/logo", tokens.gymA, body(png(20, 20), "image/png"))).status, 400, "too small");
+    assert.equal((await api("PUT", "/api/gym/logo", tokens.gymA, body(Buffer.from("not an image at all, just text"), "image/png"))).status, 415, "not an image");
+    assert.equal((await api("PUT", "/api/gym/logo", tokens.gymA, body(png(200, 80), "image/jpeg"))).status, 415, "the label must match the bytes");
+    assert.equal((await api("PUT", "/api/gym/logo", tokens.gymA, { data: body(png(200, 80), "image/png").data, mediaType: "image/png", gymId: state.gymB })).status, 400, "an unexpected field");
+    assert.deepEqual(logoFiles(), [], "a refused upload leaves no file");
+
+    const set = await api("PUT", "/api/gym/logo", tokens.gymA, body(png(200, 80), "image/png"));
+    assert.equal(set.status, 200, JSON.stringify(set.json));
+    assert.equal(set.json.logoUrl, "/api/gym/logo", "Invoice details say there is a logo");
+    assert.equal(logoFiles().length, 1);
+    const read = await api("GET", "/api/gym/logo", tokens.gymA);
+    assert.equal(read.status, 200);
+    assert.equal(read.type, "image/png");
+    assert.equal(read.bytes.length, png(200, 80).length, "the bytes come back as uploaded");
+    assert.equal((await api("GET", "/api/gym/logo", tokens.staffA)).status, 200, "Staff read it for the preview");
+    assert.equal((await api("GET", "/api/gym/logo", tokens.gymB)).status, 404, "another gym has no logo");
+    assert.equal((await api("GET", "/api/gym/logo", tokens.member)).status, 403);
+
+    const invoice = await api("GET", `/api/gym/payments/${state.raviAdmission}/invoice`, tokens.gymA);
+    assert.equal(invoice.json.gym.logoDataUrl, `data:image/png;base64,${png(200, 80).toString("base64")}`, "the invoice carries the logo as a data URL");
+    assert.equal((await api("GET", `/api/gym/payments/${state.bhavanaAdmission}/invoice`, tokens.gymB)).json.gym.logoDataUrl, null, "another gym's invoices have none");
+
+    const replaced = await api("PUT", "/api/gym/logo", tokens.gymA, body(png(120, 120), "image/png"));
+    assert.equal(replaced.status, 200);
+    assert.equal(logoFiles().length, 1, "the old file is deleted after a replace");
+    assert.equal((await api("GET", "/api/gym/logo", tokens.gymA)).bytes.length, png(120, 120).length);
+
+    assert.equal((await api("DELETE", "/api/gym/logo", tokens.staffA)).status, 403, "Staff can't remove it");
+    const removed = await api("DELETE", "/api/gym/logo", tokens.gymA);
+    assert.equal(removed.status, 200);
+    assert.equal(removed.json.logoUrl, null);
+    assert.deepEqual(logoFiles(), [], "the file is gone");
+    assert.equal((await api("GET", "/api/gym/logo", tokens.gymA)).status, 404);
+    assert.equal((await api("GET", `/api/gym/payments/${state.raviAdmission}/invoice`, tokens.gymA)).json.gym.logoDataUrl, null);
+    assert.equal((await api("DELETE", "/api/gym/logo", tokens.gymA)).status, 200, "removing twice is fine");
+    const [[audit]] = await connection.query("SELECT COUNT(*) AS n FROM admin_audit_log WHERE admin_id = ? AND action = 'gym.edit' AND summary LIKE '%logo%'", [identities.gymA.id]);
+    assert.equal(audit.n, 3, "added, replaced and removed are in the activity log");
   }));
 
   it("5. no session, a member and another gym get nothing; Staff need the Members area; SQL in the ids is a 400", run(async () => {

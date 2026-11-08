@@ -295,10 +295,27 @@ function followUpDate(value, today = todayInIndia()) {
 const interest = (value) => optionalChoice(value, ENQUIRY_INTERESTS, "Pick what they're interested in: membership, PT, a trial or other.");
 const source = (value) => optionalChoice(value, ENQUIRY_SOURCES, "Pick how they found the gym: walk-in, call, WhatsApp, Instagram, referral or other.");
 
+// Who referred them (2026-11-08): a referral needs the referrer's mobile number, someone can't
+// refer themselves, and any other source carries none (a number sent with it is dropped)
+const REFERRER_NEEDED = "Enter the mobile number of the person who referred them.";
+function referrerProblem({ source, referredBy, phone }) {
+  if (source !== "referral") return null;
+  if (!referredBy) return REFERRER_NEEDED;
+  if (phone && referredBy === phone) return "The person who referred them can't be the same number as theirs.";
+  return null;
+}
+const referrerPhone = (value) => {
+  try {
+    return optionalPhone(value);
+  } catch {
+    throw new ValidationError("Enter the referrer's 10-digit mobile number.");
+  }
+};
+
 // A new enquiry
 function enquiryBody(body, today = todayInIndia()) {
-  onlyKeys(body, ["name", "phone", "note", "interest", "source", "followUpOn"]);
-  return {
+  onlyKeys(body, ["name", "phone", "note", "interest", "source", "followUpOn", "referredBy"]);
+  const out = {
     name: requiredText(body.name, "name", limits.name),
     phone: optionalPhone(body.phone),
     note: enquiryNote(body.note),
@@ -306,18 +323,24 @@ function enquiryBody(body, today = todayInIndia()) {
     source: source(body.source),
     followUpOn: followUpDate(body.followUpOn, today),
   };
+  out.referredBy = out.source === "referral" ? referrerPhone(body.referredBy) : null;
+  const problem = referrerProblem(out);
+  if (problem) throw new ValidationError(problem);
+  return out;
 }
 
 // An enquiry changed: only the fields sent. Joined comes only with the member they became
 // (memberId, checked against this gym by the service); a member can't be given otherwise.
 function enquiryEditBody(body, today = todayInIndia()) {
-  onlyKeys(body, ["name", "phone", "note", "interest", "source", "followUpOn", "status", "memberId"]);
+  onlyKeys(body, ["name", "phone", "note", "interest", "source", "followUpOn", "status", "memberId", "referredBy"]);
   const out = {};
   if (body.name !== undefined) out.name = requiredText(body.name, "name", limits.name);
   if (body.phone !== undefined) out.phone = optionalPhone(body.phone);
   if (body.note !== undefined) out.note = enquiryNote(body.note);
   if (body.interest !== undefined) out.interest = interest(body.interest);
   if (body.source !== undefined) out.source = source(body.source);
+  // The referrer; the service checks it against the source and phone the enquiry ends up with
+  if (body.referredBy !== undefined) out.referredBy = referrerPhone(body.referredBy);
   if (body.followUpOn !== undefined) out.followUpOn = followUpDate(body.followUpOn, today);
   if (body.status !== undefined) {
     if (!ENQUIRY_STATUSES.includes(body.status)) throw new ValidationError("Pick a status: new, follow-up, joined or not interested.");
@@ -554,6 +577,7 @@ module.exports = {
   contactBody,
   followUpDate,
   ENQUIRY_VIEWS,
+  referrerProblem,
   memberEditBody,
   optionalDob,
   dueByDate,

@@ -1,32 +1,37 @@
 import { useCallback, useState } from "react";
 import { Platform, Text, View } from "react-native";
+import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
 import { File, Paths } from "expo-file-system";
-import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 
 import { FormAlert } from "@/components/FormAlert";
 import { PressableScale } from "@/components/PressableScale";
-import { GradientFill } from "@/components/gym/GradientFill";
 import { GymIcon } from "@/components/gym/GymIcon";
 import { GymPrimaryButton } from "@/components/gym/GymPrimaryButton";
 import { GymScreen } from "@/components/gym/GymScreen";
 import { GymError, GymLoading } from "@/components/gym/GymStates";
 import { WhatsAppMark } from "@/components/gym/WhatsAppMark";
+import type { GymIconName } from "@/constants/gymIcons";
 import { emailTo, smsPhone, whatsappPhone } from "@/lib/gymContact";
 import { gymApi, type GymInvoice } from "@/lib/gymApi";
-import { METHOD_WORD, gymLines, invoiceDate, invoiceFileName, invoiceHtml, invoicePhone, invoiceRupees, invoiceText } from "@/lib/gymInvoice";
+import { METHOD_WORD, detailRows, dueDate, gymInitials, invoiceDate, invoiceFileName, invoiceHtml, invoicePhone, invoiceRupees, invoiceSubtitle, invoiceText, itemDescription, safeLogo, type InvoiceRow } from "@/lib/gymInvoice";
 import { haptic } from "@/lib/haptics";
+import { NEEDS_NEW_BUILD, hasNativeModule } from "@/lib/nativeModules";
 import { useGymData } from "@/lib/useGymData";
+import { fonts } from "@/constants/fonts";
 import { useThemeColors } from "@/theme";
 
-// Gym admin › Invoice (2026-11-07, the user's request): one payment's invoice as a sheet of paper
-// on the canvas: the gym on the portal's gradient with the number and date, Bill to, the one item,
-// what was paid and the balance, then the membership's standing and the gym's invoice details.
-// Opened with ?paymentId= (a payment's Invoice chip) or ?memberId= (the ⋯ sheet's Send Invoice,
-// Add Member, Collect Due and the sales sheets: the member's latest payment). Share PDF makes the
-// PDF on the phone (expo-print) and hands it to the share sheet; WhatsApp, SMS and Email open the
-// phone's own apps with the invoice as text. justFit sends nothing itself.
+// Gym admin › Invoice (2026-11-07, the user's request; the user's template since 2026-11-08): one
+// payment's invoice as a sheet of paper on the canvas, laid out like the template, stacked for a
+// phone: "Invoice" with a red rule and the kind, the gym's own logo at the top right (its initials
+// when it has none), the number and dates, Member Details and Plan Details, the item table with a
+// red header, the totals with the Total Amount on a pink band, Payment Details with a Paid badge,
+// the signature line and the gym's footer bar. The same helpers (lib/gymInvoice.ts) lay out the
+// PDF. Opened with ?paymentId= (a payment's Invoice chip) or ?memberId= (the ⋯ sheet's Send
+// Invoice, Add Member, Collect Due and the sales sheets: the member's latest payment). Share PDF
+// makes the PDF on the phone (expo-print) and hands it to the share sheet; WhatsApp, SMS and Email
+// open the phone's own apps with the invoice as text. justFit sends nothing itself.
 export default function GymInvoiceScreen() {
   const params = useLocalSearchParams<{ paymentId?: string; memberId?: string }>();
   const paymentId = Number(params.paymentId) || 0;
@@ -42,6 +47,8 @@ export default function GymInvoiceScreen() {
   );
 }
 
+const LABEL_WIDTH = 104;
+
 function Invoice({ invoice }: { invoice: GymInvoice }) {
   const colors = useThemeColors();
   const [sharing, setSharing] = useState(false);
@@ -49,6 +56,8 @@ function Invoice({ invoice }: { invoice: GymInvoice }) {
   const text = invoiceText(invoice);
   const phone = invoice.billTo?.phone ?? null;
   const email = invoice.billTo?.email ?? null;
+  const cards = detailRows(invoice);
+  const logo = safeLogo(invoice.gym.logoDataUrl);
 
   const sharePdf = async () => {
     if (sharing) return;
@@ -61,8 +70,15 @@ function Invoice({ invoice }: { invoice: GymInvoice }) {
       setTimeout(() => URL.revokeObjectURL(url), 60_000);
       return;
     }
+    // expo-print is loaded only here, and only when this build has it: an app built before it was
+    // added would otherwise crash the whole screen on opening (lib/nativeModules.ts)
+    if (!hasNativeModule("ExpoPrint")) {
+      setError(NEEDS_NEW_BUILD);
+      return;
+    }
     setSharing(true);
     try {
+      const Print = await import("expo-print");
       // An A4 page in points; the file is renamed after the invoice so the share sheet shows it
       const made = await Print.printToFileAsync({ html, width: 595, height: 842 });
       const target = new File(Paths.cache, invoiceFileName(invoice));
@@ -77,10 +93,22 @@ function Invoice({ invoice }: { invoice: GymInvoice }) {
     setSharing(false);
   };
 
-  const row = (label: string, value: string, tone?: "danger" | "success") => (
-    <View className="flex-row items-center justify-between" style={{ gap: 12 }} accessible accessibilityLabel={`${label}: ${value}`}>
-      <Text className="gym-confirm__label">{label}</Text>
-      <Text className="gym-confirm__value" style={tone === "danger" ? { color: colors.gymDanger } : tone === "success" ? { color: colors.gymSuccess } : undefined} numberOfLines={1}>{value}</Text>
+  // "Label : value", the template's three columns
+  const kv = ([label, value]: InvoiceRow) => (
+    <View key={label} className="flex-row" style={{ gap: 8 }} accessible accessibilityLabel={`${label}: ${value}`}>
+      <Text className="gym-tx__meta" style={{ width: LABEL_WIDTH, fontSize: 13, lineHeight: 19, color: colors.ink }}>{label}</Text>
+      <Text className="gym-tx__meta" style={{ fontSize: 13, lineHeight: 19, color: colors.ink }}>:</Text>
+      <Text className="gym-tx__name min-w-0 flex-1" style={{ fontSize: 13, lineHeight: 19, fontFamily: fonts.medium }}>{value}</Text>
+    </View>
+  );
+  // A bordered card with a red icon and title, as the template draws Member, Plan and Payment Details
+  const card = (icon: GymIconName, title: string, children: React.ReactNode) => (
+    <View style={{ borderWidth: 1, borderColor: colors.line, borderRadius: 12, padding: 14, gap: 8 }}>
+      <View className="flex-row items-center" style={{ gap: 8 }}>
+        <GymIcon name={icon} size={18} color={colors.primary} />
+        <Text style={{ fontFamily: fonts.semibold, fontSize: 15, lineHeight: 21, color: colors.primary }} accessibilityRole="header">{title}</Text>
+      </View>
+      <View style={{ gap: 4 }}>{children}</View>
     </View>
   );
   const sendVia = (label: string, icon: "whatsapp" | "message-square" | "mail", onPress: () => void) => (
@@ -89,63 +117,114 @@ function Invoice({ invoice }: { invoice: GymInvoice }) {
       <Text className="gym-btn__label gym-btn__label--outline">{label}</Text>
     </PressableScale>
   );
+  const footLine = (icon: GymIconName, lines: string[]) => (
+    <View key={lines[0]} className="flex-row" style={{ gap: 10 }}>
+      <GymIcon name={icon} size={18} color={colors.primary} />
+      <View className="min-w-0 flex-1">
+        {lines.map((line, i) => <Text key={line} className={i === 0 ? "gym-tx__name" : "gym-tx__meta"} style={i === 0 ? { fontSize: 13, lineHeight: 19 } : undefined}>{line}</Text>)}
+      </View>
+    </View>
+  );
+  const amount = invoiceRupees(invoice.amount);
 
   return (
     <>
-      <View className="gym-card" style={{ overflow: "hidden" }} accessible={false}>
-        {/* The gym on the gradient, with the invoice number and date */}
-        <View style={{ padding: 20, gap: 12 }}>
-          <GradientFill radius={0} />
-          <View className="flex-row items-start justify-between" style={{ gap: 12 }}>
-            <View className="min-w-0 flex-1" style={{ gap: 2 }}>
-              <Text className="gym-hero__plan" style={{ fontSize: 20, lineHeight: 26 }} numberOfLines={1} accessibilityRole="header">{invoice.gym.name}</Text>
-              {gymLines(invoice.gym).map((line) => <Text key={line} className="gym-hero__note" numberOfLines={2}>{line}</Text>)}
-            </View>
-            <View className="items-end" style={{ gap: 2 }}>
-              <Text className="gym-hero__label">Invoice</Text>
-              <Text className="gym-hero__plan" accessibilityLabel={`Invoice number ${invoice.number}`}>{invoice.number}</Text>
-              <Text className="gym-hero__note">{invoiceDate(invoice.date)}</Text>
-            </View>
+      <View className="gym-card" style={{ padding: 16, gap: 16, backgroundColor: colors.surface }} accessible={false}>
+        {/* The heading and, at the top right, the gym's logo */}
+        <View className="flex-row items-start justify-between" style={{ gap: 12 }}>
+          <View className="min-w-0 flex-1" style={{ gap: 6 }}>
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 28, lineHeight: 34, color: colors.ink }} accessibilityRole="header">Invoice</Text>
+            <View style={{ width: 56, height: 3, borderRadius: 2, backgroundColor: colors.primary }} />
+            <Text className="gym-tx__name" style={{ fontSize: 14, lineHeight: 20 }}>{invoiceSubtitle(invoice.item.kind)}</Text>
           </View>
-        </View>
-
-        <View style={{ padding: 20, gap: 18 }}>
-          <View style={{ gap: 4 }}>
-            <Text className="gym-section-title">Bill to</Text>
-            {invoice.billTo ? (
-              <>
-                <Text className="gym-tx__name">{invoice.billTo.name}</Text>
-                <Text className="gym-tx__meta">{`Member ID ${invoice.billTo.code}${phone ? ` · ${invoicePhone(phone)}` : ""}`}</Text>
-              </>
-            ) : (
-              <Text className="gym-tx__name">Walk-in customer</Text>
-            )}
-          </View>
-
-          <View style={{ gap: 4 }}>
-            <Text className="gym-section-title">Payment</Text>
-            <View className="flex-row items-center justify-between" style={{ gap: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.gymLine }} accessible accessibilityLabel={`${invoice.item.label}, ${invoice.item.detail}, ${invoiceRupees(invoice.amount)}`}>
-              <View className="min-w-0 flex-1" style={{ gap: 2 }}>
-                <Text className="gym-tx__name" numberOfLines={1}>{invoice.item.label}</Text>
-                <Text className="gym-tx__meta" numberOfLines={2}>{invoice.item.detail}</Text>
-              </View>
-              <Text className="gym-confirm__value">{invoiceRupees(invoice.amount)}</Text>
+          {logo ? (
+            <View style={{ width: 104, height: 52 }} accessible accessibilityRole="image" accessibilityLabel={`${invoice.gym.name} logo`}>
+              <Image source={{ uri: logo }} contentFit="contain" style={{ width: 104, height: 52 }} accessibilityIgnoresInvertColors />
             </View>
-            <View style={{ gap: 10, paddingTop: 10 }}>
-              {row(`Paid · ${METHOD_WORD[invoice.method]}`, invoiceRupees(invoice.amount))}
-              {invoice.balance
-                ? row(`Balance due${invoice.balance.dueBy ? ` by ${invoiceDate(invoice.balance.dueBy)}` : ""}`, invoiceRupees(invoice.balance.due), "danger")
-                : row("Balance due", "Nil · Paid in full", "success")}
+          ) : (
+            <View style={{ width: 52, height: 52, borderRadius: 12, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" }} accessible accessibilityLabel={`${invoice.gym.name}, no logo yet`}>
+              <Text style={{ fontFamily: fonts.semibold, fontSize: 20, lineHeight: 26, color: colors.onPrimary }}>{gymInitials(invoice.gym.name)}</Text>
             </View>
-          </View>
-
-          {invoice.membership && (
-            <Text className="gym-tx__meta">
-              {`Membership${invoice.membership.plan ? ` (${invoice.membership.plan})` : ""} ${invoice.membership.active ? "valid till" : "ended on"} ${invoiceDate(invoice.membership.until)}.`}
-            </Text>
           )}
-          <Text className="gym-tx__date">{`Thank you for training with ${invoice.gym.name}. Made with justFit.`}</Text>
         </View>
+        <View style={{ gap: 4 }}>
+          {kv(["Invoice No", invoice.number])}
+          {kv(["Invoice Date", invoiceDate(invoice.date)])}
+          {kv(["Due Date", invoiceDate(dueDate(invoice))])}
+        </View>
+
+        {card("user", cards.member.title, cards.member.rows.map(kv))}
+        {card("calendar", cards.plan.title, cards.plan.rows.map(kv))}
+
+        {/* The item table */}
+        <View style={{ borderWidth: 1, borderColor: colors.line, borderRadius: 12, overflow: "hidden" }} accessible accessibilityLabel={`Item 1, ${itemDescription(invoice)}, ${amount}`}>
+          <View className="flex-row items-center" style={{ backgroundColor: colors.primary, paddingVertical: 10, paddingHorizontal: 12, gap: 10 }}>
+            <Text style={{ width: 20, fontFamily: fonts.semibold, fontSize: 13, color: colors.onPrimary, textAlign: "center" }}>#</Text>
+            <Text className="min-w-0 flex-1" style={{ fontFamily: fonts.semibold, fontSize: 13, color: colors.onPrimary }}>Description</Text>
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: colors.onPrimary }}>Amount</Text>
+          </View>
+          <View className="flex-row items-start" style={{ paddingVertical: 10, paddingHorizontal: 12, gap: 10 }}>
+            <Text style={{ width: 20, fontFamily: fonts.regular, fontSize: 13, lineHeight: 19, color: colors.ink, textAlign: "center" }}>1</Text>
+            <Text className="min-w-0 flex-1" style={{ fontFamily: fonts.regular, fontSize: 13, lineHeight: 19, color: colors.ink }}>{itemDescription(invoice)}</Text>
+            <Text style={{ fontFamily: fonts.medium, fontSize: 13, lineHeight: 19, color: colors.ink }}>{amount}</Text>
+          </View>
+        </View>
+
+        {/* The totals: Subtotal, the Total Amount band, then what is still owed */}
+        <View style={{ gap: 8 }}>
+          <View className="flex-row items-center justify-between" style={{ paddingHorizontal: 12, paddingVertical: 4 }} accessible accessibilityLabel={`Subtotal ${amount}`}>
+            <Text className="gym-confirm__label">Subtotal</Text>
+            <Text className="gym-confirm__value" style={{ fontSize: 15 }}>{amount}</Text>
+          </View>
+          <View className="flex-row items-center justify-between" style={{ backgroundColor: colors.accentSoft, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12 }} accessible accessibilityLabel={`Total Amount ${amount}`}>
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 17, lineHeight: 23, color: colors.primary }}>Total Amount</Text>
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 19, lineHeight: 25, color: colors.primary }}>{amount}</Text>
+          </View>
+          {invoice.balance ? (
+            <View className="flex-row items-center justify-between" style={{ paddingHorizontal: 12, paddingVertical: 4, gap: 12 }} accessible accessibilityLabel={`Balance Due ${invoiceRupees(invoice.balance.due)}${invoice.balance.dueBy ? ` by ${invoiceDate(invoice.balance.dueBy)}` : ""}`}>
+              <Text className="gym-confirm__label min-w-0 flex-1" style={{ color: colors.danger, fontFamily: fonts.medium }} numberOfLines={2}>
+                Balance Due{invoice.balance.dueBy ? <Text style={{ color: colors.muted, fontFamily: fonts.regular, fontSize: 12 }}>{` by ${invoiceDate(invoice.balance.dueBy)}`}</Text> : null}
+              </Text>
+              <Text className="gym-confirm__value" style={{ fontSize: 15, color: colors.danger }}>{invoiceRupees(invoice.balance.due)}</Text>
+            </View>
+          ) : (
+            <View className="flex-row items-center justify-between" style={{ paddingHorizontal: 12, paddingVertical: 4 }} accessible accessibilityLabel="Balance Due: Nil, paid in full">
+              <Text className="gym-confirm__label" style={{ color: colors.success, fontFamily: fonts.medium }}>Balance Due</Text>
+              <Text className="gym-confirm__value" style={{ fontSize: 15, color: colors.success }}>Nil · Paid in full</Text>
+            </View>
+          )}
+        </View>
+
+        {card("credit-card", "Payment Details", (
+          <>
+            {kv(["Payment Mode", METHOD_WORD[invoice.method]])}
+            {kv(["Payment Date", invoiceDate(invoice.date)])}
+            <View className="flex-row items-center" style={{ gap: 8 }} accessible accessibilityLabel="Payment Status: Paid">
+              <Text className="gym-tx__meta" style={{ width: LABEL_WIDTH, fontSize: 13, lineHeight: 19, color: colors.ink }}>Payment Status</Text>
+              <Text className="gym-tx__meta" style={{ fontSize: 13, lineHeight: 19, color: colors.ink }}>:</Text>
+              <View className="flex-row items-center" style={{ gap: 4, backgroundColor: colors.success, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 2 }}>
+                <GymIcon name="check" size={12} color={colors.onPrimary} />
+                <Text style={{ fontFamily: fonts.semibold, fontSize: 12, lineHeight: 18, color: colors.onPrimary }}>Paid</Text>
+              </View>
+            </View>
+          </>
+        ))}
+
+        {/* The signature line */}
+        <View className="items-end">
+          <View className="items-center" style={{ width: 180, paddingTop: 8, borderTopWidth: 1, borderTopColor: colors.lineStrong }}>
+            <Text className="gym-tx__name" style={{ fontSize: 13, lineHeight: 19 }}>Authorized Signature</Text>
+            <Text className="gym-tx__meta">{invoice.gym.name}</Text>
+          </View>
+        </View>
+
+        {/* The gym's footer bar */}
+        <View style={{ backgroundColor: colors.surfaceAlt, borderRadius: 12, padding: 12, gap: 10 }}>
+          {footLine("map-pin", [invoice.gym.name, `${invoice.gym.branch} · ${invoice.gym.area}, ${invoice.gym.city}`, ...(invoice.gym.address ? [invoice.gym.address] : [])])}
+          {invoice.gym.phone ? footLine("phone", [invoicePhone(invoice.gym.phone)]) : null}
+          {invoice.gym.gstin ? footLine("file-text", [`GSTIN ${invoice.gym.gstin}`]) : null}
+        </View>
+        <Text className="gym-tx__date" style={{ textAlign: "center" }}>{`Thank you for training with ${invoice.gym.name}. Made with justFit.`}</Text>
       </View>
 
       {error ? <FormAlert message={error} /> : null}
