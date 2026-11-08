@@ -161,7 +161,7 @@ function dateIn(value, { from, to, fallback, message }) {
 // optional one-time admission amount and a discount make the amount payable; what's collected now
 // is paid on the payment date, the rest is owed by the due date. The plan starts on the joining date.
 function admissionBody(body, today = todayInIndia()) {
-  onlyKeys(body, ["name", "phone", "dob", "gender", "email", "heightCm", "weightKg", "address", "notes", "unit", "duration", "fee", "admissionFee", "discount", "paid", "method", "dueBy", "joinedOn", "paidOn"]);
+  onlyKeys(body, ["name", "phone", "dob", "gender", "email", "heightCm", "weightKg", "address", "notes", "unit", "duration", "planId", "fee", "admissionFee", "discount", "paid", "method", "dueBy", "joinedOn", "paidOn"]);
   const plan = rupees(body.fee, "plan fee");
   const admissionFee = blank(body.admissionFee) ? 0 : rupees(body.admissionFee, "admission amount", { min: 0 });
   const discount = blank(body.discount) ? 0 : rupees(body.discount, "discount", { min: 0 });
@@ -180,6 +180,7 @@ function admissionBody(body, today = todayInIndia()) {
     email: null, heightCm: null, weightKg: null, address: null, notes: null,
     ...memberDetails(body),
     ...planLength(body),
+    planId: catalogPlanId(body.planId),
     fee: plan,
     admissionFee,
     discount,
@@ -200,10 +201,18 @@ function memberCode(gymName, branchName, number) {
   return `${part(gymName, "GYM")}-${part(branchName, "BR")}-${String(number).padStart(4, "0")}`;
 }
 
+// The catalogue plan picked on Add Member or Renewal (2026-11-08), or null for a custom plan: the
+// server reads its name from this branch's catalogue, never from the request
+function catalogPlanId(value) {
+  if (value === undefined || value === null) return null;
+  if (!Number.isInteger(value) || value < 1 || value > 4294967295) throw new ValidationError("Pick one of your plans.");
+  return value;
+}
+
 // A member renewing their plan
 function renewalBody(body) {
-  onlyKeys(body, ["unit", "duration", "fee", "paid", "method", "dueBy"]);
-  return { ...planLength(body), ...feeAndPaid(body), method: method(body.method) };
+  onlyKeys(body, ["unit", "duration", "planId", "fee", "paid", "method", "dueBy"]);
+  return { ...planLength(body), planId: catalogPlanId(body.planId), ...feeAndPaid(body), method: method(body.method) };
 }
 
 // Part or all of what a member owes; with part, optionally a new date for the rest

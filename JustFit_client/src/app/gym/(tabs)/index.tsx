@@ -79,7 +79,7 @@ export default function GymHome() {
   const setAreas = useGymAccess((state) => state.setAreas);
   const areasKey = data?.gym.areas.join(",");
   useEffect(() => {
-    if (data) setAreas(data.gym.areas);
+    if (data) setAreas(data.gym.areas, data.gym.options);
   }, [areasKey]); // eslint-disable-line react-hooks/exhaustive-deps -- the joined list is the value that matters
 
   // Each count tile has its own soft colour and icon (the user's design)

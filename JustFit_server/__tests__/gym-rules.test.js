@@ -12,9 +12,15 @@ describe("gym rules: admissions, renewals, dues, sales, enquiries", () => {
     const today = rules.todayInIndia();
     assert.deepEqual(rules.admissionBody({ name: "  Mohammed   Asif ", phone: "+91 98765 43210", unit: "months", duration: 3, fee: 4500, paid: 3000, method: "online", dueBy: soon }), {
       name: "Mohammed Asif", phone: "9876543210", dob: null, gender: null, email: null, heightCm: null, weightKg: null, address: null, notes: null,
-      unit: "months", duration: 3, fee: 4500, admissionFee: 0, discount: 0, payable: 4500, paid: 3000, due: 1500, dueBy: soon, method: "online", joinedOn: today, paidOn: today,
+      unit: "months", duration: 3, planId: null, fee: 4500, admissionFee: 0, discount: 0, payable: 4500, paid: 3000, due: 1500, dueBy: soon, method: "online", joinedOn: today, paidOn: today,
     });
     assert.equal(rules.admissionBody({ name: "Ravi", unit: "months", duration: 1, fee: 1500, paid: 1500, method: "cash" }).phone, null, "the phone is optional");
+    // The catalogue plan picked (2026-11-08): its id only; the server reads the name
+    assert.equal(rules.admissionBody({ name: "Ravi", duration: 1, planId: 7, fee: 1500, paid: 1500, method: "cash" }).planId, 7);
+    for (const planId of ["7", 0, -1, 1.5, "Gold", "7 OR 1=1", { id: 7 }]) {
+      refuses(() => rules.admissionBody({ name: "Ravi", duration: 1, planId, fee: 1500, paid: 1500, method: "cash" }), /one of your plans/);
+    }
+    refuses(() => rules.admissionBody({ name: "Ravi", duration: 1, planName: "Gold", fee: 1500, paid: 1500, method: "cash" }), /fields/);
   });
 
   it("refuses bad admissions", () => {
@@ -70,7 +76,9 @@ describe("gym rules: admissions, renewals, dues, sales, enquiries", () => {
 
   it("renewals, due payments, sales and enquiries", () => {
     const soon = rules.addDays(rules.todayInIndia(), 7);
-    assert.deepEqual(rules.renewalBody({ unit: "months", duration: 12, fee: 12000, paid: 10000, method: "cash", dueBy: soon }), { unit: "months", duration: 12, fee: 12000, paid: 10000, due: 2000, dueBy: soon, method: "cash" });
+    assert.deepEqual(rules.renewalBody({ unit: "months", duration: 12, fee: 12000, paid: 10000, method: "cash", dueBy: soon }), { unit: "months", duration: 12, planId: null, fee: 12000, paid: 10000, due: 2000, dueBy: soon, method: "cash" });
+    assert.equal(rules.renewalBody({ duration: 12, planId: 3, fee: 12000, paid: 12000, method: "cash" }).planId, 3);
+    refuses(() => rules.renewalBody({ duration: 12, planId: "3", fee: 12000, paid: 12000, method: "cash" }), /one of your plans/);
     refuses(() => rules.renewalBody({ unit: "months", duration: 12, fee: 12000, paid: 10000, method: "cash", memberId: 3 }), /fields/);
     assert.deepEqual(rules.duePaymentBody({ amount: 500, method: "online" }), { amount: 500, method: "online", paidOn: rules.todayInIndia() });
     refuses(() => rules.duePaymentBody({ amount: -5, method: "online" }), /rupees/);

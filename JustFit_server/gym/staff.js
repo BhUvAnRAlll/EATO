@@ -35,10 +35,13 @@ async function team(pool, gym, callerId) {
       kind: p.kind,
       // Role & Permission: what they can use here (the gym admin everything, a trainer nothing)
       areas: rules.areasOf(p),
+      options: rules.optionsOf(p),
       addedAt: dayOf(p.added_at),
       you: p.user_id === callerId,
     })),
     invites: invites.map((i) => ({ id: i.id, phone: rules.maskPhone(i.phone), kind: i.kind, invitedAt: dayOf(i.created_at) })),
+    // Role & Permission's tiles and their options
+    permissionTree: rules.permissionTree(),
   };
 }
 
@@ -126,15 +129,14 @@ async function remove(pool, gym, callerId, userId) {
 
 // Role & Permission: what a Staff login may use at this branch (an empty list leaves them Home
 // only). Takes effect on their next request: the areas are read with the branch on every call.
-async function setPermissions(pool, gym, callerId, userId, { areas }) {
+async function setPermissions(pool, gym, callerId, userId, { options }) {
   await inTransaction(pool, async (db) => {
     const [[row]] = await db.query("SELECT user_id, kind FROM gym_staff WHERE user_id = ? AND gym_id = ? FOR UPDATE", [userId, gym.id]);
     if (!row) throw new NotFoundError("They aren't on your team.");
     const problem = rules.permissionsProblem(callerId, { userId: row.user_id, kind: row.kind });
     if (problem) throw new ConflictError(problem);
-    await db.query("UPDATE gym_staff SET permissions = ? WHERE user_id = ? AND gym_id = ?", [JSON.stringify(areas), userId, gym.id]);
-    const named = areas.length === 0 ? "Home only" : areas.map((a) => rules.AREA_LABEL[a]).join(", ");
-    await audit(db, callerId, "gym.staff_permissions", "gym", gym.id, `The gym admin set a Staff login's access at ${gym.brand}, ${gym.branch} branch to: ${named}`);
+    await db.query("UPDATE gym_staff SET permissions = ? WHERE user_id = ? AND gym_id = ?", [JSON.stringify(options), userId, gym.id]);
+    await audit(db, callerId, "gym.staff_permissions", "gym", gym.id, `The gym admin set a Staff login's access at ${gym.brand}, ${gym.branch} branch to: ${rules.optionsSummary(options)}`);
   });
   return team(pool, gym, callerId);
 }

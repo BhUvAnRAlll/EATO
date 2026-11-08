@@ -13,6 +13,8 @@ const crypto = require("node:crypto");
 
 // What the gym admin (owner) may use: every area of Role & Permission (gym/staffRules.js AREAS)
 const ALL_AREAS = ["members", "payments", "enquiries", "catalog", "attendance", "sms", "predictions", "expenses"];
+// Every option inside them (2026-11-08): the gym admin has all
+const ALL_OPTIONS = require("../../gym/staffRules").OPTION_IDS;
 
 const db = require("./test-db.js");
 const { startTestServer } = require("./server.js");
@@ -129,7 +131,7 @@ describe("gym portal e2e: gyms, staff, members, money and attendance", () => {
     const empty = await as("gymA").get("/api/gym/dashboard");
     assert.equal(empty.status, 200, JSON.stringify(empty.json));
     // areas: the gym admin may use every area (Role & Permission)
-    assert.deepEqual(empty.json.gym, { name: "Forma", branch: "Tumkur", area: "Batawadi", city: "Tumakuru", branchCount: 1, access: "owner", areas: ALL_AREAS });
+    assert.deepEqual(empty.json.gym, { name: "Forma", branch: "Tumkur", area: "Batawadi", city: "Tumakuru", branchCount: 1, access: "owner", areas: ALL_AREAS, options: ALL_OPTIONS });
     assert.deepEqual(empty.json.revenue, { online: 0, cash: 0 });
     assert.deepEqual(empty.json.recent, []);
   }));
@@ -451,7 +453,7 @@ describe("gym portal e2e: gyms, staff, members, money and attendance", () => {
     const gym = as("gymA");
     const r = await gym.patch("/api/gym/details", { branch: "Tumkur Main", area: "SIT Road", city: "Tumakuru" });
     assert.equal(r.status, 200, JSON.stringify(r.json));
-    assert.deepEqual(r.json, { gym: { name: "Forma", branch: "Tumkur Main", area: "SIT Road", city: "Tumakuru", branchCount: 1, access: "owner", areas: ALL_AREAS } });
+    assert.deepEqual(r.json, { gym: { name: "Forma", branch: "Tumkur Main", area: "SIT Road", city: "Tumakuru", branchCount: 1, access: "owner", areas: ALL_AREAS, options: ALL_OPTIONS } });
     assert.equal((await gym.get("/api/gym/dashboard")).json.gym.area, "SIT Road");
     const detail = (await as("admin").get(`/api/admin/portal/gyms/${state.gymA}`)).json;
     assert.deepEqual([detail.gym.name, detail.gym.branch], ["Forma", "Tumkur Main"]);
@@ -586,6 +588,31 @@ describe("gym portal e2e: gyms, staff, members, money and attendance", () => {
     assert.deepEqual([sold.json.payment.kind, sold.json.payment.detail], ["service", "Service"]);
     assert.equal((await gym.get("/api/gym/payments?kind=service")).json.payments.length, 1);
     assert.equal((await gym.get("/api/gym/wallet")).json.today.byKind.service, 300);
+
+    // The plan's name on the member (2026-11-08): read from this branch's catalogue by its id
+    const gold = (await gym.post("/api/gym/catalog", { kind: "plan", name: "Gold", duration: 3, price: 4500 })).json.items.find((i) => i.name === "Gold");
+    const ptItem = (await gym.get("/api/gym/catalog")).json.items.find((i) => i.kind === "pt");
+    const otherPlan = (await other.post("/api/gym/catalog", { kind: "plan", name: "Other gym's plan", duration: 3, price: 1 })).json.items.find((i) => i.kind === "plan");
+    const before = await count("gym_members", "gym_id = ?", [state.gymA]);
+    for (const planId of [otherPlan.id, ptItem.id, 999999999]) {
+      const refused = await gym.post("/api/gym/members", { name: "Wrong Plan", duration: 3, planId, fee: 4500, paid: 4500, method: "cash" });
+      assert.equal(refused.status, 400, `${planId}: ${JSON.stringify(refused.json)}`);
+      assert.match(refused.json.error, /one of your plans/);
+    }
+    assert.equal(await count("gym_members", "gym_id = ?", [state.gymA]), before, "a refused plan writes no member");
+    const goldie = await gym.post("/api/gym/members", { name: "Gold Member", duration: 3, planId: gold.id, fee: 4500, paid: 4500, method: "cash" });
+    assert.equal(goldie.status, 201, JSON.stringify(goldie.json));
+    assert.equal(goldie.json.member.planName, "Gold");
+    assert.equal((await gym.get("/api/gym/members?filter=all&search=Gold%20Member")).json.members[0].planName, "Gold", "the list carries it");
+    assert.equal(pass.json.member.planName, null, "a custom plan has no name");
+    const custom = await gym.post(`/api/gym/members/${goldie.json.member.id}/renew`, { duration: 1, fee: 1500, paid: 1500, method: "cash" });
+    assert.equal(custom.json.member.planName, null, "renewing onto a custom plan clears the name");
+    assert.equal((await gym.post(`/api/gym/members/${goldie.json.member.id}/renew`, { duration: 3, planId: otherPlan.id, fee: 1, paid: 1, method: "cash" })).status, 400);
+    const back = await gym.post(`/api/gym/members/${goldie.json.member.id}/renew`, { duration: 3, planId: gold.id, fee: 4500, paid: 4500, method: "cash" });
+    assert.equal(back.json.member.planName, "Gold");
+    // Renaming the plan later keeps what the member bought
+    await gym.patch(`/api/gym/catalog/${gold.id}`, { name: "Gold Plus" });
+    assert.equal((await gym.get(`/api/gym/members/${goldie.json.member.id}`)).json.member.planName, "Gold");
   }));
 
   it("12. Add New Member's full form: admission amount, discount, dates, details; saved as given", run(async () => {

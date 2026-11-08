@@ -66,7 +66,7 @@ export default function GymWalletTab() {
   // Role & Permission: the forecast is Predictions and the due list Members; a login without them
   // isn't shown a card the server would refuse (each 403 also re-checked the account, QA 2026-11-07)
   const can = useCan();
-  const canPredict = can("predictions");
+  const canPredict = can("predictions.revenue");
   const { result, retry, refreshing, refresh } = useGymData(gymApi.wallet);
   // A stable `load` per answer (useGymData treats a new one as a new query)
   const loadForecast = useCallback((token: string | null) => (canPredict ? gymApi.revenueForecast(token) : Promise.resolve({ ok: false as const, error: "Your login doesn't include Predictions.", status: 403 })), [canPredict]);
@@ -88,7 +88,7 @@ export default function GymWalletTab() {
               <PeriodCard title="This month" sums={result.data.month} spent={result.data.expenses?.month} net={result.data.net?.month} />
               {canPredict && <RevenueForecastCard result={forecast.result} onRetry={forecast.retry} />}
               {/* An older server answers without `due`: leave the card out rather than crash */}
-              {result.data.due && can("members") && <PressableScale onPress={() => router.push("/gym/members?filter=due")} className="gym-card gym-tx" accessibilityRole="button" accessibilityLabel={`Due from members: ${rupees(result.data.due.total)}, ${result.data.due.members} members`}>
+              {result.data.due && can("members.view") && <PressableScale onPress={() => router.push("/gym/members?filter=due")} className="gym-card gym-tx" accessibilityRole="button" accessibilityLabel={`Due from members: ${rupees(result.data.due.total)}, ${result.data.due.members} members`}>
                 <View className="min-w-0 flex-1">
                   <Text className="gym-tx__name">Due from members</Text>
                   <Text className="gym-tx__meta">{`${result.data.due.members} ${result.data.due.members === 1 ? "member has a due" : "members have dues"}`}</Text>

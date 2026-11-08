@@ -6485,3 +6485,153 @@
   background-color: var(--color-gym-bar);
   overflow: hidden;
 }
+
+/* Role & Permission › a Staff login (2026-11-08, the user's reference): banners, search, tiles
+   with a checkbox and their options, and the Save bar pinned under the list */
+@utility gym-perm-banner {
+  flex-direction: row;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 14px;
+  background-color: var(--color-gym-primary-soft);
+}
+
+@utility gym-perm-banner--warn {
+  border-width: 1px;
+  border-color: var(--color-gym-warning-line);
+  background-color: var(--color-gym-warning-soft);
+}
+
+@utility gym-perm-banner__text {
+  flex: 1;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--color-gym-ink-soft);
+}
+
+@utility gym-perm-banner__text--warn {
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-gym-warning-ink);
+}
+
+@utility gym-perm-search {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  min-height: 50px;
+  padding-inline: 14px;
+  border-width: 1px;
+  border-radius: 14px;
+  border-color: var(--color-gym-line);
+  background-color: var(--color-gym-page);
+}
+
+@utility gym-perm-links {
+  flex-direction: row;
+  align-items: center;
+  gap: 24px;
+}
+
+@utility gym-perm-link {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+}
+
+@utility gym-perm-link__label {
+  font-family: var(--font-sans-medium);
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--color-gym-primary-text);
+}
+
+@utility gym-perm-tile {
+  padding-inline: 16px;
+  padding-block: 6px;
+  border-width: 1px;
+  border-radius: 20px;
+  border-color: var(--color-gym-line);
+  background-color: var(--color-gym-page);
+}
+
+@utility gym-perm-row {
+  flex-direction: row;
+  align-items: center;
+  gap: 14px;
+  min-height: 52px;
+}
+
+@utility gym-perm-row--option {
+  min-height: 48px;
+  padding-left: 38px;
+}
+
+@utility gym-perm-box {
+  width: 24px;
+  height: 24px;
+  align-items: center;
+  justify-content: center;
+  border-width: 2px;
+  border-radius: 5px;
+  border-color: var(--color-gym-ink);
+  background-color: var(--color-gym-page);
+}
+
+@utility gym-perm-box--on {
+  border-color: var(--color-gym-primary);
+  background-color: var(--color-gym-primary);
+}
+
+@utility gym-perm-label {
+  flex: 1;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 22px;
+  color: var(--color-gym-ink);
+}
+
+@utility gym-perm-count {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--color-gym-faint);
+}
+
+@utility gym-perm-footer {
+  padding-inline: 16px;
+  padding-top: 12px;
+  border-top-width: 1px;
+  border-color: var(--color-gym-line);
+  background-color: var(--color-gym-page);
+}
+
+/* Members › a card's plan pill beside the days left (2026-11-08): grey, so the days stay the accent */
+@utility gym-mcard__pill--plan {
+  max-width: 100%;
+  background-color: var(--color-gym-bar);
+}
+
+@utility gym-mcard__pill-label--plan {
+  color: var(--color-gym-ink-soft);
+}
+
+/* Members › the header's + Add button on the gradient */
+@utility gym-header-add {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding-inline: 14px;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+@utility gym-header-add__label {
+  font-family: var(--font-sans-semibold);
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--color-white);
+}

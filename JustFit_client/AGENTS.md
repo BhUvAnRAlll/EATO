@@ -145,6 +145,21 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
   (`useCan`), and Home's tiles, cards and Wallet link, the ☰ menu, the + sheet, the Manage sections and
   the Wallet / Manage tabs hide what isn't included (nothing is hidden until Home has loaded).
   Tests: `gym-staff-rules.test.js`, `e2e/gym-staff.e2e.test.js` (4b), `ui/gym-permissions.ui.test.js`.
+  **Options inside each area (2026-11-08, the user's reference screen):** each area is a tile with
+  2-5 options (`staffRules.OPTIONS`, e.g. Members › Member list and pages, Add Member, Edit profile,
+  photo and trainer, Renew membership, Pause membership; Payments › Collect payment due, PT,
+  Product and service sales, Transactions, Wallet). An option may `need` its area's list (ticked with
+  it, dropped without it). `gym_staff.permissions` now holds option ids; an area id saved before
+  stands for all its options, NULL for every option (no migration). `requireArea` checks
+  `staffRules.optionsOfRequest(method, path)` on every request and refuses a route of an area that
+  no option covers (fail closed; `gym-staff-rules.test.js` walks the whole gym router so a new
+  route can't go unmapped); a refusal names the option ("Members › Add Member"). `PUT …/permissions`
+  takes `{ options }` (or the older `{ areas }`); the team answer carries each person's `options`
+  and the `permissionTree` the app draws; the dashboard's `gym.options` feeds `useCan("members.add")`.
+  App: the list (`app/gym/permissions/index.tsx`) opens `permissions/[userId].tsx`: info and
+  warning banners, search, Expand all / Collapse all, a card per tile with its box and the options
+  under it, Save Permissions pinned at the bottom (tick rules in `lib/permissionTree.ts`, pure and
+  unit-tested). `PermissionsSheet` is gone.
 - **Trainers and My Clients (2026-11-05, phase 2):** a member's PT is with one of the branch's
   trainers (`gym_members.pt_trainer_id`), picked on the PT form (`TrainerChips`; left out, the
   member keeps their trainer) or in the member's ⋯ › Sales › Change Trainer (`ChangeTrainerSheet`);
@@ -364,7 +379,15 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
   ⋯, then one line: a days-left pill (red once expired), a red payment-due pill, and at its end
   Collect (when they owe, opens `CollectDueSheet`) and the bell (red once expired). The card was
   compacted on 2026-11-07 at the user's request (44 px photo, 12 px padding, no footer or hint
-  line). The bell opens **Send Reminder** (`SendReminderSheet`, the user's 2026-11-07 design,
+  line). **Plan names (2026-11-08, the user's request):** the card's pills read the plan, the days
+  left and PT side by side ("Gold · 3 Months", "91 days left", "PT · 12 sessions"), then the due
+  pill with Collect and the bell; the PT tag beside the ID is gone. The header's Add is a "+ Add"
+  gradient button. `gym_members.plan_name` (migration `2026-12-12-member-plan-name.sql`) keeps the
+  catalogue plan's name when bought: Add Member and Renewal send `planId` and the server reads the
+  name from this branch's catalogue (`catalogPlanName`; another branch's plan, a PT item or a made-up
+  id answers 400); a custom plan saves none and renewing onto one clears it; renaming the plan later
+  keeps the member's. `memberPlanText` (`data/gymDashboard.ts`) shows the length alone when there is
+  no name. Before the migration members are read without it (`hasPlanName`, checked once a minute). The bell opens **Send Reminder** (`SendReminderSheet`, the user's 2026-11-07 design,
   also behind the ⋯ sheet's Reminders): the member's card (status, days left, payment due,
   plan), Send via tiles you can combine (WhatsApp; SMS; Notification shown as coming soon: no
   push server), and the message from Use Template (payment due, membership expiry/expired, the

@@ -3,12 +3,12 @@ import { Pressable, Text, View } from "react-native";
 import { GymIcon } from "@/components/gym/GymIcon";
 import { GymSheet } from "@/components/gym/GymSheet";
 import { ADD_SHEET, type AddAction } from "@/data/gymDashboard";
-import type { StaffArea } from "@/lib/gymApi";
+import type { StaffOption } from "@/lib/gymApi";
 import { useCan } from "@/store/gymAccess";
 import { useThemeColors } from "@/theme";
 
-// The Role & Permission area each item needs (none: open to every portal login)
-const AREA_FOR: Partial<Record<AddAction, StaffArea>> = { member: "members", plan: "catalog", enquiry: "enquiries", sms: "sms", attendance: "attendance", expense: "expenses" };
+// The Role & Permission option each item needs (none: open to every portal login)
+const AREA_FOR: Partial<Record<AddAction, StaffOption>> = { member: "members.add", plan: "catalog.edit", enquiry: "enquiries.edit", sms: "sms.send", attendance: "attendance.view", expense: "expenses.edit" };
 
 // Home's + (the user's design): Add Member, Add Plan, Add Enquiry, Add Expense, Add Outlet, Add
 // Staff / Admin Login (the gym admin only: canManageTeam), Send Bulk SMS, Attendance. A Staff

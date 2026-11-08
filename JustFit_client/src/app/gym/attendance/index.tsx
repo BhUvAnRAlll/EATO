@@ -42,7 +42,7 @@ export default function GymAttendance() {
   const { result, reload, retry, refreshing, refresh } = useGymData(gymApi.attendance);
   // Role & Permission: busy hours are Predictions; a login without it isn't shown a card the server
   // would refuse (QA 2026-11-07). A stable `load` per answer, as useGymData expects.
-  const canPredict = useCan()("predictions");
+  const canPredict = useCan()("predictions.busy");
   const loadBusy = useCallback((token: string | null) => (canPredict ? gymApi.busyHours(token) : Promise.resolve({ ok: false as const, error: "Your login doesn't include Predictions.", status: 403 })), [canPredict]);
   const busy = useGymData(loadBusy);
   const [period, setPeriod] = useState<Period>("today");

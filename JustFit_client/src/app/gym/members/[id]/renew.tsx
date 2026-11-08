@@ -58,7 +58,7 @@ export default function GymRenew() {
           {ready && feeValue > paidValue && <Text className="gym-tx__meta">{`${rupees(feeValue - paidValue)} will be added to their due${dueByIso ? `, due ${shortDate(dueByIso)}` : ""}.`}</Text>}
           {paidValue > feeValue && <Text className="gym-tx__meta">{"The amount paid can't be more than the plan fee."}</Text>}
           {error ? <FormAlert message={error} /> : null}
-          <SaveButton label="Save renewal" ready={ready} busy={busy} onPress={() => save((token) => gymApi.renew(token, memberId, { duration: length ?? 1, fee: feeValue, paid: paidValue, method, dueBy: leftOwed && dueByIso ? dueByIso : "" }))} />
+          <SaveButton label="Save renewal" ready={ready} busy={busy} onPress={() => save((token) => gymApi.renew(token, memberId, { duration: length ?? 1, planId: picked ?? undefined, fee: feeValue, paid: paidValue, method, dueBy: leftOwed && dueByIso ? dueByIso : "" }))} />
         </>
       )}
     </GymScreen>

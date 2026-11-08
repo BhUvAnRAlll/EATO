@@ -74,15 +74,20 @@ async function requireGymStaff(req, res, next) {
 
 router.use(requireGymStaff);
 
-// Role & Permission (staffRules.areaOfPath): a Staff login reaches only the areas the gym admin
-// gave them at this branch; the gym admin reaches everything, and routes without an area (the
-// dashboard, branches) are open to every portal login. The areas come from the branch row read
+// Role & Permission (staffRules.areaOfPath, optionsOfRequest): a Staff login reaches only the
+// options the gym admin ticked for them at this branch; the gym admin reaches everything, and
+// routes without an area (the dashboard, branches) are open to every portal login. A route in an
+// area that no option covers is refused (fail closed). The options come from the branch row read
 // on this very request, so a change applies at once.
 function requireArea(req, res, next) {
   const area = staffRules.areaOfPath(req.path);
-  if (!area || staffRules.areasOf(req.gym).includes(area)) return next();
+  if (!area) return next();
+  const options = staffRules.optionsOf(req.gym);
+  const needed = staffRules.optionsOfRequest(req.method, req.path);
+  if (needed && needed.some((id) => options.includes(id))) return next();
   logSecurityEvent("admin.denied", { userId: req.userId, method: req.method, path: req.originalUrl?.split("?")[0] ?? req.path });
-  return res.status(403).json({ error: `Your login doesn't include ${staffRules.AREA_LABEL[area]}. Ask your gym admin.` });
+  const missing = !needed || !staffRules.areasOf(req.gym).includes(area) ? staffRules.AREA_LABEL[area] : staffRules.optionLabel(needed[0]);
+  return res.status(403).json({ error: `Your login doesn't include ${missing}. Ask your gym admin.` });
 }
 router.use(requireArea);
 
@@ -106,7 +111,7 @@ router.post("/staff", requireGymOwner, staffLimit, smallBody, route(async (req, 
   const answer = await staff.add(pool(req), req.gym, req.userId, staffRules.addBody(req.body));
   res.status(answer.result === "added" ? 201 : 202).json(answer);
 }));
-// Role & Permission: which areas a Staff login may use at this branch (its own hourly allowance:
+// Role & Permission: which options a Staff login may use at this branch (its own hourly allowance:
 // switching areas on and off doesn't spend the add / remove budget)
 const permissionLimit = limitPerUser(createRateLimiter({ limit: 30, windowMs: 60 * 60 * 1000 }));
 router.put("/staff/:userId/permissions", requireGymOwner, permissionLimit, smallBody, route(async (req, res) => {
@@ -468,11 +473,11 @@ router.get("/attendance/export", route(async (req, res) => {
   res.send(`\uFEFF${csv}`);
 }));
 
-// Wallet: the takings, and (for a login with the Expenses area) what was spent and the net
+// Wallet: the takings, and (for a login with Expenses › Expense list) what was spent and the net
 // (collected − spent). Before the expenses migration `expenses` is left out and Wallet is as it was.
 router.get("/wallet", route(async (req, res) => {
   const wallet = await service.wallet(pool(req), req.gym.id, today());
-  const spent = staffRules.areasOf(req.gym).includes("expenses") ? await expenses.spent(pool(req), req.gym.id, today()) : null;
+  const spent = staffRules.optionsOf(req.gym).includes("expenses.view") ? await expenses.spent(pool(req), req.gym.id, today()) : null;
   if (spent) {
     wallet.expenses = spent;
     wallet.net = { today: wallet.today.total - spent.today, month: wallet.month.total - spent.month };

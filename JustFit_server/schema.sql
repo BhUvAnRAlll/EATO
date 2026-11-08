@@ -1225,6 +1225,7 @@ CREATE TABLE gym_members (
   photo_key    VARCHAR(64)  NULL,                -- the member's photo file (gym/photos.js); NULL: initials
   plan_months  TINYINT UNSIGNED NULL,            -- the latest plan bought: its months,
   plan_days    SMALLINT UNSIGNED NULL,           -- or its days (exactly one is set)
+  plan_name    VARCHAR(80)  NULL,                -- the catalogue plan's name when bought (migration 2026-12-12); NULL: a custom plan
   joined_on    DATE         NOT NULL,
   expires_on   DATE         NOT NULL,            -- the last day the membership covers
   due_amount   INT UNSIGNED NOT NULL DEFAULT 0,  -- rupees still owed

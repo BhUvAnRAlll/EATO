@@ -1,6 +1,7 @@
 // Role & Permission in the real Expo web build against the isolated test server and the
 // justfit_test database. The gym admin opens it from the ☰ menu, sees their Staff with "All
-// areas", switches Payments and SMS off for one of them and saves. That Staff login then signs in:
+// areas", opens one of them (the tiles and options, 2026-11-08), unticks the Payments and SMS
+// tiles and Members › Add Member, and saves. That Staff login then signs in:
 // Home has no Wallet link, no Send Bulk SMS card and no Wallet tab, the ☰ menu has no SMS items,
 // and opening the Wallet by its address gets the server's refusal. Screenshots at three widths.
 //
@@ -59,11 +60,12 @@ describe("ui gym permissions: Role & Permission for Staff logins", () => {
     await viewport(390, 844);
     await h.settle(); // the layout moves back before anything is clicked
   };
-  // Flips a Switch (a checkbox on the web) and waits until it reports the new state
+  // Taps a tile's or an option's box and waits until it reports the new state (aria-checked)
   const toggle = async (label, on) => {
     await clickLabel(label);
-    await page.waitFor(`(() => { const el = [...document.querySelectorAll('[aria-label]')].find((e) => e.getAttribute("aria-label") === ${JSON.stringify(label)}); const box = el && (el.matches("input") ? el : el.querySelector("input")); return !!box && box.checked === ${on}; })()`, NAV_TIMEOUT, `${label} switched ${on ? "on" : "off"}`);
+    await page.waitFor(`[...document.querySelectorAll('[aria-label]')].some((e) => ${label.includes(", ") ? `e.getAttribute("aria-label").startsWith(${JSON.stringify(`${label.split(",")[0]},`)})` : `e.getAttribute("aria-label") === ${JSON.stringify(label)}`} && e.getAttribute("aria-checked") === ${JSON.stringify(String(on))})`, NAV_TIMEOUT, `${label} ticked ${on ? "on" : "off"}`);
   };
+  const saveDisabled = () => page.evaluate(`document.querySelector('[aria-label="Save Permissions"]').getAttribute("aria-disabled") === "true"`);
   const apiAs = async (tag, method, route, body) => {
     const headers = { Authorization: `Bearer ${tokens[tag]}` };
     if (body !== undefined) headers["Content-Type"] = "application/json";
@@ -169,24 +171,40 @@ describe("ui gym permissions: Role & Permission for Staff logins", () => {
     await snapshotAllWidths("gym-permissions-list");
   }));
 
-  it("2. switching Payments and SMS off for Priya and saving", run("permissions-edit", async () => {
+  it("2. Priya's tiles and options: Payments and SMS unticked, Members without Add Member, saved", run("permissions-edit", async () => {
     await clickLabel("Priya Sharma: All areas. Change permissions");
-    await h.expectText("What they can open in the gym portal. Home always stays.");
-    await h.settle(); // the sheet slides up
-    assert.equal(await page.evaluate(`document.querySelector('[aria-label="Save"]').getAttribute("aria-disabled")`), "true", "Save waits for a change");
-    await snapshotAllWidths("gym-permissions-sheet");
-    await toggle("Payments for Priya Sharma", false);
-    await toggle("SMS for Priya Sharma", false);
-    await page.waitFor(`document.querySelector('[aria-label="Save"]').getAttribute("aria-disabled") !== "true"`, NAV_TIMEOUT, "Save enabled");
-    await clickLabel("Save");
-    await h.expectText("Saved. Priya Sharma can open: Members, Enquiries, Plans / Catalogue, Attendance, Predictions, Expenses.");
-    assert.ok(await hasLabel("Priya Sharma: Members, Enquiries, Plans / Catalogue, Attendance, Predictions, Expenses. Change permissions"), "the row says what's left");
-    assert.deepEqual(await savedAreas(identities.priya.id), ["members", "enquiries", "catalog", "attendance", "predictions", "expenses"]);
+    await page.waitFor(`location.pathname === "/gym/permissions/${identities.priya.id}"`, NAV_TIMEOUT, "Priya's permissions");
+    await h.expectText("Tick a tile to show it for this Staff login");
+    await h.expectText("This login sees ONLY the ticked options");
+    await h.expectText("Member list and pages");
+    assert.equal(await saveDisabled(), true, "Save waits for a change");
+    await snapshotAllWidths("gym-permissions-tree");
+
+    // The search keeps only what matches
+    await page.evaluate(`(() => { const el = document.querySelector('[aria-label="Search tile or option"]'); const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set; set.call(el, "wallet"); el.dispatchEvent(new Event("input", { bubbles: true })); })()`);
+    await page.waitFor(`!document.body.innerText.includes("Member list and pages")`, NAV_TIMEOUT, "search filters the tiles");
+    assert.ok(await hasLabel("Payments: Wallet"));
+    await page.evaluate(`(() => { const el = document.querySelector('[aria-label="Search tile or option"]'); const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set; set.call(el, ""); el.dispatchEvent(new Event("input", { bubbles: true })); })()`);
+    await h.expectText("Member list and pages");
+
+    await toggle("Payments, 5 of 5 options", false);
+    await toggle("SMS, 3 of 3 options", false);
+    await toggle("Members: Add Member", false);
+    assert.equal(await saveDisabled(), false, "Save is ready");
+    await snapshotAllWidths("gym-permissions-edited");
+    await clickLabel("Save Permissions");
+    await h.expectText("Saved. Priya Sharma will see the change on their next tap.");
+    const saved = await savedAreas(identities.priya.id);
+    assert.ok(saved.includes("members.view") && !saved.includes("members.add"), JSON.stringify(saved));
+    assert.ok(!saved.some((id) => id.startsWith("payments.") || id.startsWith("sms.")), JSON.stringify(saved));
     await snapshotAllWidths("gym-permissions-saved");
 
+    const line = "Members (4 of 5), Enquiries, Plans / Catalogue, Attendance, Predictions, Expenses";
+    await page.navigate(`${expo.baseUrl}/gym/permissions`);
+    await page.waitFor(`[...document.querySelectorAll('[aria-label]')].some((e) => e.getAttribute("aria-label") === ${JSON.stringify(`Priya Sharma: ${line}. Change permissions`)})`, NAV_TIMEOUT, "the row says what's left");
     // Staff / Admin Login shows it too
     await page.navigate(`${expo.baseUrl}/gym/staff`);
-    await h.expectText("Can open: Members, Enquiries, Plans / Catalogue, Attendance, Predictions, Expenses");
+    await h.expectText(`Can open: ${line}`);
   }));
 
   it("3. Priya's portal: no Wallet, no SMS; the Wallet by its address is refused by the server", run("permissions-staff-home", async () => {
@@ -218,6 +236,11 @@ describe("ui gym permissions: Role & Permission for Staff logins", () => {
     await h.expectText("Your login doesn't include Payments. Ask your gym admin.");
     await snapshotAllWidths("gym-permissions-refused");
     assert.equal((await apiAs("priya", "GET", "/api/gym/wallet")).status, 403);
+    // Members stays, but not Add Member
+    assert.equal((await apiAs("priya", "GET", "/api/gym/members?filter=all&search=")).status, 200);
+    const add = await apiAs("priya", "POST", "/api/gym/members", {});
+    assert.equal(add.status, 403);
+    assert.match(add.json.error, /Members › Add Member/);
     assert.equal((await apiAs("priya", "PUT", `/api/gym/staff/${identities.priya.id}/permissions`, { areas: [] })).status, 403, "Staff can't change permissions");
   }));
 });

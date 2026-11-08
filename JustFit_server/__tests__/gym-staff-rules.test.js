@@ -80,24 +80,95 @@ describe("gym staff rules", () => {
 });
 
 describe("gym staff rules: Role & Permission", () => {
-  it("reads a list of known areas, in the portal's order, each once; an empty list means Home only", () => {
-    assert.deepEqual(rules.permissionsBody({ areas: ["sms", "members", "members"] }), { areas: ["members", "sms"] });
-    assert.deepEqual(rules.permissionsBody({ areas: [] }), { areas: [] });
-    assert.deepEqual(rules.permissionsBody({ areas: [...rules.AREAS].reverse() }), { areas: rules.AREAS });
-    for (const bad of [null, [], "members", { areas: "members" }, { areas: ["team"] }, { areas: ["members", 1] }, { areas: ["members"], kind: "staff" }, { areas: Array(20).fill("members") }]) {
-      assert.throws(() => rules.permissionsBody(bad), /JSON|areas|fields|portal's areas/, JSON.stringify(bad));
+  it("reads a list of known options, in the portal's order, each once; an empty list means Home only", () => {
+    assert.deepEqual(rules.permissionsBody({ options: ["sms.view", "members.view", "members.view"] }), { options: ["members.view", "sms.view"] });
+    assert.deepEqual(rules.permissionsBody({ options: [] }), { options: [] });
+    assert.deepEqual(rules.permissionsBody({ options: [...rules.OPTION_IDS].reverse() }), { options: rules.OPTION_IDS });
+    // An option brings the one it needs (Add Member needs the member list)
+    assert.deepEqual(rules.permissionsBody({ options: ["members.add", "sms.send"] }), { options: ["members.view", "members.add", "sms.view", "sms.send"] });
+    // The older body (whole areas) still works: every option of those areas
+    assert.deepEqual(rules.permissionsBody({ areas: ["enquiries"] }), { options: ["enquiries.view", "enquiries.edit", "enquiries.contacts"] });
+    assert.deepEqual(rules.permissionsBody({ areas: [] }), { options: [] });
+    for (const bad of [null, [], "members", { options: "members.view" }, { options: ["team.view"] }, { options: ["members"] }, { options: ["members.view", 1] }, { options: ["members.view"], kind: "staff" }, { options: [], areas: [] }, { options: Array(40).fill("members.view") }, { areas: ["team"] }, {}]) {
+      assert.throws(() => rules.permissionsBody(bad), /JSON|options|areas|fields|use/, JSON.stringify(bad));
     }
-    assert.throws(() => rules.permissionsBody({ areas: ["members' OR 1=1"] }), /portal's areas/);
+    assert.throws(() => rules.permissionsBody({ options: ["members.view' OR 1=1"] }), /portal's options/);
   });
 
   it("what a team row allows: the gym admin everything, Staff what was saved (nothing saved = everything), a trainer nothing", () => {
-    assert.deepEqual(rules.areasOf({ kind: "owner", permissions: '["sms"]' }), rules.AREAS, "the gym admin is never limited");
-    assert.deepEqual(rules.areasOf({ kind: "staff", permissions: null }), rules.AREAS);
+    assert.deepEqual(rules.optionsOf({ kind: "owner", permissions: '["sms.view"]' }), rules.OPTION_IDS, "the gym admin is never limited");
+    assert.deepEqual(rules.areasOf({ kind: "owner", permissions: '["sms"]' }), rules.AREAS);
+    assert.deepEqual(rules.optionsOf({ kind: "staff", permissions: null }), rules.OPTION_IDS);
     assert.deepEqual(rules.areasOf({ kind: "staff", permissions: undefined }), rules.AREAS);
-    assert.deepEqual(rules.areasOf({ kind: "staff", permissions: '["sms", "members"]' }), ["members", "sms"], "mysql2 may hand JSON back as a string");
-    assert.deepEqual(rules.areasOf({ kind: "staff", permissions: ["payments", "bogus"] }), ["payments"], "or parsed; unknown entries are dropped");
-    assert.deepEqual(rules.areasOf({ kind: "staff", permissions: "[]" }), []);
-    assert.deepEqual(rules.areasOf({ kind: "trainer", permissions: null }), []);
+    assert.deepEqual(rules.optionsOf({ kind: "staff", permissions: '["sms.send", "sms.view", "members.view"]' }), ["members.view", "sms.view", "sms.send"], "mysql2 may hand JSON back as a string");
+    assert.deepEqual(rules.areasOf({ kind: "staff", permissions: '["sms.view", "members.view"]' }), ["members", "sms"]);
+    assert.deepEqual(rules.optionsOf({ kind: "staff", permissions: ["payments.wallet", "bogus", "members.bogus"] }), ["payments.wallet"], "or parsed; unknown entries are dropped");
+    assert.deepEqual(rules.optionsOf({ kind: "staff", permissions: ["members.add"] }), [], "an option without the one it needs is dropped on read");
+    assert.deepEqual(rules.optionsOf({ kind: "staff", permissions: "[]" }), []);
+    assert.deepEqual(rules.optionsOf({ kind: "staff", permissions: "not json" }), [], "a corrupt value locks the login down");
+    assert.deepEqual(rules.optionsOf({ kind: "trainer", permissions: null }), []);
+  });
+
+  it("a list saved before options (whole areas) still means every option of those areas", () => {
+    assert.deepEqual(rules.areasOf({ kind: "staff", permissions: '["sms", "members"]' }), ["members", "sms"]);
+    assert.deepEqual(rules.optionsOf({ kind: "staff", permissions: '["sms"]' }), ["sms.view", "sms.send", "sms.auto"]);
+    assert.deepEqual(rules.areasOf({ kind: "staff", permissions: ["payments", "bogus"] }), ["payments"]);
+  });
+
+  it("the tree: every area once, every option under its own area, needs inside the same area", () => {
+    const tree = rules.permissionTree();
+    assert.deepEqual(tree.map((t) => t.id), rules.AREAS);
+    assert.deepEqual(tree.flatMap((t) => t.options.map((o) => o.id)), rules.OPTION_IDS);
+    for (const area of tree) {
+      assert.ok(area.options.length > 0, area.id);
+      for (const o of area.options) {
+        assert.ok(o.id.startsWith(`${area.id}.`), o.id);
+        assert.equal(typeof o.label, "string");
+        if (o.needs) assert.ok(area.options.some((x) => x.id === o.needs && !x.needs), `${o.id} needs ${o.needs}`);
+      }
+    }
+    assert.equal(rules.optionsSummary([]), "Home only");
+    assert.equal(rules.optionsSummary(["members.view", "members.add", ...rules.OPTION_IDS.filter((id) => id.startsWith("enquiries."))]), "Members (2 of 5), Enquiries (all)");
+  });
+
+  it("which option a request needs", () => {
+    const cases = [
+      ["GET", "/members", "members.view"], ["GET", "/members/3", "members.view"], ["GET", "/members/3/photo", "members.view"], ["GET", "/members/3/invoice", "members.view"],
+      ["GET", "/trainers", "members.view"], ["GET", "/payments/9/receipt", "members.view"], ["GET", "/payments/9/invoice", "members.view"],
+      ["GET", "/members/next-code", "members.add"], ["POST", "/members", "members.add"], ["PUT", "/payments/9/receipt", "members.add"], ["DELETE", "/payments/9/receipt", "members.add"],
+      ["PATCH", "/members/3", "members.edit"], ["POST", "/members/3/trainer", "members.edit"], ["POST", "/members/3/renew", "members.renew"],
+      ["GET", "/pauses", "members.pause"], ["POST", "/pauses/4/approve", "members.pause"], ["POST", "/members/3/pause", "members.pause"],
+      ["POST", "/members/3/due", "payments.collect"], ["POST", "/members/3/pt", "payments.pt"], ["POST", "/members/3/sales", "payments.sales"], ["POST", "/members/3/services", "payments.sales"],
+      ["POST", "/sales", "payments.sales"], ["POST", "/services", "payments.sales"], ["GET", "/payments", "payments.transactions"], ["GET", "/wallet", "payments.wallet"],
+      ["GET", "/enquiries", "enquiries.view"], ["POST", "/enquiries", "enquiries.edit"], ["PATCH", "/enquiries/4", "enquiries.edit"], ["POST", "/enquiries/4/contacts", "enquiries.contacts"],
+      ["GET", "/catalog", "catalog.view"], ["GET", "/catalog/2/image", "catalog.view"], ["POST", "/catalog", "catalog.edit"], ["DELETE", "/catalog/2", "catalog.edit"], ["PUT", "/catalog/2/image", "catalog.edit"],
+      ["GET", "/attendance", "attendance.view"], ["GET", "/attendance/visits", "attendance.view"], ["GET", "/attendance/export", "attendance.export"], ["GET", "/attendance/settings", "attendance.settings"],
+      ["PUT", "/attendance/location", "attendance.settings"], ["POST", "/attendance/qr", "attendance.settings"], ["POST", "/members/3/check-in", "attendance.checkin"], ["POST", "/members/3/check-out", "attendance.checkin"],
+      ["GET", "/sms", "sms.view"], ["GET", "/sms/logs", "sms.view"], ["POST", "/sms/send", "sms.send"], ["POST", "/members/3/sms", "sms.send"], ["PATCH", "/sms/settings", "sms.auto"],
+      ["GET", "/predictions/renewals", "predictions.renewals"], ["GET", "/predictions/payments", "predictions.payments"], ["GET", "/predictions/busy-hours", "predictions.busy"], ["GET", "/predictions/revenue", "predictions.revenue"],
+      ["GET", "/expenses", "expenses.view"], ["GET", "/expenses/7/bill", "expenses.view"], ["POST", "/expenses", "expenses.edit"], ["PUT", "/expenses/7", "expenses.edit"], ["PUT", "/expenses/7/bill", "expenses.edit"],
+      ["HEAD", "/wallet", "payments.wallet"], ["get", "/Members/3/", "members.view"], ["POST", "/SMS/send/", "sms.send"],
+    ];
+    for (const [method, path, option] of cases) assert.ok(rules.optionsOfRequest(method, path)?.includes(option), `${method} ${path}`);
+    // A member's photo may be set by Add Member or by Edit
+    assert.deepEqual(rules.optionsOfRequest("PUT", "/members/3/photo"), ["members.add", "members.edit"]);
+    // A reading option never covers a change, and nothing unknown is matched
+    for (const [method, path] of [["POST", "/wallet"], ["DELETE", "/members/3"], ["POST", "/payments"], ["PATCH", "/attendance"], ["GET", "/membersx"], ["GET", "/members/3/due"]]) {
+      assert.equal(rules.optionsOfRequest(method, path), null, `${method} ${path}`);
+    }
+  });
+
+  it("every route of the gym router in an area is covered by an option (a new route can't go unmapped)", () => {
+    const { gymRouter } = require("../gym/routes");
+    const routes = gymRouter.stack.filter((layer) => layer.route).flatMap((layer) => Object.keys(layer.route.methods).map((m) => [m.toUpperCase(), layer.route.path]));
+    assert.ok(routes.length > 50, `found ${routes.length} routes`);
+    for (const [method, pattern] of routes) {
+      const path = pattern.replace(/:[A-Za-z]+/g, "7");
+      if (!rules.areaOfPath(path)) continue;
+      const options = rules.optionsOfRequest(method, path);
+      assert.ok(options && options.length > 0, `${method} ${pattern} has no option`);
+      for (const id of options) assert.equal(id.split(".")[0], rules.areaOfPath(path), `${method} ${pattern} → ${id} is in another area`);
+    }
   });
 
   it("which area a route under /api/gym needs", () => {

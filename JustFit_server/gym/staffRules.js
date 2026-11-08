@@ -40,6 +40,85 @@ const AREA_OF_PATH = [
   [/^\/predictions(\/|$)/, "predictions"],
   [/^\/expenses(\/|$)/, "expenses"],
 ];
+// Role & Permission's options (2026-11-08, the user's reference screen): each area is a tile with
+// options the gym admin ticks one by one. `needs`: the option it can't work without (the list or
+// screen it opens from), ticked with it and unticked when that one is. A new option starts
+// unticked for Staff whose list was already saved; NULL (never edited) is every option.
+const OPTIONS = [
+  { id: "members.view", area: "members", label: "Member list and pages" },
+  { id: "members.add", area: "members", label: "Add Member", needs: "members.view" },
+  { id: "members.edit", area: "members", label: "Edit profile, photo and trainer", needs: "members.view" },
+  { id: "members.renew", area: "members", label: "Renew membership", needs: "members.view" },
+  { id: "members.pause", area: "members", label: "Pause membership and pause requests", needs: "members.view" },
+  { id: "payments.collect", area: "payments", label: "Collect payment due" },
+  { id: "payments.pt", area: "payments", label: "Personal training (PT)" },
+  { id: "payments.sales", area: "payments", label: "Product and service sales" },
+  { id: "payments.transactions", area: "payments", label: "Transactions" },
+  { id: "payments.wallet", area: "payments", label: "Wallet" },
+  { id: "enquiries.view", area: "enquiries", label: "Enquiry list" },
+  { id: "enquiries.edit", area: "enquiries", label: "Add and edit enquiries", needs: "enquiries.view" },
+  { id: "enquiries.contacts", area: "enquiries", label: "Log calls and visits", needs: "enquiries.view" },
+  { id: "catalog.view", area: "catalog", label: "See plans and prices" },
+  { id: "catalog.edit", area: "catalog", label: "Add, edit and delete plans", needs: "catalog.view" },
+  { id: "attendance.view", area: "attendance", label: "Attendance and history" },
+  { id: "attendance.checkin", area: "attendance", label: "Check members in and out" },
+  { id: "attendance.export", area: "attendance", label: "Export history (CSV)", needs: "attendance.view" },
+  { id: "attendance.settings", area: "attendance", label: "Location and QR code", needs: "attendance.view" },
+  { id: "sms.view", area: "sms", label: "Credits and message logs" },
+  { id: "sms.send", area: "sms", label: "Send SMS", needs: "sms.view" },
+  { id: "sms.auto", area: "sms", label: "Auto reminder settings", needs: "sms.view" },
+  { id: "predictions.renewals", area: "predictions", label: "Likely to leave" },
+  { id: "predictions.payments", area: "predictions", label: "Payment on time" },
+  { id: "predictions.busy", area: "predictions", label: "Tomorrow's busy hours" },
+  { id: "predictions.revenue", area: "predictions", label: "Month-end revenue" },
+  { id: "expenses.view", area: "expenses", label: "Expense list and bills" },
+  { id: "expenses.edit", area: "expenses", label: "Add and edit expenses", needs: "expenses.view" },
+];
+const OPTION_IDS = OPTIONS.map((o) => o.id);
+const OPTION = Object.fromEntries(OPTIONS.map((o) => [o.id, o]));
+// Which option(s) a request needs: [methods, path, options] (any one of them will do; the first
+// match wins). Read on the same lower-cased path as areaOfPath; a request in an area that matches
+// nothing here is refused (requireArea), so a new route can't slip through unmapped.
+const OPTION_OF_ROUTE = [
+  [["GET"], /^\/members\/next-code$/, ["members.add"]],
+  [["POST"], /^\/members$/, ["members.add"]],
+  // Add Member uploads the photo and the payment bill right after the member is saved
+  [["PUT", "DELETE"], /^\/members\/[^/]+\/photo$/, ["members.add", "members.edit"]],
+  [["PUT", "DELETE"], /^\/payments\/[^/]+\/receipt$/, ["members.add"]],
+  [["PATCH"], /^\/members\/[^/]+$/, ["members.edit"]],
+  [["POST"], /^\/members\/[^/]+\/trainer$/, ["members.edit"]],
+  [["POST"], /^\/members\/[^/]+\/renew$/, ["members.renew"]],
+  [["POST"], /^\/members\/[^/]+\/pause$/, ["members.pause"]],
+  [["GET", "POST"], /^\/pauses(\/|$)/, ["members.pause"]],
+  [["POST"], /^\/members\/[^/]+\/due$/, ["payments.collect"]],
+  [["POST"], /^\/members\/[^/]+\/pt$/, ["payments.pt"]],
+  [["POST"], /^\/(members\/[^/]+\/)?(sales|services)$/, ["payments.sales"]],
+  [["GET"], /^\/payments$/, ["payments.transactions"]],
+  [["GET"], /^\/wallet$/, ["payments.wallet"]],
+  [["POST"], /^\/members\/[^/]+\/check-(in|out)$/, ["attendance.checkin"]],
+  [["POST"], /^\/members\/[^/]+\/sms$/, ["sms.send"]],
+  [["GET"], /^\/(members(\/[^/]+(\/(photo|invoice))?)?|trainers|payments\/[^/]+\/(receipt|invoice))$/, ["members.view"]],
+  [["GET"], /^\/enquiries$/, ["enquiries.view"]],
+  [["POST"], /^\/enquiries$/, ["enquiries.edit"]],
+  [["PATCH"], /^\/enquiries\/[^/]+$/, ["enquiries.edit"]],
+  [["POST"], /^\/enquiries\/[^/]+\/contacts$/, ["enquiries.contacts"]],
+  [["GET"], /^\/catalog(\/[^/]+\/image)?$/, ["catalog.view"]],
+  [["POST", "PATCH", "PUT", "DELETE"], /^\/catalog(\/|$)/, ["catalog.edit"]],
+  [["GET"], /^\/attendance(\/visits)?$/, ["attendance.view"]],
+  [["GET"], /^\/attendance\/export$/, ["attendance.export"]],
+  [["GET"], /^\/attendance\/settings$/, ["attendance.settings"]],
+  [["PUT", "POST"], /^\/attendance\/(location|qr)$/, ["attendance.settings"]],
+  [["GET"], /^\/sms(\/logs)?$/, ["sms.view"]],
+  [["POST"], /^\/sms\/send$/, ["sms.send"]],
+  [["PATCH"], /^\/sms\/settings$/, ["sms.auto"]],
+  [["GET"], /^\/predictions\/renewals$/, ["predictions.renewals"]],
+  [["GET"], /^\/predictions\/payments$/, ["predictions.payments"]],
+  [["GET"], /^\/predictions\/busy-hours$/, ["predictions.busy"]],
+  [["GET"], /^\/predictions\/revenue$/, ["predictions.revenue"]],
+  [["GET"], /^\/expenses(\/[^/]+\/bill)?$/, ["expenses.view"]],
+  [["POST"], /^\/expenses$/, ["expenses.edit"]],
+  [["PUT", "DELETE"], /^\/expenses\/[^/]+(\/bill)?$/, ["expenses.edit"]],
+];
 // The role each kind of team member has
 const ROLE_FOR = { owner: "gym_admin", staff: "gym_admin", trainer: "trainer" };
 const KIND_LABEL = { owner: "Gym admin", staff: "Staff", trainer: "Trainer" };
@@ -60,20 +139,43 @@ function addBody(body) {
   return out;
 }
 
-// PUT /api/gym/staff/:userId/permissions: { areas: ["members", ...] } (an empty list is allowed:
-// Home only). Answers the areas in AREAS order, each once.
+// PUT /api/gym/staff/:userId/permissions: { options: ["members.view", ...] } (an empty list is
+// allowed: Home only). The older { areas: [...] } still works and gives every option of those
+// areas. An option brings the one it needs. Answers the options in OPTIONS order, each once.
 function permissionsBody(body) {
   if (!isPlainObject(body)) throw new ValidationError("Send the details as JSON.");
-  if (Object.keys(body).some((key) => key !== "areas")) throw new ValidationError("That request has fields we don't use.");
-  if (!Array.isArray(body.areas) || body.areas.length > AREAS.length) throw new ValidationError("Choose which areas they can use.");
-  if (body.areas.some((a) => !AREAS.includes(a))) throw new ValidationError("That isn't one of the portal's areas.");
-  return { areas: AREAS.filter((a) => body.areas.includes(a)) };
+  const keys = Object.keys(body);
+  if (keys.length !== 1 || !["options", "areas"].includes(keys[0])) throw new ValidationError("That request has fields we don't use.");
+  const list = body[keys[0]];
+  const known = keys[0] === "options" ? OPTION_IDS : AREAS;
+  if (!Array.isArray(list) || list.length > known.length) throw new ValidationError("Choose what they can use.");
+  if (list.some((entry) => !known.includes(entry))) throw new ValidationError(keys[0] === "options" ? "That isn't one of the portal's options." : "That isn't one of the portal's areas.");
+  return { options: expandOptions(list, true) };
 }
 
-// The areas a team row allows: the gym admin everything, Staff what was saved for them (NULL =
+// The options a saved list stands for, in OPTIONS order: an area's id (saved before 2026-11-08)
+// stands for all its options. withNeeds: add the options the ticked ones need (a save); without,
+// drop an option whose need is missing (a read, so a list edited by hand can't widen access).
+function expandOptions(list, withNeeds) {
+  const picked = new Set();
+  for (const entry of list) {
+    if (AREAS.includes(entry)) OPTIONS.filter((o) => o.area === entry).forEach((o) => picked.add(o.id));
+    else if (OPTION[entry]) picked.add(entry);
+  }
+  for (const id of [...picked]) {
+    const needs = OPTION[id].needs;
+    if (needs && !picked.has(needs)) {
+      if (withNeeds) picked.add(needs);
+      else picked.delete(id);
+    }
+  }
+  return OPTION_IDS.filter((id) => picked.has(id));
+}
+
+// The options a team row allows: the gym admin everything, Staff what was saved for them (NULL =
 // everything, every Staff login before the gym admin edits them), a trainer nothing (no portal)
-function areasOf(row) {
-  if (row.kind === "owner") return [...AREAS];
+function optionsOf(row) {
+  if (row.kind === "owner") return [...OPTION_IDS];
   if (row.kind !== "staff") return [];
   let saved = row.permissions;
   if (typeof saved === "string") {
@@ -83,8 +185,32 @@ function areasOf(row) {
       return []; // a corrupt value (only ever written with JSON.stringify) locks the login down, never 500s every request
     }
   }
-  if (!Array.isArray(saved)) return [...AREAS];
-  return AREAS.filter((a) => saved.includes(a));
+  if (!Array.isArray(saved)) return [...OPTION_IDS];
+  return expandOptions(saved, false);
+}
+
+// The areas a team row allows: those with at least one option ticked
+function areasOf(row) {
+  const options = optionsOf(row);
+  return AREAS.filter((a) => options.some((id) => OPTION[id].area === a));
+}
+
+// The tree Role & Permission draws: each area with its options, in order
+const permissionTree = () => AREAS.map((area) => ({
+  id: area,
+  label: AREA_LABEL[area],
+  options: OPTIONS.filter((o) => o.area === area).map((o) => ({ id: o.id, label: o.label, needs: o.needs ?? null })),
+}));
+
+// The audit log's line: "Members (2 of 5), Enquiries (all)" or "Home only"
+function optionsSummary(options) {
+  const parts = AREAS.map((area) => {
+    const all = OPTIONS.filter((o) => o.area === area).length;
+    const on = options.filter((id) => OPTION[id].area === area).length;
+    if (on === 0) return null;
+    return `${AREA_LABEL[area]} (${on === all ? "all" : `${on} of ${all}`})`;
+  }).filter(Boolean);
+  return parts.length ? parts.join(", ") : "Home only";
 }
 
 // The area a request under /api/gym needs, or null when every portal login may make it. The path
@@ -95,6 +221,18 @@ function areaOfPath(path) {
   const found = AREA_OF_PATH.find(([pattern]) => pattern.test(normalised));
   return found ? found[1] : null;
 }
+
+// The options a request under /api/gym may be made with (any one will do), or null when nothing
+// matches. HEAD is read as GET (Express answers it with the GET route).
+function optionsOfRequest(method, path) {
+  const verb = String(method).toUpperCase() === "HEAD" ? "GET" : String(method).toUpperCase();
+  const normalised = String(path).toLowerCase().replace(/\/+$/, "") || "/";
+  const found = OPTION_OF_ROUTE.find(([methods, pattern]) => methods.includes(verb) && pattern.test(normalised));
+  return found ? found[2] : null;
+}
+
+// The words for a refusal: "Members › Add Member"
+const optionLabel = (id) => `${AREA_LABEL[OPTION[id].area]} › ${OPTION[id].label}`;
 
 // Why the caller can't change this team member's permissions, or null. target: the gym_staff row
 function permissionsProblem(callerId, target) {
@@ -154,4 +292,4 @@ function roleAfterLeaving(role, branchesLeft) {
 // "+91 ••••• ••210": lists show only the last three digits
 const maskPhone = (digits) => (typeof digits === "string" && /^[0-9]{10}$/.test(digits) ? `+91 ••••• ••${digits.slice(7)}` : null);
 
-module.exports = { KINDS, AREAS, AREA_LABEL, ROLE_FOR, KIND_LABEL, addBody, permissionsBody, areasOf, areaOfPath, permissionsProblem, userIdParam, joinProblem, checkJoin, inviteProblem, removeProblem, roleAfterLeaving, maskPhone };
+module.exports = { KINDS, AREAS, AREA_LABEL, OPTIONS, OPTION_IDS, ROLE_FOR, KIND_LABEL, addBody, permissionsBody, expandOptions, optionsOf, areasOf, permissionTree, optionsSummary, areaOfPath, optionsOfRequest, optionLabel, permissionsProblem, userIdParam, joinProblem, checkJoin, inviteProblem, removeProblem, roleAfterLeaving, maskPhone };

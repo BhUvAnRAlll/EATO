@@ -12,7 +12,8 @@ import { GymIcon } from "@/components/gym/GymIcon";
 import { GymSheet } from "@/components/gym/GymSheet";
 import { GymEmpty, GymError, GymLoading } from "@/components/gym/GymStates";
 import { GymScreen } from "@/components/gym/GymScreen";
-import { areasLine, initialsOf } from "@/data/gymDashboard";
+import { initialsOf } from "@/data/gymDashboard";
+import { optionsLine } from "@/lib/permissionTree";
 import { gymApi, type GymTeam, type StaffInvite, type StaffKind, type TeamMember } from "@/lib/gymApi";
 import { useGymSave } from "@/lib/gymForm";
 import { useGymData } from "@/lib/useGymData";
@@ -78,7 +79,7 @@ export default function GymStaffScreen() {
       </GymScreen>
     );
   }
-  const { gym, branches, team, invites } = result.data;
+  const { gym, branches, team, invites, permissionTree } = result.data;
   const branchLine = `${gym.name}, ${gym.branch}`;
   const others = team.filter((m) => m.kind !== "owner");
 
@@ -95,7 +96,7 @@ export default function GymStaffScreen() {
             {tag(m.kind)}
             {m.phone ? <Text className="gym-tx__meta" numberOfLines={1}>{m.phone}</Text> : null}
           </View>
-          {m.kind === "staff" ? <Text className="gym-tx__meta" numberOfLines={1}>{`Can open: ${areasLine(m.areas)}`}</Text> : null}
+          {m.kind === "staff" ? <Text className="gym-tx__meta" numberOfLines={1}>{`Can open: ${optionsLine(permissionTree, m.options)}`}</Text> : null}
         </View>
         {m.kind !== "owner" && more(`${name}: options`, () => open({ type: "member", member: m }))}
       </View>
@@ -191,8 +192,8 @@ export default function GymStaffScreen() {
           }
         >
           {picked.type === "member" && picked.member.kind === "staff" ? (
-            <PressableScale onPress={() => { setPicked(null); router.push("/gym/permissions"); }} className="gym-btn gym-btn--outline" accessibilityRole="button" accessibilityLabel={`Role & Permission for ${pickedName}`}>
-              <Text className="gym-btn__label" style={{ color: colors.gymPrimary }}>{`Role & Permission · ${areasLine(picked.member.areas)}`}</Text>
+            <PressableScale onPress={() => { setPicked(null); router.push({ pathname: "/gym/permissions/[userId]", params: { userId: picked.member.id } }); }} className="gym-btn gym-btn--outline" accessibilityRole="button" accessibilityLabel={`Role & Permission for ${pickedName}`}>
+              <Text className="gym-btn__label" style={{ color: colors.gymPrimary }}>{`Role & Permission · ${optionsLine(permissionTree, picked.member.options)}`}</Text>
             </PressableScale>
           ) : null}
           <View className="gym-note">

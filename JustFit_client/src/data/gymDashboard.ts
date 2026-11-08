@@ -75,6 +75,13 @@ export function dobInput(text: string) {
 // "3 Months", "15 Days"
 export const planLabel = (duration: number, unit: PlanUnit = "months") =>
   `${duration} ${unit === "days" ? (duration === 1 ? "Day" : "Days") : duration === 1 ? "Month" : "Months"}`;
+// A member's plan: "Gold · 3 Months", or the length alone for a custom plan (or a plan named after
+// its length, "3 Months", so it isn't said twice)
+export function memberPlanText(m: { planName: string | null; planLength: { duration: number; unit: PlanUnit } }): string {
+  const length = planLabel(m.planLength.duration, m.planLength.unit);
+  const name = m.planName?.trim();
+  return name && name.toLowerCase() !== length.toLowerCase() ? `${name} · ${length}` : length;
+}
 // A catalogue plan or PT package saved in days before then can't be picked until it's edited to months
 export const pickable = (item: { unit: PlanUnit | null }) => item.unit !== "days";
 

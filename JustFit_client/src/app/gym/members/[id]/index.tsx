@@ -12,7 +12,7 @@ import { GymScreen } from "@/components/gym/GymScreen";
 import { EditProfileSheet } from "@/components/gym/EditProfileSheet";
 import { MemberActionsSheet } from "@/components/gym/MemberActionsSheet";
 import { PaymentRow } from "@/components/gym/PaymentRow";
-import { GENDER_LABEL, STATUS_LABEL, initialsOf, planLabel, phoneText, rupees, shortDate } from "@/data/gymDashboard";
+import { GENDER_LABEL, STATUS_LABEL, initialsOf, memberPlanText, phoneText, rupees, shortDate } from "@/data/gymDashboard";
 import { gymApi, type GymInfo, type GymMemberDetail } from "@/lib/gymApi";
 import { durationText } from "@/lib/attendanceText";
 import { useGymSave } from "@/lib/gymForm";
@@ -88,13 +88,13 @@ export default function GymMember() {
             {member.notes ? <Text className="gym-tx__meta" numberOfLines={3}>{`Note: ${member.notes}`}</Text> : null}
             {member.birthdayToday ? <Text className="gym-tx__meta" style={{ color: colors.gymPrimaryText }}>Birthday today</Text> : member.dob ? <Text className="gym-tx__meta">{`Born ${shortDate(member.dob)}`}</Text> : null}
           </View>
-          <PressableScale onPress={() => setEditing(true)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Edit profile">
+          {can("members.edit") && <PressableScale onPress={() => setEditing(true)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Edit profile">
             <Text className="gym-link">Edit</Text>
-          </PressableScale>
+          </PressableScale>}
         </View>
         <View className="gym-summary">
           <View className="flex-row items-center justify-between">
-            <Text className="gym-tx__meta">{planLabel(member.planLength.duration, member.planLength.unit)}</Text>
+            <Text className="gym-tx__meta">{memberPlanText(member)}</Text>
             <Text className="gym-tag__label" style={{ color: statusColor }}>{STATUS_LABEL[member.status]}</Text>
           </View>
           <Text className="gym-tx__name">{`Until ${shortDate(member.expiresOn)}`}</Text>
@@ -125,7 +125,7 @@ export default function GymMember() {
       {notice ? <Text className="gym-tx__meta" accessibilityLiveRegion="polite">{notice}</Text> : null}
       {checkIn.error ? <FormAlert message={checkIn.error} /> : null}
       {/* Staff check-in and check-out (members with the app scan the QR code instead) */}
-      {can("attendance") && <PressableScale
+      {can("attendance.checkin") && <PressableScale
         onPress={() => checkIn.save((token) => (member.insideNow ? gymApi.checkOut(token, memberId) : gymApi.checkIn(token, memberId)))}
         disabled={checkIn.busy}
         haptic="tap"
@@ -138,22 +138,24 @@ export default function GymMember() {
         {checkIn.busy ? <ActivityIndicator size="small" color={member.insideNow ? colors.gymPrimary : colors.white} /> : <GymIcon name={member.insideNow ? "log-out" : "log-in"} size={18} color={member.insideNow ? colors.gymPrimary : colors.white} />}
         <Text className={member.insideNow ? "gym-btn__label gym-btn__label--outline" : "gym-btn__label"}>{member.insideNow ? "Check out" : "Check in"}</Text>
       </PressableScale>}
-      {can("attendance") && (
+      {can("attendance.view") && (
         <PressableScale onPress={() => router.push({ pathname: "/gym/attendance/member/[id]", params: { id: String(memberId), name: member.name } })} className="flex-row items-center self-start" style={{ gap: 6 }} accessibilityRole="button" accessibilityLabel="Attendance history">
           <GymIcon name="history" size={15} color={colors.gymPrimary} />
           <Text className="gym-link">Attendance history</Text>
         </PressableScale>
       )}
       <View className="flex-row flex-wrap" style={{ gap: 10 }}>
-        {can("payments") && (
+        {can("payments.pt") && (
         <PressableScale onPress={() => router.push({ pathname: "/gym/members/[id]/pt", params: { id: String(memberId) } })} className="gym-btn gym-btn--outline flex-1" accessibilityRole="button" accessibilityLabel="Personal training payment">
           <Text className="gym-btn__label gym-btn__label--outline">PT</Text>
         </PressableScale>
         )}
+        {can("members.renew") && (
         <PressableScale onPress={() => router.push({ pathname: "/gym/members/[id]/renew", params: { id: String(memberId) } })} className="gym-btn gym-btn--outline flex-1" accessibilityRole="button" accessibilityLabel="Renew plan">
           <Text className="gym-btn__label gym-btn__label--outline">Renew</Text>
         </PressableScale>
-        {can("payments") && (
+        )}
+        {can("payments.collect") && (
         <PressableScale
           onPress={() => router.push({ pathname: "/gym/members/[id]/due", params: { id: String(memberId) } })}
           disabled={member.due === 0}

@@ -13,7 +13,7 @@ import { GymEmpty, GymError, GymLoading } from "@/components/gym/GymStates";
 import { GymSheet } from "@/components/gym/GymSheet";
 import { MemberActionsSheet } from "@/components/gym/MemberActionsSheet";
 import { SendReminderSheet, type ReminderKind } from "@/components/gym/SendReminderSheet";
-import { DEFAULT_EXPIRING_DAYS, EXPIRING_SOON_DAYS, MEMBER_FILTERS, expiringDaysLabel, expiringDaysText, rupees, type ExpiringDays } from "@/data/gymDashboard";
+import { DEFAULT_EXPIRING_DAYS, EXPIRING_SOON_DAYS, MEMBER_FILTERS, expiringDaysLabel, expiringDaysText, memberPlanText, rupees, type ExpiringDays } from "@/data/gymDashboard";
 import { gymApi, type GymInfo, type GymMember, type MemberFilter, type MemberSort } from "@/lib/gymApi";
 import { haptic } from "@/lib/haptics";
 import { memberStatus } from "@/lib/gymMember";
@@ -265,6 +265,10 @@ export function MemberList({ pick = null, initialFilter = "all", initialDays = D
             : state.id === "active"
               ? { label: state.label, color: colors.gymSuccess, ground: colors.gymSuccessSoft }
               : { label: state.label, color: colors.gymWarning, ground: colors.gymWarningSoft };
+          // The plan they took and their PT, as pills beside the days left (2026-11-08, the user's
+          // request): "Gold · 3 Months" (a custom plan: its length), "PT · 12 sessions"
+          const planText = memberPlanText(item);
+          const ptText = item.pt ? `PT · ${item.pt.label}${item.pt.active ? "" : " · ended"}` : null;
           const statusPill = (
             <View className="gym-mcard__status" style={{ backgroundColor: status.ground }} accessibilityLabel={`Status: ${status.label}`}>
               <View className="gym-mcard__dot" style={{ backgroundColor: status.color }} />
@@ -280,7 +284,7 @@ export function MemberList({ pick = null, initialFilter = "all", initialDays = D
                   className="min-w-0 flex-1 flex-row items-center"
                   style={{ gap: 10 }}
                   accessibilityRole="button"
-                  accessibilityLabel={`${item.name}, ${item.code}${item.pt?.active ? ", on PT" : ""}, ${days.expired ? `expired ${days.text}` : days.text}${item.due > 0 ? `, ${rupees(item.due)} payment due` : ""}`}
+                  accessibilityLabel={`${item.name}, ${item.code}, ${planText} plan${ptText ? `, ${ptText}` : ""}, ${days.expired ? `expired ${days.text}` : days.text}${item.due > 0 ? `, ${rupees(item.due)} payment due` : ""}`}
                 >
                   <View className="gym-mcard__avatar">
                     <GymIcon name="user" size={22} color={colors.gymMuted} />
@@ -291,11 +295,6 @@ export function MemberList({ pick = null, initialFilter = "all", initialDays = D
                     <View className="flex-row items-center" style={{ gap: 6 }}>
                       <GymIcon name="id-card" size={14} color={colors.gymFaint} />
                       <Text className="gym-mcard__code" numberOfLines={1} style={{ flexShrink: 1 }}>{item.code}</Text>
-                      {item.pt?.active && (
-                        <View className="gym-chip" style={{ borderColor: colors.gymSuccessLine, backgroundColor: colors.gymSuccessSoft }}>
-                          <Text className="gym-chip__label" style={{ color: colors.gymSuccess }}>PT</Text>
-                        </View>
-                      )}
                     </View>
                   </View>
                 </PressableScale>
@@ -308,14 +307,28 @@ export function MemberList({ pick = null, initialFilter = "all", initialDays = D
                   </View>
                 )}
               </View>
-              {/* One line: the days and due pills, then Collect and the bell at the end */}
-              <View className="flex-row items-center" style={{ gap: 8 }}>
-                <View className="min-w-0 flex-1 flex-row flex-wrap items-center" style={{ gap: 6 }}>
-                  {!pick && narrow && statusPill}
-                  <View className="gym-mcard__pill" style={days.expired ? { backgroundColor: colors.gymDangerSoft } : undefined}>
-                    <GymIcon name="calendar" size={14} color={days.expired ? colors.gymDanger : colors.gymPrimary} />
-                    <Text className="gym-mcard__pill-label" numberOfLines={1} style={days.expired ? { color: colors.gymDanger } : undefined}>{days.expired ? `Expired ${days.text}` : days.text}</Text>
+              {/* The plan, the days left and PT side by side (2026-11-08, the user's request); then the
+                  payment due, with Collect and the bell at the end */}
+              <View className="flex-row flex-wrap items-center" style={{ gap: 6 }}>
+                {!pick && narrow && statusPill}
+                <View className="gym-mcard__pill gym-mcard__pill--plan" accessibilityLabel={`Plan: ${planText}`}>
+                  <GymIcon name="clipboard-list" size={14} color={colors.gymInkSoft} />
+                  <Text className="gym-mcard__pill-label gym-mcard__pill-label--plan" numberOfLines={1} style={{ flexShrink: 1 }}>{planText}</Text>
+                </View>
+                <View className="gym-mcard__pill" style={days.expired ? { backgroundColor: colors.gymDangerSoft } : undefined}>
+                  <GymIcon name="calendar" size={14} color={days.expired ? colors.gymDanger : colors.gymPrimary} />
+                  <Text className="gym-mcard__pill-label" numberOfLines={1} style={days.expired ? { color: colors.gymDanger } : undefined}>{days.expired ? `Expired ${days.text}` : days.text}</Text>
+                </View>
+                {ptText && (
+                  <View className="gym-mcard__pill" style={{ backgroundColor: item.pt?.active ? colors.gymSuccessSoft : colors.gymBar }} accessibilityLabel={ptText}>
+                    <GymIcon name="dumbbell" size={14} color={item.pt?.active ? colors.gymSuccess : colors.gymFaint} />
+                    <Text className="gym-mcard__pill-label" numberOfLines={1} style={{ flexShrink: 1, color: item.pt?.active ? colors.gymSuccess : colors.gymMuted }}>{ptText}</Text>
                   </View>
+                )}
+              </View>
+              {(item.due > 0 || !pick) && (
+              <View className="flex-row items-center" style={{ gap: 8 }}>
+                <View className="min-w-0 flex-1 flex-row items-center">
                   {item.due > 0 && (
                     <View className="gym-mcard__pill" style={{ backgroundColor: colors.gymDangerSoft }}>
                       <GymIcon name="credit-card" size={14} color={colors.gymDanger} />
@@ -344,6 +357,7 @@ export function MemberList({ pick = null, initialFilter = "all", initialDays = D
                   </View>
                 )}
               </View>
+              )}
             </View>
           );
         }}

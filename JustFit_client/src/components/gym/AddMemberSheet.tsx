@@ -144,7 +144,7 @@ export function AddMemberSheet({ onClose, onSaved, initial }: { onClose: () => v
       const admitted = await gymApi.admit(token, {
         name: name.trim(), phone, dob: dob ?? "", gender,
         email: email.trim(), heightCm: heightNum === "" ? "" : heightNum, weightKg: weightNum === "" ? "" : weightNum, address: address.trim(), notes: notes.trim(),
-        duration: length ?? 1, fee: planFee, paid: paidNum, method: method || "online",
+        duration: length ?? 1, planId: chosen?.id, fee: planFee, paid: paidNum, method: method || "online",
         dueBy: due > 0 && dueBy ? dueBy : "", joinedOn, paidOn,
       });
       if (!admitted.ok) return admitted;

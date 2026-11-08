@@ -14,7 +14,7 @@ import { GymSheet } from "@/components/gym/GymSheet";
 import { MemberSaleSheet } from "@/components/gym/MemberSaleSheet";
 import { PauseMembershipSheet } from "@/components/gym/PauseMembershipSheet";
 import { SendReminderSheet, type ReminderKind } from "@/components/gym/SendReminderSheet";
-import { initialsOf, planLabel, planStart, rupees, shortDate } from "@/data/gymDashboard";
+import { initialsOf, memberPlanText, planStart, rupees, shortDate } from "@/data/gymDashboard";
 import { call, daysLeftText, email, sms, whatsapp } from "@/lib/gymContact";
 import type { GymInfo, GymMember, GymMemberDetail, GymPayment } from "@/lib/gymApi";
 import { useCan } from "@/store/gymAccess";
@@ -47,32 +47,34 @@ export function MemberActionsSheet({ member, payments, gym, onClose, onChanged, 
   const id = String(member.id);
   const start = planStart(member.expiresOn, member.planLength.duration, member.planLength.unit);
 
-  const profile: Row[] = [{ label: "Edit Profile", icon: "user-pen", onPress: () => setEditingProfile(true) }];
+  const profile: Row[] = can("members.edit") ? [{ label: "Edit Profile", icon: "user-pen", onPress: () => setEditingProfile(true) }] : [];
   const reminders: Row[] = [
-    ...(member.due > 0 ? [{ label: "Send Due Reminder", icon: "bell-ring", onPress: () => setReminding("due") } as Row] : []),
-    { label: "Send Expired Reminder", icon: "message-square-warning", tone: "danger", onPress: () => setReminding("expired") },
+    ...(member.due > 0 && can("sms.send") ? [{ label: "Send Due Reminder", icon: "bell-ring", onPress: () => setReminding("due") } as Row] : []),
+    ...(can("sms.send") ? [{ label: "Send Expired Reminder", icon: "message-square-warning", tone: "danger", onPress: () => setReminding("expired") } as Row] : []),
     // The Invoice screen (2026-11-07): the member's latest payment as a PDF to share
     { label: "Send Invoice", icon: "receipt-text", onPress: () => go({ pathname: "/gym/invoice", params: { memberId: id } }) },
   ];
   const membership: Row[] = [
-    ...(member.due > 0 && can("payments") ? [{ label: `Collect Payment Due : ${rupees(member.due)}`, icon: "credit-card", tone: "danger", onPress: () => setCollecting(true) } as Row] : []),
-    { label: "Renew Member", icon: "calendar-sync", onPress: () => go({ pathname: "/gym/members/[id]/renew", params: { id } }) },
+    ...(member.due > 0 && can("payments.collect") ? [{ label: `Collect Payment Due : ${rupees(member.due)}`, icon: "credit-card", tone: "danger", onPress: () => setCollecting(true) } as Row] : []),
+    ...(can("members.renew") ? [{ label: "Renew Member", icon: "calendar-sync", onPress: () => go({ pathname: "/gym/members/[id]/renew", params: { id } }) } as Row] : []),
     // Opens the Edit Profile sheet (2026-11-07, the user's request; it opened the member's page before)
-    { label: "Edit Membership", icon: "square-pen", onPress: () => setEditingProfile(true) },
+    ...(can("members.edit") ? [{ label: "Edit Membership", icon: "square-pen", onPress: () => setEditingProfile(true) } as Row] : []),
     // Pause Membership (2026-11-07): staff pause it here (Option B); a member's own request from
     // the app waits on Pause requests; an approved pause shows its end
-    member.pause?.status === "pending"
-      ? { label: "Pause request waiting", icon: "circle-pause", onPress: () => go("/gym/pauses") }
-      : member.pause
-        ? { label: `Paused until ${shortDate(member.pause.until)}`, icon: "circle-pause", onPress: () => go("/gym/pauses?view=all") }
-        : { label: "Pause Membership", icon: "circle-pause", onPress: () => setPausing(true) },
+    ...(!can("members.pause")
+      ? []
+      : [member.pause?.status === "pending"
+        ? { label: "Pause request waiting", icon: "circle-pause", onPress: () => go("/gym/pauses") } as Row
+        : member.pause
+          ? { label: `Paused until ${shortDate(member.pause.until)}`, icon: "circle-pause", onPress: () => go("/gym/pauses?view=all") } as Row
+          : { label: "Pause Membership", icon: "circle-pause", onPress: () => setPausing(true) } as Row]),
     { label: "Transaction History", icon: "history", onPress: openMember },
   ];
   // PT, services and products are payments; Change Trainer is a member change
   const sales: Row[] = [
-    ...(can("payments") ? [{ label: member.pt ? "Renew PT" : "Add PT", icon: "refresh-ccw", onPress: () => go({ pathname: "/gym/members/[id]/pt", params: { id } }) } as Row] : []),
-    ...(member.pt ? [{ label: member.pt.trainer ? `Change Trainer : ${member.pt.trainer.name}` : "Change Trainer", icon: "dumbbell", onPress: () => setChangingTrainer(true) } as Row] : []),
-    ...(can("payments") ? [{ label: "Add Service", icon: "plus", onPress: () => setSelling("service") } as Row, { label: "Sell Product", icon: "plus", onPress: () => setSelling("product") } as Row] : []),
+    ...(can("payments.pt") ? [{ label: member.pt ? "Renew PT" : "Add PT", icon: "refresh-ccw", onPress: () => go({ pathname: "/gym/members/[id]/pt", params: { id } }) } as Row] : []),
+    ...(member.pt && can("members.edit") ? [{ label: member.pt.trainer ? `Change Trainer : ${member.pt.trainer.name}` : "Change Trainer", icon: "dumbbell", onPress: () => setChangingTrainer(true) } as Row] : []),
+    ...(can("payments.sales") ? [{ label: "Add Service", icon: "plus", onPress: () => setSelling("service") } as Row, { label: "Sell Product", icon: "plus", onPress: () => setSelling("product") } as Row] : []),
   ];
 
   const section = (title: string, rows: Row[]) => (
@@ -144,7 +146,7 @@ export function MemberActionsSheet({ member, payments, gym, onClose, onChanged, 
           {contact("Email", "mail", () => email(member, `${gym.name} membership`))}
         </View>
         <View className="gym-member-hero__line" />
-        {period(planLabel(member.planLength.duration, member.planLength.unit), daysLeftText(member.daysLeft), start, member.expiresOn)}
+        {period(memberPlanText(member), daysLeftText(member.daysLeft), start, member.expiresOn)}
         {member.pt && (
           <>
             <View className="gym-member-hero__line" />
@@ -152,15 +154,15 @@ export function MemberActionsSheet({ member, payments, gym, onClose, onChanged, 
           </>
         )}
       </View>
-      {can("attendance") && (
+      {can("attendance.view") && (
         <Pressable onPress={() => go({ pathname: "/gym/attendance/member/[id]", params: { id, name: member.name } })} className="gym-card flex-row items-center" style={{ gap: 12, padding: 14 }} accessibilityRole="button" accessibilityLabel="Attendance history">
           <GymIcon name="history" size={20} color={colors.gymInkSoft} />
           <Text className="gym-menu__label flex-1">Attendance History</Text>
           <Text className="gym-link">{member.insideNow ? "Inside now" : "View"}</Text>
         </Pressable>
       )}
-      {section("Profile", profile)}
-      {section("Reminders", reminders)}
+      {profile.length > 0 && section("Profile", profile)}
+      {reminders.length > 0 && section("Reminders", reminders)}
       {section("Membership", membership)}
       {sales.length > 0 && section("Sales", sales)}
     </GymSheet>

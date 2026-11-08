@@ -55,14 +55,18 @@ export type StaffKind = "staff" | "trainer";
 // Role & Permission: the portal's areas a Staff login can be given (the gym admin has all of them,
 // a trainer none). Which routes each covers is the server's call (gym/staffRules.js).
 export type StaffArea = "members" | "payments" | "enquiries" | "catalog" | "attendance" | "sms" | "predictions" | "expenses";
-export type TeamMember = { id: string; name: string | null; phone: string | null; kind: "owner" | StaffKind; areas: StaffArea[]; addedAt: string | null; you: boolean };
+// Role & Permission's options inside each area ("members.add"); the server's list (staffRules.OPTIONS)
+// comes with the team as permissionTree, so the app draws whatever the server checks
+export type StaffOption = `${StaffArea}.${string}`;
+export type PermissionTile = { id: StaffArea; label: string; options: { id: StaffOption; label: string; needs: StaffOption | null }[] };
+export type TeamMember = { id: string; name: string | null; phone: string | null; kind: "owner" | StaffKind; areas: StaffArea[]; options: StaffOption[]; addedAt: string | null; you: boolean };
 export type StaffInvite = { id: number; phone: string | null; kind: StaffKind; invitedAt: string | null };
 // branches: the branches of this gym the caller is the gym admin of (the Add sheet's Branch chips)
-export type GymTeam = { gym: { id: number; name: string; branch: string }; branches: { id: number; branch: string }[]; team: TeamMember[]; invites: StaffInvite[] };
+export type GymTeam = { gym: { id: number; name: string; branch: string }; branches: { id: number; branch: string }[]; team: TeamMember[]; invites: StaffInvite[]; permissionTree: PermissionTile[] };
 
 export type GymDashboard = {
   // areas: what the signed-in login may use at this branch (Role & Permission), so the app hides the rest
-  gym: GymInfo & { branchCount: number; access: GymAccess; areas: StaffArea[] };
+  gym: GymInfo & { branchCount: number; access: GymAccess; areas: StaffArea[]; options: StaffOption[] };
   today: string;
   revenue: { online: number; cash: number };
   stats: { admission: number; renewal: number; enquiry: number; duePaid: number; pt: number; product: number };
@@ -144,7 +148,7 @@ export type PauseRequest = MemberPause & {
 export type PauseView = "pending" | "all";
 export type PauseList = { today: string; view: PauseView; counts: { pending: number }; pauses: PauseRequest[] };
 export type PauseFields = { from: string; until: string; reason: string };
-export type GymMember = MemberDetails & { id: number; code: string; photoUrl: string | null; dueBy: string | null; overdue: boolean; daysLeft: number; pt: MemberPt | null; gender: Gender | null; name: string; phone: string | null; dob: string | null; birthdayToday: boolean; planLength: PlanLength; joinedOn: string; expiresOn: string; due: number; status: MemberStatus; inToday: boolean; insideNow: boolean; pause: MemberPause | null; pausedNow: boolean };
+export type GymMember = MemberDetails & { id: number; code: string; photoUrl: string | null; dueBy: string | null; overdue: boolean; daysLeft: number; pt: MemberPt | null; gender: Gender | null; name: string; phone: string | null; dob: string | null; birthdayToday: boolean; planName: string | null; planLength: PlanLength; joinedOn: string; expiresOn: string; due: number; status: MemberStatus; inToday: boolean; insideNow: boolean; pause: MemberPause | null; pausedNow: boolean };
 // `gym` comes with GET /members/:id (the member's page needs it for messages); other answers leave it out
 export type GymMemberDetail = { member: GymMember & { visitsThisMonth: number; lastVisit: string | null }; payments: GymPayment[]; gym?: GymInfo; alreadyIn?: boolean; durationMin?: number | null };
 export type MemberFilter = "all" | "due" | "overdue" | "expiring" | "expiring_soon" | "expired" | "birthday";
@@ -204,7 +208,7 @@ export type GymExpenses = {
 
 // fee: the plan's price, which is what's payable (the server still accepts an optional
 // admissionFee and discount; the sheet stopped sending them on 2026-11-07); paid is collected now
-export type AdmissionFields = PlanMonths &
+export type AdmissionFields = PlanMonths & { planId?: number } &
   Partial<{ [K in keyof MemberDetails]: MemberDetails[K] | "" }> & {
     name: string;
     phone: string;
@@ -219,7 +223,8 @@ export type AdmissionFields = PlanMonths &
     joinedOn: string;
     paidOn: string;
   };
-export type RenewalFields = PlanMonths & { fee: number; paid: number; method: PayMethod; dueBy: string };
+// planId: the catalogue plan picked (the server saves its name on the member); left out for a custom plan
+export type RenewalFields = PlanMonths & { planId?: number; fee: number; paid: number; method: PayMethod; dueBy: string };
 export type SaleCategory = "supplement" | "merchandise" | "other";
 // Sell Product / Add Service from a member's ⋯: the server reads the price from the catalogue
 export type MemberSaleFields = { itemId: number; quantity?: number; discount: number; paid: number; method: PayMethod; paidOn: string; dueBy?: string };
@@ -313,8 +318,8 @@ export const gymApi = {
   // branchId: the branch to add them to (one the caller manages); the answer names it as `branch`
   addStaff: (token: string | null, phone: string, kind: StaffKind, branchId: number) => call<GymTeam & { result: "added" | "invited"; branch: string }>(token, "/api/gym/staff", "POST", { phone, kind, branchId }),
   removeStaff: (token: string | null, userId: string) => call<GymTeam>(token, `/api/gym/staff/${encodeURIComponent(userId)}`, "DELETE"),
-  // Role & Permission: the areas a Staff login may use at this branch (an empty list = Home only)
-  setPermissions: (token: string | null, userId: string, areas: StaffArea[]) => call<GymTeam>(token, `/api/gym/staff/${encodeURIComponent(userId)}/permissions`, "PUT", { areas }),
+  // Role & Permission: the options a Staff login may use at this branch (an empty list = Home only)
+  setPermissions: (token: string | null, userId: string, options: StaffOption[]) => call<GymTeam>(token, `/api/gym/staff/${encodeURIComponent(userId)}/permissions`, "PUT", { options }),
   cancelInvite: (token: string | null, id: number) => call<GymTeam>(token, `/api/gym/staff/invites/${id}`, "DELETE"),
   sms: (token: string | null) => call<GymSms>(token, "/api/gym/sms"),
   smsSettings: (token: string | null, changes: Partial<Record<SmsKind, boolean>>) => call<GymSms>(token, "/api/gym/sms/settings", "PATCH", changes),

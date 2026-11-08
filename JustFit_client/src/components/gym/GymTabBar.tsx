@@ -17,7 +17,7 @@ export function GymTabBar({ state, emitter, navigateToTab }: BottomTabBarProps) 
   const insets = useSafeAreaInsets();
   const can = useCan();
   // Role & Permission: the Wallet is a Payments screen; Manage needs at least one of its areas
-  const shown = (name: string) => (name === "wallet" ? can("payments") : name === "manage" ? can("members") || can("catalog") || can("enquiries") : true);
+  const shown = (name: string) => (name === "wallet" ? can("payments.wallet") : name === "manage" ? can("members") || can("catalog") || can("enquiries") : true);
 
   return (
     <View className="gym-tabbar" style={{ paddingBottom: Math.max(insets.bottom, 10) }} accessibilityRole="tablist">

@@ -32,8 +32,8 @@ async function staffGym(pool, userId) {
 }
 
 // access: owner (the gym admin) or staff, so the app shows Staff / Admin Login to the owner only;
-// areas: what this login may use here (Role & Permission, staffRules.areasOf), so the app hides the rest
-const gymInfo = (gym) => ({ name: gym.brand, branch: gym.branch, area: gym.area, city: gym.city, branchCount: gym.branch_count, access: gym.kind, areas: staffRules.areasOf(gym) });
+// areas / options: what this login may use here (Role & Permission, staffRules.optionsOf), so the app hides the rest
+const gymInfo = (gym) => ({ name: gym.brand, branch: gym.branch, area: gym.area, city: gym.city, branchCount: gym.branch_count, access: gym.kind, areas: staffRules.areasOf(gym), options: staffRules.optionsOf(gym) });
 
 // Every branch the account is linked to, and which one is open
 async function branches(pool, gym, userId) {
@@ -120,6 +120,8 @@ const memberOf = (r, today) => ({
   phone: toE164(r.phone),
   dob: r.dob ?? null,
   birthdayToday: Boolean(r.dob) && r.dob.slice(5) === today.slice(5),
+  // The catalogue plan's name when bought (migration 2026-12-12); null for a custom plan or before it
+  planName: r.plan_name ?? null,
   planLength: r.plan_days ? { duration: r.plan_days, unit: "days" } : { duration: r.plan_months, unit: "months" },
   joinedOn: r.joined_on,
   expiresOn: r.expires_on,
@@ -217,8 +219,9 @@ async function members(pool, gymId, { filter, search, days = rules.EXPIRING_SOON
   if (filter === "expired") { where += " AND m.expires_on < ?"; params.push(today); }
   // 50 a page (one more row tells whether there is a next page), the counts fetched alongside
   const size = rules.limits.page;
+  const withName = await hasPlanName(pool);
   const [[rows], counts] = await Promise.all([
-    pool.query(`SELECT ${MEMBER_COLUMNS} FROM gym_members m ${where} ORDER BY ${MEMBER_ORDER[sort] ?? MEMBER_ORDER.name} LIMIT ? OFFSET ?`, [...params, size + 1, (page - 1) * size]),
+    pool.query(`SELECT ${memberColumns(withName)} FROM gym_members m ${where} ORDER BY ${MEMBER_ORDER[sort] ?? MEMBER_ORDER.name} LIMIT ? OFFSET ?`, [...params, size + 1, (page - 1) * size]),
     memberCounts(pool, gymId, found, today, days),
   ]);
   const list = rows.slice(0, size);
@@ -246,7 +249,7 @@ async function memberCounts(pool, gymId, found, today, days) {
 }
 
 async function memberRow(db, gymId, memberId, today, { lock = false } = {}) {
-  const [[row]] = await db.query(`SELECT ${MEMBER_COLUMNS} FROM gym_members m WHERE m.id = ? AND m.gym_id = ?${lock ? " FOR UPDATE" : ""}`, [today, memberId, gymId]);
+  const [[row]] = await db.query(`SELECT ${memberColumns(await hasPlanName(db))} FROM gym_members m WHERE m.id = ? AND m.gym_id = ?${lock ? " FOR UPDATE" : ""}`, [today, memberId, gymId]);
   if (!row) throw new NotFoundError("That member isn't at your gym.");
   return row;
 }
@@ -322,6 +325,26 @@ const ptDetail = (body, from, until) => {
   const length = until === rules.planEnd(from, body.duration) ? planText(body) : planText({ duration: days, unit: "days" });
   return `PT · ${body.package} · ${length}`.slice(0, 80);
 };
+// Whether gym_members has plan_name yet (migration 2026-12-12): asked once, and again a minute
+// later while it's missing, so members keep working before the migration runs
+let planNameColumn = { has: false, at: 0 };
+async function hasPlanName(db) {
+  if (planNameColumn.has || Date.now() - planNameColumn.at < 60000) return planNameColumn.has;
+  const [[row]] = await db.query("SELECT COUNT(*) AS n FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'gym_members' AND COLUMN_NAME = 'plan_name'");
+  planNameColumn = { has: Number(row.n) > 0, at: Date.now() };
+  return planNameColumn.has;
+}
+// The member columns, with the plan's name once the column exists
+const memberColumns = (withPlanName) => (withPlanName ? `${MEMBER_COLUMNS}, m.plan_name` : MEMBER_COLUMNS);
+
+// The catalogue plan's name for Add Member and Renewal: one of this branch's plans, or a 400
+async function catalogPlanName(db, gymId, planId) {
+  if (planId === null) return null;
+  const [[item]] = await db.query("SELECT name FROM gym_catalog_items WHERE id = ? AND gym_id = ? AND kind = 'plan'", [planId, gymId]);
+  if (!item) throw new ValidationError("Pick one of your plans.");
+  return item.name;
+}
+
 // The members row's two length columns: plan_months is set and plan_days NULL (day plans ended
 // on 2026-11-07; older rows may still carry plan_days, which the reads above still show)
 const planColumns = ({ duration }) => [duration, null];
@@ -341,10 +364,12 @@ async function admit(pool, gym, userId, body, today) {
       const [[counter]] = await db.query("SELECT next_member_no FROM gyms WHERE id = ? FOR UPDATE", [gymId]);
       const code = rules.memberCode(gym.brand, gym.branch, counter.next_member_no);
       await db.query("UPDATE gyms SET next_member_no = next_member_no + 1 WHERE id = ?", [gymId]);
+      const planName = await catalogPlanName(db, gymId, body.planId);
       const [result] = await db.query(
         "INSERT INTO gym_members (gym_id, member_code, full_name, phone, dob, gender, email, height_cm, weight_kg, address, notes, plan_months, plan_days, joined_on, expires_on, due_amount, due_by, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         [gymId, code, body.name, body.phone, body.dob, body.gender, body.email, body.heightCm, body.weightKg, body.address, body.notes, ...planColumns(body), body.joinedOn, rules.planEnd(body.joinedOn, body.duration), body.due, body.dueBy, userId],
       );
+      if (planName !== null && (await hasPlanName(db))) await db.query("UPDATE gym_members SET plan_name = ? WHERE id = ?", [planName, result.insertId]);
       await addPayment(db, gymId, userId, { memberId: result.insertId, kind: "admission", title: body.name, detail: planText(body), method: body.method, amount: body.paid }, body.paidOn);
       return result.insertId;
     });
@@ -364,6 +389,9 @@ async function renew(pool, gymId, userId, memberId, body, today) {
     // A new amount owed takes the date given; otherwise an earlier one stays
     const dueBy = body.due > 0 ? body.dueBy : due > 0 ? row.due_by : null;
     await db.query("UPDATE gym_members SET plan_months = ?, plan_days = ?, expires_on = ?, due_amount = ?, due_by = ? WHERE id = ? AND gym_id = ?", [...planColumns(body), rules.renewedUntil(row.expires_on, today, body.duration), due, dueBy, memberId, gymId]);
+    // The plan they renewed onto: the catalogue plan's name, or none for a custom plan
+    const planName = await catalogPlanName(db, gymId, body.planId);
+    if (await hasPlanName(db)) await db.query("UPDATE gym_members SET plan_name = ? WHERE id = ? AND gym_id = ?", [planName, memberId, gymId]);
     await addPayment(db, gymId, userId, { memberId, kind: "renewal", title: row.full_name, detail: planText(body), method: body.method, amount: body.paid }, today);
   });
   return member(pool, gymId, memberId, today);

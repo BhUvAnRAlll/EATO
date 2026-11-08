@@ -135,7 +135,7 @@ describe("gym staff e2e: Staff / Admin Login, invites and roles", () => {
     const list = await as("owner").get("/api/gym/staff");
     assert.equal(list.status, 200, JSON.stringify(list.json));
     assert.equal(list.json.team.length, 1);
-    assert.deepEqual({ ...list.json.team[0], addedAt: undefined }, { id: identities.owner.id, name: null, phone: list.json.team[0].phone, kind: "owner", areas: rules_areas(), addedAt: undefined, you: true });
+    assert.deepEqual({ ...list.json.team[0], addedAt: undefined }, { id: identities.owner.id, name: null, phone: list.json.team[0].phone, kind: "owner", areas: rules_areas(), options: [...staffRules.OPTION_IDS], addedAt: undefined, you: true });
     assert.match(list.json.team[0].phone, /^\+91 ••••• ••\d{3}$/, "numbers are masked");
     assert.deepEqual(list.json.invites, []);
   }));
@@ -235,6 +235,31 @@ describe("gym staff e2e: Staff / Admin Login, invites and roles", () => {
     }
     assert.equal(await count("admin_audit_log", "admin_id = ? AND action = 'gym.staff_permissions'", [identities.owner.id]), 1);
 
+    // Options inside an area (2026-11-08): the member list and enquiries without adding or editing
+    const some = await as("owner").put(`/api/gym/staff/${staffer}/permissions`, { options: ["enquiries.view", "members.view"] });
+    assert.equal(some.status, 200, JSON.stringify(some.json));
+    assert.deepEqual(some.json.team.find((p) => p.id === staffer).options, ["members.view", "enquiries.view"]);
+    assert.ok(some.json.permissionTree.some((t) => t.id === "members" && t.options.some((o) => o.id === "members.add")), "the tree comes with the team");
+    const home = (await as("staffer").get("/api/gym/dashboard")).json.gym;
+    assert.deepEqual([home.areas, home.options], [["members", "enquiries"], ["members.view", "enquiries.view"]]);
+    assert.equal((await as("staffer").get("/api/gym/members?filter=all&search=")).status, 200);
+    assert.equal((await as("staffer").get("/api/gym/enquiries")).status, 200);
+    for (const [call, option] of [
+      [as("staffer").post("/api/gym/members", {}), "Members › Add Member"], [as("staffer").get("/api/gym/members/next-code"), "Members › Add Member"],
+      [as("staffer").patch("/api/gym/members/1", {}), "Members › Edit profile"], [as("staffer").post("/api/gym/members/1/renew", {}), "Members › Renew membership"],
+      [as("staffer").get("/api/gym/pauses"), "Members › Pause membership"], [as("staffer").post("/api/gym/enquiries", {}), "Enquiries › Add and edit"],
+      [as("staffer").post("/api/gym/enquiries/1/contacts", {}), "Enquiries › Log calls"],
+    ]) {
+      const refused = await call;
+      assert.equal(refused.status, 403, option);
+      assert.match(refused.json.error, new RegExp(option));
+    }
+    // Ticking Add Member brings the member list with it
+    const add = await as("owner").put(`/api/gym/staff/${staffer}/permissions`, { options: ["members.add"] });
+    assert.deepEqual(add.json.team.find((p) => p.id === staffer).options, ["members.view", "members.add"]);
+    assert.equal((await as("staffer").get("/api/gym/members/next-code")).status, 200);
+    assert.equal((await as("staffer").get("/api/gym/enquiries")).status, 403);
+
     // Home only is allowed; the dashboard still answers
     assert.equal((await as("owner").put(`/api/gym/staff/${staffer}/permissions`, { areas: [] })).status, 200);
     assert.equal((await as("staffer").get("/api/gym/dashboard")).status, 200);
@@ -247,7 +272,7 @@ describe("gym staff e2e: Staff / Admin Login, invites and roles", () => {
     assert.equal((await as("owner").put(`/api/gym/staff/${identities.member.id}/permissions`, { areas: ["members"] })).status, 404, "not on the team");
     assert.equal((await as("otherOwner").put(`/api/gym/staff/${staffer}/permissions`, { areas: [] })).status, 404, "another gym's admin can't");
     assert.equal((await as("owner").put("/api/gym/staff/x%27%20OR%201%3D1/permissions", { areas: [] })).status, 400);
-    for (const body of [{ areas: ["team"] }, { areas: "members" }, { areas: ["members"], kind: "owner" }, {}]) {
+    for (const body of [{ areas: ["team"] }, { areas: "members" }, { areas: ["members"], kind: "owner" }, {}, { options: ["members.view"], areas: [] }, { options: ["team.view"] }, { options: ["members.view' OR 1=1"] }]) {
       assert.equal((await as("owner").put(`/api/gym/staff/${staffer}/permissions`, body)).status, 400, JSON.stringify(body));
     }
 
