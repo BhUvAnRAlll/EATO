@@ -149,6 +149,7 @@ describe("ui gym settings: every group for the gym admin, rows open their screen
     "Location & Attendance, Gym location and check-in radius",
     "Attendance QR code, Show, print or regenerate",
     "SMS & auto reminders, Credits, reminders and message logs",
+    "Reminder Templates, The wording of your reminders",
     "Staff / Admin Login, Who can sign in to your gym",
     "Role & Permission, What each Staff login can open",
   ];
@@ -207,9 +208,9 @@ describe("ui gym settings: every group for the gym admin, rows open their screen
     await h.settle(); // Home reads which areas this login has
     await openSettings();
     await h.expectText("Forma · Staff");
-    assert.ok(await hasLabel("Outlets, Switch branch or add one"), "Outlets");
-    for (const label of ADMIN_ROWS.filter((l) => !l.startsWith("Outlets"))) assert.equal(await hasLabel(label), false, `${label} is hidden`);
-    for (const title of ["Attendance", "Messages", "Team"]) assert.equal(await page.evaluate(`[...document.querySelectorAll("div")].some((e) => e.children.length === 0 && e.textContent === ${JSON.stringify(title)})`), false, `${title} group hidden`);
+    for (const label of ["Outlets, Switch branch or add one", "Reminder Templates, The wording of your reminders"]) assert.ok(await hasLabel(label), label);
+    for (const label of ADMIN_ROWS.filter((l) => !l.startsWith("Outlets") && !l.startsWith("Reminder"))) assert.equal(await hasLabel(label), false, `${label} is hidden`);
+    for (const title of ["Attendance", "Team"]) assert.equal(await page.evaluate(`[...document.querySelectorAll("div")].some((e) => e.children.length === 0 && e.textContent === ${JSON.stringify(title)})`), false, `${title} group hidden`);
     await snapshotAllWidths("gym-settings-staff");
   }));
 

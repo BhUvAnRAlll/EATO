@@ -41,6 +41,7 @@ const GROUPS: SettingGroup[] = [
     title: "Messages",
     rows: [
       { label: "SMS & auto reminders", text: "Credits, reminders and message logs", icon: "message-square-more", action: "sms", area: "sms" },
+      { label: "Reminder Templates", text: "The wording of your reminders", icon: "message-square-text", href: "/gym/templates" },
     ],
   },
   {

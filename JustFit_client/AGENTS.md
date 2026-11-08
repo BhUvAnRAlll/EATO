@@ -311,7 +311,7 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
   **Settings (2026-11-08, the user's request):** ☰ › Settings (`app/gym/settings.tsx`) lists every
   setting in one place, grouped Branch (Branch details, Invoice details & logo: gym admin only;
   Outlets), Attendance (Location & Attendance, the QR code), Messages (SMS & auto reminders opens
-  `BulkSmsSheet`) and Team (Staff / Admin Login, Role & Permission: gym admin
+  `BulkSmsSheet`; Reminder Templates) and Team (Staff / Admin Login, Role & Permission: gym admin
   only), then the account and Sign out. Rows open the existing screens; a row the login can't use
   (`access` from `GET /api/gym/branches`, `useCan`) is hidden. No server change. No subscription/Buy Now card (no
   billing in justFit yet).
@@ -950,6 +950,15 @@ picker were removed on 2026-11-01; don't add them back unless asked.
   - `error`, which `FormAlert` plays by itself.
 
   Calls are throttled and do nothing on the web.
+- **HUD feedback (2026-11-08).** A short message that hides itself goes through `lib/hud.ts`
+  (`hud.success("Payment recorded")`, `hud.error("Couldn't open WhatsApp")`, `hud.offline()`),
+  which plays the matching haptic, so never call both. `components/Hud.tsx` draws it: a centred
+  dark HUD on iPhone, a Material snackbar above the tab bar on Android and the web; it never takes
+  a touch, success 1.6 s, problems 3.2 s, at most 60 characters (`lib/hudRules.ts`, unit-tested),
+  read out to screen readers. `HudHost` is mounted at the root and inside `GymSheet` and
+  `BottomSheet` (a Modal is its own window); only the newest host draws. `useGymSave(done,
+  success?)` shows the success line; `apiFetch` shows `hud.offline()` for a write that never reached
+  the server (reads stay quiet). Form errors stay inline (`FormAlert`); the HUD is for outcomes.
 - **Motion for changing values (added 2026-11-02).** A figure that changes in place (calories
   left, eaten, a macro's grams) is `components/motion/AnimatedNumber.tsx`; a ring's fill or a
   bar's width follows `lib/useTween.ts`, and `ProgressRing` eases to each new value. They open on
