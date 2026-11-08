@@ -10,6 +10,9 @@ const { createRateLimiter, limitPerUser } = require("../rateLimit");
 const attendance = require("./attendance");
 const attendanceRules = require("./attendanceRules");
 const catalogImages = require("./catalogImages");
+const expenseBills = require("./expenseBills");
+const expenseRules = require("./expenseRules");
+const expenses = require("./expenses");
 const logos = require("./logos");
 const paymentReceipts = require("./paymentReceipts");
 const invoices = require("./invoices");
@@ -38,14 +41,14 @@ const today = () => rules.todayInIndia();
 // Before the gym migrations (2026-11-19-gym-portal.sql up to 2026-11-29-gym-staff-logins.sql)
 // have run, say so instead of a 500
 const MIGRATION = "The gym portal needs its migrations (up to 2026-12-05-membership-pauses) on this server.";
-const route = (handler) => (req, res, next) =>
-  handler(req, res, next).catch((error) => {
-    if (["ER_NO_SUCH_TABLE", "ER_BAD_FIELD_ERROR"].includes(error?.code)) return res.status(503).json({ error: MIGRATION });
 // Saving a referral before its migration names that migration (enquiries are read without it)
 const REFERRER_MIGRATION = "Referrals need the 2026-12-09-enquiry-referrer migration on this server.";
+const route = (handler) => (req, res, next) =>
+  handler(req, res, next).catch((error) => {
+    if (error?.code === "ER_BAD_FIELD_ERROR" && String(error.sqlMessage ?? "").includes("referred_by_phone")) return res.status(503).json({ error: REFERRER_MIGRATION });
+    if (["ER_NO_SUCH_TABLE", "ER_BAD_FIELD_ERROR"].includes(error?.code)) return res.status(503).json({ error: MIGRATION });
     next(error);
   });
-    if (error?.code === "ER_BAD_FIELD_ERROR" && String(error.sqlMessage ?? "").includes("referred_by_phone")) return res.status(503).json({ error: REFERRER_MIGRATION });
 
 // 403 unless the caller is a gym admin or Staff linked to a gym (a trainer's link doesn't count)
 async function requireGymStaff(req, res, next) {
@@ -385,9 +388,6 @@ router.patch("/invoice-details", ownerOnly("Only the gym admin can change the in
   res.json(await invoices.updateInvoiceDetails(pool(req), req.gym, req.userId, invoiceRules.invoiceDetailsBody(req.body)));
 }));
 
-// Send Bulk SMS (gym/sms.js): credits, Auto Reminders, Manual Send, a member's reminder, Message
-// Logs. Sending costs the branch's credits, so sends have their own small budget per account.
-const SMS_MIGRATION = "SMS needs the 2026-11-25-gym-sms migration on this server.";
 // The gym's logo (gym/logos.js, 2026-11-08): printed at the top right of every invoice. PUT
 // { data: base64, mediaType } adds or replaces it (checked from its bytes: JPEG, PNG or WebP, at
 // most 2 MB; the gym admin only, the photos' hourly allowance) and answers the Invoice details,
@@ -414,6 +414,9 @@ router.get("/logo", logoRoute(async (req, res) => {
   logos.send(res, await logos.logoFile(pool(req), req.gym.brand_id));
 }));
 
+// Send Bulk SMS (gym/sms.js): credits, Auto Reminders, Manual Send, a member's reminder, Message
+// Logs. Sending costs the branch's credits, so sends have their own small budget per account.
+const SMS_MIGRATION = "SMS needs the 2026-11-25-gym-sms migration on this server.";
 const smsRoute = (handler) => (req, res, next) =>
   handler(req, res, next).catch((error) => {
     if (["ER_NO_SUCH_TABLE", "ER_BAD_FIELD_ERROR"].includes(error?.code)) return res.status(503).json({ error: SMS_MIGRATION });
@@ -465,8 +468,65 @@ router.get("/attendance/export", route(async (req, res) => {
   res.send(`\uFEFF${csv}`);
 }));
 
+// Wallet: the takings, and (for a login with the Expenses area) what was spent and the net
+// (collected − spent). Before the expenses migration `expenses` is left out and Wallet is as it was.
 router.get("/wallet", route(async (req, res) => {
-  res.json(await service.wallet(pool(req), req.gym.id, today()));
+  const wallet = await service.wallet(pool(req), req.gym.id, today());
+  const spent = staffRules.areasOf(req.gym).includes("expenses") ? await expenses.spent(pool(req), req.gym.id, today()) : null;
+  if (spent) {
+    wallet.expenses = spent;
+    wallet.net = { today: wallet.today.total - spent.today, month: wallet.month.total - spent.month };
+  }
+  res.json(wallet);
+}));
+
+// Expenses (gym/expenses.js, 2026-11-08): Manage › Expense. Area expenses (staffRules.areaOfPath):
+// the gym admin, and Staff given Expenses. Adding and editing share an hourly allowance; deleting
+// is the gym admin's alone and audited, with the bill's file. Before migration 2026-12-10 the
+// routes say so instead of a 500.
+const EXPENSE_MIGRATION = "Expenses need the 2026-12-10-gym-expenses migration on this server.";
+const expenseRoute = (handler) => (req, res, next) =>
+  handler(req, res, next).catch((error) => {
+    if (["ER_NO_SUCH_TABLE", "ER_BAD_FIELD_ERROR"].includes(error?.code)) return res.status(503).json({ error: EXPENSE_MIGRATION });
+    next(error);
+  });
+const expenseLimit = limitPerUser(createRateLimiter({ limit: 60, windowMs: 60 * 60 * 1000 }));
+const expenseId = (req) => rules.id(req.params.expenseId, "expense");
+
+router.get("/expenses", expenseRoute(async (req, res) => {
+  // canDelete: whether this login may delete (the gym admin); the app shows Delete only then
+  res.json({ ...(await expenses.list(pool(req), req.gym.id, expenseRules.expensesQuery(req.query, today()))), canDelete: req.gym.kind === "owner" });
+}));
+router.post("/expenses", expenseLimit, smallBody, expenseRoute(async (req, res) => {
+  res.status(201).json(await expenses.add(pool(req), req.gym.id, req.userId, expenseRules.expenseBody(req.body, today())));
+}));
+router.put("/expenses/:expenseId", expenseLimit, smallBody, expenseRoute(async (req, res) => {
+  res.json(await expenses.edit(pool(req), req.gym, req.userId, expenseId(req), expenseRules.expenseBody(req.body, today())));
+}));
+router.delete("/expenses/:expenseId", ownerOnly("Only the gym admin can delete an expense."), expenseLimit, expenseRoute(async (req, res) => {
+  const bill = await expenses.remove(pool(req), req.gym, req.userId, expenseId(req));
+  if (bill) await expenseBills.discard(bill);
+  res.json({ ok: true });
+}));
+
+// An expense's bill photo (gym/expenseBills.js): PUT { data: base64, mediaType } adds or replaces
+// it (checked from its bytes: JPEG, PNG or WebP, at most 3 MB) and answers the expense, DELETE
+// takes it off, GET reads it. Only this branch's expenses; uploads share the photos' allowance.
+const billBody = express.json({ limit: Math.ceil(expenseBills.billLimits.maxBytes * (4 / 3)) + 1024 });
+router.put("/expenses/:expenseId/bill", photoLimit, billBody, expenseRoute(async (req, res) => {
+  const id = expenseId(req);
+  const checked = expenseBills.checkBill(req.body);
+  if (!checked.ok) return res.status(checked.status).json({ error: checked.error });
+  await expenseBills.setBill(pool(req), req.gym.id, id, checked);
+  res.json(await expenses.one(pool(req), req.gym.id, id));
+}));
+router.delete("/expenses/:expenseId/bill", expenseRoute(async (req, res) => {
+  const id = expenseId(req);
+  await expenseBills.removeBill(pool(req), req.gym.id, id);
+  res.json(await expenses.one(pool(req), req.gym.id, id));
+}));
+router.get("/expenses/:expenseId/bill", expenseRoute(async (req, res) => {
+  expenseBills.send(res, await expenseBills.billFile(pool(req), req.gym.id, expenseId(req)));
 }));
 
 module.exports = { gymRouter: router };

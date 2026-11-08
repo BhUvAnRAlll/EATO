@@ -36,7 +36,8 @@ export const pickCatalogImage = (source: PhotoSource) => pickImage(source, { squ
 /** The gym's logo for its invoices (PUT /api/gym/logo): any shape, a wordmark is wide, a mark is square */
 export const pickLogoImage = (source: PhotoSource) => pickImage(source, { square: false, what: "the logo", side: LOGO_LONG_SIDE });
 
-/** The plan payment's bill from Add Member (PUT /api/gym/payments/:id/receipt): any shape, a till slip is tall */
+/** A bill: the plan payment's from Add Member (PUT /api/gym/payments/:id/receipt) or an expense's
+ * (PUT /api/gym/expenses/:id/bill); any shape, a till slip is tall */
 export const pickReceiptImage = (source: PhotoSource) => pickImage(source, { square: false, what: "the bill" });
 
 async function pickImage(source: PhotoSource, { square, what, side }: { square: boolean; what: string; side?: number }): Promise<Picked> {

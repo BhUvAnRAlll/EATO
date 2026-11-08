@@ -65,10 +65,10 @@ export default function GymHome() {
       outlet: () => router.push("/gym/branches?add=1"),
       staff: () => router.push("/gym/staff?add=1"),
       attendance: () => router.push("/gym/attendance"),
+      expense: () => router.push("/gym/manage?tab=expense&add=1"),
     };
-    const label = { expense: "Add Expense" } as Partial<Record<AddAction, string>>;
     if (go[action]) go[action]!();
-    else setTimeout(() => comingSoon(label[action] ?? "This"), 250);
+    else setTimeout(() => comingSoon("This"), 250);
   };
   // Six counts in one row on a tablet or the web, otherwise two rows of three
   const columns = useWindowDimensions().width >= 700 ? 6 : 3;

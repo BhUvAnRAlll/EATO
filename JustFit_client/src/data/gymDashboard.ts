@@ -1,5 +1,5 @@
 import type { GymIconName } from "@/constants/gymIcons";
-import type { CatalogKind, ContactKind, ContactOutcome, EnquiryContact, EnquiryInterest, EnquirySource, EnquiryStatus, EnquiryView, Gender, LeadLevel, MemberFilter, MemberStatus, PayLevel, PaymentKind, PayMethod, PlanUnit, SaleCategory, StaffArea } from "@/lib/gymApi";
+import type { CatalogKind, ContactKind, ContactOutcome, EnquiryContact, EnquiryInterest, EnquirySource, EnquiryStatus, EnquiryView, ExpenseCategory, Gender, LeadLevel, MemberFilter, MemberStatus, PayLevel, PaymentKind, PayMethod, PlanUnit, SaleCategory, StaffArea } from "@/lib/gymApi";
 
 // The gym admin portal's fixed words and small formatters. The numbers themselves come from the
 // server (lib/gymApi.ts).
@@ -179,7 +179,35 @@ export const STAFF_AREAS: { id: StaffArea; label: string; line: string; icon: Gy
   { id: "attendance", label: "Attendance", line: "QR attendance, check-ins, history and settings", icon: "qr-code" },
   { id: "sms", label: "SMS", line: "Send Bulk SMS, reminders and message logs", icon: "message-square-more" },
   { id: "predictions", label: "Predictions", line: "Likely to leave, busy hours, month-end revenue", icon: "user-x" },
+  { id: "expenses", label: "Expenses", line: "Rent, salaries and other spending, and the net on Wallet", icon: "wallet" },
 ];
+
+// Expenses: the fixed categories, in the order the chips show them (Other needs a title)
+export const EXPENSE_CATEGORIES: { id: ExpenseCategory; label: string; icon: GymIconName }[] = [
+  { id: "rent", label: "Rent", icon: "house" },
+  { id: "salary", label: "Salary", icon: "users" },
+  { id: "electricity", label: "Electricity", icon: "zap" },
+  { id: "water", label: "Water", icon: "droplet" },
+  { id: "equipment", label: "Equipment", icon: "dumbbell" },
+  { id: "maintenance", label: "Maintenance", icon: "wrench" },
+  { id: "cleaning", label: "Cleaning", icon: "sparkles" },
+  { id: "marketing", label: "Marketing", icon: "megaphone" },
+  { id: "stock", label: "Stock", icon: "package" },
+  { id: "other", label: "Other", icon: "receipt" },
+];
+export const EXPENSE_LABEL = Object.fromEntries(EXPENSE_CATEGORIES.map((c) => [c.id, c.label])) as Record<ExpenseCategory, string>;
+export const EXPENSE_ICON = Object.fromEntries(EXPENSE_CATEGORIES.map((c) => [c.id, c.icon])) as Record<ExpenseCategory, GymIconName>;
+// How far back the month picker goes (the server allows the same)
+export const EXPENSE_MONTHS_BACK = 24;
+
+// "2026-11" moved by `count` months, and shown as "Nov 2026"
+export function shiftMonth(month: string, count: number): string {
+  const [year, number] = month.split("-").map(Number);
+  return new Date(Date.UTC(year, number - 1 + count, 1)).toISOString().slice(0, 7);
+}
+export const monthLabel = (month: string) => new Date(`${month}-01T00:00:00Z`).toLocaleDateString("en-GB", { month: "short", year: "numeric", timeZone: "UTC" });
+// An expense's line: its title, or the category's name
+export const expenseTitle = (e: { category: ExpenseCategory; title: string | null }) => e.title ?? EXPENSE_LABEL[e.category];
 
 // "All areas", "Members, SMS" or "Home only": what a Staff login can use, in one line
 export function areasLine(areas: StaffArea[]): string {

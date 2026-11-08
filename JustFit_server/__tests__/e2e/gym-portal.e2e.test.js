@@ -12,7 +12,7 @@ const { describe, it, before, after } = require("node:test");
 const crypto = require("node:crypto");
 
 // What the gym admin (owner) may use: every area of Role & Permission (gym/staffRules.js AREAS)
-const ALL_AREAS = ["members", "payments", "enquiries", "catalog", "attendance", "sms", "predictions"];
+const ALL_AREAS = ["members", "payments", "enquiries", "catalog", "attendance", "sms", "predictions", "expenses"];
 
 const db = require("./test-db.js");
 const { startTestServer } = require("./server.js");

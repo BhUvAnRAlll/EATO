@@ -179,14 +179,14 @@ describe("ui gym permissions: Role & Permission for Staff logins", () => {
     await toggle("SMS for Priya Sharma", false);
     await page.waitFor(`document.querySelector('[aria-label="Save"]').getAttribute("aria-disabled") !== "true"`, NAV_TIMEOUT, "Save enabled");
     await clickLabel("Save");
-    await h.expectText("Saved. Priya Sharma can open: Members, Enquiries, Plans / Catalogue, Attendance, Predictions.");
-    assert.ok(await hasLabel("Priya Sharma: Members, Enquiries, Plans / Catalogue, Attendance, Predictions. Change permissions"), "the row says what's left");
-    assert.deepEqual(await savedAreas(identities.priya.id), ["members", "enquiries", "catalog", "attendance", "predictions"]);
+    await h.expectText("Saved. Priya Sharma can open: Members, Enquiries, Plans / Catalogue, Attendance, Predictions, Expenses.");
+    assert.ok(await hasLabel("Priya Sharma: Members, Enquiries, Plans / Catalogue, Attendance, Predictions, Expenses. Change permissions"), "the row says what's left");
+    assert.deepEqual(await savedAreas(identities.priya.id), ["members", "enquiries", "catalog", "attendance", "predictions", "expenses"]);
     await snapshotAllWidths("gym-permissions-saved");
 
     // Staff / Admin Login shows it too
     await page.navigate(`${expo.baseUrl}/gym/staff`);
-    await h.expectText("Can open: Members, Enquiries, Plans / Catalogue, Attendance, Predictions");
+    await h.expectText("Can open: Members, Enquiries, Plans / Catalogue, Attendance, Predictions, Expenses");
   }));
 
   it("3. Priya's portal: no Wallet, no SMS; the Wallet by its address is refused by the server", run("permissions-staff-home", async () => {

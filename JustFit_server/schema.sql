@@ -1458,3 +1458,29 @@ CREATE TABLE gym_membership_pauses (
   CONSTRAINT chk_gym_pauses_dates CHECK (pause_until >= pause_from),
   CONSTRAINT chk_gym_pauses_days CHECK (days BETWEEN 1 AND 365)
 ) ENGINE = InnoDB;
+
+-- Gym expenses (migration 2026-12-10-gym-expenses.sql): each branch's spending (Manage › Expense),
+-- with who was paid, cash or online, a note and an optional bill photo (a file name in
+-- EXPENSE_BILL_DIR, gym/expenseBills.js). Wallet subtracts the month's spending for the net.
+CREATE TABLE gym_expenses (
+  id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  gym_id      INT UNSIGNED NOT NULL,                -- the branch that spent it
+  category    ENUM('rent', 'salary', 'electricity', 'water', 'equipment', 'maintenance', 'cleaning', 'marketing', 'stock', 'other') NOT NULL,
+  title       VARCHAR(80)  NULL,                    -- what it was; needed for 'other'
+  paid_to     VARCHAR(80)  NULL,                    -- the landlord, a trainer, a vendor
+  method      ENUM('online', 'cash') NOT NULL,
+  amount      INT UNSIGNED NOT NULL,                -- rupees
+  spent_on    DATE         NOT NULL,
+  note        VARCHAR(200) NULL,
+  bill_key    VARCHAR(64)  NULL,                    -- the bill photo's file name; NULL: none
+  created_by  VARCHAR(64)  NULL,
+  updated_by  VARCHAR(64)  NULL,
+  created_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_gym_expenses_day (gym_id, spent_on, id),
+  CONSTRAINT fk_gym_expenses_gym FOREIGN KEY (gym_id) REFERENCES gyms (id),
+  CONSTRAINT fk_gym_expenses_created_by FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL,
+  CONSTRAINT fk_gym_expenses_updated_by FOREIGN KEY (updated_by) REFERENCES users (id) ON DELETE SET NULL,
+  CONSTRAINT chk_gym_expenses_amount CHECK (amount BETWEEN 1 AND 1000000)
+) ENGINE = InnoDB;

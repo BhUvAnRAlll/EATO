@@ -54,7 +54,7 @@ export type GymAccess = "owner" | "staff";
 export type StaffKind = "staff" | "trainer";
 // Role & Permission: the portal's areas a Staff login can be given (the gym admin has all of them,
 // a trainer none). Which routes each covers is the server's call (gym/staffRules.js).
-export type StaffArea = "members" | "payments" | "enquiries" | "catalog" | "attendance" | "sms" | "predictions";
+export type StaffArea = "members" | "payments" | "enquiries" | "catalog" | "attendance" | "sms" | "predictions" | "expenses";
 export type TeamMember = { id: string; name: string | null; phone: string | null; kind: "owner" | StaffKind; areas: StaffArea[]; addedAt: string | null; you: boolean };
 export type StaffInvite = { id: number; phone: string | null; kind: StaffKind; invitedAt: string | null };
 // branches: the branches of this gym the caller is the gym admin of (the Add sheet's Branch chips)
@@ -182,7 +182,25 @@ export type GymEnquiry = {
 export type EnquiryFields = { name: string; phone: string; note: string; interest: EnquiryInterest | ""; source: EnquirySource | ""; followUpOn: string | ""; referredBy: string };
 export type GymEnquiries = { today: string; enquiries: GymEnquiry[]; counts: Record<EnquiryView, number>; gym: GymInfo };
 type Sums = { online: number; cash: number; total: number; byKind: Record<PaymentKind, number> };
-export type GymWallet = { today: Sums; month: Sums; due: { total: number; members: number } };
+// expenses / net: only for a login with the Expenses area, once the expenses migration has run
+export type GymWallet = { today: Sums; month: Sums; due: { total: number; members: number }; expenses?: { today: number; month: number }; net?: { today: number; month: number } };
+
+// Expenses (Manage › Expense): one of a fixed list of categories (Other needs a title)
+export type ExpenseCategory = "rent" | "salary" | "electricity" | "water" | "equipment" | "maintenance" | "cleaning" | "marketing" | "stock" | "other";
+export type GymExpense = { id: number; category: ExpenseCategory; title: string | null; paidTo: string | null; method: PayMethod; amount: number; spentOn: string; note: string | null; billUrl: string | null };
+// Every field is sent on add and on edit ("" = none)
+export type ExpenseFields = { category: ExpenseCategory; title: string; paidTo: string; method: PayMethod; amount: number; spentOn: string; note: string };
+// summary: the whole month; counts and totals: per category within the search ("all" included)
+export type GymExpenses = {
+  month: string;
+  summary: { total: number; online: number; cash: number; count: number };
+  counts: Record<ExpenseCategory | "all", number>;
+  totals: Record<ExpenseCategory | "all", number>;
+  expenses: GymExpense[];
+  page: number;
+  nextPage: number | null;
+  canDelete: boolean;
+};
 
 // fee: the plan's price, which is what's payable (the server still accepts an optional
 // admissionFee and discount; the sheet stopped sending them on 2026-11-07); paid is collected now
@@ -268,6 +286,15 @@ export const gymApi = {
   addContact: (token: string | null, id: number, contact: { kind: ContactKind; outcome?: ContactOutcome }) =>
     call<{ enquiry: GymEnquiry }>(token, `/api/gym/enquiries/${id}/contacts`, "POST", contact),
   wallet: (token: string | null) => call<GymWallet>(token, "/api/gym/wallet"),
+  // Expenses: a month (YYYY-MM) at a time, 50 a page; deleting is the gym admin's alone
+  expenses: (token: string | null, query: { month: string; category: ExpenseCategory | "all"; search: string; page?: number }) =>
+    call<GymExpenses>(token, `/api/gym/expenses?month=${query.month}&category=${query.category}&search=${encodeURIComponent(query.search)}&page=${query.page ?? 1}`),
+  addExpense: (token: string | null, fields: ExpenseFields) => call<{ expense: GymExpense }>(token, "/api/gym/expenses", "POST", fields),
+  editExpense: (token: string | null, id: number, fields: ExpenseFields) => call<{ expense: GymExpense }>(token, `/api/gym/expenses/${id}`, "PUT", fields),
+  deleteExpense: (token: string | null, id: number) => call<{ ok: true }>(token, `/api/gym/expenses/${id}`, "DELETE"),
+  // An expense's bill photo, checked again on the server from its bytes
+  setExpenseBill: (token: string | null, id: number, image: { data: string; mediaType: string }) => call<{ expense: GymExpense }>(token, `/api/gym/expenses/${id}/bill`, "PUT", { data: image.data, mediaType: image.mediaType }),
+  removeExpenseBill: (token: string | null, id: number) => call<{ expense: GymExpense }>(token, `/api/gym/expenses/${id}/bill`, "DELETE"),
   updateDetails: (token: string | null, fields: Partial<Omit<GymInfo, "name">>) => call<{ gym: GymInfo }>(token, "/api/gym/details", "PATCH", fields),
   // Invoices: one payment's, or a member's latest payment's; the details printed on every invoice
   invoice: (token: string | null, paymentId: number) => call<GymInvoice>(token, `/api/gym/payments/${paymentId}/invoice`),

@@ -8,7 +8,7 @@ import { useCan } from "@/store/gymAccess";
 import { useThemeColors } from "@/theme";
 
 // The Role & Permission area each item needs (none: open to every portal login)
-const AREA_FOR: Partial<Record<AddAction, StaffArea>> = { member: "members", plan: "catalog", enquiry: "enquiries", sms: "sms", attendance: "attendance" };
+const AREA_FOR: Partial<Record<AddAction, StaffArea>> = { member: "members", plan: "catalog", enquiry: "enquiries", sms: "sms", attendance: "attendance", expense: "expenses" };
 
 // Home's + (the user's design): Add Member, Add Plan, Add Enquiry, Add Expense, Add Outlet, Add
 // Staff / Admin Login (the gym admin only: canManageTeam), Send Bulk SMS, Attendance. A Staff

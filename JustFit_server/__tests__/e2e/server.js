@@ -83,6 +83,7 @@ async function startTestServer(env, { sms = "fake" } = {}) {
       // and payment bills
       ...(env.PAYMENT_RECEIPT_DIR ? { PAYMENT_RECEIPT_DIR: env.PAYMENT_RECEIPT_DIR } : {}),
       ...(env.GYM_LOGO_DIR ? { GYM_LOGO_DIR: env.GYM_LOGO_DIR } : {}),
+      ...(env.EXPENSE_BILL_DIR ? { EXPENSE_BILL_DIR: env.EXPENSE_BILL_DIR } : {}),
       // The YouTube test points the video loader at a local fake API with a test key
       ...(env.YOUTUBE_API_URL ? { YOUTUBE_API_URL: env.YOUTUBE_API_URL, YOUTUBE_API_KEY: env.YOUTUBE_API_KEY } : {}),
     },

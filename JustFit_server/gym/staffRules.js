@@ -9,7 +9,7 @@ const { normalizePhone } = require("../auth/phone");
 
 const KINDS = ["staff", "trainer"];
 // Role & Permission: the portal's areas a Staff login can be given (in the order the sheet shows)
-const AREAS = ["members", "payments", "enquiries", "catalog", "attendance", "sms", "predictions"];
+const AREAS = ["members", "payments", "enquiries", "catalog", "attendance", "sms", "predictions", "expenses"];
 const AREA_LABEL = {
   members: "Members",
   payments: "Payments",
@@ -18,6 +18,7 @@ const AREA_LABEL = {
   attendance: "Attendance",
   sms: "SMS",
   predictions: "Predictions",
+  expenses: "Expenses",
 };
 // Which area a gym route belongs to, by its path under /api/gym (the first match wins). Routes
 // with no area (the dashboard, branches, the team) are open to every portal login; the team is
@@ -37,6 +38,7 @@ const AREA_OF_PATH = [
   [/^\/sms(\/|$)/, "sms"],
   [/^\/attendance(\/|$)/, "attendance"],
   [/^\/predictions(\/|$)/, "predictions"],
+  [/^\/expenses(\/|$)/, "expenses"],
 ];
 // The role each kind of team member has
 const ROLE_FOR = { owner: "gym_admin", staff: "gym_admin", trainer: "trainer" };

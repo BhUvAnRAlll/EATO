@@ -111,12 +111,13 @@ describe("gym staff rules: Role & Permission", () => {
       "/enquiries": "enquiries", "/enquiries/4": "enquiries", "/enquiries/4/contacts": "enquiries",
       "/catalog": "catalog", "/catalog/2": "catalog",
       "/predictions/renewals": "predictions", "/predictions/busy-hours": "predictions", "/predictions/revenue": "predictions",
+      "/expenses": "expenses", "/expenses/7": "expenses", "/expenses/7/bill": "expenses",
     };
     for (const [path, area] of Object.entries(cases)) assert.equal(rules.areaOfPath(path), area, path);
     assert.equal(rules.areaOfPath("/membersx"), null, "a prefix is not a match");
     // A changed case or a trailing slash reads as the same area (QA 2026-11-07: the router used to
     // accept both while the map read them as "no area", so Staff could reach any area that way)
-    for (const [path, area] of [["/Payments", "payments"], ["/payments/", "payments"], ["/members/5/due/", "payments"], ["/Members/5/DUE", "payments"], ["/SMS/send/", "sms"], ["/Attendance/export", "attendance"]]) {
+    for (const [path, area] of [["/Payments", "payments"], ["/payments/", "payments"], ["/members/5/due/", "payments"], ["/Members/5/DUE", "payments"], ["/SMS/send/", "sms"], ["/Attendance/export", "attendance"], ["/Expenses/", "expenses"], ["/EXPENSES/7/Bill", "expenses"]]) {
       assert.equal(rules.areaOfPath(path), area, path);
     }
   });

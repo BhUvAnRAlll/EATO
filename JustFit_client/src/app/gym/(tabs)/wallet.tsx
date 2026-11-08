@@ -16,8 +16,10 @@ import { useThemeColors } from "@/theme";
 
 const KINDS: PaymentKind[] = ["admission", "renewal", "due", "pt", "service", "sale"];
 
-// One period's money: the total, online and cash, and each type
-function PeriodCard({ title, sums }: { title: string; sums: GymWallet["month"] }) {
+// One period's money: the total, online and cash, and each type; with `spent` (a login with the
+// Expenses area), what the branch spent and the net under them
+function PeriodCard({ title, sums, spent, net }: { title: string; sums: GymWallet["month"]; spent?: number; net?: number }) {
+  const colors = useThemeColors();
   return (
     <View className="gym-card p-4" style={{ gap: 10 }}>
       <View className="flex-row items-center justify-between">
@@ -40,6 +42,18 @@ function PeriodCard({ title, sums }: { title: string; sums: GymWallet["month"] }
           <Text className="gym-tx__name" style={{ fontSize: 14 }}>{rupees(sums.byKind[kind])}</Text>
         </View>
       ))}
+      {spent !== undefined && net !== undefined && (
+        <View className="gym-wallet-net" style={{ gap: 10 }}>
+          <View className="flex-row items-center justify-between">
+            <Text className="gym-tx__meta">Expenses</Text>
+            <Text className="gym-tx__name" style={{ fontSize: 14, color: colors.gymDanger }}>{spent > 0 ? `−${rupees(spent)}` : rupees(0)}</Text>
+          </View>
+          <View className="flex-row items-center justify-between" accessible accessibilityLabel={`Net after expenses: ${net < 0 ? "minus " : ""}${rupees(Math.abs(net))}`}>
+            <Text className="gym-tx__name">Net</Text>
+            <Text className="gym-tx__amount" style={net < 0 ? { color: colors.gymDanger } : undefined}>{net < 0 ? `−${rupees(-net)}` : rupees(net)}</Text>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -71,7 +85,7 @@ export default function GymWalletTab() {
           {result.state === "ready" && (
             <>
               <RevenueCard online={result.data.today.online} cash={result.data.today.cash} action={{ label: "Today's payments", onPress: () => router.push("/gym/transactions?today=1") }} />
-              <PeriodCard title="This month" sums={result.data.month} />
+              <PeriodCard title="This month" sums={result.data.month} spent={result.data.expenses?.month} net={result.data.net?.month} />
               {canPredict && <RevenueForecastCard result={forecast.result} onRetry={forecast.retry} />}
               {/* An older server answers without `due`: leave the card out rather than crash */}
               {result.data.due && can("members") && <PressableScale onPress={() => router.push("/gym/members?filter=due")} className="gym-card gym-tx" accessibilityRole="button" accessibilityLabel={`Due from members: ${rupees(result.data.due.total)}, ${result.data.due.members} members`}>

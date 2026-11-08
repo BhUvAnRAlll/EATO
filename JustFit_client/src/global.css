@@ -5163,12 +5163,19 @@
   gap: 6px;
 }
 
+/* Wallet's month card: the expenses and the net, under a line */
+@utility gym-wallet-net {
+  border-top-width: 1px;
+  border-color: var(--color-gym-line);
+  padding-top: 10px;
+}
+
 @utility gym-branch--current {
   border-color: var(--color-gym-primary);
 }
 
-/* Gym admin › Manage ("Manager", from the user's design, in the portal's indigo): centred title,
-   underlined top tabs, kind chips, outlined plan cards and a round + */
+/* Gym admin › Manage ("Manager", from the user's design, in the portal's indigo): centred title
+   (sections other than Members), kind chips, outlined plan cards and a round + */
 @utility gym-manage__title {
   text-align: center;
   padding-top: 8px;
@@ -5177,35 +5184,6 @@
   font-size: 19px;
   line-height: 26px;
   color: var(--color-gym-ink);
-}
-
-@utility gym-toptabs {
-  border-bottom-width: 1px;
-  border-color: var(--color-gym-line);
-}
-
-@utility gym-toptab {
-  min-height: 42px;
-  justify-content: center;
-  padding-inline: 10px;
-  border-bottom-width: 2px;
-  border-color: transparent;
-}
-
-@utility gym-toptab--selected {
-  border-color: var(--color-gym-primary);
-}
-
-@utility gym-toptab__label {
-  font-family: var(--font-sans);
-  font-size: 13px;
-  line-height: 18px;
-  color: var(--color-gym-muted);
-}
-
-@utility gym-toptab__label--selected {
-  font-family: var(--font-sans-medium);
-  color: var(--color-gym-primary-text);
 }
 
 @utility gym-kind {

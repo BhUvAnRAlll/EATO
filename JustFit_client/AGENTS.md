@@ -131,7 +131,8 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
   each Staff login can open at a branch: ☰ › Role & Permission (`app/gym/permissions.tsx`; also
   from a Staff row's ⋯ on Staff / Admin Login) lists the Staff with "All areas" / "Members, SMS" /
   "Home only", and tapping one opens `PermissionsSheet`: one switch per area (members, payments,
-  enquiries, catalog, attendance, sms, predictions; labels and what each opens in
+  enquiries, catalog, attendance, sms, predictions, expenses (added 2026-11-08: Staff still on
+  "All areas" get it, Staff with an edited list don't until switched on); labels and what each opens in
   `data/gymDashboard.ts` `STAFF_AREAS`), saved together through
   `PUT /api/gym/staff/:userId/permissions { areas }` (30 an hour, audited `gym.staff_permissions`;
   never your own, never a trainer or the owner). Stored per branch in `gym_staff.permissions`
@@ -141,7 +142,7 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
   (`staffRules.areaOfPath`, pure) and answers a Staff login without it 403 "Your login doesn't
   include Payments. Ask your gym admin."; the dashboard, branches and the team routes have no
   area. The app only tidies: the dashboard's `gym.areas` goes into `store/gymAccess.ts`
-  (`useCan`), and Home's tiles, cards and Wallet link, the ☰ menu, the + sheet, the Manage tabs and
+  (`useCan`), and Home's tiles, cards and Wallet link, the ☰ menu, the + sheet, the Manage sections and
   the Wallet / Manage tabs hide what isn't included (nothing is hidden until Home has loaded).
   Tests: `gym-staff-rules.test.js`, `e2e/gym-staff.e2e.test.js` (4b), `ui/gym-permissions.ui.test.js`.
 - **Trainers and My Clients (2026-11-05, phase 2):** a member's PT is with one of the branch's
@@ -280,10 +281,12 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
   react-native-svg): the revenue card, filled buttons, the + buttons, selected chips, the active
   tab, the ADMIN pill, the badge and the menu's account card. Text on it is white. Soft fills,
   outlines and small text stay solid indigo (`gym-primary*`); never black.
-- **Navigation:** tabs Home · Manage · Wallet. Manage ("Manager", from the user's design) has top
-  tabs Member, Plan / Catalogue, Enquiry, Expense (coming soon). The ☰ (and the account button) on
+- **Navigation:** tabs Home · Manage · Wallet. Manage shows one section at a time with no top
+  tabs (removed 2026-11-08, the user's request): the Manage tab always opens Members (`GymTabBar`
+  resets `?tab=`), its search bar at the top; Plans / Catalogue, Enquiries and Expenses open only from their links (`/gym/manage?tab=catalog|enquiry|expense`: the ☰ menu, Home's
+  tiles, + › Add Plan, + › Add Expense with `&add=1`) under a centred title (`gym-manage__title`). The ☰ (and the account button) on
   Home open the side menu (`components/gym/GymMenu.tsx`): the account and branch, Manage items
-  (Expenses, Reminder Templates: coming soon; Outlets = branches; Staff / Admin Login for the gym
+  (Expenses; Reminder Templates: coming soon; Outlets = branches; Staff / Admin Login for the gym
   admin only), Other (Send
   Bulk SMS opens its sheet; Attendance; Location & Attendance Settings) and Sign out. No subscription/Buy Now card (no
   billing in justFit yet).
@@ -331,9 +334,6 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
   (`rules.enquiryBody` / `enquiryEditBody` / `enquiriesQuery`, `service.enquiries` /
   `editEnquiry`). Migration `2026-11-28-gym-enquiry-followup.sql` (status, follow_up_on, interest,
   source, member_id, updated_at); before it, the list answers 503 naming it.
-- **Look:** `gym-*` tokens (the indigo-to-violet theme, this portal only) and `gym-*` utilities; the member app and the
-  Super Admin stay red. No AI button (removed at the user's request).
-- **SMS to members (2026-11-04, the user's GymOps designs; real SMS approved by the user):**
   **Referrals (2026-11-08, the user's request):** when Came from is Referral, `EnquirySheet` shows
   "Referred by (mobile number)", required (10 digits, not the enquirer's own); Save waits for it.
   Stored in `gym_enquiries.referred_by_phone` (migration `2026-12-09-enquiry-referrer.sql`). Every
@@ -344,6 +344,9 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
   changes (older referrals without a number stay editable), clears it when the source moves off
   Referral, and writes the column only when it changes. Before the migration, enquiries are read
   without it (`selectEnquiries`) and saving a referral answers 503 naming it.
+- **Look:** `gym-*` tokens (the indigo-to-violet theme, this portal only) and `gym-*` utilities; the member app and the
+  Super Admin stay red. No AI button (removed at the user's request).
+- **SMS to members (2026-11-04, the user's GymOps designs; real SMS approved by the user):**
   Manage › Member follows the user's 2026-11-07 design (`MemberList`: the search bar with the
   sort button, the filters as chips each with its count (`counts` comes with
   `GET /api/gym/members`, within the same search); a card per member with the photo spot, the
@@ -541,9 +544,25 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
   `lib/__tests__/gymInvoice.test.ts`. **Keyboard (2026-11-07, the user's screenshot):** `GymSheet`
   dismisses the keyboard when it opens and `ConfirmDialog` when it appears, so a second sheet or a
   "Please confirm the details" dialog never opens under the keyboard on any screen.
-- **Performance pass (2026-11-07, the user's "fix all"):** the member list is paged, 50 a page
-  (`GET /api/gym/members?sort=name|days|due&page=N` → `page`, `nextPage`; `rules.membersQuery`,
-  `MEMBER_ORDER` in `service.js`): the sort runs on the server so every page follows it, and
+- **Expenses (2026-11-08, the user's choices):** Manage › Expenses (`components/gym/ExpenseList.tsx`):
+  one month at a time (‹ Nov 2026 ›, up to 24 months back), the month's total split online / cash,
+  category chips with counts, search (what, who was paid, the note), cards newest first (50 a page,
+  Show more), a Bill chip opening the photo (`ReceiptViewer`), and the round +. `ExpenseSheet` adds
+  and edits: a fixed category (Rent, Salary, Electricity, Water, Equipment, Maintenance, Cleaning,
+  Marketing, Stock, Other; Other needs a title; `EXPENSE_CATEGORIES` in `data/gymDashboard.ts`),
+  what it was for, paid to, amount (whole rupees, up to ₹10,00,000), mode, date (a year back to
+  today), note, an optional bill photo (`pickReceiptImage`), then "Please confirm the details";
+  Delete (asked twice) only for the gym admin (`canDelete` on the list's answer). Wallet's This
+  month card adds Expenses and Net (collected − spent) for a login with the area. Server:
+  `gym/expenseRules.js` (pure), `gym/expenses.js`, `gym/expenseBills.js` (files in
+  `EXPENSE_BILL_DIR`, default `uploads/expense-bills`; JPEG/PNG/WebP from the bytes, 3 MB);
+  routes `GET|POST /api/gym/expenses`, `PUT|DELETE /api/gym/expenses/:id` (an edit sends every
+  field; delete owner only, deletes the bill file), `PUT|DELETE|GET /api/gym/expenses/:id/bill`;
+  adds and edits 60 an hour; audited `gym.expense_edit`, `gym.expense_delete`; area `expenses`.
+  Table `gym_expenses` (migration `2026-12-10-gym-expenses.sql`; before it the routes answer 503
+  naming it and Wallet has no expense lines). Not built: recurring expenses, budgets, CSV export.
+  Tests: `__tests__/gym-expense-rules.test.js`, `e2e/gym-expenses.e2e.test.js`,
+  `ui/gym-expenses.ui.test.js`, the client's `data/__tests__/gymExpenses.test.ts`.
 - **Invoice template and gym logos (2026-11-08, the user's template):** the Invoice screen and the PDF
   follow the user's invoice template: "Invoice" with a red rule and the kind under it ("Membership
   Invoice", "Product Invoice"…), the gym's own logo at the top right (its initials on a red square
@@ -564,6 +583,9 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
   carry `logoUrl`. Migration `2026-12-08-gym-logos.sql`; before it invoices have no logo and the logo
   routes answer 503 naming it. Tests: `e2e/gym-invoices.e2e.test.js` (4b), `ui/gym-invoice.ui.test.js`
   (1b), `gym-invoice-rules.test.js`, the client's `lib/__tests__/gymInvoice.test.ts`.
+- **Performance pass (2026-11-07, the user's "fix all"):** the member list is paged, 50 a page
+  (`GET /api/gym/members?sort=name|days|due&page=N` → `page`, `nextPage`; `rules.membersQuery`,
+  `MEMBER_ORDER` in `service.js`): the sort runs on the server so every page follows it, and
   `MemberList` appends pages with Show more (the 200 cap with no next page is gone). The dashboard,
   the attendance summary, the member's page and the member list send their independent queries
   together (`Promise.all`). `GET /members/:id` carries `gym`, so the member's page no longer reads

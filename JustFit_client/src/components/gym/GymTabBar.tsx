@@ -1,5 +1,6 @@
 import { Pressable, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { router } from "expo-router";
 import type { BottomTabBarProps } from "expo-router/js-tabs";
 
 import { GymIcon } from "@/components/gym/GymIcon";
@@ -24,12 +25,16 @@ export function GymTabBar({ state, emitter, navigateToTab }: BottomTabBarProps) 
         const tab = gymTabs.find((candidate) => candidate.name === route.name);
         if (!tab || !shown(route.name)) return null;
         const active = state.index === routeIndex;
+        // Manage has no top tabs: its tab always opens Members, even after a link opened another
+        // section there (?tab=catalog), since a tab keeps the params it was last opened with
+        const linkedTab = (route.params as { tab?: string } | undefined)?.tab;
+        const otherSection = route.name === "manage" && linkedTab !== undefined && linkedTab !== "member";
         const onPress = () => {
           const event = emitter.emit({ type: "tabPress", target: route.key, canPreventDefault: true });
-          if (!active && !event.defaultPrevented) {
-            haptic.select();
-            navigateToTab(route.key);
-          }
+          if (event.defaultPrevented || (active && !otherSection)) return;
+          haptic.select();
+          if (otherSection) router.navigate("/gym/manage?tab=member");
+          else navigateToTab(route.key);
         };
         return (
           <Pressable key={route.key} onPress={onPress} className="gym-tabbar__item" accessibilityRole="tab" accessibilityState={{ selected: active }} accessibilityLabel={tab.label}>

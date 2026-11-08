@@ -21,7 +21,7 @@ const MANAGE: MenuItem[] = [
   { label: "Plans / Catalogue", icon: "clipboard-list", href: "/gym/manage?tab=catalog", area: "catalog" },
   { label: "Enquiries", icon: "messages-square", href: "/gym/manage?tab=enquiry", area: "enquiries" },
   { label: "Likely to leave", icon: "user-x", href: "/gym/predictions/renewals", area: "predictions" },
-  { label: "Expenses", icon: "receipt" },
+  { label: "Expenses", icon: "receipt", href: "/gym/manage?tab=expense", area: "expenses" },
   { label: "Outlets", icon: "store", href: "/gym/branches" },
   { label: "Staff / Admin Login", icon: "user-cog", href: "/gym/staff", ownerOnly: true },
   { label: "Role & Permission", icon: "shield-check", href: "/gym/permissions", ownerOnly: true },
