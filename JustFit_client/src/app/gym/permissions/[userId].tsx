@@ -13,7 +13,7 @@ import { GymError, GymLoading } from "@/components/gym/GymStates";
 import { gymApi, type GymTeam, type PermissionTile, type StaffOption, type TeamMember } from "@/lib/gymApi";
 import { useGymSave } from "@/lib/gymForm";
 import { haptic } from "@/lib/haptics";
-import { filterTree, sameOptions, tickedIn, toggleOption, toggleTile } from "@/lib/permissionTree";
+import { NO_MODULES, filterTree, sameOptions, tickedIn, toggleOption, toggleTile } from "@/lib/permissionTree";
 import { useGymData } from "@/lib/useGymData";
 import { useThemeColors } from "@/theme";
 
@@ -29,6 +29,13 @@ export default function StaffPermissionsScreen() {
     return (
       <GymScreen title="Role & Permission">
         {result.state === "loading" ? <GymLoading label="Loading permissions" /> : <GymError error={result.error} onRetry={retry} />}
+      </GymScreen>
+    );
+  }
+  if (result.data.permissionTree.length === 0) {
+    return (
+      <GymScreen title="Role & Permission">
+        <GymError error={NO_MODULES} onRetry={retry} />
       </GymScreen>
     );
   }

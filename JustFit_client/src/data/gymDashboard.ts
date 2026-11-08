@@ -179,12 +179,14 @@ export const gymTabs: { name: string; label: string; icon: GymIconName }[] = [
 // Role & Permission: the areas a Staff login can be given, in the order the sheet shows them, with
 // what each one opens in the portal
 export const STAFF_AREAS: { id: StaffArea; label: string; line: string; icon: GymIconName }[] = [
+  { id: "home", label: "Home", line: "Today's collection and today's counts on Home", icon: "house" },
   { id: "members", label: "Members", line: "Member list, Add Member, renewals, member pages", icon: "users" },
   { id: "payments", label: "Payments", line: "Collect dues, PT, product and service sales, Transactions, Wallet", icon: "indian-rupee" },
   { id: "enquiries", label: "Enquiries", line: "Enquiry list, follow-ups and the contact log", icon: "messages-square" },
   { id: "catalog", label: "Plans / Catalogue", line: "Membership plans, PT packages, services and products", icon: "clipboard-list" },
   { id: "attendance", label: "Attendance", line: "QR attendance, check-ins, history and settings", icon: "qr-code" },
   { id: "sms", label: "SMS", line: "Send Bulk SMS, reminders and message logs", icon: "message-square-more" },
+  { id: "templates", label: "Reminder Templates", line: "The Reminder Templates screen", icon: "message-square-text" },
   { id: "predictions", label: "Predictions", line: "Likely to leave, busy hours, month-end revenue", icon: "user-x" },
   { id: "expenses", label: "Expenses", line: "Rent, salaries and other spending, and the net on Wallet", icon: "wallet" },
 ];

@@ -20,7 +20,7 @@ import { RevenueCard } from "@/components/gym/RevenueCard";
 import { GymEmpty, GymError, GymLoading } from "@/components/gym/GymStates";
 import { HOME_EXPIRING_DAYS, greetingFor, initialsOf, type AddAction } from "@/data/gymDashboard";
 import { comingSoon } from "@/lib/gymPortal";
-import { gymApi, type GymAccess, type StaffArea } from "@/lib/gymApi";
+import { gymApi, type GymAccess, type StaffOption } from "@/lib/gymApi";
 import { useGymData } from "@/lib/useGymData";
 import { useAuthStore } from "@/store/auth";
 import { useCan, useGymAccess } from "@/store/gymAccess";
@@ -89,28 +89,32 @@ export default function GymHome() {
     box: colors[`gymTile${k}Box`],
     icon: colors[`gymTile${k}Icon`],
   });
-  // area: what the tile opens needs (a Staff login without it sees the count, but it isn't a button)
-  const stats: { id: string; value: number; label: string; color: ReturnType<typeof tile>; icon: GymIconName; href: Href; area: StaffArea }[] = data
+  // need: the option what the tile opens needs (a Staff login without it sees the count, but it
+  // isn't a button). No counts at all without Home › Today's counts (the server sends none).
+  const stats: { id: string; value: number; label: string; color: ReturnType<typeof tile>; icon: GymIconName; href: Href; need: StaffOption }[] = data?.stats
     ? [
-        { id: "admission", value: data.stats.admission, label: "Admission", color: tile("Violet"), icon: "users", href: "/gym/transactions?kind=admission&today=1", area: "payments" },
-        { id: "renewal", value: data.stats.renewal, label: "Renewal", color: tile("Orange"), icon: "refresh-ccw", href: "/gym/transactions?kind=renewal&today=1", area: "payments" },
-        { id: "enquiry", value: data.stats.enquiry, label: "Enquiry", color: tile("Blue"), icon: "message-circle-question", href: "/gym/enquiries?view=today", area: "enquiries" },
-        { id: "due-paid", value: data.stats.duePaid, label: "Due Paid", color: tile("Green"), icon: "indian-rupee", href: "/gym/transactions?kind=due&today=1", area: "payments" },
-        { id: "pt", value: data.stats.pt, label: "PT", color: tile("Pink"), icon: "dumbbell", href: "/gym/transactions?kind=pt&today=1", area: "payments" },
-        { id: "product", value: data.stats.product, label: "Product", color: tile("Purple"), icon: "package", href: "/gym/transactions?kind=sale&today=1", area: "payments" },
+        { id: "admission", value: data.stats.admission, label: "Admission", color: tile("Violet"), icon: "users", href: "/gym/transactions?kind=admission&today=1", need: "payments.transactions" },
+        { id: "renewal", value: data.stats.renewal, label: "Renewal", color: tile("Orange"), icon: "refresh-ccw", href: "/gym/transactions?kind=renewal&today=1", need: "payments.transactions" },
+        { id: "enquiry", value: data.stats.enquiry, label: "Enquiry", color: tile("Blue"), icon: "message-circle-question", href: "/gym/enquiries?view=today", need: "enquiries.view" },
+        { id: "due-paid", value: data.stats.duePaid, label: "Due Paid", color: tile("Green"), icon: "indian-rupee", href: "/gym/transactions?kind=due&today=1", need: "payments.transactions" },
+        { id: "pt", value: data.stats.pt, label: "PT", color: tile("Pink"), icon: "dumbbell", href: "/gym/transactions?kind=pt&today=1", need: "payments.transactions" },
+        { id: "product", value: data.stats.product, label: "Product", color: tile("Purple"), icon: "package", href: "/gym/transactions?kind=sale&today=1", need: "payments.transactions" },
       ]
     : [];
-  const alerts: { id: string; value: number; label: string; tag: string; hint: string; tone: Tone; icon: GymIconName; href: Href; area: StaffArea }[] = (data
+  // need: the option(s) the row opens (any one will do); a count the server left out (null) isn't shown
+  const alerts: { id: string; value: number; label: string; tag: string; hint: string; tone: Tone; icon: GymIconName; href: Href; need: StaffOption[] }[] = (data
     ? [
-        { id: "due", value: data.alerts.dueMembers, label: "Due Members", tag: "Action", hint: "Payments to collect", tone: "danger", icon: "triangle-alert", href: "/gym/members?filter=due", area: "members" },
-        { id: "risk", value: data.alerts.renewalRisk, label: "Likely to leave", tag: "Risk", hint: "High renewal risk, worth a call", tone: "danger", icon: "user-x", href: "/gym/predictions/renewals", area: "predictions" },
-        { id: "pauses", value: data.alerts.pauseRequests, label: "Pause requests", tag: "Review", hint: "Members asking to pause their plan", tone: "ink", icon: "circle-pause", href: "/gym/pauses", area: "members" },
-        { id: "expiring", value: data.alerts.expiringToday, label: "Expiring Today", tag: "Urgent", hint: "Plans ending today", tone: "warning", icon: "clock", href: "/gym/members?filter=expiring", area: "members" },
-        { id: "attendance", value: data.alerts.attendance, label: "Attendance", tag: "Live", hint: "Checked in today", tone: "primary", icon: "scan-qr-code", href: "/gym/attendance", area: "attendance" },
-        { id: "expiring-soon", value: data.alerts.expiringSoon, label: "Expiring soon", tag: "Soon", hint: "Renewals coming up", tone: "warning", icon: "calendar-clock", href: `/gym/members?filter=expiring_soon&days=${HOME_EXPIRING_DAYS}`, area: "members" },
-        { id: "birthdays", value: data.alerts.birthdays, label: "Birthdays Today", tag: "Wish", hint: "Send them a wish", tone: "success", icon: "cake", href: "/gym/members?filter=birthday", area: "members" },
+        { id: "due", value: data.alerts.dueMembers, label: "Due Members", tag: "Action", hint: "Payments to collect", tone: "danger", icon: "triangle-alert", href: "/gym/members?filter=due", need: ["predictions.payments", "members.view"] },
+        { id: "risk", value: data.alerts.renewalRisk, label: "Likely to leave", tag: "Risk", hint: "High renewal risk, worth a call", tone: "danger", icon: "user-x", href: "/gym/predictions/renewals", need: ["predictions.renewals"] },
+        { id: "pauses", value: data.alerts.pauseRequests, label: "Pause requests", tag: "Review", hint: "Members asking to pause their plan", tone: "ink", icon: "circle-pause", href: "/gym/pauses", need: ["members.pause"] },
+        { id: "expiring", value: data.alerts.expiringToday, label: "Expiring Today", tag: "Urgent", hint: "Plans ending today", tone: "warning", icon: "clock", href: "/gym/members?filter=expiring", need: ["members.view"] },
+        { id: "attendance", value: data.alerts.attendance, label: "Attendance", tag: "Live", hint: "Checked in today", tone: "primary", icon: "scan-qr-code", href: "/gym/attendance", need: ["attendance.view"] },
+        { id: "expiring-soon", value: data.alerts.expiringSoon, label: "Expiring soon", tag: "Soon", hint: "Renewals coming up", tone: "warning", icon: "calendar-clock", href: `/gym/members?filter=expiring_soon&days=${HOME_EXPIRING_DAYS}`, need: ["members.view"] },
+        { id: "birthdays", value: data.alerts.birthdays, label: "Birthdays Today", tag: "Wish", hint: "Send them a wish", tone: "success", icon: "cake", href: "/gym/members?filter=birthday", need: ["members.view"] },
       ] as const
-    : []).filter((alert) => can(alert.area));
+    : [])
+    .filter((alert) => alert.value !== null && alert.need.some(can))
+    .map((alert) => ({ ...alert, value: alert.value ?? 0, need: [...alert.need] }));
 
   // Each section rises in once, a beat after the one above, when the numbers first arrive
   const enter = (step: number) => FadeInDown.duration(380).delay(step * 60).reduceMotion(ReduceMotion.System);
@@ -132,8 +136,8 @@ export default function GymHome() {
               </PressableScale>
             )}
           </View>
-{can("members") && (
-                    <PressableScale onPress={() => router.push("/gym/members?focus=search")} className="gym-dash-icon-btn" accessibilityRole="button" accessibilityLabel="Search members">
+          {can("members.view") && (
+            <PressableScale onPress={() => router.push("/gym/members?focus=search")} className="gym-dash-icon-btn" accessibilityRole="button" accessibilityLabel="Search members">
             <GymIcon name="search" size={18} color={colors.gymInk} />
           </PressableScale>
           )}
@@ -164,24 +168,27 @@ export default function GymHome() {
                   </View>
                 </Animated.View>
 
+                {data.revenue && (
                 <Animated.View entering={enter(1)}>
-                  <RevenueCard online={data.revenue.online} cash={data.revenue.cash} action={can("payments") ? { label: "Wallet", onPress: () => router.push("/gym/wallet") } : undefined} />
+                  <RevenueCard online={data.revenue.online} cash={data.revenue.cash} action={can("payments.wallet") ? { label: "Wallet", onPress: () => router.push("/gym/wallet") } : undefined} />
                 </Animated.View>
+                )}
 
+                {stats.length > 0 && (
                 <Animated.View entering={enter(2)} className="gym-dash-section">
                   <View className="flex-row items-center">
                     <Text className="gym-dash-section__title" accessibilityRole="header">Today</Text>
-                    <Text className="gym-dash-section__note">{can("payments") ? "Tap a count for its payments" : "Today's counts"}</Text>
+                    <Text className="gym-dash-section__note">{can("payments.transactions") ? "Tap a count for its payments" : "Today's counts"}</Text>
                   </View>
                   <View className="gym-dash-card flex-row flex-wrap">
                     {stats.map((stat, index) => (
                       <PressableScale
                         key={stat.id}
-                        onPress={can(stat.area) ? () => router.push(stat.href) : undefined}
-                        disabled={!can(stat.area)}
+                        onPress={can(stat.need) ? () => router.push(stat.href) : undefined}
+                        disabled={!can(stat.need)}
                         className="gym-dash-stat"
                         style={{ width: `${100 / columns}%`, borderRightWidth: index % columns === columns - 1 ? 0 : 1, borderTopWidth: index >= columns ? 1 : 0 }}
-                        accessibilityRole={can(stat.area) ? "button" : "text"}
+                        accessibilityRole={can(stat.need) ? "button" : "text"}
                         accessibilityLabel={`${stat.value} ${stat.label}`}
                       >
                         <View className="gym-dash-stat__icon" style={{ backgroundColor: stat.color.box }}>
@@ -195,6 +202,7 @@ export default function GymHome() {
                     ))}
                   </View>
                 </Animated.View>
+                )}
 
                 {alerts.length > 0 && (
                 <Animated.View entering={enter(3)} className="gym-dash-section">
@@ -204,7 +212,7 @@ export default function GymHome() {
                       const tone = toneColors(colors, alert.tone);
                       const active = alert.value > 0;
                       return (
-                        <PressableScale key={alert.id} onPress={() => (alert.id === "due" ? setSheet("due") : router.push(alert.href))} className="gym-dash-row" style={{ borderTopWidth: index === 0 ? 0 : 1 }} accessibilityRole="button" accessibilityLabel={`${alert.value} ${alert.label}, ${alert.tag}`}>
+                        <PressableScale key={alert.id} onPress={() => (alert.id === "due" && can("predictions.payments") ? setSheet("due") : router.push(alert.href))} className="gym-dash-row" style={{ borderTopWidth: index === 0 ? 0 : 1 }} accessibilityRole="button" accessibilityLabel={`${alert.value} ${alert.label}, ${alert.tag}`}>
                           <View className="gym-dash-row__icon" style={{ backgroundColor: tone.soft }}>
                             <GymIcon name={alert.icon} size={18} color={tone.icon} />
                           </View>
@@ -223,7 +231,7 @@ export default function GymHome() {
                 </Animated.View>
                 )}
 
-                {can("sms") && (
+                {can("sms.view") && (
                 <Animated.View entering={enter(4)}>
                   <PressableScale onPress={() => setSheet("sms")} className="gym-dash-card gym-dash-row" accessibilityRole="button" accessibilityLabel="Send Bulk SMS. Auto reminders, alerts and wishes">
                     <View className="gym-dash-row__icon" style={{ backgroundColor: colors.gymPrimarySoft }}>
@@ -238,7 +246,7 @@ export default function GymHome() {
                 </Animated.View>
                 )}
 
-                {can("payments") && (
+                {can("payments.transactions") && (
                 <Animated.View entering={enter(5)} className="gym-dash-section">
                   <View className="flex-row items-center">
                     <Text className="gym-dash-section__title" accessibilityRole="header">Recent Transactions</Text>

@@ -9,14 +9,18 @@ const { normalizePhone } = require("../auth/phone");
 
 const KINDS = ["staff", "trainer"];
 // Role & Permission: the portal's areas a Staff login can be given (in the order the sheet shows)
-const AREAS = ["members", "payments", "enquiries", "catalog", "attendance", "sms", "predictions", "expenses"];
+// home and templates (2026-11-08) have no routes of their own: home decides what the dashboard
+// carries (dashboardFor), templates which Staff see the Reminder Templates screen
+const AREAS = ["home", "members", "payments", "enquiries", "catalog", "attendance", "sms", "templates", "predictions", "expenses"];
 const AREA_LABEL = {
+  home: "Home",
   members: "Members",
   payments: "Payments",
   enquiries: "Enquiries",
   catalog: "Plans / Catalogue",
   attendance: "Attendance",
   sms: "SMS",
+  templates: "Reminder Templates",
   predictions: "Predictions",
   expenses: "Expenses",
 };
@@ -45,6 +49,8 @@ const AREA_OF_PATH = [
 // screen it opens from), ticked with it and unticked when that one is. A new option starts
 // unticked for Staff whose list was already saved; NULL (never edited) is every option.
 const OPTIONS = [
+  { id: "home.revenue", area: "home", label: "Today's collection (revenue card)" },
+  { id: "home.today", area: "home", label: "Today's counts" },
   { id: "members.view", area: "members", label: "Member list and pages" },
   { id: "members.add", area: "members", label: "Add Member", needs: "members.view" },
   { id: "members.edit", area: "members", label: "Edit profile, photo and trainer", needs: "members.view" },
@@ -67,6 +73,7 @@ const OPTIONS = [
   { id: "sms.view", area: "sms", label: "Credits and message logs" },
   { id: "sms.send", area: "sms", label: "Send SMS", needs: "sms.view" },
   { id: "sms.auto", area: "sms", label: "Auto reminder settings", needs: "sms.view" },
+  { id: "templates.view", area: "templates", label: "See the Reminder Templates screen" },
   { id: "predictions.renewals", area: "predictions", label: "Likely to leave" },
   { id: "predictions.payments", area: "predictions", label: "Payment on time" },
   { id: "predictions.busy", area: "predictions", label: "Tomorrow's busy hours" },
@@ -75,6 +82,10 @@ const OPTIONS = [
   { id: "expenses.edit", area: "expenses", label: "Add and edit expenses", needs: "expenses.view" },
 ];
 const OPTION_IDS = OPTIONS.map((o) => o.id);
+// The options whose forms pick from the catalogue (they read GET /catalog, never change it)
+const CATALOG_PICKERS = ["members.add", "members.renew", "payments.pt", "payments.sales"];
+// The only route an option of another area may use: [method, path, options]
+const CROSS_AREA = [["GET", "/catalog", CATALOG_PICKERS]];
 const OPTION = Object.fromEntries(OPTIONS.map((o) => [o.id, o]));
 // Which option(s) a request needs: [methods, path, options] (any one of them will do; the first
 // match wins). Read on the same lower-cased path as areaOfPath; a request in an area that matches
@@ -102,7 +113,10 @@ const OPTION_OF_ROUTE = [
   [["POST"], /^\/enquiries$/, ["enquiries.edit"]],
   [["PATCH"], /^\/enquiries\/[^/]+$/, ["enquiries.edit"]],
   [["POST"], /^\/enquiries\/[^/]+\/contacts$/, ["enquiries.contacts"]],
-  [["GET"], /^\/catalog(\/[^/]+\/image)?$/, ["catalog.view"]],
+  // The price list is read by the forms that pick a plan or an item (Add Member, Renew, PT,
+  // Add Service / Sell Product), so those options may read it too: the one shared read (CROSS_AREA)
+  [["GET"], /^\/catalog$/, ["catalog.view", ...CATALOG_PICKERS]],
+  [["GET"], /^\/catalog\/[^/]+\/image$/, ["catalog.view"]],
   [["POST", "PATCH", "PUT", "DELETE"], /^\/catalog(\/|$)/, ["catalog.edit"]],
   [["GET"], /^\/attendance(\/visits)?$/, ["attendance.view"]],
   [["GET"], /^\/attendance\/export$/, ["attendance.export"]],
@@ -202,6 +216,29 @@ const permissionTree = () => AREAS.map((area) => ({
   options: OPTIONS.filter((o) => o.area === area).map((o) => ({ id: o.id, label: o.label, needs: o.needs ?? null })),
 }));
 
+// Home's dashboard as this login may see it: the revenue card and today's counts follow the Home
+// options, the recent payments Transactions, and each Needs attention count the screen it opens
+// (null when not included, so nothing the login can't open leaves the server)
+function dashboardFor(dashboard, options) {
+  const has = (id) => options.includes(id);
+  const a = dashboard.alerts;
+  return {
+    ...dashboard,
+    revenue: has("home.revenue") ? dashboard.revenue : null,
+    stats: has("home.today") ? dashboard.stats : null,
+    recent: has("payments.transactions") ? dashboard.recent : [],
+    alerts: {
+      dueMembers: has("members.view") || has("predictions.payments") ? a.dueMembers : null,
+      expiringToday: has("members.view") ? a.expiringToday : null,
+      attendance: has("attendance.view") ? a.attendance : null,
+      expiringSoon: has("members.view") ? a.expiringSoon : null,
+      birthdays: has("members.view") ? a.birthdays : null,
+      pauseRequests: has("members.pause") ? a.pauseRequests : null,
+      renewalRisk: has("predictions.renewals") ? a.renewalRisk ?? null : null,
+    },
+  };
+}
+
 // The audit log's line: "Members (2 of 5), Enquiries (all)" or "Home only"
 function optionsSummary(options) {
   const parts = AREAS.map((area) => {
@@ -292,4 +329,4 @@ function roleAfterLeaving(role, branchesLeft) {
 // "+91 ••••• ••210": lists show only the last three digits
 const maskPhone = (digits) => (typeof digits === "string" && /^[0-9]{10}$/.test(digits) ? `+91 ••••• ••${digits.slice(7)}` : null);
 
-module.exports = { KINDS, AREAS, AREA_LABEL, OPTIONS, OPTION_IDS, ROLE_FOR, KIND_LABEL, addBody, permissionsBody, expandOptions, optionsOf, areasOf, permissionTree, optionsSummary, areaOfPath, optionsOfRequest, optionLabel, permissionsProblem, userIdParam, joinProblem, checkJoin, inviteProblem, removeProblem, roleAfterLeaving, maskPhone };
+module.exports = { KINDS, AREAS, CROSS_AREA, AREA_LABEL, OPTIONS, OPTION_IDS, ROLE_FOR, KIND_LABEL, addBody, permissionsBody, expandOptions, optionsOf, areasOf, permissionTree, dashboardFor, optionsSummary, areaOfPath, optionsOfRequest, optionLabel, permissionsProblem, userIdParam, joinProblem, checkJoin, inviteProblem, removeProblem, roleAfterLeaving, maskPhone };

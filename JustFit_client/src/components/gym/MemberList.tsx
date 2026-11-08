@@ -338,7 +338,7 @@ export function MemberList({ pick = null, initialFilter = "all", initialDays = D
                 </View>
                 {!pick && (
                   <View className="flex-row items-center" style={{ gap: 6 }}>
-                    {item.due > 0 && can("payments") && (
+                    {item.due > 0 && can("payments.collect") && (
                       <PressableScale onPress={() => setCollecting(item)} haptic="tap" className="gym-mcard__collect" accessibilityRole="button" accessibilityLabel={`Collect ${rupees(item.due)} from ${item.name}`}>
                         <GymIcon name="indian-rupee" size={14} color={colors.gymSuccess} />
                         <Text className="gym-mcard__collect-label">Collect</Text>

@@ -11,6 +11,7 @@ import { gymApi, type CatalogItem, type CatalogKind } from "@/lib/gymApi";
 import { CatalogSheet } from "@/components/gym/CatalogSheet";
 import { haptic } from "@/lib/haptics";
 import { useGymData } from "@/lib/useGymData";
+import { useCan } from "@/store/gymAccess";
 import { useThemeColors } from "@/theme";
 import type { GymIconName } from "@/constants/gymIcons";
 
@@ -37,6 +38,8 @@ export function CatalogList() {
   const { result, retry, set } = useGymData(load);
   // The Add / Edit sheet: which item (null for a new one), or closed
   const [sheet, setSheet] = useState<{ item: CatalogItem | null } | null>(null);
+  // Role & Permission: adding and editing are Plans / Catalogue › Add, edit and delete plans
+  const canEdit = useCan()("catalog.edit");
   const meta = CATALOG_KINDS.find((k) => k.id === kind)!;
   const items = result.state === "ready" ? result.data.items.filter((i) => i.kind === kind) : [];
 
@@ -73,10 +76,11 @@ export function CatalogList() {
               return (
                 <PressableScale
                   key={item.id}
-                  onPress={() => setSheet({ item })}
+                  onPress={canEdit ? () => setSheet({ item }) : undefined}
+                  disabled={!canEdit}
                   className="gym-plan"
-                  accessibilityRole="button"
-                  accessibilityLabel={`${item.name}, ${pill ? `${pill.label}, ` : ""}${rupees(item.price)}${item.imageUrl ? ", with image" : ""}. Edit`}
+                  accessibilityRole={canEdit ? "button" : "text"}
+                  accessibilityLabel={`${item.name}, ${pill ? `${pill.label}, ` : ""}${rupees(item.price)}${item.imageUrl ? ", with image" : ""}${canEdit ? ". Edit" : ""}`}
                 >
                   <View className="flex-row items-center justify-between" style={{ gap: 10 }}>
                     {item.imageUrl && (
@@ -85,7 +89,7 @@ export function CatalogList() {
                       </View>
                     )}
                     <Text className="gym-plan__name" numberOfLines={1}>{item.name}</Text>
-                    <GymIcon name="chevron-right" size={13} color={colors.gymInk} />
+                    {canEdit && <GymIcon name="chevron-right" size={13} color={colors.gymInk} />}
                   </View>
                   <View className="flex-row items-center justify-between">
                     {pill ? (
@@ -103,12 +107,12 @@ export function CatalogList() {
             })
           ))}
       </ScrollView>
-      <View className="absolute" style={{ right: 16, bottom: 16 }}>
+      {canEdit && <View className="absolute" style={{ right: 16, bottom: 16 }}>
         <PressableScale onPress={() => setSheet({ item: null })} haptic="tap" className="gym-fab-round" accessibilityRole="button" accessibilityLabel={`Add a ${meta.noun}`}>
           <GradientFill radius={26} />
           <GymIcon name="plus" size={22} color={colors.white} />
         </PressableScale>
-      </View>
+      </View>}
       {sheet && (
         <CatalogSheet
           kind={sheet.item?.kind ?? kind}

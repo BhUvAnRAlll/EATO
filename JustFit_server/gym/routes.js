@@ -128,9 +128,11 @@ router.delete("/staff/:userId", requireGymOwner, staffLimit, route(async (req, r
 
 router.get("/dashboard", route(async (req, res) => {
   const dashboard = await service.dashboard(pool(req), req.gym, today());
+  const options = staffRules.optionsOf(req.gym);
   // Needs attention › Likely to leave: the members at high renewal risk (gym/predictions.js)
-  dashboard.alerts.renewalRisk = await predictions.highRiskCount(pool(req), req.gym.id, today());
-  res.json(dashboard);
+  if (options.includes("predictions.renewals")) dashboard.alerts.renewalRisk = await predictions.highRiskCount(pool(req), req.gym.id, today());
+  // Role & Permission: only what this login may see (the gym admin has every option)
+  res.json(staffRules.dashboardFor(dashboard, options));
 }));
 
 // Predictions (rules on the branch's own records, no AI): who may not renew, highest risk first
@@ -423,7 +425,8 @@ router.get("/logo", logoRoute(async (req, res) => {
 
 // Reminder Templates (gym/templates.js, 2026-11-08): the branch's own wording for Send Reminder
 // and the enquiry WhatsApp button. Every portal login reads them (no area: the reminders are sent
-// from Members, Due Members, Likely to leave and Enquiries); only the gym admin rewords or resets
+// from Members, Due Members, Likely to leave and Enquiries; the templates option only decides who
+// sees the Reminder Templates screen); only the gym admin rewords or resets
 // one, with its own hourly allowance. Before migration 2026-12-11 the routes say so.
 const TEMPLATE_MIGRATION = "Reminder Templates need the 2026-12-11-reminder-templates migration on this server.";
 const templateRoute = (handler) => (req, res, next) =>

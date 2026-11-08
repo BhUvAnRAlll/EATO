@@ -13,6 +13,7 @@ import { haptic } from "@/lib/haptics";
 import { SMS_KIND_LABEL } from "@/lib/gymSms";
 import { useSessionToken } from "@/lib/session";
 import { useGymData } from "@/lib/useGymData";
+import { useCan } from "@/store/gymAccess";
 import { useThemeColors, type Palette } from "@/theme";
 import type { GymIconName } from "@/constants/gymIcons";
 
@@ -42,6 +43,8 @@ export function BulkSmsSheet({ onClose }: { onClose: () => void }) {
   const colors = useThemeColors();
   const getToken = useSessionToken();
   const { result, retry, set } = useGymData(gymApi.sms);
+  // Role & Permission: Auto Reminders is SMS › Auto reminder settings, Manual Send is SMS › Send SMS
+  const can = useCan();
   const [page, setPage] = useState<Page>("home");
   const [preview, setPreview] = useState<{ title: string; text: string } | null>(null);
   const [group, setGroup] = useState<SmsGroupId | null>(null);
@@ -157,7 +160,7 @@ export function BulkSmsSheet({ onClose }: { onClose: () => void }) {
                 { id: "manual", title: "Manual Send", text: "Send SMS to specific member groups", bg: colors.gymTilePurple, box: colors.gymTilePurpleBox, ink: colors.gymTilePurpleIcon, icon: "send" },
                 { id: "logs", title: "Message Logs", text: "View sent SMS history", bg: colors.gymTileGreen, box: colors.gymTileGreenBox, ink: colors.gymSuccess, icon: "history" },
               ] as { id: Page; title: string; text: string; bg: string; box: string; ink: string; icon: GymIconName }[]
-            ).map((q) => (
+            ).filter((q) => (q.id === "auto" ? can("sms.auto") : q.id === "manual" ? can("sms.send") : true)).map((q) => (
               <PressableScale key={q.id} onPress={() => { haptic.select(); setPage(q.id); }} className="gym-quick" style={{ backgroundColor: q.bg }} accessibilityRole="button" accessibilityLabel={`${q.title}. ${q.text}`}>
                 <View className="gym-quick__icon" style={{ backgroundColor: q.box }}>
                   <GymIcon name={q.icon} size={22} color={q.ink} />

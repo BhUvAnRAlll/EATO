@@ -4,13 +4,14 @@ import { RefreshControl, Text, View } from "react-native";
 import { PressableScale } from "@/components/PressableScale";
 import { GymIcon } from "@/components/gym/GymIcon";
 import { GymScreen } from "@/components/gym/GymScreen";
-import { GymError, GymLoading } from "@/components/gym/GymStates";
+import { GymEmpty, GymError, GymLoading } from "@/components/gym/GymStates";
 import { TemplateSheet } from "@/components/gym/TemplateSheet";
 import type { GymIconName } from "@/constants/gymIcons";
 import { gymApi } from "@/lib/gymApi";
 import { haptic } from "@/lib/haptics";
 import { SAMPLE_VALUES, TEMPLATE_INFO, TEMPLATE_KINDS, fillTemplate, templateText, type TemplateKind } from "@/lib/reminderTemplates";
 import { useGymData } from "@/lib/useGymData";
+import { useCan } from "@/store/gymAccess";
 import { useThemeColors } from "@/theme";
 
 const ICON: Record<TemplateKind, GymIconName> = { due: "credit-card", expiry: "calendar-clock", expired: "calendar-x", enquiry: "user-plus" };
@@ -21,8 +22,19 @@ const ICON: Record<TemplateKind, GymIconName> = { due: "credit-card", expiry: "c
 // phone's own WhatsApp or Messages app: justFit's own SMS keep their DLT-registered text.
 export default function GymTemplates() {
   const colors = useThemeColors();
+  const can = useCan();
   const { result, retry, update, refreshing, refresh } = useGymData(gymApi.templates);
   const [editing, setEditing] = useState<TemplateKind | null>(null);
+
+  // Role & Permission › Reminder Templates. The wording itself stays readable to every login, since
+  // Send Reminder and the enquiry cards use it; this only decides who sees the screen.
+  if (!can("templates.view")) {
+    return (
+      <GymScreen title="Reminder Templates">
+        <GymEmpty icon="layout-grid" title="No access to Reminder Templates" text="Your login doesn't include Reminder Templates. Ask your gym admin." />
+      </GymScreen>
+    );
+  }
 
   return (
     <GymScreen title="Reminder Templates" refreshControl={<RefreshControl refreshing={refreshing} tintColor={colors.gymPrimary} onRefresh={refresh} />}>

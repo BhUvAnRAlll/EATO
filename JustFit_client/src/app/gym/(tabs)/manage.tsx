@@ -9,16 +9,16 @@ import { ExpenseList } from "@/components/gym/ExpenseList";
 import { GymEmpty } from "@/components/gym/GymStates";
 import { MemberList } from "@/components/gym/MemberList";
 import { ENQUIRY_VIEWS } from "@/data/gymDashboard";
-import type { EnquiryView, StaffArea } from "@/lib/gymApi";
+import type { EnquiryView, StaffOption } from "@/lib/gymApi";
 import { useCan } from "@/store/gymAccess";
 
 type Section = "member" | "catalog" | "enquiry" | "expense";
-// area: the Role & Permission area the section needs (a Staff login without it is sent to the first it has)
-const SECTIONS: { id: Section; label: string; area?: StaffArea }[] = [
-  { id: "member", label: "Members", area: "members" },
-  { id: "catalog", label: "Plans / Catalogue", area: "catalog" },
-  { id: "enquiry", label: "Enquiries", area: "enquiries" },
-  { id: "expense", label: "Expenses", area: "expenses" },
+// need: the Role & Permission option of the section's list (a Staff login without it is sent to the first it has)
+const SECTIONS: { id: Section; label: string; need: StaffOption }[] = [
+  { id: "member", label: "Members", need: "members.view" },
+  { id: "catalog", label: "Plans / Catalogue", need: "catalog.view" },
+  { id: "enquiry", label: "Enquiries", need: "enquiries.view" },
+  { id: "expense", label: "Expenses", need: "expenses.view" },
 ];
 const isSection = (v: unknown): v is Section => typeof v === "string" && SECTIONS.some((s) => s.id === v);
 
@@ -30,7 +30,7 @@ const isSection = (v: unknown): v is Section => typeof v === "string" && SECTION
 export default function GymManage() {
   const params = useLocalSearchParams<{ tab?: string; view?: string; add?: string }>();
   const can = useCan();
-  const sections = SECTIONS.filter((s) => !s.area || can(s.area));
+  const sections = SECTIONS.filter((s) => can(s.need));
   const wanted: Section = isSection(params.tab) ? params.tab : "member";
   // A section this login can't open falls back to the first it can
   const section = sections.find((s) => s.id === wanted) ?? sections[0] ?? null;

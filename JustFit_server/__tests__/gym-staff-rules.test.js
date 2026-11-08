@@ -150,6 +150,11 @@ describe("gym staff rules: Role & Permission", () => {
       ["HEAD", "/wallet", "payments.wallet"], ["get", "/Members/3/", "members.view"], ["POST", "/SMS/send/", "sms.send"],
     ];
     for (const [method, path, option] of cases) assert.ok(rules.optionsOfRequest(method, path)?.includes(option), `${method} ${path}`);
+    // The forms that pick a plan or an item may read the price list, never change it or see its images
+    for (const id of ["members.add", "members.renew", "payments.pt", "payments.sales"]) assert.ok(rules.optionsOfRequest("GET", "/catalog").includes(id), id);
+    assert.equal(rules.optionsOfRequest("GET", "/catalog").includes("members.view"), false);
+    assert.equal(rules.optionsOfRequest("POST", "/catalog").includes("members.add"), false);
+    assert.deepEqual(rules.optionsOfRequest("GET", "/catalog/2/image"), ["catalog.view"]);
     // A member's photo may be set by Add Member or by Edit
     assert.deepEqual(rules.optionsOfRequest("PUT", "/members/3/photo"), ["members.add", "members.edit"]);
     // A reading option never covers a change, and nothing unknown is matched
@@ -167,7 +172,8 @@ describe("gym staff rules: Role & Permission", () => {
       if (!rules.areaOfPath(path)) continue;
       const options = rules.optionsOfRequest(method, path);
       assert.ok(options && options.length > 0, `${method} ${pattern} has no option`);
-      for (const id of options) assert.equal(id.split(".")[0], rules.areaOfPath(path), `${method} ${pattern} → ${id} is in another area`);
+      const shared = rules.CROSS_AREA.find(([m, p]) => m === method && p === path)?.[2] ?? [];
+      for (const id of options) if (!shared.includes(id)) assert.equal(id.split(".")[0], rules.areaOfPath(path), `${method} ${pattern} → ${id} is in another area`);
     }
   });
 
@@ -202,5 +208,43 @@ describe("gym staff rules: Role & Permission", () => {
 
   it("every area has a label for the audit log and the app", () => {
     for (const area of rules.AREAS) assert.equal(typeof rules.AREA_LABEL[area], "string", area);
+  });
+
+  it("Home's dashboard carries only what the login may see", () => {
+    const full = {
+      gym: { name: "Forma" },
+      today: "2026-11-08",
+      revenue: { online: 500, cash: 200 },
+      stats: { admission: 1, renewal: 0, enquiry: 2, duePaid: 0, pt: 0, product: 0 },
+      alerts: { dueMembers: 3, expiringToday: 1, attendance: 4, expiringSoon: 2, birthdays: 0, pauseRequests: 1, renewalRisk: 5 },
+      recent: [{ id: 1, amount: 500 }],
+    };
+    // The gym admin (every option) sees everything
+    assert.deepEqual(rules.dashboardFor(full, rules.OPTION_IDS), full);
+    // Home only: no money, no counts, no names
+    const bare = rules.dashboardFor(full, []);
+    assert.equal(bare.revenue, null);
+    assert.equal(bare.stats, null);
+    assert.deepEqual(bare.recent, []);
+    assert.deepEqual(Object.values(bare.alerts), [null, null, null, null, null, null, null]);
+    // Each part follows its own option
+    const some = rules.dashboardFor(full, ["home.today", "attendance.view", "predictions.payments"]);
+    assert.equal(some.revenue, null);
+    assert.deepEqual(some.stats, full.stats);
+    assert.deepEqual(some.recent, []);
+    assert.equal(some.alerts.attendance, 4);
+    assert.equal(some.alerts.dueMembers, 3, "Due Members opens the payment-on-time list");
+    assert.equal(some.alerts.expiringToday, null);
+    assert.equal(some.alerts.renewalRisk, null);
+  });
+
+  it("Home and Reminder Templates are tiles with their own options", () => {
+    const tree = rules.permissionTree();
+    assert.deepEqual(tree.find((t) => t.id === "home").options.map((o) => o.id), ["home.revenue", "home.today"]);
+    assert.deepEqual(tree.find((t) => t.id === "templates").options.map((o) => o.id), ["templates.view"]);
+    // A list saved before these tiles existed doesn't gain them (as with Expenses)
+    assert.equal(rules.optionsOf({ kind: "staff", permissions: '["members.view"]' }).includes("home.revenue"), false);
+    // Never edited: everything, the new tiles included
+    assert.ok(rules.optionsOf({ kind: "staff", permissions: null }).includes("home.revenue"));
   });
 });

@@ -44,6 +44,9 @@ export function filterTree(tree: PermissionTile[], query: string): PermissionTil
 // Whether two lists hold the same options (the Save button waits for a change)
 export const sameOptions = (a: StaffOption[], b: StaffOption[]) => a.length === b.length && a.every((id) => b.includes(id));
 
+// Shown when the server sent no modules (an older server), so the screens never draw an empty list
+export const NO_MODULES = "Permissions couldn't be loaded. Try again.";
+
 // A Staff login in one line: "All areas", "Home only" or "Members (2 of 5), Enquiries"
 export function optionsLine(tree: PermissionTile[], ticked: StaffOption[]): string {
   const all = tree.flatMap((t) => t.options).length;

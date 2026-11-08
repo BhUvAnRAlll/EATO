@@ -216,7 +216,7 @@ describe("gym staff e2e: Staff / Admin Login, invites and roles", () => {
     assert.equal((await as("staffer").get("/api/gym/enquiries")).status, 200);
     for (const [call, area] of [
       [as("staffer").get("/api/gym/wallet"), "Payments"], [as("staffer").get("/api/gym/payments"), "Payments"], [as("staffer").post("/api/gym/sales", {}), "Payments"],
-      [as("staffer").get("/api/gym/catalog"), "Plans / Catalogue"], [as("staffer").get("/api/gym/sms"), "SMS"], [as("staffer").get("/api/gym/attendance"), "Attendance"],
+      [as("staffer").post("/api/gym/catalog", {}), "Plans / Catalogue"], [as("staffer").get("/api/gym/sms"), "SMS"], [as("staffer").get("/api/gym/attendance"), "Attendance"],
       [as("staffer").get("/api/gym/predictions/renewals"), "Predictions"], [as("staffer").post("/api/gym/members/1/due", {}), "Payments"],
     ]) {
       const refused = await call;
@@ -260,10 +260,32 @@ describe("gym staff e2e: Staff / Admin Login, invites and roles", () => {
     assert.equal((await as("staffer").get("/api/gym/members/next-code")).status, 200);
     assert.equal((await as("staffer").get("/api/gym/enquiries")).status, 403);
 
-    // Home only is allowed; the dashboard still answers
+    // Add Member reads the price list for its plan chips, but can't change it (2026-11-08)
+    assert.equal((await as("staffer").get("/api/gym/catalog")).status, 200, "Add Member picks a plan");
+    assert.equal((await as("staffer").post("/api/gym/catalog", {})).status, 403);
+    // The member list alone doesn't read the price list
+    await as("owner").put(`/api/gym/staff/${staffer}/permissions`, { options: ["members.view"] });
+    assert.equal((await as("staffer").get("/api/gym/catalog")).status, 403);
+
+    // Home only is allowed; the dashboard still answers, with no money, counts or names in it
     assert.equal((await as("owner").put(`/api/gym/staff/${staffer}/permissions`, { areas: [] })).status, 200);
-    assert.equal((await as("staffer").get("/api/gym/dashboard")).status, 200);
+    const bare = await as("staffer").get("/api/gym/dashboard");
+    assert.equal(bare.status, 200);
+    assert.equal(bare.json.revenue, null);
+    assert.equal(bare.json.stats, null);
+    assert.deepEqual(bare.json.recent, []);
+    assert.ok(Object.values(bare.json.alerts).every((v) => v === null), JSON.stringify(bare.json.alerts));
     assert.equal((await as("staffer").get("/api/gym/members?filter=all&search=")).status, 403);
+    // Home's options bring back the revenue card and today's counts, Transactions the recent payments
+    await as("owner").put(`/api/gym/staff/${staffer}/permissions`, { options: ["home.revenue", "home.today", "payments.transactions"] });
+    const homed = (await as("staffer").get("/api/gym/dashboard")).json;
+    assert.equal(typeof homed.revenue.online, "number");
+    assert.equal(typeof homed.stats.admission, "number");
+    assert.ok(Array.isArray(homed.recent));
+    assert.equal(homed.alerts.dueMembers, null, "Due Members needs the member list or Payment on time");
+    // Reminder Templates is a tile of its own; the gym admin sees both new tiles
+    const tree = (await as("owner").get("/api/gym/staff")).json.permissionTree.map((t) => t.id);
+    assert.ok(tree.includes("home") && tree.includes("templates"), tree.join());
 
     // Who may change what
     assert.equal((await as("staffer").put(`/api/gym/staff/${identities.coach.id}/permissions`, { areas: [] })).status, 403, "Staff can't set permissions");

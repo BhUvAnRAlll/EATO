@@ -7,6 +7,7 @@ import { pickable, rupees } from "@/data/gymDashboard";
 import { gymApi, type CatalogItem, type CatalogKind } from "@/lib/gymApi";
 import { haptic } from "@/lib/haptics";
 import { useGymData } from "@/lib/useGymData";
+import { useCan } from "@/store/gymAccess";
 
 // Above a form: the branch's catalogue items of one kind as chips ("3 Months · ₹4,000"); tapping
 // one fills the form (onPick) and `selected` (its id, kept by the form) shows which one was picked.
@@ -15,6 +16,8 @@ import { useGymData } from "@/lib/useGymData";
 export function CatalogPicks({ kind, label, selected, onPick }: { kind: CatalogKind; label: string; selected: number | null; onPick: (item: CatalogItem) => void }) {
   const load = useCallback((token: string | null) => gymApi.catalog(token), []);
   const { result, retry } = useGymData(load);
+  // The link to add prices only for a login with Plans / Catalogue › Add, edit and delete plans
+  const canAddPrices = useCan()("catalog.edit");
   // A failed read says so (it rendered nothing before, so the form looked as if the catalogue was empty)
   if (result.state === "failed") {
     return (
@@ -28,7 +31,9 @@ export function CatalogPicks({ kind, label, selected, onPick }: { kind: CatalogK
   return (
     <View style={{ gap: 6 }}>
       <Text className="gym-field__label">{label}</Text>
-      {items.length === 0 ? (
+      {items.length === 0 && !canAddPrices ? (
+        <Text className="gym-tx__meta">No prices in Plans / Catalogue yet. Ask your gym admin to add them.</Text>
+      ) : items.length === 0 ? (
         <PressableScale onPress={() => router.push("/gym/catalog")} className="self-start" accessibilityRole="link" accessibilityLabel="Add prices in Plans / Catalogue">
           <Text className="gym-link" style={{ fontSize: 13 }}>Add prices in Plans / Catalogue</Text>
         </PressableScale>

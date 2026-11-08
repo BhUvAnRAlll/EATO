@@ -160,6 +160,19 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
   warning banners, search, Expand all / Collapse all, a card per tile with its box and the options
   under it, Save Permissions pinned at the bottom (tick rules in `lib/permissionTree.ts`, pure and
   unit-tested). `PermissionsSheet` is gone.
+  **Every screen in the list (2026-11-08, the user's request):** two more tiles, **Home** (Today's
+  collection = the revenue card, Today's counts) and **Reminder Templates** (the screen; its wording
+  stays readable to every login because Send Reminder and the enquiry cards use it). The dashboard
+  carries only what the login may see (`staffRules.dashboardFor`: revenue and stats null without the
+  Home options, `recent` empty without Transactions, each Needs attention count null without the
+  option of the screen it opens). `GET /catalog` is the one read shared across tiles
+  (`staffRules.CROSS_AREA`): Add Member, Renew, PT and Add Service / Sell Product read the price list
+  without Plans / Catalogue (never change it or see its images). The app checks the exact option
+  everywhere (`useCan("enquiries.edit")`, never just the tile): the ☰ menu, Settings, the + sheet,
+  Manage and its tab, Home's cards and rows, the list screens' + and edit, Enquiries' contact log,
+  Attendance's QR / settings / Check out / Export, Bulk SMS's Auto Reminders and Manual Send, and
+  "Add New Plan / Product / Service". Staff whose list was saved before keep it as it was, so they
+  get the new tiles only when ticked (as with Expenses).
 - **Trainers and My Clients (2026-11-05, phase 2):** a member's PT is with one of the branch's
   trainers (`gym_members.pt_trainer_id`), picked on the PT form (`TrainerChips`; left out, the
   member keeps their trainer) or in the member's ⋯ › Sales › Change Trainer (`ChangeTrainerSheet`);

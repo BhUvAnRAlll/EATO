@@ -23,6 +23,7 @@ import { gymApi, type CatalogItem, type Gender, type GymMemberDetail, type PayMe
 import { useGymSave } from "@/lib/gymForm";
 import { haptic } from "@/lib/haptics";
 import { useGymData } from "@/lib/useGymData";
+import { useCan } from "@/store/gymAccess";
 import { useThemeColors } from "@/theme";
 
 // Back (outlined) and the step's main action, side by side as in the designs
@@ -56,6 +57,8 @@ const numberOrBlank = (text: string) => (text.trim() === "" ? "" : Number(text))
 // if only those fail, the member stays saved and the gym admin is told.
 export function AddMemberSheet({ onClose, onSaved, initial }: { onClose: () => void; onSaved: (detail: GymMemberDetail) => void; initial?: { name: string; phone: string | null } }) {
   const colors = useThemeColors();
+  // Add New Plan is Plans / Catalogue › Add, edit and delete plans
+  const canAddPlan = useCan()("catalog.edit");
   const loadCode = useCallback((token: string | null) => gymApi.nextCode(token), []);
   const { result: code, retry: retryCode } = useGymData(loadCode);
   const loadCatalog = useCallback((token: string | null) => gymApi.catalog(token), []);
@@ -300,10 +303,12 @@ export function AddMemberSheet({ onClose, onSaved, initial }: { onClose: () => v
               <Text className={planId === "custom" ? "gym-kind__label gym-kind__label--selected" : "gym-kind__label"}>Custom</Text>
             </PressableScale>
           </View>
-          <PressableScale onPress={() => setAddingPlan(true)} className="gym-choice flex-row items-center self-start" style={{ gap: 6 }} accessibilityRole="button" accessibilityLabel="Add New Plan">
-            <GymIcon name="plus" size={14} color={colors.gymPrimary} />
-            <Text className="gym-choice__label">Add New Plan</Text>
-          </PressableScale>
+          {canAddPlan && (
+            <PressableScale onPress={() => setAddingPlan(true)} className="gym-choice flex-row items-center self-start" style={{ gap: 6 }} accessibilityRole="button" accessibilityLabel="Add New Plan">
+              <GymIcon name="plus" size={14} color={colors.gymPrimary} />
+              <Text className="gym-choice__label">Add New Plan</Text>
+            </PressableScale>
+          )}
           {planId === "custom" && (
             <>
               <PlanLengthFields duration={duration} onDuration={setDuration} />

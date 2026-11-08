@@ -19,6 +19,7 @@ import { gymApi, type GymInfo, type GymMember, type GymMemberDetail, type PayMet
 import { useGymSave } from "@/lib/gymForm";
 import { haptic } from "@/lib/haptics";
 import { useGymData } from "@/lib/useGymData";
+import { useCan } from "@/store/gymAccess";
 import { useThemeColors } from "@/theme";
 
 const MONEY = "banknote" as const;
@@ -33,6 +34,8 @@ const COPY = {
 // Invoice. The server reads the price from the catalogue and takes products out of stock.
 export function MemberSaleSheet({ kind, member, gym, onClose, onSaved }: { kind: "product" | "service"; member: GymMember; gym: GymInfo; onClose: () => void; onSaved: (detail: GymMemberDetail) => void }) {
   const colors = useThemeColors();
+  // Adding a new product or service is Plans / Catalogue › Add, edit and delete plans
+  const canAddItem = useCan()("catalog.edit");
   const copy = COPY[kind];
   const isProduct = kind === "product";
   const load = useCallback((token: string | null) => gymApi.catalog(token), []);
@@ -120,10 +123,12 @@ export function MemberSaleSheet({ kind, member, gym, onClose, onSaved }: { kind:
                 </PressableScale>
               );
             })}
-            <PressableScale onPress={() => setAdding(true)} className="gym-choice flex-row items-center" style={{ gap: 6 }} accessibilityRole="button" accessibilityLabel={copy.add}>
-              <GymIcon name="plus" size={14} color={colors.gymPrimary} />
-              <Text className="gym-choice__label">{copy.add}</Text>
-            </PressableScale>
+            {canAddItem && (
+              <PressableScale onPress={() => setAdding(true)} className="gym-choice flex-row items-center" style={{ gap: 6 }} accessibilityRole="button" accessibilityLabel={copy.add}>
+                <GymIcon name="plus" size={14} color={colors.gymPrimary} />
+                <Text className="gym-choice__label">{copy.add}</Text>
+              </PressableScale>
+            )}
           </View>
         </>
       )}

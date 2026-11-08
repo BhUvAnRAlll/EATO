@@ -13,6 +13,7 @@ import { haptic } from "@/lib/haptics";
 import { listPerf } from "@/lib/listPerf";
 import { useSessionToken } from "@/lib/session";
 import { useGymData } from "@/lib/useGymData";
+import { useCan } from "@/store/gymAccess";
 import { useThemeColors } from "@/theme";
 
 type Filter = ExpenseCategory | "all";
@@ -34,7 +35,9 @@ export function ExpenseList({ addOnOpen = false }: { addOnOpen?: boolean }) {
   const [typed, setTyped] = useState("");
   const [search, setSearch] = useState("");
   // null: closed; "new": Add Expense; an expense: edit it
-  const [editing, setEditing] = useState<GymExpense | "new" | null>(addOnOpen ? "new" : null);
+  // Role & Permission: adding and editing are Expenses › Add and edit expenses
+  const canEdit = useCan()("expenses.edit");
+  const [editing, setEditing] = useState<GymExpense | "new" | null>(addOnOpen && canEdit ? "new" : null);
   const [viewing, setViewing] = useState<GymExpense | null>(null);
 
   useEffect(() => {
@@ -191,11 +194,12 @@ export function ExpenseList({ addOnOpen = false }: { addOnOpen?: boolean }) {
             // The card opens the expense; the Bill chip sits under it (no button inside a button)
             <View className="gym-card p-3" style={{ gap: 8 }}>
               <PressableScale
-                onPress={() => setEditing(item)}
+                onPress={canEdit ? () => setEditing(item) : undefined}
+                disabled={!canEdit}
                 className="flex-row items-center"
                 style={{ gap: 12 }}
-                accessibilityRole="button"
-                accessibilityLabel={`${expenseTitle(item)}, ${EXPENSE_LABEL[item.category]}, ${rupees(item.amount)}, ${cash ? "cash" : "online"}, ${meta}. Edit`}
+                accessibilityRole={canEdit ? "button" : "text"}
+                accessibilityLabel={`${expenseTitle(item)}, ${EXPENSE_LABEL[item.category]}, ${rupees(item.amount)}, ${cash ? "cash" : "online"}, ${meta}${canEdit ? ". Edit" : ""}`}
               >
                 <View className="gym-avatar">
                   <GymIcon name={EXPENSE_ICON[item.category]} size={20} color={colors.gymPrimary} />
@@ -232,12 +236,12 @@ export function ExpenseList({ addOnOpen = false }: { addOnOpen?: boolean }) {
           );
         }}
       />
-      <View className="absolute" style={{ right: 16, bottom: 16 }}>
+      {canEdit && <View className="absolute" style={{ right: 16, bottom: 16 }}>
         <PressableScale onPress={() => setEditing("new")} haptic="tap" className="gym-fab-round" accessibilityRole="button" accessibilityLabel="Add an expense">
           <GradientFill radius={26} />
           <GymIcon name="plus" size={22} color={colors.white} />
         </PressableScale>
-      </View>
+      </View>}
       {editing && (
         <ExpenseSheet
           expense={editing === "new" ? null : editing}

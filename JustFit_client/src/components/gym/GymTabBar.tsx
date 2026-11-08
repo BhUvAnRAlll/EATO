@@ -7,17 +7,21 @@ import { GymIcon } from "@/components/gym/GymIcon";
 import { GradientFill } from "@/components/gym/GradientFill";
 import { gymTabs } from "@/data/gymDashboard";
 import { haptic } from "@/lib/haptics";
+import type { StaffOption } from "@/lib/gymApi";
 import { useCan } from "@/store/gymAccess";
 import { useThemeColors } from "@/theme";
 
 // The gym admin portal's bar: white, a hairline on top, the active tab's icon white on the portal's
 // gradient (the user's design, in the portal's theme).
+// The lists Manage shows (Members, Plans, Enquiries, Expenses)
+const MANAGE_LISTS: StaffOption[] = ["members.view", "catalog.view", "enquiries.view", "expenses.view"];
+
 export function GymTabBar({ state, emitter, navigateToTab }: BottomTabBarProps) {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
   const can = useCan();
-  // Role & Permission: the Wallet is a Payments screen; Manage needs at least one of its areas
-  const shown = (name: string) => (name === "wallet" ? can("payments.wallet") : name === "manage" ? can("members") || can("catalog") || can("enquiries") : true);
+  // Role & Permission: the Wallet is a Payments screen; Manage needs at least one of its lists
+  const shown = (name: string) => (name === "wallet" ? can("payments.wallet") : name === "manage" ? MANAGE_LISTS.some(can) : true);
 
   return (
     <View className="gym-tabbar" style={{ paddingBottom: Math.max(insets.bottom, 10) }} accessibilityRole="tablist">

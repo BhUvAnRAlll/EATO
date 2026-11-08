@@ -10,7 +10,7 @@ export default function GymEnquiries() {
   const params = useLocalSearchParams<{ view?: string }>();
   const view: EnquiryView = ENQUIRY_VIEWS.some((v) => v.id === params.view) ? (params.view as EnquiryView) : "open";
   return (
-    <GymSectionScreen title="Enquiries" area="enquiries">
+    <GymSectionScreen title="Enquiries" need="enquiries.view">
       <EnquiryList key={view} initialView={view} />
     </GymSectionScreen>
   );

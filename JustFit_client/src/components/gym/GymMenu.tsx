@@ -7,30 +7,30 @@ import { GymIcon } from "@/components/gym/GymIcon";
 import { GradientFill } from "@/components/gym/GradientFill";
 import { comingSoon } from "@/lib/gymPortal";
 import { phoneText } from "@/data/gymDashboard";
-import type { StaffArea } from "@/lib/gymApi";
+import type { StaffOption } from "@/lib/gymApi";
 import { useAuthStore } from "@/store/auth";
 import { useCan } from "@/store/gymAccess";
 import { useThemeColors } from "@/theme";
 import type { GymIconName } from "@/constants/gymIcons";
 
-// area: the Role & Permission area the item needs (a Staff login without it doesn't see the item)
-type MenuItem = { label: string; icon: GymIconName; href?: Href; action?: "sms"; ownerOnly?: boolean; area?: StaffArea };
+// need: the Role & Permission option the item opens (a Staff login without it doesn't see the item)
+type MenuItem = { label: string; icon: GymIconName; href?: Href; action?: "sms"; ownerOnly?: boolean; need?: StaffOption };
 
 const MANAGE: MenuItem[] = [
-  { label: "Members", icon: "users", href: "/gym/members", area: "members" },
-  { label: "Plans / Catalogue", icon: "clipboard-list", href: "/gym/catalog", area: "catalog" },
-  { label: "Enquiries", icon: "messages-square", href: "/gym/enquiries", area: "enquiries" },
-  { label: "Likely to leave", icon: "user-x", href: "/gym/predictions/renewals", area: "predictions" },
-  { label: "Expenses", icon: "receipt", href: "/gym/expenses", area: "expenses" },
+  { label: "Members", icon: "users", href: "/gym/members", need: "members.view" },
+  { label: "Plans / Catalogue", icon: "clipboard-list", href: "/gym/catalog", need: "catalog.view" },
+  { label: "Enquiries", icon: "messages-square", href: "/gym/enquiries", need: "enquiries.view" },
+  { label: "Likely to leave", icon: "user-x", href: "/gym/predictions/renewals", need: "predictions.renewals" },
+  { label: "Expenses", icon: "receipt", href: "/gym/expenses", need: "expenses.view" },
   { label: "Outlets", icon: "store", href: "/gym/branches" },
   { label: "Staff / Admin Login", icon: "user-cog", href: "/gym/staff", ownerOnly: true },
   { label: "Role & Permission", icon: "shield-check", href: "/gym/permissions", ownerOnly: true },
-  { label: "Reminder Templates", icon: "message-square-text", href: "/gym/templates" },
+  { label: "Reminder Templates", icon: "message-square-text", href: "/gym/templates", need: "templates.view" },
 ];
 const OTHER: MenuItem[] = [
-  { label: "Send Bulk SMS", icon: "message-square-more", action: "sms", area: "sms" },
-  { label: "Attendance", icon: "qr-code", href: "/gym/attendance", area: "attendance" },
-  { label: "Location & Attendance Settings", icon: "map-pin", href: "/gym/attendance/settings", area: "attendance" },
+  { label: "Send Bulk SMS", icon: "message-square-more", action: "sms", need: "sms.view" },
+  { label: "Attendance", icon: "qr-code", href: "/gym/attendance", need: "attendance.view" },
+  { label: "Location & Attendance Settings", icon: "map-pin", href: "/gym/attendance/settings", need: "attendance.settings" },
   { label: "Settings", icon: "settings", href: "/gym/settings" },
 ];
 
@@ -44,7 +44,7 @@ export function GymMenu({ open, onClose, gymLine, onBulkSms, canManageTeam }: { 
   const user = useAuthStore((state) => state.user);
   const can = useCan();
   const name = user?.fullName?.trim() || "Admin";
-  const allowed = (item: MenuItem) => (!item.ownerOnly || canManageTeam) && (!item.area || can(item.area));
+  const allowed = (item: MenuItem) => (!item.ownerOnly || canManageTeam) && (!item.need || can(item.need));
 
   const go = (item: MenuItem) => {
     onClose();

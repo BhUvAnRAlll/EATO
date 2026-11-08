@@ -57,7 +57,7 @@ export type GymAccess = "owner" | "staff";
 export type StaffKind = "staff" | "trainer";
 // Role & Permission: the portal's areas a Staff login can be given (the gym admin has all of them,
 // a trainer none). Which routes each covers is the server's call (gym/staffRules.js).
-export type StaffArea = "members" | "payments" | "enquiries" | "catalog" | "attendance" | "sms" | "predictions" | "expenses";
+export type StaffArea = "home" | "members" | "payments" | "enquiries" | "catalog" | "attendance" | "sms" | "templates" | "predictions" | "expenses";
 // Role & Permission's options inside each area ("members.add"); the server's list (staffRules.OPTIONS)
 // comes with the team as permissionTree, so the app draws whatever the server checks
 export type StaffOption = `${StaffArea}.${string}`;
@@ -71,10 +71,12 @@ export type GymDashboard = {
   // areas: what the signed-in login may use at this branch (Role & Permission), so the app hides the rest
   gym: GymInfo & { branchCount: number; access: GymAccess; areas: StaffArea[]; options: StaffOption[] };
   today: string;
-  revenue: { online: number; cash: number };
-  stats: { admission: number; renewal: number; enquiry: number; duePaid: number; pt: number; product: number };
+  // null when the login's Home tile doesn't include them; recent is empty without Transactions, and
+  // each alert is null when the login can't open what it leads to (staffRules.dashboardFor)
+  revenue: { online: number; cash: number } | null;
+  stats: { admission: number; renewal: number; enquiry: number; duePaid: number; pt: number; product: number } | null;
   // renewalRisk: members at High renewal risk (Predictions › Likely to leave)
-  alerts: { dueMembers: number; expiringToday: number; attendance: number; expiringSoon: number; birthdays: number; renewalRisk: number; pauseRequests: number };
+  alerts: { dueMembers: number | null; expiringToday: number | null; attendance: number | null; expiringSoon: number | null; birthdays: number | null; renewalRisk: number | null; pauseRequests: number | null };
   recent: GymPayment[];
 };
 
@@ -321,7 +323,11 @@ export const gymApi = {
   // The gym admin adds a branch of their gym (its name and location) and is linked to it
   addBranch: (token: string | null, fields: Omit<GymInfo, "name">) => call<GymBranches>(token, "/api/gym/branches", "POST", fields),
   switchBranch: (token: string | null, branchId: number) => call<GymBranches>(token, "/api/gym/branch", "POST", { branchId }),
-  team: (token: string | null) => call<GymTeam>(token, "/api/gym/staff"),
+  // An older server sends no permissionTree or options; fill them in so the screens never crash
+  team: (token: string | null) =>
+    call<GymTeam>(token, "/api/gym/staff").then((r): ApiResult<GymTeam> =>
+      r.ok ? { ok: true, data: { ...r.data, permissionTree: r.data.permissionTree ?? [], team: r.data.team.map((m) => ({ ...m, options: m.options ?? [] })) } } : r,
+    ),
   // added: linked now (their role changed); invited: they join at their first sign-in
   // branchId: the branch to add them to (one the caller manages); the answer names it as `branch`
   addStaff: (token: string | null, phone: string, kind: StaffKind, branchId: number) => call<GymTeam & { result: "added" | "invited"; branch: string }>(token, "/api/gym/staff", "POST", { phone, kind, branchId }),

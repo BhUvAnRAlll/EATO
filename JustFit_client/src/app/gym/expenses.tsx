@@ -7,7 +7,7 @@ import { GymSectionScreen } from "@/components/gym/GymSectionScreen";
 export default function GymExpenses() {
   const params = useLocalSearchParams<{ add?: string }>();
   return (
-    <GymSectionScreen title="Expenses" area="expenses">
+    <GymSectionScreen title="Expenses" need="expenses.view">
       <ExpenseList addOnOpen={params.add === "1"} />
     </GymSectionScreen>
   );

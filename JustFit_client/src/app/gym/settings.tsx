@@ -10,7 +10,7 @@ import { GymScreen } from "@/components/gym/GymScreen";
 import { GymError, GymLoading } from "@/components/gym/GymStates";
 import type { GymIconName } from "@/constants/gymIcons";
 import { phoneText } from "@/data/gymDashboard";
-import { gymApi, type StaffArea } from "@/lib/gymApi";
+import { gymApi, type StaffOption } from "@/lib/gymApi";
 import { useGymData } from "@/lib/useGymData";
 import { useAuthStore } from "@/store/auth";
 import { useCan } from "@/store/gymAccess";
@@ -18,7 +18,7 @@ import { useThemeColors } from "@/theme";
 
 // area: the Role & Permission area the row needs; ownerOnly: the gym admin only. Either way the
 // screen it opens checks again, and the server refuses regardless: this only keeps the list tidy.
-type SettingRow = { label: string; text: string; icon: GymIconName; href?: Href; action?: "sms"; ownerOnly?: boolean; area?: StaffArea };
+type SettingRow = { label: string; text: string; icon: GymIconName; href?: Href; action?: "sms"; ownerOnly?: boolean; need?: StaffOption };
 type SettingGroup = { title: string; rows: SettingRow[] };
 
 const GROUPS: SettingGroup[] = [
@@ -33,15 +33,15 @@ const GROUPS: SettingGroup[] = [
   {
     title: "Attendance",
     rows: [
-      { label: "Location & Attendance", text: "Gym location and check-in radius", icon: "locate-fixed", href: "/gym/attendance/settings", area: "attendance" },
-      { label: "Attendance QR code", text: "Show, print or regenerate", icon: "qr-code", href: "/gym/attendance/qr", area: "attendance" },
+      { label: "Location & Attendance", text: "Gym location and check-in radius", icon: "locate-fixed", href: "/gym/attendance/settings", need: "attendance.settings" },
+      { label: "Attendance QR code", text: "Show, print or regenerate", icon: "qr-code", href: "/gym/attendance/qr", need: "attendance.settings" },
     ],
   },
   {
     title: "Messages",
     rows: [
-      { label: "SMS & auto reminders", text: "Credits, reminders and message logs", icon: "message-square-more", action: "sms", area: "sms" },
-      { label: "Reminder Templates", text: "The wording of your reminders", icon: "message-square-text", href: "/gym/templates" },
+      { label: "SMS & auto reminders", text: "Credits, reminders and message logs", icon: "message-square-more", action: "sms", need: "sms.view" },
+      { label: "Reminder Templates", text: "The wording of your reminders", icon: "message-square-text", href: "/gym/templates", need: "templates.view" },
     ],
   },
   {
@@ -73,7 +73,7 @@ export default function GymSettings() {
       {result.state === "ready" && (
         <>
           {GROUPS.map((group) => {
-            const rows = group.rows.filter((row) => (!row.ownerOnly || result.data.access === "owner") && (!row.area || can(row.area)));
+            const rows = group.rows.filter((row) => (!row.ownerOnly || result.data.access === "owner") && (!row.need || can(row.need)));
             if (rows.length === 0) return null;
             return (
               <View key={group.title} className="gym-dash-section">

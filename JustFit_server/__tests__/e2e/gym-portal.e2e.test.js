@@ -12,7 +12,7 @@ const { describe, it, before, after } = require("node:test");
 const crypto = require("node:crypto");
 
 // What the gym admin (owner) may use: every area of Role & Permission (gym/staffRules.js AREAS)
-const ALL_AREAS = ["members", "payments", "enquiries", "catalog", "attendance", "sms", "predictions", "expenses"];
+const ALL_AREAS = ["home", "members", "payments", "enquiries", "catalog", "attendance", "sms", "templates", "predictions", "expenses"];
 // Every option inside them (2026-11-08): the gym admin has all
 const ALL_OPTIONS = require("../../gym/staffRules").OPTION_IDS;
 

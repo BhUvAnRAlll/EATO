@@ -42,7 +42,11 @@ export default function GymAttendance() {
   const { result, reload, retry, refreshing, refresh } = useGymData(gymApi.attendance);
   // Role & Permission: busy hours are Predictions; a login without it isn't shown a card the server
   // would refuse (QA 2026-11-07). A stable `load` per answer, as useGymData expects.
-  const canPredict = useCan()("predictions.busy");
+  const can = useCan();
+  const canPredict = can("predictions.busy");
+  // Location and the QR code are Attendance › Location and QR code; Check out is Check members in and out
+  const canSetUp = can("attendance.settings");
+  const canCheckOut = can("attendance.checkin");
   const loadBusy = useCallback((token: string | null) => (canPredict ? gymApi.busyHours(token) : Promise.resolve({ ok: false as const, error: "Your login doesn't include Predictions.", status: 403 })), [canPredict]);
   const busy = useGymData(loadBusy);
   const [period, setPeriod] = useState<Period>("today");
@@ -71,7 +75,7 @@ export default function GymAttendance() {
     setRefreshKey((k) => k + 1);
   };
 
-  const header = (
+  const header = canSetUp ? (
     <View className="flex-row" style={{ gap: 8 }}>
       <PressableScale onPress={() => router.push("/gym/attendance/qr")} className="gym-icon-btn" accessibilityRole="button" accessibilityLabel="Attendance QR code">
         <GymIcon name="qr-code" size={18} color={colors.gymInk} />
@@ -80,7 +84,7 @@ export default function GymAttendance() {
         <GymIcon name="settings" size={18} color={colors.gymInk} />
       </PressableScale>
     </View>
-  );
+  ) : undefined;
 
   if (result.state !== "ready") {
     return (
@@ -109,7 +113,7 @@ export default function GymAttendance() {
 
   return (
     <GymScreen title="Attendance" right={header} refreshControl={<RefreshControl refreshing={refreshing} tintColor={colors.gymPrimary} onRefresh={refreshAll} />}>
-      {!data.setup.location || !data.setup.qr ? (
+      {canSetUp && (!data.setup.location || !data.setup.qr) ? (
         <PressableScale onPress={() => router.push(data.setup.location ? "/gym/attendance/qr" : "/gym/attendance/settings")} className="gym-warning" accessibilityRole="button" accessibilityLabel={data.setup.location ? "Create the attendance QR code" : "Set the gym's location"}>
           <GymIcon name="triangle-alert" size={18} color={colors.gymWarning} />
           <Text className="gym-warning__text flex-1">
@@ -139,7 +143,7 @@ export default function GymAttendance() {
       ) : (
         <View style={{ gap: 10 }}>
           {data.inside.map((visit) => (
-            <VisitRow key={visit.id} visit={visit} busy={checkingOut === visit.memberId} onCheckOut={() => checkOut(visit.memberId)} onPress={() => router.push({ pathname: "/gym/members/[id]", params: { id: String(visit.memberId) } })} />
+            <VisitRow key={visit.id} visit={visit} busy={checkingOut === visit.memberId} onCheckOut={canCheckOut ? () => checkOut(visit.memberId) : undefined} onPress={() => router.push({ pathname: "/gym/members/[id]", params: { id: String(visit.memberId) } })} />
           ))}
         </View>
       )}

@@ -13,6 +13,7 @@ import { exportAttendance } from "@/lib/attendanceExport";
 import { indiaDay } from "@/lib/attendanceText";
 import { gymApi, type GymVisit, type VisitQuery, type VisitStatus } from "@/lib/gymApi";
 import { useSessionToken } from "@/lib/session";
+import { useCan } from "@/store/gymAccess";
 import { useThemeColors } from "@/theme";
 
 type Range = "today" | "week" | "month" | "custom";
@@ -38,6 +39,8 @@ type Page = { state: "loading" } | { state: "failed"; error: string } | { state:
 export function VisitHistory({ memberId, refreshKey = 0, defaultRange = "today" }: { memberId?: number; refreshKey?: number; defaultRange?: Range }) {
   const colors = useThemeColors();
   const getToken = useSessionToken();
+  // Role & Permission: Export CSV is its own option (Attendance › Export history)
+  const canExport = useCan()("attendance.export");
   const today = indiaDay();
   const [range, setRange] = useState<Range>(defaultRange);
   const [from, setFrom] = useState(startOf(defaultRange));
@@ -141,10 +144,10 @@ export function VisitHistory({ memberId, refreshKey = 0, defaultRange = "today" 
 
       <View className="flex-row items-center justify-between" style={{ gap: 12 }}>
         <Text className="gym-tx__meta flex-1">{page.state === "ready" ? `${page.total} ${page.total === 1 ? "visit" : "visits"}` : " "}</Text>
-        <PressableScale onPress={runExport} disabled={exporting || page.state !== "ready" || page.total === 0} className="gym-choice flex-row items-center" style={{ gap: 6, opacity: page.state === "ready" && page.total > 0 ? 1 : 0.5 }} accessibilityRole="button" accessibilityLabel="Export to CSV" accessibilityState={{ busy: exporting }}>
+        {canExport && <PressableScale onPress={runExport} disabled={exporting || page.state !== "ready" || page.total === 0} className="gym-choice flex-row items-center" style={{ gap: 6, opacity: page.state === "ready" && page.total > 0 ? 1 : 0.5 }} accessibilityRole="button" accessibilityLabel="Export to CSV" accessibilityState={{ busy: exporting }}>
           {exporting ? <ActivityIndicator size="small" color={colors.gymPrimary} /> : <GymIcon name="download" size={14} color={colors.gymPrimary} />}
           <Text className="gym-choice__label">Export CSV</Text>
-        </PressableScale>
+        </PressableScale>}
       </View>
       {exportError ? <FormAlert message={exportError} /> : null}
       {moreError ? <FormAlert message={moreError} /> : null}

@@ -7,7 +7,7 @@ import { GymEmpty, GymError, GymLoading } from "@/components/gym/GymStates";
 import { GymScreen } from "@/components/gym/GymScreen";
 import { initialsOf } from "@/data/gymDashboard";
 import { gymApi } from "@/lib/gymApi";
-import { optionsLine } from "@/lib/permissionTree";
+import { NO_MODULES, optionsLine } from "@/lib/permissionTree";
 import { useGymData } from "@/lib/useGymData";
 import { useThemeColors } from "@/theme";
 
@@ -26,6 +26,13 @@ export default function GymPermissionsScreen() {
     );
   }
   const { gym, team, permissionTree } = result.data;
+  if (permissionTree.length === 0) {
+    return (
+      <GymScreen title="Role & Permission">
+        <GymError error={NO_MODULES} onRetry={retry} />
+      </GymScreen>
+    );
+  }
   const staff = team.filter((m) => m.kind === "staff");
 
   return (

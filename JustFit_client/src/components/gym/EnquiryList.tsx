@@ -19,6 +19,7 @@ import { haptic } from "@/lib/haptics";
 import { listPerf } from "@/lib/listPerf";
 import { useSessionToken } from "@/lib/session";
 import { useGymData } from "@/lib/useGymData";
+import { useCan } from "@/store/gymAccess";
 import { useThemeColors } from "@/theme";
 
 const EMPTY: Record<EnquiryView, { title: string; text: string }> = {
@@ -39,6 +40,10 @@ const EMPTY: Record<EnquiryView, { title: string; text: string }> = {
 // comes back to the front, "How did it go?" asks once (Reached / No answer / Skip). The round + adds one.
 export function EnquiryList({ initialView = "open" }: { initialView?: EnquiryView }) {
   const colors = useThemeColors();
+  // Role & Permission: Enquiries › Add and edit enquiries, and Log calls and visits
+  const can = useCan();
+  const canEdit = can("enquiries.edit");
+  const canLog = can("enquiries.contacts");
   const getToken = useSessionToken();
   // Narrow phones (under 360): no initials circle, so the name and the follow-up line fit
   const narrow = useWindowDimensions().width < 360;
@@ -69,7 +74,8 @@ export function EnquiryList({ initialView = "open" }: { initialView?: EnquiryVie
     return () => sub.remove();
   }, []);
   const call = (enquiry: GymEnquiry) => {
-    pendingCall.current = enquiry;
+    // "How did it go?" only for a login that may log contacts
+    pendingCall.current = canLog ? enquiry : null;
     callPhone(enquiry.phone);
   };
 
@@ -182,11 +188,12 @@ export function EnquiryList({ initialView = "open" }: { initialView?: EnquiryVie
             // The info opens the enquiry; Call, WhatsApp and the log button sit beside it (no button inside a button)
             <View className="gym-member-card">
               <PressableScale
-                onPress={() => setEditing(item)}
+                onPress={canEdit ? () => setEditing(item) : undefined}
+                disabled={!canEdit}
                 className="min-w-0 flex-1 flex-row items-center"
                 style={{ gap: 12 }}
-                accessibilityRole="button"
-                accessibilityLabel={`${item.name}, ${ENQUIRY_STATUS_LABEL[item.status]}${lead ? `, ${lead.text}` : ""}${follow ? `, ${follow.text}` : ""}${about ? `, ${about}` : ""}${referrer ? `, ${referrer}` : ""}${item.member ? `, joined as ${item.member.code}` : ""}. Edit`}
+                accessibilityRole={canEdit ? "button" : "text"}
+                accessibilityLabel={`${item.name}, ${ENQUIRY_STATUS_LABEL[item.status]}${lead ? `, ${lead.text}` : ""}${follow ? `, ${follow.text}` : ""}${about ? `, ${about}` : ""}${referrer ? `, ${referrer}` : ""}${item.member ? `, joined as ${item.member.code}` : ""}${canEdit ? ". Edit" : ""}`}
               >
                 {!narrow && (
                   <View className="gym-avatar">
@@ -233,7 +240,7 @@ export function EnquiryList({ initialView = "open" }: { initialView?: EnquiryVie
                       <WhatsAppMark size={22} />
                     </PressableScale>
                   )}
-                  {open && (
+                  {open && canLog && (
                     <PressableScale onPress={() => setLogging({ enquiry: item, afterCall: false })} hitSlop={6} className="gym-member-card__action" accessibilityRole="button" accessibilityLabel={`Log a contact with ${item.name}`}>
                       <GymIcon name="clipboard-list" size={20} color={colors.gymInkSoft} />
                     </PressableScale>
@@ -244,12 +251,12 @@ export function EnquiryList({ initialView = "open" }: { initialView?: EnquiryVie
           );
         }}
       />
-      <View className="absolute" style={{ right: 16, bottom: 16 }}>
+      {canEdit && <View className="absolute" style={{ right: 16, bottom: 16 }}>
         <PressableScale onPress={() => setEditing("new")} haptic="tap" className="gym-fab-round" accessibilityRole="button" accessibilityLabel="Add an enquiry">
           <GradientFill radius={26} />
           <GymIcon name="plus" size={22} color={colors.white} />
         </PressableScale>
-      </View>
+      </View>}
       {editing && (
         <EnquirySheet
           enquiry={editing === "new" ? null : editing}
