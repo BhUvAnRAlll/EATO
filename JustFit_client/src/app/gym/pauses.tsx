@@ -13,6 +13,7 @@ import { initialsOf, shortDate } from "@/data/gymDashboard";
 import { gymApi, type PauseRequest, type PauseStatus, type PauseView } from "@/lib/gymApi";
 import { useGymSave } from "@/lib/gymForm";
 import { haptic } from "@/lib/haptics";
+import { useCenteredChip } from "@/lib/useCenteredChip";
 import { listPerf } from "@/lib/listPerf";
 import { useGymData } from "@/lib/useGymData";
 import { useThemeColors } from "@/theme";
@@ -32,6 +33,8 @@ export default function PauseRequests() {
   const colors = useThemeColors();
   const params = useLocalSearchParams<{ view?: string }>();
   const [view, setView] = useState<PauseView>(params.view === "all" ? "all" : "pending");
+  // The selected chip stays in view (lib/useCenteredChip.ts)
+  const { setRow, onRowLayout, onChipLayout } = useCenteredChip(view);
   // The card whose Approve or Reject is waiting for a second tap
   const [deciding, setDeciding] = useState<{ id: number; approve: boolean } | null>(null);
   const load = useCallback((token: string | null) => gymApi.pauses(token, view), [view]);
@@ -60,12 +63,12 @@ export default function PauseRequests() {
   const header = (
     <View style={{ gap: 12, paddingBottom: 6 }}>
       <Text className="gym-tx__meta">{"Approving adds the paused days to the member's plan and keeps QR check-ins off while it runs. The member sees your answer in the app."}</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }} accessibilityRole="tablist">
+      <ScrollView ref={setRow} onLayout={onRowLayout} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }} accessibilityRole="tablist">
         {VIEWS.map((v) => {
           const selected = v.id === view;
           const count = data && v.id === "pending" ? data.counts.pending : undefined;
           return (
-            <PressableScale key={v.id} onPress={() => { if (!selected) haptic.select(); setDeciding(null); setView(v.id); }} className={selected ? "gym-kind gym-kind--selected" : "gym-kind"} accessibilityRole="tab" accessibilityState={{ selected }} accessibilityLabel={`${v.label}${count !== undefined ? `, ${count}` : ""}`}>
+            <PressableScale key={v.id} onLayout={onChipLayout(v.id)} onPress={() => { if (!selected) haptic.select(); setDeciding(null); setView(v.id); }} className={selected ? "gym-kind gym-kind--selected" : "gym-kind"} accessibilityRole="tab" accessibilityState={{ selected }} accessibilityLabel={`${v.label}${count !== undefined ? `, ${count}` : ""}`}>
               {selected && <GradientFill radius={999} />}
               <Text className={selected ? "gym-kind__label gym-kind__label--selected" : "gym-kind__label"}>{count !== undefined ? `${v.label} · ${count}` : v.label}</Text>
             </PressableScale>

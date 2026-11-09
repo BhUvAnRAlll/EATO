@@ -10,6 +10,7 @@ import { CATALOG_KINDS, planLabel, rupees } from "@/data/gymDashboard";
 import { gymApi, type CatalogItem, type CatalogKind } from "@/lib/gymApi";
 import { CatalogSheet } from "@/components/gym/CatalogSheet";
 import { haptic } from "@/lib/haptics";
+import { useCenteredChip } from "@/lib/useCenteredChip";
 import { useGymData } from "@/lib/useGymData";
 import { useCan } from "@/store/gymAccess";
 import { useThemeColors } from "@/theme";
@@ -34,6 +35,8 @@ function pillOf(item: CatalogItem): Pill | null {
 export function CatalogList() {
   const colors = useThemeColors();
   const [kind, setKind] = useState<CatalogKind>("plan");
+  // The selected chip stays in view (lib/useCenteredChip.ts)
+  const { setRow, onRowLayout, onChipLayout } = useCenteredChip(kind);
   const load = useCallback((token: string | null) => gymApi.catalog(token), []);
   const { result, retry, set } = useGymData(load);
   // The Add / Edit sheet: which item (null for a new one), or closed
@@ -45,12 +48,13 @@ export function CatalogList() {
 
   return (
     <View className="flex-1">
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, gap: 8 }} accessibilityRole="tablist">
+      <ScrollView ref={setRow} onLayout={onRowLayout} horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, gap: 8 }} accessibilityRole="tablist">
         {CATALOG_KINDS.map((k) => {
           const selected = k.id === kind;
           return (
             <PressableScale
               key={k.id}
+              onLayout={onChipLayout(k.id)}
               onPress={() => { if (!selected) haptic.select(); setKind(k.id); }}
               className={selected ? "gym-kind gym-kind--selected" : "gym-kind"}
               accessibilityRole="tab"

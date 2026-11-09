@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, Platform, RefreshControl, ScrollView, Text, TextInput, View } from "react-native";
 
 import { PressableScale } from "@/components/PressableScale";
+import { ExpenseDetailsSheet } from "@/components/gym/ExpenseDetailsSheet";
 import { ExpenseSheet } from "@/components/gym/ExpenseSheet";
 import { GradientFill } from "@/components/gym/GradientFill";
 import { GymIcon } from "@/components/gym/GymIcon";
@@ -10,6 +11,7 @@ import { ReceiptViewer } from "@/components/gym/ReceiptViewer";
 import { EXPENSE_CATEGORIES, EXPENSE_ICON, EXPENSE_LABEL, EXPENSE_MONTHS_BACK, expenseTitle, monthLabel, rupees, shiftMonth, shortDate, todayIso } from "@/data/gymDashboard";
 import { gymApi, type ExpenseCategory, type GymExpense } from "@/lib/gymApi";
 import { haptic } from "@/lib/haptics";
+import { useCenteredChip } from "@/lib/useCenteredChip";
 import { listPerf } from "@/lib/listPerf";
 import { useSessionToken } from "@/lib/session";
 import { useGymData } from "@/lib/useGymData";
@@ -22,7 +24,8 @@ const FILTERS: { id: Filter; label: string }[] = [{ id: "all", label: "All" }, .
 // Manage › Expense (2026-11-08): the branch's spending a month at a time (‹ Nov 2026 ›, up to 24
 // months back), the month's total split into online and cash, category chips with their counts,
 // search by what it was, who was paid or the note, and a card per expense (newest first, 50 a page,
-// Show more). A card opens the Edit sheet; its Bill chip opens the photo. The round + adds one.
+// Show more). A card opens the expense's details first (ExpenseDetailsSheet), whose Edit opens the
+// Edit sheet; its Bill chip opens the photo. The round + adds one.
 // `addOnOpen`: open Add Expense at once (Home's + › Add Expense, ☰ › Expenses).
 export function ExpenseList({ addOnOpen = false }: { addOnOpen?: boolean }) {
   const colors = useThemeColors();
@@ -31,6 +34,8 @@ export function ExpenseList({ addOnOpen = false }: { addOnOpen?: boolean }) {
   const firstMonth = shiftMonth(thisMonth, -EXPENSE_MONTHS_BACK);
   const [month, setMonth] = useState(thisMonth);
   const [filter, setFilter] = useState<Filter>("all");
+  // The selected chip stays in view (lib/useCenteredChip.ts)
+  const { setRow, onRowLayout, onChipLayout } = useCenteredChip(filter);
   const [searchOpen, setSearchOpen] = useState(false);
   const [typed, setTyped] = useState("");
   const [search, setSearch] = useState("");
@@ -39,6 +44,14 @@ export function ExpenseList({ addOnOpen = false }: { addOnOpen?: boolean }) {
   const canEdit = useCan()("expenses.edit");
   const [editing, setEditing] = useState<GymExpense | "new" | null>(addOnOpen && canEdit ? "new" : null);
   const [viewing, setViewing] = useState<GymExpense | null>(null);
+  // The expense whose details are open (a card's tap); Edit moves on to the Edit sheet
+  const [showing, setShowing] = useState<GymExpense | null>(null);
+  const editShown = () => {
+    const item = showing;
+    setShowing(null);
+    // One sheet closes before the next opens (as Home's + does)
+    if (item) setTimeout(() => setEditing(item), 250);
+  };
 
   useEffect(() => {
     const timer = setTimeout(() => setSearch(typed.trim()), 300);
@@ -109,13 +122,14 @@ export function ExpenseList({ addOnOpen = false }: { addOnOpen?: boolean }) {
         </View>
       )}
       <View className="flex-row items-center" style={{ gap: 8 }}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flex: 1 }} contentContainerStyle={{ gap: 8 }} accessibilityRole="tablist">
+        <ScrollView ref={setRow} onLayout={onRowLayout} horizontal showsHorizontalScrollIndicator={false} style={{ flex: 1 }} contentContainerStyle={{ gap: 8 }} accessibilityRole="tablist">
           {FILTERS.map((f) => {
             const selected = f.id === filter;
             const count = data?.counts[f.id];
             return (
               <PressableScale
                 key={f.id}
+                onLayout={onChipLayout(f.id)}
                 onPress={() => { if (!selected) haptic.select(); setFilter(f.id); }}
                 className={selected ? "gym-kind gym-kind--selected" : "gym-kind"}
                 accessibilityRole="tab"
@@ -194,12 +208,11 @@ export function ExpenseList({ addOnOpen = false }: { addOnOpen?: boolean }) {
             // The card opens the expense; the Bill chip sits under it (no button inside a button)
             <View className="gym-card p-3" style={{ gap: 8 }}>
               <PressableScale
-                onPress={canEdit ? () => setEditing(item) : undefined}
-                disabled={!canEdit}
+                onPress={() => setShowing(item)}
                 className="flex-row items-center"
                 style={{ gap: 12 }}
-                accessibilityRole={canEdit ? "button" : "text"}
-                accessibilityLabel={`${expenseTitle(item)}, ${EXPENSE_LABEL[item.category]}, ${rupees(item.amount)}, ${cash ? "cash" : "online"}, ${meta}${canEdit ? ". Edit" : ""}`}
+                accessibilityRole="button"
+                accessibilityLabel={`${expenseTitle(item)}, ${EXPENSE_LABEL[item.category]}, ${rupees(item.amount)}, ${cash ? "cash" : "online"}, ${meta}. Details`}
               >
                 <View className="gym-avatar">
                   <GymIcon name={EXPENSE_ICON[item.category]} size={20} color={colors.gymPrimary} />
@@ -250,6 +263,7 @@ export function ExpenseList({ addOnOpen = false }: { addOnOpen?: boolean }) {
           onSaved={() => { setEditing(null); reload(); }}
         />
       )}
+      {showing && <ExpenseDetailsSheet expense={showing} onClose={() => setShowing(null)} onEdit={canEdit ? editShown : undefined} />}
       {viewing?.billUrl && <ReceiptViewer url={viewing.billUrl} title={`${expenseTitle(viewing)} · ${shortDate(viewing.spentOn)}`} onClose={() => setViewing(null)} />}
     </>
   );

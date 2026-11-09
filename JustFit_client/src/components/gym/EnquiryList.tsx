@@ -16,6 +16,7 @@ import { callPhone, enquiryFollowUp, whatsappPhone } from "@/lib/gymContact";
 import { useReminderTemplates } from "@/lib/useReminderTemplates";
 import { notice } from "@/lib/gymPortal";
 import { haptic } from "@/lib/haptics";
+import { useCenteredChip } from "@/lib/useCenteredChip";
 import { listPerf } from "@/lib/listPerf";
 import { useSessionToken } from "@/lib/session";
 import { useGymData } from "@/lib/useGymData";
@@ -48,6 +49,8 @@ export function EnquiryList({ initialView = "open" }: { initialView?: EnquiryVie
   // Narrow phones (under 360): no initials circle, so the name and the follow-up line fit
   const narrow = useWindowDimensions().width < 360;
   const [view, setView] = useState<EnquiryView>(initialView);
+  // The selected chip stays in view (lib/useCenteredChip.ts)
+  const { setRow, onRowLayout, onChipLayout } = useCenteredChip(view);
   const [searchOpen, setSearchOpen] = useState(false);
   const [typed, setTyped] = useState("");
   const [search, setSearch] = useState("");
@@ -111,13 +114,14 @@ export function EnquiryList({ initialView = "open" }: { initialView?: EnquiryVie
   const header = (
     <View style={{ gap: 12, paddingBottom: 6 }}>
       <View className="flex-row items-center" style={{ gap: 8 }}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flex: 1 }} contentContainerStyle={{ gap: 8 }} accessibilityRole="tablist">
+        <ScrollView ref={setRow} onLayout={onRowLayout} horizontal showsHorizontalScrollIndicator={false} style={{ flex: 1 }} contentContainerStyle={{ gap: 8 }} accessibilityRole="tablist">
           {ENQUIRY_VIEWS.map((v) => {
             const selected = v.id === view;
             const count = data?.counts[v.id];
             return (
               <PressableScale
                 key={v.id}
+                onLayout={onChipLayout(v.id)}
                 onPress={() => { if (!selected) haptic.select(); setView(v.id); }}
                 className={selected ? "gym-kind gym-kind--selected" : "gym-kind"}
                 accessibilityRole="tab"

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ComponentRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, Platform, Pressable, RefreshControl, ScrollView, Text, TextInput, useWindowDimensions, View } from "react-native";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -16,6 +16,7 @@ import { SendReminderSheet, type ReminderKind } from "@/components/gym/SendRemin
 import { DEFAULT_EXPIRING_DAYS, EXPIRING_SOON_DAYS, MEMBER_FILTERS, expiringDaysLabel, expiringDaysText, memberPlanText, rupees, type ExpiringDays } from "@/data/gymDashboard";
 import { gymApi, type GymInfo, type GymMember, type MemberFilter, type MemberSort } from "@/lib/gymApi";
 import { haptic } from "@/lib/haptics";
+import { useCenteredChip } from "@/lib/useCenteredChip";
 import { memberStatus } from "@/lib/gymMember";
 import { listPerf } from "@/lib/listPerf";
 import { useSessionToken } from "@/lib/session";
@@ -62,20 +63,10 @@ export function MemberList({ pick = null, initialFilter = "all", initialDays = D
   const narrow = useWindowDimensions().width < 360;
   const [filter, setFilter] = useState<MemberFilter>(initialFilter);
   const [days, setDays] = useState<ExpiringDays>(initialDays);
-  // The filter row opens with the chip the list was opened on (Home's Due, Expiring today,
-  // Expiring soon, Birthdays) in the middle of the row, its neighbours showing on both sides
-  // (the user's 2026-11-07 screenshot), so the selected filter is never off-screen or stuck at
-  // the edge. Each chip reports its x and width as it lays out, the row its width; the scroll
-  // happens once both are known. The ScrollView clamps the end itself, so the last chips stay
-  // flush right
-  const filterRow = useRef<ComponentRef<typeof ScrollView>>(null);
-  const chipBox = useRef<Partial<Record<MemberFilter, { x: number; width: number }>>>({});
-  const rowWidth = useRef(0);
-  const centerChip = (id: MemberFilter) => {
-    const chip = chipBox.current[id];
-    if (!chip || !rowWidth.current || !filterRow.current) return;
-    filterRow.current.scrollTo({ x: Math.max(0, chip.x + chip.width / 2 - rowWidth.current / 2), animated: false });
-  };
+  // The filter row keeps the filter that is on in the middle (lib/useCenteredChip.ts), so Home's
+  // Due, Expiring today, Expiring soon or Birthdays are never off-screen; the same for the days
+  const { setRow: setFilterRow, onRowLayout: onFilterRowLayout, onChipLayout: onFilterChipLayout } = useCenteredChip(filter);
+  const { setRow: setDayRow, onRowLayout: onDayRowLayout, onChipLayout: onDayChipLayout } = useCenteredChip(days);
   const [sort, setSort] = useState<MemberSort>("name");
   const [typed, setTyped] = useState("");
   const [search, setSearch] = useState("");
@@ -151,11 +142,11 @@ export function MemberList({ pick = null, initialFilter = "all", initialDays = D
         </PressableScale>
       </View>
       <ScrollView
-        ref={filterRow}
+        ref={setFilterRow}
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={{ gap: 10, paddingVertical: 2 }}
-        onLayout={(e) => { rowWidth.current = e.nativeEvent.layout.width; centerChip(initialFilter); }}
+        onLayout={onFilterRowLayout}
         accessibilityRole="tablist"
       >
         {MEMBER_FILTERS.map((f) => {
@@ -164,7 +155,7 @@ export function MemberList({ pick = null, initialFilter = "all", initialDays = D
           return (
             <PressableScale
               key={f.id}
-              onLayout={(e) => { chipBox.current[f.id] = { x: e.nativeEvent.layout.x, width: e.nativeEvent.layout.width }; if (f.id === initialFilter) centerChip(f.id); }}
+              onLayout={onFilterChipLayout(f.id)}
               onPress={() => { if (!selected) haptic.select(); setFilter(f.id); }}
               className={selected ? "gym-mlist__chip gym-mlist__chip--selected" : "gym-mlist__chip"}
               accessibilityRole="tab"
@@ -183,13 +174,14 @@ export function MemberList({ pick = null, initialFilter = "all", initialDays = D
         })}
       </ScrollView>
       {filter === "expiring_soon" && (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, alignItems: "center" }} accessibilityRole="radiogroup" accessibilityLabel="Plans ending within">
+        <ScrollView ref={setDayRow} onLayout={onDayRowLayout} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, alignItems: "center" }} accessibilityRole="radiogroup" accessibilityLabel="Plans ending within">
           <Text className="gym-tx__meta">Ending in</Text>
           {EXPIRING_SOON_DAYS.map((d) => {
             const selected = d === days;
             return (
               <PressableScale
                 key={d}
+                onLayout={onDayChipLayout(d)}
                 onPress={() => { if (!selected) haptic.select(); setDays(d); }}
                 className={selected ? "gym-choice gym-choice--selected" : "gym-choice"}
                 accessibilityRole="radio"

@@ -81,8 +81,17 @@ describe("ui gym predictions: Likely to leave", () => {
     const response = await fetch(`${server.baseUrl}${route}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
     return { status: response.status, json: await response.json().catch(() => null) };
   };
+  // Waits for the element to stop moving first: the filter chips' row scrolls the picked chip to
+  // the middle, and a tap that lands mid-scroll is dropped on the web
   const clickLabel = async (label) => {
-    const pos = await page.waitFor(`(() => { const el = [...document.querySelectorAll('[aria-label]')].filter((e) => e.getClientRects().length > 0 && e.getAttribute("aria-label") === ${JSON.stringify(label)})[0]; if (!el) return null; el.scrollIntoView({ block: "center" }); const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`, NAV_TIMEOUT, `element labelled ${label}`);
+    const locate = `(() => { const el = [...document.querySelectorAll('[aria-label]')].filter((e) => e.getClientRects().length > 0 && e.getAttribute("aria-label") === ${JSON.stringify(label)})[0]; if (!el) return null; el.scrollIntoView({ block: "center" }); const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`;
+    let pos = await page.waitFor(locate, NAV_TIMEOUT, `element labelled ${label}`);
+    for (let attempt = 0; attempt < 20; attempt++) {
+      await new Promise((r) => setTimeout(r, 150));
+      const again = await page.evaluate(locate);
+      if (again && Math.abs(again.x - pos.x) < 1 && Math.abs(again.y - pos.y) < 1) break;
+      pos = again ?? pos;
+    }
     await page.clickAt(pos.x, pos.y);
   };
   const hasLabel = (label) => page.evaluate(`!!document.querySelector(${JSON.stringify(`[aria-label="${label}"]`)})`);

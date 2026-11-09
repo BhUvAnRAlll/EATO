@@ -1,7 +1,7 @@
 // Manage › Expense in the real Expo web build against the isolated test server and the
 // justfit_test database. The gym admin opens Expenses from the ☰ menu (empty month), adds rent
 // through the sheet (category, amount, mode, confirm), sees the card and the month's total, opens
-// it to edit (Delete is offered to the gym admin), and Wallet shows Expenses and the Net. Home's
+// it to see its details, then Edit (Delete is offered to the gym admin), and Wallet shows Expenses and the Net. Home's
 // + › Add Expense opens the sheet straight away. Screenshots at three widths.
 //
 //   yarn test:ui      (needs JustFit_server/.env.test and Google Chrome; otherwise skipped)
@@ -192,12 +192,21 @@ describe("ui gym expenses: Manage › Expense, the Add Expense sheet and Wallet'
     await snapshotAllWidths("gym-expenses-list");
   }));
 
-  it("3. the card opens Edit Expense with Delete for the gym admin", run("expenses-edit", async () => {
+  it("3. the card opens the expense's details first; Edit opens Edit Expense with Delete for the gym admin", run("expenses-edit", async () => {
     assert.ok(await hasLabelStarting("November rent, Rent, ₹25,000, online"), "the card's label");
     await page.evaluate(`[...document.querySelectorAll('[aria-label]')].find((e) => (e.getAttribute("aria-label") || "").startsWith("November rent, Rent")).scrollIntoView({ block: "center" })`);
     await h.settle();
     const label = await page.evaluate(`[...document.querySelectorAll('[aria-label]')].find((e) => (e.getAttribute("aria-label") || "").startsWith("November rent, Rent")).getAttribute("aria-label")`);
+    assert.ok(label.endsWith(". Details"), label);
     await clickLabel(label);
+    await h.expectText("Expense details");
+    await h.settle(); // the sheet slides up
+    assert.ok(await hasLabel("Amount spent: ₹25,000"), "the amount");
+    for (const row of ["Category: Rent", "Paid to: Landlord", "Mode: Online"]) assert.ok(await hasLabel(row), row);
+    assert.equal(await page.evaluate(`document.body.innerText.includes("Change what was spent.")`), false, "nothing to edit yet");
+    await snapshotAllWidths("gym-expenses-details");
+    await clickLabel("Edit Expense");
+    await h.expectNoText("Expense details");
     await h.expectText("Change what was spent.");
     await h.settle();
     assert.ok(await hasLabel("Delete this expense"), "the gym admin may delete");

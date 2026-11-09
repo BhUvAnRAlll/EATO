@@ -12,6 +12,7 @@ import { MemberPhotoImage } from "@/components/gym/MemberPhotoImage";
 import { SendReminderSheet } from "@/components/gym/SendReminderSheet";
 import { gymApi, type RiskListLevel, type RiskMember } from "@/lib/gymApi";
 import { haptic } from "@/lib/haptics";
+import { useCenteredChip } from "@/lib/useCenteredChip";
 import { listPerf } from "@/lib/listPerf";
 import { useGymData } from "@/lib/useGymData";
 import { useThemeColors } from "@/theme";
@@ -39,6 +40,8 @@ export default function RenewalRisks() {
   const params = useLocalSearchParams<{ level?: string }>();
   const narrow = useWindowDimensions().width < 360;
   const [level, setLevel] = useState<RiskListLevel>(isLevel(params.level) ? params.level : "all");
+  // The selected chip stays in view (lib/useCenteredChip.ts)
+  const { setRow, onRowLayout, onChipLayout } = useCenteredChip(level);
   const [searchOpen, setSearchOpen] = useState(false);
   const [typed, setTyped] = useState("");
   const [search, setSearch] = useState("");
@@ -65,13 +68,14 @@ export default function RenewalRisks() {
     <View style={{ gap: 12, paddingBottom: 6 }}>
       <Text className="gym-tx__meta">{"Worked out just now from each member's plan, visits and dues. Nothing is sent unless you tap it."}</Text>
       <View className="flex-row items-center" style={{ gap: 8 }}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flex: 1 }} contentContainerStyle={{ gap: 8 }} accessibilityRole="tablist">
+        <ScrollView ref={setRow} onLayout={onRowLayout} horizontal showsHorizontalScrollIndicator={false} style={{ flex: 1 }} contentContainerStyle={{ gap: 8 }} accessibilityRole="tablist">
           {LEVELS.map((l) => {
             const selected = l.id === level;
             const count = data ? (l.id === "all" ? data.counts.high + data.counts.medium + data.counts.low : data.counts[l.id]) : undefined;
             return (
               <PressableScale
                 key={l.id}
+                onLayout={onChipLayout(l.id)}
                 onPress={() => { if (!selected) haptic.select(); setLevel(l.id); }}
                 className={selected ? "gym-kind gym-kind--selected" : "gym-kind"}
                 accessibilityRole="tab"

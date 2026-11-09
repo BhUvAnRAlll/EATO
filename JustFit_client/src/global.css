@@ -7027,3 +7027,10 @@
 @utility address-tag--success {
   background-color: var(--color-success-soft);
 }
+
+/* Expense details (2026-11-08): the amount spent, large, at the top of the sheet */
+@utility gym-expense-detail__amount {
+  font-family: var(--font-sans-semibold);
+  font-size: 28px;
+  line-height: 36px;
+}

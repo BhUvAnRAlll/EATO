@@ -420,6 +420,16 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
     await h.expectText("Ravi Shankar");
     await h.expectText("Mohammed Asif");
     await connection.query("UPDATE gym_members SET expires_on = ? WHERE id = ?", [asifRow.expires_on, asifRow.id]);
+    // A chip past the row's edge stays on screen once picked: the counts reloading used to slide the
+    // row back to All, leaving Birthdays today selected but off-screen (the user's screenshot, 2026-11-08)
+    await page.navigate(`${expo.baseUrl}/gym/members`);
+    await page.waitFor(`!!document.querySelector('[aria-label="Birthdays today"][aria-valuetext]')`, NAV_TIMEOUT, "the chips with their counts");
+    await clickLabel("Birthdays today");
+    await h.expectText("Add members' dates of birth to see their birthdays here.");
+    await page.waitFor(`!!document.querySelector('[aria-label="Birthdays today"][aria-valuetext]')`, NAV_TIMEOUT, "the counts back");
+    await h.settle();
+    const birthdayChip = await page.evaluate(`(() => { const chip = document.querySelector('[aria-label="Birthdays today"]'); const row = chip.closest('[role="tablist"]') || chip.parentElement.parentElement; const c = chip.getBoundingClientRect(), r = row.getBoundingClientRect(); return JSON.stringify({ selected: chip.getAttribute("aria-selected"), inside: c.left >= r.left - 1 && c.right <= r.right + 1 }); })()`);
+    assert.deepEqual(JSON.parse(birthdayChip), { selected: "true", inside: true }, "the picked chip stays on screen");
     await page.navigate(`${expo.baseUrl}/gym/transactions`);
     await h.expectText("Ravi Shankar");
     await h.expectText("Whey Protein 1kg");
