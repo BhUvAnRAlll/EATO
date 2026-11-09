@@ -197,4 +197,28 @@ async function transferOwner(pool, adminId, gymId, { phone, reason }) {
   });
 }
 
-module.exports = { analytics, staffDirectory, suspend, reactivate, suspensionOf, gymLinksOf, transferOwner };
+/**
+ * POST /api/admin/portal/gyms/:gymId/feature: members' Discover shows featured gyms first. Only an
+ * approved branch can be featured (a suspended one drops out of Discover anyway). Audited.
+ */
+async function feature(pool, adminId, gymId, { featured }) {
+  const [[gym]] = await pool.query("SELECT g.id, g.name AS branch, b.name AS brand FROM gyms g JOIN gym_brands b ON b.id = g.brand_id WHERE g.id = ?", [gymId]);
+  if (!gym) throw new NotFoundError("That gym doesn't exist.");
+  if (featured && (await gymStatus.statusOf(pool, gymId)).status !== "approved") throw new ConflictError("Only an approved gym can be featured.");
+  await pool.query("UPDATE gyms SET featured_at = IF(?, COALESCE(featured_at, NOW()), NULL) WHERE id = ?", [featured, gymId]);
+  await audit(pool, adminId, featured ? "gym.feature" : "gym.unfeature", "gym", gymId, `${featured ? "Featured" : "Stopped featuring"} “${gym.brand}”, ${gym.branch} branch`);
+  return featuredOf(pool, gymId);
+}
+
+/** { featured } for a gym's page; false before migration 2027-01-21 */
+async function featuredOf(pool, gymId) {
+  try {
+    const [[row]] = await pool.query("SELECT featured_at FROM gyms WHERE id = ?", [gymId]);
+    return { featured: Boolean(row?.featured_at) };
+  } catch (error) {
+    if (error?.code === "ER_BAD_FIELD_ERROR") return { featured: false, unavailable: true };
+    throw error;
+  }
+}
+
+module.exports = { feature, featuredOf, analytics, staffDirectory, suspend, reactivate, suspensionOf, gymLinksOf, transferOwner };

@@ -10,7 +10,7 @@ const SEARCH_MAX = 60;
 const SORTS = ["relevance", "distance"];
 // "Plans from" caps the member can pick, in rupees a month
 const PRICE_CAPS = [1000, 1500, 2000, 3000, 5000];
-const QUERY_KEYS = ["search", "facilities", "maxPrice", "sort", "lat", "lng", "page"];
+const QUERY_KEYS = ["search", "facilities", "maxPrice", "sort", "lat", "lng", "page", "trainers"];
 
 const CONTROL = /[\u0000-\u001F\u007F]/;
 const number = (value) => (typeof value === "string" && /^-?\d+(\.\d+)?$/.test(value) ? Number(value) : NaN);
@@ -49,7 +49,10 @@ function discoverQuery(query = {}) {
     page = number(query.page);
     if (!Number.isInteger(page) || page < 1 || page > 50) throw new ValidationError("That page doesn't exist.");
   }
-  return { search, facilities, maxPrice, sort, near, page };
+  // trainers=1 (2026-11-10): only gyms that show trainer profiles to members
+  if (query.trainers !== undefined && !["0", "1"].includes(query.trainers)) throw new ValidationError("That request isn't one we understand.");
+  const trainers = query.trainers === "1";
+  return { search, facilities, maxPrice, sort, near, page, trainers };
 }
 
 // A plan's price a month, in whole rupees (a plan saved in days counts its days as months of 30)
@@ -98,6 +101,7 @@ function pickGyms(gyms, q) {
     if (match === null) continue;
     if (q.facilities.some((id) => !gym.facilities.includes(id))) continue;
     if (q.maxPrice !== null && (gym.fromPrice === null || gym.fromPrice > q.maxPrice)) continue;
+    if (q.trainers && !(gym.trainerCount > 0)) continue;
     const km = q.near && gym.latitude !== null ? Math.round(distanceMeters(q.near, { latitude: gym.latitude, longitude: gym.longitude }) / 100) / 10 : null;
     found.push({ gym, match, km });
   }
@@ -105,7 +109,8 @@ function pickGyms(gyms, q) {
   const byDistance = (a, b) => (a.km === null) - (b.km === null) || (a.km ?? 0) - (b.km ?? 0);
   found.sort(q.sort === "distance"
     ? (a, b) => byDistance(a, b) || b.match - a.match || byName(a, b)
-    : (a, b) => b.match - a.match || completeness(b.gym) - completeness(a.gym) || byDistance(a, b) || byName(a, b));
+    // Featured gyms (a justFit admin's pick, 2026-11-10) first when sorting by relevance
+    : (a, b) => Number(Boolean(b.gym.featured)) - Number(Boolean(a.gym.featured)) || b.match - a.match || completeness(b.gym) - completeness(a.gym) || byDistance(a, b) || byName(a, b));
   const start = (q.page - 1) * PAGE_SIZE;
   return { total: found.length, page: q.page, nextPage: found.length > start + PAGE_SIZE ? q.page + 1 : null, results: found.slice(start, start + PAGE_SIZE) };
 }

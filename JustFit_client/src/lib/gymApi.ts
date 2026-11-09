@@ -366,6 +366,8 @@ export const gymApi = {
   },
   service: (token: string | null, fields: { item: string; amount: number; method: PayMethod }) => call<{ payment: GymPayment }>(token, "/api/gym/services", "POST", fields),
   catalog: (token: string | null) => call<{ items: CatalogItem[] }>(token, "/api/gym/catalog"),
+  // A copy of the item, Inactive until switched on (2026-11-10)
+  duplicateCatalogItem: (token: string | null, id: number) => call<{ items: CatalogItem[] }>(token, `/api/gym/catalog/${id}/duplicate`, "POST"),
   addItem: (token: string | null, item: CatalogFields & { kind: CatalogKind; name: string; price: number }) => call<{ items: CatalogItem[] }>(token, "/api/gym/catalog", "POST", item),
   editItem: (token: string | null, id: number, fields: CatalogFields) => call<{ items: CatalogItem[] }>(token, `/api/gym/catalog/${id}`, "PATCH", fields),
   // The order one kind's items are shown in (members see plans and PT in it)

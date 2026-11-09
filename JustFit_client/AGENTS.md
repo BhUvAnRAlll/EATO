@@ -360,6 +360,20 @@ without their own (`platform/settings.js`, kept 30 s; a branch's own values win)
 the defaults apply. Migration dates: the meals session uses 2027-01-08 to 01-19, this work 01-20 on.
 Tests: `__tests__/complaint-settings-rules.test.js`, `e2e/gym-complaints.e2e.test.js`.
 
+**Phase 9: Discover and plan extras (2026-11-10):** a justFit admin features an approved gym (Super
+Admin › a gym › Featured on Discover, `components/admin/FeatureGymCard.tsx`; `GET|POST
+/api/admin/portal/gyms/:id/feature`, audited `gym.feature|unfeature`; `gyms.featured_at`); members'
+Discover lists featured gyms first when sorting by relevance, with "★ Featured" on the card, and each
+card says how many trainers the gym shows. Discover's Filters add "Has trainers" (`?trainers=1`,
+`discoverRules`; a gym counts its shown trainer profiles with a name at that branch, only when its
+Trainers section is on). Plans / Catalogue has Duplicate on every item (`POST
+/api/gym/catalog/:id/duplicate`, `gym/catalogCopy.js` through `service.addItem`: "<name> (copy)", same
+price, length, stock, What's included and benefits, Inactive, never Best value; option
+`catalog.edit`, on Activity). Migration `2027-01-21-featured-gyms.sql` (one column); before it the
+switch is hidden and featuring answers 503. Not built: plan terms and eligibility fields, facility
+images, a rating filter (needs the uncommitted reviews work). Tests:
+`__tests__/gym-discover-extras-rules.test.js`, `e2e/gym-extras.e2e.test.js`.
+
 ### Meal ordering (2026-11-09, the user's plan; migration approved)
 
 The Super Admin is the menu, the kitchen and the delivery person (the user's choice). Members order

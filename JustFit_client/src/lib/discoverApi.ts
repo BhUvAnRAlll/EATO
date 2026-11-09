@@ -5,6 +5,10 @@ import type { Closure, FacilityId, OpeningHours } from "@/lib/gymProfile";
 // read only, with only what each gym chose to show members. Images (coverUrl, logoUrl, photos) are
 // read with the session.
 export type GymCard = {
+  // A justFit admin's pick, shown first (2026-11-10); absent from an older server
+  featured?: boolean;
+  // Trainers the gym shows members
+  trainerCount?: number;
   id: number;
   name: string;
   branch: string;
@@ -29,6 +33,8 @@ export type DiscoverQuery = {
   sort: DiscoverSort;
   near: { latitude: number; longitude: number } | null;
   page?: number;
+  // Only gyms that show trainers (2026-11-10)
+  trainers?: boolean;
 };
 
 // savesPerMonth: how much a month less than the shortest plan
@@ -81,6 +87,7 @@ export function discoverPath(q: DiscoverQuery): string {
   if (q.near) params.push(`lat=${q.near.latitude.toFixed(3)}`, `lng=${q.near.longitude.toFixed(3)}`);
   if (q.sort !== "relevance") params.push(`sort=${q.sort}`);
   if (q.page && q.page > 1) params.push(`page=${q.page}`);
+  if (q.trainers) params.push("trainers=1");
   return `/api/gyms${params.length ? `?${params.join("&")}` : ""}`;
 }
 

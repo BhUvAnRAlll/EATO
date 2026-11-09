@@ -1684,6 +1684,7 @@ CREATE TABLE gyms (                               -- one branch of a gym brand
   status_note VARCHAR(300) NULL,                   -- the latest reason or request from the Super Admin
   status_changed_at TIMESTAMP NULL,
   submitted_at TIMESTAMP   NULL,
+  featured_at TIMESTAMP    NULL,                   -- migration 2027-01-21: a justFit admin featured it on Discover; NULL: not featured
   address     VARCHAR(160) NULL,                   -- Invoice details (migration 2026-12-07): printed on invoices, all optional
   phone       CHAR(10)     NULL,
   gstin       CHAR(15)     NULL,

@@ -35,6 +35,7 @@ const standingRules = require("./standingRules");
 const corrections = require("./corrections");
 const correctionRules = require("./correctionRules");
 const notices = require("../notifications/events");
+const catalogCopy = require("./catalogCopy");
 const { ForbiddenError } = require("../errors");
 const rules = require("./rules");
 const discover = require("./discover");
@@ -402,6 +403,10 @@ router.patch("/enquiries/:enquiryId", smallBody, route(async (req, res) => {
 // Plans / Catalogue: the branch's membership plans, PT packages and products with their prices
 router.get("/catalog", route(async (req, res) => {
   res.json(await service.catalog(pool(req), req.gym.id));
+}));
+// Duplicate an item (gym/catalogCopy.js): the copy starts Inactive
+router.post("/catalog/:itemId/duplicate", route(async (req, res) => {
+  res.status(201).json(await catalogCopy.duplicate(pool(req), req.gym.id, req.userId, rules.id(req.params.itemId, "item")));
 }));
 router.post("/catalog", smallBody, route(async (req, res) => {
   res.status(201).json(await service.addItem(pool(req), req.gym.id, req.userId, rules.catalogBody(req.body, { creating: true })));

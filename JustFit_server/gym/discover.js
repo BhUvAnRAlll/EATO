@@ -56,6 +56,34 @@ async function galleries(pool, ids, withPublishing) {
   return out;
 }
 
+// Featured gyms (migration 2027-01-21): whether the column exists, asked once a minute while missing
+let featuredColumn = { has: false, at: 0 };
+async function hasFeatured(db) {
+  if (featuredColumn.has || Date.now() - featuredColumn.at < 60000) return featuredColumn.has;
+  const [[row]] = await db.query("SELECT COUNT(*) AS n FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'gyms' AND COLUMN_NAME = 'featured_at'");
+  featuredColumn = { has: Number(row.n) > 0, at: Date.now() };
+  return featuredColumn.has;
+}
+
+// How many trainers each branch shows members (a shown profile with a name, at a trainer of that
+// branch), for Discover's "Has trainers" filter; nothing before the trainer profiles migration
+async function trainerCounts(pool, ids) {
+  if (ids.length === 0) return new Map();
+  try {
+    const [rows] = await pool.query(
+      `SELECT s.gym_id, COUNT(DISTINCT p.id) AS n FROM gym_staff s JOIN gyms g ON g.id = s.gym_id
+       JOIN gym_trainer_profiles p ON p.brand_id = g.brand_id AND p.user_id = s.user_id JOIN users u ON u.id = p.user_id
+       WHERE s.kind = 'trainer' AND s.gym_id IN (?) AND p.active = 1 AND u.full_name IS NOT NULL AND TRIM(u.full_name) <> ''
+       GROUP BY s.gym_id`,
+      [ids],
+    );
+    return new Map(rows.map((r) => [r.gym_id, Number(r.n)]));
+  } catch (error) {
+    if (["ER_NO_SUCH_TABLE", "ER_BAD_FIELD_ERROR"].includes(error?.code)) return new Map();
+    throw error;
+  }
+}
+
 // Members see a branch only when it is approved by justFit (gym registration, migration 2026-12-27)
 // and has published its profile (Gym Profile, migration 2026-12-21); before either migration, that
 // part of the rule doesn't apply
@@ -74,7 +102,7 @@ async function discover(pool, query, today = todayInIndia()) {
   const withPublishing = await hasPublishing(pool);
   const [gyms] = await pool.query(
     `SELECT g.id, b.name AS brand, g.name AS branch, g.area, g.city, ${withPublishing ? "g.published_profile" : "g.about, g.facilities, g.opening_hours"},
-       g.latitude, g.longitude, b.logo_key
+       g.latitude, g.longitude, b.logo_key${(await hasFeatured(pool)) ? ", g.featured_at" : ""}
      FROM gyms g JOIN gym_brands b ON b.id = g.brand_id
      WHERE 1 = 1${await visibility(pool, withPublishing)}
      ORDER BY g.id LIMIT ?`,
@@ -85,6 +113,7 @@ async function discover(pool, query, today = todayInIndia()) {
     ids.length ? pool.query(`SELECT gym_id, duration, duration_unit, price FROM gym_catalog_items WHERE kind = 'plan' AND gym_id IN (?)${await activeOnly(pool)}`, [ids]) : [[]],
     galleries(pool, ids, withPublishing),
   ]);
+  const trainersOf = await trainerCounts(pool, ids);
   const plansOf = new Map();
   for (const p of plans) plansOf.set(p.gym_id, [...(plansOf.get(p.gym_id) ?? []), p]);
 
@@ -104,6 +133,8 @@ async function discover(pool, query, today = todayInIndia()) {
       fromPrice: rules.fromPrice(branchPlans),
       coverUrl: cover ? coverUrl(g.id, cover.id, cover.image_key) : null,
       logoUrl: logoUrl(g.id, g.logo_key),
+      featured: Boolean(g.featured_at),
+      trainerCount: seen.showTrainers ? trainersOf.get(g.id) ?? 0 : 0,
     };
   });
   const picked = rules.pickGyms(candidates, query);
@@ -115,7 +146,7 @@ async function discover(pool, query, today = todayInIndia()) {
     gyms: picked.results.map(({ gym, km }) => ({
       id: gym.id, name: gym.brand, branch: gym.branch, area: gym.area, city: gym.city,
       facilities: gym.facilities, fromPrice: gym.fromPrice, planCount: gym.planCount, photoCount: gym.photoCount,
-      coverUrl: gym.coverUrl, logoUrl: gym.logoUrl, distanceKm: km,
+      coverUrl: gym.coverUrl, logoUrl: gym.logoUrl, distanceKm: km, featured: gym.featured, trainerCount: gym.trainerCount,
     })),
   };
 }

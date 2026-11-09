@@ -11,10 +11,12 @@ const gym = (over) => ({
 
 describe("Discover Gyms rules", () => {
   it("reads the query, with defaults", () => {
-    assert.deepEqual(rules.discoverQuery({}), { search: "", facilities: [], maxPrice: null, sort: "relevance", near: null, page: 1 });
+    assert.deepEqual(rules.discoverQuery({}), { search: "", facilities: [], maxPrice: null, sort: "relevance", near: null, page: 1, trainers: false });
+    assert.equal(rules.discoverQuery({ trainers: "1" }).trainers, true);
+    assert.throws(() => rules.discoverQuery({ trainers: "yes" }), /understand/);
     assert.deepEqual(
       rules.discoverQuery({ search: "  forma   tumkur ", facilities: "parking,cardio,parking", maxPrice: "1500", sort: "distance", lat: "13.33791", lng: "77.11734", page: "2" }),
-      { search: "forma tumkur", facilities: ["parking", "cardio"], maxPrice: 1500, sort: "distance", near: { latitude: 13.338, longitude: 77.117 }, page: 2 },
+      { search: "forma tumkur", facilities: ["parking", "cardio"], maxPrice: 1500, sort: "distance", near: { latitude: 13.338, longitude: 77.117 }, page: 2, trainers: false },
     );
   });
 

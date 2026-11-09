@@ -19,8 +19,8 @@ import { useThemeColors } from "@/theme";
 
 // key: the query the answer is for; while it isn't the current one, the list shows loading
 type Load = { state: "loading" } | { state: "failed"; key: string; error: string } | { state: "ready"; key: string; gyms: GymCard[]; total: number; nextPage: number | null; priceCaps: number[] };
-type Filters = { facilities: FacilityId[]; maxPrice: number | null; sort: DiscoverSort };
-const NO_FILTERS: Filters = { facilities: [], maxPrice: null, sort: "relevance" };
+type Filters = { facilities: FacilityId[]; maxPrice: number | null; sort: DiscoverSort; trainers: boolean };
+const NO_FILTERS: Filters = { facilities: [], maxPrice: null, sort: "relevance", trainers: false };
 const PRICE_CAPS = [1000, 1500, 2000, 3000, 5000];
 
 // Gym Hub › Discover Gyms (phase 3, 2026-11-09): every gym on justFit, searched by name, area or
@@ -47,7 +47,7 @@ export function DiscoverGyms() {
     return () => clearTimeout(timer);
   }, [text]);
 
-  const query: DiscoverQuery = { search, facilities: filters.facilities, maxPrice: filters.maxPrice, sort: near ? filters.sort : "relevance", near };
+  const query: DiscoverQuery = { search, facilities: filters.facilities, maxPrice: filters.maxPrice, sort: near ? filters.sort : "relevance", near, trainers: filters.trainers };
   const key = JSON.stringify(query);
   const load = useCallback(async () => {
     const turn = ++call.current;
@@ -89,7 +89,7 @@ export function DiscoverGyms() {
     setFilters((f) => ({ ...f, sort: "distance" }));
   };
 
-  const filterCount = filters.facilities.length + (filters.maxPrice !== null ? 1 : 0);
+  const filterCount = filters.facilities.length + (filters.maxPrice !== null ? 1 : 0) + (filters.trainers ? 1 : 0);
   const filtered = filterCount > 0 || search !== "";
 
   return (
@@ -196,8 +196,11 @@ function GymCardView({ gym }: { gym: GymCard }) {
       <View className="hub-gym-card__body">
         <View className="flex-row items-start justify-between" style={{ gap: 8 }}>
           <View className="min-w-0 flex-1">
-            <Text className="card__title" numberOfLines={1}>{gym.name}</Text>
-            <Text className="card__subtitle" numberOfLines={1}>{`${gym.branch} · ${place}`}</Text>
+            <View className="flex-row items-center" style={{ gap: 6 }}>
+              <Text className="card__title shrink" numberOfLines={1}>{gym.name}</Text>
+              {gym.featured ? <Text className="type-caption text-primary-text" accessibilityLabel="Featured by justFit">★ Featured</Text> : null}
+            </View>
+            <Text className="card__subtitle" numberOfLines={1}>{`${gym.branch} · ${place}${gym.trainerCount ? ` · ${gym.trainerCount} ${gym.trainerCount === 1 ? "trainer" : "trainers"}` : ""}`}</Text>
           </View>
           {distance ? <Text className="type-caption text-muted">{distance}</Text> : null}
         </View>
@@ -246,6 +249,11 @@ function FiltersSheet({ filters, priceCaps, canSortByDistance, onApply, onClose 
             </View>
           </View>
           <View className="gap-2">
+            <Text className="type-subhead text-forest-ink">Trainers</Text>
+            <View className="flex-row flex-wrap" style={{ gap: 8 }}>
+              <Chip label="Any gym" on={!draft.trainers} onPress={() => setDraft((d) => ({ ...d, trainers: false }))} />
+              <Chip label="Has trainers" on={draft.trainers} onPress={() => setDraft((d) => ({ ...d, trainers: true }))} />
+            </View>
             <Text className="type-subhead text-forest-ink">Facilities</Text>
             <View className="flex-row flex-wrap gap-2">
               {FACILITIES.map((f) => <Chip key={f.id} label={f.label} on={draft.facilities.includes(f.id)} onPress={() => toggle(f.id)} />)}

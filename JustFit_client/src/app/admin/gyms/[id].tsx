@@ -10,6 +10,7 @@ import { SymbolView } from "@/components/SymbolView";
 import { AdminField } from "@/components/admin/AdminField";
 import { GymReviewCard } from "@/components/admin/GymReviewCard";
 import { TransferOwnerCard } from "@/components/admin/TransferOwnerCard";
+import { FeatureGymCard } from "@/components/admin/FeatureGymCard";
 import { DashedBlock } from "@/components/macro/DashedBlock";
 import { KIND_LABEL, METHOD_LABEL, phoneInput, phoneText, rupees, shortDate } from "@/data/gymDashboard";
 import type { ApiResult } from "@/lib/api";
@@ -198,6 +199,7 @@ export default function AdminGymDetailScreen() {
                   <Text className={phoneReady ? "btn-outline__label" : "btn-outline__label btn--disabled-label"}>Link gym admin</Text>
                 </Pressable>
 
+                <FeatureGymCard gymId={gymId} />
                 <TransferOwnerCard gymId={gymId} onDone={set} />
 
                 <Text className="setup__section">SMS credits</Text>

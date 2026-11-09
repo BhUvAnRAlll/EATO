@@ -74,4 +74,11 @@ function series(rows, today, days, addDays) {
   });
 }
 
-module.exports = { PERIODS, STAFF_ROLES, analyticsQuery, staffQuery, suspendBody, suspendProblem, transferBody, transferProblem, series };
+/** POST /api/admin/portal/gyms/:gymId/feature { featured } */
+function featureBody(body) {
+  if (!body || typeof body !== "object" || Array.isArray(body)) throw new ValidationError("Send the details as JSON.");
+  if (Object.keys(body).some((k) => k !== "featured") || typeof body.featured !== "boolean") throw new ValidationError("Feature the gym or stop featuring it.");
+  return { featured: body.featured };
+}
+
+module.exports = { featureBody, PERIODS, STAFF_ROLES, analyticsQuery, staffQuery, suspendBody, suspendProblem, transferBody, transferProblem, series };

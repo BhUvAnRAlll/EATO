@@ -134,6 +134,15 @@ router.post("/users/:userId/suspend", platformLimit, smallBody, platformRoute(as
 router.post("/users/:userId/reactivate", platformLimit, platformRoute(async (req, res) => {
   res.json(await platform.reactivate(pool(req), req.userId, userId(req)));
 }));
+// Featured on Discover (migration 2027-01-21)
+router.get("/gyms/:gymId/feature", platformRoute(async (req, res) => {
+  res.json(await platform.featuredOf(pool(req), gymId(req)));
+}));
+router.post("/gyms/:gymId/feature", platformLimit, smallBody, (req, res, next) =>
+  platform.feature(pool(req), req.userId, gymId(req), platformRules.featureBody(req.body)).then((a) => res.json(a)).catch((error) => {
+    if (error?.code === "ER_BAD_FIELD_ERROR") return res.status(503).json({ error: "Featured gyms need the 2027-01-21-featured-gyms migration on this server." });
+    next(error);
+  }));
 router.post("/gyms/:gymId/transfer", platformLimit, smallBody, platformRoute(async (req, res) => {
   const id = gymId(req);
   await platform.transferOwner(pool(req), req.userId, id, platformRules.transferBody(req.body));

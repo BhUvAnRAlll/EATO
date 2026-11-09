@@ -19,7 +19,8 @@ section 9.
 | Notifications (G10) | **Built** 2026-11-10: in-app inbox for members, gym teams and admins, per-category preferences, deduped, daily ending/ended round. No push (needs a push service decision). Migration `2027-01-04-notifications.sql` |
 | Super Admin dashboard, staff, suspension, ownership (G11, G12, G15) | **Built** 2026-11-10: gym analytics with charts and cities, all-staff directory, account suspension (sessions revoked, sign-in refused), audited ownership transfer. Migration `2027-01-07-account-suspensions.sql` |
 | Complaints and platform settings (G13, G14) | **Built** 2026-11-10: members report gyms; admins assign, note, resolve with history; registration on/off, required documents, default pause limits and crowd levels. Migration `2027-01-20-complaints-and-settings.sql` |
-| Still to build | Discover and plan extras (G16-G18: rating / trainer / gym-type filters, featured gyms, plan duplicate and terms, facility images), report exports, push notifications (needs a decision), PDF picking (needs `expo-document-picker` approval) |
+| Discover and plan extras (part of G16-G18) | **Built** 2026-11-10: featured gyms first with a badge, Has trainers filter, trainer counts on cards, duplicate a plan (starts inactive). Migration `2027-01-21-featured-gyms.sql` |
+| Still to build | Plan terms and eligibility, facility images, a rating filter (needs the uncommitted reviews work), gym type, report exports, push notifications (needs a decision), PDF picking (needs `expo-document-picker` approval) |
 
 ## 1. What exists today
 

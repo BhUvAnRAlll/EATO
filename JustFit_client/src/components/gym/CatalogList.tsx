@@ -140,6 +140,11 @@ export function CatalogList() {
                           </View>
                         ))}
                       </View>
+                      {canEdit ? (
+                        <PressableScale onPress={() => order.save((token) => gymApi.duplicateCatalogItem(token, item.id))} disabled={order.busy} className="gym-icon-btn" hitSlop={4} accessibilityRole="button" accessibilityLabel={`Duplicate ${item.name}`}>
+                          <GymIcon name="copy" size={15} color={colors.gymPrimary} />
+                        </PressableScale>
+                      ) : null}
                       {canEdit && items.length > 1 && (
                         <>
                           <PressableScale onPress={() => move(item.id, -1)} disabled={index === 0 || order.busy} className="gym-icon-btn" style={{ opacity: index === 0 ? 0.35 : 1 }} hitSlop={4} accessibilityRole="button" accessibilityLabel={`Move ${item.name} up`} accessibilityState={{ disabled: index === 0 || order.busy }}>
