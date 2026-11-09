@@ -289,3 +289,22 @@ describe("gym rules: India's calendar", () => {
     assert.equal(rules.renewedUntil("2026-10-01", "2026-11-04", 3), "2027-02-03", "ended: starts today");
   });
 });
+
+// Home's jiggle mode (2026-11-09): the Today tiles' order, every tile once
+describe("homeTilesBody / homeTilesOf", () => {
+  const TILES = rules.HOME_TILES;
+  it("takes every tile once, in any order", () => {
+    assert.deepEqual(rules.homeTilesBody({ order: [...TILES].reverse() }).order, [...TILES].reverse());
+  });
+  it("refuses a missing, repeated or unknown tile and unknown fields", () => {
+    for (const body of [{}, { order: TILES.slice(1) }, { order: [...TILES.slice(1), TILES[0], "x"] }, { order: [...TILES.slice(1), TILES[1]] }, { order: [...TILES.slice(1), "wallet"] }, { order: "admission" }, { order: TILES, extra: 1 }]) {
+      assert.throws(() => rules.homeTilesBody(body), (error) => error.status === 400, JSON.stringify(body));
+    }
+  });
+  it("reads a saved order back, filling in tiles it leaves out", () => {
+    assert.equal(rules.homeTilesOf(null), null);
+    assert.equal(rules.homeTilesOf("not json"), null);
+    assert.equal(rules.homeTilesOf(["gone"]), null);
+    assert.deepEqual(rules.homeTilesOf(JSON.stringify(["pt", "gone", "pt", "admission"])), ["pt", "admission", "renewal", "enquiry", "due-paid", "product"]);
+  });
+});

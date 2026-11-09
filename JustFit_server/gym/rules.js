@@ -546,6 +546,28 @@ function switchBody(body) {
   return { branchId: body.branchId };
 }
 
+// Home's Today tiles, in the order a login has arranged them (jiggle mode, 2026-11-09): every tile
+// once. The ids are the app's (gym/(tabs)/index.tsx); a new tile goes on the end of a saved order.
+const HOME_TILES = ["admission", "renewal", "enquiry", "due-paid", "pt", "product"];
+function homeTilesBody(body) {
+  onlyKeys(body, ["order"]);
+  const order = body.order;
+  if (!Array.isArray(order) || order.length !== HOME_TILES.length || new Set(order).size !== order.length || !order.every((tile) => HOME_TILES.includes(tile))) {
+    throw new ValidationError("Arrange the Today tiles again.");
+  }
+  return { order };
+}
+// A saved order read back: the known tiles it names in its order, then any it leaves out (null: the default)
+function homeTilesOf(saved) {
+  let list = saved;
+  if (typeof list === "string") {
+    try { list = JSON.parse(list); } catch { return null; }
+  }
+  if (!Array.isArray(list)) return null;
+  const kept = [...new Set(list.filter((tile) => HOME_TILES.includes(tile)))];
+  return kept.length ? [...kept, ...HOME_TILES.filter((tile) => !kept.includes(tile))] : null;
+}
+
 // The gym_admin account to link, by its sign-in number
 function staffBody(body) {
   onlyKeys(body, ["phone"]);
@@ -581,6 +603,9 @@ function renewedUntil(expiresOn, today, months) {
 }
 
 module.exports = {
+  HOME_TILES,
+  homeTilesBody,
+  homeTilesOf,
   trainerBody,
   limits,
   MAX_PLAN_MONTHS,

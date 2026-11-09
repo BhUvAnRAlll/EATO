@@ -31,6 +31,23 @@ async function staffGym(pool, userId) {
   return row ?? null;
 }
 
+// The order this login arranged Home's Today tiles in at this branch (gym_staff.home_tiles), or
+// null for the default. Before the 2026-12-22 migration there is no column: the default.
+async function homeTiles(pool, userId, gymId) {
+  try {
+    const [[row]] = await pool.query("SELECT home_tiles FROM gym_staff WHERE user_id = ? AND gym_id = ?", [userId, gymId]);
+    return rules.homeTilesOf(row?.home_tiles ?? null);
+  } catch (error) {
+    if (error?.code === "ER_BAD_FIELD_ERROR") return null;
+    throw error;
+  }
+}
+// Saves it for this login at this branch only; every query is the caller's own gym_staff row
+async function saveHomeTiles(pool, userId, gymId, order) {
+  await pool.query("UPDATE gym_staff SET home_tiles = ? WHERE user_id = ? AND gym_id = ?", [JSON.stringify(order), userId, gymId]);
+  return { order };
+}
+
 // access: owner (the gym admin) or staff, so the app shows Staff / Admin Login to the owner only;
 // areas / options: what this login may use here (Role & Permission, staffRules.optionsOf), so the app hides the rest
 const gymInfo = (gym) => ({ name: gym.brand, branch: gym.branch, area: gym.area, city: gym.city, branchCount: gym.branch_count, access: gym.kind, areas: staffRules.areasOf(gym), options: staffRules.optionsOf(gym) });
@@ -812,6 +829,8 @@ async function deleteItem(pool, gymId, itemId) {
 }
 
 module.exports = {
+  homeTiles,
+  saveHomeTiles,
   catalog,
   payment,
   addItem,

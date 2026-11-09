@@ -159,7 +159,20 @@ router.get("/dashboard", route(async (req, res) => {
   // Needs attention › Likely to leave: the members at high renewal risk (gym/predictions.js)
   if (options.includes("predictions.renewals")) dashboard.alerts.renewalRisk = await predictions.highRiskCount(pool(req), req.gym.id, today());
   // Role & Permission: only what this login may see (the gym admin has every option)
-  res.json(staffRules.dashboardFor(dashboard, options));
+  // The Today tiles in the order this login arranged them (null: the default order)
+  res.json({ ...staffRules.dashboardFor(dashboard, options), tileOrder: await service.homeTiles(pool(req), req.userId, req.gym.id) });
+}));
+// Home's jiggle mode: the Today tiles' order, this login's own at this branch (no area: it changes
+// nothing anyone else sees). 60 saves an hour. Before the 2026-12-22 migration: 503 naming it.
+const tilesLimit = limitPerUser(createRateLimiter({ limit: 60, windowMs: 60 * 60 * 1000 }));
+router.put("/home-tiles", tilesLimit, smallBody, route(async (req, res) => {
+  const { order } = rules.homeTilesBody(req.body);
+  try {
+    res.json(await service.saveHomeTiles(pool(req), req.userId, req.gym.id, order));
+  } catch (error) {
+    if (error?.code !== "ER_BAD_FIELD_ERROR") throw error;
+    res.status(503).json({ error: "Arranging the Today tiles needs the 2026-12-22-home-tile-order migration on this server." });
+  }
 }));
 
 // Predictions (rules on the branch's own records, no AI): who may not renew, highest risk first

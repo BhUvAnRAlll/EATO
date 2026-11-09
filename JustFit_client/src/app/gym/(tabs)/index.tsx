@@ -15,6 +15,7 @@ import { DueMembersSheet } from "@/components/gym/DueMembersSheet";
 import { EnquirySheet } from "@/components/gym/EnquirySheet";
 import { GymMenu } from "@/components/gym/GymMenu";
 import { GradientFill } from "@/components/gym/GradientFill";
+import { TodayTiles } from "@/components/gym/TodayTiles";
 import { PaymentRow } from "@/components/gym/PaymentRow";
 import { RevenueCard } from "@/components/gym/RevenueCard";
 import { GymEmpty, GymError, GymLoading } from "@/components/gym/GymStates";
@@ -50,6 +51,8 @@ export default function GymHome() {
   const { result, reload, retry } = useGymData(gymApi.dashboard);
   const [refreshing, setRefreshing] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  // Jiggle mode on the Today tiles: the page holds still so a drag moves a tile
+  const [arranging, setArranging] = useState(false);
   // The + sheet, or Add New Member opened from it
   const [sheet, setSheet] = useState<"add" | "member" | "due" | "sms" | "enquiry" | null>(null);
   const pick = (action: AddAction) => {
@@ -150,6 +153,7 @@ export default function GymHome() {
         <ScrollView
           contentContainerStyle={{ paddingTop: 8, paddingBottom: 48 }}
           showsVerticalScrollIndicator={false}
+          scrollEnabled={!arranging}
           refreshControl={<RefreshControl refreshing={refreshing} tintColor={colors.gymPrimary} onRefresh={async () => { setRefreshing(true); await reload(); setRefreshing(false); }} />}
         >
           <View className="gym-dash">
@@ -176,31 +180,7 @@ export default function GymHome() {
 
                 {stats.length > 0 && (
                 <Animated.View entering={enter(2)} className="gym-dash-section">
-                  <View className="flex-row items-center">
-                    <Text className="gym-dash-section__title" accessibilityRole="header">Today</Text>
-                    <Text className="gym-dash-section__note">{can("payments.transactions") ? "Tap a count for its payments" : "Today's counts"}</Text>
-                  </View>
-                  <View className="gym-dash-card flex-row flex-wrap">
-                    {stats.map((stat, index) => (
-                      <PressableScale
-                        key={stat.id}
-                        onPress={can(stat.need) ? () => router.push(stat.href) : undefined}
-                        disabled={!can(stat.need)}
-                        className="gym-dash-stat"
-                        style={{ width: `${100 / columns}%`, borderRightWidth: index % columns === columns - 1 ? 0 : 1, borderTopWidth: index >= columns ? 1 : 0 }}
-                        accessibilityRole={can(stat.need) ? "button" : "text"}
-                        accessibilityLabel={`${stat.value} ${stat.label}`}
-                      >
-                        <View className="gym-dash-stat__icon" style={{ backgroundColor: stat.color.box }}>
-                          <GymIcon name={stat.icon} size={16} color={stat.color.icon} />
-                        </View>
-                        <View>
-                          <AnimatedNumber className="gym-dash-stat__value">{String(stat.value)}</AnimatedNumber>
-                          <Text className="gym-dash-stat__label" numberOfLines={1}>{stat.label}</Text>
-                        </View>
-                      </PressableScale>
-                    ))}
-                  </View>
+                  <TodayTiles tiles={stats} savedOrder={data.tileOrder ?? null} columns={columns} can={can} onEditingChange={setArranging} />
                 </Animated.View>
                 )}
 

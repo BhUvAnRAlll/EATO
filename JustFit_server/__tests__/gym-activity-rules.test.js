@@ -20,7 +20,9 @@ describe("gym activity rules", () => {
       const sample = path.replace(/:[A-Za-z]+/g, (p) => (p === ":kind" ? "due" : p === ":userId" ? "user_Ab12" : "7"));
       const found = rules.routeOf(method, sample);
       assert.notEqual(found, undefined, `${method} ${path} isn't in activityRules.ROUTES`);
-      if (path !== "/branch") assert.ok(found.entry, `${method} ${path} records something`);
+      // Only the login's own view records nothing: switching branch, arranging Home's tiles
+      if (!["/branch", "/home-tiles"].includes(path)) assert.ok(found.entry, `${method} ${path} records something`);
+      else assert.equal(found.entry, null, `${method} ${path} records nothing`);
     }
   });
 

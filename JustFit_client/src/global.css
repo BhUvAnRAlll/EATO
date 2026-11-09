@@ -6492,6 +6492,22 @@
   color: var(--color-white);
 }
 
+/* Home's jiggle mode: Done beside the Today heading while the tiles are arranged */
+@utility gym-tiles__done {
+  min-height: 32px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  justify-content: center;
+  background-color: var(--color-gym-primary-soft);
+}
+
+@utility gym-tiles__done-label {
+  font-family: var(--font-sans-semibold);
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--color-gym-primary-text);
+}
+
 @utility gym-dash-stat {
   gap: 10px;
   padding: 14px;

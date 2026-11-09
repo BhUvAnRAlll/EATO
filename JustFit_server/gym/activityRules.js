@@ -96,6 +96,8 @@ const paidLine = (amount, method) => [amount ? rupees(amount) : null, MODE[metho
 const R = (methods, path, entry) => [methods, path, entry];
 const ROUTES = [
   R(["POST"], /^\/branch$/, null),
+  // Arranging Home's Today tiles is the login's own view, nothing to record
+  R(["PUT"], /^\/home-tiles$/, null),
   R(["POST"], /^\/branches$/, { type: "settings", action: "create", label: () => "Branches", detail: ({ body }) => `Added the ${body?.branch ?? "new"} branch` }),
   R(["PATCH"], /^\/details$/, { type: "settings", action: "edit", label: () => "Branch details", detail: () => "Changed the branch's name or place" }),
   // Staff / Admin Login (the gym admin's own team changes)

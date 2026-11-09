@@ -1191,6 +1191,7 @@ CREATE TABLE gym_staff (
   permissions  JSON         NULL,               -- a Staff login's portal areas (gym/staffRules.js AREAS); NULL = every area
   added_at     TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
   selected_at  TIMESTAMP(3) NULL,               -- when the account last switched to this branch
+  home_tiles   JSON         NULL,               -- Home's Today tiles in this login's order (jiggle mode); NULL = default
   PRIMARY KEY (user_id, gym_id),
   KEY idx_gym_staff_gym (gym_id),
   CONSTRAINT fk_gym_staff_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,

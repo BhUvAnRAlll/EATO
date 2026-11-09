@@ -103,6 +103,8 @@ export type GymDashboard = {
   // renewalRisk: members at High renewal risk (Predictions › Likely to leave)
   alerts: { dueMembers: number | null; expiringToday: number | null; attendance: number | null; expiringSoon: number | null; birthdays: number | null; renewalRisk: number | null; pauseRequests: number | null };
   recent: GymPayment[];
+  // Today's tiles in the order this login arranged them (jiggle mode), or null for the default
+  tileOrder: string[] | null;
 };
 
 // Predictions (rules on the branch's own records, no AI). A member's renewal risk: the points that
@@ -268,6 +270,8 @@ const call = <T>(token: string | null, path: string, method: "GET" | "POST" | "P
 
 export const gymApi = {
   dashboard: (token: string | null) => call<GymDashboard>(token, "/api/gym/dashboard"),
+  // Home's jiggle mode: saves this login's order of the Today tiles at this branch
+  saveHomeTiles: (token: string | null, order: string[]) => call<{ order: string[] }>(token, "/api/gym/home-tiles", "PUT", { order }),
   // `days` is how far ahead "expiring soon" looks (tomorrow to `days`, or "all" for every plan
   // still running); the counts use it too
   // 50 members a page, in the chosen order (the server sorts, so every page follows it); `nextPage`

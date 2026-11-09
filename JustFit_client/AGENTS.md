@@ -1183,6 +1183,14 @@ picker were removed on 2026-11-01; don't add them back unless asked.
   (`components/motion/Bounce.tsx`). Nothing with Reduce Motion on. Used on both tab bars (the tab
   that becomes selected), the HUD's success tick, the check-in result's tick and the Attendance
   count tiles. Keep it to moments that mean something; never on a list's every row.
+- **Jiggle mode (2026-11-09).** Gym Home's Today tiles (`components/gym/TodayTiles.tsx`): hold a
+  tile and they wobble (still with Reduce Motion, and the page stops scrolling); drag one and it
+  drops where the finger lets go (`lib/tileOrder.ts`, pure and unit-tested); Done saves this login's
+  order at this branch through `PUT /api/gym/home-tiles { order }` (every tile once,
+  `rules.homeTilesBody`; no area, 60 an hour, not on Activity) and the dashboard carries it back as
+  `tileOrder` (null = the usual order). Screen readers get Move earlier / Move later. Column
+  `gym_staff.home_tiles` (migration `2026-12-22-home-tile-order.sql`; before it Home keeps the usual
+  order and saving answers 503 naming it). Tests: `gym-rules.test.js`, `e2e/gym-home-tiles.e2e.test.js`.
 - **Undo and shake to undo (2026-11-09).** A reversible removal goes at once with an Undo bar
   instead of an "Are you sure?": `offerUndo({ text, keys, commit, onDone })` from `lib/undo.ts`.
   The bar (`components/UndoBar.tsx`, at the root, above the tab bar) shows for 5 s; Undo, or a
