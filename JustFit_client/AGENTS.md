@@ -227,7 +227,10 @@ The Meals module is green (`meal-*` tokens and utilities); the user chose green 
   ones only), the address (`/addresses?pick=1`), a coupon (code box or applied, the saving or why
   not, from `POST /api/orders/quote`), the bill, Test payment, Pay (one `clientId` per order). My
   orders and an order (`orders/[id].tsx`, steps, the coupon line, Cancel while only placed). Home's
-  Today card shows today's real delivery. A meal is capped at 3 in the cart.
+  Today card shows today's real delivery. A member with no delivery address first sees Access Location
+  (`components/meals/AccessLocation.tsx`, the user's reference in green: a drawn map with the pin,
+  Access location → `findMe` → Select Delivery Location at that spot, or Enter address manually;
+  shown once a session, `addressDraft.locationAsked`). A meal is capped at 3 in the cart.
 - **Super Admin:** the Orders tab (`admin/(tabs)/orders.tsx`: one day at a time, To do / Delivered /
   Cancelled / All, by meal time; Call, Directions, items, and one button Start preparing → Out for
   delivery → Mark delivered; Cancel with a reason). Meals (`admin/meals/index.tsx`): links to

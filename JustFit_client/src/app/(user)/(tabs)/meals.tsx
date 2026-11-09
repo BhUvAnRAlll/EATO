@@ -5,6 +5,7 @@ import { StatusBar } from "expo-status-bar";
 import { router, useFocusEffect } from "expo-router";
 
 import { BrandWordmark } from "@/components/BrandWordmark";
+import { AccessLocation } from "@/components/meals/AccessLocation";
 import { EmptyState } from "@/components/EmptyState";
 import { FieldInput } from "@/components/FieldInput";
 import { LoadError } from "@/components/macro/LoadError";
@@ -22,6 +23,7 @@ import { rupees, searchMeals, shopSections, suggestions } from "@/lib/mealRules"
 import { mealsApi, type MealBanner, type MenuMeal } from "@/lib/mealsApi";
 import { useAddressBook } from "@/lib/useAddressBook";
 import { useSessionToken } from "@/lib/session";
+import { useAddressDraft } from "@/store/addressDraft";
 import { cartCount, useCartStore } from "@/store/cart";
 import { useHomeStore } from "@/store/home";
 import { useStorefront } from "@/store/storefront";
@@ -47,6 +49,8 @@ export default function Meals() {
   const setCoupon = useCartStore((state) => state.setCoupon);
   const nutrition = useHomeStore((state) => state.nutrition);
   const { load: addressLoad } = useAddressBook();
+  const locationAsked = useAddressDraft((state) => state.locationAsked);
+  const setLocationAsked = useAddressDraft((state) => state.setLocationAsked);
   const [search, setSearch] = useState("");
   const [focused, setFocused] = useState(false);
   const [vegOnly, setVegOnly] = useState(false);
@@ -247,6 +251,22 @@ export default function Meals() {
       )}
     </View>
   );
+
+  // No delivery address yet: ask for the phone's location first (once a session), then the map
+  if (addressLoad.state === "ready" && addressLoad.book.addresses.length === 0 && !locationAsked) {
+    const toMap = (at?: { latitude: number; longitude: number }) => {
+      setLocationAsked();
+      router.push(at ? { pathname: "/addresses/location", params: { lat: String(at.latitude), lng: String(at.longitude) } } : "/addresses/location");
+    };
+    return (
+      <View className="flex-1 bg-surface">
+        <StatusBar style="dark" />
+        <SafeAreaView style={{ flex: 1 }} edges={["top", "left", "right"]}>
+          <AccessLocation onFound={toMap} onManual={() => toMap()} />
+        </SafeAreaView>
+      </View>
+    );
+  }
 
   const list = results ?? sections?.meals ?? [];
   return (

@@ -7882,3 +7882,62 @@
   border-color: var(--color-primary);
   background-color: var(--color-accent-soft);
 }
+
+/* The Meals tab's Access Location screen (the user's reference, in justFit green): the drawing,
+   a wide rounded button with its icon in a soft circle, and the note in small capitals */
+@utility access-location {
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  padding-inline: 24px;
+  padding-block: 32px;
+}
+
+@utility access-location__button {
+  min-height: 62px;
+  width: 100%;
+  border-radius: 12px;
+  background-color: var(--color-primary);
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  padding-inline: 20px;
+}
+
+@utility access-location__button-label {
+  font-family: var(--font-sans-semibold);
+  font-size: 16px;
+  line-height: 22px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--color-on-primary);
+}
+
+@utility access-location__button-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 9999px;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(255, 255, 255, 0.22);
+}
+
+@utility access-location__note {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 24px;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  text-align: center;
+  color: var(--color-muted);
+  padding-inline: 12px;
+}
+
+@utility access-location__problem {
+  font-family: var(--font-sans-medium);
+  font-size: 14px;
+  line-height: 21px;
+  text-align: center;
+  color: var(--color-danger);
+}
