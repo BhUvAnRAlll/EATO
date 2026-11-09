@@ -1,4 +1,5 @@
 import { apiFetch, type ApiResult } from "@/lib/api";
+import type { FacilityId, OpeningHours } from "@/lib/gymProfile";
 import type { AddedTemplate, CustomTemplates, TemplateKind } from "@/lib/reminderTemplates";
 
 // The gym admin portal's calls (JustFit_server/gym, mounted at /api/gym) and the Super Admin's
@@ -17,8 +18,24 @@ export type PlanMonths = { duration: number };
 // Plans / Catalogue: the branch's price list (plans and PT packages have a duration and unit;
 // products may have a stock count, null when it isn't counted)
 export type CatalogKind = "plan" | "pt" | "service" | "product";
-// imageUrl: an optional picture or brochure photo, read with the session (null: none)
-export type CatalogItem = { id: number; kind: CatalogKind; name: string; duration: number | null; unit: PlanUnit | null; price: number; stock: number | null; imageUrl: string | null };
+// imageUrl: an optional picture or brochure photo, read with the session (null: none); details:
+// what a plan or PT package includes and any limits, shown to members (Gym Hub; null: none)
+export type CatalogItem = { id: number; kind: CatalogKind; name: string; duration: number | null; unit: PlanUnit | null; price: number; stock: number | null; imageUrl: string | null; details?: string | null };
+// The branch's public profile (Gym Hub phase 2): what members will see when they discover gyms.
+// contact, hasLocation and hasLogo come from Invoice details, Location & Attendance and the logo;
+// photos are read with the session; hours null: not given yet
+export type GymProfile = {
+  gym: GymInfo;
+  about: string | null;
+  facilities: FacilityId[];
+  hours: OpeningHours | null;
+  photos: { id: number; url: string }[];
+  maxPhotos: number;
+  contact: { address: string | null; phone: string | null };
+  hasLocation: boolean;
+  hasLogo: boolean;
+};
+export type GymProfileFields = { about?: string; facilities?: FacilityId[]; hours?: OpeningHours | null };
 export type PayMethod = "online" | "cash";
 // receiptUrl: the bill attached to the payment (Add Member › Attach the payment bill), read with the
 // session; the member's page carries it, the other payment lists don't
@@ -286,8 +303,8 @@ export const gymApi = {
   },
   service: (token: string | null, fields: { item: string; amount: number; method: PayMethod }) => call<{ payment: GymPayment }>(token, "/api/gym/services", "POST", fields),
   catalog: (token: string | null) => call<{ items: CatalogItem[] }>(token, "/api/gym/catalog"),
-  addItem: (token: string | null, item: { kind: CatalogKind; name: string; duration?: number; price: number; stock?: number | "" }) => call<{ items: CatalogItem[] }>(token, "/api/gym/catalog", "POST", item),
-  editItem: (token: string | null, id: number, fields: { name?: string; duration?: number; price?: number; stock?: number | "" }) => call<{ items: CatalogItem[] }>(token, `/api/gym/catalog/${id}`, "PATCH", fields),
+  addItem: (token: string | null, item: { kind: CatalogKind; name: string; duration?: number; price: number; stock?: number | ""; details?: string }) => call<{ items: CatalogItem[] }>(token, "/api/gym/catalog", "POST", item),
+  editItem: (token: string | null, id: number, fields: { name?: string; duration?: number; price?: number; stock?: number | ""; details?: string }) => call<{ items: CatalogItem[] }>(token, `/api/gym/catalog/${id}`, "PATCH", fields),
   deleteItem: (token: string | null, id: number) => call<{ items: CatalogItem[] }>(token, `/api/gym/catalog/${id}`, "DELETE"),
   // An item's picture (base64 and its type; the server checks both from the bytes), answered with the catalogue
   setItemImage: (token: string | null, id: number, image: { data: string; mediaType: string }) => call<{ items: CatalogItem[] }>(token, `/api/gym/catalog/${id}/image`, "PUT", { data: image.data, mediaType: image.mediaType }),
@@ -319,6 +336,12 @@ export const gymApi = {
   memberInvoice: (token: string | null, memberId: number) => call<GymInvoice>(token, `/api/gym/members/${memberId}/invoice`),
   invoiceDetails: (token: string | null) => call<InvoiceDetails>(token, "/api/gym/invoice-details"),
   updateInvoiceDetails: (token: string | null, fields: InvoiceDetailFields) => call<InvoiceDetails>(token, "/api/gym/invoice-details", "PATCH", fields),
+  // The public profile (gym/gymProfile.js): every portal login reads it; the gym admin changes it
+  // and adds or removes gallery photos (checked again on the server from their bytes)
+  profile: (token: string | null) => call<GymProfile>(token, "/api/gym/profile"),
+  updateProfile: (token: string | null, fields: GymProfileFields) => call<GymProfile>(token, "/api/gym/profile", "PATCH", fields),
+  addGymPhoto: (token: string | null, image: { data: string; mediaType: string }) => call<GymProfile>(token, "/api/gym/profile/photos", "POST", { data: image.data, mediaType: image.mediaType }),
+  removeGymPhoto: (token: string | null, id: number) => call<GymProfile>(token, `/api/gym/profile/photos/${id}`, "DELETE"),
   // Reminder Templates (gym/templates.js): every portal login reads them; the gym admin rewords
   // one (saveTemplate) or puts it back to the default (resetTemplate)
   templates: (token: string | null) => call<GymTemplates>(token, "/api/gym/templates"),

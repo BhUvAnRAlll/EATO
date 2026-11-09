@@ -91,7 +91,7 @@ Do not introduce new major libraries unless there is a strong reason.
 
 Every Express route except the health check and the two sign-in routes verifies the caller's session token with `requireUser` (`JustFit_server/auth.js`) before doing anything. The sign-in routes are budgeted per IP address and per phone number instead.
 
-### Gym Hub, member side (2026-11-09, phase 1 of 4)
+### Gym Hub, member side (2026-11-09, phases 1 and 2 of 4)
 
 Profile's Gym membership and Gym attendance rows became one **Gym Hub** row (`/gym-hub`; a
 trainer sees "Gym check-in" instead, `/attendance`, and is kept out of `/gym-hub` and `/membership`).
@@ -110,6 +110,24 @@ The user's decisions for the next phases: no payment in the app (picking a plan 
 to the gym's Enquiries), Discover lists every gym; phase 2 gym public profile (migration), 3
 Discover and Gym Details, 4 the plan enquiry. Tests: `__tests__/gym-member-hub-rules.test.js`,
 `e2e/gym-member-hub.e2e.test.js`, the client's `lib/__tests__/gymHubText.test.ts`.
+
+**Phase 2, the gym's public profile (2026-11-09):** what members will see about a branch. The gym
+admin fills it in from Settings › Public profile (`app/gym/profile.tsx`; Staff open it read-only):
+photos (up to 8, saved at once, the first is the cover; `pickCatalogImage`, shrunk to 1600 px), a
+description (500), facilities (a fixed list, `lib/gymProfile.ts` / `gym/profileRules.js` `FACILITIES`)
+and opening hours (`OpeningHoursEditor`: every day, Closed or up to two sessions, half-hour picker,
+"Same as Monday for every day"), saved together; under them what is reused (address and phone from
+Invoice details, the map location, the logo) with links to change it. Plans and PT packages get an
+optional "What's included" (300) in `CatalogSheet` (`details`, sent only when changed). Server:
+`gym/gymProfile.js`, `gym/profileRules.js` (pure); `GET|PATCH /api/gym/profile`,
+`POST /api/gym/profile/photos`, `GET|DELETE /api/gym/profile/photos/:id` (no area: every portal login
+reads, `ownerOnly` writes; photos on the photos' hourly allowance, checked from their bytes, 3 MB,
+320×240 to 6000; files in `GYM_PHOTO_DIR`, default `uploads/gym-photos`; a refused upload leaves no
+file); audited `gym.edit` and on Activity. Migration `2026-12-17-gym-public-profile.sql` (`gyms.about`,
+`facilities`, `opening_hours`; `gym_catalog_items.details`; table `gym_photos`); before it the
+profile answers 503 naming it and the catalogue is read without details (`hasCatalogDetails`).
+Members don't see any of it yet (phase 3). Tests: `__tests__/gym-profile-rules.test.js`,
+`e2e/gym-profile.e2e.test.js`, `ui/gym-profile.ui.test.js`, the client's `lib/__tests__/gymProfile.test.ts`.
 
 ### Delivery addresses (2026-11-09)
 

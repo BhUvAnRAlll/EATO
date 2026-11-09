@@ -14,6 +14,7 @@ import { CATALOG_KINDS, planLabel, rupees } from "@/data/gymDashboard";
 import { gymApi, type CatalogItem, type CatalogKind } from "@/lib/gymApi";
 import { useGymSave } from "@/lib/gymForm";
 import { pickCatalogImage, type MemberPhoto, type PhotoSource } from "@/lib/gymPhoto";
+import { DETAILS_MAX } from "@/lib/gymProfile";
 import { notice } from "@/lib/gymPortal";
 import { useThemeColors } from "@/theme";
 
@@ -25,7 +26,8 @@ const TITLE: Record<CatalogKind, string> = { plan: "Plan", pt: "PT Package", ser
 // are in stock (optional: left empty, stock isn't counted), and an optional image or brochure photo
 // (camera or gallery, any shape; 2026-11-07). Editing an item opens the same sheet with Delete.
 // Saving first asks to confirm the details (Edit or Confirm), then calls back with the branch's
-// updated list. The image is uploaded once the item is saved (PUT /api/gym/catalog/:id/image); if
+// updated list. Plans and PT packages also say what's included (Gym Hub, 2026-11-09: members see
+// it when they compare a gym's plans; optional, 300 characters). The image is uploaded once the item is saved (PUT /api/gym/catalog/:id/image); if
 // only the image fails, the item stays saved and the gym admin is told.
 export function CatalogSheet({ kind, item, onClose, onSaved }: { kind: CatalogKind; item: CatalogItem | null; onClose: () => void; onSaved: (items: CatalogItem[]) => void }) {
   const colors = useThemeColors();
@@ -37,6 +39,7 @@ export function CatalogSheet({ kind, item, onClose, onSaved }: { kind: CatalogKi
   const [duration, setDuration] = useState(item?.duration && item.unit === "months" ? String(item.duration) : "");
   const [price, setPrice] = useState(item ? String(item.price) : "");
   const [stock, setStock] = useState(item?.stock !== null && item?.stock !== undefined ? String(item.stock) : "");
+  const [details, setDetails] = useState(item?.details ?? "");
   // null: the image as it is; "remove": take the saved one off; a MemberPhoto: a new one to upload
   const [image, setImage] = useState<MemberPhoto | "remove" | null>(null);
   const [imageError, setImageError] = useState("");
@@ -67,6 +70,8 @@ export function CatalogSheet({ kind, item, onClose, onSaved }: { kind: CatalogKi
         ...(isPlan && length !== null ? { duration: length } : {}),
         // Cleared on an edit: no longer counted
         ...(isProduct && (stockValue !== null || item) ? { stock: stockValue ?? ("" as const) } : {}),
+        // Sent only when it changed, so the catalogue keeps saving before its migration
+        ...(isPlan && details.trim() !== (item?.details ?? "") ? { details: details.trim() } : {}),
       };
       const saved = item ? await gymApi.editItem(token, item.id, fields) : await gymApi.addItem(token, { kind, ...fields });
       if (!saved.ok || image === null) return saved;
@@ -83,6 +88,7 @@ export function CatalogSheet({ kind, item, onClose, onSaved }: { kind: CatalogKi
     ["Name", name.trim()],
     ...(isPlan && length !== null ? [["Duration", planLabel(length)] as [string, string]] : []),
     ["Amount", rupees(amount)],
+    ...(isPlan && details.trim() ? [["Included", details.trim()] as [string, string]] : []),
     ...(isProduct ? [["Stock", stockValue === null ? "Not counted" : `${stockValue} in stock`] as [string, string]] : []),
     ...(image !== null || item?.imageUrl ? [["Image", image === "remove" ? "Removed" : image ? "Added" : "Kept"] as [string, string]] : []),
   ];
@@ -98,6 +104,19 @@ export function CatalogSheet({ kind, item, onClose, onSaved }: { kind: CatalogKi
       <GymField label={`${TITLE[kind]} name`} icon="pencil-line" value={name} onChangeText={setName} maxLength={80} placeholder={`${TITLE[kind]} Name (Eg. ${kind === "plan" ? "6 Months" : meta.example})`} />
       {isPlan && <PlanLengthFields duration={duration} onDuration={setDuration} />}
       <GymField label={`${TITLE[kind]} amount`} icon="banknote" value={price} onChangeText={(t) => setPrice(amountInput(t))} keyboardType="number-pad" placeholder={`${TITLE[kind]} Amount (Eg. 500)`} />
+      {isPlan && (
+        <GymField
+          label="What's included (optional)"
+          icon="clipboard-list"
+            value={details}
+          onChangeText={(t) => setDetails(t.slice(0, DETAILS_MAX))}
+          maxLength={DETAILS_MAX}
+          placeholder="Eg. Steam bath, 1 diet consult. Morning batch only."
+          multiline
+          style={{ minHeight: 72, textAlignVertical: "top" }}
+          hint="Benefits and any limits. Members see this when they compare plans."
+        />
+      )}
       {isProduct && (
         <GymField label="In stock" icon="boxes" value={stock} onChangeText={(t) => setStock(t.replace(/\D/g, "").slice(0, 6))} keyboardType="number-pad" placeholder="In Stock (Eg. 20, optional)" hint={stockValue !== null && stockValue > 100000 ? "Up to 1,00,000." : "Selling to a member takes them out of stock."} />
       )}

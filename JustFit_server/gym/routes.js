@@ -16,6 +16,8 @@ const expenseBills = require("./expenseBills");
 const expenseRules = require("./expenseRules");
 const expenses = require("./expenses");
 const logos = require("./logos");
+const gymProfile = require("./gymProfile");
+const profileRules = require("./profileRules");
 const paymentReceipts = require("./paymentReceipts");
 const invoices = require("./invoices");
 const invoiceRules = require("./invoiceRules");
@@ -48,9 +50,12 @@ const today = () => rules.todayInIndia();
 const MIGRATION = "The gym portal needs its migrations (up to 2026-12-05-membership-pauses) on this server.";
 // Saving a referral before its migration names that migration (enquiries are read without it)
 const REFERRER_MIGRATION = "Referrals need the 2026-12-09-enquiry-referrer migration on this server.";
+// Saving a plan's details (Gym Hub) before its migration names it (the catalogue is read without them)
+const DETAILS_MIGRATION = "Plan details need the 2026-12-17-gym-public-profile migration on this server.";
 const route = (handler) => (req, res, next) =>
   handler(req, res, next).catch((error) => {
     if (error?.code === "ER_BAD_FIELD_ERROR" && String(error.sqlMessage ?? "").includes("referred_by_phone")) return res.status(503).json({ error: REFERRER_MIGRATION });
+    if (error?.code === "ER_BAD_FIELD_ERROR" && String(error.sqlMessage ?? "").includes("'details'")) return res.status(503).json({ error: DETAILS_MIGRATION });
     if (["ER_NO_SUCH_TABLE", "ER_BAD_FIELD_ERROR"].includes(error?.code)) return res.status(503).json({ error: MIGRATION });
     next(error);
   });
@@ -440,6 +445,38 @@ router.delete("/logo", ownerOnly("Only the gym admin can change the logo."), log
 }));
 router.get("/logo", logoRoute(async (req, res) => {
   logos.send(res, await logos.logoFile(pool(req), req.gym.brand_id));
+}));
+
+// The branch's public profile (gym/gymProfile.js, Gym Hub phase 2, 2026-11-09): the description,
+// facilities, opening hours and photos members will see when they discover gyms. Every portal login
+// reads it (no area, like Invoice details); only the gym admin changes it. Photos: POST
+// { data: base64, mediaType } adds one (checked from its bytes: JPEG, PNG or WebP, at most 3 MB; up
+// to 8; the photos' hourly allowance), DELETE removes one, GET reads one. Before migration
+// 2026-12-17 the routes say so.
+const PROFILE_MIGRATION = "The public profile needs the 2026-12-17-gym-public-profile migration on this server.";
+const profileRoute = (handler) => (req, res, next) =>
+  handler(req, res, next).catch((error) => {
+    if (["ER_NO_SUCH_TABLE", "ER_BAD_FIELD_ERROR"].includes(error?.code)) return res.status(503).json({ error: PROFILE_MIGRATION });
+    next(error);
+  });
+const profileOwner = ownerOnly("Only the gym admin can change the public profile.");
+const galleryBody = express.json({ limit: Math.ceil(gymProfile.photoLimits.maxBytes * (4 / 3)) + 1024 });
+router.get("/profile", profileRoute(async (req, res) => {
+  res.json(await gymProfile.profile(pool(req), req.gym));
+}));
+router.patch("/profile", profileOwner, smallBody, profileRoute(async (req, res) => {
+  res.json(await gymProfile.updateProfile(pool(req), req.gym, req.userId, profileRules.profileBody(req.body)));
+}));
+router.post("/profile/photos", profileOwner, photoLimit, galleryBody, profileRoute(async (req, res) => {
+  const checked = gymProfile.checkGymPhoto(req.body);
+  if (!checked.ok) return res.status(checked.status).json({ error: checked.error });
+  res.status(201).json(await gymProfile.addPhoto(pool(req), req.gym, req.userId, checked));
+}));
+router.delete("/profile/photos/:photoId", profileOwner, profileRoute(async (req, res) => {
+  res.json(await gymProfile.removePhoto(pool(req), req.gym, req.userId, rules.id(req.params.photoId, "photo")));
+}));
+router.get("/profile/photos/:photoId", profileRoute(async (req, res) => {
+  gymProfile.send(res, await gymProfile.photoFile(pool(req), req.gym.id, rules.id(req.params.photoId, "photo")));
 }));
 
 // Reminder Templates (gym/templates.js, 2026-11-08): the branch's own wording for Send Reminder

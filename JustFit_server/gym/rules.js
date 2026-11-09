@@ -2,6 +2,7 @@
 // admin may send, cleaned and bounded. Anything unexpected is refused with a 400 and one line.
 const { ValidationError } = require("../profile");
 const { normalizePhone } = require("../auth/phone");
+const profileRules = require("./profileRules");
 
 const limits = {
   name: 80,
@@ -481,7 +482,7 @@ const CATALOG_KINDS = ["plan", "pt", "service", "product"];
 const MAX_STOCK = 100_000;
 const HAS_LENGTH = ["plan", "pt"];
 function catalogBody(body, { creating }) {
-  onlyKeys(body, creating ? ["kind", "name", "unit", "duration", "price", "stock"] : ["name", "unit", "duration", "price", "stock"]);
+  onlyKeys(body, creating ? ["kind", "name", "unit", "duration", "price", "stock", "details"] : ["name", "unit", "duration", "price", "stock", "details"]);
   const out = {};
   if (creating) {
     if (!CATALOG_KINDS.includes(body.kind)) throw new ValidationError("Pick what it is: a plan, PT, a service or a product.");
@@ -496,10 +497,13 @@ function catalogBody(body, { creating }) {
     else if (!Number.isInteger(body.stock) || body.stock < 0 || body.stock > MAX_STOCK) throw new ValidationError(`Enter the stock as a whole number from 0 to ${MAX_STOCK.toLocaleString("en-IN")}.`);
     else out.stock = body.stock;
   }
+  // What a plan or PT package includes and any limits (Gym Hub, migration 2026-12-17); "" clears it
+  if (body.details !== undefined) out.details = profileRules.optionalText(body.details, profileRules.DETAILS_MAX, "details");
+  if (creating && body.details !== undefined && !HAS_LENGTH.includes(out.kind)) throw new ValidationError("Only plans and PT packages have details.");
   if (creating && HAS_LENGTH.includes(out.kind) && !hasLength) throw new ValidationError(`Enter the ${out.kind === "pt" ? "PT package's" : "plan's"} duration.`);
   if (creating && !HAS_LENGTH.includes(out.kind) && hasLength) throw new ValidationError("Only plans and PT packages have a duration.");
   if (creating && out.kind !== "product" && body.stock !== undefined) throw new ValidationError("Only products have stock.");
-  if (Object.keys(out).length === 0) throw new ValidationError("Change the name, the duration, the price or the stock.");
+  if (Object.keys(out).length === 0) throw new ValidationError("Change the name, the duration, the price, the stock or the details.");
   return out;
 }
 

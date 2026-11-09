@@ -1157,6 +1157,9 @@ CREATE TABLE gyms (                               -- one branch of a gym brand
   address     VARCHAR(160) NULL,                   -- Invoice details (migration 2026-12-07): printed on invoices, all optional
   phone       CHAR(10)     NULL,
   gstin       CHAR(15)     NULL,
+  about       VARCHAR(500) NULL,                   -- Public profile (migration 2026-12-17, Gym Hub): a short description for members
+  facilities  JSON         NULL,                   -- ids from gym/profileRules.js FACILITIES, e.g. ["cardio","parking"]
+  opening_hours JSON       NULL,                   -- { mon: [["05:30","11:00"],["16:00","22:00"]], …, sun: [] }; NULL: not given
   next_member_no INT UNSIGNED NOT NULL DEFAULT 1,  -- the branch's next member ID number
   next_invoice_no INT UNSIGNED NOT NULL DEFAULT 1, -- the branch's next invoice number (migration 2026-12-07)
   sms_credits INT UNSIGNED NOT NULL DEFAULT 0,     -- SMS to members it can still send (1 credit = 1 SMS)
@@ -1377,6 +1380,7 @@ CREATE TABLE gym_catalog_items (
   duration_unit  ENUM('months', 'days') NULL,       -- 1-24 months or 1-365 days
   price       INT UNSIGNED NOT NULL,                -- rupees
   stock       INT UNSIGNED NULL,                    -- products only: how many are left (NULL = not counted)
+  details     VARCHAR(300) NULL,                    -- plans and PT: what's included and any limits, shown to members (migration 2026-12-17)
   image_key   VARCHAR(64)  NULL,                    -- an optional picture or brochure photo (a file name in CATALOG_IMAGE_DIR; migration 2026-12-04)
   created_by  VARCHAR(64)  NULL,
   created_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -1458,6 +1462,21 @@ CREATE TABLE gym_membership_pauses (
   CONSTRAINT fk_gym_pauses_decided_by FOREIGN KEY (decided_by) REFERENCES users (id) ON DELETE SET NULL,
   CONSTRAINT chk_gym_pauses_dates CHECK (pause_until >= pause_from),
   CONSTRAINT chk_gym_pauses_days CHECK (days BETWEEN 1 AND 365)
+) ENGINE = InnoDB;
+
+-- A branch's photo gallery (migration 2026-12-17-gym-public-profile.sql, Gym Hub): up to 8 photos
+-- the gym admin adds from Settings › Public profile; files in GYM_PHOTO_DIR under random names
+-- (gym/gymPhotos.js), read only through signed-in routes. The first one is the branch's cover.
+CREATE TABLE gym_photos (
+  id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  gym_id      INT UNSIGNED NOT NULL,
+  image_key   VARCHAR(64)  NOT NULL,
+  created_by  VARCHAR(64)  NULL,
+  created_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_gym_photos_gym (gym_id, id),
+  CONSTRAINT fk_gym_photos_gym FOREIGN KEY (gym_id) REFERENCES gyms (id),
+  CONSTRAINT fk_gym_photos_created_by FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL
 ) ENGINE = InnoDB;
 
 -- Gym expenses (migration 2026-12-10-gym-expenses.sql): each branch's spending (Manage › Expense),

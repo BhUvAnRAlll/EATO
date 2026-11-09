@@ -7034,3 +7034,64 @@
   font-size: 28px;
   line-height: 36px;
 }
+
+/* Settings › Public profile (Gym Hub phase 2): the photo gallery as tiles, three a row, a remove
+   button on each; the opening hours a day a row with its sessions as pills */
+@utility gym-gallery {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+@utility gym-gallery__tile {
+  width: 31%;
+  aspect-ratio: 4 / 3;
+  border-radius: 12px;
+  overflow: hidden;
+  background-color: var(--color-gym-bar);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility gym-gallery__tile--add {
+  border-width: 1px;
+  border-style: dashed;
+  border-color: var(--color-gym-line);
+  background-color: var(--color-gym-page);
+}
+
+@utility gym-gallery__remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-pill);
+  background-color: rgb(17 24 39 / 0.65);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility gym-hours-row {
+  gap: 8px;
+  padding-block: 12px;
+  border-top-width: 1px;
+  border-color: var(--color-gym-line);
+}
+
+@utility gym-time-pill {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-gym-primary-soft);
+  padding-inline: 12px;
+}
+
+@utility gym-time-pill__label {
+  font-family: var(--font-sans-medium);
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--color-gym-primary);
+}

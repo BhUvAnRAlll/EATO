@@ -183,6 +183,7 @@ describe("ui gym settings: every group for the gym admin, rows open their screen
     for (const [label, route] of [
       ["Branch details, Name, area and city", "/gym/details"],
       ["Outlets, Switch branch or add one", "/gym/branches"],
+      ["Public profile, Photos, facilities and hours members see", "/gym/profile"],
       ["Location & Attendance, Gym location and check-in radius", "/gym/attendance/settings"],
       ["Attendance QR code, Show, print or regenerate", "/gym/attendance/qr"],
       ["Staff / Admin Login, Who can sign in to your gym", "/gym/staff"],
