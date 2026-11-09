@@ -11,16 +11,18 @@ type EmptyStateProps = {
   message?: string;
   // A button or link under the message (e.g. "Pick your spot")
   children?: ReactNode;
+  // "meal": the icon on light green (the Meals module); default: soft red
+  tone?: "meal";
 };
 
 // The member app's one empty-state look: a white card with the icon in a soft red circle, a
 // title, a line under it and an optional action
-export function EmptyState({ icon, title, message, children }: EmptyStateProps) {
+export function EmptyState({ icon, title, message, children, tone }: EmptyStateProps) {
   const colors = useThemeColors();
   return (
     <View className="empty-state" accessibilityRole="summary">
-      <View className="placeholder__icon">
-        <SymbolView name={icon} size={30} tintColor={colors.leaf} />
+      <View className={tone === "meal" ? "meal-icon meal-icon--lg" : "placeholder__icon"}>
+        <SymbolView name={icon} size={30} tintColor={tone === "meal" ? colors.mealPrimary : colors.leaf} />
       </View>
       <Text className="card__title text-center">{title}</Text>
       {message ? <Text className="placeholder__text">{message}</Text> : null}

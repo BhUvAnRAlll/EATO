@@ -225,13 +225,6 @@ export type TodayOrder = {
   status: string; // e.g. "Received"
 };
 
-// Orders aren't built yet: the Today card shows this sample and says so
-export const sampleTodayOrder: TodayOrder = {
-  slot: "LUNCH",
-  meal: { id: "lemon-herb-chicken-bowl", name: "Lemon Herb Chicken Bowl", imageUrl: "asset:meal-lemon-herb-chicken", calories: 470, proteinG: 44, carbsG: 38, fatG: 14 },
-  status: "Received",
-};
-
 // Delivery addresses aren't built yet either: an example pincode for the header
 export const sampleDeliveryPincode = "110017";
 

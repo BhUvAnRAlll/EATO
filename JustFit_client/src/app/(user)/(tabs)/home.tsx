@@ -17,13 +17,16 @@ import { WorkoutHeroCard } from "@/components/home/WorkoutHeroCard";
 import { LoadError } from "@/components/macro/LoadError";
 import { usePullToRefresh } from "@/components/PullToRefresh";
 import { SkeletonCard } from "@/components/Skeleton";
-import { routeFor, sampleNutrition, sampleTodayOrder } from "@/data/home";
+import { routeFor, sampleNutrition } from "@/data/home";
 import { formatShortDate } from "@/lib/date";
 import { todayIso } from "@/lib/macro";
 import { firstNameOf } from "@/lib/me";
 import { useSessionToken } from "@/lib/session";
 import { useAuthStore } from "@/store/auth";
 import { useCartStore } from "@/store/cart";
+import { PressableScale } from "@/components/PressableScale";
+import { STATUS_LABEL, SLOT_LABEL, isOpen } from "@/lib/mealRules";
+import { mealsApi, type Order } from "@/lib/mealsApi";
 import { useAddressBook } from "@/lib/useAddressBook";
 import { useHomeStore } from "@/store/home";
 
@@ -34,8 +37,7 @@ const GAP = 8;
 // Home for members (2026-10-31 look): the greeting, then today's rings (calories, protein,
 // water), today's workout as a dark hero, the week's training minutes, hero promotions, quick
 // actions, popular meals and today's delivery. Promotions and labels come from the server
-// (admins edit them); the numbers are the member's own; orders aren't built yet, so that
-// card is a sample.
+// (admins edit them); the numbers and today's delivery are the member's own.
 export default function Home() {
   const { width, compact } = useResponsive();
   const getToken = useSessionToken();
@@ -45,6 +47,8 @@ export default function Home() {
   const { load: addressLoad } = useAddressBook();
   const deliveryPincode = addressLoad.state === "ready" ? addressLoad.book.addresses.find((a) => a.isDefault)?.pincode ?? null : null;
   const [favorites, setFavorites] = useState<string[]>([]);
+  // Today's meal deliveries (null until read, or when orders can't be read)
+  const [todayOrders, setTodayOrders] = useState<Order[] | null>(null);
 
   const contentWidth = width - PAGE_PADDING * 2;
   const firstName = useAuthStore((state) => firstNameOf(state.user?.fullName));
@@ -75,6 +79,13 @@ export default function Home() {
     }, [getToken, load, refreshIntake]),
   );
 
+  // Today's deliveries, read whenever Home shows (the admin moves them on during the day)
+  const readOrders = useCallback(async () => {
+    const answer = await mealsApi.orders(await getToken().catch(() => null));
+    if (answer.ok) setTodayOrders(answer.data.orders.filter((o) => o.date === todayIso() && o.status !== "cancelled"));
+  }, [getToken]);
+  useFocusEffect(useCallback(() => { readOrders(); }, [readOrders]));
+
   // Back from the background: pick up any changes an admin made
   useEffect(() => {
     const subscription = AppState.addEventListener("change", async (state) => {
@@ -87,8 +98,8 @@ export default function Home() {
   // today's numbers (a forced load reads the same numbers refreshIntake does)
   const reload = useCallback(async () => {
     const token = await getToken().catch(() => null);
-    await load(token, { force: true });
-  }, [getToken, load]);
+    await Promise.all([load(token, { force: true }), readOrders()]);
+  }, [getToken, load, readOrders]);
   const { refreshControl } = usePullToRefresh(reload);
 
   // Only destinations the app knows are ever opened (see destinationRoutes)
@@ -105,6 +116,8 @@ export default function Home() {
     if (workout?.day && workout.status !== "completed" && workout.status !== "rest") router.push({ pathname: "/workout/session", params: { date: todayIso() } });
     else router.push("/workout");
   };
+
+  const todayDelivery = todayOrders?.find((o) => isOpen(o.status)) ?? todayOrders?.[todayOrders.length - 1] ?? null;
 
   const quickActions = content.quickActions;
   // Four cards across on standard phones; below 360pt that leaves under 70pt per card, so
@@ -195,21 +208,39 @@ export default function Home() {
             </>
           )}
 
-          {/* Today's delivery (sample until orders exist) */}
-          {content.showTodaySection && (
+          {/* Today's delivery: the next one still on its way, else the last delivered; a nudge to order when there's none */}
+          {content.showTodaySection && todayOrders !== null && (
             <View className="mt-3 px-4">
-              <SectionHeader
-                title={content.todayHeading}
-                badge={
-                  <View className="live__badge live__badge--sample">
-                    <View className="live__dot live__dot--sample" />
-                    <Text className="live__label live__label--sample">Sample</Text>
-                  </View>
-                }
-                actionLabel={formatShortDate()}
-              />
+              <SectionHeader title={content.todayHeading} actionLabel={formatShortDate()} />
               <View className="mt-3">
-                <TodayMealCard order={sampleTodayOrder} isSample actionLabel={content.todayActionLabel} onViewAll={() => router.navigate("/orders")} />
+                {todayDelivery ? (
+                  <TodayMealCard
+                    order={{
+                      slot: SLOT_LABEL[todayDelivery.slot].toUpperCase(),
+                      meal: {
+                        id: todayDelivery.id,
+                        name: todayDelivery.items.length > 1 ? `${todayDelivery.items[0].name} + ${todayDelivery.items.length - 1} more` : todayDelivery.items[0]?.name ?? "Your meal",
+                        imageUrl: todayDelivery.items[0]?.imageUrl ?? null,
+                        calories: todayDelivery.totals.calories,
+                        proteinG: todayDelivery.totals.proteinG,
+                        carbsG: todayDelivery.totals.carbsG,
+                        fatG: todayDelivery.totals.fatG,
+                      },
+                      status: STATUS_LABEL[todayDelivery.status],
+                    }}
+                    isSample={false}
+                    actionLabel={content.todayActionLabel}
+                    onViewAll={() => router.push({ pathname: "/orders/[id]", params: { id: todayDelivery.id } })}
+                  />
+                ) : (
+                  <PressableScale scaleTo={0.98} onPress={() => router.navigate("/meals")} className="today__card flex-row items-center" style={{ gap: 12 }} accessibilityRole="button">
+                    <View className="flex-1">
+                      <Text className="today__name">No meal delivery today</Text>
+                      <Text className="meta-text">Order breakfast, lunch or dinner from Meals.</Text>
+                    </View>
+                    <Text className="home__link">Order</Text>
+                  </PressableScale>
+                )}
               </View>
             </View>
           )}

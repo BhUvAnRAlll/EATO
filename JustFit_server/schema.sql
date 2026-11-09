@@ -141,13 +141,18 @@ CREATE TABLE meals (
   id            VARCHAR(64)  NOT NULL,            -- slug, e.g. "grilled-chicken-bowl"
   name          VARCHAR(120) NOT NULL,
   description   VARCHAR(500) NULL,
+  serving_size  VARCHAR(40)  NULL,                -- "1 bowl · 450 g"
+  ingredients   VARCHAR(300) NULL,
   image_url     VARCHAR(500) NULL,
+  image_key     VARCHAR(64)  NULL,                -- a photo the admin uploaded (meals/photos.js), a file name the server made
   diet          ENUM('vegetarian', 'non-vegetarian', 'eggetarian', 'vegan') NOT NULL,
+  tags          SET('bestseller', 'gourmet', 'high_protein', 'special') NOT NULL DEFAULT '',
   calories      SMALLINT UNSIGNED NOT NULL,       -- per serving
   protein_g     DECIMAL(6,1) NOT NULL,
   carbs_g       DECIMAL(6,1) NOT NULL,
   fat_g         DECIMAL(6,1) NOT NULL,
   price_paise   INT UNSIGNED NOT NULL,
+  mrp_paise     INT UNSIGNED NULL,                -- the price before a discount, shown struck through
   is_popular    BOOLEAN      NOT NULL DEFAULT FALSE,  -- shown under "Popular Meals"
   is_available  BOOLEAN      NOT NULL DEFAULT TRUE,
   created_at    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -155,6 +160,98 @@ CREATE TABLE meals (
   PRIMARY KEY (id),
   KEY idx_meals_popular (is_available, is_popular)
 ) ENGINE = InnoDB;
+
+-- The Meals tab's tiles (kind 'tile': Under ₹99, High Protein…) and food categories (kind 'food':
+-- Biryani & Rice Bowls…). A category lists the meals picked for it, or every meal with a tag or
+-- under a price. A featured food category also shows as a row of meal cards ("Meal Bowls").
+CREATE TABLE meal_categories (
+  id               INT UNSIGNED  NOT NULL AUTO_INCREMENT,
+  kind             ENUM('tile', 'food') NOT NULL,
+  name             VARCHAR(40)   NOT NULL,
+  subtitle         VARCHAR(80)   NULL,
+  badge            VARCHAR(16)   NULL,
+  image_key        VARCHAR(64)   NULL,
+  match_tag        ENUM('bestseller', 'gourmet', 'high_protein', 'special') NULL,
+  max_price_paise  INT UNSIGNED  NULL,
+  featured         TINYINT(1)    NOT NULL DEFAULT 0,
+  active           TINYINT(1)    NOT NULL DEFAULT 1,
+  sort_order       SMALLINT      NOT NULL DEFAULT 0,
+  created_at       TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at       TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_meal_categories_show (active, kind, sort_order)
+) ENGINE = InnoDB;
+
+-- The meals picked for a category (none when it lists by tag or price)
+CREATE TABLE meal_category_items (
+  category_id  INT UNSIGNED NOT NULL,
+  meal_id      VARCHAR(64)  NOT NULL,
+  PRIMARY KEY (category_id, meal_id),
+  KEY idx_meal_category_items_meal (meal_id),
+  CONSTRAINT fk_meal_category_items_category FOREIGN KEY (category_id) REFERENCES meal_categories (id) ON DELETE CASCADE,
+  CONSTRAINT fk_meal_category_items_meal FOREIGN KEY (meal_id) REFERENCES meals (id) ON DELETE CASCADE
+) ENGINE = InnoDB;
+
+-- The Meals tab's banner carousel. Shown while active and inside its days (India's dates); the
+-- button opens a category, a meal or a tag's list.
+CREATE TABLE meal_banners (
+  id           INT UNSIGNED  NOT NULL AUTO_INCREMENT,
+  title        VARCHAR(60)   NOT NULL,
+  description  VARCHAR(140)  NULL,
+  badge        VARCHAR(20)   NULL,
+  cta_label    VARCHAR(20)   NOT NULL DEFAULT 'Explore now',
+  target_kind  ENUM('category', 'meal', 'tag') NOT NULL,
+  target_ref   VARCHAR(64)   NOT NULL,
+  image_key    VARCHAR(64)   NULL,
+  starts_on    DATE          NULL,
+  ends_on      DATE          NULL,
+  active       TINYINT(1)    NOT NULL DEFAULT 1,
+  sort_order   SMALLINT      NOT NULL DEFAULT 0,
+  created_at   TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at   TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  CONSTRAINT chk_meal_banners_days CHECK (starts_on IS NULL OR ends_on IS NULL OR starts_on <= ends_on)
+) ENGINE = InnoDB;
+
+-- Coupons: a percentage (with an optional cap) or a flat amount off, above a minimum order, inside
+-- their days, a set number of times per member. The server checks them and prices the order.
+CREATE TABLE meal_coupons (
+  id                  INT UNSIGNED  NOT NULL AUTO_INCREMENT,
+  code                VARCHAR(16)   NOT NULL,
+  title               VARCHAR(60)   NOT NULL,
+  kind                ENUM('percent', 'flat') NOT NULL,
+  percent_off         TINYINT UNSIGNED NULL,
+  flat_off_paise      INT UNSIGNED  NULL,
+  max_discount_paise  INT UNSIGNED  NULL,
+  min_order_paise     INT UNSIGNED  NOT NULL DEFAULT 0,
+  per_member_limit    TINYINT UNSIGNED NOT NULL DEFAULT 1,
+  starts_on           DATE          NULL,
+  ends_on             DATE          NULL,
+  active              TINYINT(1)    NOT NULL DEFAULT 1,
+  created_at          TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at          TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_meal_coupons_code (code),
+  CONSTRAINT chk_meal_coupons_kind CHECK ((kind = 'percent' AND percent_off BETWEEN 1 AND 90) OR (kind = 'flat' AND flat_off_paise > 0)),
+  CONSTRAINT chk_meal_coupons_days CHECK (starts_on IS NULL OR ends_on IS NULL OR starts_on <= ends_on)
+) ENGINE = InnoDB;
+
+-- The three delivery times the Super Admin sets (2026-11-09). Orders for a meal time close 2 hours
+-- before it starts (meals/rules.js); a meal time switched off can't be ordered.
+CREATE TABLE meal_delivery_slots (
+  slot        ENUM('breakfast', 'lunch', 'dinner') NOT NULL,
+  starts_at   TIME         NOT NULL,
+  ends_at     TIME         NOT NULL,
+  active      TINYINT(1)   NOT NULL DEFAULT 1,
+  updated_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  updated_by  VARCHAR(64)  NULL,
+  PRIMARY KEY (slot),
+  CONSTRAINT fk_meal_slots_admin FOREIGN KEY (updated_by) REFERENCES users (id) ON DELETE SET NULL,
+  CONSTRAINT chk_meal_slots_times CHECK (starts_at < ends_at)
+) ENGINE = InnoDB;
+
+INSERT INTO meal_delivery_slots (slot, starts_at, ends_at) VALUES
+  ('breakfast', '07:00', '09:00'), ('lunch', '12:30', '14:00'), ('dinner', '19:00', '21:00');
 
 -- Hearted meals
 CREATE TABLE favorite_meals (
@@ -174,18 +271,38 @@ CREATE TABLE favorite_meals (
 CREATE TABLE orders (
   id                CHAR(36)    NOT NULL DEFAULT (UUID()),
   user_id           VARCHAR(64) NOT NULL,
+  client_id         CHAR(36)    NULL,               -- the app's id for the request: a retried Pay places one order
   delivery_date     DATE        NOT NULL,
   meal_slot         ENUM('breakfast', 'lunch', 'snack', 'dinner') NOT NULL,
+  slot_starts_at    TIME        NULL,               -- the delivery time when ordered (copied, like the address)
+  slot_ends_at      TIME        NULL,
   delivery_pincode  CHAR(6)     NOT NULL,
+  receiver_name     VARCHAR(60)   NULL,
+  receiver_phone    CHAR(10)      NULL,
+  delivery_address  VARCHAR(400)  NULL,
+  latitude          DECIMAL(9,6)  NULL,
+  longitude         DECIMAL(9,6)  NULL,
+  instructions      VARCHAR(200)  NULL,
   status            ENUM('placed', 'preparing', 'out_for_delivery', 'delivered', 'cancelled') NOT NULL DEFAULT 'placed',
-  total_paise       INT UNSIGNED NOT NULL,
+  cancel_reason     VARCHAR(200)  NULL,
+  cancelled_by      ENUM('member', 'admin') NULL,
+  total_paise       INT UNSIGNED NOT NULL,      -- what was paid: the subtotal less the coupon's discount
+  subtotal_paise    INT UNSIGNED NULL,
+  discount_paise    INT UNSIGNED NOT NULL DEFAULT 0,
+  coupon_id         INT UNSIGNED NULL,
+  coupon_code       VARCHAR(16)  NULL,             -- kept when the coupon is deleted
+  payment_method    ENUM('test')  NULL,             -- a test payment until a real gateway is added
+  payment_ref       VARCHAR(40)   NULL,
   delivered_at      TIMESTAMP   NULL,
   created_at        TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at        TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
+  UNIQUE KEY uq_orders_client (user_id, client_id),
   KEY idx_orders_user_date (user_id, delivery_date),   -- "Today" on the home screen
   KEY idx_orders_status (status),
+  KEY idx_orders_day (delivery_date, meal_slot),       -- the admin's orders for a day
   CONSTRAINT fk_orders_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+  CONSTRAINT fk_orders_coupon FOREIGN KEY (coupon_id) REFERENCES meal_coupons (id) ON DELETE SET NULL,
   CONSTRAINT chk_orders_pincode CHECK (delivery_pincode REGEXP '^[1-9][0-9]{5}$')
 ) ENGINE = InnoDB;
 
@@ -327,8 +444,8 @@ CREATE TABLE macro_meal_logs (
   slot        ENUM('breakfast', 'lunch', 'snack', 'dinner') NOT NULL,
   title       VARCHAR(120) NOT NULL,
   logged_at   TIMESTAMP(3) NOT NULL,                  -- when it was eaten; orders the day
-  source      ENUM('manual', 'favorite', 'repeat', 'plan') NOT NULL DEFAULT 'manual',
-  plan_log_key VARCHAR(80) NULL,                      -- "<date>:<plan meal id>:<n>" for a diet-plan meal, so a repeated tap can't log it twice
+  source      ENUM('manual', 'favorite', 'repeat', 'plan', 'order') NOT NULL DEFAULT 'manual',
+  plan_log_key VARCHAR(80) NULL,                      -- "<date>:<plan meal id>:<n>" for a diet-plan meal, "order:<order id>" for a delivered order, so neither is logged twice
   created_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   UNIQUE KEY uq_meal_logs_plan_key (user_id, plan_log_key),
@@ -768,7 +885,7 @@ CREATE TABLE admin_audit_log (
   id           CHAR(36)     NOT NULL DEFAULT (UUID()),
   admin_id     VARCHAR(64)  NULL,
   action       VARCHAR(40)  NOT NULL,                -- e.g. promotion.publish
-  target_type  ENUM('user', 'gym', 'post', 'report', 'promotion', 'exercise', 'program', 'section') NOT NULL,
+  target_type  ENUM('user', 'gym', 'post', 'report', 'promotion', 'exercise', 'program', 'section', 'meal', 'order') NOT NULL,
   target_id    VARCHAR(64)  NULL,
   summary      VARCHAR(200) NOT NULL,                -- "Verified Marcus Johnson", shown as written
   created_at   TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),  -- sub-second, so actions keep their order

@@ -8,6 +8,7 @@
 // see BUNDLED_IMAGES) or an https URL. The app keeps matching lists in
 // JustFit_client/src/data/home.ts and src/constants/images.ts; keep them in sync.
 const { ValidationError } = require("./profile");
+const { mealImageUrl } = require("./meals/rules");
 
 // Screens a promotion button or quick-action card may open (resolved to routes by the app)
 const DESTINATIONS = ["home", "meals", "explore", "macro", "nutrition", "fitness", "plans", "orders", "profile", "goals", "notifications", "addresses"];
@@ -287,7 +288,7 @@ function mealToApi(row) {
   return {
     id: row.id,
     name: row.name,
-    imageUrl: row.image_url,
+    imageUrl: mealImageUrl(row),
     calories: row.calories,
     proteinG: row.protein_g,
     carbsG: row.carbs_g,
@@ -420,7 +421,7 @@ async function loadHomeContent(pool) {
   let popularMeals = [];
   if (content.popularMealIds.length > 0) {
     const [meals] = await pool.query(
-      "SELECT id, name, image_url, calories, protein_g, carbs_g, fat_g FROM meals WHERE is_available = TRUE AND id IN (?)",
+      "SELECT * FROM meals WHERE is_available = TRUE AND id IN (?)", // * so image_key is read once its migration has run
       [content.popularMealIds],
     );
     const byId = new Map(meals.map((meal) => [meal.id, mealToApi(meal)]));
@@ -456,7 +457,7 @@ async function saveHomeContent(pool, values, userId) {
 // Every meal on the menu, for the admin's popular-meal picker
 async function listMeals(pool) {
   const [rows] = await pool.query(
-    "SELECT id, name, image_url, calories, protein_g, carbs_g, fat_g FROM meals WHERE is_available = TRUE ORDER BY name",
+    "SELECT * FROM meals WHERE is_available = TRUE ORDER BY name",
   );
   return rows.map(mealToApi);
 }

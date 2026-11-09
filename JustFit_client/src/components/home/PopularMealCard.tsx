@@ -4,7 +4,8 @@ import { Image } from "expo-image";
 import { SymbolView } from "@/components/SymbolView";
 
 import type { Meal } from "@/data/home";
-import { resolveImage } from "@/lib/home";
+import { mealImage } from "@/lib/mealsApi";
+import { useAuthStore } from "@/store/auth";
 import { useThemeColors } from "@/theme";
 
 type PopularMealCardProps = {
@@ -20,6 +21,8 @@ type PopularMealCardProps = {
 // Photo with a heart, then the name, calories and macros, and a round add button
 export function PopularMealCard({ meal, width, favorite, quantity, onToggleFavorite, onAdd }: PopularMealCardProps) {
   const colors = useThemeColors();
+  // An uploaded meal photo is read with the session token
+  const token = useAuthStore((state) => state.token);
   const line1 = `${meal.calories} kcal | ${Math.round(meal.proteinG)}g P`;
   const line2 = `${Math.round(meal.carbsG)}g C | ${Math.round(meal.fatG)}g F`;
   // Narrow cards (under 165pt): smaller macro text and a smaller add button
@@ -29,7 +32,7 @@ export function PopularMealCard({ meal, width, favorite, quantity, onToggleFavor
   return (
     <View className="meal__card" style={{ width }}>
       <View>
-        <Image source={resolveImage(meal.imageUrl)} contentFit="cover" style={{ width, height: Math.round(width * 0.7) }} accessibilityLabel={meal.name} />
+        <Image source={mealImage(meal.imageUrl, token)} contentFit="cover" style={{ width, height: Math.round(width * 0.7) }} accessibilityLabel={meal.name} />
         <PressableScale scaleTo={0.98}
           onPress={onToggleFavorite}
           className="meal__heart"

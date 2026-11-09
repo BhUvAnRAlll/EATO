@@ -10,11 +10,12 @@ import { useThemeColors } from "@/theme";
 // shows them on screen); the spinner just stops.
 //
 //   const { refreshControl } = usePullToRefresh(load);
+//   usePullToRefresh(load, colors.mealPrimary)   // another spinner colour (the Meals module)
 //   <ScrollView refreshControl={refreshControl}>
 //
 // Only the vertical list or scroll view of a screen gets it: horizontal carousels, nested
 // lists and inputs never do.
-export function usePullToRefresh(reload: () => Promise<unknown>) {
+export function usePullToRefresh(reload: () => Promise<unknown>, tint?: string) {
   const colors = useThemeColors();
   const [refreshing, setRefreshing] = useState(false);
   const busy = useRef(false);
@@ -33,6 +34,6 @@ export function usePullToRefresh(reload: () => Promise<unknown>) {
     }
   }, [reload]);
 
-  const refreshControl = <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.leaf} colors={[colors.leaf]} progressBackgroundColor={colors.surface} />;
+  const refreshControl = <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={tint ?? colors.leaf} colors={[tint ?? colors.leaf]} progressBackgroundColor={colors.surface} />;
   return { refreshing, onRefresh, refreshControl };
 }

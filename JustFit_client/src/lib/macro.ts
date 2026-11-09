@@ -7,7 +7,7 @@ import type { Icon } from "@/types/profile";
 export type Slot = "breakfast" | "lunch" | "snack" | "dinner";
 export type Totals = { kcal: number; proteinG: number; carbsG: number; fatG: number };
 export type MealItem = { name: string; quantity: number; unit: string } & Totals;
-export type MealSource = "manual" | "favorite" | "repeat" | "plan";
+export type MealSource = "manual" | "favorite" | "repeat" | "plan" | "order"; // order: a delivered meal order
 export type Meal = { id: string; date: string; slot: Slot; title: string; loggedAt: string; source: MealSource; items: MealItem[]; totals: Totals };
 export type DayView = { date: string; targets: Totals | null; totals: Totals; burned: number; meals: Meal[] };
 export type DayStatus = "none" | "complete" | "partial" | "low" | "over";
@@ -222,7 +222,7 @@ export function loggedAtFor(date: string, hour?: string, minute?: string) {
   return at.getTime();
 }
 
-export const sourceLabel: Record<MealSource, string> = { manual: "Logged", favorite: "From favourites", repeat: "Repeated", plan: "From your plan" };
+export const sourceLabel: Record<MealSource, string> = { manual: "Logged", favorite: "From favourites", repeat: "Repeated", plan: "From your plan", order: "Delivered order" };
 
 // ---- numbers --------------------------------------------------------------------
 

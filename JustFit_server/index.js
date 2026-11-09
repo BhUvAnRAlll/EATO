@@ -47,6 +47,7 @@ const { attendanceRouter } = require("./gym/attendanceRoutes");
 const { membershipRouter } = require("./gym/membershipRoutes");
 const { discoverRouter } = require("./gym/discoverRoutes");
 const { addressesRouter } = require("./addresses/routes");
+const { mealsRouter, ordersRouter, kitchenRouter } = require("./meals/routes");
 const { trainerRouter, refuseTrainers } = require("./gym/trainerRoutes");
 const { deriveQrKey } = require("./gym/attendanceRules");
 const { adminPortalRouter } = require("./admin/routes");
@@ -117,6 +118,7 @@ const gymLimiter = createRateLimiter({ ...rateLimits.frequent, limit: Number(pro
 const membershipLimiter = createRateLimiter(rateLimits.frequent); // a member's gym memberships and pause requests
 const discoverLimiter = createRateLimiter(rateLimits.frequent); // Gym Hub › Discover Gyms: the list, a gym's page and its photos
 const addressLimiter = createRateLimiter(rateLimits.frequent); // a member's delivery addresses
+const mealsLimiter = createRateLimiter(rateLimits.frequent); // the menu, meal photos, the cart's options and a member's orders
 const attendanceLimiter = createRateLimiter({ limit: 30, windowMs: 10 * 60 * 1000 }); // members' QR check-ins and check-outs
 
 // Phone sign-in (auth/routes.js): request and check a code, who am I, logout. The two sign-in
@@ -425,6 +427,14 @@ app.use("/api/gyms", requireUser, limitPerUser(discoverLimiter), discoverRouter)
 
 // A member's delivery addresses and the pincode check (addresses/routes.js)
 app.use("/api/addresses", requireUser, limitPerUser(addressLimiter), addressesRouter);
+
+// Meal ordering (meals/routes.js): members read the Meals tab's storefront and order one meal time on
+// one day (a test payment until a gateway is added, coupons priced by the server); the Super Admin
+// keeps the meals, categories, banners, coupons and delivery times and moves each order on, as
+// kitchen and delivery person (adminOnly reads the role every time)
+app.use("/api/meals", requireUser, limitPerUser(mealsLimiter), mealsRouter);
+app.use("/api/orders", requireUser, limitPerUser(mealsLimiter), ordersRouter);
+app.use("/api/admin/kitchen", ...adminOnly, kitchenRouter);
 
 // A gym trainer's PT clients (gym/trainerRoutes.js): trainers only, their own clients only
 app.use("/api/trainer", requireUser, limitPerUser(gymLimiter), trainerRouter);

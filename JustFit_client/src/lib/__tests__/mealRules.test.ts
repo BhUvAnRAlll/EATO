@@ -1,0 +1,103 @@
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+
+import { cartTotals, clockText, closesAtText, dayLabel, itemsLine, macroLine, macrosMismatch, rupees, shiftTime, stepIndex, timeRange } from "../mealRules.ts";
+
+describe("meal ordering rules", () => {
+  it("writes rupees with Indian grouping", () => {
+    assert.equal(rupees(249), "₹249");
+    assert.equal(rupees(124999), "₹1,24,999");
+  });
+
+  it("writes times and ranges the short way", () => {
+    assert.equal(clockText("07:00"), "7 am");
+    assert.equal(clockText("12:30"), "12:30 pm");
+    assert.equal(clockText("00:15"), "12:15 am");
+    assert.equal(timeRange("07:00", "09:00"), "7 – 9 am");
+    assert.equal(timeRange("12:30", "14:00"), "12:30 – 2 pm");
+    assert.equal(timeRange("11:00", "13:00"), "11 am – 1 pm");
+  });
+
+  it("moves times in half hours inside the day, and says when orders close", () => {
+    assert.equal(shiftTime("07:00", 30), "07:30");
+    assert.equal(shiftTime("00:00", -30), "00:00");
+    assert.equal(shiftTime("23:30", 30), "23:30");
+    assert.equal(closesAtText("12:30", 120), "10:30 am");
+    assert.equal(closesAtText("07:00", 120), "5 am");
+  });
+
+  it("names days against today", () => {
+    assert.equal(dayLabel("2026-11-09", "2026-11-09"), "Today");
+    assert.equal(dayLabel("2026-11-10", "2026-11-09"), "Tomorrow");
+    assert.equal(dayLabel("2026-11-12", "2026-11-09"), "Thu, 12 Nov");
+  });
+
+  it("adds up the cart and the order's lines", () => {
+    assert.deepEqual(cartTotals([{ mealId: "a", quantity: 2, price: 249, calories: 520, proteinG: 32 }, { mealId: "b", quantity: 1, price: 149, calories: 300, proteinG: 20 }]), {
+      count: 3, total: 647, calories: 1340, proteinG: 84,
+    });
+    assert.equal(itemsLine([{ name: "Paneer Bowl", quantity: 2 }, { name: "Egg Bhurji", quantity: 1 }]), "2 × Paneer Bowl, Egg Bhurji");
+    assert.equal(macroLine({ calories: 520, proteinG: 32.4, carbsG: 48, fatG: 18 }), "520 kcal · 32g P · 48g C · 18g F");
+  });
+
+  it("knows the steps and spots macros that don't add up", () => {
+    assert.equal(stepIndex("placed"), 0);
+    assert.equal(stepIndex("delivered"), 3);
+    assert.equal(stepIndex("cancelled"), -1);
+    assert.equal(macrosMismatch(520, 32, 48, 18), false); // 482 kcal from macros: close enough
+    assert.equal(macrosMismatch(900, 32, 48, 18), true);
+  });
+});
+
+describe("meal ordering rules: the admin's day and directions", () => {
+  it("moves days and builds a directions link", async () => {
+    const { addDays, directionsUrl } = await import("../mealRules.ts");
+    assert.equal(addDays("2026-12-31", 1), "2027-01-01");
+    assert.equal(addDays("2026-03-01", -1), "2026-02-28");
+    assert.equal(directionsUrl({ latitude: 13.3392, longitude: 77.1017, line: "x" }), "https://www.google.com/maps/dir/?api=1&destination=13.3392,77.1017");
+    assert.equal(directionsUrl({ latitude: null, longitude: null, line: "4B, MG Road" }), "https://www.google.com/maps/dir/?api=1&destination=4B%2C%20MG%20Road");
+    assert.equal(directionsUrl({ latitude: null, longitude: null, line: null }), null);
+  });
+});
+
+describe("meal ordering rules: the storefront", () => {
+  const meal = (id: string, over: Record<string, unknown> = {}) => ({ id, name: id, description: null, ingredients: null, diet: "vegetarian" as const, tags: [] as ("bestseller" | "gourmet" | "high_protein" | "special")[], proteinG: 10, price: 100, mrp: null as number | null, ...over });
+  const meals = [
+    meal("Paneer Tikka Bowl", { proteinG: 32, tags: ["bestseller"], ingredients: "paneer, rice" }),
+    meal("Chicken Biryani", { diet: "non-vegetarian", proteinG: 40, price: 199, mrp: 249 }),
+    meal("Egg Bhurji", { diet: "eggetarian", proteinG: 18, tags: ["special"] }),
+    meal("Dal Rice", { diet: "vegan", proteinG: 14 }),
+  ];
+  const categories = [
+    { id: 1, kind: "tile" as const, name: "Under 150", featured: false, mealIds: ["Paneer Tikka Bowl", "Egg Bhurji", "Dal Rice"] },
+    { id: 2, kind: "food" as const, name: "Biryani & Rice", featured: true, mealIds: ["Chicken Biryani", "Dal Rice"] },
+    { id: 3, kind: "food" as const, name: "Non-veg only", featured: false, mealIds: ["Chicken Biryani"] },
+  ];
+
+  it("builds the sections, and Veg only drops non-veg, egg and empty categories", async () => {
+    const { shopSections } = await import("../mealRules.ts");
+    const all = shopSections(meals, categories, false);
+    assert.deepEqual(all.highProtein.map((m) => m.id), ["Chicken Biryani", "Paneer Tikka Bowl"]);
+    assert.deepEqual(all.specials.map((m) => m.id), ["Chicken Biryani", "Egg Bhurji"]);
+    assert.deepEqual(all.rows.map((r) => r.meals.map((m) => m.id)), [["Chicken Biryani", "Dal Rice"]]);
+    const veg = shopSections(meals, categories, true);
+    assert.deepEqual(veg.meals.map((m) => m.id), ["Paneer Tikka Bowl", "Dal Rice"]);
+    assert.deepEqual(veg.foods.map((c) => c.id), [2], "the non-veg-only category goes");
+    assert.deepEqual(veg.specials.map((m) => m.id), ["Paneer Tikka Bowl"], "no specials left, so bestsellers");
+  });
+
+  it("searches names, ingredients and categories; suggests names", async () => {
+    const { searchMeals, suggestions, discountText, cardBadge } = await import("../mealRules.ts");
+    assert.deepEqual(searchMeals(meals, categories, "paneer").map((m) => m.id), ["Paneer Tikka Bowl"]);
+    assert.deepEqual(searchMeals(meals, categories, "rice").map((m) => m.id), ["Dal Rice", "Chicken Biryani", "Paneer Tikka Bowl"]);
+    assert.deepEqual(searchMeals(meals, categories, "biryani rice dal").map((m) => m.id), ["Dal Rice"]);
+    assert.equal(searchMeals(meals, categories, "").length, 4);
+    assert.deepEqual(suggestions(meals, categories, "bi"), ["Biryani & Rice", "Chicken Biryani"]);
+    assert.deepEqual(suggestions(meals, categories, "b"), []);
+    assert.equal(discountText(199, 249), "20% off");
+    assert.equal(discountText(199, null), null);
+    assert.equal(cardBadge({ tags: ["special", "bestseller"], proteinG: 10 }), "Bestseller");
+    assert.equal(cardBadge({ tags: [], proteinG: 30 }), "High protein");
+    assert.equal(cardBadge({ tags: [], proteinG: 10 }), null);
+  });
+});

@@ -38,7 +38,7 @@ Main areas of the app:
 
 - **Onboarding**: welcome → sign up → setup: personal details (name, date of birth for the age, height, gender, weight, phone) → body composition (optional: Scan Body, instructions, two photos; no typed body fat %) → goal → activity and health conditions → food → meals per day → calculated targets. No pincode step yet. Workout frequency, type and time were removed from setup on 2026-11-09 (the user's choice): the AI Coach intake asks them in more detail, its goal is pre-filled from setup's (`coach/validate.js` `prefillFrom`), and the workout engine falls back to 3 days without them; the `profiles.workout_*` columns stay and older answers are still read
 - **Home**: calorie ring, today's deliveries, streak, XP
-- **Food**: menu, meal detail, cart, checkout, order success, live order tracking
+- **Food**: the Meals tab (menu), meal detail, cart and checkout (test payment), my orders and an order's steps; the Super Admin's Orders tab, meals and delivery times (see "Meal ordering")
 - **Subscribe**: plan picker, subscription builder, review, my subscription (skip days, wallet credit)
 - **Nutrition**: food diary, water and supplement tracking, add food, barcode scan, photo scan, weight log
 - **Training**: workout plans, active workout, summary, exercise library, cardio, progress charts. Since 2026-11-01 the Workout hub is the Workout tab (`app/(user)/(tabs)/workout.tsx`, route `/workout`), in the slot Community had; its day, session, preferences and rebuild screens stay under `app/(user)/workout/`
@@ -203,6 +203,97 @@ are published as they were); before it the profile routes answer 503 naming it a
 the profile as before. Tests: `gym-profile-rules.test.js`, `e2e/gym-profile.e2e.test.js`,
 `ui/gym-profile.ui.test.js`, the client's `lib/__tests__/gymProfile.test.ts`.
 
+### Meal ordering (2026-11-09, the user's plan; migration approved)
+
+The Super Admin is the menu, the kitchen and the delivery person (the user's choice). Members order
+one meal time (breakfast, lunch or dinner) on one day, today to 6 days ahead; each meal time closes
+2 hours before it starts; payment is a test payment until a gateway is added (no money is taken).
+The Meals module is green (`meal-*` tokens and utilities); the user chose green app-wide the same day.
+
+- **Meals tab (redesigned the same day from the user's Swiggy/Zomato brief):** `(tabs)/meals.tsx`
+  reads one storefront (`GET /api/meals/storefront`, kept a minute in `store/storefront.ts`): the
+  logo, Meals, the delivery address pill, Orders and the cart with its count; search by meal,
+  cuisine or ingredient with suggestions and Veg only (vegetarian and vegan); the admin's tiles; the
+  banner carousel (`BannerCarousel`, 5 s, never with Reduce Motion); a row of cards per featured food
+  category ("Meal Bowls"); the food categories as circles; Today's specials (tagged, or discounted);
+  High protein (tagged or 25 g and over, with "x% of your protein left today" from Home's targets);
+  Offers (today's coupons, Apply keeps the code in `store/cart.ts`); then All meals. Pieces in
+  `components/meals/ShopParts.tsx` (`MealCard`, `CategoryTile`, `FoodCircle`, `CouponCard`,
+  `SectionTitle`), sections from `lib/mealRules.ts` `shopSections` / `searchMeals` / `suggestions`
+  (pure, unit-tested). `(user)/meals/browse.tsx` (`?category=`, `?tag=`, `?list=specials|high_protein`)
+  lists one of them two a row with Veg only and a sort. A meal (`meals/[id].tsx`): photo, tags,
+  price with the struck original and % off, serving, description, kcal and macros, ingredients,
+  favourite, Add to cart / − n +. The cart (`meals/cart.tsx`): meals, Delivery day, Meal time (open
+  ones only), the address (`/addresses?pick=1`), a coupon (code box or applied, the saving or why
+  not, from `POST /api/orders/quote`), the bill, Test payment, Pay (one `clientId` per order). My
+  orders and an order (`orders/[id].tsx`, steps, the coupon line, Cancel while only placed). Home's
+  Today card shows today's real delivery. A meal is capped at 3 in the cart.
+- **Super Admin:** the Orders tab (`admin/(tabs)/orders.tsx`: one day at a time, To do / Delivered /
+  Cancelled / All, by meal time; Call, Directions, items, and one button Start preparing → Out for
+  delivery → Mark delivered; Cancel with a reason). Meals (`admin/meals/index.tsx`): links to
+  Categories, Banners, Coupons and Delivery times, Add Meal, every meal with a Show switch and Delete;
+  a meal opens Edit. `components/admin/MealForm.tsx` (Add and Edit): photo (camera or gallery,
+  remove), name, serving size, description, ingredients, diet, tags (Bestseller, Gourmet, High
+  protein, Today's special), kcal and macros, price and an optional original price, Show on the
+  menu. Categories (`admin/meals/categories/`): Tile or Food category, picture, name, subtitle,
+  label, which meals (picked, by tag, or up to a price), row of cards, on/off, order. Banners
+  (`admin/meals/banners/`): wide photo, heading, text, badge, button, where it goes (a tag's list, a
+  category or a meal), shows from/until, on/off, order. Coupons (`admin/meals/coupons/`): code,
+  title, % off (with "up to") or ₹ off, minimum order, uses per member, works from/until, on/off.
+  Delivery times (`admin/meals/times.tsx`). Shared bits in `components/admin/AdminPickers.tsx`.
+- **Server** `JustFit_server/meals/` (`rules.js` and `catalogRules.js` pure, `service.js`,
+  `catalog.js`, `photos.js`, `routes.js`): `/api/meals` (`GET /`, `GET /storefront`, `GET /:id`,
+  `GET /:id/photo`, `GET /categories/:id/photo`, `GET /banners/:id/photo`, `PUT|DELETE /:id/favorite`)
+  and `/api/orders` (`GET /options`, `POST /quote`, `GET /`, `POST /` 20 an hour
+  (`MEAL_ORDERS_PER_HOUR`), `GET /:id`, `POST /:id/cancel`) behind `requireUser`;
+  `/api/admin/kitchen` behind `adminOnly`: `GET|POST /meals`, `PUT|DELETE /meals/:id`,
+  `PATCH /meals/:id/visibility`, `GET|POST /categories`, `PUT|DELETE /categories/:id`, the same for
+  `/banners` and `/coupons`, `GET|PUT /slots`, `GET /orders?day=`, `POST /orders/:id/advance { from }`,
+  `POST /orders/:id/cancel { reason }`. Photos come in the same body (`photo`, or `removePhoto: true`),
+  checked from their bytes (2 MB; meals 320×240, tiles 160×160, banners 600×300 at least), saved
+  before the row and removed if the write fails; the old file is deleted after a replace
+  (`MEAL_PHOTO_DIR`, default `uploads/meal-photos`). Members see only meals on the menu, active
+  categories with at least one such meal, banners on their days whose target exists, and live
+  coupons they still have uses of. Prices, discounts and macros come from the database, never the
+  app; a coupon is checked with its row locked inside the order's transaction (days, minimum, uses
+  per member counted from orders not cancelled, never more than the subtotal); the address must be
+  the member's and deliverable; the order copies the address, the meal time, the items and the
+  coupon code. A step moves only from the step the admin saw. Delivered logs one Macro meal
+  (`source = 'order'`, `plan_log_key = "order:<id>"`). Deleting a meal keeps orders
+  (`order_items.meal_id` → NULL); deleting a coupon keeps its code on orders. Audited `meal.*` and
+  `order.*`.
+- **Migration** `2026-12-23-meal-ordering.sql` (meals: `image_key`, `tags`, `serving_size`,
+  `ingredients`, `mrp_paise`; tables `meal_categories`, `meal_category_items`, `meal_banners`,
+  `meal_coupons`, `meal_delivery_slots` (seeded 7–9 am, 12:30–2 pm, 7–9 pm); orders: the copies,
+  `client_id`, subtotal, discount, coupon, test payment and cancel columns;
+  `macro_meal_logs.source` adds `order`; `admin_audit_log.target_type` adds `meal`, `order`); before
+  it these routes answer 503 naming it (Home still reads).
+- **Not built:** real payments (PhonePe was the pick), push notifications for a step, delivery fees,
+  subscriptions, gym-specific menus (the user chose one justFit menu run by the Super Admin). Tests:
+  `__tests__/meal-rules.test.js`, `meal-catalog-rules.test.js`, `e2e/meals.e2e.test.js`, the client's
+  `lib/__tests__/mealRules.test.ts`.
+
+**Gym Profile Management, phase 2 of 4: membership plans (2026-11-09, migration approved):** Plans /
+Catalogue's Add / Edit sheet (`CatalogSheet`) adds quick lengths (Monthly, Quarterly, Half-yearly,
+Annual; any 1-24 months still typed, `PLAN_PRESETS`), Benefits (plans and PT: up to 8, 2-60
+characters, members see each with a tick), Best value (plans only, one a branch: marking one unmarks
+the rest, an inactive or archived plan loses it) and, on an edit, Status: Active (members see it and
+the forms offer it), Inactive (hidden for now; members already on it keep it) or Archived (out of the
+list unless "Show archived"). The list (`CatalogList`) tags Best value, Inactive, Archived and the
+number of benefits and has ↑ ↓ to set the order (`PUT /api/gym/catalog/order { kind, ids }`, every
+item of that kind once; area catalog, option catalog.edit; on Activity). Server: `rules.catalogBody`
+takes `benefits`, `bestValue`, `status`; `rules.catalogOrder`; `service.addItem` / `editItem` /
+`orderItems` (in a transaction), `hasPlanOptions` and `activeOnly`: Add Member and Renewal's
+`planId`, product and service sales and join requests use active items only; Discover and a gym's
+page list active plans and PT in the gym's order (`discoverRules.comparePlans`, never-ordered items
+after, shortest first) with `benefits` and `bestValue` (the app falls back to the cheapest a month
+when none is marked). Description stays the existing "What's included" text (`details`). Plans are
+live: they don't wait for Publish. Delete still deletes. Migration `2026-12-24-catalog-plan-options.sql`
+(`gym_catalog_items.benefits`, `best_value`, `sort_order`, `status`, an index); before it the
+catalogue reads as before and saving any of the new fields answers 503 naming it. Tests:
+`__tests__/gym-plan-rules.test.js`, `e2e/gym-plans.e2e.test.js`, the client's
+`data/__tests__/gymPlans.test.ts`.
+
 ### Delivery addresses (2026-11-09)
 
 Profile › Delivery addresses (and Home's "Deliver to · <pincode>" pill) is the member's address
@@ -231,12 +322,12 @@ deliveries decided by a pincode list, the selected address kept on the server.
   to `req.userId`; another member's id answers 404. The coordinates must be inside India and never
   replace the typed address. One selected address per member (`is_default`, a unique key on the
   generated `default_user_id`); the first is selected, deleting it selects the newest left; at most
-  20. `service.deliverableAddress` is the check checkout must call (409 outside the list).
+  20. `service.deliverableAddress` is the check meal checkout calls (409 outside the list).
 - **Tables** `user_addresses` and `delivery_pincodes` (migration
   `2026-12-16-delivery-addresses.sql`; before it the routes answer 503 naming it and Home's pill
   stays hidden). Pincodes are managed with `npm run delivery-pincode -- list | add <pincode> [area] |
   off <pincode>` in `JustFit_server` (no admin screen yet).
-- **Not built:** checkout (none exists), Google Places autocomplete, an admin screen for pincodes,
+- **Not built:** Google Places autocomplete, an admin screen for pincodes,
   per-address delivery slots. Tests: `__tests__/address-rules.test.js`, `e2e/addresses.e2e.test.js`,
   the client's `lib/__tests__/addressRules.test.ts`.
 

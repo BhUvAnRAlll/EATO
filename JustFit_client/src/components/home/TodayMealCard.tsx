@@ -4,7 +4,8 @@ import { Image } from "expo-image";
 import { SymbolView } from "@/components/SymbolView";
 
 import type { TodayOrder } from "@/data/home";
-import { resolveImage } from "@/lib/home";
+import { mealImage } from "@/lib/mealsApi";
+import { useAuthStore } from "@/store/auth";
 import { useThemeColors } from "@/theme";
 
 type TodayMealCardProps = {
@@ -18,13 +19,15 @@ type TodayMealCardProps = {
 // One delivery: thumbnail, meal slot and name, nutrition chips, status and a "View all" link
 export function TodayMealCard({ order, isSample, actionLabel, onViewAll }: TodayMealCardProps) {
   const colors = useThemeColors();
+  // An uploaded meal photo is read with the session token
+  const token = useAuthStore((state) => state.token);
   const { meal } = order;
   const chips = [`${meal.calories} kcal`, `${Math.round(meal.proteinG)}g P`, `${Math.round(meal.carbsG)}g C`, `${Math.round(meal.fatG)}g F`];
 
   return (
     <View className="today__card">
       <View className="flex-row gap-3">
-        <Image source={resolveImage(meal.imageUrl)} contentFit="cover" style={{ width: 64, height: 64, borderRadius: 14 }} accessibilityLabel={meal.name} />
+        <Image source={mealImage(meal.imageUrl, token)} contentFit="cover" style={{ width: 64, height: 64, borderRadius: 14 }} accessibilityLabel={meal.name} />
         <View className="flex-1">
           <Text className="today__slot">{order.slot}</Text>
           <Text className="today__name mt-0.5" numberOfLines={3}>

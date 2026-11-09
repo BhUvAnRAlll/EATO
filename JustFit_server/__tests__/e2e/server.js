@@ -27,6 +27,8 @@ const RELAXED_OTP = {
   // Reminder templates (30 in production): the templates suite adds 21 of its own in one test
   GYM_TEMPLATE_CHANGES_PER_HOUR: "1000",
   GYM_REQUESTS_PER_MINUTE: "1000",
+  // Meal orders and cancels (20 an hour in production): the meals suite places more than that
+  MEAL_ORDERS_PER_HOUR: "1000",
 };
 
 function portFree(port) {
@@ -90,6 +92,7 @@ async function startTestServer(env, { sms = "fake" } = {}) {
       ...(env.GYM_LOGO_DIR ? { GYM_LOGO_DIR: env.GYM_LOGO_DIR } : {}),
       ...(env.GYM_PHOTO_DIR ? { GYM_PHOTO_DIR: env.GYM_PHOTO_DIR } : {}),
       ...(env.EXPENSE_BILL_DIR ? { EXPENSE_BILL_DIR: env.EXPENSE_BILL_DIR } : {}),
+      ...(env.MEAL_PHOTO_DIR ? { MEAL_PHOTO_DIR: env.MEAL_PHOTO_DIR } : {}),
       // The YouTube test points the video loader at a local fake API with a test key
       ...(env.YOUTUBE_API_URL ? { YOUTUBE_API_URL: env.YOUTUBE_API_URL, YOUTUBE_API_KEY: env.YOUTUBE_API_KEY } : {}),
     },

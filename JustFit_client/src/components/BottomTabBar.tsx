@@ -28,6 +28,9 @@ export function BottomTabBar({ state, emitter, navigateToTab, tabs = homeTabs, b
   // Narrow phones (or six tabs): the labels only fit at a smaller size
   const { compact, narrow: belowWide } = useResponsive();
   const narrow = compact || (tabs.length > 5 && belowWide);
+  // On the Meals tab the bar's accent is the Meals module's green; everywhere else the app's red
+  const meals = state.routes[state.index]?.name === "meals";
+  const accent = meals ? colors.mealPrimary : colors.leaf;
 
   return (
     <View className="tabbar" style={{ paddingBottom: Math.max(insets.bottom, 10), paddingHorizontal: narrow ? 2 : 8 }} accessibilityRole="tablist">
@@ -56,11 +59,11 @@ export function BottomTabBar({ state, emitter, navigateToTab, tabs = homeTabs, b
             >
               <View>
                 {tab.raised ? (
-                  <View className={active ? "tabbar__raised tabbar__raised--active" : "tabbar__raised"} style={{ backgroundColor: active ? colors.primaryPressed : colors.primary, borderColor: colors.surface }}>
+                  <View className={active ? "tabbar__raised tabbar__raised--active" : "tabbar__raised"} style={{ backgroundColor: meals ? colors.mealPrimary : active ? colors.primaryPressed : colors.primary, borderColor: colors.surface }}>
                     <SymbolView name={tab.icon} size={24} tintColor={colors.white} bounce={active} />
                   </View>
                 ) : (
-                  <SymbolView name={tab.icon} size={22} tintColor={active ? colors.leaf : colors.faint} bounce={active} />
+                  <SymbolView name={tab.icon} size={22} tintColor={active ? accent : colors.faint} bounce={active} />
                 )}
                 {badge > 0 && (
                   <View className="tab-badge">
@@ -68,7 +71,7 @@ export function BottomTabBar({ state, emitter, navigateToTab, tabs = homeTabs, b
                   </View>
                 )}
               </View>
-              <Text className={active ? "tabbar__label tabbar__label--active" : "tabbar__label"} style={narrow ? { fontSize: 10, lineHeight: 12 } : undefined} numberOfLines={1} maxFontSizeMultiplier={1.3}>
+              <Text className={active ? "tabbar__label tabbar__label--active" : "tabbar__label"} style={[narrow ? { fontSize: 10, lineHeight: 12 } : null, active && meals ? { color: colors.mealDark } : null]} numberOfLines={1} maxFontSizeMultiplier={1.3}>
                 {tab.label}
               </Text>
             </Pressable>
