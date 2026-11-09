@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, Text, View } from "react-native";
+import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from "react-native";
 import { PressableScale } from "@/components/PressableScale";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
@@ -10,6 +10,7 @@ import { PrimaryButton } from "@/components/PrimaryButton";
 import { setupSteps, type SetupStep } from "@/data/setup";
 import { useAuthStore } from "@/store/auth";
 import { useThemeColors } from "@/theme";
+import { confirmChoice } from "@/lib/nativeSheets";
 
 type SetupScreenProps = {
   step: SetupStep;
@@ -57,15 +58,9 @@ export function SetupScreen({
       await useAuthStore.getState().signOut(); // also clears the setup answers
       router.replace("/sign-in");
     };
-    // React Native's Alert does nothing on the web, so the browser asks there
-    if (Platform.OS === "web") {
-      if (globalThis.confirm?.(`${question} ${detail}`)) void leave();
-      return;
-    }
-    Alert.alert(question, detail, [
-      { text: "Stay", style: "cancel" },
-      { text: "Sign out", style: "destructive", onPress: leave },
-    ]);
+    confirmChoice({ title: question, message: detail, confirmLabel: "Sign out", cancelLabel: "Stay" }).then((ok) => {
+      if (ok) void leave();
+    });
   };
 
   return (

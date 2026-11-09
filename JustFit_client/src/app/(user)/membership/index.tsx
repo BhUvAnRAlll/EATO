@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { Alert, Platform, Pressable, ScrollView, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { router, useFocusEffect } from "expo-router";
@@ -15,6 +15,7 @@ import { membershipApi, type Membership, type Memberships } from "@/lib/membersh
 import { historyLine, membershipBadge, pauseLine, planText, prettyDate } from "@/lib/membershipText";
 import { useSessionToken } from "@/lib/session";
 import { useThemeColors } from "@/theme";
+import { confirmChoice } from "@/lib/nativeSheets";
 
 type Load = { state: "loading" } | { state: "failed"; error: string } | { state: "ready"; data: Memberships };
 
@@ -49,14 +50,9 @@ export default function GymMembership() {
   };
   const confirmCancel = (m: Membership) => {
     const question = "Cancel your pause request?";
-    if (Platform.OS === "web") {
-      if (globalThis.confirm?.(question)) cancel(m);
-      return;
-    }
-    Alert.alert(question, "You can send a new one any time.", [
-      { text: "Keep it", style: "cancel" },
-      { text: "Cancel request", style: "destructive", onPress: () => cancel(m) },
-    ]);
+    confirmChoice({ title: question, message: "You can send a new one any time.", confirmLabel: "Cancel request", cancelLabel: "Keep it" }).then((ok) => {
+      if (ok) cancel(m);
+    });
   };
 
   const back = () => (router.canGoBack() ? router.back() : router.replace("/profile"));

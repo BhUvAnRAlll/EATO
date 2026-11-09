@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, Text, View, type ScrollViewInstance } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, Text, View, type ScrollViewInstance } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { router, useFocusEffect } from "expo-router";
@@ -19,6 +19,7 @@ import { todayIso } from "@/lib/macro";
 import { useSessionToken } from "@/lib/session";
 import { useCoachIntakeStore } from "@/store/coachIntake";
 import { useThemeColors } from "@/theme";
+import { confirmChoice } from "@/lib/nativeSheets";
 
 const OFFLINE = "Could not reach justFit. Check your connection and try again.";
 
@@ -111,20 +112,14 @@ export default function MealPlanScreen() {
     syncMealReminders(result.data.plan, todayIso()).catch(() => {});
   };
 
-  // Remaking a plan is a paid AI call that replaces every meal, so it asks first (React Native's
-  // Alert does nothing on the web, so the browser asks there)
+  // Remaking a plan is a paid AI call that replaces every meal, so it asks first
   const confirmRegenerate = () => {
     if (making) return;
     const question = "Regenerate your meal plan?";
     const detail = "Your coach writes a new day of meals; today's plan is replaced.";
-    if (Platform.OS === "web") {
-      if (globalThis.confirm?.(`${question} ${detail}`)) regenerate();
-      return;
-    }
-    Alert.alert(question, detail, [
-      { text: "Cancel", style: "cancel" },
-      { text: "Regenerate", onPress: regenerate },
-    ]);
+    confirmChoice({ title: question, message: detail, confirmLabel: "Regenerate", destructive: false }).then((ok) => {
+      if (ok) regenerate();
+    });
   };
 
   const editAnswers = () => {

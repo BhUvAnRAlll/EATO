@@ -33,6 +33,7 @@ const staff = require("./staff");
 const staffRules = require("./staffRules");
 const trainer = require("./trainer");
 const smsRules = require("./smsRules");
+const staffAttendance = require("./staffAttendance");
 
 // Exact paths only: Express would otherwise match /Payments or /payments/ to the /payments route,
 // while the Role & Permission map (staffRules.areaOfPath) read them as no area at all, so a Staff
@@ -542,6 +543,28 @@ router.get("/attendance/export", route(async (req, res) => {
   }
   res.set("Content-Type", "text/csv; charset=utf-8");
   res.send(`\uFEFF${report}`);
+}));
+
+// Attendance › Staff & Trainers (gym/staffAttendance.js, 2026-11-09): the branch's Staff and
+// Trainers, who is in today and their visits; the gym admin alone sees it and checks them in or
+// out by hand (they scan the branch's QR code themselves through /api/attendance). No area: it is
+// the gym admin's, like the team.
+const STAFF_ATTENDANCE_MIGRATION = "Staff & Trainers attendance needs the 2026-12-15-staff-attendance migration on this server.";
+const staffAttendanceRoute = (handler) => (req, res, next) =>
+  handler(req, res, next).catch((error) => {
+    if (["ER_NO_SUCH_TABLE", "ER_BAD_FIELD_ERROR"].includes(error?.code)) return res.status(503).json({ error: STAFF_ATTENDANCE_MIGRATION });
+    next(error);
+  });
+const teamAttendanceOwner = ownerOnly("Only the gym admin can see Staff & Trainers attendance.");
+router.get("/team-attendance", teamAttendanceOwner, staffAttendanceRoute(async (req, res) => {
+  res.json(await staffAttendance.board(pool(req), req.gym, attendanceRules.teamQuery(req.query, today()), today()));
+}));
+router.post("/team-attendance/:userId/check-in", teamAttendanceOwner, staffAttendanceRoute(async (req, res) => {
+  const { alreadyIn } = await staffAttendance.adminCheckIn(pool(req), req.gym, req.userId, staffRules.userIdParam(req.params.userId), today());
+  res.status(alreadyIn ? 200 : 201).json({ ok: true, alreadyIn });
+}));
+router.post("/team-attendance/:userId/check-out", teamAttendanceOwner, staffAttendanceRoute(async (req, res) => {
+  res.json({ ok: true, ...(await staffAttendance.adminCheckOut(pool(req), req.gym, req.userId, staffRules.userIdParam(req.params.userId), today())) });
 }));
 
 // Wallet: the takings, and (for a login with Expenses › Expense list) what was spent and the net

@@ -5,12 +5,12 @@ import { StatusBar } from "expo-status-bar";
 import { SymbolView } from "@/components/SymbolView";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 
-import { ActionSheet } from "@/components/ActionSheet";
 import { DashedBlock } from "@/components/macro/DashedBlock";
 import { PressableScale } from "@/components/PressableScale";
 import { usePullToRefresh } from "@/components/PullToRefresh";
 import { WorkoutSheet } from "@/components/workout/WorkoutSheet";
 import { isValidIso, longDate } from "@/lib/macro";
+import { showActions } from "@/lib/nativeSheets";
 import { useSessionToken } from "@/lib/session";
 import { useToday } from "@/lib/useToday";
 import {
@@ -56,7 +56,6 @@ export default function TrainingDayScreen() {
   const getToken = useSessionToken();
   const [load, setLoad] = useState<{ state: "loading" } | { state: "failed"; error: string } | ({ state: "ready" } & Ready)>({ state: "loading" });
   const [tab, setTab] = useState<Tab>("exercises");
-  const [menuFor, setMenuFor] = useState<DayExercise | null>(null);
   const [howTo, setHowTo] = useState<DayExercise | null>(null);
   const [ending, setEnding] = useState<"ask" | "busy" | null>(null);
   const [endError, setEndError] = useState<string | null>(null);
@@ -129,6 +128,15 @@ export default function TrainingDayScreen() {
     navigating.current = true;
     router.push({ pathname: "/workout/session", params: exerciseId ? { date, exercise: exerciseId } : { date } });
   };
+  // An exercise's ⋯: the platform's own action sheet (lib/nativeSheets.ts)
+  const openMenu = (exercise: DayExercise) =>
+    showActions({
+      title: `${exercise.name}: ${formatSets(exercise)}`,
+      actions: [
+        ...(canStart ? [{ label: "Start from this exercise", onPress: () => play(exercise.id) }] : []),
+        ...(exercise.instructions.length > 0 ? [{ label: "How to do it", onPress: () => setHowTo(exercise) }] : []),
+      ],
+    });
   const endSession = async () => {
     if (!logId) return setEndError("Could not end the session. Try again.");
     setEnding("busy");
@@ -184,7 +192,7 @@ export default function TrainingDayScreen() {
             ))}
           </View>
 
-          {tab === "exercises" && <ExercisesTab day={day} onMore={setMenuFor} onPlay={canStart ? play : undefined} />}
+          {tab === "exercises" && <ExercisesTab day={day} onMore={openMenu} onPlay={canStart ? play : undefined} />}
           {tab === "muscles" && <MusclesTab day={day} />}
           {tab === "about" && <AboutTab plan={plan} day={day} />}
         </View>
@@ -201,19 +209,6 @@ export default function TrainingDayScreen() {
         <Footer status={status} isToday={isToday} date={date} today={today} onPlay={() => play()} onEnd={logId ? () => { setEndError(null); setEnding("ask"); } : undefined} />
       </View>
 
-      <ActionSheet
-        visible={menuFor !== null}
-        title={menuFor ? `${menuFor.name}: ${formatSets(menuFor)}` : undefined}
-        actions={
-          menuFor
-            ? [
-                ...(canStart ? [{ label: "Start from this exercise", onPress: () => play(menuFor.id) }] : []),
-                ...(menuFor.instructions.length > 0 ? [{ label: "How to do it", onPress: () => setHowTo(menuFor) }] : []),
-              ]
-            : []
-        }
-        onClose={() => setMenuFor(null)}
-      />
       <HowToSheet exercise={howTo} onClose={() => setHowTo(null)} />
       <WorkoutSheet
         visible={ending !== null}

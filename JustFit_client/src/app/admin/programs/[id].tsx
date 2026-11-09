@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, Switch, Text, View } from "react-native";
+import { ActivityIndicator, Platform, Pressable, ScrollView, Switch, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
@@ -17,6 +17,7 @@ import { useSessionToken } from "@/lib/session";
 import { useAdminSections } from "@/lib/useAdminSections";
 import { useSwitchColors, useThemeColors } from "@/theme";
 import { haptic } from "@/lib/haptics";
+import { confirmChoice } from "@/lib/nativeSheets";
 
 type Load = { state: "loading" } | { state: "failed"; error: string } | { state: "ready"; program: ProgramDetail };
 type Kind = "save" | "publish" | "cover" | "hero" | "session";
@@ -29,18 +30,11 @@ const fieldsOf = (p: ProgramDetail): ProgramFields => ({
 });
 const sameFields = (a: ProgramFields, b: ProgramFields) => (Object.keys(a) as (keyof ProgramFields)[]).every((k) => a[k] === b[k]);
 
-// Asks before something is taken away. React Native's Alert does nothing on the web, so the
-// browser asks there.
-const confirmThen = (question: string, detail: string, action: string, go: () => void) => {
-  if (Platform.OS === "web") {
-    if (globalThis.confirm?.(`${question} ${detail}`)) go();
-    return;
-  }
-  Alert.alert(question, detail, [
-    { text: "Cancel", style: "cancel" },
-    { text: action, style: "destructive", onPress: go },
-  ]);
-};
+// Asks before something is taken away (the platform's own sheet or dialog)
+const confirmThen = (question: string, detail: string, action: string, go: () => void) =>
+  confirmChoice({ title: question, message: detail, confirmLabel: action }).then((ok) => {
+    if (ok) go();
+  });
 
 // Super Admin › Programs › one program: shown to members or hidden, its cover photo for the card
 // and its page photo for the top of the program's screen (each added, replaced or removed under the

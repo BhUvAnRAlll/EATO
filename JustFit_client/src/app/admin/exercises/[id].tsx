@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
@@ -11,6 +11,7 @@ import { SymbolView } from "@/components/SymbolView";
 import { adminExercises, DIFFICULTY_LABEL, MUSCLE_LABEL, type AdminExercise } from "@/lib/adminExercises";
 import { useSessionToken } from "@/lib/session";
 import { useThemeColors } from "@/theme";
+import { confirmChoice } from "@/lib/nativeSheets";
 
 type Load = { state: "loading" } | { state: "failed"; error: string } | { state: "ready"; exercise: AdminExercise };
 
@@ -52,14 +53,9 @@ export default function ExerciseDetailScreen() {
 
   const confirmArchive = (e: AdminExercise) => {
     const text = `New workout plans won't include ${e.name}.${e.inUse > 0 ? ` The ${e.inUse} ${e.inUse === 1 ? "plan" : "plans"} that have it keep it.` : ""} You can restore it later.`;
-    if (Platform.OS === "web") {
-      if (window.confirm(text)) setArchived(true);
-      return;
-    }
-    Alert.alert(`Archive ${e.name}?`, text, [
-      { text: "Cancel", style: "cancel" },
-      { text: "Archive", style: "destructive", onPress: () => setArchived(true) },
-    ]);
+    confirmChoice({ title: `Archive ${e.name}?`, message: text, confirmLabel: "Archive" }).then((ok) => {
+      if (ok) setArchived(true);
+    });
   };
 
   return (

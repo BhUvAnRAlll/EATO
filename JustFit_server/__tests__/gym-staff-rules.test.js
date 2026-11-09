@@ -193,7 +193,7 @@ describe("gym staff rules: Role & Permission", () => {
 
   it("which area a route under /api/gym needs", () => {
     const cases = {
-      "/dashboard": null, "/branches": null, "/branch": null, "/details": null, "/staff": null, "/staff/u1/permissions": null, "/invoice-details": null, "/logo": null, "/templates": null, "/templates/due": null,
+      "/dashboard": null, "/team-attendance": null, "/team-attendance/u1/check-in": null, "/branches": null, "/branch": null, "/details": null, "/staff": null, "/staff/u1/permissions": null, "/invoice-details": null, "/logo": null, "/templates": null, "/templates/due": null,
       "/members": "members", "/members/next-code": "members", "/members/3": "members", "/members/3/renew": "members", "/members/3/photo": "members", "/members/3/trainer": "members", "/trainers": "members",
       "/members/3/due": "payments", "/members/3/pt": "payments", "/members/3/sales": "payments", "/members/3/services": "payments",
       "/payments": "payments", "/sales": "payments", "/services": "payments", "/wallet": "payments", "/payments/9/receipt": "members", "/payments/9/invoice": "members", "/members/3/invoice": "members",

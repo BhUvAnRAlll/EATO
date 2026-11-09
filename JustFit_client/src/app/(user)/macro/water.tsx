@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Animated, Modal, Platform, Pressable, ScrollView, Switch, Text, useWindowDimensions, View } from "react-native";
+import { ActivityIndicator, Animated, Modal, Pressable, ScrollView, Switch, Text, useWindowDimensions, View } from "react-native";
 import { ScreenSkeleton } from "@/components/Skeleton";
 import { LoadError } from "@/components/macro/LoadError";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -17,6 +17,7 @@ import { logDate, useMacroStore } from "@/store/macro";
 import { useThemeColors, useSwitchColors } from "@/theme";
 import { track } from "@/lib/analytics";
 import { haptic } from "@/lib/haptics";
+import { confirmChoice } from "@/lib/nativeSheets";
 
 const GLASS_ML = 250;
 const GLASS = { width: 88, height: 152 };
@@ -87,20 +88,14 @@ export default function Water() {
     load();
   };
 
-  // Removing an entry can't be undone, so it asks first (React Native's Alert does nothing on
-  // the web, so the browser asks there)
+  // Removing an entry can't be undone, so it asks first
   const confirmRemove = (entry: WaterEntry) => {
     if (removing.current.has(entry.id)) return;
     const question = `Remove ${entry.amountMl} ml?`;
     const detail = `${entryTitle(entry)} at ${clockTime(entry.loggedAt)} is taken off today's log.`;
-    if (Platform.OS === "web") {
-      if (globalThis.confirm?.(`${question} ${detail}`)) remove(entry);
-      return;
-    }
-    Alert.alert(question, detail, [
-      { text: "Cancel", style: "cancel" },
-      { text: "Remove", style: "destructive", onPress: () => remove(entry) },
-    ]);
+    confirmChoice({ title: question, message: detail, confirmLabel: "Remove" }).then((ok) => {
+      if (ok) remove(entry);
+    });
   };
 
   const toggleReminders = async (on: boolean) => {

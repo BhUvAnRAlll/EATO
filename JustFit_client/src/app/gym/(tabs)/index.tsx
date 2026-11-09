@@ -294,7 +294,7 @@ export default function GymHome() {
           }}
         />
       )}
-      <GymMenu open={menuOpen} onClose={() => setMenuOpen(false)} onBulkSms={() => setTimeout(() => setSheet("sms"), 250)} gymLine={data ? `${data.gym.name} · ${data.gym.branch} branch` : null} canManageTeam={data?.gym.access === "owner"} />
+      <GymMenu open={menuOpen} onClose={() => setMenuOpen(false)} onBulkSms={() => setTimeout(() => setSheet("sms"), 250)} gymLine={data ? `${data.gym.name} · ${data.gym.branch} branch` : null} canManageTeam={data?.gym.access === "owner"} isStaff={data?.gym.access === "staff"} />
     </View>
   );
 }

@@ -19,6 +19,7 @@ import { useAuthStore } from "@/store/auth";
 import { useSetupStore } from "@/store/setup";
 import { useThemeColors } from "@/theme";
 import type { Icon } from "@/types/profile";
+import { confirmChoice } from "@/lib/nativeSheets";
 
 // The account's places, in the order the reference design lists them (every one is an existing screen)
 const menu: { label: string; icon: Icon; href: Href }[] = [
@@ -94,15 +95,9 @@ export default function Profile() {
   const confirmSignOutEverywhere = () => {
     const question = "Sign out of all devices?";
     const detail = "You'll need a code sent to your phone to log in again on each of them.";
-    // React Native's Alert does nothing on the web, so the browser asks there
-    if (Platform.OS === "web") {
-      if (globalThis.confirm?.(`${question} ${detail}`)) signOutEverywhere();
-      return;
-    }
-    Alert.alert(question, detail, [
-      { text: "Cancel", style: "cancel" },
-      { text: "Sign out everywhere", style: "destructive", onPress: signOutEverywhere },
-    ]);
+    confirmChoice({ title: question, message: detail, confirmLabel: "Sign out everywhere" }).then((ok) => {
+      if (ok) signOutEverywhere();
+    });
   };
   const bmi = bmiOf(saved?.weightKg, saved?.heightCm);
   const initial = name.trim().charAt(0).toUpperCase() || "?";

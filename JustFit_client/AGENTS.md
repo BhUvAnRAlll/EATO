@@ -477,6 +477,21 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
   `attendance.bad_qr`, `attendance.mock_location`. Migration `2026-11-27-gym-qr-attendance.sql`
   (keeps existing check-ins as `no_checkout`/`staff`). Mock-location detection is best effort
   (Android's flag, iOS simulated locations); a rooted phone can still fake GPS.
+  **Staff & Trainers (2026-11-09, the user's choices):** Attendance has two tabs for the gym admin,
+  Members (as above) and Staff & Trainers (`components/gym/TeamAttendance.tsx`; `?tab=team`); a Staff
+  login sees only the members' screen. The branch's Staff and Trainers check in for work by scanning
+  the same QR code with the same GPS checks: Staff from ☰ › My check-in (`app/gym/check-in.tsx`),
+  trainers from Profile › Gym attendance; both screens are `components/attendance/QrAttendance.tsx`.
+  The server decides who is scanning (`attendance.js` `whoScans`: a `gym_staff` row of kind staff or
+  trainer at the scanned branch wins over a membership there) and writes a day at work to
+  `gym_staff_attendance` (`gym/staffAttendance.js`; one open visit per person, closed at India
+  midnight with the members'); scan answers carry `as: "member" | "staff"`. The tab: each person
+  with today's state (On duty, Left, Not in), Check in / Check out by hand, On duty now / Came in
+  today / Not in yet, and the visits of Today / 7 days / 30 days with a search by name.
+  `GET /api/gym/team-attendance?range=&search=&page=`, `POST /api/gym/team-attendance/:userId/check-in|check-out`
+  (gym admin only, no area; `attendanceRules.teamQuery`; recorded on Activity). Migration
+  `2026-12-15-staff-attendance.sql`; before it the tab and a Staff or Trainer's scan answer 503
+  naming it. Tests: `e2e/gym-staff-attendance.e2e.test.js`, `gym-attendance-rules.test.js`.
 - **Predictions (2026-11-06, the user's plan; #1 of five, rules only, no AI):** "Likely to leave",
   the renewal-risk prediction. Home › Needs attention › Likely to leave (the High count, from
   `dashboard.alerts.renewalRisk`) and ☰ › Likely to leave open `app/gym/predictions/renewals.tsx`:
@@ -1015,6 +1030,16 @@ picker were removed on 2026-11-01; don't add them back unless asked.
   `BottomSheet` (a Modal is its own window); only the newest host draws. `useGymSave(done,
   success?)` shows the success line; `apiFetch` shows `hud.offline()` for a write that never reached
   the server (reads stay quiet). Form errors stay inline (`FormAlert`); the HUD is for outcomes.
+- **Action sheets and confirmations (2026-11-08).** Use `lib/nativeSheets.ts`, never a hand-made
+  `Alert.alert` + `globalThis.confirm` pair. `confirmChoice({ title, message, confirmLabel,
+  cancelLabel?, destructive? })` resolves true only on the confirm button: UIKit's action sheet
+  on iPhone (destructive in red, Cancel apart, a warning buzz), Android's Material dialog, the
+  browser's `confirm()` on the web; `gymPortal.confirmAction` wraps it. `showActions({ title,
+  message?, actions })` lists a few actions with Cancel added: UIKit's sheet on iPhone, the app's
+  `ActionSheet` bottom sheet on Android and the web (`ActionSheetHost` at the root,
+  `store/actionSheet.ts`). The button list is `lib/nativeSheetRules.ts` (unit-tested). The gym
+  portal's designed sheets (`MemberActionsSheet`, staff ⋯) stay as they are: they carry busy and
+  error states a system sheet can't.
 - **Motion for changing values (added 2026-11-02).** A figure that changes in place (calories
   left, eaten, a macro's grams) is `components/motion/AnimatedNumber.tsx`; a ring's fill or a
   bar's width follows `lib/useTween.ts`, and `ProgressRing` eases to each new value. They open on

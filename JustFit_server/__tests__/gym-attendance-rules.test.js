@@ -152,3 +152,23 @@ describe("attendance CSV export", () => {
     assert.equal(lines[2], `2026-11-04,FOR-TUM-0002,"'=HYPERLINK(""x"")",2026-11-04 18:00,,,Inside,Staff,`);
   });
 });
+
+describe("teamQuery (Attendance › Staff & Trainers, 2026-11-09)", () => {
+  const today = "2026-11-09";
+  it("defaults to today, page 1, no search", () => {
+    assert.deepEqual(att.teamQuery({}, today), { range: "today", from: today, to: today, search: "", page: 1 });
+  });
+  it("counts the last 7 and 30 days back from today, across a month", () => {
+    assert.equal(att.teamQuery({ range: "week" }, today).from, "2026-11-03");
+    assert.equal(att.teamQuery({ range: "month" }, today).from, "2026-10-11");
+    assert.equal(att.teamQuery({ range: "week" }, "2026-03-02").from, "2026-02-24");
+  });
+  it("tidies the search and reads the page", () => {
+    assert.deepEqual(att.teamQuery({ search: "  Ravi   K ", page: "3" }, today), { range: "today", from: today, to: today, search: "Ravi K", page: 3 });
+  });
+  it("refuses unknown fields, other ranges, bad pages and long searches", () => {
+    for (const query of [{ gymId: "1" }, { userId: "u1" }, { range: "year" }, { range: "toString" }, { range: ["week"] }, { page: "0" }, { page: "1.5" }, { page: "99999" }, { search: "x".repeat(61) }, { search: ["a"] }]) {
+      assert.throws(() => att.teamQuery(query, today), (e) => e.status === 400 && typeof e.message === "string", JSON.stringify(query));
+    }
+  });
+});

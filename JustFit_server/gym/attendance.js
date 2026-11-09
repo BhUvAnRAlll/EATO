@@ -16,6 +16,7 @@ const rules = require("./rules");
 const att = require("./attendanceRules");
 const xlsx = require("./xlsx");
 const pauses = require("./pauses");
+const staffAttendance = require("./staffAttendance");
 
 const IST_OFFSET_MS = 330 * 60 * 1000;
 // "2026-11-04 18:05" in India time, from epoch milliseconds
@@ -32,8 +33,9 @@ async function closeStale(db, where, params, today = rules.todayInIndia()) {
   return result.affectedRows;
 }
 
-// Every branch's visits left open on an earlier day
-const closeOpenVisits = (db, today = rules.todayInIndia()) => closeStale(db, "1 = 1", [], today);
+// Every branch's visits left open on an earlier day, members' and the team's
+const closeOpenVisits = async (db, today = rules.todayInIndia()) =>
+  (await closeStale(db, "1 = 1", [], today)) + (await staffAttendance.closeOpenVisits(db, today));
 
 // At startup, then at every midnight in India; never in tests, which call closeOpenVisits themselves
 function startMidnightClose(pool, { log = console, env = process.env, now = Date.now } = {}) {
@@ -152,8 +154,8 @@ async function visitDuration(db, visitId) {
 
 // ─── Members: scan the QR code in the justFit app ────────────────────────────────────────────
 
-// The branch the code names, if the code is its current one, and the caller's membership there
-async function resolveScan(db, userId, qrKey, qr, today, { lock = false } = {}) {
+// The branch the code names, if the code is its current one
+async function scannedGym(db, userId, qrKey, qr) {
   const [[gym]] = await db.query(
     `SELECT g.id, g.name AS branch, g.area, g.city, b.name AS brand, g.latitude, g.longitude, g.attendance_radius_m, g.qr_version
      FROM gyms g JOIN gym_brands b ON b.id = g.brand_id WHERE g.id = ?`,
@@ -163,21 +165,36 @@ async function resolveScan(db, userId, qrKey, qr, today, { lock = false } = {}) 
     logSecurityEvent("attendance.bad_qr", { userId, gymId: qr.gymId });
     throw new ForbiddenError(NOT_VALID);
   }
-  const account = await getAccount(userId, db);
   const place = { name: gym.brand, branch: gym.branch, area: gym.area, city: gym.city };
-  if (!account.phone) throw new ForbiddenError(`We couldn't match your account to ${gym.brand}. Ask the front desk to check the mobile number on your membership.`);
+  return { id: gym.id, place, latitude: gym.latitude, longitude: gym.longitude, radiusM: gym.attendance_radius_m };
+}
+
+// Who is scanning (2026-11-09): the branch's Staff and Trainers check in for work (their own
+// visits, gym/staffAttendance.js); anyone else is matched to a membership there by phone
+async function whoScans(db, userId, qrKey, qr, { lock = false } = {}) {
+  const gym = await scannedGym(db, userId, qrKey, qr);
+  const link = await staffAttendance.staffLink(db, userId, gym.id, { lock });
+  return { gym, link };
+}
+
+// The caller's membership at the branch the code names
+async function resolveScan(db, userId, qrKey, qr, today, { lock = false, gym: found = null } = {}) {
+  const gym = found ?? (await scannedGym(db, userId, qrKey, qr));
+  const place = gym.place;
+  const account = await getAccount(userId, db);
+  if (!account.phone) throw new ForbiddenError(`We couldn't match your account to ${place.name}. Ask the front desk to check the mobile number on your membership.`);
   const [[member]] = await db.query(
     `SELECT id, member_code, full_name, DATE_FORMAT(expires_on, '%Y-%m-%d') AS expires_on, DATE_FORMAT(joined_on, '%Y-%m-%d') AS joined_on
      FROM gym_members WHERE gym_id = ? AND phone = ?${lock ? " FOR UPDATE" : ""}`,
     [gym.id, account.phone],
   );
   if (!member) {
-    throw new ForbiddenError(`You aren't a member at ${gym.brand} ${gym.branch} yet, or your membership has a different mobile number. Ask the front desk to add your sign-in number.`);
+    throw new ForbiddenError(`You aren't a member at ${place.name} ${place.branch} yet, or your membership has a different mobile number. Ask the front desk to add your sign-in number.`);
   }
   // Pause Membership: an approved pause running today keeps the member out until it ends
   const paused = await pauses.currentPause(db, member.id, today);
   return {
-    gym: { id: gym.id, place, latitude: gym.latitude, longitude: gym.longitude, radiusM: gym.attendance_radius_m },
+    gym,
     member: { id: member.id, code: member.member_code, name: member.full_name, expiresOn: member.expires_on, pausedUntil: paused ? paused.until : null, active: member.expires_on >= today && member.joined_on <= today && !paused },
   };
 }
@@ -186,10 +203,13 @@ const prettyDate = (iso) => new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-
 
 // After scanning, before GPS: which gym, whether the member is in, and so whether this is a check-out
 async function scanPreview(pool, userId, qrKey, body, today) {
-  const { gym, member } = await resolveScan(pool, userId, qrKey, body.qr, today);
+  const who = await whoScans(pool, userId, qrKey, body.qr);
+  if (who.link) return staffAttendance.scanPreview(pool, userId, who.gym, who.link, today);
+  const { gym, member } = await resolveScan(pool, userId, qrKey, body.qr, today, { gym: who.gym });
   await closeStale(pool, "member_id = ?", [member.id], today);
   const open = await openVisit(pool, member.id);
   return {
+    as: "member",
     gym: gym.place,
     member: { name: member.name, code: member.code, expiresOn: member.expiresOn, active: member.active, pausedUntil: member.pausedUntil },
     radiusM: gym.radiusM,
@@ -209,7 +229,16 @@ function checkPosition(gym, position, userId, checkingOut) {
 }
 
 async function memberCheckIn(pool, userId, qrKey, body, today) {
-  const scanned = await resolveScan(pool, userId, qrKey, body.qr, today);
+  const who = await whoScans(pool, userId, qrKey, body.qr);
+  if (who.link) {
+    const distance = checkPosition({ ...who.gym }, body.position, userId, false);
+    return inTransaction(pool, async (db) => {
+      const again = await whoScans(db, userId, qrKey, body.qr, { lock: true });
+      if (!again.link) throw new ForbiddenError("You're no longer on this branch's team. Ask your gym admin.");
+      return staffAttendance.scanCheckIn(db, userId, again.gym, again.link, body.position, distance, today);
+    });
+  }
+  const scanned = await resolveScan(pool, userId, qrKey, body.qr, today, { gym: who.gym });
   const distance = checkPosition({ ...scanned.gym }, body.position, userId, false);
   if (!scanned.member.active) {
     if (scanned.member.pausedUntil) throw new ForbiddenError(`Your membership is paused until ${prettyDate(scanned.member.pausedUntil)}. Ask the front desk if you'd like to end the pause early.`);
@@ -235,12 +264,21 @@ async function memberCheckIn(pool, userId, qrKey, body, today) {
       throw error;
     }
     const visit = await openVisit(db, member.id);
-    return { action: "check_in", gym: gym.place, member: { name: member.name, code: member.code }, checkedInAt: new Date(Number(visit.in_ms)).toISOString(), distanceM: distance };
+    return { as: "member", action: "check_in", gym: gym.place, member: { name: member.name, code: member.code }, checkedInAt: new Date(Number(visit.in_ms)).toISOString(), distanceM: distance };
   });
 }
 
 async function memberCheckOut(pool, userId, qrKey, body, today) {
-  const scanned = await resolveScan(pool, userId, qrKey, body.qr, today);
+  const who = await whoScans(pool, userId, qrKey, body.qr);
+  if (who.link) {
+    const distance = checkPosition({ ...who.gym }, body.position, userId, true);
+    return inTransaction(pool, async (db) => {
+      const again = await whoScans(db, userId, qrKey, body.qr, { lock: true });
+      if (!again.link) throw new ForbiddenError("You're no longer on this branch's team. Ask your gym admin.");
+      return staffAttendance.scanCheckOut(db, userId, again.gym, again.link, body.position, distance, today);
+    });
+  }
+  const scanned = await resolveScan(pool, userId, qrKey, body.qr, today, { gym: who.gym });
   const distance = checkPosition({ ...scanned.gym }, body.position, userId, true);
   return inTransaction(pool, async (db) => {
     const { gym, member } = await resolveScan(db, userId, qrKey, body.qr, today, { lock: true });
@@ -251,6 +289,7 @@ async function memberCheckOut(pool, userId, qrKey, body, today) {
     await finishVisit(db, visit.id, { source: "qr", position: body.position, distance });
     const [[done]] = await db.query(`SELECT ${ms("checked_in_at")} AS in_ms, ${ms("checked_out_at")} AS out_ms, duration_min FROM gym_attendance WHERE id = ?`, [visit.id]);
     return {
+      as: "member",
       action: "check_out",
       gym: gym.place,
       member: { name: member.name, code: member.code },
@@ -265,17 +304,23 @@ async function memberCheckOut(pool, userId, qrKey, body, today) {
 // The member's own recent visits, at every branch that has their number
 async function myVisits(pool, userId) {
   const account = await getAccount(userId, pool);
-  if (!account.phone) return { visits: [] };
-  const [rows] = await pool.query(
+  // A Staff or Trainer's own days at work come first in time order with their gym visits
+  const work = await staffAttendance.myVisits(pool, userId);
+  const [rows] = !account.phone ? [[]] : await pool.query(
     `SELECT a.id, a.status, ${ms("a.checked_in_at")} AS in_ms, ${ms("a.checked_out_at")} AS out_ms, a.duration_min, a.on_date < ? AS stale,
        b.name AS brand, g.name AS branch
      FROM gym_attendance a JOIN gym_members m ON m.id = a.member_id JOIN gyms g ON g.id = a.gym_id JOIN gym_brands b ON b.id = g.brand_id
      WHERE m.phone = ? ORDER BY a.checked_in_at DESC, a.id DESC LIMIT 20`,
     [rules.todayInIndia(), account.phone],
   );
+  const visits = [...rows.map((r) => ({ ...r, as: "member" })), ...work.map((r) => ({ ...r, as: "staff" }))]
+    .sort((a, b) => Number(b.in_ms) - Number(a.in_ms))
+    .slice(0, 20);
   return {
-    visits: rows.map((r) => ({
-      id: r.id,
+    visits: visits.map((r) => ({
+      // Two tables, so the id carries which one ("s12" for a day at work)
+      id: r.as === "staff" ? `s${r.id}` : String(r.id),
+      as: r.as,
       gym: `${r.brand} ${r.branch}`,
       status: r.status === "inside" && r.stale ? "no_checkout" : r.status,
       checkedInAt: new Date(Number(r.in_ms)).toISOString(),

@@ -1,4 +1,4 @@
-// QR attendance for members, mounted at /api/attendance in index.js behind requireUser and its own
+// QR attendance for members (and, since 2026-11-09, the branch's Staff and Trainers), mounted at /api/attendance in index.js behind requireUser and its own
 // per-user rate limit. The member is found from the session's verified phone at the branch the
 // scanned code names; nothing in the request names a gym or a member. The GPS reading is checked
 // here (age, accuracy, mock flag, distance), never trusted as the app's verdict.
@@ -15,8 +15,11 @@ const qrKey = (req) => req.app.locals.gymQrKey;
 const today = () => rules.todayInIndia();
 
 const MIGRATION = "QR attendance needs the 2026-11-27-gym-qr-attendance migration on this server.";
+// A Staff or Trainer's scan (gym/staffAttendance.js) needs its own table
+const STAFF_MIGRATION = "Staff attendance needs the 2026-12-15-staff-attendance migration on this server. Ask your gym admin.";
 const route = (handler) => (req, res, next) =>
   handler(req, res, next).catch((error) => {
+    if (error?.code === "ER_NO_SUCH_TABLE" && String(error.sqlMessage ?? "").includes("gym_staff_attendance")) return res.status(503).json({ error: STAFF_MIGRATION });
     if (["ER_NO_SUCH_TABLE", "ER_BAD_FIELD_ERROR"].includes(error?.code)) return res.status(503).json({ error: MIGRATION });
     next(error);
   });

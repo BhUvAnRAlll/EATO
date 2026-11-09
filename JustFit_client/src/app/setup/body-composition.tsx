@@ -1,4 +1,4 @@
-import { Alert, Platform, Pressable, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import { SymbolView } from "@/components/SymbolView";
 import { router } from "expo-router";
 
@@ -6,6 +6,7 @@ import { PrimaryButton } from "@/components/PrimaryButton";
 import { SetupScreen } from "@/components/setup/SetupScreen";
 import { useSetupStore } from "@/store/setup";
 import { useThemeColors } from "@/theme";
+import { confirmChoice } from "@/lib/nativeSheets";
 
 // Optional step: a body scan from two photos estimates body fat %, which lets the targets use
 // fat-free mass. Skipped, the targets are calculated from height, weight, age and gender.
@@ -13,18 +14,13 @@ export default function BodyComposition() {
   const colors = useThemeColors();
   const { profile, scan, removeScan } = useSetupStore();
   const scanned = profile.bodyFatPercent !== "";
-  // Remove throws the scan result away: ask first (React Native's Alert does nothing on the web)
+  // Remove throws the scan result away: ask first
   const confirmRemove = () => {
     const question = "Remove your scan result?";
     const detail = "Your targets will be estimated without a body fat %.";
-    if (Platform.OS === "web") {
-      if (globalThis.confirm?.(`${question} ${detail}`)) removeScan();
-      return;
-    }
-    Alert.alert(question, detail, [
-      { text: "Keep", style: "cancel" },
-      { text: "Remove", style: "destructive", onPress: removeScan },
-    ]);
+    confirmChoice({ title: question, message: detail, confirmLabel: "Remove", cancelLabel: "Keep" }).then((ok) => {
+      if (ok) removeScan();
+    });
   };
 
   return (

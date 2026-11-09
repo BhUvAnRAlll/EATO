@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Platform, Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
@@ -12,6 +12,7 @@ import { DashedBlock } from "@/components/macro/DashedBlock";
 import { adminPrograms, type AdminSection, type SectionFields } from "@/lib/adminPrograms";
 import { useSessionToken } from "@/lib/session";
 import { useThemeColors } from "@/theme";
+import { confirmChoice } from "@/lib/nativeSheets";
 
 type Load = { state: "loading" } | { state: "failed"; error: string } | { state: "ready"; section: AdminSection };
 
@@ -87,14 +88,9 @@ export default function AdminCategoryScreen() {
 
   const confirmDelete = (section: AdminSection) => {
     const text = `Members won't see “${section.title}” any more. This can't be undone.`;
-    if (Platform.OS === "web") {
-      if (window.confirm(text)) remove(section);
-      return;
-    }
-    Alert.alert(`Delete ${section.title}?`, text, [
-      { text: "Cancel", style: "cancel" },
-      { text: "Delete", style: "destructive", onPress: () => remove(section) },
-    ]);
+    confirmChoice({ title: `Delete ${section.title}?`, message: text, confirmLabel: "Delete" }).then((ok) => {
+      if (ok) remove(section);
+    });
   };
 
   return (

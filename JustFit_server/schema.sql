@@ -1535,3 +1535,42 @@ CREATE TABLE gym_activity_log (
   CONSTRAINT fk_gym_activity_gym FOREIGN KEY (gym_id) REFERENCES gyms (id),
   CONSTRAINT fk_gym_activity_actor FOREIGN KEY (actor_id) REFERENCES users (id) ON DELETE SET NULL
 ) ENGINE = InnoDB;
+
+-- A Staff or Trainer's day at a branch (2026-11-09, migration 2026-12-15-staff-attendance.sql):
+-- checked in by scanning the branch's QR code (the portal for Staff, the member app for trainers,
+-- with the GPS reading) or by the gym admin by hand; 'inside' until checked out ('completed') or
+-- still open at midnight, India time ('no_checkout'). open_user_id: one open visit per person.
+CREATE TABLE gym_staff_attendance (
+  id                    INT UNSIGNED      NOT NULL AUTO_INCREMENT,
+  gym_id                INT UNSIGNED      NOT NULL,          -- the branch
+  user_id               VARCHAR(64)       NOT NULL,          -- the Staff or Trainer account
+  on_date               DATE              NOT NULL,          -- India's date of the check-in
+  checked_in_at         TIMESTAMP         NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  checked_out_at        TIMESTAMP         NULL,
+  status                ENUM('inside', 'completed', 'no_checkout') NOT NULL DEFAULT 'inside',
+  duration_min          SMALLINT UNSIGNED NULL,              -- worked out by the server at check-out
+  in_source             ENUM('admin', 'qr') NOT NULL,
+  out_source            ENUM('admin', 'qr') NULL,
+  check_in_lat          DECIMAL(9,6)      NULL,
+  check_in_lng          DECIMAL(9,6)      NULL,
+  check_in_accuracy_m   SMALLINT UNSIGNED NULL,
+  check_in_distance_m   SMALLINT UNSIGNED NULL,
+  check_out_lat         DECIMAL(9,6)      NULL,
+  check_out_lng         DECIMAL(9,6)      NULL,
+  check_out_accuracy_m  SMALLINT UNSIGNED NULL,
+  check_out_distance_m  SMALLINT UNSIGNED NULL,
+  open_user_id          VARCHAR(64)       NULL,              -- user_id while inside, else NULL: set by the server (a generated column can't sit on a cascading key)
+  created_by            VARCHAR(64)       NULL,              -- the gym admin, for a check-in by hand
+  checked_out_by        VARCHAR(64)       NULL,
+  created_at            TIMESTAMP         NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at            TIMESTAMP         NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_gym_staff_attendance_open (open_user_id),
+  KEY idx_gym_staff_attendance_day (gym_id, on_date),
+  KEY idx_gym_staff_attendance_user (user_id, on_date),
+  CONSTRAINT chk_gym_staff_attendance_open CHECK ((status = 'inside') = (open_user_id IS NOT NULL)),
+  CONSTRAINT fk_gym_staff_attendance_gym FOREIGN KEY (gym_id) REFERENCES gyms (id),
+  CONSTRAINT fk_gym_staff_attendance_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+  CONSTRAINT fk_gym_staff_attendance_created_by FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL,
+  CONSTRAINT fk_gym_staff_attendance_checked_out_by FOREIGN KEY (checked_out_by) REFERENCES users (id) ON DELETE SET NULL
+) ENGINE = InnoDB;

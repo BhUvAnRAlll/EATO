@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { ScreenSkeleton } from "@/components/Skeleton";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
@@ -13,6 +13,7 @@ import { useSessionToken } from "@/lib/session";
 import { useHomeStore } from "@/store/home";
 import { useThemeColors, Palette } from "@/theme";
 import { fonts } from "@/constants/fonts";
+import { confirmChoice } from "@/lib/nativeSheets";
 
 const macroFields = (colors: Palette) => ([
   { key: "proteinG", label: "Protein", color: colors.protein },
@@ -88,20 +89,14 @@ export default function AdjustTargets() {
     done();
   };
 
-  // Resetting throws the member's own numbers away, so it asks first (React Native's Alert does
-  // nothing on the web, so the browser asks there)
+  // Resetting throws the member's own numbers away, so it asks first
   const confirmReset = () => {
     if (busy) return;
     const question = "Reset to the calculated target?";
     const detail = "The calories and macros you set by hand are replaced by justFit's calculation from your profile.";
-    if (Platform.OS === "web") {
-      if (globalThis.confirm?.(`${question} ${detail}`)) reset();
-      return;
-    }
-    Alert.alert(question, detail, [
-      { text: "Cancel", style: "cancel" },
-      { text: "Reset", style: "destructive", onPress: reset },
-    ]);
+    confirmChoice({ title: question, message: detail, confirmLabel: "Reset" }).then((ok) => {
+      if (ok) reset();
+    });
   };
 
   const typedKcal = toNumber(kcal);

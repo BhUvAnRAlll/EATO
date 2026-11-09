@@ -104,6 +104,9 @@ const ROUTES = [
   R(["PUT"], /^\/staff\/([^/]+)\/branches$/, { type: "team", action: "edit", target: "team", detail: () => "Changed their branches" }),
   R(["DELETE"], /^\/staff\/invites\/([^/]+)$/, { type: "team", action: "delete", target: "invite", detail: () => "Cancelled the invite" }),
   R(["DELETE"], /^\/staff\/([^/]+)$/, { type: "team", action: "delete", target: "team", detail: () => "Removed from the team" }),
+  // Attendance › Staff & Trainers: the gym admin checks a Staff login or Trainer in or out by hand
+  R(["POST"], /^\/team-attendance\/([^/]+)\/check-in$/, { type: "attendance", action: "create", target: "team", detail: () => "Checked in for work by hand" }),
+  R(["POST"], /^\/team-attendance\/([^/]+)\/check-out$/, { type: "attendance", action: "edit", target: "team", detail: () => "Checked out from work by hand" }),
   // Members
   R(["POST"], /^\/members$/, { type: "member", action: "create", label: ({ body, answer }) => labelOf("member", { full_name: answer?.member?.name ?? body?.name, member_code: answer?.member?.code }), detail: ({ body }) => { const paid = paidLine(body?.paid, body?.method); return paid ? `New member · paid ${paid}` : "New member"; } }),
   R(["PATCH"], /^\/members\/([^/]+)$/, { type: "member", action: "edit", target: "member", detail: ({ before, after }) => changes("member", before, after) }),

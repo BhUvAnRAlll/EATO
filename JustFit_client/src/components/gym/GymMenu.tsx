@@ -14,7 +14,8 @@ import { useThemeColors } from "@/theme";
 import type { GymIconName } from "@/constants/gymIcons";
 
 // need: the Role & Permission option the item opens (a Staff login without it doesn't see the item)
-type MenuItem = { label: string; icon: GymIconName; href?: Href; action?: "sms"; ownerOnly?: boolean; need?: StaffOption };
+// staffOnly: a Staff login's own item (the gym admin doesn't check in for work)
+type MenuItem = { label: string; icon: GymIconName; href?: Href; action?: "sms"; ownerOnly?: boolean; staffOnly?: boolean; need?: StaffOption };
 
 const MANAGE: MenuItem[] = [
   { label: "Members", icon: "users", href: "/gym/members", need: "members.view" },
@@ -31,20 +32,21 @@ const MANAGE: MenuItem[] = [
 const OTHER: MenuItem[] = [
   { label: "Send Bulk SMS", icon: "message-square-more", action: "sms", need: "sms.view" },
   { label: "Attendance", icon: "qr-code", href: "/gym/attendance", need: "attendance.view" },
+  { label: "My check-in", icon: "scan-qr-code", href: "/gym/check-in", staffOnly: true },
   { label: "Settings", icon: "settings", href: "/gym/settings" },
 ];
 
 // The ☰ side menu over Home: who is signed in and their branch, Manage (Members, Plans /
 // Catalogue, Enquiries, Likely to leave = the renewal-risk prediction, Outlets = branches, Staff /
 // Admin Login, Role & Permission and Activity for the gym admin only, Reminder Templates), Other (Send Bulk SMS opens Home's sheet through onBulkSms; Attendance (its
-// location settings are on Attendance and in Settings); Settings, every setting in one list), and Sign out. A Staff login sees only the areas the gym admin gave them (useCan).
-export function GymMenu({ open, onClose, gymLine, onBulkSms, canManageTeam }: { open: boolean; onClose: () => void; gymLine: string | null; onBulkSms: () => void; canManageTeam: boolean }) {
+// location settings are on Attendance and in Settings); My check-in for a Staff login's own day at work; Settings, every setting in one list), and Sign out. A Staff login sees only the areas the gym admin gave them (useCan).
+export function GymMenu({ open, onClose, gymLine, onBulkSms, canManageTeam, isStaff = false }: { open: boolean; onClose: () => void; gymLine: string | null; onBulkSms: () => void; canManageTeam: boolean; isStaff?: boolean }) {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
   const user = useAuthStore((state) => state.user);
   const can = useCan();
   const name = user?.fullName?.trim() || "Admin";
-  const allowed = (item: MenuItem) => (!item.ownerOnly || canManageTeam) && (!item.need || can(item.need));
+  const allowed = (item: MenuItem) => (!item.ownerOnly || canManageTeam) && (!item.staffOnly || isStaff) && (!item.need || can(item.need));
 
   const go = (item: MenuItem) => {
     onClose();

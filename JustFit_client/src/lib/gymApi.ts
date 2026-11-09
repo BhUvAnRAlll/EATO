@@ -356,6 +356,11 @@ export const gymApi = {
   smsSend: (token: string | null, group: SmsGroupId) => call<SmsSendResult>(token, "/api/gym/sms/send", "POST", { group }),
   memberSms: (token: string | null, id: number, kind: SmsKind) => call<{ sent: number; credits: number }>(token, `/api/gym/members/${id}/sms`, "POST", { kind }),
   attendance: (token: string | null) => call<AttendanceSummary>(token, "/api/gym/attendance"),
+  // Attendance › Staff & Trainers (the gym admin only): the team today and the visits of a range
+  teamAttendance: (token: string | null, query: TeamAttendanceQuery) =>
+    call<TeamAttendance>(token, `/api/gym/team-attendance?range=${query.range}${query.search ? `&search=${encodeURIComponent(query.search)}` : ""}${query.page && query.page > 1 ? `&page=${query.page}` : ""}`),
+  teamCheckIn: (token: string | null, userId: string) => call<{ ok: true; alreadyIn: boolean }>(token, `/api/gym/team-attendance/${encodeURIComponent(userId)}/check-in`, "POST"),
+  teamCheckOut: (token: string | null, userId: string) => call<{ ok: true; durationMin: number }>(token, `/api/gym/team-attendance/${encodeURIComponent(userId)}/check-out`, "POST"),
   visits: (token: string | null, query: VisitQuery) => call<VisitPage>(token, `/api/gym/attendance/visits?${visitParams(query)}`),
   attendanceSettings: (token: string | null) => call<AttendanceSettings>(token, "/api/gym/attendance/settings"),
   saveAttendancePlace: (token: string | null, place: { latitude: number; longitude: number; radiusM: number }) => call<AttendanceSettings>(token, "/api/gym/attendance/location", "PUT", place),
@@ -390,7 +395,8 @@ export type GymVisit = {
 };
 export type VisitStats = { visits: number; members: number; completed: number; avgMinutes: number | null };
 export type AttendanceSummary = {
-  gym: GymInfo;
+  // access: the gym admin sees the Staff & Trainers tab too
+  gym: GymInfo & { access?: GymAccess };
   today: string;
   setup: { location: boolean; qr: boolean };
   insideNow: number;
@@ -400,6 +406,51 @@ export type AttendanceSummary = {
   // The Statistics chart for each period: today by hour (India time), the others one bar a day
   charts: { today: HourBar[]; week: DayBar[]; month: DayBar[] };
   lastSevenDays: DayBar[];
+};
+// Staff & Trainers (2026-11-09): each Staff login and Trainer of the branch with today's state
+// (inside now, came and left, or not in yet), and their visits (kind null once they left the team)
+export type TeamKind = "staff" | "trainer";
+export type TeamToday = "inside" | "left" | "absent";
+export type TeamPerson = {
+  userId: string;
+  name: string;
+  kind: TeamKind;
+  phone: string | null;
+  today: TeamToday;
+  firstInAt: string | null;
+  lastOutAt: string | null;
+  minutesToday: number;
+  visitsToday: number;
+  finishedToday: number;
+};
+export type TeamVisit = {
+  id: number;
+  userId: string;
+  name: string;
+  kind: TeamKind | null;
+  date: string;
+  checkedInAt: string;
+  checkedOutAt: string | null;
+  durationMin: number | null;
+  status: VisitStatus;
+  inSource: "qr" | "admin";
+  outSource: "qr" | "admin" | null;
+};
+export type TeamRange = "today" | "week" | "month";
+export type TeamAttendanceQuery = { range: TeamRange; search: string; page?: number };
+export type TeamAttendance = {
+  gym: GymInfo;
+  today: string;
+  setup: { location: boolean; qr: boolean };
+  team: TeamPerson[];
+  stats: { teamSize: number; insideNow: number; cameToday: number; absentToday: number; avgMinutes: number | null };
+  range: TeamRange;
+  from: string;
+  to: string;
+  visits: TeamVisit[];
+  total: number;
+  page: number;
+  pageSize: number;
 };
 export type DayBar = { day: string; visits: number };
 export type HourBar = { hour: number; visits: number };

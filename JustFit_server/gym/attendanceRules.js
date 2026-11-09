@@ -175,6 +175,28 @@ function historyQuery(query = {}, today) {
   return { from, to, status, search, memberId, page };
 }
 
+// Staff & Trainers (2026-11-09): the visits list's range (today, the last 7 or the last 30 days,
+// counted back from today), a search by name and a page. Nothing else is accepted.
+const TEAM_RANGES = { today: 1, week: 7, month: 30 };
+function teamQuery(query = {}, today) {
+  const allowed = ["range", "search", "page"];
+  if (Object.keys(query).some((key) => !allowed.includes(key))) throw new ValidationError("That request has fields we don't use.");
+  const range = query.range === undefined ? "today" : query.range;
+  if (typeof range !== "string" || !Object.hasOwn(TEAM_RANGES, range)) throw new ValidationError("Pick today, the last 7 days or the last 30 days.");
+  const from = new Date(Date.parse(`${today}T00:00:00Z`) - (TEAM_RANGES[range] - 1) * 86400000).toISOString().slice(0, 10);
+  let search = "";
+  if (query.search !== undefined) {
+    if (typeof query.search !== "string" || query.search.length > 60) throw new ValidationError("Keep the search to 60 characters.");
+    search = query.search.replace(/\s+/g, " ").trim();
+  }
+  let page = 1;
+  if (query.page !== undefined) {
+    if (typeof query.page !== "string" || !/^[1-9]\d{0,3}$/.test(query.page)) throw new ValidationError("That page isn't valid.");
+    page = Number(query.page);
+  }
+  return { range, from, to: today, search, page };
+}
+
 // A CSV cell: quoted, and a leading = + - @ (a spreadsheet formula) neutralised
 function csvCell(value) {
   if (value === null || value === undefined) return "";
@@ -267,6 +289,8 @@ module.exports = {
   judgePosition,
   durationMinutes,
   historyQuery,
+  TEAM_RANGES,
+  teamQuery,
   csvCell,
   exportRow,
   toSheet,

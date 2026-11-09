@@ -1,5 +1,7 @@
 import { Alert, Platform } from "react-native";
 
+import { confirmChoice } from "@/lib/nativeSheets";
+
 // A short message with a title: an alert on phones, the browser's alert on the web build
 export function notice(title: string, text: string) {
   if (Platform.OS === "web") globalThis.alert?.(`${title}\n\n${text}`);
@@ -12,13 +14,8 @@ export function comingSoon(what: string) {
   notice(what, "This part of the gym portal is coming soon.");
 }
 
-// Asks before something that can't be undone; resolves true when confirmed
+// Asks before something that can't be undone; resolves true when confirmed (the platform's own
+// sheet or dialog, lib/nativeSheets.ts)
 export function confirmAction(title: string, text: string, confirmLabel: string): Promise<boolean> {
-  if (Platform.OS === "web") return Promise.resolve(globalThis.confirm?.(`${title}\n\n${text}`) ?? false);
-  return new Promise((resolve) =>
-    Alert.alert(title, text, [
-      { text: "Cancel", style: "cancel", onPress: () => resolve(false) },
-      { text: confirmLabel, style: "destructive", onPress: () => resolve(true) },
-    ], { cancelable: true, onDismiss: () => resolve(false) }),
-  );
+  return confirmChoice({ title, message: text, confirmLabel });
 }

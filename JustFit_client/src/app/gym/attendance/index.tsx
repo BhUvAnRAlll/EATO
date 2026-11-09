@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 import { RefreshControl, Text, View } from "react-native";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 
 import { FormAlert } from "@/components/FormAlert";
 import { PressableScale } from "@/components/PressableScale";
@@ -9,6 +9,7 @@ import { GymChips } from "@/components/gym/GymField";
 import { GymIcon } from "@/components/gym/GymIcon";
 import { GymError, GymLoading } from "@/components/gym/GymStates";
 import { GymScreen } from "@/components/gym/GymScreen";
+import { TeamAttendance } from "@/components/gym/TeamAttendance";
 import { VisitHistory } from "@/components/gym/VisitHistory";
 import { VisitRow } from "@/components/gym/VisitRow";
 import { durationText } from "@/lib/attendanceText";
@@ -25,11 +26,19 @@ const PERIODS: { value: Period; label: string }[] = [
   { value: "week", label: "Last 7 days" },
   { value: "month", label: "Last 30 days" },
 ];
+// Two tabs (2026-11-09, the user's request): members, and the branch's Staff and Trainers (the gym
+// admin only; a Staff login sees the members' screen alone, as before)
+type Tab = "members" | "team";
+const TABS: { value: Tab; label: string }[] = [
+  { value: "members", label: "Members" },
+  { value: "team", label: "Staff & Trainers" },
+];
 const WEEKDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const SHORT_MONTH = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const shortDate = (iso: string) => `${Number(iso.slice(8, 10))} ${SHORT_MONTH[Number(iso.slice(5, 7)) - 1]}`;
 
-// Gym admin › Attendance: who is inside now (with Check out for the front desk), today's
+// Gym admin › Attendance, tab Members (the gym admin also has Staff & Trainers, TeamAttendance):
+// who is inside now (with Check out for the front desk), today's
 // check-ins and completed visits, the Statistics for Today / Last 7 days / Last 30 days with the
 // chart following the period (today by hour, the others a bar a day; 2026-11-07, the user's
 // request), tomorrow's busy hours (the prediction, `BusyHoursCard`), then the history with its
@@ -50,6 +59,8 @@ export default function GymAttendance() {
   const loadBusy = useCallback((token: string | null) => (canPredict ? gymApi.busyHours(token) : Promise.resolve({ ok: false as const, error: "Your login doesn't include Predictions.", status: 403 })), [canPredict]);
   const busy = useGymData(loadBusy);
   const [period, setPeriod] = useState<Period>("today");
+  const params = useLocalSearchParams<{ tab?: string }>();
+  const [tab, setTab] = useState<Tab>(params.tab === "team" ? "team" : "members");
   const [checkingOut, setCheckingOut] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
@@ -94,6 +105,16 @@ export default function GymAttendance() {
     );
   }
   const data: AttendanceSummary = result.data;
+  const isOwner = data.gym.access === "owner";
+  const tabs = isOwner ? <GymChips options={TABS} value={tab} onChange={setTab} /> : null;
+  if (isOwner && tab === "team") {
+    return (
+      <GymScreen title="Attendance" right={header} refreshControl={<RefreshControl refreshing={refreshing} tintColor={colors.gymPrimary} onRefresh={refreshAll} />}>
+        {tabs}
+        <TeamAttendance refreshKey={refreshKey} />
+      </GymScreen>
+    );
+  }
   const stats = data.stats[period];
   // The chart for the period: today's check-ins by hour (the busiest hour full strength), else
   // one bar a day with today's full strength. Wide charts drop the per-bar number and label
@@ -113,6 +134,7 @@ export default function GymAttendance() {
 
   return (
     <GymScreen title="Attendance" right={header} refreshControl={<RefreshControl refreshing={refreshing} tintColor={colors.gymPrimary} onRefresh={refreshAll} />}>
+      {tabs}
       {canSetUp && (!data.setup.location || !data.setup.qr) ? (
         <PressableScale onPress={() => router.push(data.setup.location ? "/gym/attendance/qr" : "/gym/attendance/settings")} className="gym-warning" accessibilityRole="button" accessibilityLabel={data.setup.location ? "Create the attendance QR code" : "Set the gym's location"}>
           <GymIcon name="triangle-alert" size={18} color={colors.gymWarning} />
