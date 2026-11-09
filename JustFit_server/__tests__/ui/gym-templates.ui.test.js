@@ -125,7 +125,7 @@ describe("ui gym reminder templates: the list, editing one, Send Reminder using 
       if (!connection) return;
       if (state.gym) {
         const [[{ brand_id: brandId }]] = await connection.query("SELECT brand_id FROM gyms WHERE id = ?", [state.gym]);
-        for (const table of ["gym_reminder_templates", "gym_payments", "gym_members", "gym_staff_invites", "gym_staff"]) await connection.query(`DELETE FROM \`${table}\` WHERE gym_id = ?`, [state.gym]);
+        for (const table of ["gym_added_templates", "gym_reminder_templates", "gym_payments", "gym_members", "gym_staff_invites", "gym_staff"]) await connection.query(`DELETE FROM \`${table}\` WHERE gym_id = ?`, [state.gym]);
         await connection.query("DELETE FROM gyms WHERE id = ?", [state.gym]);
         await connection.query("DELETE FROM gym_brands WHERE id = ?", [brandId]);
       }
@@ -219,6 +219,44 @@ describe("ui gym reminder templates: the list, editing one, Send Reminder using 
     await page.waitFor(`(document.body.innerText.match(/Default/g) || []).length === 4`, NAV_TIMEOUT, "all four are the default again");
     const [rows] = await connection.query("SELECT COUNT(*) AS n FROM gym_reminder_templates WHERE gym_id = ?", [state.gym]);
     assert.equal(rows[0].n, 0);
+  }));
+
+  it("4b. + adds a template of your own; Send Reminder lists it and fills it in; Delete asks once more", run("templates-added", async () => {
+    const message = 'textarea[aria-label="Template message"]';
+    const name = 'input[aria-label="Template name"]';
+    await h.expectText("Your templates");
+    await clickLabel("Add template");
+    await page.waitFor(`!!document.querySelector(${JSON.stringify(name)})`, NAV_TIMEOUT, "the add sheet");
+    assert.equal(await labelDisabled("Add Template"), "true", "Add waits for a name");
+    await page.setInput(name, "Festive offer");
+    await page.setInput(message, "Hi {name}, renew at {gym} before {date} and save 10%.");
+    await h.expectText("Hi Priya, renew at Forma (Tumkur) before 30 Nov 2026 and save 10%.");
+    await tapInSheet("Add Template");
+    await page.waitFor(`!document.querySelector(${JSON.stringify(name)})`, NAV_TIMEOUT, "the sheet closes once added");
+    await h.expectText("Festive offer");
+    assert.ok(await hasLabel("Edit Festive offer"));
+    await snapshotAllWidths("gym-templates-added");
+    const [rows] = await connection.query("SELECT name, body FROM gym_added_templates WHERE gym_id = ?", [state.gym]);
+    assert.deepEqual(rows, [{ name: "Festive offer", body: "Hi {name}, renew at {gym} before {date} and save 10%." }]);
+
+    await page.navigate(`${expo.baseUrl}/gym/members`);
+    await h.expectText("Ravi Kumar");
+    await clickLabel("Send Ravi Kumar a due reminder");
+    await page.waitFor(`!!document.querySelector('textarea[aria-label="Message"]')`, NAV_TIMEOUT, "Send Reminder");
+    await tapInSheet("Use Template");
+    await tapInSheet("Template: Festive offer");
+    await page.waitFor(`document.querySelector('textarea[aria-label="Message"]').value.startsWith("Hi Ravi, renew at Forma (Tumkur) before ")`, NAV_TIMEOUT, "the added template, filled in");
+    await tapInSheet("Send by SMS");
+    await h.expectText("Your own template goes from your phone's Messages app");
+
+    await page.navigate(`${expo.baseUrl}/gym/templates`);
+    await clickLabel("Edit Festive offer");
+    await tapInSheet("Delete Festive offer");
+    await h.expectText("Delete this template?");
+    await tapInSheet("Delete");
+    await page.waitFor(`!document.querySelector(${JSON.stringify(message)})`, NAV_TIMEOUT, "the sheet closes once deleted");
+    const [left] = await connection.query("SELECT COUNT(*) AS n FROM gym_added_templates WHERE gym_id = ?", [state.gym]);
+    assert.equal(left[0].n, 0);
   }));
 
   it("5. a Staff login reads the templates but has no Edit", run("templates-staff", async () => {

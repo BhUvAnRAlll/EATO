@@ -434,7 +434,8 @@ const templateRoute = (handler) => (req, res, next) =>
     if (["ER_NO_SUCH_TABLE", "ER_BAD_FIELD_ERROR"].includes(error?.code)) return res.status(503).json({ error: TEMPLATE_MIGRATION });
     next(error);
   });
-const templateLimit = limitPerUser(createRateLimiter({ limit: 30, windowMs: 60 * 60 * 1000 }));
+// 30 template changes an hour per account (GYM_TEMPLATE_CHANGES_PER_HOUR; the test server raises it)
+const templateLimit = limitPerUser(createRateLimiter({ limit: Number(process.env.GYM_TEMPLATE_CHANGES_PER_HOUR) || 30, windowMs: 60 * 60 * 1000 }));
 const templateOwner = ownerOnly("Only the gym admin can change the reminder templates.");
 router.get("/templates", templateRoute(async (req, res) => {
   res.json(await templates.list(pool(req), req.gym));
@@ -450,6 +451,24 @@ router.delete("/templates/:kind", templateOwner, templateLimit, templateRoute(as
 // Send Bulk SMS (gym/sms.js): credits, Auto Reminders, Manual Send, a member's reminder, Message
 // Logs. Sending costs the branch's credits, so sends have their own small budget per account.
 const SMS_MIGRATION = "SMS needs the 2026-11-25-gym-sms migration on this server.";
+// The gym admin's own named templates (2026-11-08), on the same allowance. Before migration
+// 2026-12-13 the list reads as empty and these answer 503 naming it.
+const ADDED_MIGRATION = "Adding templates needs the 2026-12-13-added-templates migration on this server.";
+const addedRoute = (handler) => (req, res, next) =>
+  handler(req, res, next).catch((error) => {
+    if (["ER_NO_SUCH_TABLE", "ER_BAD_FIELD_ERROR"].includes(error?.code)) return res.status(503).json({ error: ADDED_MIGRATION });
+    next(error);
+  });
+router.post("/templates/added", templateOwner, templateLimit, smallBody, addedRoute(async (req, res) => {
+  res.status(201).json(await templates.addTemplate(pool(req), req.gym, req.userId, templateRules.addedBody(req.body)));
+}));
+router.put("/templates/added/:id", templateOwner, templateLimit, smallBody, addedRoute(async (req, res) => {
+  const id = rules.id(req.params.id, "template");
+  res.json(await templates.editTemplate(pool(req), req.gym, req.userId, id, templateRules.addedBody(req.body)));
+}));
+router.delete("/templates/added/:id", templateOwner, templateLimit, addedRoute(async (req, res) => {
+  res.json(await templates.deleteTemplate(pool(req), req.gym, req.userId, rules.id(req.params.id, "template")));
+}));
 const smsRoute = (handler) => (req, res, next) =>
   handler(req, res, next).catch((error) => {
     if (["ER_NO_SUCH_TABLE", "ER_BAD_FIELD_ERROR"].includes(error?.code)) return res.status(503).json({ error: SMS_MIGRATION });

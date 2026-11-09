@@ -46,4 +46,27 @@ describe("reminder template rules", () => {
     const text = "Hi {name}'; DROP TABLE gym_members; -- <script>x</script>";
     assert.equal(rules.templateBody("due", { text }).text, text);
   });
+
+  it("accepts an added template's name and text, with every member placeholder", () => {
+    assert.deepEqual(rules.addedBody({ name: "  Diwali   offer ", text: " Hi {name}, {gym}: {amount} due {dueBy}, plan ends {date} ({code}). " }), {
+      name: "Diwali offer",
+      text: "Hi {name}, {gym}: {amount} due {dueBy}, plan ends {date} ({code}).",
+    });
+    assert.equal(rules.addedBody({ name: "a".repeat(40), text: "Hello there friend" }).name.length, 40);
+  });
+
+  it("refuses an added template with a bad name, text or shape", () => {
+    const text = "Hello {name}, see you soon!";
+    for (const body of [null, [], "x", { name: "Offer", text, kind: "due" }, { name: "Offer", text, id: 3 }]) {
+      assert.throws(() => rules.addedBody(body), /Send the template's name and text/, JSON.stringify(body));
+    }
+    for (const name of [undefined, 5, "", " ", "a"]) assert.throws(() => rules.addedBody({ name, text }), /Give the template a name/, String(name));
+    assert.throws(() => rules.addedBody({ name: "a".repeat(41), text }), /40 characters/);
+    assert.throws(() => rules.addedBody({ name: "Off\u0000er", text }), /name has characters/);
+    assert.throws(() => rules.addedBody({ name: "Offer" }), /Send the template's text/);
+    assert.throws(() => rules.addedBody({ name: "Offer", text: "Hi {nmae}, see you soon." }), /\{nmae\} isn't a placeholder/);
+    assert.throws(() => rules.addedBody({ name: "Offer", text: "short" }), /at least 10/);
+    assert.throws(() => rules.addedBody({ name: "Offer", text: "Hi {name, see you soon." }), /missing its/);
+    assert.equal(rules.ADDED_MAX, 20);
+  });
 });

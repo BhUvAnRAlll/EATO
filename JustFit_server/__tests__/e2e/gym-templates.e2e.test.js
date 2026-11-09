@@ -61,7 +61,7 @@ describe("gym reminder templates e2e: read by every portal login, changed by the
         const gymIds = [state.gymA, state.gymB].filter(Boolean);
         if (gymIds.length) {
           const [brands] = await connection.query("SELECT DISTINCT brand_id FROM gyms WHERE id IN (?)", [gymIds]);
-          for (const table of ["gym_reminder_templates", "gym_staff_invites", "gym_staff"]) await connection.query(`DELETE FROM \`${table}\` WHERE gym_id IN (?)`, [gymIds]);
+          for (const table of ["gym_added_templates", "gym_reminder_templates", "gym_staff_invites", "gym_staff"]) await connection.query(`DELETE FROM \`${table}\` WHERE gym_id IN (?)`, [gymIds]);
           await connection.query("DELETE FROM gyms WHERE id IN (?)", [gymIds]);
           if (brands.length) await connection.query("DELETE FROM gym_brands WHERE id IN (?)", [brands.map((b) => b.brand_id)]);
         }
@@ -96,12 +96,12 @@ describe("gym reminder templates e2e: read by every portal login, changed by the
 
     const owner = await api("GET", "/api/gym/templates", tokens.gymA);
     assert.equal(owner.status, 200, JSON.stringify(owner.json));
-    assert.deepEqual(owner.json, { templates: empty, canEdit: true });
+    assert.deepEqual(owner.json, { templates: empty, added: [], canEdit: true, canAdd: true });
     // Staff read them (Send Reminder is used from Members), even with only Members, but can't edit
     for (const tag of ["staffAll", "staffNone"]) {
       const staff = await api("GET", "/api/gym/templates", tokens[tag]);
       assert.equal(staff.status, 200, `${tag}: ${JSON.stringify(staff.json)}`);
-      assert.deepEqual(staff.json, { templates: empty, canEdit: false });
+      assert.deepEqual(staff.json, { templates: empty, added: [], canEdit: false, canAdd: false });
     }
   }));
 
@@ -178,7 +178,7 @@ describe("gym reminder templates e2e: read by every portal login, changed by the
 
   it("6. each branch has its own: gym B sees defaults and its changes never touch gym A", run(async () => {
     const other = await api("GET", "/api/gym/templates", tokens.gymB);
-    assert.deepEqual(other.json, { templates: empty, canEdit: true });
+    assert.deepEqual(other.json, { templates: empty, added: [], canEdit: true, canAdd: true });
     assert.equal((await api("DELETE", "/api/gym/templates/due", tokens.gymB)).status, 200, "a reset with nothing saved is fine");
     assert.equal((await api("PUT", "/api/gym/templates/due", tokens.gymB, { text: "Just Fit says hi {name}, pay {amount}." })).status, 200);
     const mine = await api("GET", "/api/gym/templates", tokens.gymA);
@@ -194,5 +194,70 @@ describe("gym reminder templates e2e: read by every portal login, changed by the
     const after = (await connection.query("SELECT COUNT(*) AS n FROM admin_audit_log WHERE admin_id = ? AND action = 'gym.template_edit'", [identities.gymA.id]))[0][0].n;
     assert.equal(after, before + 1, "only the reset that removed something is audited");
     assert.equal((await api("DELETE", "/api/gym/templates/nope", tokens.gymA)).status, 400);
+  }));
+
+  it("8. the gym admin adds, edits and deletes templates of their own; Staff read them; each branch keeps its own", run(async () => {
+    const offer = { name: "Diwali offer", text: "Hi {name}, {gym} has 20% off renewals till {date}. Member ID {code}." };
+    const added = await api("POST", "/api/gym/templates/added", tokens.gymA, { ...offer, name: `  ${offer.name} ` });
+    assert.equal(added.status, 201, JSON.stringify(added.json));
+    assert.equal(added.json.added.length, 1);
+    const id = added.json.added[0].id;
+    assert.deepEqual(added.json.added, [{ id, ...offer }]);
+    // Staff read it (Send Reminder lists it) but can't add, edit or delete
+    assert.deepEqual((await api("GET", "/api/gym/templates", tokens.staffNone)).json.added, [{ id, ...offer }]);
+    for (const tag of ["staffAll", "staffNone"]) {
+      assert.equal((await api("POST", "/api/gym/templates/added", tokens[tag], { name: "Mine", text: "Hello there friend" })).status, 403, tag);
+      assert.equal((await api("PUT", `/api/gym/templates/added/${id}`, tokens[tag], offer)).status, 403, tag);
+      assert.equal((await api("DELETE", `/api/gym/templates/added/${id}`, tokens[tag])).status, 403, tag);
+    }
+    for (const tag of ["member", "admin"]) assert.equal((await api("POST", "/api/gym/templates/added", tokens[tag], offer)).status, 403, tag);
+    assert.equal((await api("POST", "/api/gym/templates/added", null, offer)).status, 401);
+
+    // The same name twice is a 409; bad bodies and ids are 400s
+    const twice = await api("POST", "/api/gym/templates/added", tokens.gymA, offer);
+    assert.equal(twice.status, 409);
+    assert.match(twice.json.error, /already have a template called Diwali offer/);
+    for (const [payload, pattern] of [
+      [{ name: "x", text: offer.text }, /Give the template a name/],
+      [{ name: "Offer", text: "Hi {nmae}, see you soon." }, /\{nmae\}/],
+      [{ name: "Offer", text: offer.text, gymId: state.gymB }, /name and text/],
+    ]) {
+      const answer = await api("POST", "/api/gym/templates/added", tokens.gymA, payload);
+      assert.equal(answer.status, 400, JSON.stringify(answer.json));
+      assert.match(answer.json.error, pattern);
+    }
+    for (const bad of ["0", "abc", encodeURIComponent("1 OR 1=1")]) assert.equal((await api("PUT", `/api/gym/templates/added/${bad}`, tokens.gymA, offer)).status, 400, bad);
+    assert.equal((await api("DELETE", "/api/gym/templates/added/999999", tokens.gymA)).status, 404);
+
+    // Edit, then a second one; renaming onto the first is a 409
+    const edited = await api("PUT", `/api/gym/templates/added/${id}`, tokens.gymA, { name: "Festive offer", text: "Hi {name}, renew at {gym} and save. Due {amount} {dueBy}." });
+    assert.equal(edited.status, 200, JSON.stringify(edited.json));
+    assert.deepEqual(edited.json.added.map((t) => t.name), ["Festive offer"]);
+    const second = await api("POST", "/api/gym/templates/added", tokens.gymA, { name: "Holiday", text: "Hi {name}, {gym} is closed tomorrow." });
+    assert.equal(second.status, 201);
+    const secondId = second.json.added[1].id;
+    assert.equal((await api("PUT", `/api/gym/templates/added/${secondId}`, tokens.gymA, { name: "Festive offer", text: "Hello there friend" })).status, 409);
+
+    // Gym B can't see, edit or delete gym A's, and its own list is separate
+    assert.deepEqual((await api("GET", "/api/gym/templates", tokens.gymB)).json.added, []);
+    assert.equal((await api("PUT", `/api/gym/templates/added/${id}`, tokens.gymB, offer)).status, 404);
+    assert.equal((await api("DELETE", `/api/gym/templates/added/${id}`, tokens.gymB)).status, 404);
+    assert.equal((await api("POST", "/api/gym/templates/added", tokens.gymB, offer)).status, 201, "the same name at another gym is fine");
+
+    // Delete, audited; the four are untouched
+    const deleted = await api("DELETE", `/api/gym/templates/added/${id}`, tokens.gymA);
+    assert.equal(deleted.status, 200);
+    assert.deepEqual(deleted.json.added.map((t) => t.id), [secondId]);
+    assert.equal((await api("DELETE", `/api/gym/templates/added/${id}`, tokens.gymA)).status, 404);
+    const [audit] = await connection.query("SELECT action FROM admin_audit_log WHERE admin_id = ? AND action IN ('gym.template_add', 'gym.template_delete') ORDER BY created_at", [identities.gymA.id]);
+    assert.deepEqual(audit.map((a) => a.action), ["gym.template_add", "gym.template_add", "gym.template_delete"]);
+  }));
+
+  it("9. a branch keeps at most 20 templates of its own", run(async () => {
+    const [[{ n }]] = await connection.query("SELECT COUNT(*) AS n FROM gym_added_templates WHERE gym_id = ?", [state.gymB]);
+    for (let i = n; i < 20; i += 1) await connection.query("INSERT INTO gym_added_templates (gym_id, name, body) VALUES (?, ?, 'Hello there friend')", [state.gymB, `Filler ${i}`]);
+    const over = await api("POST", "/api/gym/templates/added", tokens.gymB, { name: "One more", text: "Hello there friend" });
+    assert.equal(over.status, 409);
+    assert.match(over.json.error, /20 templates/);
   }));
 });

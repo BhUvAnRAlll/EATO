@@ -1499,3 +1499,19 @@ CREATE TABLE gym_reminder_templates (
   CONSTRAINT fk_gym_reminder_templates_gym FOREIGN KEY (gym_id) REFERENCES gyms (id),
   CONSTRAINT fk_gym_reminder_templates_updated_by FOREIGN KEY (updated_by) REFERENCES users (id) ON DELETE SET NULL
 ) ENGINE = InnoDB;
+
+-- Added templates (migration 2026-12-13-added-templates.sql): the gym admin's own named messages
+-- for Send Reminder, up to 20 a branch, names unique within the branch.
+CREATE TABLE gym_added_templates (
+  id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  gym_id      INT UNSIGNED NOT NULL,                -- the branch
+  name        VARCHAR(40)  NOT NULL,                -- shown on Use Template
+  body        VARCHAR(300) NOT NULL,                -- the text with its {placeholders}
+  updated_by  VARCHAR(64)  NULL,
+  created_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_gym_added_templates_name (gym_id, name),
+  CONSTRAINT fk_gym_added_templates_gym FOREIGN KEY (gym_id) REFERENCES gyms (id),
+  CONSTRAINT fk_gym_added_templates_updated_by FOREIGN KEY (updated_by) REFERENCES users (id) ON DELETE SET NULL
+) ENGINE = InnoDB;

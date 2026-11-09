@@ -8,6 +8,10 @@ export type TemplateKind = "due" | "expiry" | "expired" | "enquiry";
 export type Placeholder = "name" | "gym" | "amount" | "dueBy" | "date" | "code";
 // What a branch has saved: a kind with null uses the default
 export type CustomTemplates = Record<TemplateKind, string | null>;
+// A message the gym admin added of their own (2026-11-08), listed in Send Reminder's Use Template
+export type AddedTemplate = { id: number; name: string; text: string };
+// What a text is checked against: one of the four kinds, or an added template
+export type TemplateTarget = TemplateKind | "added";
 
 export const TEMPLATE_KINDS: TemplateKind[] = ["due", "expiry", "expired", "enquiry"];
 export const TEMPLATE_MIN = 10;
@@ -26,6 +30,12 @@ export const PLACEHOLDERS: Record<TemplateKind, Placeholder[]> = {
   expired: ["name", "gym", "date", "code"],
   enquiry: ["name", "gym"],
 };
+
+// An added template goes to a member, so it may use every member detail
+export const ADDED_PLACEHOLDERS: Placeholder[] = ["name", "gym", "amount", "dueBy", "date", "code"];
+export const NAME_MAX = 40;
+export const ADDED_MAX = 20;
+export const placeholdersFor = (target: TemplateTarget): Placeholder[] => (target === "added" ? ADDED_PLACEHOLDERS : PLACEHOLDERS[target]);
 
 export const PLACEHOLDER_LABEL: Record<Placeholder, string> = {
   name: "First name",
@@ -68,13 +78,21 @@ export function fillTemplate(text: string, values: Partial<Record<Placeholder, s
 }
 
 // Why a text can't be saved, or null (the server says the same; this is the hint while typing)
-export function templateProblem(kind: TemplateKind, text: string): string | null {
+export function templateProblem(target: TemplateTarget, text: string): string | null {
   const trimmed = text.trim();
   if (trimmed.length < TEMPLATE_MIN) return `Write at least ${TEMPLATE_MIN} characters.`;
   if (trimmed.length > TEMPLATE_MAX) return `Keep the message to ${TEMPLATE_MAX} characters.`;
-  const allowed: string[] = PLACEHOLDERS[kind];
+  const allowed: string[] = placeholdersFor(target);
   const unknown = [...trimmed.matchAll(/\{([^{}]*)\}/g)].map((m) => m[1]).find((name) => !allowed.includes(name));
   if (unknown !== undefined) return `{${unknown.slice(0, 20)}} isn't a placeholder this message can use.`;
   if (/[{}]/.test(trimmed.replace(/\{[^{}]*\}/g, ""))) return "A placeholder is missing its { or }.";
+  return null;
+}
+
+// Why an added template's name can't be saved, or null (the server tidies its spaces the same way)
+export function templateNameProblem(name: string): string | null {
+  const tidy = name.replace(/\s+/g, " ").trim();
+  if (tidy.length < 2) return "Give the template a name.";
+  if (tidy.length > NAME_MAX) return `Keep the name to ${NAME_MAX} characters.`;
   return null;
 }

@@ -639,6 +639,17 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
   GSTIN). The screen stacks it for a phone; the PDF is one A4 page. The words and rows come from
   `lib/gymInvoice.ts` (`detailRows`, `dueDate`, `invoiceSubtitle`, `itemDescription`, pure and
   unit-tested) for both. The template's GST, discount, second line, QR and transaction ID are left
+  **Added templates (2026-11-08, the user's request):** under the four, "Your templates": the gym
+  admin's own named messages (the round + on Reminder Templates, `TemplateSheet` with
+  `editing={{ added: null }}`: a name of 2-40 characters, the text with any member placeholder,
+  `ADDED_PLACEHOLDERS`; edit, Delete asked once more), up to 20 a branch, names unique in the branch.
+  Send Reminder's Use Template lists them after the reminders (`addedReminder` in `gymContact`); they
+  always go from the phone's own apps. Server `templateRules.addedBody`, `templates.addTemplate` /
+  `editTemplate` / `deleteTemplate`; routes `POST /api/gym/templates/added`,
+  `PUT|DELETE /api/gym/templates/added/:id` (gym admin only, the templates' 30 an hour; audited
+  `gym.template_add`, `gym.template_edit`, `gym.template_delete`). `GET /api/gym/templates` carries
+  `added` and `canAdd`. Table `gym_added_templates` (migration `2026-12-13-added-templates.sql`;
+  before it the list is empty, the + is hidden and adding answers 503 naming it).
   out: justFit records none of them. **Logo:** each gym prints its own: Branch details › Invoice
   details › Logo (camera or gallery, shrunk to 512 px, `pickLogoImage`) saves at once through
   `PUT|DELETE /api/gym/logo` (gym admin only, the photos' hourly allowance, audited `gym.edit`);

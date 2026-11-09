@@ -236,7 +236,7 @@ export function EnquiryList({ initialView = "open" }: { initialView?: EnquiryVie
                     </PressableScale>
                   )}
                   {item.phone && (
-                    <PressableScale onPress={() => data && whatsappPhone(item.phone, enquiryFollowUp(item.name, data.gym, templates))} hitSlop={6} className="gym-member-card__action" accessibilityRole="button" accessibilityLabel={`WhatsApp ${item.name}`}>
+                    <PressableScale onPress={() => data && whatsappPhone(item.phone, enquiryFollowUp(item.name, data.gym, templates?.templates))} hitSlop={6} className="gym-member-card__action" accessibilityRole="button" accessibilityLabel={`WhatsApp ${item.name}`}>
                       <WhatsAppMark size={22} />
                     </PressableScale>
                   )}

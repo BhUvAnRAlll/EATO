@@ -10,12 +10,11 @@ import { GymSheet } from "@/components/gym/GymSheet";
 import { MemberPhotoImage } from "@/components/gym/MemberPhotoImage";
 import type { GymIconName } from "@/constants/gymIcons";
 import { planLabel, rupees } from "@/data/gymDashboard";
-import { daysLeftText, dueReminder, expiredReminder, invoice, sms, whatsapp } from "@/lib/gymContact";
-import { gymApi, type GymInfo, type GymMember, type GymPayment, type GymSms, type SmsKind } from "@/lib/gymApi";
+import { addedReminder, daysLeftText, dueReminder, expiredReminder, invoice, sms, whatsapp } from "@/lib/gymContact";
+import { gymApi, type GymInfo, type GymMember, type GymPayment, type GymSms, type GymTemplates, type SmsKind } from "@/lib/gymApi";
 import { memberStatus } from "@/lib/gymMember";
 import { SMS_KIND_LABEL, membershipKind } from "@/lib/gymSms";
 import { haptic } from "@/lib/haptics";
-import type { CustomTemplates } from "@/lib/reminderTemplates";
 import { useSessionToken } from "@/lib/session";
 import { useReminderTemplates } from "@/lib/useReminderTemplates";
 import { useThemeColors } from "@/theme";
@@ -24,10 +23,13 @@ export type ReminderKind = "due" | "expired" | "invoice";
 type Channel = "whatsapp" | "sms";
 const MAX_CHARS = 300;
 
+// A template on Use Template: one of the reminders, or one the gym admin added ("added-12")
+type TemplateId = ReminderKind | `added-${number}`;
 // Send Reminder (the user's design, 2026-11-07; from a card's bell and the ⋯ sheet's Reminders):
 // the member's card (status, days left, payment due, plan), Send via as tiles you can combine
 // (WhatsApp, SMS; Notification is coming soon: justFit has no push server), and the message, from
-// Use Template (payment due, membership expiry or expired, the invoice when there is a payment)
+// Use Template (payment due, membership expiry or expired, the invoice when there is a payment,
+// then the templates the gym admin added in Reminder Templates)
 // and editable up to 300 characters. Send Reminder: an SMS goes through justFit (1 credit, after a
 // confirm) only while sending is on, credits are left and the message is still the registered
 // template word for word; otherwise it opens the phone's Messages app with the text, as WhatsApp
@@ -41,15 +43,16 @@ export function SendReminderSheet({ kind, member, gym, payment, onClose, onSent 
   const getToken = useSessionToken();
   // The branch's own wording from Reminder Templates once it arrives (null: justFit's defaults)
   const custom = useReminderTemplates();
-  const listFor = (own: CustomTemplates | null): { id: ReminderKind; label: string; text: string }[] => [
-    { id: "due", label: "Payment due", text: dueReminder(member, gym, own) },
-    { id: "expired", label: member.daysLeft < 0 ? "Membership expired" : "Membership expiry", text: expiredReminder(member, gym, own) },
+  const listFor = (own: GymTemplates | null): { id: TemplateId; label: string; text: string }[] => [
+    { id: "due", label: "Payment due", text: dueReminder(member, gym, own?.templates) },
+    { id: "expired", label: member.daysLeft < 0 ? "Membership expired" : "Membership expiry", text: expiredReminder(member, gym, own?.templates) },
     ...(payment ? [{ id: "invoice" as const, label: "Invoice", text: invoice(member, gym, payment) }] : []),
+    ...(own?.added ?? []).map((t) => ({ id: `added-${t.id}` as const, label: t.name, text: addedReminder(member, gym, t.text) })),
   ];
   const templates = listFor(custom);
   // justFit's own wording: an SMS through justFit sends the DLT text, so only this one may go that way
   const defaults = listFor(null);
-  const [template, setTemplate] = useState<ReminderKind>((templates.find((t) => t.id === kind) ?? templates[0]).id);
+  const [template, setTemplate] = useState<TemplateId>((templates.find((t) => t.id === kind) ?? templates[0]).id);
   // What was typed over the template (null: the template as it is). The branch's templates arrive
   // after the sheet opens, so an untouched message shows their wording as soon as they do.
   const [draft, setDraft] = useState<string | null>(null);
@@ -89,7 +92,8 @@ export function SendReminderSheet({ kind, member, gym, payment, onClose, onSent 
   const smsNote = !channels.has("sms") ? null
     : status === "loading" ? "Checking justFit SMS credits…"
     : viaJustfit && viaApp ? `Via justFit: 1 credit · ${viaApp.credits} left`
-    : !smsKind ? "An invoice goes from your phone's Messages app"
+    : template === "invoice" ? "An invoice goes from your phone's Messages app"
+    : !smsKind ? "Your own template goes from your phone's Messages app"
     : ownWording ? "Your own template goes from your phone's Messages app"
     : !unedited ? "An edited message goes from your phone's Messages app"
     : status === "error" ? "Couldn't check credits: opens your phone's Messages app"
@@ -105,7 +109,7 @@ export function SendReminderSheet({ kind, member, gym, payment, onClose, onSent 
       return next;
     });
   };
-  const pickTemplate = (id: ReminderKind) => {
+  const pickTemplate = (id: TemplateId) => {
     haptic.select();
     setTemplate(id);
     setDraft(null);

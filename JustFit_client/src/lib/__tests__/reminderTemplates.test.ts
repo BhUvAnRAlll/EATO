@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { DEFAULT_TEMPLATES, PLACEHOLDERS, SAMPLE_VALUES, TEMPLATE_KINDS, fillTemplate, templateProblem, templateText, type CustomTemplates } from "../reminderTemplates.ts";
+import { ADDED_PLACEHOLDERS, DEFAULT_TEMPLATES, PLACEHOLDERS, SAMPLE_VALUES, TEMPLATE_KINDS, fillTemplate, placeholdersFor, templateNameProblem, templateProblem, templateText, type CustomTemplates } from "../reminderTemplates.ts";
 
 describe("reminder templates", () => {
   it("the defaults are the wording the reminders used before", () => {
@@ -51,5 +51,16 @@ describe("reminder templates", () => {
     assert.match(templateProblem("enquiry", "Hi {name}, you owe {amount}") ?? "", /\{amount\}/);
     assert.match(templateProblem("due", "Hi {name, please pay") ?? "", /missing its/);
     assert.equal(templateProblem("due", "Hi {name}, please pay {amount} {dueBy}."), null);
+  });
+
+  it("an added template may use every member detail and needs a 2-40 character name", () => {
+    assert.deepEqual(placeholdersFor("added"), ADDED_PLACEHOLDERS);
+    assert.deepEqual(placeholdersFor("enquiry"), PLACEHOLDERS.enquiry);
+    assert.equal(templateProblem("added", "Hi {name}, {amount} due {dueBy}, ends {date} at {gym} ({code})."), null);
+    assert.match(templateProblem("added", "Hi {nmae}, see you soon.") ?? "", /\{nmae\}/);
+    assert.match(templateProblem("enquiry", "Hi {name}, you owe {amount}.") ?? "", /\{amount\}/);
+    assert.equal(templateNameProblem("  Festive   offer "), null);
+    assert.match(templateNameProblem(" a ") ?? "", /Give the template a name/);
+    assert.match(templateNameProblem("a".repeat(41)) ?? "", /40 characters/);
   });
 });

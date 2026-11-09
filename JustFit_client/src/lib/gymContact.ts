@@ -64,6 +64,16 @@ export function expiredReminder(member: GymMember, gym: GymInfo, custom?: Custom
   return fillTemplate(templateText(membershipTemplate(member), custom), { ...memberValues(member, gym), date: shortDate(member.expiresOn) });
 }
 
+// A template the gym admin added: every member detail is there to fill in
+export function addedReminder(member: GymMember, gym: GymInfo, text: string) {
+  return fillTemplate(text, {
+    ...memberValues(member, gym),
+    amount: rupees(member.due),
+    dueBy: member.dueBy ? `by ${shortDate(member.dueBy)}` : "",
+    date: shortDate(member.expiresOn),
+  });
+}
+
 export const membershipTemplate = (member: GymMember): TemplateKind => (member.daysLeft < 0 ? "expired" : "expiry");
 
 const memberValues = (member: GymMember, gym: GymInfo) => ({ name: firstName(member), gym: gymName(gym), code: member.code });
