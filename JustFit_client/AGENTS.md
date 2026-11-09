@@ -111,6 +111,42 @@ to the gym's Enquiries), Discover lists every gym; phase 2 gym public profile (m
 Discover and Gym Details, 4 the plan enquiry. Tests: `__tests__/gym-member-hub-rules.test.js`,
 `e2e/gym-member-hub.e2e.test.js`, the client's `lib/__tests__/gymHubText.test.ts`.
 
+### Delivery addresses (2026-11-09)
+
+Profile › Delivery addresses (and Home's "Deliver to · <pincode>" pill) is the member's address
+book. The user's choices: the phone's own geocoder for search (no Google Places key, no cost),
+deliveries decided by a pincode list, the selected address kept on the server.
+
+- **Screens** (`app/(user)/addresses/`): `index.tsx` Saved Addresses (cards, the selected one
+  outlined in red; tap or Deliver here selects, Edit, Delete asked once more; `?pick=1` goes back
+  once one is chosen; Add New Address pinned at the bottom), `location.tsx` Select Delivery
+  Location (`components/AddressMap.tsx`: react-native-maps with the pin fixed in the middle and the
+  map moving under it, Google on both phones with the existing keys, a card on the web build;
+  search and "Use current location" through `lib/deliveryLocation.ts` (expo-location: permission
+  only when tapped; iOS points to Settings, Android shows its own "turn on location" prompt; a 15 s
+  timeout falls back to the last known fix); the place under the pin is named by the phone's
+  `reverseGeocodeAsync` (`addressRules.placeFromGeocode`, pure and unit-tested) with whether justFit
+  delivers there; saved addresses listed; Confirm Location pinned; `?then=back&lat=&lng=` is the
+  form's Change), `form.tsx` Add / Edit (`?id=`): receiver name and +91 mobile (pre-filled from the
+  account), house/flat, apartment/street/area, optional landmark, city, pincode (checked live),
+  Home / Work / Other, optional instructions, "Deliver to this address"; Save pinned above the
+  keyboard. The picked place passes between them in `store/addressDraft.ts` (session only).
+- **Server** `JustFit_server/addresses/` (`rules.js` pure, `service.js`, `routes.js`), mounted at
+  `/api/addresses` behind `requireUser` and a per-user limit: `GET /` (`addresses`, `selectedId`,
+  `max`), `POST /`, `PUT /:id` (every field), `DELETE /:id`, `POST /:id/default`,
+  `GET /serviceable?pincode=`; changes 60 an hour (`ADDRESS_CHANGES_PER_HOUR`). Every query is scoped
+  to `req.userId`; another member's id answers 404. The coordinates must be inside India and never
+  replace the typed address. One selected address per member (`is_default`, a unique key on the
+  generated `default_user_id`); the first is selected, deleting it selects the newest left; at most
+  20. `service.deliverableAddress` is the check checkout must call (409 outside the list).
+- **Tables** `user_addresses` and `delivery_pincodes` (migration
+  `2026-12-16-delivery-addresses.sql`; before it the routes answer 503 naming it and Home's pill
+  stays hidden). Pincodes are managed with `npm run delivery-pincode -- list | add <pincode> [area] |
+  off <pincode>` in `JustFit_server` (no admin screen yet).
+- **Not built:** checkout (none exists), Google Places autocomplete, an admin screen for pincodes,
+  per-address delivery slots. Tests: `__tests__/address-rules.test.js`, `e2e/addresses.e2e.test.js`,
+  the client's `lib/__tests__/addressRules.test.ts`.
+
 ### Gym admin portal (2026-11-04)
 
 A portal for gym staff, separate from the removed gym owner portal and from the Super Admin.

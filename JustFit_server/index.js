@@ -45,6 +45,7 @@ const { fitnessRouter } = require("./fitness/routes");
 const { gymRouter } = require("./gym/routes");
 const { attendanceRouter } = require("./gym/attendanceRoutes");
 const { membershipRouter } = require("./gym/membershipRoutes");
+const { addressesRouter } = require("./addresses/routes");
 const { trainerRouter, refuseTrainers } = require("./gym/trainerRoutes");
 const { deriveQrKey } = require("./gym/attendanceRules");
 const { adminPortalRouter } = require("./admin/routes");
@@ -113,6 +114,7 @@ const analyticsLimiter = createRateLimiter(rateLimits.frequent); // the app's us
 // test server raises it, as its portal suite makes every call of a busy day within a minute)
 const gymLimiter = createRateLimiter({ ...rateLimits.frequent, limit: Number(process.env.GYM_REQUESTS_PER_MINUTE) || rateLimits.frequent.limit });
 const membershipLimiter = createRateLimiter(rateLimits.frequent); // a member's gym memberships and pause requests
+const addressLimiter = createRateLimiter(rateLimits.frequent); // a member's delivery addresses
 const attendanceLimiter = createRateLimiter({ limit: 30, windowMs: 10 * 60 * 1000 }); // members' QR check-ins and check-outs
 
 // Phone sign-in (auth/routes.js): request and check a code, who am I, logout. The two sign-in
@@ -416,6 +418,9 @@ app.use("/api/attendance", requireUser, limitPerUser(attendanceLimiter), attenda
 
 // A member's gym memberships and pause requests (gym/membershipRoutes.js)
 app.use("/api/membership", requireUser, limitPerUser(membershipLimiter), membershipRouter);
+
+// A member's delivery addresses and the pincode check (addresses/routes.js)
+app.use("/api/addresses", requireUser, limitPerUser(addressLimiter), addressesRouter);
 
 // A gym trainer's PT clients (gym/trainerRoutes.js): trainers only, their own clients only
 app.use("/api/trainer", requireUser, limitPerUser(gymLimiter), trainerRouter);

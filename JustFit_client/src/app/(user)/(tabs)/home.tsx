@@ -23,6 +23,7 @@ import { firstNameOf } from "@/lib/me";
 import { useSessionToken } from "@/lib/session";
 import { useAuthStore } from "@/store/auth";
 import { useCartStore } from "@/store/cart";
+import { useAddressBook } from "@/lib/useAddressBook";
 import { useHomeStore } from "@/store/home";
 
 // Space on each side of the page content
@@ -39,6 +40,9 @@ export default function Home() {
   const getToken = useSessionToken();
   const { promotions, content, nutrition, water, workout, activity, load, refreshIntake, loading, error, source } = useHomeStore();
   const cart = useCartStore();
+  // Read again whenever Home shows, so an address picked a moment ago is in the pill
+  const { load: addressLoad } = useAddressBook();
+  const deliveryPincode = addressLoad.state === "ready" ? addressLoad.book.addresses.find((a) => a.isDefault)?.pincode ?? null : null;
   const [favorites, setFavorites] = useState<string[]>([]);
 
   const contentWidth = width - PAGE_PADDING * 2;
@@ -116,8 +120,9 @@ export default function Home() {
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 16 }} refreshControl={refreshControl}>
           <HomeHeader
             name={firstName}
-            // No delivery address or notifications exist yet: no made-up pincode, no unread dot
-            pincode={null}
+            // The selected delivery address's pincode (hidden until one is saved); no unread dot
+            // until notifications exist
+            pincode={deliveryPincode}
             hasUnread={false}
             onLocationPress={() => router.push("/addresses")}
             onNotificationsPress={() => router.push("/notifications")}

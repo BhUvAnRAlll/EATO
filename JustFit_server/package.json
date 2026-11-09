@@ -17,6 +17,7 @@
     "dev": "nodemon index.js",
     "set-role": "node --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/set-role.js",
     "seed-gym-demo": "node --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/seed-gym-demo.js",
+    "delivery-pincode": "node --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/delivery-pincode.js",
     "test": "node --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test \"__tests__/*.test.js\"",
     "test:e2e": "node --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test --test-concurrency=1 \"__tests__/e2e/*.e2e.test.js\"",
     "test:ui": "node --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test --test-concurrency=1 \"__tests__/ui/*.ui.test.js\""
