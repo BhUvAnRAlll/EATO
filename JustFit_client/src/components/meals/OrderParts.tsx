@@ -23,6 +23,7 @@ const STEP_LINE: Record<OrderStatus, string> = {
   ready: "Packed, waiting for pickup",
   out_for_delivery: "Your meal is on its way",
   delivered: "Enjoy your meal",
+  failed: "We couldn't deliver it. We'll call you.",
   cancelled: "",
 };
 

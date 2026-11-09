@@ -8,7 +8,13 @@ import { kitchenApi, type OrderEvent } from "@/lib/mealsApi";
 import { useSessionToken } from "@/lib/session";
 import { useThemeColors } from "@/theme";
 
-const EXTRA: Record<string, string> = { kitchen_changed: "Kitchen changed" };
+const EXTRA: Record<string, string> = {
+  kitchen_changed: "Kitchen changed",
+  // Phase 4: the delivery's steps
+  delivery_assigned: "Partner assigned", delivery_reassigned: "Partner changed", delivery_retry: "Delivery tried again",
+  delivery_accepted: "Partner accepted", delivery_at_kitchen: "Partner at the kitchen", delivery_picked_up: "Picked up",
+  delivery_on_the_way: "Out for delivery", delivery_at_customer: "At the customer", delivery_delivered: "Delivered", delivery_failed: "Delivery failed",
+};
 const when = (iso: string) => new Date(iso).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
 
 // An order's timeline (Meal Operations phase 3): every step, when, who and why (a rejection's reason,

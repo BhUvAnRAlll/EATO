@@ -94,6 +94,18 @@ export type Slots = Record<MealSlot, SlotTimes>;
 export type OrderDay = { date: string; holiday?: string | null; slots: { slot: MealSlot; open: boolean; closesAt: string; full?: boolean }[] };
 export type Holiday = { day: string; note: string };
 export type OrderOptions = { slots: Slots; days: OrderDay[]; holidays?: Holiday[]; cutoffMinutes: number; maxQuantity: number };
+export type DeliveryStep = "assigned" | "accepted" | "at_kitchen" | "picked_up" | "out_for_delivery" | "at_customer" | "delivered" | "failed";
+export type DeliveryFailure = "customer_unavailable" | "wrong_address" | "customer_rejected" | "partner_issue" | "other";
+export type OrderDelivery = {
+  partner: { id: number; name: string; phone: string } | null;
+  status: DeliveryStep;
+  failureReason: DeliveryFailure | null;
+  failureNote: string | null;
+  attempts: number;
+  assignedAt: string | null;
+  pickedUpAt: string | null;
+  deliveredAt: string | null;
+};
 export type OrderEvent = { status: string; note: string | null; by: string | null; at: string };
 
 export type OrderItem = { mealId: string | null; name: string; quantity: number; price: number; calories: number; proteinG: number; carbsG: number; fatG: number; imageUrl: string | null };
@@ -115,6 +127,8 @@ export type Order = {
   cancelledBy: "member" | "admin" | "system" | null;
   kitchen?: { id: number; name: string | null } | null; // phase 3: the kitchen cooking it
   stockTaken?: boolean;
+  // phase 4: the delivery partner and the delivery's step (null: no partner yet)
+  delivery?: OrderDelivery | null;
   deliveredAt: string | null;
   createdAt: string;
   items: OrderItem[];
@@ -208,7 +222,7 @@ export const kitchenApi = {
   saveSlots: (token: string | null, slots: Slots) => call<{ slots: Slots }>(token, "/api/admin/kitchen/slots", { method: "PUT", body: { slots } }),
   // kitchen: a kitchen's id or "none"; `steps` and `kitchens` say whether phase 3 (orders through kitchens) is on
   orders: (token: string | null, day: string, kitchen?: number | "none" | null) =>
-    call<{ date: string; orders: Order[]; counts: Record<string, number>; steps?: OrderStatus[]; kitchens?: boolean }>(
+    call<{ date: string; orders: Order[]; counts: Record<string, number>; steps?: OrderStatus[]; kitchens?: boolean; deliveries?: boolean }>(
       token,
       `/api/admin/kitchen/orders?day=${day}${kitchen ? `&kitchen=${kitchen}` : ""}`,
     ),
@@ -221,6 +235,13 @@ export const kitchenApi = {
   changeKitchen: (token: string | null, id: string, kitchenId: number) =>
     call<{ order: Order }>(token, `/api/admin/kitchen/orders/${encodeURIComponent(id)}/kitchen`, { method: "POST", body: { kitchenId } }),
   events: (token: string | null, id: string) => call<{ events: OrderEvent[] }>(token, `/api/admin/kitchen/orders/${encodeURIComponent(id)}/events`),
+  // Phase 4: delivery partners take orders
+  assignDelivery: (token: string | null, id: string, partnerId?: number) =>
+    call<{ order: Order }>(token, `/api/admin/kitchen/orders/${encodeURIComponent(id)}/delivery/assign`, { method: "POST", body: partnerId ? { partnerId } : {} }),
+  advanceDelivery: (token: string | null, id: string, from: DeliveryStep) =>
+    call<{ order: Order; macroLogged: boolean | null }>(token, `/api/admin/kitchen/orders/${encodeURIComponent(id)}/delivery/advance`, { method: "POST", body: { from } }),
+  failDelivery: (token: string | null, id: string, reason: DeliveryFailure, note?: string) =>
+    call<{ order: Order }>(token, `/api/admin/kitchen/orders/${encodeURIComponent(id)}/delivery/fail`, { method: "POST", body: note ? { reason, note } : { reason } }),
   holidays: (token: string | null) => call<{ holidays: Holiday[] }>(token, "/api/admin/kitchen/holidays"),
   addHoliday: (token: string | null, day: string, note: string) => call<{ holidays: Holiday[] }>(token, "/api/admin/kitchen/holidays", { method: "POST", body: { day, note } }),
   removeHoliday: (token: string | null, day: string) => call<{ holidays: Holiday[] }>(token, `/api/admin/kitchen/holidays/${day}`, { method: "DELETE" }),

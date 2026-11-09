@@ -8,6 +8,7 @@ const { inTransaction } = require("../gym/service");
 const xlsx = require("../gym/xlsx");
 const rules = require("./rules");
 const inventory = require("./inventory");
+const deliveries = require("../delivery/service");
 
 const num = (v) => Number(v);
 const iso = (v) => (v instanceof Date ? v.toISOString() : v ?? null);
@@ -193,17 +194,18 @@ async function removeStaff(pool, kitchenId, staffId) {
 
 // ---- The meal-operations dashboard ----
 
-const STEPS = ["placed", "preparing", "out_for_delivery", "delivered", "cancelled"];
+const STEPS = ["placed", "accepted", "preparing", "quality_check", "ready", "out_for_delivery", "delivered", "failed", "cancelled"];
 
 /**
  * One India day of operations: the day's orders by step, delayed ones, revenue from orders paid
  * that day, the next six days' scheduled orders, and kitchens by status with their total capacity.
- * Delivery partners and subscriptions come with their phases (null until then).
+ * Subscriptions come with phase 5 (null until then).
  */
 async function dashboard(pool, { day: date, today }, now = Date.now()) {
   const { start, end } = rules.dayBounds(date);
   const at = rules.indiaNow(now);
-  const [[orders], [[revenue]], [upcoming], [kitchens], stock] = await Promise.all([
+  const todayStart = rules.dayBounds(today).start;
+  const [[orders], [[revenue]], [upcoming], [kitchens], stock, delivery] = await Promise.all([
     pool.query(`SELECT o.id, o.status, o.delivery_date, o.meal_slot, o.slot_ends_at FROM orders o WHERE o.delivery_date = ? AND ${PAID_ONLY}`, [date]),
     pool.query(
       `SELECT COUNT(*) AS n, COALESCE(SUM(o.total_paise), 0) AS paise FROM orders o
@@ -218,6 +220,8 @@ async function dashboard(pool, { day: date, today }, now = Date.now()) {
     ),
     pool.query("SELECT status, COUNT(*) AS n, COALESCE(SUM(max_daily_orders), 0) AS capacity FROM kitchens GROUP BY status"),
     inventory.stockAlerts(pool, now),
+    // Phase 4: today's delivery board counts (null before migration 2027-01-06)
+    deliveries.ready(pool).then((on) => (on ? deliveries.board(pool, todayStart, today).then((b) => b.counts) : null)),
   ]);
   const byStep = Object.fromEntries(STEPS.map((s) => [s, 0]));
   const bySlot = { breakfast: 0, lunch: 0, dinner: 0 };
@@ -242,7 +246,7 @@ async function dashboard(pool, { day: date, today }, now = Date.now()) {
       individual: orders.length,
       subscription: null, // phase 5
       steps: byStep,
-      open: byStep.placed + byStep.preparing + byStep.out_for_delivery,
+      open: byStep.placed + byStep.accepted + byStep.preparing + byStep.quality_check + byStep.ready + byStep.out_for_delivery,
       delayed,
       bySlot,
     },
@@ -254,14 +258,14 @@ async function dashboard(pool, { day: date, today }, now = Date.now()) {
       // How full the active kitchens are today (null without an active kitchen)
       load: activeCapacity > 0 ? Math.min(999, Math.round((live / activeCapacity) * 100)) : null,
     },
-    delivery: null, // phase 4
+    delivery, // { partners, free, unassigned, assigned, ongoing, failed, delivered }
     subscriptions: null, // phase 5
     stock, // { items, low, out, expiring } across kitchens; null before migration 2026-12-31
   };
 }
 
 const SLOT_LABEL = { breakfast: "Breakfast", lunch: "Lunch", snack: "Snack", dinner: "Dinner" };
-const STATUS_LABEL = { placed: "New", preparing: "Preparing", out_for_delivery: "Out for delivery", delivered: "Delivered", cancelled: "Cancelled" };
+const STATUS_LABEL = { placed: "New", accepted: "Accepted", preparing: "Preparing", quality_check: "Quality check", ready: "Ready", out_for_delivery: "Out for delivery", delivered: "Delivered", failed: "Delivery failed", cancelled: "Cancelled" };
 
 /** The day's paid orders as a spreadsheet (xlsx) or CSV: one row per order */
 async function report(pool, { day: date, format }) {

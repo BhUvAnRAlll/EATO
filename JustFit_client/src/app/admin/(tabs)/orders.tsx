@@ -12,6 +12,8 @@ import { ScreenSkeleton } from "@/components/Skeleton";
 import { SymbolView } from "@/components/SymbolView";
 import { hud } from "@/lib/hud";
 import { todayIso } from "@/lib/macro";
+import { DELIVERY_STEP_LABEL, FAILURE_LABEL, NEXT_DELIVERY_LABEL } from "@/data/delivery";
+import { deliveryApi } from "@/lib/deliveryApi";
 import { kitchensApi, type Kitchen } from "@/lib/kitchensApi";
 import { LEGACY_NEXT_STEP_LABEL, MEAL_SLOTS, NEXT_STEP_LABEL, SLOT_LABEL, addDays, dayLabel, directionsUrl, isOpen, rupees, timeRange } from "@/lib/mealRules";
 import { kitchenApi, type Order } from "@/lib/mealsApi";
@@ -39,6 +41,9 @@ const OVERRIDE_REASONS = ["Stock arriving before cooking", "The count was wrong"
 // (`?kitchen=` opens on one), each card names its kitchen, the steps are Accept → Start preparing →
 // Quality check done → Ready for pickup → Out for delivery → Mark delivered, Reject before cooking,
 // a stock override with a reason when the kitchen is short, and ⋯ for Change kitchen and Timeline.
+// Phase 4 (deliveries): from preparing on, Assign partner (the best free one) or Pick one; then the
+// partner's steps (accepted → at the kitchen → picked up → out for delivery → at the customer →
+// delivered), Failed with a reason, and Retry or Cancel after a failure.
 export default function AdminOrders() {
   const colors = useThemeColors();
   const getToken = useSessionToken();
@@ -59,6 +64,7 @@ export default function AdminOrders() {
   const load = useCallback((token: string | null) => kitchenApi.orders(token, day, kitchen), [day, kitchen]);
   const { result, retry, refreshing, refresh, update, reload } = useGymData(load);
   const viaKitchens = result.state === "ready" && result.data.kitchens === true;
+  const viaDelivery = result.state === "ready" && result.data.deliveries === true;
   useEffect(() => {
     if (!viaKitchens) return;
     (async () => {
@@ -121,6 +127,43 @@ export default function AdminOrders() {
       })),
     });
 
+  // Phase 4: a delivery partner for an order (none picked: the best free one), its steps, a failure
+  const deliveryCall = async (order: Order, call: (token: string | null) => Promise<{ ok: true; data: { order: Order; macroLogged?: boolean | null } } | { ok: false; error: string }>, success: string) => {
+    if (busyId) return;
+    setBusyId(order.id);
+    const answer = await call(await getToken());
+    setBusyId(null);
+    if (!answer.ok) {
+      hud.error(answer.error);
+      reload();
+      return;
+    }
+    replace(answer.data.order);
+    hud.success(answer.data.order.status === "delivered" && answer.data.macroLogged !== false ? "Delivered · added to Macro" : success);
+  };
+  const pickPartner = async (order: Order) => {
+    const answer = await deliveryApi.board(await getToken());
+    if (!answer.ok) return hud.error(answer.error);
+    const free = answer.data.partners.filter((p) => p.active && p.available && p.idStatus === "verified" && p.id !== order.delivery?.partner?.id);
+    if (free.length === 0) return hud.error("No partner is available right now");
+    showActions({
+      title: "Give it to",
+      actions: free.map((p) => ({
+        label: `${p.name} · carrying ${p.carrying}/${p.maxOrders}`,
+        onPress: () => void deliveryCall(order, (t) => kitchenApi.assignDelivery(t, order.id, p.id), `Given to ${p.name}`),
+      })),
+    });
+  };
+  const failDelivery = (order: Order) =>
+    showActions({
+      title: "Why did the delivery fail?",
+      actions: (["customer_unavailable", "wrong_address", "customer_rejected", "partner_issue"] as const).map((reason) => ({
+        label: FAILURE_LABEL[reason],
+        destructive: true,
+        onPress: () => void deliveryCall(order, (t) => kitchenApi.failDelivery(t, order.id, reason), "Marked as failed"),
+      })),
+    });
+
   const moveKitchen = (order: Order) =>
     showActions({
       title: "Move to which kitchen?",
@@ -156,7 +199,12 @@ export default function AdminOrders() {
   const countOf = (f: Filter) => (data ? (f === "all" ? data.orders.length : data.orders.filter((o) => (f === "todo" ? isOpen(o.status) : o.status === f)).length) : 0);
 
   const card = (o: Order) => {
-    const next = (viaKitchens ? NEXT_STEP_LABEL : LEGACY_NEXT_STEP_LABEL)[o.status];
+    const d = o.delivery ?? null;
+    // With a partner on it, leaving and delivering are the delivery's steps, not the kitchen's
+    const partnerHasIt = viaDelivery && !!d && d.status !== "failed";
+    const next = partnerHasIt && (o.status === "ready" || o.status === "out_for_delivery") ? undefined : (viaKitchens ? NEXT_STEP_LABEL : LEGACY_NEXT_STEP_LABEL)[o.status];
+    const deliveryNext = d ? NEXT_DELIVERY_LABEL[d.status] : undefined;
+    const showDelivery = viaDelivery && (["preparing", "quality_check", "ready", "out_for_delivery", "failed"].includes(o.status) || !!d);
     const beforeCooking = o.status === "placed" || o.status === "accepted";
     const busy = busyId === o.id;
     return (
@@ -195,6 +243,45 @@ export default function AdminOrders() {
             <Text className="admin-segment__label admin-segment__label--on">Directions</Text>
           </PressableScale>
         </View>
+        {showDelivery && (
+          <View className="rounded-md p-3" style={{ backgroundColor: colors.creamDeep, gap: 8 }}>
+            <Text className="meta-text" style={{ color: colors.ink }}>
+              {!d ? "No delivery partner yet" : d.status === "failed" ? `Delivery failed: ${d.failureReason ? FAILURE_LABEL[d.failureReason] : ""}${d.failureNote ? ` · ${d.failureNote}` : ""}` : `${d.partner?.name ?? "Partner"} · ${DELIVERY_STEP_LABEL[d.status]}${d.attempts > 1 ? ` · try ${d.attempts}` : ""}`}
+            </Text>
+            <View className="flex-row flex-wrap" style={{ gap: 8 }}>
+              {(!d || d.status === "failed") && o.status !== "cancelled" ? (
+                <>
+                  <Pressable onPress={() => deliveryCall(o, (t) => kitchenApi.assignDelivery(t, o.id), d ? "Sent out again" : "Partner assigned")} disabled={busy} className="admin-chip admin-chip--on" accessibilityRole="button">
+                    <Text className="admin-segment__label admin-segment__label--on">{d ? "Retry delivery" : "Assign partner"}</Text>
+                  </Pressable>
+                  <Pressable onPress={() => pickPartner(o)} disabled={busy} className="admin-chip" accessibilityRole="button">
+                    <Text className="admin-segment__label">Pick partner</Text>
+                  </Pressable>
+                </>
+              ) : null}
+              {d && deliveryNext ? (
+                <Pressable onPress={() => deliveryCall(o, (t) => kitchenApi.advanceDelivery(t, o.id, d.status), DELIVERY_STEP_LABEL[d.status])} disabled={busy} className="btn-forest flex-1" style={{ minHeight: 40, opacity: busy ? 0.6 : 1 }} accessibilityRole="button" accessibilityLabel={`${deliveryNext} for order ${o.code}`}>
+                  <Text className="btn-forest__label">{busy ? "Saving…" : deliveryNext}</Text>
+                </Pressable>
+              ) : null}
+              {d && ["assigned", "accepted", "at_kitchen"].includes(d.status) ? (
+                <Pressable onPress={() => pickPartner(o)} disabled={busy} className="admin-chip" accessibilityRole="button">
+                  <Text className="admin-segment__label">Change partner</Text>
+                </Pressable>
+              ) : null}
+              {d && deliveryNext ? (
+                <Pressable onPress={() => failDelivery(o)} disabled={busy} className="admin-chip" accessibilityRole="button">
+                  <Text className="admin-segment__label" style={{ color: colors.danger }}>Failed</Text>
+                </Pressable>
+              ) : null}
+              {o.status === "failed" ? (
+                <Pressable onPress={() => cancel(o)} disabled={busy} className="admin-chip" accessibilityRole="button">
+                  <Text className="admin-segment__label" style={{ color: colors.danger }}>Cancel order</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          </View>
+        )}
         {o.status === "cancelled" && o.cancelReason ? <Text className="meta-text">{`${o.cancelledBy === "member" ? "Member cancelled" : o.cancelledBy === "system" ? "Cancelled" : "You cancelled"}: ${o.cancelReason}`}</Text> : null}
         {o.status === "cancelled" && !o.cancelReason ? <Text className="meta-text">{o.cancelledBy === "member" ? "The member cancelled." : "Cancelled."}</Text> : null}
         {next && (

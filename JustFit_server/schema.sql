@@ -418,6 +418,34 @@ CREATE TABLE meal_prep (
   CONSTRAINT chk_meal_prep_minutes CHECK (prep_minutes BETWEEN 1 AND 600)
 ) ENGINE = InnoDB;
 
+-- Delivery partners (Meal Operations phase 4, 2026-11-10; no rider logins yet)
+CREATE TABLE delivery_partners (
+  id              INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  name            VARCHAR(60)  NOT NULL,
+  phone           CHAR(10)     NOT NULL,
+  vehicle         ENUM('bike', 'scooter', 'bicycle', 'car', 'on_foot') NOT NULL,
+  vehicle_number  VARCHAR(16)  NULL,
+  id_status       ENUM('pending', 'verified', 'rejected') NOT NULL DEFAULT 'pending',
+  status          ENUM('active', 'inactive') NOT NULL DEFAULT 'active',
+  available       TINYINT(1)   NOT NULL DEFAULT 1,
+  max_orders      TINYINT UNSIGNED NOT NULL DEFAULT 3,       -- orders carried at once
+  note            VARCHAR(120) NULL,
+  created_at      TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at      TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_delivery_partners_phone (phone),
+  CONSTRAINT chk_delivery_partners_phone CHECK (phone REGEXP '^[6-9][0-9]{9}$'),
+  CONSTRAINT chk_delivery_partners_max CHECK (max_orders BETWEEN 1 AND 10)
+) ENGINE = InnoDB;
+
+CREATE TABLE delivery_partner_pincodes (
+  partner_id  INT UNSIGNED NOT NULL,
+  pincode     CHAR(6)      NOT NULL,
+  PRIMARY KEY (partner_id, pincode),
+  KEY idx_delivery_partner_pincodes_pincode (pincode),
+  CONSTRAINT fk_delivery_partner_pincodes_partner FOREIGN KEY (partner_id) REFERENCES delivery_partners (id) ON DELETE CASCADE
+) ENGINE = InnoDB;
+
 -- ---------------------------------------------------------------------------
 -- Orders and the nutrition diary
 -- ---------------------------------------------------------------------------
@@ -440,7 +468,7 @@ CREATE TABLE orders (
   latitude          DECIMAL(9,6)  NULL,
   longitude         DECIMAL(9,6)  NULL,
   instructions      VARCHAR(200)  NULL,
-  status            ENUM('awaiting_payment', 'placed', 'accepted', 'preparing', 'quality_check', 'ready', 'out_for_delivery', 'delivered', 'cancelled') NOT NULL DEFAULT 'placed',  -- awaiting_payment: Pay tapped, the signature not yet checked
+  status            ENUM('awaiting_payment', 'placed', 'accepted', 'preparing', 'quality_check', 'ready', 'out_for_delivery', 'delivered', 'failed', 'cancelled') NOT NULL DEFAULT 'placed',  -- awaiting_payment: Pay tapped, the signature not yet checked
   cancel_reason     VARCHAR(200)  NULL,
   cancelled_by      ENUM('member', 'admin', 'system') NULL,              -- system: not paid within 15 minutes
   total_paise       INT UNSIGNED NOT NULL,      -- what was paid: the subtotal less the coupon's discount
@@ -497,6 +525,25 @@ CREATE TABLE order_events (
   KEY idx_order_events_order (order_id, created_at),
   CONSTRAINT fk_order_events_order FOREIGN KEY (order_id) REFERENCES orders (id) ON DELETE CASCADE,
   CONSTRAINT fk_order_events_user FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL
+) ENGINE = InnoDB;
+
+-- One delivery per order (a retry keeps the row and starts it again)
+CREATE TABLE deliveries (
+  order_id        CHAR(36)     NOT NULL,
+  partner_id      INT UNSIGNED NULL,
+  status          ENUM('assigned', 'accepted', 'at_kitchen', 'picked_up', 'out_for_delivery', 'at_customer', 'delivered', 'failed') NOT NULL DEFAULT 'assigned',
+  failure_reason  ENUM('customer_unavailable', 'wrong_address', 'customer_rejected', 'partner_issue', 'other') NULL,
+  failure_note    VARCHAR(200) NULL,
+  attempts        TINYINT UNSIGNED NOT NULL DEFAULT 1,
+  assigned_at     TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  picked_up_at    TIMESTAMP    NULL,
+  delivered_at    TIMESTAMP    NULL,
+  failed_at       TIMESTAMP    NULL,
+  updated_at      TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (order_id),
+  KEY idx_deliveries_partner (partner_id, status),
+  CONSTRAINT fk_deliveries_order FOREIGN KEY (order_id) REFERENCES orders (id) ON DELETE CASCADE,
+  CONSTRAINT fk_deliveries_partner FOREIGN KEY (partner_id) REFERENCES delivery_partners (id) ON DELETE SET NULL
 ) ENGINE = InnoDB;
 
 -- One row per gateway order (Razorpay's order_…): what it is for, how much, and how it ended.

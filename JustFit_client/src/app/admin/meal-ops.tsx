@@ -52,7 +52,9 @@ export default function MealOps() {
         { label: `Orders ${dayLabel(day, today).toLowerCase()}`, value: data.orders.total, icon: { ios: "bag", android: "shopping_bag", web: "shopping_bag" }, href: "/admin/orders" },
         { label: "Revenue (paid that day)", value: rupees(data.revenue.amount), icon: { ios: "indianrupeesign.circle", android: "currency_rupee", web: "currency_rupee" } },
         { label: "New", value: data.orders.steps.placed, icon: { ios: "tray.and.arrow.down", android: "move_to_inbox", web: "move_to_inbox" }, href: "/admin/orders" },
-        { label: "Preparing", value: data.orders.steps.preparing, icon: { ios: "flame", android: "local_fire_department", web: "local_fire_department" }, href: "/admin/orders" },
+        { label: "Accepted", value: data.orders.steps.accepted ?? 0, icon: { ios: "checkmark.seal", android: "verified", web: "verified" }, href: "/admin/orders" },
+        { label: "Preparing", value: (data.orders.steps.preparing ?? 0) + (data.orders.steps.quality_check ?? 0), icon: { ios: "flame", android: "local_fire_department", web: "local_fire_department" }, href: "/admin/orders" },
+        { label: "Ready for pickup", value: data.orders.steps.ready ?? 0, icon: { ios: "takeoutbag.and.cup.and.straw", android: "takeout_dining", web: "takeout_dining" }, href: "/admin/orders" },
         { label: "Out for delivery", value: data.orders.steps.out_for_delivery, icon: { ios: "bicycle", android: "pedal_bike", web: "pedal_bike" }, href: "/admin/orders" },
         { label: "Delivered", value: data.orders.steps.delivered, icon: { ios: "checkmark.circle", android: "check_circle", web: "check_circle" } },
         { label: "Cancelled", value: data.orders.steps.cancelled, icon: { ios: "xmark.circle", android: "cancel", web: "cancel" } },
@@ -144,6 +146,21 @@ export default function MealOps() {
               )}
             </Pressable>
 
+            {data.delivery ? (
+              <Pressable onPress={() => router.push("/admin/delivery")} className={data.delivery.unassigned + data.delivery.failed > 0 ? "card admin-stat--warning" : "card"} style={{ gap: 8 }} accessibilityRole="button" accessibilityLabel="Delivery">
+                <View className="flex-row items-center">
+                  <Text className="card__title flex-1">Delivery today</Text>
+                  <SymbolView name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }} size={14} tintColor={colors.muted} />
+                </View>
+                {([["Free partners", data.delivery.free, false], ["Waiting for a partner", data.delivery.unassigned, true], ["Assigned", data.delivery.assigned, false], ["On the way", data.delivery.ongoing, false], ["Failed", data.delivery.failed, true], ["Delivered", data.delivery.delivered, false]] as const).map(([label, n, warn]) => (
+                  <View key={label} className="flex-row justify-between">
+                    <Text className="type-body text-muted">{label}</Text>
+                    <Text className="type-body" style={{ color: warn && n > 0 ? colors.danger : colors.ink }}>{n}</Text>
+                  </View>
+                ))}
+              </Pressable>
+            ) : null}
+
             {data.stock ? (
               <View className={data.stock.out + data.stock.low + data.stock.expiring > 0 ? "card admin-stat--warning" : "card"} style={{ gap: 8 }}>
                 <Text className="card__title">Stock across kitchens</Text>
@@ -173,7 +190,7 @@ export default function MealOps() {
                 ))
               )}
             </View>
-            <Text className="meta-text">Delivery partners and meal subscriptions join this dashboard as they are built.</Text>
+            <Text className="meta-text">Meal subscriptions join this dashboard with phase 5.</Text>
           </>
         )}
       </View>

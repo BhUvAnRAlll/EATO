@@ -20,7 +20,8 @@ overnight without stopping.
 | Phase 1: kitchens + Super Admin dashboard | Built 2026-11-10 (no logins: roster only); migration `2026-12-30-kitchens.sql` to run by hand |
 | Phase 2: menu per kitchen + inventory | Built 2026-11-10; migration `2026-12-31-kitchen-inventory.sql` to run by hand. Low calorie stays computed (≤ 400 kcal) |
 | Phase 3: orders through kitchens | Built 2026-11-10; migration `2027-01-05-kitchen-orders.sql` to run by hand. No kitchen-staff screen (no logins yet) |
-| Phase 4: delivery partners | Next |
+| Phase 4: delivery partners | Built 2026-11-10; migration `2027-01-06-delivery.sql` to run by hand. No rider logins, so no live location or proof photos |
+| Phase 5: meal subscriptions (your 3 screens) | Next |
 
 ## 1. What exists today (meal ordering, 2026-11-09)
 

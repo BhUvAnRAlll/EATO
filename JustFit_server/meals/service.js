@@ -16,6 +16,7 @@ const catalog = require("./catalog");
 const payments = require("../payments/service");
 const kitchenOrders = require("../kitchens/assign");
 const assignRules = require("../kitchens/assignRules");
+const deliveries = require("../delivery/service");
 
 // Orders that were paid (or placed before payments): never one still waiting, or one the system
 // cancelled because it was never paid
@@ -307,6 +308,7 @@ function orderToApi(r, items, extra = {}) {
     },
     kitchen: r.kitchen_id === undefined || r.kitchen_id === null ? null : { id: num(r.kitchen_id), name: r.kitchen_name ?? null },
     stockTaken: r.stock_taken === undefined ? false : num(r.stock_taken) === 1,
+    delivery: r.delivery ?? null, // phase 4: the partner and the delivery's step
     cancelReason: r.cancel_reason ?? null,
     cancelledBy: r.cancelled_by ?? null,
     deliveredAt: iso(r.delivered_at),
@@ -327,8 +329,8 @@ async function ordersWhere(db, where, params, order = "o.delivery_date DESC, o.c
      WHERE ${where} ORDER BY ${order} LIMIT ${limit}`,
     params,
   );
-  const items = await itemsFor(db, rows.map((r) => r.id));
-  return rows.map((r) => ({ row: r, items: items.get(r.id) ?? [] }));
+  const [items, delivered] = await Promise.all([itemsFor(db, rows.map((r) => r.id)), deliveries.forOrders(db, rows.map((r) => r.id))]);
+  return rows.map((r) => ({ row: { ...r, delivery: delivered.get(r.id) ?? null }, items: items.get(r.id) ?? [] }));
 }
 
 async function myOrder(db, userId, id) {
@@ -483,7 +485,7 @@ async function adminOrders(pool, date, kitchen = null) {
   const counts = { all: orders.length };
   for (const step of [...(viaKitchens ? assignRules.STEPS : rules.STEPS), "cancelled"]) counts[step] = orders.filter((o) => o.status === step).length;
   const steps = viaKitchens ? assignRules.STEPS : rules.STEPS;
-  return { date, orders, counts, steps, kitchens: viaKitchens };
+  return { date, orders, counts, steps, kitchens: viaKitchens, deliveries: await deliveries.ready(pool) };
 }
 
 async function adminOrder(db, id) {
@@ -534,6 +536,11 @@ async function advance(pool, id, { from, to, override = false, note = null }, re
           [to, to, id, from],
         );
         if (result.affectedRows === 0) return false;
+        // Phase 4: once a partner has the order, leaving and delivering are the delivery's steps
+        if ((to === "out_for_delivery" || to === "delivered") && (await deliveries.ready(db))) {
+          const [[open]] = await db.query("SELECT status FROM deliveries WHERE order_id = ? AND status <> 'failed'", [id]);
+          if (open) throw new ConflictError("A delivery partner has this order: use its delivery steps.");
+        }
         if (to === "preparing") await kitchenOrders.takeStock(db, id, { override, note, userId: req.userId });
         await kitchenOrders.addEvent(db, id, to, override ? `Started without enough stock: ${note}` : note, req.userId);
         return true;
@@ -554,7 +561,7 @@ async function advance(pool, id, { from, to, override = false, note = null }, re
 
 async function adminCancel(pool, id, reason) {
   const [result] = await pool.query(
-    "UPDATE orders SET status = 'cancelled', cancelled_by = 'admin', cancel_reason = ? WHERE id = ? AND status NOT IN ('awaiting_payment', 'delivered', 'cancelled')",
+    "UPDATE orders SET status = 'cancelled', cancelled_by = 'admin', cancel_reason = ? WHERE id = ? AND status NOT IN ('awaiting_payment', 'delivered', 'cancelled')",  // a failed delivery can be cancelled
     [reason, id],
   );
   if (result.affectedRows > 0 && (await kitchenOrders.ready(pool))) await kitchenOrders.addEvent(pool, id, "cancelled", reason, null);
@@ -588,5 +595,5 @@ async function quote(pool, userId, { items, couponCode }, now = Date.now()) {
 
 module.exports = {
   menu, meal, setFavorite, photoKey, adminMeals, addMeal, updateMeal, duplicateMeal, setAvailable, deleteMeal, quote, mealToApi, loadSlots, saveSlots, orderOptions,
-  myOrders, myOrder, placeOrder, confirmPayment, cancelMine, adminOrders, adminOrder, advance, adminCancel,
+  myOrders, myOrder, placeOrder, confirmPayment, cancelMine, adminOrders, adminOrder, advance, adminCancel, logDelivered,
 };

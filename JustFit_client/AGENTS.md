@@ -486,6 +486,29 @@ The Meals module is green (`meal-*` tokens and utilities); the user chose green 
   server's `steps`. Not built: a separate kitchen-staff screen (no kitchen logins yet: the Super
   Admin works from Orders), per-step prep timers. Tests: `__tests__/assign-rules.test.js`,
   `e2e/kitchen-orders.e2e.test.js`, `e2e/meals.e2e.test.js` (7).
+- **Delivery partners and deliveries (2026-11-10, Meal Operations phase 4; no rider logins yet, the
+  user's choice, so no live location):** Super Admin › Meals › Delivery (`app/admin/delivery/`: today's
+  board (free partners, orders waiting for one, assigned, on the way, failed, delivered today) and
+  each partner with carrying x of y and an Available switch; `new.tsx` / `[id].tsx` with
+  `PartnerForm`: name, number, vehicle and number, ID check (only verified partners get orders),
+  orders at once 1-10, pincodes covered, active, available, note). On the Orders tab, from preparing
+  on, each card has a delivery box: Assign partner (the free partner covering the pincode with the
+  fewest orders on the way, `rules.choosePartner`) or Pick partner, then the partner's steps
+  (assigned → accepted → at_kitchen → picked_up → out_for_delivery → at_customer → delivered),
+  Change partner before pick-up, Failed with a reason (customer unavailable, incorrect address,
+  customer rejected, partner issue; other needs a note), then Retry delivery (a new try, the order
+  back to ready) or Cancel order. Leaving for the customer needs the order ready and moves it to out
+  for delivery; delivered delivers it (Macro once); failed makes the order `failed` (members read
+  "Delivery failed"). With a partner on an order the kitchen's own Out for delivery / Mark delivered
+  are refused (409). Every assignment, step and failure is on the order's timeline; the dashboard has
+  Delivery today. Server `delivery/` (`rules.js` pure, `service.js`, `routes.js` inside
+  `/api/admin/kitchen`): `GET /delivery/board`, `GET|POST /delivery/partners`,
+  `GET|PUT /delivery/partners/:id`, `POST /delivery/partners/:id/availability`,
+  `POST /orders/:id/delivery/assign|advance|fail` (300 an hour, `DELIVERY_CHANGES_PER_HOUR`). Migration
+  `2027-01-06-delivery.sql` (`delivery_partners`, `delivery_partner_pincodes`, `deliveries`; orders
+  status `failed`); before it these answer 503 naming it. Not built: rider logins and app, live
+  location, delivery proof photos, ETAs. Tests: `__tests__/delivery-rules.test.js`,
+  `e2e/delivery.e2e.test.js`.
 - **Not built:** Razorpay itself (keys, the native checkout, refunds, webhook), push notifications for a step, delivery fees,
   subscriptions, gym-specific menus (the user chose one justFit menu run by the Super Admin). Tests:
   `__tests__/meal-rules.test.js`, `meal-catalog-rules.test.js`, `e2e/meals.e2e.test.js`, the client's

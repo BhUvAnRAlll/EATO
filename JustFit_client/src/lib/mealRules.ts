@@ -4,7 +4,7 @@
 
 export type Diet = "vegetarian" | "non-vegetarian" | "eggetarian" | "vegan";
 export type MealSlot = "breakfast" | "lunch" | "dinner";
-export type OrderStatus = "awaiting_payment" | "placed" | "accepted" | "preparing" | "quality_check" | "ready" | "out_for_delivery" | "delivered" | "cancelled";
+export type OrderStatus = "awaiting_payment" | "placed" | "accepted" | "preparing" | "quality_check" | "ready" | "out_for_delivery" | "delivered" | "failed" | "cancelled";
 
 export const MEAL_SLOTS: MealSlot[] = ["breakfast", "lunch", "dinner"];
 // The member's timeline (quality check and ready count as preparing for them)
@@ -30,6 +30,7 @@ export const STATUS_LABEL: Record<OrderStatus, string> = {
   ready: "Ready for pickup",
   out_for_delivery: "On the way",
   delivered: "Delivered",
+  failed: "Delivery failed",
   cancelled: "Cancelled",
 };
 // The admin's one big button for each step (none once delivered or cancelled)
@@ -125,7 +126,7 @@ export function itemsLine(items: { name: string; quantity: number }[]): string {
   return items.map((i) => (i.quantity > 1 ? `${i.quantity} × ${i.name}` : i.name)).join(", ");
 }
 
-/** An open order (not delivered or cancelled) */
+/** An open order (not delivered or cancelled; a failed delivery is still open: it's retried or cancelled) */
 export const isOpen = (status: OrderStatus) => status !== "delivered" && status !== "cancelled";
 
 /** A YYYY-MM-DD day moved by `days` */

@@ -66,7 +66,7 @@ export type MealOpsDashboard = {
     total: number;
     individual: number;
     subscription: number | null;
-    steps: Record<"placed" | "preparing" | "out_for_delivery" | "delivered" | "cancelled", number>;
+    steps: Record<"placed" | "accepted" | "preparing" | "quality_check" | "ready" | "out_for_delivery" | "delivered" | "failed" | "cancelled", number>;
     open: number;
     delayed: number;
     bySlot: Record<"breakfast" | "lunch" | "dinner", number>;
@@ -74,7 +74,7 @@ export type MealOpsDashboard = {
   revenue: { orders: number; amount: number };
   upcoming: { date: string; orders: number }[];
   kitchens: { counts: KitchenCounts; activeCapacity: number; load: number | null };
-  delivery: null;
+  delivery: { partners: number; free: number; unassigned: number; assigned: number; ongoing: number; failed: number; delivered: number } | null;
   subscriptions: null;
   stock: { items: number; low: number; out: number; expiring: number } | null;
 };

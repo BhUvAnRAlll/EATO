@@ -120,6 +120,8 @@ ordersRouter.post("/:id/cancel", orderLimit, smallBody, route(async (req, res) =
 const kitchenRouter = express.Router({ caseSensitive: true, strict: true });
 // Kitchens and the meal-operations dashboard (Meal Operations phase 1, kitchens/routes.js)
 kitchenRouter.use(require("../kitchens/routes").kitchensRouter);
+// Delivery partners and deliveries (Meal Operations phase 4, delivery/routes.js)
+kitchenRouter.use(require("../delivery/routes").deliveryRouter);
 const photoLimit = limitPerUser(createRateLimiter({ limit: 30, windowMs: 60 * 60 * 1000 }));
 
 kitchenRouter.get("/meals", route(async (req, res) => {

@@ -165,7 +165,7 @@ function openAt(hours, dayKey, minutes) {
  * meal time's end
  */
 function isDelayed(order, today, minutesNow) {
-  if (!["placed", "preparing", "out_for_delivery"].includes(order.status)) return false;
+  if (!["placed", "accepted", "preparing", "quality_check", "ready", "out_for_delivery"].includes(order.status)) return false;
   if (order.date < today) return true;
   if (order.date > today || !order.slotEndsAt) return false;
   const [h, m] = order.slotEndsAt.split(":").map(Number);
