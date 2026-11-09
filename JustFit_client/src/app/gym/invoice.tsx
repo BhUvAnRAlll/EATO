@@ -118,8 +118,8 @@ function Invoice({ invoice }: { invoice: GymInvoice }) {
   const card = (icon: GymIconName, title: string, children: React.ReactNode) => (
     <View style={{ borderWidth: 1, borderColor: colors.line, borderRadius: 12, padding: 14, gap: 8 }}>
       <View className="flex-row items-center" style={{ gap: 8 }}>
-        <GymIcon name={icon} size={18} color={colors.primary} />
-        <Text style={{ fontFamily: fonts.semibold, fontSize: 15, lineHeight: 21, color: colors.primary }} accessibilityRole="header">{title}</Text>
+        <GymIcon name={icon} size={18} color={colors.gymInvoiceRed} />
+        <Text style={{ fontFamily: fonts.semibold, fontSize: 15, lineHeight: 21, color: colors.gymInvoiceRed }} accessibilityRole="header">{title}</Text>
       </View>
       <View style={{ gap: 4 }}>{children}</View>
     </View>
@@ -132,7 +132,7 @@ function Invoice({ invoice }: { invoice: GymInvoice }) {
   );
   const footLine = (icon: GymIconName, lines: string[]) => (
     <View key={lines[0]} className="flex-row" style={{ gap: 10 }}>
-      <GymIcon name={icon} size={18} color={colors.primary} />
+      <GymIcon name={icon} size={18} color={colors.gymInvoiceRed} />
       <View className="min-w-0 flex-1">
         {lines.map((line, i) => <Text key={line} className={i === 0 ? "gym-tx__name" : "gym-tx__meta"} style={i === 0 ? { fontSize: 13, lineHeight: 19 } : undefined}>{line}</Text>)}
       </View>
@@ -147,7 +147,7 @@ function Invoice({ invoice }: { invoice: GymInvoice }) {
         <View className="flex-row items-start justify-between" style={{ gap: 12 }}>
           <View className="min-w-0 flex-1" style={{ gap: 6 }}>
             <Text style={{ fontFamily: fonts.semibold, fontSize: 28, lineHeight: 34, color: colors.ink }} accessibilityRole="header">Invoice</Text>
-            <View style={{ width: 56, height: 3, borderRadius: 2, backgroundColor: colors.primary }} />
+            <View style={{ width: 56, height: 3, borderRadius: 2, backgroundColor: colors.gymInvoiceRed }} />
             <Text className="gym-tx__name" style={{ fontSize: 14, lineHeight: 20 }}>{invoiceSubtitle(invoice.item.kind)}</Text>
           </View>
           {logo ? (
@@ -155,7 +155,7 @@ function Invoice({ invoice }: { invoice: GymInvoice }) {
               <Image source={{ uri: logo }} contentFit="contain" style={{ width: 104, height: 52 }} accessibilityIgnoresInvertColors />
             </View>
           ) : (
-            <View style={{ width: 52, height: 52, borderRadius: 12, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" }} accessible accessibilityLabel={`${invoice.gym.name}, no logo yet`}>
+            <View style={{ width: 52, height: 52, borderRadius: 12, backgroundColor: colors.gymInvoiceRed, alignItems: "center", justifyContent: "center" }} accessible accessibilityLabel={`${invoice.gym.name}, no logo yet`}>
               <Text style={{ fontFamily: fonts.semibold, fontSize: 20, lineHeight: 26, color: colors.onPrimary }}>{gymInitials(invoice.gym.name)}</Text>
             </View>
           )}
@@ -171,7 +171,7 @@ function Invoice({ invoice }: { invoice: GymInvoice }) {
 
         {/* The item table */}
         <View style={{ borderWidth: 1, borderColor: colors.line, borderRadius: 12, overflow: "hidden" }} accessible accessibilityLabel={`Item 1, ${itemDescription(invoice)}, ${amount}`}>
-          <View className="flex-row items-center" style={{ backgroundColor: colors.primary, paddingVertical: 10, paddingHorizontal: 12, gap: 10 }}>
+          <View className="flex-row items-center" style={{ backgroundColor: colors.gymInvoiceRed, paddingVertical: 10, paddingHorizontal: 12, gap: 10 }}>
             <Text style={{ width: 20, fontFamily: fonts.semibold, fontSize: 13, color: colors.onPrimary, textAlign: "center" }}>#</Text>
             <Text className="min-w-0 flex-1" style={{ fontFamily: fonts.semibold, fontSize: 13, color: colors.onPrimary }}>Description</Text>
             <Text style={{ fontFamily: fonts.semibold, fontSize: 13, color: colors.onPrimary }}>Amount</Text>
@@ -189,9 +189,9 @@ function Invoice({ invoice }: { invoice: GymInvoice }) {
             <Text className="gym-confirm__label">Subtotal</Text>
             <Text className="gym-confirm__value" style={{ fontSize: 15 }}>{amount}</Text>
           </View>
-          <View className="flex-row items-center justify-between" style={{ backgroundColor: colors.accentSoft, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12 }} accessible accessibilityLabel={`Total Amount ${amount}`}>
-            <Text style={{ fontFamily: fonts.semibold, fontSize: 17, lineHeight: 23, color: colors.primary }}>Total Amount</Text>
-            <Text style={{ fontFamily: fonts.semibold, fontSize: 19, lineHeight: 25, color: colors.primary }}>{amount}</Text>
+          <View className="flex-row items-center justify-between" style={{ backgroundColor: colors.gymInvoiceRedSoft, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12 }} accessible accessibilityLabel={`Total Amount ${amount}`}>
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 17, lineHeight: 23, color: colors.gymInvoiceRed }}>Total Amount</Text>
+            <Text style={{ fontFamily: fonts.semibold, fontSize: 19, lineHeight: 25, color: colors.gymInvoiceRed }}>{amount}</Text>
           </View>
           {invoice.balance ? (
             <View className="flex-row items-center justify-between" style={{ paddingHorizontal: 12, paddingVertical: 4, gap: 12 }} accessible accessibilityLabel={`Balance Due ${invoiceRupees(invoice.balance.due)}${invoice.balance.dueBy ? ` by ${invoiceDate(invoice.balance.dueBy)}` : ""}`}>

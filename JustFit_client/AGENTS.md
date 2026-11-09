@@ -1076,6 +1076,11 @@ reference used orange), near-black ink, thin progress rings with the value insid
 under, soft tinted pills (green for a gain, pink for a heart-rate or alert), photo hero cards with
 an overlay label and a round play button, and a flat white tab bar. This replaced the Peak Fitness
 system of 2026-10-27 and the coach-only pink wash of 2026-10-29; their token names stay.
+**Green since 2026-11-09 (the user's choice, after the Swish app):** the one accent is now green
+`#20BF65` across the member app, the trainer's app and the Super Admin; the gym portal keeps its
+indigo, its invoice keeps the template's red (`gym-invoice-red`), the logo image stays red and
+`danger` stays red for errors. Wherever this section or older notes say "red" for the accent, read
+green. Small accent-coloured text uses `primary-text` (`#087A43`), never `leaf`/`primary`.
 The palette lives in `src/theme/tokens.css` with a JS copy in `src/theme/index.ts`; keep the two
 in sync and never hard-code a hex value in a screen or component when a token exists. Layouts
 follow screen by screen (Home first, from the reference); each is verified at 320/390/430.
@@ -1087,21 +1092,21 @@ follow screen by screen (Home first, from the reference); each is verified at 32
 | Filled containers: fields, tiles / tracks, empty bars | `cream-deep`, `surface-alt` / `cream-tab` | `#F4F4F5` / `#E9E9EC` |
 | Borders and dividers / control outlines | `cream-line`, `line`, `sand` / `line-strong` | `#E8E8EA` / `#C9C9CF` |
 | Ink: titles and body | `forest-ink`, `ink`, `leaf-dark` | `#111111` |
-| Brand red: primary buttons, progress, selected, links, active tab, "today" | `forest`, `primary`, `leaf` | `#D40005` (pressed `primary-pressed` `#B00004`) |
-| Text and icons on red | `on-primary` | `#FFFFFF` (5.5:1) |
-| Small red text on white | `primary-text` | `#C00005` |
-| Selected surface, soft red fills | `accent-soft`, `forest-soft`, `leaf-soft` | `#FDEAEA` |
+| Brand green: primary buttons, progress, selected, icons, active tab, "today" | `forest`, `primary`, `leaf` | `#20BF65` (pressed `primary-pressed` `#17A457`; bright `primary-bright` `#39C978`) |
+| Text and icons on green | `on-primary` | `#FFFFFF` (2.4:1: the user's palette; keep labels semibold and 13 px or larger) |
+| Small green text and links on white | `primary-text` | `#087A43` (5.4:1) |
+| Selected surface, soft green fills | `accent-soft`, `forest-soft`, `leaf-soft` | `#EAF8EF` |
+| Meals module extras | `meal-*` (`meal-surface` `#F3FBF5`, `meal-line` `#E6EEE8`, `meal-nonveg` brown) | see `tokens.css` |
 | Secondary / faint text | `muted` / `faint` | `#5C5C63` / `#767680` |
 | Dark hero cards and their text | `inverse` / `on-inverse`, `on-inverse-muted` | `#1C1C1E` / `#FFFFFF`, `#A1A1AA` |
 | Success / danger / warning / info | `success` (`success-soft`) / `danger` / `warning` / `info`, `accent-blue` | `#2F8F57` (`#E3F6EA`) / `#D92D20` / `#C4923F` / `#4A6CF7` |
 | Metric tiles: ground / icon | `tint-blue`, `tint-green`, `tint-peach`, `tint-lavender` / `icon-*` | `#E6EEFD`, `#E3F6EA`, `#FFEEDF`, `#EEE9FB` / `#3B5BDB`, `#2F8F57`, `#C25400`, `#7C5CD6` |
 | Macros | `protein` / `carbs` / `fat` | `#6CC28A` / `#A9A3F0` / `#F2C14E` |
 
-- Unlike the PDF's orange (where labels on it are dark), white text on the logo red passes AA, so
-  labels and icons on red are white (`on-primary`); dark ink on red is only 3.4:1, never use it.
-- `danger` (`#D92D20`) is close to the brand red: keep it for errors and destructive actions, small,
-  and always with words.
-- Selected chips and options: `accent-soft` fill with a red (`primary`) outline and ink text.
+- Labels and icons on the green are white (`on-primary`), as the user's palette asks; it is below AA
+  for small text, so keep them semibold. Green text on white is always `primary-text`.
+- `danger` (`#D92D20`) is red: keep it for errors and destructive actions, small, and always with words.
+- Selected chips and options: `accent-soft` fill with a green (`primary`) outline and ink text.
 - Token names (`forest`, `cream`, `leaf`) come from earlier themes. They keep their roles; only the
   values changed. Use them by role, not by the colour their name suggests.
 - Radius: `sm` 8, `md` 12 (fields, stat cells, thumbnails), `lg` 20 (cards, metric tiles), `xl` 24

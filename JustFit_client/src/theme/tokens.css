@@ -19,14 +19,14 @@
      Some names (leaf, forest, cream) come from earlier themes; they keep their roles. */
 
   /* Brand red */
-  --color-primary: #d40005;
-  --color-primary-pressed: #b00004;
-  --color-primary-text: #c00005;
+  --color-primary: #20bf65;
+  --color-primary-pressed: #17a457;
+  --color-primary-text: #087a43;
   --color-on-primary: #ffffff;
-  --color-accent-soft: #fdeaea;
+  --color-accent-soft: #eaf8ef;
   /* AI Coach only (the coach's own look, approved 2026-10-29): the bright start of the red
      button gradient and the pink wash behind the coach screens */
-  --color-primary-bright: #f0262b;
+  --color-primary-bright: #39c978;
   --color-coach-wash: #f6f4ef; /* was the coach's pink wash; neutral since 2026-10-31 */
   --color-coach-arrow: rgba(255, 255, 255, 0.18); /* the arrow circle on the red button */
   --color-ink: #111111;
@@ -156,17 +156,31 @@
   --color-gym-navy-muted: #c3c8dc;
   --color-gym-warning-line: #f2c94c;
   --color-gym-warning-ink: #7a4b00;
+  --color-gym-invoice-red: #d40005; /* the invoice template (screen and PDF) */
+  --color-gym-invoice-red-soft: #fdeaea;
+
+  /* Meals module only (the Meals tab, a meal, the cart, orders; 2026-11-09, the user's green
+     brief after the Swish app; the whole app turned green the same day): the Meals module's extras.
+     White text sits on meal-primary for buttons; small green text on white uses meal-dark (5.4:1). The non-veg mark
+     is brown, as India's FSSAI mark prints it. */
+  --color-meal-primary: #20bf65;
+  --color-meal-dark: #087a43;
+  --color-meal-secondary: #39c978;
+  --color-meal-light: #eaf8ef;
+  --color-meal-surface: #f3fbf5;
+  --color-meal-line: #e6eee8;
+  --color-meal-nonveg: #9a4a1c;
 
   /* Accent: links, progress rings, "today", icons (leaf), its soft fill and the
      active tab icon (leaf-dark) */
-  --color-leaf: #d40005;
-  --color-leaf-soft: #fdeaea;
+  --color-leaf: #20bf65;
+  --color-leaf-soft: #eaf8ef;
   --color-leaf-dark: #111111;
 
   /* Surfaces and ink: page (cream), primary buttons (forest), titles, borders and tracks */
   --color-cream: #f6f4ef;
   --color-cream-deep: #f4f4f5;
-  --color-forest: #d40005;
+  --color-forest: #20bf65;
   --color-forest-ink: #111111;
   --color-sand: #e8e8ea;
   --color-bronze: #b8955f;
@@ -174,7 +188,7 @@
   --color-cream-tab: #e9e9ec;
   --color-cream-light: #ffffff;
   --color-ink-soft: #3f3f46;
-  --color-forest-soft: #fdeaea;
+  --color-forest-soft: #eaf8ef;
 
   /* Macros */
   --color-protein: #6cc28a;
@@ -217,11 +231,11 @@
      (bottom nav, mini player), the glow only for the main play button. */
   --shadow-card: 0 2px 12px rgba(17, 17, 17, 0.05); /* a card's soft lift on the grey page */
   --shadow-sheet: 0 -4px 24px rgba(17, 17, 17, 0.08);
-  --shadow-glow: 0 6px 16px rgba(212, 0, 5, 0.35);
+  --shadow-glow: 0 6px 16px rgba(32, 191, 101, 0.35);
   --shadow-fab: 0 4px 14px rgba(17, 17, 17, 0.16); /* a floating pill button's lift (Macro's Add meal) */
   /* AI Coach only: soft card shadow, the button's red glow, the header button's lift */
   --shadow-coach-card: 0 2px 12px rgba(17, 17, 17, 0.05); /* the same as shadow-card: the coach has no look of its own since 2026-10-31 */
-  --shadow-coach-cta: 0 8px 20px rgba(212, 0, 5, 0.28);
+  --shadow-coach-cta: 0 8px 20px rgba(32, 191, 101, 0.28);
   --shadow-coach-btn: 0 2px 10px rgba(17, 17, 17, 0.08);
   /* Gym admin portal: the revenue card and the floating + button */
   --shadow-gym-hero: 0 10px 24px rgba(91, 33, 182, 0.3);

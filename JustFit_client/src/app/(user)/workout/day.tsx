@@ -314,7 +314,7 @@ function ExerciseRow({ exercise: e, onMore, onPress }: { exercise: DayExercise; 
           <View className="h-9 w-9" />
         )}
       </View>
-      {e.note && <Text className="meta-text" style={{ color: colors.leaf }}>{e.note}</Text>}
+      {e.note && <Text className="meta-text" style={{ color: colors.primaryText }}>{e.note}</Text>}
     </View>
   );
 }

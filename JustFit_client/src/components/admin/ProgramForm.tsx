@@ -63,7 +63,7 @@ export function ProgramForm({ value, onChange, disabled, cover, hero, sections }
         <ChoiceChips label="Category" options={(sections ?? SECTION_ORDER.map((id) => ({ id, title: SECTION_TITLE[id] }))).map((s) => ({ value: s.id, label: s.title }))} value={value.section} onChange={(v) => set("section", v)} />
         <Pressable onPress={() => router.push("/admin/categories/new")} disabled={disabled} className="self-start flex-row items-center" style={{ gap: 6 }} hitSlop={8} accessibilityRole="button" accessibilityLabel="New category">
           <SymbolView name={{ ios: "plus.circle", android: "add_circle", web: "add_circle" }} size={16} tintColor={colors.leaf} />
-          <Text className="meta-text" style={{ color: colors.leaf }}>New category</Text>
+          <Text className="meta-text" style={{ color: colors.primaryText }}>New category</Text>
         </Pressable>
       </View>
       <ChoiceChips label="Where" options={(["home", "center", "both"] as const).map((p) => ({ value: p, label: PLACE_TEXT[p] }))} value={value.place} onChange={(v) => set("place", v)} />
@@ -94,7 +94,7 @@ function PhotoRow({ photo, disabled, title, setText, emptyText, noun }: { photo:
           </View>
           {photo.busy ? <ActivityIndicator size="small" color={colors.leaf} /> : (
             <View className="flex-row items-center" style={{ gap: 2 }}>
-              <Text className="meta-text" style={{ color: colors.leaf }}>{photo.url ? "Change" : "Add"}</Text>
+              <Text className="meta-text" style={{ color: colors.primaryText }}>{photo.url ? "Change" : "Add"}</Text>
               <SymbolView name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }} size={14} tintColor={colors.leaf} />
             </View>
           )}

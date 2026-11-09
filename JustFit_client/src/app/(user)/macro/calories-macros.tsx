@@ -162,7 +162,7 @@ function WeekCard({ summary }: { summary: Summary }) {
       </View>
       <View className="-mt-2 flex-row justify-between">
         {summary.trend.map((d) => (
-          <Text key={d.date} className="macro__weekday flex-1 text-center" style={d.date === today ? { color: colors.leaf } : undefined}>{weekdayInitial(d.date)}</Text>
+          <Text key={d.date} className="macro__weekday flex-1 text-center" style={d.date === today ? { color: colors.primaryText } : undefined}>{weekdayInitial(d.date)}</Text>
         ))}
       </View>
       {empty && <Text className="home__note text-center">Log meals to see your week</Text>}

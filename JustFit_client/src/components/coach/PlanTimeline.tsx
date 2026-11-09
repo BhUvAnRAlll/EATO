@@ -74,7 +74,7 @@ function MealEntry({ meal, logging, onLog, swapping, onSwap, remaking, onDetails
             ) : (
               <SymbolView name={{ ios: "arrow.triangle.2.circlepath", android: "swap_horiz", web: "swap_horiz" }} size={14} tintColor={colors.leaf} />
             )}
-            <Text className="coach__macro-chip-label" style={{ color: colors.leaf }}>{swapping === meal.id ? "Swapping" : "Swap"}</Text>
+            <Text className="coach__macro-chip-label" style={{ color: colors.primaryText }}>{swapping === meal.id ? "Swapping" : "Swap"}</Text>
           </Pressable>
         ) : null
       }

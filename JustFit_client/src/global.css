@@ -430,7 +430,7 @@
 
 @utility auth__note-link {
   font-family: var(--font-sans-semibold);
-  color: var(--color-leaf);
+  color: var(--color-primary-text);
 }
 
 /* "Forgot password?" */
@@ -483,7 +483,7 @@
 
 @utility auth__footer-link {
   font-family: var(--font-sans-semibold);
-  color: var(--color-leaf);
+  color: var(--color-primary-text);
 }
 
 /* Slogan at the top of the log in card */
@@ -491,7 +491,7 @@
   font-family: var(--font-sans-semibold);
   font-size: 23px;
   line-height: 28px;
-  color: var(--color-leaf);
+  color: var(--color-primary-text);
 }
 
 /* Log in form card that overlaps the food art */
@@ -1000,7 +1000,7 @@
 }
 
 @utility home__headline-accent {
-  color: var(--color-leaf);
+  color: var(--color-primary-text);
 }
 
 @utility home__lead {
@@ -1056,7 +1056,7 @@
   font-family: var(--font-sans-semibold);
   font-size: 14px;
   line-height: 18px;
-  color: var(--color-leaf);
+  color: var(--color-primary-text);
 }
 
 @utility home__card {
@@ -1261,7 +1261,7 @@
   line-height: 14px;
   letter-spacing: 1px;
   text-transform: uppercase;
-  color: var(--color-leaf);
+  color: var(--color-primary-text);
 }
 
 @utility live__badge--sample {
@@ -1416,7 +1416,7 @@
   font-family: var(--font-sans-semibold);
   font-size: 13px;
   line-height: 18px;
-  color: var(--color-leaf);
+  color: var(--color-primary-text);
 }
 
 @utility admin__preview {
@@ -2347,7 +2347,7 @@
   line-height: 18px;
   letter-spacing: 1.5px;
   text-transform: uppercase;
-  color: var(--color-leaf);
+  color: var(--color-primary-text);
 }
 
 @utility player__name {
@@ -3429,7 +3429,7 @@
   font-family: var(--font-sans-semibold);
   font-size: 16px;
   line-height: 20px;
-  color: var(--color-leaf);
+  color: var(--color-primary-text);
 }
 
 /* The coach plan: a meal's Log button (Logged once it is in today's Macro diary) */
@@ -3562,7 +3562,7 @@
 }
 
 @utility coach__log-label--done {
-  color: var(--color-leaf);
+  color: var(--color-primary-text);
 }
 
 /* AI Coach tab (2026-10-30): the coach card's Change pill, the ask box with its chips, today's

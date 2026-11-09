@@ -4,13 +4,13 @@
 
 // The light palette (the 2026-10-31 look). Comments say what each colour is for.
 export const lightColors = {
-  primary: "#D40005",
-  primaryPressed: "#B00004",
-  primaryText: "#C00005",
+  primary: "#20BF65",
+  primaryPressed: "#17A457",
+  primaryText: "#087A43",
   onPrimary: "#FFFFFF",
-  accentSoft: "#FDEAEA",
+  accentSoft: "#EAF8EF",
   // AI Coach only: the bright start of the button gradient and the page wash
-  primaryBright: "#F0262B",
+  primaryBright: "#39C978",
   coachWash: "#F6F4EF",
   ink: "#111111",
   inkFill: "#111111",
@@ -50,13 +50,13 @@ export const lightColors = {
   iconPeach: "#C25400",
   iconLavender: "#7C5CD6",
 
-  leaf: "#D40005",
-  leafSoft: "#FDEAEA",
+  leaf: "#20BF65",
+  leafSoft: "#EAF8EF",
   leafDark: "#111111",
 
   cream: "#F6F4EF",
   creamDeep: "#F4F4F5",
-  forest: "#D40005",
+  forest: "#20BF65",
   forestInk: "#111111",
   sand: "#E8E8EA",
   bronze: "#B8955F",
@@ -64,7 +64,7 @@ export const lightColors = {
   creamTab: "#E9E9EC",
   creamLight: "#FFFFFF",
   inkSoft: "#3F3F46",
-  forestSoft: "#FDEAEA",
+  forestSoft: "#EAF8EF",
 
   protein: "#6CC28A",
   carbs: "#A9A3F0",
@@ -125,6 +125,18 @@ export const lightColors = {
   gymNavyMuted: "#C3C8DC",
   gymWarningLine: "#F2C94C",
   gymWarningInk: "#7A4B00",
+  // The gym invoice template's red (app/gym/invoice.tsx, same as the PDF in lib/gymInvoice.ts)
+  gymInvoiceRed: "#D40005",
+  gymInvoiceRedSoft: "#FDEAEA",
+
+  // Meals module only (Meals tab, a meal, the cart, orders): its green look
+  mealPrimary: "#20BF65",
+  mealDark: "#087A43",
+  mealSecondary: "#39C978",
+  mealLight: "#EAF8EF",
+  mealSurface: "#F3FBF5",
+  mealLine: "#E6EEE8",
+  mealNonveg: "#9A4A1C",
 
   white: "#FFFFFF",
   black: "#000000",
