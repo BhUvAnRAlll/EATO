@@ -4,21 +4,12 @@ import * as Location from "expo-location";
 import { placeFromGeocode, unnamedPlace, type LatLng, type PickedPlace } from "@/lib/addressRules";
 
 // The phone's location for delivery addresses: permission while the app is in use only, asked
-// for when the member taps "Use current location" (never on its own). iOS can't switch location
+// for when Select Delivery Location opens (to find where you are) or "Use current location" is tapped. iOS can't switch location
 // services on for the member, so it only says how; Android shows its own "Turn on location"
 // prompt. Every failure is one plain line, plus whether Settings is the way out.
 export type FindResult = { ok: true; at: LatLng } | { ok: false; message: string; settings: boolean };
 
 const TIMEOUT_MS = 15_000;
-
-// Whether the member already allowed location (so the map may start where they are, no prompt)
-export async function locationAllowed(): Promise<boolean> {
-  try {
-    return (await Location.getForegroundPermissionsAsync()).status === "granted";
-  } catch {
-    return false;
-  }
-}
 
 export async function findMe(): Promise<FindResult> {
   let permission: Location.LocationPermissionResponse;

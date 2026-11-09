@@ -12,7 +12,7 @@ import { SymbolView } from "@/components/SymbolView";
 import { KIND_ICON } from "@/data/addresses";
 import { addressApi, type DeliveryAddress, type Serviceable } from "@/lib/addressApi";
 import { KIND_LABEL, addressLines, type LatLng, type PickedPlace } from "@/lib/addressRules";
-import { findMe, locationAllowed, nameOf, openLocationSettings, searchPlaces } from "@/lib/deliveryLocation";
+import { findMe, nameOf, openLocationSettings, searchPlaces } from "@/lib/deliveryLocation";
 import { haptic } from "@/lib/haptics";
 import { hud } from "@/lib/hud";
 import { useAddressBook } from "@/lib/useAddressBook";
@@ -72,29 +72,34 @@ export default function SelectLocation() {
     }
   }, [getToken]);
 
-  // Where the map opens: the link's point, else the selected address, else the member's location
-  // when they already allowed it (no prompt on opening), else India with a hint
+  // Where the map opens: the link's point (Change on the form), else the member's current location,
+  // found straight away (2026-11-09, the user's request: adding an address detects where you are;
+  // the permission is asked for here). If that fails, the selected address or India, with the reason.
+  // The address book as it is now, for the fallback (read once GPS has answered)
+  const loadRef = useRef(load);
+  useEffect(() => { loadRef.current = load; }, [load]);
   const decided = useRef(false);
   useEffect(() => {
     if (decided.current) return;
-    if (load.state === "loading" && !startAt) return;
     decided.current = true;
-    const selected = load.state === "ready" ? load.book.addresses.find((a) => a.isDefault) : undefined;
     (async () => {
       // The link's point (the web build has no map to settle, so it is named straight away)
       if (startAt) {
         if (!addressMapAvailable) settle(startAt);
         return;
       }
-      if (await locationAllowed()) {
-        const here = await findMe();
-        if (here.ok) {
-          setStart(here.at);
-          setStarted(true);
-          if (!addressMapAvailable) settle(here.at);
-          return;
-        }
+      setLocating(true);
+      const here = await findMe();
+      setLocating(false);
+      if (here.ok) {
+        setStart(here.at);
+        setStarted(true);
+        if (!addressMapAvailable) settle(here.at);
+        return;
       }
+      setProblem({ text: here.message, settings: here.settings });
+      const book = loadRef.current.state === "ready" ? loadRef.current.book : null;
+      const selected = book?.addresses.find((a) => a.isDefault);
       if (selected) {
         const at = { latitude: selected.latitude, longitude: selected.longitude };
         setStart(at);
@@ -103,9 +108,8 @@ export default function SelectLocation() {
         return;
       }
       setStarted(true);
-      setProblem({ text: "Use your current location, search for your area, or move the map to your building.", settings: false });
     })();
-  }, [load, settle, startAt]);
+  }, [settle, startAt]);
 
   const goTo = (at: LatLng) => {
     focusKey.current += 1;
@@ -185,7 +189,7 @@ export default function SelectLocation() {
           ) : (
             <View className="address-map__loading">
               <ActivityIndicator color={colors.leaf} />
-              <Text className="type-caption text-muted">Finding where to start…</Text>
+              <Text className="type-caption text-muted">Finding your current location…</Text>
             </View>
           )}
 

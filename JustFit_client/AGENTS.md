@@ -122,8 +122,9 @@ deliveries decided by a pincode list, the selected address kept on the server.
   once one is chosen; Add New Address pinned at the bottom), `location.tsx` Select Delivery
   Location (`components/AddressMap.tsx`: react-native-maps with the pin fixed in the middle and the
   map moving under it, Google on both phones with the existing keys, a card on the web build;
-  search and "Use current location" through `lib/deliveryLocation.ts` (expo-location: permission
-  only when tapped; iOS points to Settings, Android shows its own "turn on location" prompt; a 15 s
+  opens on the member's current location, found at once (the permission is asked for then; on
+  failure the selected address or India with the reason); search and "Use current location" through
+  `lib/deliveryLocation.ts` (expo-location; iOS points to Settings, Android shows its own "turn on location" prompt; a 15 s
   timeout falls back to the last known fix); the place under the pin is named by the phone's
   `reverseGeocodeAsync` (`addressRules.placeFromGeocode`, pure and unit-tested) with whether justFit
   delivers there; saved addresses listed; Confirm Location pinned; `?then=back&lat=&lng=` is the
