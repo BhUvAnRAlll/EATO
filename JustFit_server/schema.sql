@@ -868,6 +868,7 @@ CREATE TABLE coach_plan_meal_items (
   PRIMARY KEY (id),
   KEY idx_coach_plan_meal_items_meal (meal_id, position),
   KEY idx_coach_plan_meal_items_user (user_id),
+  KEY idx_coach_plan_meal_items_plan (user_id, plan_id),
   CONSTRAINT fk_coach_plan_meal_items_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
   CONSTRAINT chk_coach_plan_meal_items_quantity CHECK (quantity > 0 AND quantity <= 10000),
   CONSTRAINT chk_coach_plan_meal_items_kcal CHECK (kcal BETWEEN 0 AND 5000),
@@ -1016,6 +1017,7 @@ CREATE TABLE ai_usage (
   KEY idx_ai_usage_feature_time (feature, created_at),
   KEY idx_ai_usage_model_time (model, created_at),
   KEY idx_ai_usage_user (user_id),
+  KEY idx_ai_usage_user_time (user_id, created_at),
   CONSTRAINT fk_ai_usage_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE SET NULL
 ) ENGINE = InnoDB;
 
