@@ -59,6 +59,8 @@ async function askCoach({ instructions, messages, cacheKey }, env, usage) {
     return { reply: `${rules.FAKE_REPLY} (${messages.length} lines read)`, mealChanges: [], workoutChanges: [] };
   }
   const { request, model: MODEL } = models.settingsFor(FEATURE, env);
+  // Past the input cap nothing is sent or paid for (the history is already kept short, chatRules.modelHistory)
+  if (!models.withinInputCap(FEATURE, [instructions, ...messages.map((m) => m.text)])) throw new CoachPlanError(BUSY, 502);
   const client = models.openaiClient();
   let response;
   try {
@@ -131,14 +133,15 @@ async function chat(pool, userId, { date, text, clientId }, env = process.env) {
   // AI call and nothing else read
   const saved = await chatHistory.savedAnswer(pool, userId, clientId);
   if (saved) return saved;
-  // What the coach knows and the conversation so far, read together. The limits come after the
-  // facts (a member who can't chat yet isn't charged a turn of their per-minute allowance)
+  // What the coach knows and the conversation so far, read together
   const [facts, recent] = await Promise.all([memberFacts(pool, userId, date), chatHistory.recentContext(pool, userId)]);
-  await aiLimits.check(pool, { feature: FEATURE, userId }, env);
   // Only a conversation with the member's current coach counts (a new coach starts afresh)
   const earlier = recent.coach === facts.intake.coach ? recent.messages : [];
-  // The same send arriving twice at once (a double tap, a retried connection) is answered once
+  // The same send arriving twice at once (a double tap, a retried connection) is answered once,
+  // and its limits are checked once (inside the shared run), so it uses one turn of the member's
+  // per-minute allowance. They come after the facts: a member who can't chat yet isn't charged.
   return dedupe.shared.run(dedupe.requestKey(FEATURE, userId, clientId), async () => {
+    await aiLimits.check(pool, { feature: FEATURE, userId }, env);
     const history = rules.modelHistory([...earlier, { role: "member", text }]);
     const instructions = `${rules.chatInstructions(facts.intake)}\n\nFacts about the member:\n${rules.memberBrief(facts)}`;
     const answer = await askCoach({ instructions, messages: history, cacheKey: `${FEATURE}:${userId}` }, env, aiUsage.tracker(pool, { feature: FEATURE, userId }));

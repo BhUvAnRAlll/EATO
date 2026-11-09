@@ -17,6 +17,8 @@ async function askStructured({ feature, instructions, brief, schema, fake, failu
     return fake;
   }
   const { request, model: MODEL } = models.settingsFor(feature, env);
+  // A prompt past the feature's input cap is refused before any cost (the callers' fallbacks apply)
+  if (!models.withinInputCap(feature, [instructions, brief])) throw new CoachPlanError(failure, 502);
   const client = models.openaiClient();
   let response;
   try {

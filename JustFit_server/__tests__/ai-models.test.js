@@ -112,3 +112,18 @@ describe("ai deduplicator", () => {
     assert.equal(await dedupe.run("k", async () => "ok"), "ok");
   });
 });
+
+describe("ai models: the input cap", () => {
+  it("a normal prompt fits, a runaway one is refused before any call is made", async () => {
+    assert.equal(models.estimateTokens(["abcd", "efgh", null]), 2);
+    assert.equal(models.withinInputCap("coach_workout", ["x".repeat(4 * 2300)]), true, "the largest real prompt (about 2,300 tokens)");
+    assert.equal(models.withinInputCap("coach_workout", ["x".repeat(4 * 5000 + 4)]), false);
+    assert.equal(models.withinInputCap("coach_voice", ["x".repeat(100000)]), true, "a cap of 0 isn't checked");
+    // askStructured refuses it with the caller's own failure line, never reaching OpenAI (there's no key here)
+    const { askStructured } = require("../ai/structured.js");
+    await assert.rejects(
+      askStructured({ feature: "coach_meal", instructions: "i", brief: "x".repeat(4 * 3000 + 40), schema: {}, failure: "Couldn't swap that meal." }, { NODE_ENV: "production" }),
+      (error) => error.status === 502 && error.message === "Couldn't swap that meal.",
+    );
+  });
+});

@@ -80,6 +80,24 @@ const routingSummary = (env = process.env) => FEATURES.map((f) => `${f}=${modelF
 // Tests run with a stand-in instead of the real model
 const isFake = (env = process.env) => env.NODE_ENV === "test" && env.AI_PROVIDER === "fake";
 
+// A prompt's text in tokens, roughly (about four characters a token in English; never exact, and
+// fewer per character in Hindi or Kannada): enough to tell a normal prompt from a runaway one
+const estimateTokens = (texts) => Math.ceil(texts.reduce((sum, text) => sum + (text ? String(text).length : 0), 0) / 4);
+
+/**
+ * Whether a call's text (instructions, brief, messages) fits the feature's maxInputTokens. Checked
+ * before the call, so a prompt that grew past it (a huge library, a long history) is refused
+ * without being paid for. Real prompts sit well under the caps (2026-11-09: the largest, the
+ * workout week, about 2,300 of 5,000). A cap of 0 (voice, no text prompt) isn't checked.
+ */
+function withinInputCap(feature, texts) {
+  const cap = DEFAULTS[feature]?.maxInputTokens ?? 0;
+  if (cap <= 0 || estimateTokens(texts) <= cap) return true;
+  // Only the feature, never the prompt
+  console.error(`AI ${feature}: prompt over its input cap (${cap} tokens), not sent`);
+  return false;
+}
+
 // ---- the client ---------------------------------------------------------------------------
 
 // How long one OpenAI call may take, and how often it is retried. The SDK's own defaults (10
@@ -104,4 +122,4 @@ function openaiClient(options = {}) {
 /** The cached-prompt token count OpenAI reports on a response (0 when it reports none) */
 const cachedTokensOf = (response) => Number(response?.usage?.input_tokens_details?.cached_tokens ?? 0) || 0;
 
-module.exports = { DEFAULTS, FEATURES, modelFor, settingsFor, routingSummary, isFake, isReasoningModel, clientOptions, openaiClient, cachedTokensOf };
+module.exports = { DEFAULTS, FEATURES, modelFor, settingsFor, routingSummary, isFake, estimateTokens, withinInputCap, isReasoningModel, clientOptions, openaiClient, cachedTokensOf };

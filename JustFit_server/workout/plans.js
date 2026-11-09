@@ -12,6 +12,7 @@ const workout = require("../../JustFit_client/src/lib/workout/index.ts");
 // A failed check the member should read word for word (the route answers 400 with it)
 const { ValidationError } = require("../profile");
 const { ConflictError } = require("../errors");
+const crypto = require("node:crypto");
 const aiPlan = require("./aiPlan");
 
 const SECTION_ORDER = "FIELD(e.section, 'warmup', 'workout', 'cooldown')";
@@ -220,7 +221,20 @@ async function generateAndStore(conn, userId, today, source, prepared) {
   const { idByName } = await programmableLibrary(conn);
   const { inputs, plan } = prepared;
 
-  const [[{ id: planId }]] = await conn.query("SELECT UUID() AS id");
+  // Ids made here (no SELECT UUID() round trip each) and each table written in one multi-row
+  // INSERT: the member is locked while this runs
+  const planId = crypto.randomUUID();
+  const days = plan.days.map((day) => ({ ...day, id: crypto.randomUUID() }));
+  const exerciseRows = [];
+  for (const day of days) {
+    for (const e of day.exercises) {
+      const exerciseId = idByName(e.name);
+      // Only when an exercise was archived while this plan was being written: the transaction
+      // rolls back and the member is asked to try again (the next try reads the library afresh)
+      if (!exerciseId) throw new ConflictError("The exercise library changed while your plan was being made. Please try again.");
+      exerciseRows.push([day.id, planId, userId, exerciseId, e.section, e.order, JSON.stringify(e.sets), e.restSec, e.role, e.repsMin ?? null, e.repsMax ?? null, e.note ?? null]);
+    }
+  }
   await conn.query(
     `INSERT INTO workout_plans
        (id, user_id, name, goal, level, days_per_week, split, source, status, engine_version, input_hash, inputs_snapshot, calibration, requires_professional_review, start_date)
@@ -228,20 +242,14 @@ async function generateAndStore(conn, userId, today, source, prepared) {
     [planId, userId, plan.name, plan.goal, plan.level, plan.daysPerWeek, plan.split, source, plan.engineVersion, plan.inputHash,
       JSON.stringify(inputs), JSON.stringify(plan.calibration), plan.requiresProfessionalReview, today],
   );
-  for (const day of plan.days) {
-    const [[{ id: dayId }]] = await conn.query("SELECT UUID() AS id");
-    await conn.query("INSERT INTO workout_days (id, plan_id, user_id, weekday, title, session_type) VALUES (?, ?, ?, ?, ?, ?)", [dayId, planId, userId, day.weekday, day.title, day.sessionType]);
-    for (const e of day.exercises) {
-      const exerciseId = idByName(e.name);
-      // Only when an exercise was archived while this plan was being written: the transaction
-      // rolls back and the member is asked to try again (the next try reads the library afresh)
-      if (!exerciseId) throw new ConflictError("The exercise library changed while your plan was being made. Please try again.");
-      await conn.query(
-        `INSERT INTO workout_day_exercises (day_id, plan_id, user_id, exercise_id, section, position, sets, rest_sec, role, reps_min, reps_max, note)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [dayId, planId, userId, exerciseId, e.section, e.order, JSON.stringify(e.sets), e.restSec, e.role, e.repsMin ?? null, e.repsMax ?? null, e.note ?? null],
-      );
-    }
+  if (days.length) {
+    await conn.query("INSERT INTO workout_days (id, plan_id, user_id, weekday, title, session_type) VALUES ?", [days.map((day) => [day.id, planId, userId, day.weekday, day.title, day.sessionType])]);
+  }
+  if (exerciseRows.length) {
+    await conn.query(
+      "INSERT INTO workout_day_exercises (day_id, plan_id, user_id, exercise_id, section, position, sets, rest_sec, role, reps_min, reps_max, note) VALUES ?",
+      [exerciseRows],
+    );
   }
   return { planId, plan };
 }

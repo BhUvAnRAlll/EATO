@@ -10,6 +10,7 @@
 // checked first (ai/limits.js) and two requests for the same member at once make one plan.
 const { ValidationError } = require("../profile");
 const { NotFoundError } = require("../errors");
+const crypto = require("node:crypto");
 const diary = require("../macro/diary");
 const workoutPlans = require("../workout/plans");
 const rules = require("./planRules");
@@ -111,21 +112,19 @@ async function buildPlan(pool, userId, { today, intake, profile, targets }, env)
     const { planId: workoutPlanId } = await workoutPlans.planFromCoach(conn, userId, { ...workoutDraft.facts, today, prepared: workoutDraft.prepared });
 
     await conn.query("UPDATE coach_plans SET status = 'superseded' WHERE user_id = ? AND status = 'active'", [userId]);
-    const [[{ id }]] = await conn.query("SELECT UUID() AS id");
+    // Ids made here, and the meals and their foods each in one multi-row INSERT (the member is locked)
+    const id = crypto.randomUUID();
+    const meals = diet.meals.map((meal) => ({ ...meal, id: crypto.randomUUID() }));
     await conn.query(
       "INSERT INTO coach_plans (id, user_id, coach, message, workout_plan_id, calories, protein_g, carbs_g, fat_g) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
       [id, userId, intake.coach, diet.message, workoutPlanId, targets.calories, targets.proteinG, targets.carbsG, targets.fatG],
     );
-    for (const [position, meal] of diet.meals.entries()) {
-      const [[{ id: mealId }]] = await conn.query("SELECT UUID() AS id");
-      await conn.query(
-        "INSERT INTO coach_plan_meals (id, plan_id, user_id, slot, name, meal_time, note, position) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-        [mealId, id, userId, meal.slot, meal.name, meal.time, meal.note, position],
-      );
-      await conn.query(
-        "INSERT INTO coach_plan_meal_items (meal_id, plan_id, user_id, position, name, quantity, unit, kcal, protein_g, carbs_g, fat_g) VALUES ?",
-        [meal.items.map((it, i) => [mealId, id, userId, i, it.name, it.quantity, it.unit, it.kcal, it.proteinG, it.carbsG, it.fatG])],
-      );
+    if (meals.length) {
+      await conn.query("INSERT INTO coach_plan_meals (id, plan_id, user_id, slot, name, meal_time, note, position) VALUES ?", [meals.map((meal, position) => [meal.id, id, userId, meal.slot, meal.name, meal.time, meal.note, position])]);
+      const items = meals.flatMap((meal) => meal.items.map((it, i) => [meal.id, id, userId, i, it.name, it.quantity, it.unit, it.kcal, it.proteinG, it.carbsG, it.fatG]));
+      if (items.length) {
+        await conn.query("INSERT INTO coach_plan_meal_items (meal_id, plan_id, user_id, position, name, quantity, unit, kcal, protein_g, carbs_g, fat_g) VALUES ?", [items]);
+      }
     }
     return id;
   });
@@ -214,8 +213,9 @@ async function swapMeal(pool, userId, mealId, env = process.env) {
   const meal = plan?.meals.find((m) => m.id === mealId);
   if (!meal) throw new NotFoundError("That meal isn't in your plan.");
   const { intake, profile } = await memberFacts(pool, userId);
-  await aiLimits.check(pool, { feature: "coach_meal", userId }, env);
+  // A second ask while one runs joins it, limits included (checked once, inside the shared run)
   return dedupe.shared.run(dedupe.requestKey("coach_meal", userId, mealId), async () => {
+    await aiLimits.check(pool, { feature: "coach_meal", userId }, env);
     const usage = aiUsage.tracker(pool, { feature: "coach_meal", userId });
     const raw = await askStructured(
       { feature: "coach_meal", instructions: rules.MEAL_INSTRUCTIONS, brief: rules.mealBrief({ profile, intake, meal }), schema: rules.mealSchema, fake: rules.FAKE_MEAL, failure: "Your coach couldn't find a swap for that meal right now. Please try again." },
@@ -331,8 +331,9 @@ async function mealOptions(pool, userId, mealId, { date, preference = null, reus
     if (reused.length) return { mealId: meal.id, remaining, targetKcal, preference, options: reused };
   }
   const exclude = [meal.name, ...recent];
-  await aiLimits.check(pool, { feature: "coach_meal", userId }, env);
+  // A second ask while one runs joins it, limits included (checked once, inside the shared run)
   return dedupe.shared.run(dedupe.requestKey("coach_meal_options", userId, mealId, date, preference, exclude), async () => {
+    await aiLimits.check(pool, { feature: "coach_meal", userId }, env);
     const usage = aiUsage.tracker(pool, { feature: "coach_meal", userId });
     const raw = await askStructured(
       { feature: "coach_meal_options", instructions: rules.OPTIONS_INSTRUCTIONS, brief: rules.optionsBrief({ profile, intake, targets, remaining, meal, targetKcal, exclude: recent, preference }), schema: rules.optionsSchema, fake: rules.FAKE_OPTIONS, failure: rules.OPTIONS_FAILURE },
