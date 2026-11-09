@@ -1,9 +1,10 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Linking, Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 
+import { OrderTimelineSheet } from "@/components/admin/OrderTimelineSheet";
 import { DashedBlock } from "@/components/macro/DashedBlock";
 import { StatusPill } from "@/components/meals/OrderParts";
 import { PressableScale } from "@/components/PressableScale";
@@ -11,7 +12,8 @@ import { ScreenSkeleton } from "@/components/Skeleton";
 import { SymbolView } from "@/components/SymbolView";
 import { hud } from "@/lib/hud";
 import { todayIso } from "@/lib/macro";
-import { MEAL_SLOTS, NEXT_STEP_LABEL, SLOT_LABEL, addDays, dayLabel, directionsUrl, isOpen, rupees, timeRange } from "@/lib/mealRules";
+import { kitchensApi, type Kitchen } from "@/lib/kitchensApi";
+import { LEGACY_NEXT_STEP_LABEL, MEAL_SLOTS, NEXT_STEP_LABEL, SLOT_LABEL, addDays, dayLabel, directionsUrl, isOpen, rupees, timeRange } from "@/lib/mealRules";
 import { kitchenApi, type Order } from "@/lib/mealsApi";
 import { showActions } from "@/lib/nativeSheets";
 import { useGymData } from "@/lib/useGymData";
@@ -26,21 +28,44 @@ const FILTERS: { value: Filter; label: string }[] = [
   { value: "all", label: "All" },
 ];
 const CANCEL_REASONS = ["Out of stock today", "Can't deliver to this address", "The member asked to cancel", "Kitchen closed today"];
+const STATUS_TEXT: Record<string, string> = { accepted: "Accepted", preparing: "Preparing", quality_check: "Quality checked", ready: "Ready for pickup", out_for_delivery: "Out for delivery" };
+const OVERRIDE_REASONS = ["Stock arriving before cooking", "The count was wrong", "Using a substitute"];
 
 // Super Admin › Orders: the admin is the kitchen and the delivery person. One day at a time
 // (today by default, ‹ › to move), grouped by meal time. Each order shows who, where (Call,
 // Directions), what, and one big button for its next step: Start preparing → Out for delivery →
 // Mark delivered (which logs it into the member's Macro diary). Meals and delivery times are in
-// the header.
+// the header. Since phase 3 (orders through kitchens): a row of kitchen chips filters the day
+// (`?kitchen=` opens on one), each card names its kitchen, the steps are Accept → Start preparing →
+// Quality check done → Ready for pickup → Out for delivery → Mark delivered, Reject before cooking,
+// a stock override with a reason when the kitchen is short, and ⋯ for Change kitchen and Timeline.
 export default function AdminOrders() {
   const colors = useThemeColors();
   const getToken = useSessionToken();
   const today = todayIso();
+  const params = useLocalSearchParams<{ kitchen?: string }>();
   const [day, setDay] = useState(today);
+  const [kitchen, setKitchen] = useState<number | "none" | null>(params.kitchen ? (params.kitchen === "none" ? "none" : Number(params.kitchen)) : null);
+  const [kitchens, setKitchens] = useState<Kitchen[]>([]);
+  const [timeline, setTimeline] = useState<{ id: string; code: string } | null>(null);
+  // Opened again with another ?kitchen= (the tab stays mounted): follow it
+  const [seenParam, setSeenParam] = useState(params.kitchen);
+  if (params.kitchen !== seenParam) {
+    setSeenParam(params.kitchen);
+    if (params.kitchen) setKitchen(params.kitchen === "none" ? "none" : Number(params.kitchen));
+  }
   const [filter, setFilter] = useState<Filter>("todo");
   const [busyId, setBusyId] = useState<string | null>(null);
-  const load = useCallback((token: string | null) => kitchenApi.orders(token, day), [day]);
+  const load = useCallback((token: string | null) => kitchenApi.orders(token, day, kitchen), [day, kitchen]);
   const { result, retry, refreshing, refresh, update, reload } = useGymData(load);
+  const viaKitchens = result.state === "ready" && result.data.kitchens === true;
+  useEffect(() => {
+    if (!viaKitchens) return;
+    (async () => {
+      const answer = await kitchensApi.list(await getToken(), {});
+      if (answer.ok) setKitchens(answer.data.kitchens);
+    })();
+  }, [viaKitchens, getToken]);
 
   const replace = (order: Order) =>
     update((data) => {
@@ -50,19 +75,28 @@ export default function AdminOrders() {
       return { ...data, orders, counts };
     });
 
-  const advance = async (order: Order) => {
+  const advance = async (order: Order, override?: { note: string }) => {
     if (busyId) return;
     setBusyId(order.id);
-    const answer = await kitchenApi.advance(await getToken(), order.id, order.status);
+    const answer = await kitchenApi.advance(await getToken(), order.id, order.status, override);
     setBusyId(null);
     if (!answer.ok) {
+      // The kitchen is short of an ingredient: start anyway only with a reason
+      if (answer.status === 409 && answer.error.startsWith("Not enough") && !override) {
+        showActions({
+          title: "Start without enough stock?",
+          message: answer.error,
+          actions: OVERRIDE_REASONS.map((note) => ({ label: note, onPress: () => void advance(order, { note }) })),
+        });
+        return;
+      }
       hud.error(answer.error);
       reload();
       return;
     }
     replace(answer.data.order);
     const next = answer.data.order.status;
-    hud.success(next === "delivered" ? (answer.data.macroLogged === false ? "Delivered" : "Delivered · added to Macro") : next === "preparing" ? "Preparing" : "Out for delivery");
+    hud.success(next === "delivered" ? (answer.data.macroLogged === false ? "Delivered" : "Delivered · added to Macro") : STATUS_TEXT[next] ?? "Saved");
   };
 
   const cancel = (order: Order) =>
@@ -87,6 +121,31 @@ export default function AdminOrders() {
       })),
     });
 
+  const moveKitchen = (order: Order) =>
+    showActions({
+      title: "Move to which kitchen?",
+      message: order.kitchen?.name ? `Now: ${order.kitchen.name}` : "It has no kitchen yet.",
+      actions: kitchens.filter((k) => k.id !== order.kitchen?.id && k.status === "active").map((k) => ({
+        label: k.name,
+        onPress: async () => {
+          setBusyId(order.id);
+          const answer = await kitchenApi.changeKitchen(await getToken(), order.id, k.id);
+          setBusyId(null);
+          if (!answer.ok) return hud.error(answer.error);
+          replace(answer.data.order);
+          hud.success(`Moved to ${k.name}`);
+        },
+      })),
+    });
+  const more = (order: Order) =>
+    showActions({
+      title: `Order #${order.code}`,
+      actions: [
+        ...(order.status === "placed" || order.status === "accepted" ? [{ label: "Change kitchen", onPress: () => moveKitchen(order) }] : []),
+        { label: "Timeline", onPress: () => setTimeline({ id: order.id, code: order.code }) },
+      ],
+    });
+
   const open = (url: string | null, what: string) => {
     if (!url) return;
     Linking.openURL(url).catch(() => hud.error(`Couldn't open ${what}`));
@@ -97,7 +156,8 @@ export default function AdminOrders() {
   const countOf = (f: Filter) => (data ? (f === "all" ? data.orders.length : data.orders.filter((o) => (f === "todo" ? isOpen(o.status) : o.status === f)).length) : 0);
 
   const card = (o: Order) => {
-    const next = NEXT_STEP_LABEL[o.status];
+    const next = (viaKitchens ? NEXT_STEP_LABEL : LEGACY_NEXT_STEP_LABEL)[o.status];
+    const beforeCooking = o.status === "placed" || o.status === "accepted";
     const busy = busyId === o.id;
     return (
       <View key={o.id} className="card" style={{ gap: 10 }}>
@@ -105,8 +165,14 @@ export default function AdminOrders() {
           <View className="min-w-0 flex-1">
             <Text className="card__title" numberOfLines={1}>{o.address.receiverName ?? o.memberName ?? "Member"}</Text>
             <Text className="meta-text">{`#${o.code} · ${rupees(o.total)} · ${o.payment?.method === "razorpay" ? "paid" : "test payment"}`}</Text>
+            {viaKitchens ? <Text className="meta-text" numberOfLines={1}>{o.kitchen?.name ? `Kitchen: ${o.kitchen.name}` : "No kitchen"}</Text> : null}
           </View>
           <StatusPill status={o.status} />
+          {viaKitchens ? (
+            <Pressable onPress={() => more(o)} hitSlop={8} accessibilityRole="button" accessibilityLabel={`More for order ${o.code}`}>
+              <SymbolView name={{ ios: "ellipsis", android: "more_horiz", web: "more_horiz" }} size={18} tintColor={colors.ink} />
+            </Pressable>
+          ) : null}
         </View>
         <View style={{ gap: 2 }}>
           {o.items.map((item, i) => (
@@ -137,7 +203,7 @@ export default function AdminOrders() {
               <Text className="btn-forest__label">{busy ? "Saving…" : next}</Text>
             </PressableScale>
             <Pressable onPress={() => cancel(o)} disabled={busy} hitSlop={8} className="admin-chip" accessibilityRole="button" accessibilityLabel={`Cancel order ${o.code}`}>
-              <Text className="admin-segment__label" style={{ color: colors.danger }}>Cancel</Text>
+              <Text className="admin-segment__label" style={{ color: colors.danger }}>{viaKitchens && beforeCooking ? "Reject" : "Cancel"}</Text>
             </Pressable>
           </View>
         )}
@@ -183,6 +249,19 @@ export default function AdminOrders() {
             </Pressable>
           </View>
 
+          {viaKitchens && kitchens.length > 0 ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}>
+              {([{ id: null, name: "All kitchens" }, ...kitchens.map((k) => ({ id: k.id as number | "none", name: k.name })), { id: "none" as const, name: "No kitchen" }] as { id: number | "none" | null; name: string }[]).map((k) => {
+                const on = kitchen === k.id;
+                return (
+                  <PressableScale key={String(k.id)} haptic="select" onPress={() => setKitchen(k.id)} className={on ? "admin-chip admin-chip--on" : "admin-chip"} accessibilityRole="button" accessibilityState={{ selected: on }}>
+                    <Text className={on ? "admin-segment__label admin-segment__label--on" : "admin-segment__label"} numberOfLines={1}>{k.name}</Text>
+                  </PressableScale>
+                );
+              })}
+            </ScrollView>
+          ) : null}
+
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}>
             {FILTERS.map((f) => {
               const on = f.value === filter;
@@ -225,6 +304,7 @@ export default function AdminOrders() {
           </View>
         </ScrollView>
       </SafeAreaView>
+      {timeline && <OrderTimelineSheet orderId={timeline.id} code={timeline.code} onClose={() => setTimeline(null)} />}
     </View>
   );
 }

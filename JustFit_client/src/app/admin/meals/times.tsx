@@ -1,15 +1,19 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Switch, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { router } from "expo-router";
 
+import { AdminField } from "@/components/admin/AdminField";
 import { FormAlert } from "@/components/FormAlert";
 import { DashedBlock } from "@/components/macro/DashedBlock";
 import { ScreenSkeleton } from "@/components/Skeleton";
 import { SymbolView } from "@/components/SymbolView";
 import { useGymSave } from "@/lib/gymForm";
-import { MEAL_SLOTS, SLOT_LABEL, clockText, closesAtText, shiftTime, type MealSlot } from "@/lib/mealRules";
+import { hud } from "@/lib/hud";
+import { useSessionToken } from "@/lib/session";
+import { MEAL_SLOTS, SLOT_LABEL, clockText, closesAtText, dayLabel, shiftTime, type MealSlot } from "@/lib/mealRules";
+import { todayIso } from "@/lib/macro";
 import { kitchenApi, type Slots } from "@/lib/mealsApi";
 import { useGymData } from "@/lib/useGymData";
 import { useSwitchColors, useThemeColors } from "@/theme";
@@ -19,7 +23,9 @@ const CUTOFF_MINUTES = 120; // the server's rule: orders close 2 hours before th
 
 // Super Admin › Meals › Delivery times: when breakfast, lunch and dinner are delivered, each on or
 // off. Times move in half hours. Members can order a meal time until 2 hours before it starts; a
-// change applies to new orders, never to ones already placed.
+// change applies to new orders, never to ones already placed. Since phase 3: each meal time's
+// orders a day across justFit (empty = no limit; booked up, members can't pick it), and holidays
+// (no deliveries that day; members see the note).
 export default function AdminDeliveryTimes() {
   const colors = useThemeColors();
   const switchColors = useSwitchColors();
@@ -31,7 +37,7 @@ export default function AdminDeliveryTimes() {
 
   const change = (slot: MealSlot, field: "startsAt" | "endsAt", minutes: number) =>
     slots && setSlots({ ...slots, [slot]: { ...slots[slot], [field]: shiftTime(slots[slot][field], minutes) } });
-  const problem = slots ? MEAL_SLOTS.find((s) => slots[s].startsAt >= slots[s].endsAt) : undefined;
+  const problem = slots ? MEAL_SLOTS.find((s) => slots[s].startsAt >= slots[s].endsAt || slots[s].capacity === 0) : undefined;
 
   const stepper = (slot: MealSlot, field: "startsAt" | "endsAt", label: string) => (
     <View className="flex-1" style={{ gap: 6 }}>
@@ -89,6 +95,19 @@ export default function AdminDeliveryTimes() {
                         {stepper(slot, "endsAt", "To")}
                       </View>
                     )}
+                    {s.active && (
+                      <AdminField
+                        label="Orders a day (optional)"
+                        value={s.capacity == null ? "" : String(s.capacity)}
+                        onChangeText={(t) => {
+                          const digits = t.replace(/[^0-9]/g, "").slice(0, 5);
+                          setSlots({ ...slots, [slot]: { ...s, capacity: digits === "" ? null : Number(digits) } });
+                        }}
+                        keyboardType="number-pad"
+                        placeholder="No limit"
+                        hint="Once this many are booked for a day, members can't pick it."
+                      />
+                    )}
                     {s.startsAt >= s.endsAt && <Text className="admin__hint" style={{ color: colors.danger }}>The end must be after the start.</Text>}
                   </View>
                 );
@@ -98,10 +117,64 @@ export default function AdminDeliveryTimes() {
                 {busy && <ActivityIndicator size="small" color={colors.onPrimary} />}
                 <Text className={problem ? "btn-forest__label btn--disabled-label" : "btn-forest__label"}>Save times</Text>
               </Pressable>
+              <Holidays />
             </>
           )}
         </ScrollView>
       </SafeAreaView>
+    </View>
+  );
+}
+
+// No deliveries on these days (a festival, a strike): members can't order for them and see the note
+function Holidays() {
+  const colors = useThemeColors();
+  const getToken = useSessionToken();
+  const load = useCallback((token: string | null) => kitchenApi.holidays(token), []);
+  const { result, update } = useGymData(load);
+  const [day, setDay] = useState("");
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const today = todayIso();
+  const ready = /^\d{4}-\d{2}-\d{2}$/.test(day) && day >= today && note.trim().length >= 3;
+  const add = async () => {
+    if (!ready || busy) return;
+    setBusy(true);
+    const answer = await kitchenApi.addHoliday(await getToken(), day, note.trim());
+    setBusy(false);
+    if (!answer.ok) return hud.error(answer.error);
+    update(() => answer.data);
+    setDay("");
+    setNote("");
+    hud.success("Holiday added");
+  };
+  const remove = async (d: string) => {
+    const answer = await kitchenApi.removeHoliday(await getToken(), d);
+    if (!answer.ok) return hud.error(answer.error);
+    update(() => answer.data);
+    hud.success("Deliveries back on");
+  };
+  if (result.state === "failed") return <Text className="meta-text">{result.error}</Text>;
+  return (
+    <View className="card" style={{ gap: 10 }}>
+      <Text className="type-headline text-forest-ink">Holidays</Text>
+      <Text className="meta-text">No deliveries on these days. Members see the note.</Text>
+      {result.state === "ready" && result.data.holidays.length === 0 ? <Text className="meta-text">None coming up.</Text> : null}
+      {result.state === "ready" && result.data.holidays.map((h) => (
+        <View key={h.day} className="flex-row items-center" style={{ gap: 8 }}>
+          <Text className="type-body text-forest-ink flex-1">{`${dayLabel(h.day, today)} · ${h.note}`}</Text>
+          <Pressable onPress={() => remove(h.day)} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Remove the holiday on ${h.day}`}>
+            <SymbolView name={{ ios: "trash", android: "delete", web: "delete" }} size={16} tintColor={colors.danger} />
+          </Pressable>
+        </View>
+      ))}
+      <View className="flex-row" style={{ gap: 10 }}>
+        <View className="flex-1"><AdminField label="Day" value={day} onChangeText={(t) => setDay(t.replace(/[^0-9-]/g, "").slice(0, 10))} placeholder={today} keyboardType="numbers-and-punctuation" /></View>
+        <View className="flex-1"><AdminField label="Note" value={note} onChangeText={setNote} maxLength={80} placeholder="Diwali" /></View>
+      </View>
+      <Pressable onPress={add} disabled={!ready || busy} className={ready ? "admin-chip admin-chip--on self-start" : "admin-chip self-start"} accessibilityRole="button">
+        {busy ? <ActivityIndicator size="small" color={colors.leaf} /> : <Text className={ready ? "admin-segment__label admin-segment__label--on" : "admin-segment__label"}>Add holiday</Text>}
+      </Pressable>
     </View>
   );
 }

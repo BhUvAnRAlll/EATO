@@ -191,14 +191,16 @@ describe("meal ordering e2e: the admin's meals and times, a member's order, deli
 
   it("4. the admin sets the delivery times; the cart sees 7 days", run(async () => {
     const slots = await api("GET", "/api/admin/kitchen/slots", tokens.admin);
-    assert.deepEqual(slots.json.slots, rules.DEFAULT_SLOTS);
+    // Every meal time also carries its daily capacity since phase 3 (null: no limit)
+    const withCapacity = (all) => Object.fromEntries(Object.entries(all).map(([k, v]) => [k, { capacity: null, ...v }]));
+    assert.deepEqual(slots.json.slots, withCapacity(rules.DEFAULT_SLOTS));
     for (const bad of [{ slots: { ...rules.DEFAULT_SLOTS, lunch: { startsAt: "14:00", endsAt: "13:00", active: true } } }, { slots: { lunch: rules.DEFAULT_SLOTS.lunch } }]) {
       assert.equal((await api("PUT", "/api/admin/kitchen/slots", tokens.admin, bad)).status, 400);
     }
     const next = { ...rules.DEFAULT_SLOTS, lunch: { startsAt: "12:00", endsAt: "13:30", active: true }, dinner: { ...rules.DEFAULT_SLOTS.dinner, active: false } };
     const saved = await api("PUT", "/api/admin/kitchen/slots", tokens.admin, { slots: next });
     assert.equal(saved.status, 200);
-    assert.deepEqual(saved.json.slots, next);
+    assert.deepEqual(saved.json.slots, withCapacity(next));
     const options = await api("GET", "/api/orders/options", tokens.memberA);
     assert.equal(options.json.days.length, 7);
     assert.equal(options.json.cutoffMinutes, 120);
@@ -257,10 +259,12 @@ describe("meal ordering e2e: the admin's meals and times, a member's order, deli
 
     const step = (from) => api("POST", `/api/admin/kitchen/orders/${state.orderId}/advance`, tokens.admin, { from });
     assert.equal((await step("preparing")).status, 409, "the admin's screen was out of date");
-    assert.equal((await step("placed")).json.order.status, "preparing");
+    assert.equal((await step("placed")).json.order.status, "accepted", "the kitchen's steps since phase 3");
     assert.equal((await step("placed")).status, 409, "a double tap moves it once");
     assert.equal((await api("POST", `/api/orders/${state.orderId}/cancel`, tokens.memberA, {})).status, 409, "too late for the member to cancel");
-    assert.equal((await step("preparing")).json.order.status, "out_for_delivery");
+    for (const [from, to] of [["accepted", "preparing"], ["preparing", "quality_check"], ["quality_check", "ready"], ["ready", "out_for_delivery"]]) {
+      assert.equal((await step(from)).json.order.status, to);
+    }
     const delivered = await step("out_for_delivery");
     assert.equal(delivered.json.order.status, "delivered");
     assert.equal(delivered.json.macroLogged, true);

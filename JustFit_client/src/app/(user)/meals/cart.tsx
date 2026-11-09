@@ -258,7 +258,7 @@ export default function Cart() {
                         accessibilityState={{ selected: on, disabled: !any }}
                       >
                         <Text className="meal-choice__label" style={any ? undefined : { color: colors.faint }}>{dayLabel(d.date, today).split(",")[0]}</Text>
-                        <Text className="meal-choice__meta">{any ? new Date(`${d.date}T00:00:00Z`).toLocaleDateString("en-IN", { day: "numeric", month: "short", timeZone: "UTC" }) : "Closed"}</Text>
+                        <Text className="meal-choice__meta" numberOfLines={1}>{any ? new Date(`${d.date}T00:00:00Z`).toLocaleDateString("en-IN", { day: "numeric", month: "short", timeZone: "UTC" }) : d.holiday ? "Holiday" : "Closed"}</Text>
                       </PressableScale>
                     );
                   })}
@@ -271,7 +271,8 @@ export default function Cart() {
                 <View className="flex-row" style={{ gap: 8 }}>
                   {MEAL_SLOTS.map((s) => {
                     const times = options!.slots[s];
-                    const open = !!options!.days.find((d) => d.date === date)?.slots.find((x) => x.slot === s)?.open;
+                    const choice = options!.days.find((d) => d.date === date)?.slots.find((x) => x.slot === s);
+                    const open = !!choice?.open;
                     const on = s === slot && open;
                     return (
                       <PressableScale
@@ -287,13 +288,16 @@ export default function Cart() {
                         <Text className="meal-choice__label" style={open ? undefined : { color: colors.faint }}>{SLOT_LABEL[s]}</Text>
                         <Text className="meal-choice__meta" style={{ textAlign: "center" }}>{times.active ? timeRange(times.startsAt, times.endsAt) : "Not today"}</Text>
                         <Text className="meal-choice__meta" style={{ textAlign: "center", color: open ? colors.muted : colors.faint }}>
-                          {!times.active ? "Off" : open ? `Order by ${closesAtText(times.startsAt, options!.cutoffMinutes)}` : "Closed"}
+                          {!times.active ? "Off" : open ? `Order by ${closesAtText(times.startsAt, options!.cutoffMinutes)}` : choice?.full ? "Fully booked" : "Closed"}
                         </Text>
                       </PressableScale>
                     );
                   })}
                 </View>
                 {!date && <Text className="meta-text">No meal time is open in the next 7 days. Please check back later.</Text>}
+                {(options!.holidays ?? []).map((h) => (
+                  <Text key={h.day} className="meta-text">{`No deliveries ${dayLabel(h.day, today).toLowerCase() === "today" || dayLabel(h.day, today).toLowerCase() === "tomorrow" ? dayLabel(h.day, today).toLowerCase() : `on ${dayLabel(h.day, today)}`}: ${h.note}`}</Text>
+                ))}
               </View>
 
               {/* The address */}

@@ -414,6 +414,33 @@ The Meals module is green (`meal-*` tokens and utilities); the user chose green 
   `2026-12-31-kitchen-inventory.sql` (`kitchen_meals`, `ingredients`, `kitchen_stock`, `stock_moves`,
   `meal_recipes`, `meal_prep`); before it these routes answer 503 naming it. Tests:
   `__tests__/inventory-rules.test.js`, `e2e/kitchens.e2e.test.js` (7-9), `ui/kitchens.ui.test.js`.
+- **Orders through kitchens (2026-11-10, Meal Operations phase 3):** when an order is placed (inside
+  its transaction, the candidate kitchens locked) `kitchens/assign.js` gives it the kitchen that is
+  active, serves its pincode, is open when the meal time starts, cooks every meal in it with them
+  available, has the recipes' stock and room in its orders a day and meals a meal time, and is within
+  its radius; the nearest wins (both on the map), then the least busy, then the lowest id
+  (`assignRules.problem` / `choose`, pure). None able → 409 ("We don't deliver to this pincode yet" or
+  "Our kitchens can't make this order for that meal time"); while justFit has no kitchens at all,
+  orders go through without one, as before. Steps: placed → accepted → preparing → quality_check →
+  ready → out_for_delivery → delivered (`assignRules.STEPS`; the member's timeline shows Order placed,
+  Accepted, Preparing (QC and ready count as preparing), On the way, Delivered). Starting to prepare
+  takes the recipes' stock from the kitchen in the same transaction (`stock_moves` kind use with
+  `order_id`, once: `orders.stock_taken`); short → 409 "Not enough …" unless `{ override: true, note }`
+  (never below 0). Every step, cancel, rejection and kitchen change is an `order_events` row.
+  Admin: the Orders tab has kitchen chips (`?kitchen=<id>|none`, also from a kitchen's page "This
+  kitchen's orders"), the kitchen on each card, the new step labels, Reject before cooking, a stock
+  override picked from reasons, and ⋯ › Change kitchen (before cooking, only to a kitchen able to take
+  it) and Timeline (`OrderTimelineSheet`). Delivery times add each meal time's orders a day (booked up
+  → the cart shows "Fully booked") and Holidays (day + note; the cart says "No deliveries …"). Routes
+  (`meals/routes.js`): `GET /orders?day=&kitchen=`, `POST /orders/:id/advance { from, override?,
+  note? }`, `POST /orders/:id/kitchen { kitchenId }`, `GET /orders/:id/events`,
+  `GET|POST /holidays`, `DELETE /holidays/:day`, `PUT /slots` takes `capacity`. Migration
+  `2027-01-05-kitchen-orders.sql` (orders: new statuses, `kitchen_id`, `stock_taken`; `order_events`;
+  `meal_delivery_slots.capacity`; `meal_holidays`; `stock_moves.order_id`); before it orders keep the
+  four steps (`assign.ready()`), the phase 3 routes answer 503 naming it, and the app follows the
+  server's `steps`. Not built: a separate kitchen-staff screen (no kitchen logins yet: the Super
+  Admin works from Orders), per-step prep timers. Tests: `__tests__/assign-rules.test.js`,
+  `e2e/kitchen-orders.e2e.test.js`, `e2e/meals.e2e.test.js` (7).
 - **Not built:** Razorpay itself (keys, the native checkout, refunds, webhook), push notifications for a step, delivery fees,
   subscriptions, gym-specific menus (the user chose one justFit menu run by the Super Admin). Tests:
   `__tests__/meal-rules.test.js`, `meal-catalog-rules.test.js`, `e2e/meals.e2e.test.js`, the client's

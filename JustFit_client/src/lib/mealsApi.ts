@@ -87,10 +87,14 @@ export type CouponInput = {
   minOrder: number; perMemberLimit: number; startsOn: string | null; endsOn: string | null; active: boolean;
 };
 
-export type SlotTimes = { startsAt: string; endsAt: string; active: boolean };
+// capacity: orders a day across justFit (phase 3; null = no limit)
+export type SlotTimes = { startsAt: string; endsAt: string; active: boolean; capacity?: number | null };
 export type Slots = Record<MealSlot, SlotTimes>;
-export type OrderDay = { date: string; slots: { slot: MealSlot; open: boolean; closesAt: string }[] };
-export type OrderOptions = { slots: Slots; days: OrderDay[]; cutoffMinutes: number; maxQuantity: number };
+// holiday: no deliveries that day (its note); full: that meal time is booked up (phase 3)
+export type OrderDay = { date: string; holiday?: string | null; slots: { slot: MealSlot; open: boolean; closesAt: string; full?: boolean }[] };
+export type Holiday = { day: string; note: string };
+export type OrderOptions = { slots: Slots; days: OrderDay[]; holidays?: Holiday[]; cutoffMinutes: number; maxQuantity: number };
+export type OrderEvent = { status: string; note: string | null; by: string | null; at: string };
 
 export type OrderItem = { mealId: string | null; name: string; quantity: number; price: number; calories: number; proteinG: number; carbsG: number; fatG: number; imageUrl: string | null };
 export type Order = {
@@ -109,6 +113,8 @@ export type Order = {
   address: { receiverName: string | null; receiverPhone: string | null; line: string | null; pincode: string; latitude: number | null; longitude: number | null; instructions: string | null };
   cancelReason: string | null;
   cancelledBy: "member" | "admin" | "system" | null;
+  kitchen?: { id: number; name: string | null } | null; // phase 3: the kitchen cooking it
+  stockTaken?: boolean;
   deliveredAt: string | null;
   createdAt: string;
   items: OrderItem[];
@@ -200,9 +206,24 @@ export const kitchenApi = {
   duplicateMeal: (token: string | null, id: string) => call<{ meal: AdminMeal }>(token, `/api/admin/kitchen/meals/${encodeURIComponent(id)}/duplicate`, { method: "POST" }),
   slots: (token: string | null) => call<{ slots: Slots }>(token, "/api/admin/kitchen/slots"),
   saveSlots: (token: string | null, slots: Slots) => call<{ slots: Slots }>(token, "/api/admin/kitchen/slots", { method: "PUT", body: { slots } }),
-  orders: (token: string | null, day: string) => call<{ date: string; orders: Order[]; counts: Record<string, number> }>(token, `/api/admin/kitchen/orders?day=${day}`),
-  advance: (token: string | null, id: string, from: OrderStatus) =>
-    call<{ order: Order; macroLogged: boolean | null }>(token, `/api/admin/kitchen/orders/${encodeURIComponent(id)}/advance`, { method: "POST", body: { from } }),
+  // kitchen: a kitchen's id or "none"; `steps` and `kitchens` say whether phase 3 (orders through kitchens) is on
+  orders: (token: string | null, day: string, kitchen?: number | "none" | null) =>
+    call<{ date: string; orders: Order[]; counts: Record<string, number>; steps?: OrderStatus[]; kitchens?: boolean }>(
+      token,
+      `/api/admin/kitchen/orders?day=${day}${kitchen ? `&kitchen=${kitchen}` : ""}`,
+    ),
+  // override + note: start cooking without enough stock (phase 3)
+  advance: (token: string | null, id: string, from: OrderStatus, override?: { note: string }) =>
+    call<{ order: Order; macroLogged: boolean | null }>(token, `/api/admin/kitchen/orders/${encodeURIComponent(id)}/advance`, {
+      method: "POST",
+      body: override ? { from, override: true, note: override.note } : { from },
+    }),
+  changeKitchen: (token: string | null, id: string, kitchenId: number) =>
+    call<{ order: Order }>(token, `/api/admin/kitchen/orders/${encodeURIComponent(id)}/kitchen`, { method: "POST", body: { kitchenId } }),
+  events: (token: string | null, id: string) => call<{ events: OrderEvent[] }>(token, `/api/admin/kitchen/orders/${encodeURIComponent(id)}/events`),
+  holidays: (token: string | null) => call<{ holidays: Holiday[] }>(token, "/api/admin/kitchen/holidays"),
+  addHoliday: (token: string | null, day: string, note: string) => call<{ holidays: Holiday[] }>(token, "/api/admin/kitchen/holidays", { method: "POST", body: { day, note } }),
+  removeHoliday: (token: string | null, day: string) => call<{ holidays: Holiday[] }>(token, `/api/admin/kitchen/holidays/${day}`, { method: "DELETE" }),
   cancel: (token: string | null, id: string, reason: string) =>
     call<{ order: Order }>(token, `/api/admin/kitchen/orders/${encodeURIComponent(id)}/cancel`, { method: "POST", body: { reason } }),
 };

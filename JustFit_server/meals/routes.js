@@ -19,6 +19,9 @@ const photos = require("./photos");
 const rules = require("./rules");
 const payments = require("../payments/service");
 const paymentRules = require("../payments/rules");
+const kitchenOrders = require("../kitchens/assign");
+const assignRules = require("../kitchens/assignRules");
+const { inTransaction: inTx } = require("../gym/service");
 
 // A wrong PAYMENT_PROVIDER or missing Razorpay keys stop the server at startup, not at the first Pay
 paymentRules.providerSettings();
@@ -276,12 +279,18 @@ kitchenRouter.put("/slots", smallBody, route(async (req, res) => {
   res.json(saved);
 }));
 
+// ?day= and, since phase 3, ?kitchen=<id> or none (orders without a kitchen)
 kitchenRouter.get("/orders", route(async (req, res) => {
-  res.json(await meals.adminOrders(pool(req), rules.adminDay(req.query)));
+  const { kitchen, ...rest } = req.query;
+  if (kitchen !== undefined && (typeof kitchen !== "string" || !/^(none|[1-9][0-9]{0,9})$/.test(kitchen))) {
+    return res.status(400).json({ error: "Pick a kitchen from the list." });
+  }
+  res.json(await meals.adminOrders(pool(req), rules.adminDay(rest), kitchen === undefined ? null : kitchen === "none" ? "none" : Number(kitchen)));
 }));
 kitchenRouter.post("/orders/:id/advance", smallBody, route(async (req, res) => {
   const id = rules.orderId(req.params.id);
-  const step = rules.advanceBody(req.body);
+  // Phase 3's seven steps (with an optional stock override) once migration 2027-01-05 has run
+  const step = (await kitchenOrders.ready(pool(req))) ? assignRules.advanceBody(req.body) : rules.advanceBody(req.body);
   const result = await meals.advance(pool(req), id, step, req);
   await recordAdminAction(pool(req), req, `order.${step.to}`, "order", id, `Order ${result.order.code}: ${step.to.replace(/_/g, " ")}`);
   res.json(result);
@@ -292,6 +301,47 @@ kitchenRouter.post("/orders/:id/cancel", smallBody, route(async (req, res) => {
   const result = await meals.adminCancel(pool(req), id, reason);
   await recordAdminAction(pool(req), req, "order.cancel", "order", id, `Cancelled order ${result.order.code}`);
   res.json(result);
+}));
+
+// ---- Phase 3: an order's kitchen and timeline, holidays ----
+
+const KITCHEN_MIGRATION = "Orders through kitchens need the 2027-01-05-kitchen-orders migration on this server.";
+const needsKitchens = (handler) => route(async (req, res, next) => {
+  if (!(await kitchenOrders.ready(pool(req)))) return res.status(503).json({ error: KITCHEN_MIGRATION });
+  return handler(req, res, next);
+});
+
+// Moves an order to another kitchen before cooking starts { kitchenId }
+kitchenRouter.post("/orders/:id/kitchen", smallBody, needsKitchens(async (req, res) => {
+  const id = rules.orderId(req.params.id);
+  const { kitchenId } = assignRules.kitchenBody(req.body);
+  const moved = await inTx(pool(req), (db) => kitchenOrders.changeKitchen(db, id, kitchenId, req.userId));
+  const order = await meals.adminOrder(pool(req), id);
+  await recordAdminAction(pool(req), req, "order.kitchen", "order", id, `Order ${order.code}: moved to ${moved.kitchen.name}`.slice(0, 200));
+  res.json({ order });
+}));
+kitchenRouter.get("/orders/:id/events", needsKitchens(async (req, res) => {
+  const id = rules.orderId(req.params.id);
+  await meals.adminOrder(pool(req), id); // 404 when it's gone
+  res.json({ events: await kitchenOrders.events(pool(req), id) });
+}));
+
+kitchenRouter.get("/holidays", needsKitchens(async (req, res) => {
+  res.json({ holidays: await kitchenOrders.holidays(pool(req), rules.indiaNow().date) });
+}));
+kitchenRouter.post("/holidays", smallBody, needsKitchens(async (req, res) => {
+  const { day, note } = assignRules.holidayBody(req.body, rules.indiaNow().date);
+  await pool(req).query("INSERT INTO meal_holidays (day, note, created_by) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE note = VALUES(note)", [day, note, req.userId]);
+  await recordAdminAction(pool(req), req, "meal.holiday_add", "meal", null, `No deliveries on ${day}: ${note}`.slice(0, 200));
+  res.status(201).json({ holidays: await kitchenOrders.holidays(pool(req), rules.indiaNow().date) });
+}));
+kitchenRouter.delete("/holidays/:day", needsKitchens(async (req, res) => {
+  const day = req.params.day;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return res.status(400).json({ error: "Pick a day like 2026-11-14." });
+  const [result] = await pool(req).query("DELETE FROM meal_holidays WHERE day = ?", [day]);
+  if (result.affectedRows === 0) return res.status(404).json({ error: "That day isn't a holiday." });
+  await recordAdminAction(pool(req), req, "meal.holiday_remove", "meal", null, `Deliveries back on ${day}`);
+  res.json({ holidays: await kitchenOrders.holidays(pool(req), rules.indiaNow().date) });
 }));
 
 module.exports = { mealsRouter, ordersRouter, kitchenRouter };

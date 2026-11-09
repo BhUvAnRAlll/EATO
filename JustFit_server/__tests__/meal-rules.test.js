@@ -76,7 +76,9 @@ describe("meal rules: the admin", () => {
 
   it("takes all three delivery times", () => {
     const body = { slots: { breakfast: { startsAt: "07:30", endsAt: "09:00", active: true }, lunch: { startsAt: "12:00", endsAt: "14:00", active: true }, dinner: { startsAt: "19:00", endsAt: "21:30", active: false } } };
-    assert.deepEqual(rules.slotsBody(body), body.slots);
+    const withCapacity = Object.fromEntries(Object.entries(body.slots).map(([k, v]) => [k, { ...v, capacity: null }]));
+    assert.deepEqual(rules.slotsBody(body), withCapacity, "no capacity given = no limit");
+    assert.equal(rules.slotsBody({ slots: { ...body.slots, lunch: { ...body.slots.lunch, capacity: 120 } } }).lunch.capacity, 120);
     for (const bad of [
       { slots: { ...body.slots, lunch: { startsAt: "14:00", endsAt: "12:00", active: true } } },
       { slots: { ...body.slots, lunch: { startsAt: "25:00", endsAt: "26:00", active: true } } },
@@ -84,6 +86,8 @@ describe("meal rules: the admin", () => {
       { slots: { ...body.slots, snack: { startsAt: "16:00", endsAt: "17:00", active: true } } },
       { slots: { breakfast: body.slots.breakfast } },
       { slots: body.slots, extra: 1 },
+      { slots: { ...body.slots, lunch: { ...body.slots.lunch, capacity: 0 } } },
+      { slots: { ...body.slots, lunch: { ...body.slots.lunch, capacity: 2.5 } } },
     ]) assert.throws(() => rules.slotsBody(bad), ValidationError);
   });
 

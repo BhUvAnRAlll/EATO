@@ -19,7 +19,8 @@ overnight without stopping.
 | Razorpay-shaped dummy payment | Built 2026-11-10; migration `2026-12-28-meal-payments.sql` to run by hand |
 | Phase 1: kitchens + Super Admin dashboard | Built 2026-11-10 (no logins: roster only); migration `2026-12-30-kitchens.sql` to run by hand |
 | Phase 2: menu per kitchen + inventory | Built 2026-11-10; migration `2026-12-31-kitchen-inventory.sql` to run by hand. Low calorie stays computed (≤ 400 kcal) |
-| Phase 3: orders through kitchens | Next |
+| Phase 3: orders through kitchens | Built 2026-11-10; migration `2027-01-05-kitchen-orders.sql` to run by hand. No kitchen-staff screen (no logins yet) |
+| Phase 4: delivery partners | Next |
 
 ## 1. What exists today (meal ordering, 2026-11-09)
 

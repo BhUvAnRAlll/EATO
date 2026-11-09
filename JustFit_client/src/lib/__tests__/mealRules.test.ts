@@ -42,7 +42,9 @@ describe("meal ordering rules", () => {
 
   it("knows the steps and spots macros that don't add up", () => {
     assert.equal(stepIndex("placed"), 0);
-    assert.equal(stepIndex("delivered"), 3);
+    assert.equal(stepIndex("delivered"), 4);
+    assert.equal(stepIndex("quality_check"), 2, "quality check and ready show as preparing");
+    assert.equal(stepIndex("ready"), 2);
     assert.equal(stepIndex("cancelled"), -1);
     assert.equal(macrosMismatch(520, 32, 48, 18), false); // 482 kcal from macros: close enough
     assert.equal(macrosMismatch(900, 32, 48, 18), true);

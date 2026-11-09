@@ -155,6 +155,11 @@ export default function AdminKitchen() {
             ))}
           </View>
 
+          <Pressable onPress={() => router.push({ pathname: "/admin/orders", params: { kitchen: String(kitchen.id) } })} className="admin-chip admin-chip--on flex-row self-start" style={{ gap: 6 }} accessibilityRole="button" accessibilityLabel="This kitchen's orders">
+            <SymbolView name={{ ios: "bag", android: "shopping_bag", web: "shopping_bag" }} size={14} tintColor={colors.primaryText} />
+            <Text className="admin-segment__label admin-segment__label--on">{"This kitchen's orders"}</Text>
+          </Pressable>
+
           <View className="card" style={{ gap: 6 }}>
             <Text className="card__title">Hours and capacity</Text>
             <Text className="type-body text-forest-ink">{hoursLine(kitchen.hours)}</Text>

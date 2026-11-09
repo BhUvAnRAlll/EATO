@@ -243,6 +243,7 @@ CREATE TABLE meal_delivery_slots (
   starts_at   TIME         NOT NULL,
   ends_at     TIME         NOT NULL,
   active      TINYINT(1)   NOT NULL DEFAULT 1,
+  capacity    SMALLINT UNSIGNED NULL,           -- orders this meal time takes a day across justFit (NULL: no limit)
   updated_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   updated_by  VARCHAR(64)  NULL,
   PRIMARY KEY (slot),
@@ -252,6 +253,16 @@ CREATE TABLE meal_delivery_slots (
 
 INSERT INTO meal_delivery_slots (slot, starts_at, ends_at) VALUES
   ('breakfast', '07:00', '09:00'), ('lunch', '12:30', '14:00'), ('dinner', '19:00', '21:00');
+
+-- Days with no deliveries (a festival, a strike): ordering for them is closed
+CREATE TABLE meal_holidays (
+  day         DATE         NOT NULL,
+  note        VARCHAR(80)  NOT NULL,
+  created_by  VARCHAR(64)  NULL,
+  created_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (day),
+  CONSTRAINT fk_meal_holidays_user FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL
+) ENGINE = InnoDB;
 
 -- Hearted meals
 CREATE TABLE favorite_meals (
@@ -376,6 +387,7 @@ CREATE TABLE stock_moves (
   note              VARCHAR(120)  NULL,
   overridden        TINYINT(1)    NOT NULL DEFAULT 0,      -- took more than was in stock, with a reason
   other_kitchen_id  INT UNSIGNED  NULL,                    -- a transfer's other kitchen
+  order_id          CHAR(36)      NULL,                    -- the order a use was for (phase 3)
   created_by        VARCHAR(64)   NULL,
   created_at        TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
@@ -414,6 +426,8 @@ CREATE TABLE meal_prep (
 CREATE TABLE orders (
   id                CHAR(36)    NOT NULL DEFAULT (UUID()),
   user_id           VARCHAR(64) NOT NULL,
+  kitchen_id        INT UNSIGNED NULL,                -- the kitchen cooking it (phase 3); NULL before kitchens or when its kitchen is gone
+  stock_taken       TINYINT(1)  NOT NULL DEFAULT 0,   -- the recipes' stock was taken when cooking started
   client_id         CHAR(36)    NULL,               -- the app's id for the request: a retried Pay places one order
   delivery_date     DATE        NOT NULL,
   meal_slot         ENUM('breakfast', 'lunch', 'snack', 'dinner') NOT NULL,
@@ -426,7 +440,7 @@ CREATE TABLE orders (
   latitude          DECIMAL(9,6)  NULL,
   longitude         DECIMAL(9,6)  NULL,
   instructions      VARCHAR(200)  NULL,
-  status            ENUM('awaiting_payment', 'placed', 'preparing', 'out_for_delivery', 'delivered', 'cancelled') NOT NULL DEFAULT 'placed',  -- awaiting_payment: Pay tapped, the signature not yet checked
+  status            ENUM('awaiting_payment', 'placed', 'accepted', 'preparing', 'quality_check', 'ready', 'out_for_delivery', 'delivered', 'cancelled') NOT NULL DEFAULT 'placed',  -- awaiting_payment: Pay tapped, the signature not yet checked
   cancel_reason     VARCHAR(200)  NULL,
   cancelled_by      ENUM('member', 'admin', 'system') NULL,              -- system: not paid within 15 minutes
   total_paise       INT UNSIGNED NOT NULL,      -- what was paid: the subtotal less the coupon's discount
@@ -444,8 +458,10 @@ CREATE TABLE orders (
   KEY idx_orders_user_date (user_id, delivery_date),   -- "Today" on the home screen
   KEY idx_orders_status (status),
   KEY idx_orders_day (delivery_date, meal_slot),       -- the admin's orders for a day
+  KEY idx_orders_kitchen_day (kitchen_id, delivery_date),
   CONSTRAINT fk_orders_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
   CONSTRAINT fk_orders_coupon FOREIGN KEY (coupon_id) REFERENCES meal_coupons (id) ON DELETE SET NULL,
+  CONSTRAINT fk_orders_kitchen FOREIGN KEY (kitchen_id) REFERENCES kitchens (id) ON DELETE SET NULL,
   CONSTRAINT chk_orders_pincode CHECK (delivery_pincode REGEXP '^[1-9][0-9]{5}$')
 ) ENGINE = InnoDB;
 
@@ -467,6 +483,20 @@ CREATE TABLE order_items (
   CONSTRAINT fk_order_items_order FOREIGN KEY (order_id) REFERENCES orders (id) ON DELETE CASCADE,
   CONSTRAINT fk_order_items_meal FOREIGN KEY (meal_id) REFERENCES meals (id) ON DELETE SET NULL,
   CONSTRAINT chk_order_items_quantity CHECK (quantity BETWEEN 1 AND 20)
+) ENGINE = InnoDB;
+
+-- Every step an order takes, who took it and why (a reason for a rejection, a kitchen change)
+CREATE TABLE order_events (
+  id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  order_id    CHAR(36)     NOT NULL,
+  status      VARCHAR(24)  NOT NULL,
+  note        VARCHAR(200) NULL,
+  created_by  VARCHAR(64)  NULL,
+  created_at  TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (id),
+  KEY idx_order_events_order (order_id, created_at),
+  CONSTRAINT fk_order_events_order FOREIGN KEY (order_id) REFERENCES orders (id) ON DELETE CASCADE,
+  CONSTRAINT fk_order_events_user FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL
 ) ENGINE = InnoDB;
 
 -- One row per gateway order (Razorpay's order_…): what it is for, how much, and how it ended.

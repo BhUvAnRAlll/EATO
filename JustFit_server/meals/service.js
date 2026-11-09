@@ -14,6 +14,8 @@ const { logRequestError } = require("../logging");
 const rules = require("./rules");
 const catalog = require("./catalog");
 const payments = require("../payments/service");
+const kitchenOrders = require("../kitchens/assign");
+const assignRules = require("../kitchens/assignRules");
 
 // Orders that were paid (or placed before payments): never one still waiting, or one the system
 // cancelled because it was never paid
@@ -187,13 +189,27 @@ async function deleteMeal(pool, id) {
 // ---- Delivery times ----
 
 async function loadSlots(pool) {
-  const [rows] = await pool.query("SELECT slot, starts_at, ends_at, active FROM meal_delivery_slots");
+  const [rows] = await pool.query("SELECT * FROM meal_delivery_slots");
   const slots = structuredClone(rules.DEFAULT_SLOTS);
-  for (const r of rows) slots[r.slot] = { startsAt: rules.hhmm(r.starts_at), endsAt: rules.hhmm(r.ends_at), active: num(r.active) === 1 };
+  for (const r of rows) {
+    slots[r.slot] = {
+      startsAt: rules.hhmm(r.starts_at), endsAt: rules.hhmm(r.ends_at), active: num(r.active) === 1,
+      // orders a day across justFit (phase 3; null = no limit, and before migration 2027-01-05)
+      capacity: r.capacity === undefined || r.capacity === null ? null : num(r.capacity),
+    };
+  }
   return slots;
 }
 
 async function saveSlots(pool, slots, adminId) {
+  if (await kitchenOrders.ready(pool)) {
+    await pool.query(
+      `INSERT INTO meal_delivery_slots (slot, starts_at, ends_at, active, capacity, updated_by) VALUES ?
+       ON DUPLICATE KEY UPDATE starts_at = VALUES(starts_at), ends_at = VALUES(ends_at), active = VALUES(active), capacity = VALUES(capacity), updated_by = VALUES(updated_by)`,
+      [rules.SLOTS.map((s) => [s, slots[s].startsAt, slots[s].endsAt, slots[s].active ? 1 : 0, slots[s].capacity ?? null, adminId])],
+    );
+    return { slots: await loadSlots(pool) };
+  }
   await pool.query(
     `INSERT INTO meal_delivery_slots (slot, starts_at, ends_at, active, updated_by) VALUES ?
      ON DUPLICATE KEY UPDATE starts_at = VALUES(starts_at), ends_at = VALUES(ends_at), active = VALUES(active), updated_by = VALUES(updated_by)`,
@@ -202,10 +218,31 @@ async function saveSlots(pool, slots, adminId) {
   return { slots: await loadSlots(pool) };
 }
 
-/** What the cart needs: the three meal times and, for each of the next 7 days, which are open */
+/**
+ * What the cart needs: the three meal times and, for each of the next 7 days, which are open. Since
+ * phase 3 a holiday closes its day (with its note) and a meal time with a daily capacity closes
+ * once it is booked up (`full`).
+ */
 async function orderOptions(pool, now = Date.now()) {
   const slots = await loadSlots(pool);
-  return { slots, days: rules.orderDays(slots, now), cutoffMinutes: rules.CUTOFF_MINUTES, maxQuantity: rules.MAX_QUANTITY };
+  let days = rules.orderDays(slots, now);
+  let holidays = [];
+  if (await kitchenOrders.ready(pool)) {
+    const first = days[0].date;
+    const last = days[days.length - 1].date;
+    holidays = await kitchenOrders.holidays(pool, first);
+    const off = new Map(holidays.map((h) => [h.day, h.note]));
+    const taken = await kitchenOrders.booked(pool, first, last);
+    days = days.map((d) => ({
+      ...d,
+      holiday: off.get(d.date) ?? null,
+      slots: d.slots.map((x) => {
+        const full = slots[x.slot].capacity !== null && (taken.get(`${d.date}:${x.slot}`) ?? 0) >= slots[x.slot].capacity;
+        return { ...x, open: x.open && !off.has(d.date) && !full, full };
+      }),
+    }));
+  }
+  return { slots, days, holidays, cutoffMinutes: rules.CUTOFF_MINUTES, maxQuantity: rules.MAX_QUANTITY };
 }
 
 // ---- Orders ----
@@ -268,6 +305,8 @@ function orderToApi(r, items, extra = {}) {
       longitude: r.longitude === null ? null : num(r.longitude),
       instructions: r.instructions ?? null,
     },
+    kitchen: r.kitchen_id === undefined || r.kitchen_id === null ? null : { id: num(r.kitchen_id), name: r.kitchen_name ?? null },
+    stockTaken: r.stock_taken === undefined ? false : num(r.stock_taken) === 1,
     cancelReason: r.cancel_reason ?? null,
     cancelledBy: r.cancelled_by ?? null,
     deliveredAt: iso(r.delivered_at),
@@ -280,7 +319,14 @@ function orderToApi(r, items, extra = {}) {
 }
 
 async function ordersWhere(db, where, params, order = "o.delivery_date DESC, o.created_at DESC", limit = 50) {
-  const [rows] = await db.query(`SELECT ${ORDER_COLUMNS}, u.full_name AS member_name FROM orders o LEFT JOIN users u ON u.id = o.user_id WHERE ${where} ORDER BY ${order} LIMIT ${limit}`, params);
+  // The kitchen (phase 3) once migration 2027-01-05 has run
+  const withKitchen = await kitchenOrders.ready(db);
+  const [rows] = await db.query(
+    `SELECT ${ORDER_COLUMNS}${withKitchen ? ", o.kitchen_id, o.stock_taken, kk.name AS kitchen_name" : ""}, u.full_name AS member_name
+     FROM orders o LEFT JOIN users u ON u.id = o.user_id${withKitchen ? " LEFT JOIN kitchens kk ON kk.id = o.kitchen_id" : ""}
+     WHERE ${where} ORDER BY ${order} LIMIT ${limit}`,
+    params,
+  );
   const items = await itemsFor(db, rows.map((r) => r.id));
   return rows.map((r) => ({ row: r, items: items.get(r.id) ?? [] }));
 }
@@ -328,6 +374,14 @@ async function placeOrder(pool, userId, body, now = Date.now()) {
   if (problem) throw new ConflictError(problem);
   const address = await addresses.deliverableAddress(pool, userId, body.addressId);
   const slot = slots[body.slot];
+  const viaKitchens = await kitchenOrders.ready(pool);
+  if (viaKitchens) {
+    const holiday = (await kitchenOrders.holidays(pool, body.date)).find((h) => h.day === body.date);
+    if (holiday) throw new ConflictError(`No deliveries that day: ${holiday.note}. Pick another day.`);
+    if (slot.capacity !== null && ((await kitchenOrders.booked(pool, body.date, body.date)).get(`${body.date}:${body.slot}`) ?? 0) >= slot.capacity) {
+      throw new ConflictError(`${body.slot[0].toUpperCase()}${body.slot.slice(1)} is fully booked that day. Pick another meal time or day.`);
+    }
+  }
 
   let id;
   try {
@@ -348,6 +402,10 @@ async function placeOrder(pool, userId, body, now = Date.now()) {
       const coupon = body.couponCode ? await catalog.couponFor(db, userId, body.couponCode, subtotal, { lock: true, now }) : null;
       if (coupon?.problem) throw new ConflictError(coupon.problem);
       const discount = coupon?.discountPaise ?? 0;
+      // Phase 3: the kitchen that will cook it (locked while it's chosen); none while justFit has no kitchens
+      const { kitchenId } = viaKitchens
+        ? await kitchenOrders.assign(db, { pincode: address.pincode, date: body.date, slot: body.slot, startsAt: slot.startsAt, items: body.items, lat: address.latitude, lng: address.longitude })
+        : { kitchenId: null };
       const [[{ uuid }]] = await db.query("SELECT UUID() AS uuid");
       await db.query(
         `INSERT INTO orders (id, user_id, client_id, delivery_date, meal_slot, slot_starts_at, slot_ends_at, delivery_pincode,
@@ -359,6 +417,10 @@ async function placeOrder(pool, userId, body, now = Date.now()) {
           coupon?.id ?? null, coupon?.code ?? null,
           paid ? "awaiting_payment" : "placed", paid ? payments.providerName() : "test", paid ? null : rules.testPaymentRef()],
       );
+      if (viaKitchens) {
+        await db.query("UPDATE orders SET kitchen_id = ? WHERE id = ?", [kitchenId, uuid]);
+        if (!paid) await kitchenOrders.addEvent(db, uuid, "placed", null, userId);
+      }
       await db.query(
         "INSERT INTO order_items (order_id, meal_id, meal_name, quantity, unit_price_paise, calories, protein_g, carbs_g, fat_g) VALUES ?",
         [body.items.map((i) => {
@@ -390,6 +452,7 @@ async function slotOpen(db, orderId, now = Date.now()) {
 async function confirmPayment(pool, userId, orderId, body) {
   await myOrder(pool, userId, orderId); // 404 when it isn't theirs
   const result = await payments.verify(pool, userId, orderId, body, { slotOpen: (db, id) => slotOpen(db, id) });
+  if (!result.alreadyPaid && (await kitchenOrders.ready(pool))) await kitchenOrders.addEvent(pool, orderId, "placed", `Paid · ${body.providerPaymentId}`, userId);
   return { ...(await myOrder(pool, userId, orderId)), alreadyPaid: result.alreadyPaid };
 }
 
@@ -403,6 +466,7 @@ async function cancelMine(pool, userId, id, reason) {
     const { order } = await myOrder(pool, userId, id); // 404 when it isn't theirs
     throw new ConflictError(order.status === "cancelled" ? "This order is already cancelled." : "This order is already being prepared, so it can't be cancelled.");
   }
+  if (await kitchenOrders.ready(pool)) await kitchenOrders.addEvent(pool, id, "cancelled", reason ? `By the member: ${reason}` : "By the member", userId);
   return myOrder(pool, userId, id);
 }
 
@@ -410,12 +474,16 @@ async function cancelMine(pool, userId, id, reason) {
 
 const SLOT_ORDER = "FIELD(o.meal_slot, 'breakfast', 'lunch', 'snack', 'dinner'), o.created_at";
 
-async function adminOrders(pool, date) {
-  const found = await ordersWhere(pool, `o.delivery_date = ? AND ${PAID_ONLY}`, [date], SLOT_ORDER, 500);
+/** The admin's orders for a day; `kitchen`: a kitchen's id, "none" (no kitchen) or null (all) */
+async function adminOrders(pool, date, kitchen = null) {
+  const viaKitchens = await kitchenOrders.ready(pool);
+  const filter = viaKitchens && kitchen !== null ? (kitchen === "none" ? " AND o.kitchen_id IS NULL" : " AND o.kitchen_id = ?") : "";
+  const found = await ordersWhere(pool, `o.delivery_date = ? AND ${PAID_ONLY}${filter}`, [date, ...(filter.includes("?") ? [kitchen] : [])], SLOT_ORDER, 500);
   const orders = found.map((f) => orderToApi(f.row, f.items, { memberName: f.row.member_name ?? null }));
   const counts = { all: orders.length };
-  for (const step of [...rules.STEPS, "cancelled"]) counts[step] = orders.filter((o) => o.status === step).length;
-  return { date, orders, counts };
+  for (const step of [...(viaKitchens ? assignRules.STEPS : rules.STEPS), "cancelled"]) counts[step] = orders.filter((o) => o.status === step).length;
+  const steps = viaKitchens ? assignRules.STEPS : rules.STEPS;
+  return { date, orders, counts, steps, kitchens: viaKitchens };
 }
 
 async function adminOrder(db, id) {
@@ -453,13 +521,25 @@ async function logDelivered(pool, order, userId, req) {
   }
 }
 
-/** The admin moves an order one step on; `from` is the step they saw, so a double tap moves it once */
-async function advance(pool, id, { from, to }, req) {
-  const [result] = await pool.query(
-    `UPDATE orders SET status = ?, delivered_at = IF(? = 'delivered', NOW(), delivered_at) WHERE id = ? AND status = ?`,
-    [to, to, id, from],
-  );
-  if (result.affectedRows === 0) {
+/**
+ * The admin moves an order one step on; `from` is the step they saw, so a double tap moves it once.
+ * Since phase 3 every step is on the order's timeline, and starting to prepare takes the recipes'
+ * stock from its kitchen (refused when short, unless overridden with a reason), all in one transaction.
+ */
+async function advance(pool, id, { from, to, override = false, note = null }, req) {
+  const moved = (await kitchenOrders.ready(pool))
+    ? await inTransaction(pool, async (db) => {
+        const [result] = await db.query(
+          `UPDATE orders SET status = ?, delivered_at = IF(? = 'delivered', NOW(), delivered_at) WHERE id = ? AND status = ?`,
+          [to, to, id, from],
+        );
+        if (result.affectedRows === 0) return false;
+        if (to === "preparing") await kitchenOrders.takeStock(db, id, { override, note, userId: req.userId });
+        await kitchenOrders.addEvent(db, id, to, override ? `Started without enough stock: ${note}` : note, req.userId);
+        return true;
+      })
+    : (await pool.query(`UPDATE orders SET status = ?, delivered_at = IF(? = 'delivered', NOW(), delivered_at) WHERE id = ? AND status = ?`, [to, to, id, from]))[0].affectedRows > 0;
+  if (!moved) {
     await adminOrder(pool, id); // 404 when it's gone
     throw new ConflictError("This order has already moved on. Pull down to refresh.");
   }
@@ -477,6 +557,7 @@ async function adminCancel(pool, id, reason) {
     "UPDATE orders SET status = 'cancelled', cancelled_by = 'admin', cancel_reason = ? WHERE id = ? AND status NOT IN ('awaiting_payment', 'delivered', 'cancelled')",
     [reason, id],
   );
+  if (result.affectedRows > 0 && (await kitchenOrders.ready(pool))) await kitchenOrders.addEvent(pool, id, "cancelled", reason, null);
   if (result.affectedRows === 0) {
     const order = await adminOrder(pool, id);
     throw new ConflictError(order.status === "cancelled" ? "This order is already cancelled." : "A delivered order can't be cancelled.");
@@ -507,5 +588,5 @@ async function quote(pool, userId, { items, couponCode }, now = Date.now()) {
 
 module.exports = {
   menu, meal, setFavorite, photoKey, adminMeals, addMeal, updateMeal, duplicateMeal, setAvailable, deleteMeal, quote, mealToApi, loadSlots, saveSlots, orderOptions,
-  myOrders, myOrder, placeOrder, confirmPayment, cancelMine, adminOrders, advance, adminCancel,
+  myOrders, myOrder, placeOrder, confirmPayment, cancelMine, adminOrders, adminOrder, advance, adminCancel,
 };

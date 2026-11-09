@@ -162,11 +162,15 @@ function slotsBody(body) {
   for (const slot of SLOTS) {
     const s = body.slots[slot];
     if (!isObject(s)) throw new ValidationError(`Send the ${slot} time.`);
-    onlyFields(s, ["startsAt", "endsAt", "active"]);
+    onlyFields(s, ["startsAt", "endsAt", "active", "capacity"]);
     if (!TIME.test(s.startsAt ?? "") || !TIME.test(s.endsAt ?? "")) throw new ValidationError(`Set the ${slot} time as HH:MM.`);
     if (minutesOf(s.startsAt) >= minutesOf(s.endsAt)) throw new ValidationError(`The ${slot} time must end after it starts.`);
     if (typeof s.active !== "boolean") throw new ValidationError(`Say whether ${slot} is on.`);
-    out[slot] = { startsAt: s.startsAt, endsAt: s.endsAt, active: s.active };
+    // Orders a day across justFit (phase 3): a whole number 1 to 10,000, or null for no limit
+    if (s.capacity !== undefined && s.capacity !== null && (!Number.isInteger(s.capacity) || s.capacity < 1 || s.capacity > 10000)) {
+      throw new ValidationError(`The ${slot} capacity must be a whole number from 1 to 10,000, or empty.`);
+    }
+    out[slot] = { startsAt: s.startsAt, endsAt: s.endsAt, active: s.active, capacity: s.capacity ?? null };
   }
   return out;
 }

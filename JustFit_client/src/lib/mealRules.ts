@@ -4,10 +4,11 @@
 
 export type Diet = "vegetarian" | "non-vegetarian" | "eggetarian" | "vegan";
 export type MealSlot = "breakfast" | "lunch" | "dinner";
-export type OrderStatus = "awaiting_payment" | "placed" | "preparing" | "out_for_delivery" | "delivered" | "cancelled";
+export type OrderStatus = "awaiting_payment" | "placed" | "accepted" | "preparing" | "quality_check" | "ready" | "out_for_delivery" | "delivered" | "cancelled";
 
 export const MEAL_SLOTS: MealSlot[] = ["breakfast", "lunch", "dinner"];
-export const ORDER_STEPS: OrderStatus[] = ["placed", "preparing", "out_for_delivery", "delivered"];
+// The member's timeline (quality check and ready count as preparing for them)
+export const ORDER_STEPS: OrderStatus[] = ["placed", "accepted", "preparing", "out_for_delivery", "delivered"];
 
 export const DIET_LABEL: Record<Diet, string> = { vegetarian: "Veg", "non-vegetarian": "Non-veg", eggetarian: "Egg", vegan: "Vegan" };
 export const DIET_FILTERS: { value: Diet | null; label: string }[] = [
@@ -23,13 +24,27 @@ export const SLOT_LABEL: Record<string, string> = { breakfast: "Breakfast", lunc
 export const STATUS_LABEL: Record<OrderStatus, string> = {
   awaiting_payment: "Awaiting payment",
   placed: "Order placed",
+  accepted: "Accepted",
   preparing: "Preparing",
+  quality_check: "Quality check",
+  ready: "Ready for pickup",
   out_for_delivery: "On the way",
   delivered: "Delivered",
   cancelled: "Cancelled",
 };
 // The admin's one big button for each step (none once delivered or cancelled)
+// (Since phase 3 the kitchen's steps: Accept → Start preparing → Quality check → Ready for pickup →
+// Out for delivery → Mark delivered. Before migration 2027-01-05 the server answers `steps` with the
+// four older ones and LEGACY_NEXT_STEP_LABEL applies.)
 export const NEXT_STEP_LABEL: Partial<Record<OrderStatus, string>> = {
+  placed: "Accept",
+  accepted: "Start preparing",
+  preparing: "Quality check done",
+  quality_check: "Ready for pickup",
+  ready: "Out for delivery",
+  out_for_delivery: "Mark delivered",
+};
+export const LEGACY_NEXT_STEP_LABEL: Partial<Record<OrderStatus, string>> = {
   placed: "Start preparing",
   preparing: "Out for delivery",
   out_for_delivery: "Mark delivered",
@@ -77,8 +92,9 @@ export function closesAtText(startsAt: string, cutoffMinutes: number): string {
   return clockText(shiftTime(startsAt, -cutoffMinutes));
 }
 
-/** How far along the order is: 0 placed … 3 delivered; -1 cancelled */
+/** How far along the order is: 0 placed … 4 delivered; -1 cancelled (or awaiting payment) */
 export function stepIndex(status: OrderStatus): number {
+  if (status === "quality_check" || status === "ready") return ORDER_STEPS.indexOf("preparing");
   return ORDER_STEPS.indexOf(status);
 }
 
