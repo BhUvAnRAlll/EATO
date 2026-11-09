@@ -23,8 +23,8 @@ type Stat = { label: string; value: string | number; icon: Icon; tone?: "danger"
 // Super Admin › Meal operations (Meal Operations phase 1, 2026-11-10): one India day at a time (a
 // year back to a week ahead): the day's orders by step and meal time, delayed ones, revenue from
 // orders paid that day, how full the active kitchens are, kitchens by status and the next six days'
-// scheduled orders; Export saves the day's orders as an Excel file. Delivery partners, subscriptions
-// and stock join it with their phases (MEAL-OPERATIONS-PLAN.md).
+// scheduled orders, stock alerts across kitchens (phase 2); Export saves the day's orders as an Excel
+// file. Delivery partners and subscriptions join it with their phases (MEAL-OPERATIONS-PLAN.md).
 export default function MealOps() {
   const colors = useThemeColors();
   const getToken = useSessionToken();
@@ -144,6 +144,22 @@ export default function MealOps() {
               )}
             </Pressable>
 
+            {data.stock ? (
+              <View className={data.stock.out + data.stock.low + data.stock.expiring > 0 ? "card admin-stat--warning" : "card"} style={{ gap: 8 }}>
+                <Text className="card__title">Stock across kitchens</Text>
+                {data.stock.items === 0 ? (
+                  <Text className="meta-text">No stock recorded yet. Open a kitchen › Inventory.</Text>
+                ) : (
+                  ([["Low stock", data.stock.low], ["Out of stock", data.stock.out], ["Expiring in 3 days", data.stock.expiring]] as const).map(([label, n]) => (
+                    <View key={label} className="flex-row justify-between">
+                      <Text className="type-body text-muted">{label}</Text>
+                      <Text className="type-body" style={{ color: n > 0 ? colors.danger : colors.ink }}>{n}</Text>
+                    </View>
+                  ))
+                )}
+              </View>
+            ) : null}
+
             <View className="card" style={{ gap: 8 }}>
               <Text className="card__title">Coming up</Text>
               {data.upcoming.length === 0 ? (
@@ -157,7 +173,7 @@ export default function MealOps() {
                 ))
               )}
             </View>
-            <Text className="meta-text">Delivery partners, meal subscriptions and stock join this dashboard as they are built.</Text>
+            <Text className="meta-text">Delivery partners and meal subscriptions join this dashboard as they are built.</Text>
           </>
         )}
       </View>

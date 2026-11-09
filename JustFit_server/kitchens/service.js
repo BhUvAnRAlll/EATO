@@ -7,6 +7,7 @@ const { ConflictError, NotFoundError } = require("../errors");
 const { inTransaction } = require("../gym/service");
 const xlsx = require("../gym/xlsx");
 const rules = require("./rules");
+const inventory = require("./inventory");
 
 const num = (v) => Number(v);
 const iso = (v) => (v instanceof Date ? v.toISOString() : v ?? null);
@@ -197,12 +198,12 @@ const STEPS = ["placed", "preparing", "out_for_delivery", "delivered", "cancelle
 /**
  * One India day of operations: the day's orders by step, delayed ones, revenue from orders paid
  * that day, the next six days' scheduled orders, and kitchens by status with their total capacity.
- * Delivery partners, subscriptions and stock come with their phases (null until then).
+ * Delivery partners and subscriptions come with their phases (null until then).
  */
 async function dashboard(pool, { day: date, today }, now = Date.now()) {
   const { start, end } = rules.dayBounds(date);
   const at = rules.indiaNow(now);
-  const [[orders], [[revenue]], [upcoming], [kitchens]] = await Promise.all([
+  const [[orders], [[revenue]], [upcoming], [kitchens], stock] = await Promise.all([
     pool.query(`SELECT o.id, o.status, o.delivery_date, o.meal_slot, o.slot_ends_at FROM orders o WHERE o.delivery_date = ? AND ${PAID_ONLY}`, [date]),
     pool.query(
       `SELECT COUNT(*) AS n, COALESCE(SUM(o.total_paise), 0) AS paise FROM orders o
@@ -216,6 +217,7 @@ async function dashboard(pool, { day: date, today }, now = Date.now()) {
       [date, date],
     ),
     pool.query("SELECT status, COUNT(*) AS n, COALESCE(SUM(max_daily_orders), 0) AS capacity FROM kitchens GROUP BY status"),
+    inventory.stockAlerts(pool, now),
   ]);
   const byStep = Object.fromEntries(STEPS.map((s) => [s, 0]));
   const bySlot = { breakfast: 0, lunch: 0, dinner: 0 };
@@ -254,7 +256,7 @@ async function dashboard(pool, { day: date, today }, now = Date.now()) {
     },
     delivery: null, // phase 4
     subscriptions: null, // phase 5
-    stock: null, // phase 2
+    stock, // { items, low, out, expiring } across kitchens; null before migration 2026-12-31
   };
 }
 

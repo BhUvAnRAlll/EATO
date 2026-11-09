@@ -179,6 +179,13 @@ kitchenRouter.patch("/meals/:id/visibility", smallBody, route(async (req, res) =
   await recordAdminAction(pool(req), req, req.body.available ? "meal.show" : "meal.hide", "meal", id, `${req.body.available ? "Showed" : "Hid"} meal “${saved.meal.name}”`);
   res.json(saved);
 }));
+// A copy of a meal, hidden until the admin edits and shows it
+kitchenRouter.post("/meals/:id/duplicate", photoLimit, route(async (req, res) => {
+  const id = rules.mealId(req.params.id);
+  const copy = await meals.duplicateMeal(pool(req), id);
+  await recordAdminAction(pool(req), req, "meal.duplicate", "meal", copy.meal.id, `Copied a meal as “${copy.meal.name}”`);
+  res.status(201).json(copy);
+}));
 kitchenRouter.delete("/meals/:id", route(async (req, res) => {
   const id = rules.mealId(req.params.id);
   const { name, imageKey } = await meals.deleteMeal(pool(req), id);

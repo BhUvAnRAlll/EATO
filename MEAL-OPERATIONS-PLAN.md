@@ -18,7 +18,8 @@ overnight without stopping.
 | Meals tab rebuilt from the image (phone 1) | Built 2026-11-10; no migration |
 | Razorpay-shaped dummy payment | Built 2026-11-10; migration `2026-12-28-meal-payments.sql` to run by hand |
 | Phase 1: kitchens + Super Admin dashboard | Built 2026-11-10 (no logins: roster only); migration `2026-12-30-kitchens.sql` to run by hand |
-| Phase 2: menu per kitchen + inventory | Next |
+| Phase 2: menu per kitchen + inventory | Built 2026-11-10; migration `2026-12-31-kitchen-inventory.sql` to run by hand. Low calorie stays computed (≤ 400 kcal) |
+| Phase 3: orders through kitchens | Next |
 
 ## 1. What exists today (meal ordering, 2026-11-09)
 

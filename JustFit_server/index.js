@@ -106,7 +106,8 @@ const profileLimiter = createRateLimiter(rateLimits.standard);
 const uploadLimiter = createRateLimiter(rateLimits.upload); // each upload is an OpenAI vision call
 const scanLimiter = createRateLimiter(rateLimits.upload); // each photo scan runs the Forma model for a few seconds
 const homeLimiter = createRateLimiter(rateLimits.standard); // members reading the home screen content
-const adminLimiter = createRateLimiter(rateLimits.standard); // admins editing it (also caps the role lookups)
+// admins editing it (also caps the role lookups); ADMIN_REQUESTS_PER_MINUTE overrides the standard budget (the test server raises it)
+const adminLimiter = createRateLimiter({ ...rateLimits.standard, limit: Number(process.env.ADMIN_REQUESTS_PER_MINUTE) || rateLimits.standard.limit });
 const macroLimiter = createRateLimiter(rateLimits.frequent); // the Macro diary: day, week strip, meals, favourites
 const foodScanLimiter = createRateLimiter(rateLimits.upload); // each food photo is an OpenAI vision call
 const foodEstimateLimiter = createRateLimiter({ limit: 30, windowMs: 10 * 60 * 1000 }); // each typed food estimate is a small OpenAI call

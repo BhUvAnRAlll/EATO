@@ -388,6 +388,32 @@ The Meals module is green (`meal-*` tokens and utilities); the user chose green 
   `kitchen`; `SCHEMA_TABLE_COUNT` 83); before it these routes answer 503 naming it. Tests:
   `__tests__/kitchen-rules.test.js`, `e2e/kitchens.e2e.test.js`, the client's
   `lib/__tests__/kitchenRules.test.ts`.
+- **Kitchens' menus, inventory and recipes (2026-11-10, Meal Operations phase 2):** a kitchen's page
+  links Menu (`app/admin/kitchens/[id]/menu.tsx`: every meal with Cooks here and Available switches;
+  `kitchen_meals`) and Inventory (`[id]/inventory.tsx`: stock value, today's use and waste in rupees,
+  All / Low stock / Out of stock / Expiring (3 days) with counts, search by ingredient or supplier, +
+  Add (`components/admin/IngredientPickerSheet.tsx`: search justFit's one ingredient list or add one
+  with its category and unit), and a row opens `StockItemSheet`: Buy (with the price per unit, which
+  becomes the item's), Use, Waste, Count (sets what's really there), Send (to another active kitchen),
+  Details (minimum, price, supplier, expiry, storage), the last 30 changes, and Take off this kitchen
+  at 0). Use and Waste never take more than is there unless "Override the stock check" is on with a
+  reason (kept on the move and as `kitchen.stock_override` in the admin log; waste is logged too).
+  Admin › Meals › ⋯ (it replaced the bin) has Recipe and prep time (`app/admin/meals/recipe.tsx?id=`:
+  minutes and each ingredient per serving in its own unit), Duplicate (a hidden copy with its recipe,
+  prep time and kitchens, never the photo; opens it) and Delete meal. The dashboard adds Stock across
+  kitchens (low, out, expiring). Server `kitchens/inventoryRules.js` (pure), `kitchens/inventory.js`
+  (every change one `stock_moves` row with the balance after it, the stock row locked; a transfer locks
+  both kitchens in id order), routes inside `/api/admin/kitchen`: `GET|POST /ingredients`,
+  `GET /kitchens/:id/inventory?filter=&search=`, `GET|PUT|DELETE /kitchens/:id/inventory/:ingredientId`,
+  `POST …/moves { kind, quantity, unitPrice?, note?, override? }`, `POST …/transfer { toKitchenId,
+  quantity, note? }`, `GET /kitchens/:id/menu`, `PUT /kitchens/:id/menu/:mealId { cooks, available }`,
+  `GET|PUT /meals/:id/recipe`, and `POST /meals/:id/duplicate`. "Low calorie" stays computed (≤ 400 kcal)
+  rather than a stored tag, so the meals table is unchanged. Stock is not yet taken by orders (phase 3
+  takes it by the recipe when cooking starts). The admin portal's per-minute budget is now
+  `ADMIN_REQUESTS_PER_MINUTE` (default 60; the test server raises it). Migration
+  `2026-12-31-kitchen-inventory.sql` (`kitchen_meals`, `ingredients`, `kitchen_stock`, `stock_moves`,
+  `meal_recipes`, `meal_prep`); before it these routes answer 503 naming it. Tests:
+  `__tests__/inventory-rules.test.js`, `e2e/kitchens.e2e.test.js` (7-9), `ui/kitchens.ui.test.js`.
 - **Not built:** Razorpay itself (keys, the native checkout, refunds, webhook), push notifications for a step, delivery fees,
   subscriptions, gym-specific menus (the user chose one justFit menu run by the Super Admin). Tests:
   `__tests__/meal-rules.test.js`, `meal-catalog-rules.test.js`, `e2e/meals.e2e.test.js`, the client's

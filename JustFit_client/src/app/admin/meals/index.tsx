@@ -11,7 +11,7 @@ import { SymbolView } from "@/components/SymbolView";
 import { hud } from "@/lib/hud";
 import { TAG_LABEL, rupees } from "@/lib/mealRules";
 import { kitchenApi, mealImage, type AdminMeal } from "@/lib/mealsApi";
-import { confirmChoice } from "@/lib/nativeSheets";
+import { confirmChoice, showActions } from "@/lib/nativeSheets";
 import { useGymData } from "@/lib/useGymData";
 import { useSessionToken } from "@/lib/session";
 import { useAuthStore } from "@/store/auth";
@@ -30,7 +30,8 @@ const LINKS: Link[] = [
 
 // Super Admin › Orders › Meals: the menu and everything around it. The links (kitchens, meal
 // operations, categories, banners, coupons, delivery times), Add Meal, then every meal: tap to edit, the switch shows or
-// hides it on the menu, the bin deletes it (orders already placed keep their copy).
+// hides it on the menu, ⋯ opens its recipe, makes a hidden copy or deletes it (orders already
+// placed keep their copy).
 export default function AdminMeals() {
   const colors = useThemeColors();
   const switchColors = useSwitchColors();
@@ -70,6 +71,27 @@ export default function AdminMeals() {
     }
     hud.success(available ? "Shown on the menu" : "Hidden from the menu");
   };
+
+  // A hidden copy (with its recipe and kitchens) that opens to edit
+  const duplicate = async (meal: AdminMeal) => {
+    if (busyId) return;
+    setBusyId(meal.id);
+    const answer = await kitchenApi.duplicateMeal(await getToken(), meal.id);
+    setBusyId(null);
+    if (!answer.ok) return hud.error(answer.error);
+    update((data) => ({ meals: [answer.data.meal, ...data.meals] }));
+    hud.success("Copy made · hidden");
+    router.push({ pathname: "/admin/meals/[id]", params: { id: answer.data.meal.id } });
+  };
+  const more = (meal: AdminMeal) =>
+    showActions({
+      title: meal.name,
+      actions: [
+        { label: "Recipe and prep time", onPress: () => router.push({ pathname: "/admin/meals/recipe", params: { id: meal.id } }) },
+        { label: "Duplicate", onPress: () => void duplicate(meal) },
+        { label: "Delete meal", destructive: true, onPress: () => void remove(meal) },
+      ],
+    });
 
   const meals = result.state === "ready" ? result.data.meals : [];
   const shown = meals.filter((m) => m.available).length;
@@ -123,8 +145,8 @@ export default function AdminMeals() {
                     </View>
                   </Pressable>
                   <Switch value={m.available} onValueChange={(v) => setVisible(m, v)} disabled={busyId === m.id} {...switchColors} accessibilityLabel={`Show ${m.name} on the menu`} />
-                  <Pressable onPress={() => remove(m)} disabled={busyId === m.id} hitSlop={8} className="admin-row__icon" accessibilityRole="button" accessibilityLabel={`Delete ${m.name}`}>
-                    <SymbolView name={{ ios: "trash", android: "delete", web: "delete" }} size={17} tintColor={colors.danger} />
+                  <Pressable onPress={() => more(m)} disabled={busyId === m.id} hitSlop={8} className="admin-row__icon" accessibilityRole="button" accessibilityLabel={`More for ${m.name}`}>
+                    <SymbolView name={{ ios: "ellipsis", android: "more_horiz", web: "more_horiz" }} size={17} tintColor={colors.ink} />
                   </Pressable>
                 </View>
               ))}

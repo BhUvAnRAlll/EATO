@@ -30,6 +30,7 @@ const RELAXED_OTP = {
   // Meal orders and cancels (20 an hour in production): the meals suite places more than that
   MEAL_ORDERS_PER_HOUR: "1000",
   MEAL_PAYMENTS_PER_HOUR: "1000",
+  ADMIN_REQUESTS_PER_MINUTE: "1000",
 };
 
 function portFree(port) {

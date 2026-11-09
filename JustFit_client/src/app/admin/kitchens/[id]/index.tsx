@@ -24,7 +24,8 @@ const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString("en-IN"
 
 // Super Admin › Kitchens › a kitchen: its photo, status (change it with a reason: active, closed for
 // a while, under maintenance, inactive), contact (Call, Directions), hours, the pincodes it serves,
-// capacity, and the staff roster (add, edit, remove). Orders reach kitchens from phase 3.
+// capacity, its Menu and Inventory (phase 2), and the staff roster (add, edit, remove). Orders reach
+// kitchens from phase 3.
 export default function AdminKitchen() {
   const colors = useThemeColors();
   const getToken = useSessionToken();
@@ -136,6 +137,22 @@ export default function AdminKitchen() {
                 <Text className="admin-segment__label admin-segment__label--on">Directions</Text>
               </Pressable>
             </View>
+          </View>
+
+          <View className="admin-list">
+            {([
+              { label: "Menu", line: "Meals it cooks, on or off here", path: "/admin/kitchens/[id]/menu", icon: { ios: "fork.knife", android: "restaurant", web: "restaurant" } },
+              { label: "Inventory", line: "Ingredients, stock, purchases and waste", path: "/admin/kitchens/[id]/inventory", icon: { ios: "shippingbox", android: "inventory_2", web: "inventory_2" } },
+            ] as const).map((l, i) => (
+              <Pressable key={l.label} onPress={() => router.push({ pathname: l.path, params: { id: String(kitchen.id) } })} className={i === 0 ? "admin-row" : "admin-row admin-row--divided"} accessibilityRole="button">
+                <View className="admin-row__icon"><SymbolView name={l.icon} size={17} tintColor={colors.primaryText} /></View>
+                <View className="min-w-0 flex-1">
+                  <Text className="card__title">{l.label}</Text>
+                  <Text className="meta-text" numberOfLines={1}>{l.line}</Text>
+                </View>
+                <SymbolView name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }} size={14} tintColor={colors.faint} />
+              </Pressable>
+            ))}
           </View>
 
           <View className="card" style={{ gap: 6 }}>

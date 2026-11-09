@@ -196,6 +196,8 @@ export const kitchenApi = {
     call<{ coupon: Coupon }>(token, id ? `/api/admin/kitchen/coupons/${id}` : "/api/admin/kitchen/coupons", { method: id ? "PUT" : "POST", body: input }),
   remove: (token: string | null, kind: "categories" | "banners" | "coupons", id: number) => call<{ deleted: true }>(token, `/api/admin/kitchen/${kind}/${id}`, { method: "DELETE" }),
   deleteMeal: (token: string | null, id: string) => call<{ deleted: true }>(token, `/api/admin/kitchen/meals/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  // A hidden copy of a meal (with its recipe and kitchens), opened to edit
+  duplicateMeal: (token: string | null, id: string) => call<{ meal: AdminMeal }>(token, `/api/admin/kitchen/meals/${encodeURIComponent(id)}/duplicate`, { method: "POST" }),
   slots: (token: string | null) => call<{ slots: Slots }>(token, "/api/admin/kitchen/slots"),
   saveSlots: (token: string | null, slots: Slots) => call<{ slots: Slots }>(token, "/api/admin/kitchen/slots", { method: "PUT", body: { slots } }),
   orders: (token: string | null, day: string) => call<{ date: string; orders: Order[]; counts: Record<string, number> }>(token, `/api/admin/kitchen/orders?day=${day}`),

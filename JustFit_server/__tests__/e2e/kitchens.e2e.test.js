@@ -3,7 +3,8 @@
 // with a photo, edits it, changes its status with a reason, keeps its staff roster, and reads the
 // day's dashboard and its Excel report. Attack paths: no session, a member on every route, bad
 // and unexpected fields, SQL in ids and searches, a fake photo, a duplicate name or staff number,
-// another kitchen's staff id.
+// another kitchen's staff id. Phase 2: ingredients, stock moves (no going below zero without an
+// override and a reason), transfers between kitchens, a kitchen's menu, recipes, duplicating a meal.
 //
 //   yarn test:e2e      (needs JustFit_server/.env.test; otherwise every test is skipped)
 const assert = require("node:assert/strict");
@@ -71,7 +72,10 @@ describe("kitchens e2e: the Super Admin's kitchens, roster and meal-operations d
     const problems = [];
     if (connection) {
       try {
+        await connection.query("DELETE FROM stock_moves WHERE kitchen_id IN (SELECT id FROM kitchens WHERE name LIKE ?)", [`%${runId}%`]);
         await connection.query("DELETE FROM kitchens WHERE name LIKE ?", [`%${runId}%`]);
+        await connection.query("DELETE FROM meals WHERE name LIKE ?", [`%${runId}%`]);
+        await connection.query("DELETE FROM ingredients WHERE name LIKE ?", [`%${runId}%`]);
         const all = Object.values(identities).map((i) => i.id);
         if (all.length) await db.deleteUsers(connection, all);
       } catch (error) { problems.push(`rows: ${error.code ?? error.message}`); }
@@ -194,5 +198,99 @@ describe("kitchens e2e: the Super Admin's kitchens, roster and meal-operations d
     const csv = await api("GET", `${base}/report?day=${today.json.day}&format=csv`, tokens.admin);
     assert.match(csv.bytes.toString("utf8"), /Order,Delivery day,Meal time/);
     assert.equal((await api("GET", `${base}/report?format=pdf`, tokens.admin)).status, 400);
+  }));
+
+  it("7. ingredients and a kitchen's stock: buy, use, waste, count, override", run(async () => {
+    const id = state.id;
+    const paneer = await api("POST", `${base}/ingredients`, tokens.admin, { name: `Paneer ${runId}`, category: "dairy", unit: "kg" });
+    assert.equal(paneer.status, 201, JSON.stringify(paneer.json));
+    state.paneer = paneer.json.ingredient.id;
+    assert.equal((await api("POST", `${base}/ingredients`, tokens.admin, { name: `paneer ${runId}`, category: "dairy", unit: "kg" })).status, 409, "names are unique (any case)");
+    assert.equal((await api("POST", `${base}/ingredients`, tokens.admin, { name: "Salt", category: "spices", unit: "lb" })).status, 400);
+    assert.equal((await api("POST", `${base}/ingredients`, tokens.member, { name: "Salt", category: "spices", unit: "g" })).status, 403);
+    assert.equal((await api("GET", `${base}/ingredients?search=${runId}`, tokens.admin)).json.ingredients.length, 1);
+
+    const item = `${base}/kitchens/${id}/inventory/${state.paneer}`;
+    assert.equal((await api("POST", `${item}/moves`, tokens.admin, { kind: "purchase", quantity: 5 })).status, 404, "add it to the kitchen first");
+    const added = await api("PUT", item, tokens.admin, { minQuantity: 2, unitPrice: 380, supplier: "Nandini", expiresOn: null, storage: "Cold room" });
+    assert.equal(added.status, 200, JSON.stringify(added.json));
+    assert.equal(added.json.item.out, true);
+    const bought = await api("POST", `${item}/moves`, tokens.admin, { kind: "purchase", quantity: 5, unitPrice: 400, note: "Bill 4521" });
+    assert.equal(bought.status, 201, JSON.stringify(bought.json));
+    assert.equal(bought.json.item.quantity, 5);
+    assert.equal(bought.json.item.unitPrice, 400, "a purchase's price becomes the item's");
+    assert.equal((await api("POST", `${item}/moves`, tokens.admin, { kind: "use", quantity: 3.5 })).json.item.quantity, 1.5);
+    const tooMuch = await api("POST", `${item}/moves`, tokens.admin, { kind: "waste", quantity: 2 });
+    assert.equal(tooMuch.status, 409, "can't take more than is there");
+    assert.match(tooMuch.json.error, /Only 1.5 in stock/);
+    assert.equal((await api("POST", `${item}/moves`, tokens.admin, { kind: "waste", quantity: 2, override: true })).status, 400, "an override needs a reason");
+    const over = await api("POST", `${item}/moves`, tokens.admin, { kind: "waste", quantity: 2, override: true, note: "Spoiled, count was wrong" });
+    assert.equal(over.json.item.quantity, 0);
+    assert.equal(over.json.moves[0].overridden, true);
+    const counted = await api("POST", `${item}/moves`, tokens.admin, { kind: "adjust", quantity: 4 });
+    assert.equal(counted.json.item.quantity, 4);
+    assert.deepEqual(counted.json.moves.map((m) => m.kind), ["adjust", "waste", "use", "purchase"]);
+    const [[audit]] = await connection.query("SELECT action FROM admin_audit_log WHERE target_id = ? AND action LIKE 'kitchen.stock%' ORDER BY created_at DESC LIMIT 1", [String(id)]);
+    assert.equal(audit.action, "kitchen.stock_override");
+
+    const inv = await api("GET", `${base}/kitchens/${id}/inventory`, tokens.admin);
+    assert.equal(inv.status, 200);
+    assert.deepEqual(inv.json.counts, { all: 1, low: 0, out: 0, expiring: 0 });
+    assert.equal(inv.json.value, 1600);
+    assert.equal(inv.json.today.wasted.moves, 1);
+    assert.equal((await api("GET", `${base}/kitchens/${id}/inventory?filter=rotten`, tokens.admin)).status, 400);
+    assert.equal((await api("GET", `${base}/kitchens/${id}/inventory/abc`, tokens.admin)).status, 400);
+    assert.equal((await api("DELETE", item, tokens.admin)).status, 409, "stock left: count it to 0 first");
+  }));
+
+  it("8. sending stock to another kitchen moves it both sides, never more than is there", run(async () => {
+    const from = `${base}/kitchens/${state.id}/inventory/${state.paneer}`;
+    assert.equal((await api("POST", `${from}/transfer`, tokens.admin, { toKitchenId: state.id, quantity: 1 })).status, 400, "not to itself");
+    assert.equal((await api("POST", `${from}/transfer`, tokens.admin, { toKitchenId: 999999, quantity: 1 })).status, 404);
+    assert.equal((await api("POST", `${from}/transfer`, tokens.admin, { toKitchenId: state.otherId, quantity: 9 })).status, 409);
+    const sent = await api("POST", `${from}/transfer`, tokens.admin, { toKitchenId: state.otherId, quantity: 1.5, note: "For the weekend" });
+    assert.equal(sent.status, 201, JSON.stringify(sent.json));
+    assert.equal(sent.json.item.quantity, 2.5);
+    const there = await api("GET", `${base}/kitchens/${state.otherId}/inventory/${state.paneer}`, tokens.admin);
+    assert.equal(there.json.item.quantity, 1.5);
+    assert.equal(there.json.item.unitPrice, 400, "the price travels with it");
+    assert.equal(there.json.moves[0].kind, "transfer_in");
+    const dash = await api("GET", `${base}/dashboard`, tokens.admin);
+    assert.deepEqual(dash.json.stock, { items: 2, low: 0, out: 0, expiring: 0 });
+  }));
+
+  it("9. a kitchen's menu and a meal's recipe; duplicating a meal copies them, hidden", run(async () => {
+    const meal = await api("POST", "/api/admin/kitchen/meals", tokens.admin, { name: `Paneer Bowl ${runId}`, diet: "vegetarian", calories: 520, proteinG: 32, carbsG: 48, fatG: 18, price: 249 });
+    assert.equal(meal.status, 201, JSON.stringify(meal.json));
+    const mealId = meal.json.meal.id;
+    const menu = `${base}/kitchens/${state.id}/menu`;
+    assert.equal((await api("GET", menu, tokens.admin)).json.meals.find((m) => m.id === mealId).cooks, false);
+    const on = await api("PUT", `${menu}/${mealId}`, tokens.admin, { cooks: true });
+    assert.deepEqual({ cooks: on.json.meal.cooks, available: on.json.meal.available }, { cooks: true, available: true });
+    assert.equal((await api("PUT", `${menu}/${mealId}`, tokens.admin, { cooks: true, available: false })).json.meal.available, false);
+    assert.equal((await api("PUT", `${menu}/no-such-meal`, tokens.admin, { cooks: true })).status, 404);
+    assert.equal((await api("PUT", `${menu}/${mealId}`, tokens.admin, { cooks: "yes" })).status, 400);
+
+    const recipe = `${base}/meals/${mealId}/recipe`;
+    assert.equal((await api("PUT", recipe, tokens.admin, { prepMinutes: 20, items: [{ ingredientId: 999999, quantity: 1 }] })).status, 400, "an unknown ingredient");
+    const saved = await api("PUT", recipe, tokens.admin, { prepMinutes: 20, items: [{ ingredientId: state.paneer, quantity: 0.15 }] });
+    assert.equal(saved.status, 200, JSON.stringify(saved.json));
+    assert.deepEqual(saved.json.recipe.items.map((i) => [i.name, i.quantity, i.unit]), [[`Paneer ${runId}`, 0.15, "kg"]]);
+    assert.equal(saved.json.recipe.prepMinutes, 20);
+    assert.equal((await api("GET", recipe, tokens.member)).status, 403);
+
+    const copy = await api("POST", `/api/admin/kitchen/meals/${mealId}/duplicate`, tokens.admin);
+    assert.equal(copy.status, 201, JSON.stringify(copy.json));
+    assert.equal(copy.json.meal.name, `Paneer Bowl ${runId} (copy)`);
+    assert.equal(copy.json.meal.available, false, "the copy is hidden");
+    const copied = await api("GET", `${base}/meals/${copy.json.meal.id}/recipe`, tokens.admin);
+    assert.equal(copied.json.recipe.items.length, 1);
+    assert.equal(copied.json.recipe.prepMinutes, 20);
+    assert.equal((await api("GET", menu, tokens.admin)).json.meals.find((m) => m.id === copy.json.meal.id).cooks, true, "and cooked by the same kitchens");
+    assert.equal((await api("POST", "/api/admin/kitchen/meals/no-such-meal/duplicate", tokens.admin)).status, 404);
+    assert.equal((await api("POST", `/api/admin/kitchen/meals/${mealId}/duplicate`, tokens.member)).status, 403);
+    // A recipe's ingredient can't be deleted out from under it; a kitchen's stock can't go negative
+    const [[{ n }]] = await connection.query("SELECT COUNT(*) AS n FROM kitchen_stock WHERE quantity < 0");
+    assert.equal(Number(n), 0);
   }));
 });

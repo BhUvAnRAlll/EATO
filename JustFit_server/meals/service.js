@@ -150,6 +150,33 @@ async function setAvailable(pool, id, available) {
  * (order_items.meal_id becomes NULL); favourites of it go with it. Returns its photo's file name
  * so the route can delete the file after the row has gone.
  */
+/**
+ * Copies a meal as "<name> (copy)", hidden from the menu, without its photo (one file belongs to one
+ * meal), with its recipe, preparation time and kitchens once migration 2026-12-31 has run
+ */
+async function duplicateMeal(pool, id) {
+  const newId = await inTransaction(pool, async (db) => {
+    const [[row]] = await db.query("SELECT * FROM meals WHERE id = ? FOR SHARE", [id]);
+    if (!row) throw new NotFoundError("That meal was deleted.");
+    const name = `${row.name.slice(0, 73)} (copy)`;
+    const copyId = rules.mealIdFor(name);
+    await db.query(
+      `INSERT INTO meals (id, name, description, serving_size, ingredients, image_url, diet, tags, calories, protein_g, carbs_g, fat_g, price_paise, mrp_paise, is_available)
+       SELECT ?, ?, description, serving_size, ingredients, image_url, diet, tags, calories, protein_g, carbs_g, fat_g, price_paise, mrp_paise, FALSE FROM meals WHERE id = ?`,
+      [copyId, name, id],
+    );
+    try {
+      await db.query("INSERT INTO meal_recipes (meal_id, ingredient_id, quantity) SELECT ?, ingredient_id, quantity FROM meal_recipes WHERE meal_id = ?", [copyId, id]);
+      await db.query("INSERT INTO meal_prep (meal_id, prep_minutes) SELECT ?, prep_minutes FROM meal_prep WHERE meal_id = ?", [copyId, id]);
+      await db.query("INSERT INTO kitchen_meals (kitchen_id, meal_id, available) SELECT kitchen_id, ?, available FROM kitchen_meals WHERE meal_id = ?", [copyId, id]);
+    } catch (error) {
+      if (error?.code !== "ER_NO_SUCH_TABLE") throw error;
+    }
+    return copyId;
+  });
+  return adminMeal(pool, newId);
+}
+
 async function deleteMeal(pool, id) {
   const [[row]] = await pool.query("SELECT id, name, image_key FROM meals WHERE id = ?", [id]);
   if (!row) throw new NotFoundError("That meal was already deleted.");
@@ -479,6 +506,6 @@ async function quote(pool, userId, { items, couponCode }, now = Date.now()) {
 }
 
 module.exports = {
-  menu, meal, setFavorite, photoKey, adminMeals, addMeal, updateMeal, setAvailable, deleteMeal, quote, mealToApi, loadSlots, saveSlots, orderOptions,
+  menu, meal, setFavorite, photoKey, adminMeals, addMeal, updateMeal, duplicateMeal, setAvailable, deleteMeal, quote, mealToApi, loadSlots, saveSlots, orderOptions,
   myOrders, myOrder, placeOrder, confirmPayment, cancelMine, adminOrders, advance, adminCancel,
 };

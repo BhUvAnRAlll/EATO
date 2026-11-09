@@ -76,8 +76,42 @@ export type MealOpsDashboard = {
   kitchens: { counts: KitchenCounts; activeCapacity: number; load: number | null };
   delivery: null;
   subscriptions: null;
-  stock: null;
+  stock: { items: number; low: number; out: number; expiring: number } | null;
 };
+
+// ---- Phase 2: ingredients, stock, menus, recipes ----
+export type IngredientCategory = "vegetables" | "fruits" | "grains" | "pulses" | "dairy" | "meat" | "seafood" | "eggs" | "oils" | "spices" | "packaging" | "other";
+export type IngredientUnit = "g" | "kg" | "ml" | "l" | "pcs";
+export type Ingredient = { id: number; name: string; category: IngredientCategory; unit: IngredientUnit };
+export type StockItem = {
+  ingredientId: number;
+  name: string;
+  category: IngredientCategory;
+  unit: IngredientUnit;
+  quantity: number;
+  minQuantity: number;
+  unitPrice: number | null;
+  supplier: string | null;
+  expiresOn: string | null;
+  storage: string | null;
+  out: boolean;
+  low: boolean;
+  expiring: boolean;
+  expired: boolean;
+};
+export type StockFilter = "all" | "low" | "out" | "expiring";
+export type Inventory = {
+  items: StockItem[];
+  counts: Record<StockFilter, number>;
+  value: number;
+  today: { used: { moves: number; value: number }; wasted: { moves: number; value: number } };
+};
+export type StockMoveKind = "purchase" | "use" | "waste" | "adjust" | "transfer_in" | "transfer_out";
+export type StockMove = { id: number; kind: StockMoveKind; quantity: number; balanceAfter: number; unitPrice: number | null; note: string | null; overridden: boolean; otherKitchen: string | null; at: string };
+export type StockDetails = { minQuantity: number; unitPrice: number | null; supplier: string | null; expiresOn: string | null; storage: string | null };
+export type MoveInput = { kind: "purchase" | "use" | "waste" | "adjust"; quantity: number; unitPrice?: number; note?: string; override?: boolean };
+export type KitchenMenuMeal = { id: string; name: string; diet: string; onMenu: boolean; cooks: boolean; available: boolean; prepMinutes: number | null; recipeItems: number };
+export type Recipe = { mealId: string; mealName: string; prepMinutes: number | null; items: { ingredientId: number; name: string; unit: IngredientUnit; category: IngredientCategory; quantity: number }[] };
 
 const signedOut = <T,>(): Promise<ApiResult<T>> => Promise.resolve({ ok: false, error: "Please sign in again.", status: 401 });
 const call = <T,>(token: string | null, path: string, options: { method?: "GET" | "POST" | "PUT" | "DELETE"; body?: unknown } = {}): Promise<ApiResult<T>> =>
@@ -102,6 +136,25 @@ export const kitchensApi = {
   editStaff: (token: string | null, id: number, staffId: number, input: StaffInput) =>
     call<{ kitchen: Kitchen }>(token, `${base}/kitchens/${id}/staff/${staffId}`, { method: "PUT", body: input }),
   removeStaff: (token: string | null, id: number, staffId: number) => call<{ kitchen: Kitchen }>(token, `${base}/kitchens/${id}/staff/${staffId}`, { method: "DELETE" }),
+
+  ingredients: (token: string | null, search: string) => call<{ ingredients: Ingredient[] }>(token, `${base}/ingredients${search.trim() ? `?search=${encodeURIComponent(search.trim())}` : ""}`),
+  addIngredient: (token: string | null, input: Omit<Ingredient, "id">) => call<{ ingredient: Ingredient }>(token, `${base}/ingredients`, { method: "POST", body: input }),
+  inventory: (token: string | null, id: number, filter: StockFilter, search: string) =>
+    call<Inventory>(token, `${base}/kitchens/${id}/inventory?filter=${filter}${search.trim() ? `&search=${encodeURIComponent(search.trim())}` : ""}`),
+  stockItem: (token: string | null, id: number, ingredientId: number) => call<{ item: StockItem; moves: StockMove[] }>(token, `${base}/kitchens/${id}/inventory/${ingredientId}`),
+  saveStock: (token: string | null, id: number, ingredientId: number, details: StockDetails) =>
+    call<{ item: StockItem; moves: StockMove[] }>(token, `${base}/kitchens/${id}/inventory/${ingredientId}`, { method: "PUT", body: details }),
+  removeStock: (token: string | null, id: number, ingredientId: number) => call<{ removed: boolean }>(token, `${base}/kitchens/${id}/inventory/${ingredientId}`, { method: "DELETE" }),
+  move: (token: string | null, id: number, ingredientId: number, input: MoveInput) =>
+    call<{ item: StockItem; moves: StockMove[] }>(token, `${base}/kitchens/${id}/inventory/${ingredientId}/moves`, { method: "POST", body: input }),
+  transfer: (token: string | null, id: number, ingredientId: number, toKitchenId: number, quantity: number, note?: string) =>
+    call<{ item: StockItem; moves: StockMove[] }>(token, `${base}/kitchens/${id}/inventory/${ingredientId}/transfer`, { method: "POST", body: note ? { toKitchenId, quantity, note } : { toKitchenId, quantity } }),
+  menu: (token: string | null, id: number) => call<{ meals: KitchenMenuMeal[]; counts: { cooks: number; available: number; all: number } }>(token, `${base}/kitchens/${id}/menu`),
+  setMenu: (token: string | null, id: number, mealId: string, cooks: boolean, available: boolean) =>
+    call<{ meal: KitchenMenuMeal }>(token, `${base}/kitchens/${id}/menu/${encodeURIComponent(mealId)}`, { method: "PUT", body: { cooks, available } }),
+  recipe: (token: string | null, mealId: string) => call<{ recipe: Recipe }>(token, `${base}/meals/${encodeURIComponent(mealId)}/recipe`),
+  saveRecipe: (token: string | null, mealId: string, prepMinutes: number | null, items: { ingredientId: number; quantity: number }[]) =>
+    call<{ recipe: Recipe }>(token, `${base}/meals/${encodeURIComponent(mealId)}/recipe`, { method: "PUT", body: { prepMinutes, items } }),
 };
 
 const XLSX_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
