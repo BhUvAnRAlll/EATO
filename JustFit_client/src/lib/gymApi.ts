@@ -125,8 +125,11 @@ export type StaffArea = "home" | "members" | "payments" | "enquiries" | "catalog
 // comes with the team as permissionTree, so the app draws whatever the server checks
 export type StaffOption = `${StaffArea}.${string}`;
 export type PermissionTile = { id: StaffArea; label: string; options: { id: StaffOption; label: string; needs: StaffOption | null }[] };
-export type TeamMember = { id: string; name: string | null; phone: string | null; kind: "owner" | StaffKind; areas: StaffArea[]; options: StaffOption[]; branchIds: number[]; addedAt: string | null; you: boolean };
-export type StaffInvite = { id: number; phone: string | null; kind: StaffKind; invitedAt: string | null };
+// Gym roles (2026-11-10): what a team row reads as (a Staff login's options matching a role, else custom)
+export type GymRole = "owner" | "trainer" | "admin" | "manager" | "receptionist" | "attendance" | "custom";
+export type RolePreset = { id: "admin" | "manager" | "receptionist" | "attendance"; label: string; text: string; options: StaffOption[] };
+export type TeamMember = { id: string; name: string | null; phone: string | null; kind: "owner" | StaffKind; areas: StaffArea[]; options: StaffOption[]; branchIds: number[]; addedAt: string | null; you: boolean; role?: GymRole };
+export type StaffInvite = { id: number; phone: string | null; kind: StaffKind; invitedAt: string | null; role?: GymRole };
 // branches: the branches of this gym the caller is the gym admin of (the Add sheet's Branch chips)
 // ☰ › Activity (gym admin only): who added, edited or deleted what at this branch, one India day
 // at a time. by.kind: the gym admin (owner) or a Staff login, at the time of the change.
@@ -135,7 +138,7 @@ export type ActivityType = "member" | "payment" | "enquiry" | "catalog" | "expen
 export type ActivityPerson = { id: string | null; name: string; kind: "owner" | "staff"; you: boolean };
 export type ActivityEntry = { id: number; at: string; by: ActivityPerson; action: ActivityAction; type: ActivityType; label: string; detail: string | null };
 export type GymActivity = { day: string; counts: Record<ActivityAction | "all", number>; people: ActivityPerson[]; entries: ActivityEntry[]; page: number; nextPage: number | null };
-export type GymTeam = { gym: { id: number; name: string; branch: string }; branches: { id: number; branch: string }[]; team: TeamMember[]; invites: StaffInvite[]; permissionTree: PermissionTile[] };
+export type GymTeam = { gym: { id: number; name: string; branch: string }; branches: { id: number; branch: string }[]; team: TeamMember[]; invites: StaffInvite[]; permissionTree: PermissionTile[]; roles?: RolePreset[] };
 
 export type GymDashboard = {
   // areas: what the signed-in login may use at this branch (Role & Permission), so the app hides the rest
@@ -225,10 +228,14 @@ export type PauseRequest = MemberPause & {
 export type PauseView = "pending" | "all";
 export type PauseList = { today: string; view: PauseView; counts: { pending: number }; pauses: PauseRequest[] };
 export type PauseFields = { from: string; until: string; reason: string };
-export type GymMember = MemberDetails & { id: number; code: string; photoUrl: string | null; dueBy: string | null; overdue: boolean; daysLeft: number; pt: MemberPt | null; gender: Gender | null; name: string; phone: string | null; dob: string | null; birthdayToday: boolean; planName: string | null; planLength: PlanLength; joinedOn: string; expiresOn: string; due: number; status: MemberStatus; inToday: boolean; insideNow: boolean; pause: MemberPause | null; pausedNow: boolean };
+export type GymMember = MemberDetails & { id: number; code: string; photoUrl: string | null; dueBy: string | null; overdue: boolean; daysLeft: number; pt: MemberPt | null; gender: Gender | null; name: string; phone: string | null; dob: string | null; birthdayToday: boolean; planName: string | null; planLength: PlanLength; joinedOn: string; expiresOn: string; due: number; status: MemberStatus; inToday: boolean; insideNow: boolean; pause: MemberPause | null; pausedNow: boolean; standing?: MemberStanding; standingNote?: string | null };
 // `gym` comes with GET /members/:id (the member's page needs it for messages); other answers leave it out
 export type GymMemberDetail = { member: GymMember & { visitsThisMonth: number; lastVisit: string | null }; payments: GymPayment[]; gym?: GymInfo; alreadyIn?: boolean; durationMin?: number | null };
-export type MemberFilter = "all" | "due" | "overdue" | "expiring" | "expiring_soon" | "expired" | "birthday";
+export type MemberFilter = "all" | "due" | "overdue" | "expiring" | "expiring_soon" | "expired" | "birthday" | "suspended" | "cancelled";
+// A membership's state, set by the gym (migration 2027-01-01): only active ones check in or pause
+export type MemberStanding = "active" | "suspended" | "cancelled";
+// The branch's limits on members' pause requests (null: no limit)
+export type PausePolicy = { maxPerYear: number | null; maxDaysPerYear: number | null; maxDaysEach: number };
 export type MemberSort = "name" | "days" | "due";
 // Enquiry follow-up: lost shows as "Not interested"; joined has the member they became
 export type EnquiryStatus = "new" | "follow_up" | "joined" | "lost";
@@ -338,6 +345,10 @@ export const gymApi = {
   pauses: (token: string | null, view: PauseView) => call<PauseList>(token, `/api/gym/pauses?view=${view}`),
   approvePause: (token: string | null, id: number, note?: string) => call<{ pause: PauseRequest }>(token, `/api/gym/pauses/${id}/approve`, "POST", note ? { note } : {}),
   rejectPause: (token: string | null, id: number, note?: string) => call<{ pause: PauseRequest }>(token, `/api/gym/pauses/${id}/reject`, "POST", note ? { note } : {}),
+  setStanding: (token: string | null, memberId: number, standing: MemberStanding, note: string) =>
+    call<GymMemberDetail>(token, `/api/gym/members/${memberId}/standing`, "POST", { standing, ...(note.trim() ? { note: note.trim() } : {}) }),
+  pausePolicy: (token: string | null) => call<{ policy: PausePolicy; defaults: PausePolicy }>(token, "/api/gym/pause-policy"),
+  savePausePolicy: (token: string | null, policy: Partial<PausePolicy>) => call<{ policy: PausePolicy }>(token, "/api/gym/pause-policy", "PUT", policy),
   pauseMember: (token: string | null, id: number, fields: PauseFields) => call<GymMemberDetail>(token, `/api/gym/members/${id}/pause`, "POST", fields),
   collectDue: (token: string | null, id: number, fields: { amount: number; method: PayMethod; dueBy?: string; paidOn?: string }) => call<GymMemberDetail>(token, `/api/gym/members/${id}/due`, "POST", fields),
   // trainerId: the trainer this PT is with, or null for none
@@ -427,7 +438,8 @@ export const gymApi = {
     ),
   // added: linked now (their role changed); invited: they join at their first sign-in
   // branchId: the branch to add them to (one the caller manages); the answer names it as `branch`
-  addStaff: (token: string | null, phone: string, kind: StaffKind, branchId: number) => call<GymTeam & { result: "added" | "invited"; branch: string }>(token, "/api/gym/staff", "POST", { phone, kind, branchId }),
+  addStaff: (token: string | null, phone: string, kind: StaffKind, branchId: number, preset?: RolePreset["id"]) =>
+    call<GymTeam & { result: "added" | "invited"; branch: string }>(token, "/api/gym/staff", "POST", { phone, kind, branchId, ...(preset ? { preset } : {}) }),
   removeStaff: (token: string | null, userId: string) => call<GymTeam>(token, `/api/gym/staff/${encodeURIComponent(userId)}`, "DELETE"),
   // Role & Permission: the options a Staff login may use at this branch (an empty list = Home only)
   setPermissions: (token: string | null, userId: string, options: StaffOption[]) => call<GymTeam>(token, `/api/gym/staff/${encodeURIComponent(userId)}/permissions`, "PUT", { options }),
@@ -448,6 +460,9 @@ export const gymApi = {
   teamCheckOut: (token: string | null, userId: string) => call<{ ok: true; durationMin: number }>(token, `/api/gym/team-attendance/${encodeURIComponent(userId)}/check-out`, "POST"),
   visits: (token: string | null, query: VisitQuery) => call<VisitPage>(token, `/api/gym/attendance/visits?${visitParams(query)}`),
   attendanceSettings: (token: string | null) => call<AttendanceSettings>(token, "/api/gym/attendance/settings"),
+  addVisit: (token: string | null, body: { memberId: number; date: string; inTime: string; outTime: string; reason: string }) => call<{ visit: unknown }>(token, "/api/gym/attendance/visits", "POST", body),
+  correctVisit: (token: string | null, id: number, body: { inTime: string; outTime: string | null; reason: string }) => call<{ visit: unknown }>(token, `/api/gym/attendance/visits/${id}`, "PATCH", body),
+  attendanceCorrections: (token: string | null, page: number) => call<AttendanceCorrections>(token, `/api/gym/attendance/corrections${page > 1 ? `?page=${page}` : ""}`),
   saveAttendancePlace: (token: string | null, place: { latitude: number; longitude: number; radiusM: number }) => call<AttendanceSettings>(token, "/api/gym/attendance/location", "PUT", place),
   regenerateQr: (token: string | null) => call<AttendanceSettings>(token, "/api/gym/attendance/qr", "POST"),
   smsLogs: (token: string | null, before: number | null) => call<{ logs: SmsLog[]; next: number | null }>(token, `/api/gym/sms/logs${before ? `?before=${before}` : ""}`),
@@ -479,6 +494,19 @@ export type GymVisit = {
   checkInDistanceM: number | null;
 };
 export type VisitStats = { visits: number; members: number; completed: number; avgMinutes: number | null };
+// Attendance corrections (2027-01-02): a visit added or corrected, with the times before and after
+export type AttendanceCorrection = {
+  id: number;
+  kind: "add" | "edit";
+  visitId: number;
+  member: { id: number; name: string; code: string };
+  before: { in: string | null; out: string | null } | null;
+  after: { in: string | null; out: string | null };
+  reason: string;
+  by: string;
+  at: string;
+};
+export type AttendanceCorrections = { page: number; nextPage: number | null; corrections: AttendanceCorrection[] };
 export type AttendanceSummary = {
   // access: the gym admin sees the Staff & Trainers tab too
   gym: GymInfo & { access?: GymAccess };

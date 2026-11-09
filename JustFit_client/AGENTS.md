@@ -260,6 +260,51 @@ calls in `lib/gymCrowd.ts`. Migration `2026-12-29-gym-crowd.sql` (`gyms.capacity
 and saving answers 503 naming it. Tests: `__tests__/gym-crowd-rules.test.js`,
 `e2e/gym-crowd.e2e.test.js`, the client's `lib/__tests__/gymCrowd.test.ts`.
 
+**Phase 3: membership states and the pause policy (2026-11-10):** the gym can suspend, cancel or
+reactivate a membership with a reason (`components/gym/StandingCard.tsx` on a member's page; option
+Members › Suspend, cancel or reactivate, `members.standing`); Members has Suspended and Cancelled
+chips once the server counts them. A suspended or cancelled membership can't check in (QR or by
+staff) or ask for or be given a pause; the plan's dates are kept, so reactivating restores it. The
+member sees the state and the gym's reason on Gym Hub. Pause requests › Pause limits
+(`app/gym/pause-policy.tsx`, also Settings › Branch; option `members.pause`): pauses and days in any
+12 months and the longest pause (`gyms.pause_policy`); members' requests that break it are refused
+with the reason, approved and waiting requests count, staff pauses don't; Gym Hub shows what is
+left. Rejecting a pause now needs a reason the member reads. Server `gym/standingRules.js` (pure),
+`gym/standing.js`; `POST /api/gym/members/:id/standing { standing, note }`, `GET|PUT
+/api/gym/pause-policy`; audited `gym.member_suspend|cancel|reactivate` and `gym.edit`, on Activity.
+Migration `2027-01-01-gym-membership-standing.sql` (`gym_members.standing`, `standing_note`,
+`standing_at`, `standing_by`; `gyms.pause_policy`); before it every membership is active, the policy
+is the default and changing either answers 503. Tests: `__tests__/gym-standing-rules.test.js`,
+`e2e/gym-standing.e2e.test.js`, the client's `lib/__tests__/membershipText.test.ts`.
+
+**Phase 4: attendance corrections and streaks (2026-11-10):** staff with Attendance › Correct visits
+and add missed ones (`attendance.correct`) add a visit a member forgot to scan (a day up to 30 days
+back, check-in and check-out in India's time, at most 12 hours, never in the future, never
+overlapping the member's other visits that day) or correct a visit's times on its own day, always
+with a reason; an open past visit needs a check-out. Every change is kept in
+`gym_attendance_corrections` (before and after, reason, who, when) and listed on Attendance ›
+Corrections. A suspended or cancelled member gets no added visit. Gym Hub's attendance adds the
+streak (visit days in a row to today, or yesterday when there is none yet today) and this week's
+visit days (Monday on). Server `gym/correctionRules.js` (pure), `gym/corrections.js`;
+`POST /api/gym/attendance/visits`, `PATCH /api/gym/attendance/visits/:id`, `GET
+/api/gym/attendance/corrections`; audited `gym.attendance_add|edit`, on Activity. Migration
+`2027-01-02-gym-attendance-corrections.sql` (one table); before it these routes answer 503 naming it.
+Tests: `__tests__/gym-correction-rules.test.js`, `e2e/gym-corrections.e2e.test.js`.
+
+**Phase 5: gym roles (2026-11-10):** the brief's gym roles are Gym Owner (the gym admin, `owner`),
+Trainer (`trainer`), and Staff logins added as Gym Admin (every option, as Staff had before),
+Manager, Receptionist or Attendance Staff: ready-made sets of Role & Permission options
+(`gym/rolePresets.js`, pure: Manager is everything but settings, plan edits, publishing, the Wallet
+and month-end revenue; Receptionist the front desk; Attendance Staff check-ins). One permission
+system stays the source of truth: Add Staff's Role chips (`AddStaffSheet`, Gym Admin first) send
+`preset` with `POST /api/gym/staff`, the options are saved on the login (or on the invite until the
+number signs in, `gym_staff_invites.permissions`), and Role & Permission has "Start from a role"
+chips; a login whose options match no role reads as Custom. The team answer carries each row's
+`role` and `roles` (the presets); the staff list shows the role. The server enforces options as
+before. Migration `2027-01-03-gym-role-presets.sql` (the invite column); before it only Gym Admin
+can be invited. Tests: `__tests__/gym-role-preset-rules.test.js`, `e2e/gym-roles.e2e.test.js`,
+`gym-staff.e2e` and `ui/gym-staff.ui.test.js`.
+
 ### Meal ordering (2026-11-09, the user's plan; migration approved)
 
 The Super Admin is the menu, the kitchen and the delivery person (the user's choice). Members order

@@ -241,7 +241,12 @@ export default function GymAttendance() {
         </>
       )}
 
-      <Text className="gym-page-section" accessibilityRole="header">Attendance history</Text>
+      <View className="flex-row items-center">
+        <Text className="gym-page-section flex-1" accessibilityRole="header">Attendance history</Text>
+        <PressableScale onPress={() => router.push("/gym/attendance/corrections")} hitSlop={8} accessibilityRole="button" accessibilityLabel="Corrections">
+          <Text className="gym-link">Corrections</Text>
+        </PressableScale>
+      </View>
       <VisitHistory refreshKey={refreshKey} />
     </GymScreen>
   );

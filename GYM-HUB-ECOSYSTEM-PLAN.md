@@ -13,6 +13,9 @@ section 9.
 | --- | --- |
 | Gym registration and approval (G1, G2; built as the first phase) | **Built** 2026-11-10: registration in the member app, Super Admin review with reasons and history, Discover shows approved + published only, suspension closes the portal and check-ins. Migration `2026-12-27-gym-registration.sql` to run by hand. Not yet: PDF picking on the phone (needs `expo-document-picker`, your approval), notifications of each step (phase 7), G3 sensitive-change approval |
 | Live crowd and best time to visit (G4, G5) | **Built** 2026-11-10: live estimate and forecast on the member's membership page and the gym's Attendance, Crowd settings. Migration `2026-12-29-gym-crowd.sql` to run by hand |
+| Membership states and pause policy (G6, G7) | **Built** 2026-11-10: suspend / cancel / reactivate with reasons, no check-in or pause while inactive, per-branch pause limits, rejection reasons required. Migration `2027-01-01-gym-membership-standing.sql` to run by hand |
+| Attendance corrections and streaks (G8) | **Built** 2026-11-10: add a missed visit or correct times with a required reason, corrections history, member streak and weekly visits. Migration `2027-01-02-gym-attendance-corrections.sql` |
+| Gym roles (G9) | **Built** 2026-11-10: Gym Owner, Gym Admin, Manager, Receptionist, Attendance Staff, Trainer as permission presets; invites keep their role. Migration `2027-01-03-gym-role-presets.sql` |
 | Everything else in section 4 | Not started |
 
 ## 1. What exists today

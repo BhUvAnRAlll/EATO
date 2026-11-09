@@ -19,7 +19,7 @@ const limits = {
 const MAX_PLAN_MONTHS = 24;
 const METHODS = ["online", "cash"];
 const SALE_KINDS = { supplement: "Supplement", merchandise: "Merchandise", other: "Product" };
-const MEMBER_FILTERS = ["all", "due", "overdue", "expiring", "expiring_soon", "expired", "birthday"];
+const MEMBER_FILTERS = ["all", "due", "overdue", "expiring", "expiring_soon", "expired", "birthday", "suspended", "cancelled"];
 // "Expiring soon" looks from tomorrow to this many days ahead: 3 by default, the chips go to 30,
 // or "all" for every plan still running
 const EXPIRING_SOON_DAYS = { min: 1, max: 90, default: 3, all: "all" };
@@ -415,7 +415,7 @@ function memberEditBody(body) {
 const MEMBER_SORTS = ["name", "days", "due"];
 function membersQuery(query = {}) {
   const filter = query.filter === undefined || query.filter === "" ? "all" : query.filter;
-  if (!MEMBER_FILTERS.includes(filter)) throw new ValidationError("Pick a filter: all, due, overdue, expiring, expiring soon, expired or birthdays.");
+  if (!MEMBER_FILTERS.includes(filter)) throw new ValidationError("Pick a filter: all, due, overdue, expiring, expiring soon, expired, birthdays, suspended or cancelled.");
   const search = typeof query.search === "string" ? query.search.trim() : "";
   if (search.length > limits.search) throw new ValidationError(`Search for at most ${limits.search} characters.`);
   const sort = query.sort === undefined || query.sort === "" ? "name" : query.sort;

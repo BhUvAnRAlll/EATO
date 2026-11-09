@@ -17,6 +17,7 @@ import { gymApi, type GymInfo, type GymMemberDetail } from "@/lib/gymApi";
 import { durationText } from "@/lib/attendanceText";
 import { useGymSave } from "@/lib/gymForm";
 import { useGymData } from "@/lib/useGymData";
+import { StandingCard } from "@/components/gym/StandingCard";
 import { useCan } from "@/store/gymAccess";
 import { useThemeColors } from "@/theme";
 
@@ -117,6 +118,8 @@ export default function GymMember() {
             </Text>
           ) : null}
         </View>
+        {/* Suspended or cancelled by the gym, and the change (Members › Suspend, cancel or reactivate) */}
+        <StandingCard member={member} canChange={can("members.standing")} onSaved={set} />
         {/* The personal training they bought: the package, its dates and the trainer it's with */}
         {member.pt ? (
           <View className="gym-summary" accessibilityLabel={`Personal training: ${member.pt.label}, ${member.pt.active ? "active" : "ended"}, ${shortDate(member.pt.from)} to ${shortDate(member.pt.until)}${member.pt.trainer ? `, with ${member.pt.trainer.name}` : ""}`}>

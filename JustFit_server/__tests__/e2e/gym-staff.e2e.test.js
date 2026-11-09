@@ -135,7 +135,7 @@ describe("gym staff e2e: Staff / Admin Login, invites and roles", () => {
     const list = await as("owner").get("/api/gym/staff");
     assert.equal(list.status, 200, JSON.stringify(list.json));
     assert.equal(list.json.team.length, 1);
-    assert.deepEqual({ ...list.json.team[0], addedAt: undefined }, { id: identities.owner.id, name: null, phone: list.json.team[0].phone, kind: "owner", areas: rules_areas(), options: [...staffRules.OPTION_IDS], branchIds: [state.tumkur, state.kunigal], addedAt: undefined, you: true });
+    assert.deepEqual({ ...list.json.team[0], addedAt: undefined }, { id: identities.owner.id, name: null, phone: list.json.team[0].phone, kind: "owner", areas: rules_areas(), options: [...staffRules.OPTION_IDS], branchIds: [state.tumkur, state.kunigal], addedAt: undefined, you: true, role: "owner" });
     assert.match(list.json.team[0].phone, /^\+91 ••••• ••\d{3}$/, "numbers are masked");
     assert.deepEqual(list.json.invites, []);
   }));

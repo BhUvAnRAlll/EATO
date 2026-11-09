@@ -13,6 +13,15 @@ async function hasRegistration(db) {
   return registration.has;
 }
 
+// Whether migration 2027-01-01 (membership states, gym/standing.js) has run, the same way
+let standingColumn = { has: false, at: 0 };
+async function hasStanding(db) {
+  if (standingColumn.has || Date.now() - standingColumn.at < 60000) return standingColumn.has;
+  const [[row]] = await db.query("SELECT COUNT(*) AS n FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'gym_members' AND COLUMN_NAME = 'standing'");
+  standingColumn = { has: Number(row.n) > 0, at: Date.now() };
+  return standingColumn.has;
+}
+
 /** { status, note } of a branch; approved (no note) before the migration or for a missing branch */
 async function statusOf(db, gymId) {
   if (!(await hasRegistration(db))) return { status: "approved", note: null };
@@ -35,4 +44,4 @@ async function visibleClause(db, alias = "g") {
   return (await hasRegistration(db)) ? ` AND ${alias}.status = 'approved'` : "";
 }
 
-module.exports = { hasRegistration, statusOf, refuseSuspended, visibleClause };
+module.exports = { hasRegistration, hasStanding, statusOf, refuseSuspended, visibleClause };

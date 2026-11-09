@@ -128,6 +128,9 @@ export const MEMBER_FILTERS: { id: MemberFilter; label: string }[] = [
   { id: "expiring_soon", label: "Expiring soon" },
   { id: "expired", label: "Expired" },
   { id: "birthday", label: "Birthdays today" },
+  // Membership states (2027-01-01): shown once the server counts them
+  { id: "suspended", label: "Suspended" },
+  { id: "cancelled", label: "Cancelled" },
 ];
 // How far ahead "Expiring soon" looks (every plan still running, or tomorrow to this many days):
 // the list's day chips, All first and selected by default (the user's request). Home's row

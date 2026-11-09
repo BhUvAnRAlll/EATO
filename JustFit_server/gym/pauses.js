@@ -7,6 +7,8 @@ const { NotFoundError, ConflictError, ForbiddenError } = require("../errors");
 const { getAccount } = require("../auth");
 const { audit } = require("../admin/overview");
 const service = require("./service");
+const standing = require("./standing");
+const standingRules = require("./standingRules");
 const rules = require("./rules");
 const pauseRules = require("./pauseRules");
 
@@ -59,7 +61,9 @@ async function membershipOf(db, row, today) {
   const open = await openPause(db, row.id, today);
   const [history] = await db.query(`SELECT ${PAUSE_COLUMNS} FROM gym_membership_pauses p WHERE p.member_id = ? ORDER BY p.id DESC LIMIT 5`, [row.id]);
   const expiresOn = row.expires_on;
-  const problem = pauseRules.pauseProblem({ expiresOn }, open, today, today);
+  const state = await standing.standingOf(db, row.id);
+  const problem = standingRules.inactiveProblem(state.standing, row.brand) ?? pauseRules.pauseProblem({ expiresOn }, open, today, today);
+  const eligible = await standing.eligibilityOf(db, row.gym_id, row.id, today);
   return {
     id: row.id,
     gym: { name: row.brand, branch: row.branch, area: row.area, city: row.city },
@@ -78,7 +82,11 @@ async function membershipOf(db, row, today) {
     history: history.map(pauseOf),
     canPause: problem === null,
     pauseProblem: problem,
-    limits: { maxDays: pauseRules.MAX_PAUSE_DAYS, maxStartAheadDays: pauseRules.MAX_START_AHEAD_DAYS },
+    limits: { maxDays: Math.min(pauseRules.MAX_PAUSE_DAYS, eligible.maxDaysNow || eligible.policy.maxDaysEach), maxStartAheadDays: pauseRules.MAX_START_AHEAD_DAYS },
+    // Membership state (suspended or cancelled by the gym) and what the gym's pause policy leaves
+    standing: state.standing,
+    standingNote: state.note,
+    pauseAllowance: { pausesLeft: eligible.pausesLeft, daysLeft: eligible.daysLeft, used: eligible.used, policy: eligible.policy },
   };
 }
 
@@ -115,9 +123,14 @@ async function ownMembership(db, userId, memberId) {
 async function requestPause(pool, userId, memberId, body, today) {
   return inTransaction(pool, async (db) => {
     const row = await ownMembership(db, userId, memberId);
+    await standing.refuseInactive(db, row.id, row.brand);
     const open = await openPause(db, row.id, today, { lock: true });
     const problem = pauseRules.pauseProblem({ expiresOn: row.expires_on }, open, body.from, today);
     if (problem) throw new ConflictError(problem);
+    // The gym's pause policy (gym/standingRules.js): pauses and days in 12 months, the longest pause
+    const eligible = await standing.eligibilityOf(db, row.gym_id, row.id, today);
+    const policyProblem = standingRules.policyProblem(eligible.policy, eligible.used, body.days);
+    if (policyProblem) throw new ConflictError(policyProblem);
     await db.query(
       "INSERT INTO gym_membership_pauses (gym_id, member_id, requested_by, status, pause_from, pause_until, days, reason, requester_id) VALUES (?, ?, 'member', 'pending', ?, ?, ?, ?, ?)",
       [row.gym_id, row.id, body.from, body.until, body.days, body.reason, userId],
@@ -195,6 +208,7 @@ async function decide(pool, gym, userId, pauseId, approve, { note }, today) {
 async function staffPause(pool, gym, userId, memberId, body, today) {
   await inTransaction(pool, async (db) => {
     const member = await service.memberRow(db, gym.id, memberId, today, { lock: true });
+    await standing.refuseInactive(db, member.id, gym.brand);
     const open = await openPause(db, member.id, today, { lock: true });
     const problem = pauseRules.pauseProblem({ expiresOn: member.expires_on }, open, body.from, today);
     if (problem) throw new ConflictError(problem);

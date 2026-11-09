@@ -17,7 +17,7 @@ async function detail(pool, userId, memberId, query, today) {
   const { month } = rules.hubQuery(query, today);
   const bounds = rules.monthBounds(month, today);
 
-  const [[payments], [pauseRows], [visitRows], [[stats]]] = await Promise.all([
+  const [[payments], [pauseRows], [visitRows], [[stats]], [recentDays]] = await Promise.all([
     pool.query(
       `SELECT id, kind, detail, method, amount, ${DAY("paid_on")} AS paid_on FROM gym_payments
        WHERE member_id = ? AND gym_id = ? ORDER BY paid_on DESC, id DESC LIMIT ?`,
@@ -44,7 +44,10 @@ async function detail(pool, userId, memberId, query, today) {
        FROM gym_attendance a WHERE a.member_id = ? AND a.gym_id = ?`,
       [`${today.slice(0, 7)}-01`, addDays(today, -6), addDays(today, -29), row.id, row.gym_id],
     ),
+    // Visit days of the last 120 days, for the streak and this week (never another gym's)
+    pool.query(`SELECT DISTINCT ${DAY("on_date")} AS day FROM gym_attendance WHERE member_id = ? AND gym_id = ? AND on_date >= ?`, [row.id, row.gym_id, addDays(today, -120)]),
   ]);
+  const visitDays = recentDays.map((r) => r.day);
 
   const visits = visitRows.map((r) => ({
     id: r.id,
@@ -78,6 +81,8 @@ async function detail(pool, userId, memberId, query, today) {
         totalDays: Number(stats.total_days),
         averageMin: stats.average_min === null ? null : Number(stats.average_min),
         lastVisit: stats.last_visit,
+        streakDays: rules.streakDays(visitDays, today),
+        thisWeek: rules.weekVisits(visitDays, today),
       },
     },
   };

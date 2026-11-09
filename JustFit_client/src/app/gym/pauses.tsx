@@ -6,6 +6,7 @@ import { FormAlert } from "@/components/FormAlert";
 import { PressableScale } from "@/components/PressableScale";
 import { GradientFill } from "@/components/gym/GradientFill";
 import { FilterChip } from "@/components/gym/GymChip";
+import { GymField } from "@/components/gym/GymField";
 import { GymIcon } from "@/components/gym/GymIcon";
 import { GymScreen } from "@/components/gym/GymScreen";
 import { GymEmpty, GymError, GymLoading } from "@/components/gym/GymStates";
@@ -38,6 +39,8 @@ export default function PauseRequests() {
   const { setRow, onRowLayout, onChipLayout } = useCenteredChip(view);
   // The card whose Approve or Reject is waiting for a second tap
   const [deciding, setDeciding] = useState<{ id: number; approve: boolean } | null>(null);
+  // A rejection says why (the member reads it): the reason is asked for on the first tap
+  const [reason, setReason] = useState("");
   const load = useCallback((token: string | null) => gymApi.pauses(token, view), [view]);
   const { result, retry, update, refreshing, refresh } = useGymData(load);
   const data = result.state === "ready" ? result.data : null;
@@ -56,14 +59,19 @@ export default function PauseRequests() {
     if (busy) return;
     if (deciding?.id !== pause.id || deciding.approve !== approve) {
       haptic.select();
+      setReason("");
       return setDeciding({ id: pause.id, approve });
     }
-    save((token) => (approve ? gymApi.approvePause(token, pause.id) : gymApi.rejectPause(token, pause.id)));
+    if (!approve && reason.trim().length < 3) return;
+    save((token) => (approve ? gymApi.approvePause(token, pause.id) : gymApi.rejectPause(token, pause.id, reason.trim())));
   };
 
   const header = (
     <View style={{ gap: 12, paddingBottom: 6 }}>
       <Text className="gym-tx__meta">{"Approving adds the paused days to the member's plan and keeps QR check-ins off while it runs. The member sees your answer in the app."}</Text>
+      <PressableScale onPress={() => router.push("/gym/pause-policy")} hitSlop={8} className="self-start" accessibilityRole="button" accessibilityLabel="Pause limits">
+        <Text className="gym-link">Pause limits</Text>
+      </PressableScale>
       <ScrollView ref={setRow} onLayout={onRowLayout} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }} accessibilityRole="tablist">
         {VIEWS.map((v) => {
           const selected = v.id === view;
@@ -132,11 +140,14 @@ export default function PauseRequests() {
                 </Text>
                 {item.note ? <Text className="gym-tx__meta">{`Note: ${item.note}`}</Text> : null}
               </View>
+              {pending && asking && !asking.approve ? (
+                <GymField label="Why not? (the member reads it)" icon="message-square" value={reason} onChangeText={(t) => setReason(t.slice(0, 200))} maxLength={200} placeholder="e.g. Not during the challenge month" autoFocus />
+              ) : null}
               {pending && (
                 <View className="flex-row" style={{ gap: 8 }}>
                   <PressableScale onPress={() => decide(item, false)} haptic="tap" className="gym-btn gym-btn--outline flex-1" style={asking && !asking.approve ? { borderColor: colors.gymDanger } : undefined} accessibilityRole="button" accessibilityLabel={asking && !asking.approve ? `Confirm: reject ${item.member.name}'s pause` : `Reject ${item.member.name}'s pause`}>
                     <GymIcon name="x" size={16} color={colors.gymDanger} />
-                    <Text className="gym-btn__label gym-btn__label--outline" style={{ color: colors.gymDanger }}>{busy && asking && !asking.approve ? "Rejecting…" : asking && !asking.approve ? "Tap again to reject" : "Reject"}</Text>
+                    <Text className="gym-btn__label gym-btn__label--outline" style={{ color: colors.gymDanger }}>{busy && asking && !asking.approve ? "Rejecting…" : asking && !asking.approve ? (reason.trim().length < 3 ? "Write the reason" : "Reject with reason") : "Reject"}</Text>
                   </PressableScale>
                   <PressableScale onPress={() => decide(item, true)} haptic="tap" className="gym-btn flex-1" accessibilityRole="button" accessibilityLabel={asking?.approve ? `Confirm: approve ${item.member.name}'s pause` : `Approve ${item.member.name}'s pause`}>
                     <GradientFill radius={14} />

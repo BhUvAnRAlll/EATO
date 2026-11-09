@@ -49,4 +49,25 @@ function calendarDays(visits) {
   return [...byDay.values()].sort((a, b) => a.date.localeCompare(b.date));
 }
 
-module.exports = { MONTHS_BACK, hubQuery, monthBounds, calendarDays };
+// Attendance streak (Gym Hub ecosystem, 2026-11-10): visit days in a row ending today, or yesterday
+// when there is no visit yet today (the day isn't over). days: distinct YYYY-MM-DD visit days.
+function streakDays(days, today) {
+  const set = new Set(days);
+  const shift = (day, n) => new Date(Date.parse(`${day}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
+  let day = set.has(today) ? today : shift(today, -1);
+  let count = 0;
+  while (set.has(day)) {
+    count += 1;
+    day = shift(day, -1);
+  }
+  return count;
+}
+
+// Visit days this week, Monday to today
+function weekVisits(days, today) {
+  const weekday = (new Date(`${today}T00:00:00Z`).getUTCDay() + 6) % 7; // Monday 0
+  const monday = new Date(Date.parse(`${today}T00:00:00Z`) - weekday * 86400000).toISOString().slice(0, 10);
+  return new Set(days.filter((d) => d >= monday && d <= today)).size;
+}
+
+module.exports = { MONTHS_BACK, hubQuery, monthBounds, calendarDays, streakDays, weekVisits };

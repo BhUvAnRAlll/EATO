@@ -18,6 +18,7 @@ const xlsx = require("./xlsx");
 const pauses = require("./pauses");
 const staffAttendance = require("./staffAttendance");
 const gymStatus = require("./gymStatus");
+const standing = require("./standing");
 
 const IST_OFFSET_MS = 330 * 60 * 1000;
 // "2026-11-04 18:05" in India time, from epoch milliseconds
@@ -112,6 +113,7 @@ const isDuplicate = (error) => error?.code === "ER_DUP_ENTRY";
 async function staffCheckIn(pool, gymId, userId, memberId, today) {
   return inTransaction(pool, async (db) => {
     await lockMember(db, gymId, memberId);
+    await standing.refuseInactive(db, memberId, "the gym");
     await closeStale(db, "member_id = ?", [memberId], today);
     if (await openVisit(db, memberId)) return { alreadyIn: true };
     try {
@@ -193,6 +195,8 @@ async function resolveScan(db, userId, qrKey, qr, today, { lock = false, gym: fo
   if (!member) {
     throw new ForbiddenError(`You aren't a member at ${place.name} ${place.branch} yet, or your membership has a different mobile number. Ask the front desk to add your sign-in number.`);
   }
+  // Suspended or cancelled by the gym (migration 2027-01-01): no check-in until reactivated
+  await standing.refuseInactive(db, member.id, place.name);
   // Pause Membership: an approved pause running today keeps the member out until it ends
   const paused = await pauses.currentPause(db, member.id, today);
   return {

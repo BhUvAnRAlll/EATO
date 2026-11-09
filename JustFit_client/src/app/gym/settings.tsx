@@ -29,6 +29,7 @@ const GROUPS: SettingGroup[] = [
       { label: "Invoice details & logo", text: "Address, phone, GSTIN and your logo", icon: "file-text", href: "/gym/details", ownerOnly: true },
       { label: "Gym Profile", text: "What members see: photos, facilities, hours, publish", icon: "store", href: "/gym/profile", need: "profile.view" },
       { label: "Outlets", text: "Switch branch or add one", icon: "map-pin", href: "/gym/branches" },
+      { label: "Pause limits", text: "How many pauses and days members may ask for", icon: "circle-pause", href: "/gym/pause-policy", need: "members.pause" },
     ],
   },
   {

@@ -37,6 +37,7 @@ const AREA_OF_PATH = [
   // An invoice is sent from the member's ⋯ sheet and their page, so it goes with members too
   [/^\/payments\/[^/]+\/invoice$/, "members"],
   [/^\/(members|trainers|pauses)(\/|$)/, "members"],
+  [/^\/pause-policy$/, "members"],
   [/^\/(payments|services|sales|wallet)(\/|$)/, "payments"],
   [/^\/enquiries(\/|$)/, "enquiries"],
   [/^\/catalog(\/|$)/, "catalog"],
@@ -58,6 +59,7 @@ const OPTIONS = [
   { id: "members.edit", area: "members", label: "Edit profile, photo and trainer", needs: "members.view" },
   { id: "members.renew", area: "members", label: "Renew membership", needs: "members.view" },
   { id: "members.pause", area: "members", label: "Pause membership and pause requests", needs: "members.view" },
+  { id: "members.standing", area: "members", label: "Suspend, cancel or reactivate memberships", needs: "members.view" },
   { id: "payments.collect", area: "payments", label: "Collect payment due" },
   { id: "payments.pt", area: "payments", label: "Personal training (PT)" },
   { id: "payments.sales", area: "payments", label: "Product and service sales" },
@@ -77,6 +79,7 @@ const OPTIONS = [
   { id: "attendance.checkin", area: "attendance", label: "Check members in and out" },
   { id: "attendance.export", area: "attendance", label: "Export history (CSV)", needs: "attendance.view" },
   { id: "attendance.settings", area: "attendance", label: "Location and QR code", needs: "attendance.view" },
+  { id: "attendance.correct", area: "attendance", label: "Correct visits and add missed ones", needs: "attendance.view" },
   { id: "sms.view", area: "sms", label: "Credits and message logs" },
   { id: "sms.send", area: "sms", label: "Send SMS", needs: "sms.view" },
   { id: "sms.auto", area: "sms", label: "Auto reminder settings", needs: "sms.view" },
@@ -107,6 +110,8 @@ const OPTION_OF_ROUTE = [
   [["POST"], /^\/members\/[^/]+\/trainer$/, ["members.edit"]],
   [["POST"], /^\/members\/[^/]+\/renew$/, ["members.renew"]],
   [["POST"], /^\/members\/[^/]+\/pause$/, ["members.pause"]],
+  [["POST"], /^\/members\/[^/]+\/standing$/, ["members.standing"]],
+  [["GET", "PUT"], /^\/pause-policy$/, ["members.pause"]],
   [["GET", "POST"], /^\/pauses(\/|$)/, ["members.pause"]],
   [["POST"], /^\/members\/[^/]+\/due$/, ["payments.collect"]],
   [["POST"], /^\/members\/[^/]+\/pt$/, ["payments.pt"]],
@@ -136,6 +141,9 @@ const OPTION_OF_ROUTE = [
   [["GET"], /^\/attendance\/export$/, ["attendance.export"]],
   [["GET"], /^\/attendance\/settings$/, ["attendance.settings"]],
   [["GET"], /^\/attendance\/crowd$/, ["attendance.view"]],
+  [["POST"], /^\/attendance\/visits$/, ["attendance.correct"]],
+  [["PATCH"], /^\/attendance\/visits\/[^/]+$/, ["attendance.correct"]],
+  [["GET"], /^\/attendance\/corrections$/, ["attendance.view"]],
   [["PUT"], /^\/attendance\/crowd-settings$/, ["attendance.settings"]],
   [["PUT", "POST"], /^\/attendance\/(location|qr)$/, ["attendance.settings"]],
   [["GET"], /^\/sms(\/logs)?$/, ["sms.view"]],
@@ -155,13 +163,18 @@ const KIND_LABEL = { owner: "Gym admin", staff: "Staff", trainer: "Trainer" };
 
 const isPlainObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
 
-// POST /api/gym/staff: { phone, kind, branchId? }. branchId (2026-11-07): the branch to add them
+// POST /api/gym/staff: { phone, kind, branchId?, preset? }. branchId (2026-11-07): the branch to add them
 // to; left out, the open branch. staff.add checks it's a branch of this gym the caller manages.
+// preset (2026-11-10, gym roles): a Staff login's role (gym/rolePresets.js), checked in staff.add.
 function addBody(body) {
   if (!isPlainObject(body)) throw new ValidationError("Send the details as JSON.");
-  if (Object.keys(body).some((key) => !["phone", "kind", "branchId"].includes(key))) throw new ValidationError("That request has fields we don't use.");
+  if (Object.keys(body).some((key) => !["phone", "kind", "branchId", "preset"].includes(key))) throw new ValidationError("That request has fields we don't use.");
   if (!KINDS.includes(body.kind)) throw new ValidationError("Choose Staff or Trainer.");
   const out = { phone: normalizePhone(body.phone), kind: body.kind };
+  if (body.preset !== undefined && body.preset !== null) {
+    if (body.kind !== "staff" || typeof body.preset !== "string" || body.preset.length > 20) throw new ValidationError("Pick a role from the list.");
+    out.preset = body.preset;
+  }
   if (body.branchId !== undefined && body.branchId !== null) {
     if (!Number.isInteger(body.branchId) || body.branchId < 1 || body.branchId > 2147483647) throw new ValidationError("Pick one of your branches.");
     out.branchId = body.branchId;

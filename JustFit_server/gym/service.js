@@ -5,6 +5,7 @@
 const { NotFoundError, ConflictError } = require("../errors");
 const { ValidationError } = require("../profile");
 const { toE164 } = require("../auth/phone");
+const gymStatus = require("./gymStatus");
 const rules = require("./rules");
 const staffRules = require("./staffRules");
 const predictionRules = require("./predictionRules");
@@ -156,6 +157,9 @@ const memberOf = (r, today) => ({
   // whether the membership is paused today
   pause: openPauseOf(r.pause_json, today),
   pausedNow: pauseRules.pausedOn(openPauseOf(r.pause_json, today), today),
+  // Suspended or cancelled by the gym (migration 2027-01-01): no check-in or pause until reactivated
+  standing: r.standing ?? "active",
+  standingNote: r.standing_note ?? null,
 });
 // The newest pending or approved pause as the column's JSON (mysql2 may hand it over parsed or as text)
 function openPauseOf(json, today) {
@@ -234,11 +238,17 @@ async function members(pool, gymId, { filter, search, days = rules.EXPIRING_SOON
   if (filter === "expiring_soon") { where += " AND m.expires_on BETWEEN ? AND ?"; params.push(rules.addDays(today, 1), expiringUntil(today, days)); }
   if (filter === "birthday") { where += " AND DATE_FORMAT(m.dob, '%m-%d') = ?"; params.push(today.slice(5)); }
   if (filter === "expired") { where += " AND m.expires_on < ?"; params.push(today); }
+  const withStanding = await gymStatus.hasStanding(pool);
+  if (filter === "suspended" || filter === "cancelled") {
+    if (!withStanding) return { members: [], counts: await memberCounts(pool, gymId, found, today, days), page, nextPage: null };
+    where += " AND m.standing = ?";
+    params.push(filter);
+  }
   // 50 a page (one more row tells whether there is a next page), the counts fetched alongside
   const size = rules.limits.page;
   const withName = await hasPlanName(pool);
   const [[rows], counts] = await Promise.all([
-    pool.query(`SELECT ${memberColumns(withName)} FROM gym_members m ${where} ORDER BY ${MEMBER_ORDER[sort] ?? MEMBER_ORDER.name} LIMIT ? OFFSET ?`, [...params, size + 1, (page - 1) * size]),
+    pool.query(`SELECT ${memberColumns(withName, withStanding)} FROM gym_members m ${where} ORDER BY ${MEMBER_ORDER[sort] ?? MEMBER_ORDER.name} LIMIT ? OFFSET ?`, [...params, size + 1, (page - 1) * size]),
     memberCounts(pool, gymId, found, today, days),
   ]);
   const list = rows.slice(0, size);
@@ -248,6 +258,7 @@ async function members(pool, gymId, { filter, search, days = rules.EXPIRING_SOON
 // How many members each filter would list (within the same search), for the list's chips;
 // "expiring soon" counts the window the caller asked for (tomorrow to `days` ahead, or all)
 async function memberCounts(pool, gymId, found, today, days) {
+  const withStanding = await gymStatus.hasStanding(pool);
   const [[c]] = await pool.query(
     `SELECT COUNT(*) AS all_members,
             COALESCE(SUM(m.due_amount > 0), 0) AS due,
@@ -255,18 +266,20 @@ async function memberCounts(pool, gymId, found, today, days) {
             COALESCE(SUM(m.expires_on = ?), 0) AS expiring,
             COALESCE(SUM(m.expires_on BETWEEN ? AND ?), 0) AS expiring_soon,
             COALESCE(SUM(m.expires_on < ?), 0) AS expired,
-            COALESCE(SUM(DATE_FORMAT(m.dob, '%m-%d') = ?), 0) AS birthday
+            COALESCE(SUM(DATE_FORMAT(m.dob, '%m-%d') = ?), 0) AS birthday${withStanding ? ",\n            COALESCE(SUM(m.standing = 'suspended'), 0) AS suspended, COALESCE(SUM(m.standing = 'cancelled'), 0) AS cancelled" : ""}
      FROM gym_members m WHERE m.gym_id = ?${found.sql}`,
     [today, today, rules.addDays(today, 1), expiringUntil(today, days), today, today.slice(5), gymId, ...found.params],
   );
   return {
     all: Number(c.all_members), due: Number(c.due), overdue: Number(c.overdue), expiring: Number(c.expiring),
     expiring_soon: Number(c.expiring_soon), expired: Number(c.expired), birthday: Number(c.birthday),
+    // Membership states (migration 2027-01-01); absent before it
+    ...(withStanding ? { suspended: Number(c.suspended), cancelled: Number(c.cancelled) } : {}),
   };
 }
 
 async function memberRow(db, gymId, memberId, today, { lock = false } = {}) {
-  const [[row]] = await db.query(`SELECT ${memberColumns(await hasPlanName(db))} FROM gym_members m WHERE m.id = ? AND m.gym_id = ?${lock ? " FOR UPDATE" : ""}`, [today, memberId, gymId]);
+  const [[row]] = await db.query(`SELECT ${memberColumns(await hasPlanName(db), await gymStatus.hasStanding(db))} FROM gym_members m WHERE m.id = ? AND m.gym_id = ?${lock ? " FOR UPDATE" : ""}`, [today, memberId, gymId]);
   if (!row) throw new NotFoundError("That member isn't at your gym.");
   return row;
 }
@@ -352,7 +365,9 @@ async function hasPlanName(db) {
   return planNameColumn.has;
 }
 // The member columns, with the plan's name once the column exists
-const memberColumns = (withPlanName) => (withPlanName ? `${MEMBER_COLUMNS}, m.plan_name` : MEMBER_COLUMNS);
+// and the membership's state once migration 2027-01-01 has run (gym/standing.js)
+const memberColumns = (withPlanName, withStanding = false) =>
+  `${MEMBER_COLUMNS}${withPlanName ? ", m.plan_name" : ""}${withStanding ? ", m.standing, m.standing_note" : ""}`;
 
 // The catalogue plan's name for Add Member and Renewal: one of this branch's plans, or a 400
 async function catalogPlanName(db, gymId, planId) {

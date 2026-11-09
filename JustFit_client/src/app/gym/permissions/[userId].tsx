@@ -6,11 +6,12 @@ import { useLocalSearchParams, usePreventRemove } from "expo-router";
 
 import { FormAlert } from "@/components/FormAlert";
 import { PressableScale } from "@/components/PressableScale";
+import { GymChips } from "@/components/gym/GymField";
 import { GymIcon } from "@/components/gym/GymIcon";
 import { GymPrimaryButton } from "@/components/gym/GymPrimaryButton";
 import { GymScreen } from "@/components/gym/GymScreen";
 import { GymError, GymLoading } from "@/components/gym/GymStates";
-import { gymApi, type GymTeam, type PermissionTile, type StaffOption, type TeamMember } from "@/lib/gymApi";
+import { gymApi, type GymTeam, type PermissionTile, type RolePreset, type StaffOption, type TeamMember } from "@/lib/gymApi";
 import { useGymSave } from "@/lib/gymForm";
 import { haptic } from "@/lib/haptics";
 import { confirmChoice } from "@/lib/nativeSheets";
@@ -48,10 +49,10 @@ export default function StaffPermissionsScreen() {
       </GymScreen>
     );
   }
-  return <PermissionsEditor key={member.id} member={member} tree={result.data.permissionTree} onSaved={set} />;
+  return <PermissionsEditor key={member.id} member={member} tree={result.data.permissionTree} roles={result.data.roles ?? []} onSaved={set} />;
 }
 
-function PermissionsEditor({ member, tree, onSaved }: { member: TeamMember; tree: PermissionTile[]; onSaved: (team: GymTeam) => void }) {
+function PermissionsEditor({ member, tree, roles, onSaved }: { member: TeamMember; tree: PermissionTile[]; roles: RolePreset[]; onSaved: (team: GymTeam) => void }) {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
   const [saved, setSaved] = useState<StaffOption[]>(member.options);
@@ -107,6 +108,18 @@ function PermissionsEditor({ member, tree, onSaved }: { member: TeamMember; tree
           </Text>
         </View>
 
+        {/* Gym roles (2026-11-10): a role ticks its options; any box can still be changed before Save */}
+        {roles.length ? (
+          <GymChips
+            label="Start from a role"
+            options={roles.map((r) => ({ value: r.id, label: r.label }))}
+            value={roles.find((r) => r.options.length === ticked.length && r.options.every((o) => ticked.includes(o)))?.id ?? ("" as RolePreset["id"])}
+            onChange={(id) => {
+              const picked = roles.find((r) => r.id === id);
+              if (picked) setTicked(tree.flatMap((t) => t.options.map((o) => o.id)).filter((o) => picked.options.includes(o)));
+            }}
+          />
+        ) : null}
         <View className="gym-perm-search">
           <GymIcon name="search" size={18} color={colors.gymFaint} />
           <TextInput

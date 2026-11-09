@@ -1,4 +1,4 @@
-import type { Membership, MembershipPause } from "@/lib/membershipApi";
+import type { Membership, MembershipPause, PauseAllowance } from "@/lib/membershipApi";
 
 // Words for the Membership screens (pure): dates, the plan's length, the status badge and the
 // one line that says where a pause stands.
@@ -14,7 +14,9 @@ export const addDays = (iso: string, count: number) => new Date(Date.parse(`${is
 
 export type BadgeTone = "active" | "pending" | "expired" | "paused";
 // The badge on a membership card: paused wins over the plan's own state
-export function membershipBadge(m: Pick<Membership, "status" | "pausedNow" | "pause" | "daysLeft">): { label: string; tone: BadgeTone } {
+export function membershipBadge(m: Pick<Membership, "status" | "pausedNow" | "pause" | "daysLeft" | "standing">): { label: string; tone: BadgeTone } {
+  if (m.standing === "suspended") return { label: "Suspended", tone: "expired" };
+  if (m.standing === "cancelled") return { label: "Cancelled", tone: "expired" };
   if (m.pausedNow && m.pause) return { label: `Paused until ${prettyDate(m.pause.until)}`, tone: "paused" };
   if (m.status === "expired") return { label: "Expired", tone: "expired" };
   if (m.status === "expiring") return { label: "Expires today", tone: "pending" };
@@ -36,4 +38,13 @@ export function historyLine(pause: MembershipPause): string {
   if (pause.status === "cancelled") return `Cancelled · ${span}`;
   if (pause.status === "approved") return `${pause.by === "staff" ? "Paused by the gym" : "Paused"} · ${span}`;
   return `Requested · ${span}`;
+}
+
+// What the gym's pause limits leave, or null when the gym has none: "1 pause and 10 days left in 12 months"
+export function allowanceLine(a: PauseAllowance | undefined): string | null {
+  if (!a || (a.pausesLeft === null && a.daysLeft === null)) return null;
+  const parts: string[] = [];
+  if (a.pausesLeft !== null) parts.push(`${a.pausesLeft} ${a.pausesLeft === 1 ? "pause" : "pauses"}`);
+  if (a.daysLeft !== null) parts.push(`${a.daysLeft} ${a.daysLeft === 1 ? "day" : "days"}`);
+  return `${parts.join(" and ")} left in these 12 months · up to ${a.policy.maxDaysEach} days a pause`;
 }

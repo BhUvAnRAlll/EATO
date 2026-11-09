@@ -1512,6 +1512,7 @@ CREATE TABLE gyms (                               -- one branch of a gym brand
   capacity    SMALLINT UNSIGNED NULL,              -- Crowd (migration 2026-12-29): people it holds at once; NULL: not set (no crowd level)
   avg_stay_min SMALLINT UNSIGNED NULL,             -- the usual workout, for visits that never checked out; NULL: from history
   crowd_thresholds JSON  NULL,                     -- { moderate, busy, veryBusy }: % of capacity where each level starts; NULL: 40/70/90
+  pause_policy JSON      NULL,                     -- migration 2027-01-01: { maxPerYear, maxDaysPerYear, maxDaysEach } for members' requests; NULL: defaults
   qr_version  INT UNSIGNED NOT NULL DEFAULT 0,     -- the attendance QR code's version (0: none yet); a new one voids the old
   qr_made_at  TIMESTAMP    NULL,
   created_by  VARCHAR(64)  NULL,
@@ -1588,6 +1589,7 @@ CREATE TABLE gym_staff_invites (
   gym_id      INT UNSIGNED NOT NULL,
   phone       CHAR(10)     NOT NULL,                -- 10 digits, +91 implied
   kind        ENUM('staff', 'trainer') NOT NULL,
+  permissions JSON         NULL,                -- gym roles (migration 2027-01-03): the Staff login's options until they join; NULL: every option
   invited_by  VARCHAR(64)  NULL,
   created_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
@@ -1617,6 +1619,10 @@ CREATE TABLE gym_members (
   plan_name    VARCHAR(80)  NULL,                -- the catalogue plan's name when bought (migration 2026-12-12); NULL: a custom plan
   joined_on    DATE         NOT NULL,
   expires_on   DATE         NOT NULL,            -- the last day the membership covers
+  standing     ENUM('active', 'suspended', 'cancelled') NOT NULL DEFAULT 'active', -- migration 2027-01-01: set by the gym; not active = no check-in or pause
+  standing_note VARCHAR(200) NULL,               -- the gym's reason
+  standing_at  TIMESTAMP    NULL,
+  standing_by  VARCHAR(64)  NULL,
   due_amount   INT UNSIGNED NOT NULL DEFAULT 0,  -- rupees still owed
   due_by       DATE         NULL,                -- the date it should be paid by (NULL when nothing is owed)
   pt_label     VARCHAR(60)  NULL,                -- the latest PT package ("12 sessions") and its period
@@ -1636,6 +1642,7 @@ CREATE TABLE gym_members (
   CONSTRAINT fk_gym_members_created_by FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL,
   CONSTRAINT fk_gym_members_pt_trainer FOREIGN KEY (pt_trainer_id) REFERENCES users (id) ON DELETE SET NULL,
   CONSTRAINT chk_gym_members_phone CHECK (phone IS NULL OR phone REGEXP '^[6-9][0-9]{9}$'),
+  CONSTRAINT fk_gym_members_standing_by FOREIGN KEY (standing_by) REFERENCES users (id) ON DELETE SET NULL,
   CONSTRAINT chk_gym_members_plan CHECK (plan_months BETWEEN 1 AND 24),
   CONSTRAINT chk_gym_members_plan_days CHECK (plan_days BETWEEN 1 AND 365),
   CONSTRAINT chk_gym_members_plan_one CHECK ((plan_months IS NULL) <> (plan_days IS NULL)),
@@ -1760,6 +1767,30 @@ CREATE TABLE gym_attendance (
   CONSTRAINT fk_gym_attendance_member FOREIGN KEY (member_id) REFERENCES gym_members (id),
   CONSTRAINT fk_gym_attendance_created_by FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL,
   CONSTRAINT fk_gym_attendance_checked_out_by FOREIGN KEY (checked_out_by) REFERENCES users (id) ON DELETE SET NULL
+) ENGINE = InnoDB;
+
+-- Attendance corrections (migration 2027-01-02): every fixed or added visit, with the times before
+-- and after, the reason and who made it
+CREATE TABLE gym_attendance_corrections (
+  id             INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  gym_id         INT UNSIGNED NOT NULL,
+  attendance_id  INT UNSIGNED NOT NULL,               -- the visit corrected or added
+  member_id      INT UNSIGNED NOT NULL,
+  kind           ENUM('add', 'edit') NOT NULL,
+  before_in      TIMESTAMP    NULL,                   -- the times before an edit (NULL for an added visit)
+  before_out     TIMESTAMP    NULL,
+  after_in       TIMESTAMP    NOT NULL,
+  after_out      TIMESTAMP    NULL,
+  reason         VARCHAR(200) NOT NULL,
+  by_user        VARCHAR(64)  NULL,
+  created_at     TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (id),
+  KEY idx_gym_att_corrections_gym (gym_id, id),
+  KEY idx_gym_att_corrections_visit (attendance_id),
+  CONSTRAINT fk_gym_att_corrections_gym FOREIGN KEY (gym_id) REFERENCES gyms (id),
+  CONSTRAINT fk_gym_att_corrections_visit FOREIGN KEY (attendance_id) REFERENCES gym_attendance (id),
+  CONSTRAINT fk_gym_att_corrections_member FOREIGN KEY (member_id) REFERENCES gym_members (id),
+  CONSTRAINT fk_gym_att_corrections_by FOREIGN KEY (by_user) REFERENCES users (id) ON DELETE SET NULL
 ) ENGINE = InnoDB;
 
 -- A branch's price list (Plans / Catalogue, 2026-11-04, migration 2026-11-21-gym-catalog.sql):

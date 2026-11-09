@@ -142,6 +142,8 @@ const ROUTES = [
   R(["POST"], /^\/members\/([^/]+)\/sms$/, { type: "sms", action: "create", target: "member", detail: () => "Sent an SMS (1 credit)" }),
   R(["POST"], /^\/pauses\/([^/]+)\/approve$/, { type: "pause", action: "edit", target: "pause", detail: () => "Approved the pause request" }),
   R(["POST"], /^\/pauses\/([^/]+)\/reject$/, { type: "pause", action: "edit", target: "pause", detail: () => "Rejected the pause request" }),
+  R(["POST"], /^\/members\/([^/]+)\/standing$/, { type: "member", action: "edit", target: "member", detail: ({ body }) => ({ active: "Reactivated the membership", suspended: "Suspended the membership", cancelled: "Cancelled the membership" })[body?.standing] ?? null }),
+  R(["PUT"], /^\/pause-policy$/, { type: "pause", action: "edit", label: () => "Pause policy", detail: () => "Changed the pause limits" }),
   // Counter sales and payment bills
   R(["POST"], /^\/services$/, { type: "payment", action: "create", label: ({ body }) => String(body?.item ?? "A service").slice(0, 80), detail: ({ body }) => `Service at the counter · ${paidLine(body?.amount, body?.method)}` }),
   R(["POST"], /^\/sales$/, { type: "payment", action: "create", label: ({ body }) => String(body?.item ?? "A product").slice(0, 80), detail: ({ body }) => `Product at the counter · ${paidLine(body?.amount, body?.method)}` }),
@@ -180,6 +182,8 @@ const ROUTES = [
   R(["PATCH"], /^\/sms\/settings$/, { type: "sms", action: "edit", label: () => "Auto reminders", detail: () => "Changed the auto reminder switches" }),
   R(["POST"], /^\/sms\/send$/, { type: "sms", action: "create", label: ({ body }) => `SMS to ${SMS_GROUP[body?.group] ?? "a group"}`, detail: ({ answer }) => (answer && Number.isInteger(answer.sent) ? `${answer.sent} sent` : null) }),
   R(["PUT"], /^\/attendance\/location$/, { type: "attendance", action: "edit", label: () => "Location & Attendance", detail: () => "Changed the gym location or check-in radius" }),
+  R(["POST"], /^\/attendance\/visits$/, { type: "attendance", action: "create", label: () => "Missed visit", detail: ({ body }) => (body?.date ? `Added a visit on ${body.date}` : "Added a missed visit") }),
+  R(["PATCH"], /^\/attendance\/visits\/([^/]+)$/, { type: "attendance", action: "edit", label: () => "Visit", detail: () => "Corrected the visit's times" }),
   R(["PUT"], /^\/attendance\/crowd-settings$/, { type: "attendance", action: "edit", label: () => "Crowd settings", detail: ({ body }) => [body?.capacity !== undefined ? `capacity ${body.capacity ?? "cleared"}` : null, body?.avgStayMin !== undefined ? `usual workout ${body.avgStayMin ?? "from history"}` : null, body?.thresholds !== undefined ? "crowd levels" : null].filter(Boolean).join(", ") || null }),
   R(["POST"], /^\/attendance\/qr$/, { type: "attendance", action: "edit", label: () => "Attendance QR code", detail: () => "Made a new QR code (old prints stop working)" }),
   // Expenses

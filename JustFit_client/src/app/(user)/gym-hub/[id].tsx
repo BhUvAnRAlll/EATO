@@ -15,7 +15,7 @@ import { MemberCrowdSection } from "@/components/gymHub/CrowdCard";
 import { durationText, monthGrid, monthLabel, pausedTimes, planProgress, timeText } from "@/lib/gymHubText";
 import { hud } from "@/lib/hud";
 import { membershipApi, type MembershipDetail } from "@/lib/membershipApi";
-import { historyLine, membershipBadge, pauseLine, planText, prettyDate } from "@/lib/membershipText";
+import { allowanceLine, historyLine, membershipBadge, pauseLine, planText, prettyDate } from "@/lib/membershipText";
 import { confirmChoice } from "@/lib/nativeSheets";
 import { useSessionToken } from "@/lib/session";
 import { useThemeColors } from "@/theme";
@@ -129,6 +129,9 @@ function Overview({ data }: { data: MembershipDetail }) {
         </View>
         <Text className="type-caption text-muted">{`Member ID ${m.code}`}</Text>
       </View>
+      {m.standing && m.standing !== "active" ? (
+        <Text className="type-body text-danger">{`${m.standing === "suspended" ? "Suspended" : "Cancelled"} by ${m.gym.name}${m.standingNote ? `: “${m.standingNote}”` : ""}. Check-ins and pause requests are off; please ask the front desk.`}</Text>
+      ) : null}
       <Text className="type-title text-ink">{`${planText(m.planLength)} plan`}</Text>
       <View style={{ gap: 6 }}>
         <View className="progress-stat__track" style={{ flex: 0 }} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
@@ -180,6 +183,7 @@ function Attendance({ data, loading, onMonth }: { data: MembershipDetail; loadin
     ["Last 7 days", String(a.stats.last7Days)],
     ["All visits", String(a.stats.totalDays)],
     ["Average stay", a.stats.averageMin === null ? "—" : durationText(a.stats.averageMin)],
+    ...(a.stats.streakDays !== undefined ? ([["Streak", `${a.stats.streakDays} ${a.stats.streakDays === 1 ? "day" : "days"}`], ["This week", String(a.stats.thisWeek ?? 0)]] as [string, string][]) : []),
   ];
   return (
     <View style={{ gap: 12 }}>
@@ -271,6 +275,7 @@ function Pauses({ data, cancelling: busy, error, onCancel }: { data: MembershipD
       <Text className="type-headline text-ink" accessibilityRole="header">Pauses</Text>
       <View className="card" style={{ gap: 12 }}>
         <Text className="type-body text-ink">{`${pausedTimes(counts.approved)}${counts.daysPaused > 0 ? ` · ${counts.daysPaused} ${counts.daysPaused === 1 ? "day" : "days"} added to your plan` : ""}`}</Text>
+        {allowanceLine(m.pauseAllowance) ? <Text className="type-caption text-muted">{allowanceLine(m.pauseAllowance)}</Text> : null}
         {m.pause ? (
           <View className="rounded-md bg-cream-deep p-3" style={{ gap: 8 }}>
             <View className="flex-row items-center" style={{ gap: 8 }}>

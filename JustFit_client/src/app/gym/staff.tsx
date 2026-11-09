@@ -15,12 +15,14 @@ import { GymEmpty, GymError, GymLoading } from "@/components/gym/GymStates";
 import { GymScreen } from "@/components/gym/GymScreen";
 import { initialsOf } from "@/data/gymDashboard";
 import { optionsLine } from "@/lib/permissionTree";
-import { gymApi, type GymTeam, type StaffInvite, type StaffKind, type TeamMember } from "@/lib/gymApi";
+import { gymApi, type GymRole, type GymTeam, type StaffInvite, type StaffKind, type TeamMember } from "@/lib/gymApi";
 import { useGymSave } from "@/lib/gymForm";
 import { useGymData } from "@/lib/useGymData";
 import { useThemeColors } from "@/theme";
 
 const KIND_LABEL: Record<TeamMember["kind"], string> = { owner: "Gym admin", staff: "Staff", trainer: "Trainer" };
+// Gym roles (2026-11-10): the role a team row reads as, when the server sends it
+const ROLE_LABEL: Record<GymRole, string> = { owner: "Gym Owner", trainer: "Trainer", admin: "Gym Admin", manager: "Manager", receptionist: "Receptionist", attendance: "Attendance Staff", custom: "Custom" };
 
 // Who the ⋯ sheet is about: a team member or an invite
 type Picked = { type: "member"; member: TeamMember } | { type: "invite"; invite: StaffInvite };
@@ -54,11 +56,11 @@ export default function GymStaffScreen() {
 
   const ready = result.state === "ready";
 
-  const tag = (kind: TeamMember["kind"], invited = false) => {
+  const tag = (kind: TeamMember["kind"], invited = false, role?: GymRole) => {
     const tone = invited ? { bg: colors.gymWarningSoft, ink: colors.gymWarningInk } : kind === "trainer" ? { bg: colors.gymSuccessSoft, ink: colors.gymSuccess } : { bg: colors.gymPrimarySoft, ink: colors.gymPrimaryText };
     return (
       <View className="gym-tag" style={{ backgroundColor: tone.bg }}>
-        <Text className="gym-tag__label" style={{ color: tone.ink }}>{KIND_LABEL[kind]}</Text>
+        <Text className="gym-tag__label" style={{ color: tone.ink }}>{role ? ROLE_LABEL[role] : KIND_LABEL[kind]}</Text>
       </View>
     );
   };
@@ -98,7 +100,7 @@ export default function GymStaffScreen() {
         <View className="min-w-0 flex-1" style={{ gap: 4 }}>
           <Text className="gym-tx__name" numberOfLines={1}>{name}</Text>
           <View className="flex-row flex-wrap items-center" style={{ gap: 6 }}>
-            {tag(m.kind)}
+            {tag(m.kind, false, m.role)}
             {m.phone ? <Text className="gym-tx__meta" numberOfLines={1}>{m.phone}</Text> : null}
           </View>
           {branches.length > 1 && m.kind !== "owner" ? <Text className="gym-tx__meta" numberOfLines={1}>{`Branches: ${branchNames(m)}`}</Text> : null}
@@ -116,7 +118,7 @@ export default function GymStaffScreen() {
       <View className="min-w-0 flex-1" style={{ gap: 4 }}>
         <Text className="gym-tx__name" numberOfLines={1}>{i.phone ?? "Invited number"}</Text>
         <View className="flex-row flex-wrap items-center" style={{ gap: 6 }}>
-          {tag(i.kind, true)}
+          {tag(i.kind, true, i.role)}
           <Text className="gym-tx__meta">Waiting for first sign-in</Text>
         </View>
       </View>

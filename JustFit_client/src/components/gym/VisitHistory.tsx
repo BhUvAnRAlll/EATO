@@ -36,7 +36,8 @@ type Page = { state: "loading" } | { state: "failed"; error: string } | { state:
 // Attendance history: a date range, a status, a search (not for one member), the visits newest
 // first 50 at a time, and Export to Excel of exactly what is filtered. `memberId` narrows it to one
 // member (their history); `refreshKey` reloads it after a check-out elsewhere on the screen.
-export function VisitHistory({ memberId, refreshKey = 0, defaultRange = "today" }: { memberId?: number; refreshKey?: number; defaultRange?: Range }) {
+// onVisitPress (a member's own history): a row opens the visit, to correct it
+export function VisitHistory({ memberId, refreshKey = 0, defaultRange = "today", onVisitPress }: { memberId?: number; refreshKey?: number; defaultRange?: Range; onVisitPress?: (visit: GymVisit) => void }) {
   const colors = useThemeColors();
   const getToken = useSessionToken();
   // Role & Permission: Export Excel is its own option (Attendance › Export history)
@@ -160,7 +161,7 @@ export function VisitHistory({ memberId, refreshKey = 0, defaultRange = "today" 
         ) : (
           <View style={{ gap: 10 }}>
             {page.visits.map((visit) => (
-              <VisitRow key={visit.id} visit={visit} showDate={range !== "today"} onPress={memberId ? undefined : () => router.push({ pathname: "/gym/attendance/member/[id]", params: { id: String(visit.memberId), name: visit.memberName } })} />
+              <VisitRow key={visit.id} visit={visit} showDate={range !== "today"} onPress={memberId ? (onVisitPress ? () => onVisitPress(visit) : undefined) : () => router.push({ pathname: "/gym/attendance/member/[id]", params: { id: String(visit.memberId), name: visit.memberName } })} />
             ))}
             {page.more ? (
               <PressableScale onPress={showMore} className="gym-btn gym-btn--outline" accessibilityRole="button" accessibilityLabel="Show more visits">

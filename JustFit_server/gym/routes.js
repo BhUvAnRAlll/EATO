@@ -30,6 +30,10 @@ const service = require("./service");
 const gymStatus = require("./gymStatus");
 const crowd = require("./crowd");
 const crowdRules = require("./crowdRules");
+const standing = require("./standing");
+const standingRules = require("./standingRules");
+const corrections = require("./corrections");
+const correctionRules = require("./correctionRules");
 const { ForbiddenError } = require("../errors");
 const rules = require("./rules");
 const discover = require("./discover");
@@ -287,7 +291,29 @@ router.post("/pauses/:pauseId/approve", pauseLimit, smallBody, route(async (req,
   res.json(await pauses.decide(pool(req), req.gym, req.userId, pauseRules.pauseId(req.params.pauseId), true, pauseRules.decisionBody(req.body), today()));
 }));
 router.post("/pauses/:pauseId/reject", pauseLimit, smallBody, route(async (req, res) => {
-  res.json(await pauses.decide(pool(req), req.gym, req.userId, pauseRules.pauseId(req.params.pauseId), false, pauseRules.decisionBody(req.body), today()));
+  // A rejection always says why (the member reads it); the brief's rule, 2026-11-09
+  const decision = pauseRules.decisionBody(req.body);
+  if (!decision.note || decision.note.length < 3) return res.status(400).json({ error: "Say why the pause isn't approved. The member reads it." });
+  res.json(await pauses.decide(pool(req), req.gym, req.userId, pauseRules.pauseId(req.params.pauseId), false, decision, today()));
+}));
+// Membership states (gym/standing.js, migration 2027-01-01): suspend, cancel or reactivate a member
+const STANDING_MIGRATION = "Suspending memberships needs the 2027-01-01-gym-membership-standing migration on this server.";
+const standingRoute = (handler) => (req, res, next) =>
+  handler(req, res, next).catch((error) => {
+    if (error?.code === "ER_BAD_FIELD_ERROR") return res.status(503).json({ error: STANDING_MIGRATION });
+    next(error);
+  });
+router.post("/members/:memberId/standing", pauseLimit, smallBody, standingRoute(async (req, res) => {
+  const id = rules.id(req.params.memberId);
+  await standing.setStanding(pool(req), req.gym, req.userId, id, standingRules.standingBody(req.body));
+  res.json(await service.member(pool(req), req.gym.id, id, today()));
+}));
+// The branch's pause policy for members' requests
+router.get("/pause-policy", route(async (req, res) => {
+  res.json({ policy: await standing.policyOf(pool(req), req.gym.id), defaults: standingRules.POLICY_DEFAULT });
+}));
+router.put("/pause-policy", smallBody, standingRoute(async (req, res) => {
+  res.json(await standing.savePolicy(pool(req), req.gym, req.userId, standingRules.policyBody(req.body)));
 }));
 router.post("/members/:memberId/pause", pauseLimit, smallBody, route(async (req, res) => {
   res.status(201).json(await pauses.staffPause(pool(req), req.gym, req.userId, rules.id(req.params.memberId), pauseRules.pauseBody(req.body, today(), { staff: true }), today()));
@@ -634,6 +660,24 @@ router.get("/sms/logs", smsRoute(async (req, res) => {
 // QR attendance (gym/attendance.js): the branch's location, radius and QR code, the dashboard,
 // the history and its CSV export. The QR code is signed with a key from AUTH_SECRET.
 const qrKey = (req) => req.app.locals.gymQrKey;
+// Attendance corrections (gym/corrections.js, migration 2027-01-02): add a missed visit, correct a
+// visit's times, each with a reason; and the history of corrections
+const CORRECTION_MIGRATION = "Attendance corrections need the 2027-01-02-gym-attendance-corrections migration on this server.";
+const correctionRoute = (handler) => (req, res, next) =>
+  handler(req, res, next).catch((error) => {
+    if (error?.code === "ER_NO_SUCH_TABLE") return res.status(503).json({ error: CORRECTION_MIGRATION });
+    next(error);
+  });
+router.post("/attendance/visits", pauseLimit, smallBody, correctionRoute(async (req, res) => {
+  res.status(201).json(await corrections.addVisit(pool(req), req.gym, req.userId, correctionRules.addBody(req.body, today(), Date.now())));
+}));
+router.patch("/attendance/visits/:visitId", pauseLimit, smallBody, correctionRoute(async (req, res) => {
+  const id = rules.id(req.params.visitId, "visit");
+  res.json(await corrections.editVisit(pool(req), req.gym, req.userId, id, correctionRules.editBody(req.body), today()));
+}));
+router.get("/attendance/corrections", correctionRoute(async (req, res) => {
+  res.json(await corrections.list(pool(req), req.gym, correctionRules.listQuery(req.query)));
+}));
 // Live crowd and best time to visit (gym/crowd.js): the estimate and the forecast, and the gym's
 // crowd settings (capacity, usual workout, levels; migration 2026-12-29)
 const CROWD_MIGRATION = "Crowd settings need the 2026-12-29-gym-crowd migration on this server.";

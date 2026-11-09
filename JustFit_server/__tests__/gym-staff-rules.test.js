@@ -142,7 +142,7 @@ describe("gym staff rules: Role & Permission", () => {
       }
     }
     assert.equal(rules.optionsSummary([]), "Home only");
-    assert.equal(rules.optionsSummary(["members.view", "members.add", ...rules.OPTION_IDS.filter((id) => id.startsWith("enquiries."))]), "Members (2 of 5), Enquiries (all)");
+    assert.equal(rules.optionsSummary(["members.view", "members.add", ...rules.OPTION_IDS.filter((id) => id.startsWith("enquiries."))]), "Members (2 of 6), Enquiries (all)"); // Suspend, cancel or reactivate (2027-01-01) is the sixth
   });
 
   it("which option a request needs", () => {
@@ -203,6 +203,8 @@ describe("gym staff rules: Role & Permission", () => {
       "/catalog": "catalog", "/catalog/2": "catalog",
       "/predictions/renewals": "predictions", "/predictions/busy-hours": "predictions", "/predictions/revenue": "predictions",
       "/expenses": "expenses", "/expenses/7": "expenses", "/expenses/7/bill": "expenses",
+      // Gym Hub ecosystem (2026-11-10): a route left without an area would be open to every login
+      "/pause-policy": "members", "/members/3/standing": "members", "/attendance/crowd": "attendance", "/attendance/crowd-settings": "attendance",
     };
     for (const [path, area] of Object.entries(cases)) assert.equal(rules.areaOfPath(path), area, path);
     assert.equal(rules.areaOfPath("/membersx"), null, "a prefix is not a match");

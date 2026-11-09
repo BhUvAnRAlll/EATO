@@ -40,7 +40,13 @@ export type Membership = {
   canPause: boolean;
   pauseProblem: string | null;
   limits: { maxDays: number; maxStartAheadDays: number };
+  // Suspended or cancelled by the gym (2027-01-01); absent from an older server
+  standing?: "active" | "suspended" | "cancelled";
+  standingNote?: string | null;
+  // What the gym's pause policy leaves in these 12 months (null: no limit)
+  pauseAllowance?: PauseAllowance;
 };
+export type PauseAllowance = { pausesLeft: number | null; daysLeft: number | null; used: { count: number; days: number }; policy: { maxPerYear: number | null; maxDaysPerYear: number | null; maxDaysEach: number } };
 export type Memberships = { today: string; memberships: Membership[] };
 export type PauseFields = { from: string; until: string; reason: string };
 
@@ -60,7 +66,8 @@ export type MembershipDetail = {
     nextMonth: string | null;
     days: HubDay[];
     visits: HubVisit[];
-    stats: { thisMonth: number; last7Days: number; totalDays: number; averageMin: number | null; lastVisit: string | null };
+    // streakDays and thisWeek since 2026-11-10; absent from an older server
+    stats: { thisMonth: number; last7Days: number; totalDays: number; averageMin: number | null; lastVisit: string | null; streakDays?: number; thisWeek?: number };
   };
 };
 

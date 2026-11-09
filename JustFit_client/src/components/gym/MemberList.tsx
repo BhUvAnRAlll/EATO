@@ -160,7 +160,7 @@ export function MemberList({ pick = null, initialFilter = "all", initialDays = D
         onLayout={onFilterRowLayout}
         accessibilityRole="tablist"
       >
-        {MEMBER_FILTERS.map((f) => {
+        {MEMBER_FILTERS.filter((f) => (f.id !== "suspended" && f.id !== "cancelled") || counts?.[f.id] !== undefined).map((f) => {
           const selected = f.id === filter;
           const count = counts ? counts[f.id] : null;
           return (
