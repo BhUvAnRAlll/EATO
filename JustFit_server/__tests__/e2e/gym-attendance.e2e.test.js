@@ -82,7 +82,7 @@ describe("gym QR attendance e2e: settings, scans, staff, dashboard and export", 
         const gymIds = [state.gymA, state.gymB].filter(Boolean);
         if (gymIds.length) {
           const [brands] = await connection.query("SELECT DISTINCT brand_id FROM gyms WHERE id IN (?)", [gymIds]);
-          for (const table of ["gym_attendance", "gym_payments", "gym_members", "gym_staff"]) await connection.query(`DELETE FROM \`${table}\` WHERE gym_id IN (?)`, [gymIds]);
+          for (const table of ["gym_activity_log", "gym_attendance", "gym_payments", "gym_members", "gym_staff"]) await connection.query(`DELETE FROM \`${table}\` WHERE gym_id IN (?)`, [gymIds]);
           await connection.query("DELETE FROM gyms WHERE id IN (?)", [gymIds]);
           if (brands.length) await connection.query("DELETE FROM gym_brands WHERE id IN (?)", [brands.map((b) => b.brand_id)]);
         }

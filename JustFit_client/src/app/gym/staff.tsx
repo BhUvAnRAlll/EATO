@@ -6,6 +6,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { FormAlert } from "@/components/FormAlert";
 import { PressableScale } from "@/components/PressableScale";
 import { AddStaffSheet } from "@/components/gym/AddStaffSheet";
+import { AssignBranchesSheet } from "@/components/gym/AssignBranchesSheet";
 import { ConfirmDialog } from "@/components/gym/ConfirmDialog";
 import { GradientFill } from "@/components/gym/GradientFill";
 import { GymIcon } from "@/components/gym/GymIcon";
@@ -28,7 +29,7 @@ type Picked = { type: "member"; member: TeamMember } | { type: "invite"; invite:
 // sheet straight away with ?add=1). Only the branch's gym admin reaches it (the server answers Staff
 // with a 403). The team (the gym admin first, then Staff and Trainers) and the numbers invited that
 // haven't signed in yet; the round + (as on Members) adds someone, at this branch or another one
-// the gym admin manages; ⋯ removes them or cancels the invite.
+// the gym admin manages; ⋯ assigns their branches (outlets), removes them or cancels the invite.
 export default function GymStaffScreen() {
   const colors = useThemeColors();
   const params = useLocalSearchParams<{ add?: string }>();
@@ -37,6 +38,8 @@ export default function GymStaffScreen() {
   const [adding, setAdding] = useState(params.add === "1");
   const [picked, setPicked] = useState<Picked | null>(null);
   const [confirming, setConfirming] = useState(false);
+  // ⋯ › Branches: the outlets this person works at
+  const [assigning, setAssigning] = useState<TeamMember | null>(null);
   const [notice, setNotice] = useState("");
   const { busy, error, save, clearError } = useGymSave((data: GymTeam) => {
     set(data);
@@ -82,6 +85,8 @@ export default function GymStaffScreen() {
   const { gym, branches, team, invites, permissionTree } = result.data;
   const branchLine = `${gym.name}, ${gym.branch}`;
   const others = team.filter((m) => m.kind !== "owner");
+  // "Tumkur, Kunigal": the branches someone works at, of those this gym admin manages
+  const branchNames = (m: TeamMember) => branches.filter((b) => m.branchIds.includes(b.id)).map((b) => b.branch).join(", ");
 
   const memberRow = (m: TeamMember) => {
     const name = m.you ? "You" : m.name ?? "Name not added yet";
@@ -96,6 +101,7 @@ export default function GymStaffScreen() {
             {tag(m.kind)}
             {m.phone ? <Text className="gym-tx__meta" numberOfLines={1}>{m.phone}</Text> : null}
           </View>
+          {branches.length > 1 && m.kind !== "owner" ? <Text className="gym-tx__meta" numberOfLines={1}>{`Branches: ${branchNames(m)}`}</Text> : null}
           {m.kind === "staff" ? <Text className="gym-tx__meta" numberOfLines={1}>{`Can open: ${optionsLine(permissionTree, m.options)}`}</Text> : null}
         </View>
         {m.kind !== "owner" && more(`${name}: options`, () => open({ type: "member", member: m }))}
@@ -168,6 +174,19 @@ export default function GymStaffScreen() {
         />
       )}
 
+      {assigning && (
+        <AssignBranchesSheet
+          member={assigning}
+          branches={branches}
+          currentId={gym.id}
+          onClose={() => setAssigning(null)}
+          onSaved={(data) => {
+            set(data);
+            setAssigning(null);
+          }}
+        />
+      )}
+
       {picked && (
         <GymSheet
           title={pickedName}
@@ -191,6 +210,11 @@ export default function GymStaffScreen() {
             ) : null
           }
         >
+          {picked.type === "member" ? (
+            <PressableScale onPress={() => { const member = picked.member; setPicked(null); setAssigning(member); }} className="gym-btn gym-btn--outline" accessibilityRole="button" accessibilityLabel={`Branches for ${pickedName}`}>
+              <Text className="gym-btn__label" style={{ color: colors.gymPrimary }} numberOfLines={1}>{`Branches · ${branchNames(picked.member) || gym.branch}`}</Text>
+            </PressableScale>
+          ) : null}
           {picked.type === "member" && picked.member.kind === "staff" ? (
             <PressableScale onPress={() => { setPicked(null); router.push({ pathname: "/gym/permissions/[userId]", params: { userId: picked.member.id } }); }} className="gym-btn gym-btn--outline" accessibilityRole="button" accessibilityLabel={`Role & Permission for ${pickedName}`}>
               <Text className="gym-btn__label" style={{ color: colors.gymPrimary }}>{`Role & Permission · ${optionsLine(permissionTree, picked.member.options)}`}</Text>

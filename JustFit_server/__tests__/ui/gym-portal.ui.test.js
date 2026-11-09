@@ -157,7 +157,7 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
       if (state.gym) {
         const ids = [state.gym, state.branch2].filter(Boolean);
         const [[{ brand_id: brandId }]] = await connection.query("SELECT brand_id FROM gyms WHERE id = ?", [state.gym]);
-        for (const table of ["gym_sms_log", "gym_sms_settings", "gym_attendance", "gym_payments", "gym_enquiry_contacts", "gym_enquiries", "gym_catalog_items", "gym_members", "gym_staff"]) await connection.query(`DELETE FROM \`${table}\` WHERE gym_id IN (?)`, [ids]);
+        for (const table of ["gym_activity_log", "gym_sms_log", "gym_sms_settings", "gym_attendance", "gym_payments", "gym_enquiry_contacts", "gym_enquiries", "gym_catalog_items", "gym_members", "gym_staff"]) await connection.query(`DELETE FROM \`${table}\` WHERE gym_id IN (?)`, [ids]);
         await connection.query("DELETE FROM gyms WHERE id IN (?)", [ids]);
         await connection.query("DELETE FROM gym_brands WHERE id = ?", [brandId]);
       }

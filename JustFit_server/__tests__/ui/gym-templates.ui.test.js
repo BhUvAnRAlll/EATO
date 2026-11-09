@@ -125,7 +125,7 @@ describe("ui gym reminder templates: the list, editing one, Send Reminder using 
       if (!connection) return;
       if (state.gym) {
         const [[{ brand_id: brandId }]] = await connection.query("SELECT brand_id FROM gyms WHERE id = ?", [state.gym]);
-        for (const table of ["gym_added_templates", "gym_reminder_templates", "gym_payments", "gym_members", "gym_staff_invites", "gym_staff"]) await connection.query(`DELETE FROM \`${table}\` WHERE gym_id = ?`, [state.gym]);
+        for (const table of ["gym_activity_log", "gym_added_templates", "gym_reminder_templates", "gym_payments", "gym_members", "gym_staff_invites", "gym_staff"]) await connection.query(`DELETE FROM \`${table}\` WHERE gym_id = ?`, [state.gym]);
         await connection.query("DELETE FROM gyms WHERE id = ?", [state.gym]);
         await connection.query("DELETE FROM gym_brands WHERE id = ?", [brandId]);
       }

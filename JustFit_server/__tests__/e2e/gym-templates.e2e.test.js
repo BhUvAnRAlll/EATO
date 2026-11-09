@@ -61,7 +61,7 @@ describe("gym reminder templates e2e: read by every portal login, changed by the
         const gymIds = [state.gymA, state.gymB].filter(Boolean);
         if (gymIds.length) {
           const [brands] = await connection.query("SELECT DISTINCT brand_id FROM gyms WHERE id IN (?)", [gymIds]);
-          for (const table of ["gym_added_templates", "gym_reminder_templates", "gym_staff_invites", "gym_staff"]) await connection.query(`DELETE FROM \`${table}\` WHERE gym_id IN (?)`, [gymIds]);
+          for (const table of ["gym_activity_log", "gym_added_templates", "gym_reminder_templates", "gym_staff_invites", "gym_staff"]) await connection.query(`DELETE FROM \`${table}\` WHERE gym_id IN (?)`, [gymIds]);
           await connection.query("DELETE FROM gyms WHERE id IN (?)", [gymIds]);
           if (brands.length) await connection.query("DELETE FROM gym_brands WHERE id IN (?)", [brands.map((b) => b.brand_id)]);
         }

@@ -145,7 +145,7 @@ describe("ui gym trainers: the PT trainer picker and My Clients", () => {
       if (!connection) return;
       if (state.gym) {
         const [[{ brand_id: brandId }]] = await connection.query("SELECT brand_id FROM gyms WHERE id = ?", [state.gym]);
-        for (const table of ["gym_attendance", "gym_payments", "gym_members", "gym_staff_invites", "gym_staff"]) await connection.query(`DELETE FROM \`${table}\` WHERE gym_id = ?`, [state.gym]);
+        for (const table of ["gym_activity_log", "gym_attendance", "gym_payments", "gym_members", "gym_staff_invites", "gym_staff"]) await connection.query(`DELETE FROM \`${table}\` WHERE gym_id = ?`, [state.gym]);
         await connection.query("DELETE FROM gyms WHERE id = ?", [state.gym]);
         await connection.query("DELETE FROM gym_brands WHERE id = ?", [brandId]);
       }

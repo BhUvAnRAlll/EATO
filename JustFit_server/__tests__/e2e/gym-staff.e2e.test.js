@@ -90,7 +90,7 @@ describe("gym staff e2e: Staff / Admin Login, invites and roles", () => {
         const [joined] = await connection.query("SELECT id FROM users WHERE phone IN (?)", [throwaway]);
         if (gymIds.length) {
           const [brands] = await connection.query("SELECT DISTINCT brand_id FROM gyms WHERE id IN (?)", [gymIds]);
-          for (const table of ["gym_payments", "gym_members", "gym_staff_invites", "gym_staff"]) await connection.query(`DELETE FROM \`${table}\` WHERE gym_id IN (?)`, [gymIds]);
+          for (const table of ["gym_activity_log", "gym_payments", "gym_members", "gym_staff_invites", "gym_staff"]) await connection.query(`DELETE FROM \`${table}\` WHERE gym_id IN (?)`, [gymIds]);
           await connection.query("DELETE FROM gyms WHERE id IN (?)", [gymIds]);
           if (brands.length) await connection.query("DELETE FROM gym_brands WHERE id IN (?)", [brands.map((b) => b.brand_id)]);
         }
@@ -135,7 +135,7 @@ describe("gym staff e2e: Staff / Admin Login, invites and roles", () => {
     const list = await as("owner").get("/api/gym/staff");
     assert.equal(list.status, 200, JSON.stringify(list.json));
     assert.equal(list.json.team.length, 1);
-    assert.deepEqual({ ...list.json.team[0], addedAt: undefined }, { id: identities.owner.id, name: null, phone: list.json.team[0].phone, kind: "owner", areas: rules_areas(), options: [...staffRules.OPTION_IDS], addedAt: undefined, you: true });
+    assert.deepEqual({ ...list.json.team[0], addedAt: undefined }, { id: identities.owner.id, name: null, phone: list.json.team[0].phone, kind: "owner", areas: rules_areas(), options: [...staffRules.OPTION_IDS], branchIds: [state.tumkur, state.kunigal], addedAt: undefined, you: true });
     assert.match(list.json.team[0].phone, /^\+91 ••••• ••\d{3}$/, "numbers are masked");
     assert.deepEqual(list.json.invites, []);
   }));
@@ -188,6 +188,48 @@ describe("gym staff e2e: Staff / Admin Login, invites and roles", () => {
     // Staff can't use it either: the team routes stay the gym admin's
     assert.equal((await as("staffer").post("/api/gym/staff", { phone: freshPhone(), kind: "staff", branchId: state.kunigal })).status, 403);
     await connection.query("DELETE FROM gym_staff_invites WHERE phone = ?", [away]);
+  }));
+
+  it("3c. Branches: the gym admin puts Staff at their other branch too, with the same access, then takes them off it; never past their own branches", run(async () => {
+    const before = await as("owner").get("/api/gym/staff");
+    const staffer = before.json.team.find((p) => p.id === identities.staffer.id);
+    assert.deepEqual(staffer.branchIds, [state.tumkur], "added at Tumkur only");
+    assert.deepEqual(before.json.team.find((p) => p.you).branchIds.sort(), [state.tumkur, state.kunigal].sort());
+    await connection.query("UPDATE gym_staff SET permissions = ? WHERE user_id = ? AND gym_id = ?", [JSON.stringify(["members.view"]), identities.staffer.id, state.tumkur]);
+
+    const both = await as("owner").put(`/api/gym/staff/${identities.staffer.id}/branches`, { branchIds: [state.tumkur, state.kunigal] });
+    assert.equal(both.status, 200, JSON.stringify(both.json));
+    assert.deepEqual(both.json.team.find((p) => p.id === identities.staffer.id).branchIds.sort(), [state.tumkur, state.kunigal].sort());
+    const [[kunigal]] = await connection.query("SELECT kind, permissions FROM gym_staff WHERE user_id = ? AND gym_id = ?", [identities.staffer.id, state.kunigal]);
+    assert.equal(kunigal.kind, "staff");
+    assert.deepEqual(staffRules.optionsOf(kunigal), ["members.view"], "Kunigal gets Tumkur's Role & Permission");
+    assert.equal((await as("staffer").get("/api/gym/dashboard")).json.gym.branchCount, 2);
+
+    // Refused, nothing written: another gym's branch, a made-up one, an empty list, the gym admin
+    // themselves, someone not on this team, and anyone but the gym admin
+    for (const [body, status] of [[{ branchIds: [state.other] }, 404], [{ branchIds: [state.tumkur, 999999] }, 404], [{ branchIds: [] }, 400], [{ branchIds: ["1 OR 1=1"] }, 400]]) {
+      assert.equal((await as("owner").put(`/api/gym/staff/${identities.staffer.id}/branches`, body)).status, status, JSON.stringify(body));
+    }
+    assert.match((await as("owner").put(`/api/gym/staff/${identities.owner.id}/branches`, { branchIds: [state.tumkur] })).json.error, /your own/);
+    assert.equal((await as("owner").put(`/api/gym/staff/${identities.member.id}/branches`, { branchIds: [state.tumkur] })).status, 404);
+    assert.equal((await as("otherOwner").put(`/api/gym/staff/${identities.staffer.id}/branches`, { branchIds: [state.other] })).status, 404);
+    assert.equal((await as("staffer").put(`/api/gym/staff/${identities.staffer.id}/branches`, { branchIds: [state.tumkur] })).status, 403);
+    assert.equal(await count("gym_staff", "user_id = ?", [identities.staffer.id]), 2);
+
+    // Kunigal only: they leave Tumkur's list but keep the portal (and their role) at Kunigal
+    const moved = await as("owner").put(`/api/gym/staff/${identities.staffer.id}/branches`, { branchIds: [state.kunigal] });
+    assert.equal(moved.status, 200, JSON.stringify(moved.json));
+    assert.equal(moved.json.team.some((p) => p.id === identities.staffer.id), false, "no longer on the open branch's team");
+    assert.equal(await roleOf(identities.staffer.id), "gym_admin");
+    assert.equal((await as("staffer").get("/api/gym/dashboard")).json.gym.branch, "Kunigal");
+
+    // Back to Tumkur only (from Kunigal's team), as test 4 onwards expect, with Tumkur's access back to all
+    assert.equal((await as("owner").post("/api/gym/branch", { branchId: state.kunigal })).status, 200);
+    assert.equal((await as("owner").put(`/api/gym/staff/${identities.staffer.id}/branches`, { branchIds: [state.tumkur] })).status, 200);
+    assert.equal((await as("owner").post("/api/gym/branch", { branchId: state.tumkur })).status, 200);
+    await connection.query("UPDATE gym_staff SET permissions = NULL WHERE user_id = ?", [identities.staffer.id]);
+    assert.deepEqual((await connection.query("SELECT gym_id FROM gym_staff WHERE user_id = ?", [identities.staffer.id]))[0].map((r) => r.gym_id), [state.tumkur]);
+    assert.ok(await count("admin_audit_log", "admin_id = ? AND action = 'gym.staff_branches'", [identities.owner.id]) >= 3);
   }));
 
   it("4. adding a member as Trainer makes them a trainer, who has no portal", run(async () => {
@@ -437,7 +479,7 @@ describe("gym staff e2e: Staff / Admin Login, invites and roles", () => {
   }));
 
   it("10. every change is in the audit log; the Super Admin's gym page lists gym admins only", run(async () => {
-    for (const action of ["gym.staff_add", "gym.staff_invite", "gym.staff_invite_cancel", "gym.staff_remove", "gym.staff_permissions"]) {
+    for (const action of ["gym.staff_add", "gym.staff_invite", "gym.staff_invite_cancel", "gym.staff_remove", "gym.staff_permissions", "gym.staff_branches"]) {
       assert.ok(await count("admin_audit_log", "admin_id = ? AND action = ?", [identities.owner.id, action]) >= 1, action);
     }
     const detail = await as("admin").get(`/api/admin/portal/gyms/${state.tumkur}?date=${today}`);

@@ -25,19 +25,19 @@ const MANAGE: MenuItem[] = [
   { label: "Outlets", icon: "store", href: "/gym/branches" },
   { label: "Staff / Admin Login", icon: "user-cog", href: "/gym/staff", ownerOnly: true },
   { label: "Role & Permission", icon: "shield-check", href: "/gym/permissions", ownerOnly: true },
+  { label: "Activity", icon: "history", href: "/gym/activity", ownerOnly: true },
   { label: "Reminder Templates", icon: "message-square-text", href: "/gym/templates", need: "templates.view" },
 ];
 const OTHER: MenuItem[] = [
   { label: "Send Bulk SMS", icon: "message-square-more", action: "sms", need: "sms.view" },
   { label: "Attendance", icon: "qr-code", href: "/gym/attendance", need: "attendance.view" },
-  { label: "Location & Attendance Settings", icon: "map-pin", href: "/gym/attendance/settings", need: "attendance.settings" },
   { label: "Settings", icon: "settings", href: "/gym/settings" },
 ];
 
 // The ☰ side menu over Home: who is signed in and their branch, Manage (Members, Plans /
 // Catalogue, Enquiries, Likely to leave = the renewal-risk prediction, Outlets = branches, Staff /
-// Admin Login and Role & Permission for the gym admin only, Reminder Templates), Other (Send Bulk SMS opens Home's sheet through onBulkSms; Attendance and
-// its settings; Settings, every setting in one list), and Sign out. A Staff login sees only the areas the gym admin gave them (useCan).
+// Admin Login, Role & Permission and Activity for the gym admin only, Reminder Templates), Other (Send Bulk SMS opens Home's sheet through onBulkSms; Attendance (its
+// location settings are on Attendance and in Settings); Settings, every setting in one list), and Sign out. A Staff login sees only the areas the gym admin gave them (useCan).
 export function GymMenu({ open, onClose, gymLine, onBulkSms, canManageTeam }: { open: boolean; onClose: () => void; gymLine: string | null; onBulkSms: () => void; canManageTeam: boolean }) {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();

@@ -63,9 +63,16 @@ export type StaffArea = "home" | "members" | "payments" | "enquiries" | "catalog
 // comes with the team as permissionTree, so the app draws whatever the server checks
 export type StaffOption = `${StaffArea}.${string}`;
 export type PermissionTile = { id: StaffArea; label: string; options: { id: StaffOption; label: string; needs: StaffOption | null }[] };
-export type TeamMember = { id: string; name: string | null; phone: string | null; kind: "owner" | StaffKind; areas: StaffArea[]; options: StaffOption[]; addedAt: string | null; you: boolean };
+export type TeamMember = { id: string; name: string | null; phone: string | null; kind: "owner" | StaffKind; areas: StaffArea[]; options: StaffOption[]; branchIds: number[]; addedAt: string | null; you: boolean };
 export type StaffInvite = { id: number; phone: string | null; kind: StaffKind; invitedAt: string | null };
 // branches: the branches of this gym the caller is the gym admin of (the Add sheet's Branch chips)
+// ☰ › Activity (gym admin only): who added, edited or deleted what at this branch, one India day
+// at a time. by.kind: the gym admin (owner) or a Staff login, at the time of the change.
+export type ActivityAction = "create" | "edit" | "delete";
+export type ActivityType = "member" | "payment" | "enquiry" | "catalog" | "expense" | "pause" | "attendance" | "sms" | "template" | "settings" | "team";
+export type ActivityPerson = { id: string | null; name: string; kind: "owner" | "staff"; you: boolean };
+export type ActivityEntry = { id: number; at: string; by: ActivityPerson; action: ActivityAction; type: ActivityType; label: string; detail: string | null };
+export type GymActivity = { day: string; counts: Record<ActivityAction | "all", number>; people: ActivityPerson[]; entries: ActivityEntry[]; page: number; nextPage: number | null };
 export type GymTeam = { gym: { id: number; name: string; branch: string }; branches: { id: number; branch: string }[]; team: TeamMember[]; invites: StaffInvite[]; permissionTree: PermissionTile[] };
 
 export type GymDashboard = {
@@ -331,7 +338,7 @@ export const gymApi = {
   // An older server sends no permissionTree or options; fill them in so the screens never crash
   team: (token: string | null) =>
     call<GymTeam>(token, "/api/gym/staff").then((r): ApiResult<GymTeam> =>
-      r.ok ? { ok: true, data: { ...r.data, permissionTree: r.data.permissionTree ?? [], team: r.data.team.map((m) => ({ ...m, options: m.options ?? [] })) } } : r,
+      r.ok ? { ok: true, data: { ...r.data, permissionTree: r.data.permissionTree ?? [], team: r.data.team.map((m) => ({ ...m, options: m.options ?? [], branchIds: m.branchIds ?? [r.data.gym.id] })) } } : r,
     ),
   // added: linked now (their role changed); invited: they join at their first sign-in
   // branchId: the branch to add them to (one the caller manages); the answer names it as `branch`
@@ -339,7 +346,11 @@ export const gymApi = {
   removeStaff: (token: string | null, userId: string) => call<GymTeam>(token, `/api/gym/staff/${encodeURIComponent(userId)}`, "DELETE"),
   // Role & Permission: the options a Staff login may use at this branch (an empty list = Home only)
   setPermissions: (token: string | null, userId: string, options: StaffOption[]) => call<GymTeam>(token, `/api/gym/staff/${encodeURIComponent(userId)}/permissions`, "PUT", { options }),
+  activity: (token: string | null, query: { day: string; action: ActivityAction | "all"; person: string; page?: number }) =>
+    call<GymActivity>(token, `/api/gym/activity?day=${query.day}&action=${query.action}&person=${encodeURIComponent(query.person)}${query.page && query.page > 1 ? `&page=${query.page}` : ""}`),
   cancelInvite: (token: string | null, id: number) => call<GymTeam>(token, `/api/gym/staff/invites/${id}`, "DELETE"),
+  // Branches: the outlets (of those the gym admin manages) someone on the team works at, at least one
+  setStaffBranches: (token: string | null, userId: string, branchIds: number[]) => call<GymTeam>(token, `/api/gym/staff/${encodeURIComponent(userId)}/branches`, "PUT", { branchIds }),
   sms: (token: string | null) => call<GymSms>(token, "/api/gym/sms"),
   smsSettings: (token: string | null, changes: Partial<Record<SmsKind, boolean>>) => call<GymSms>(token, "/api/gym/sms/settings", "PATCH", changes),
   smsSend: (token: string | null, group: SmsGroupId) => call<SmsSendResult>(token, "/api/gym/sms/send", "POST", { group }),

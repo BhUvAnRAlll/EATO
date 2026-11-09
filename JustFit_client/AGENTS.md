@@ -124,7 +124,16 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
   on `GET /api/gym/staff`); `POST /api/gym/staff` takes an optional `branchId`, checked in
   `staff.ownedBranch` (another gym's branch or one the caller only works at answers 404), and the
   answer's `branch` names where they were added. The hourly team-change budget is
-  `GYM_STAFF_CHANGES_PER_HOUR` (default 30; the test server sets 1000). Migration
+  `GYM_STAFF_CHANGES_PER_HOUR` (default 30; the test server sets 1000). **Branches (2026-11-09, the user's
+  request):** a team member's ⋯ › Branches (`components/gym/AssignBranchesSheet.tsx`) ticks every
+  outlet they work at, out of the branches the gym admin manages (at least one; off every branch is
+  Remove; a gym with one outlet offers Add Outlet). `PUT /api/gym/staff/:userId/branches
+  { branchIds }` (owner only, the team-change budget, `staffRules.branchesBody` /
+  `branchesProblem` / `branchChanges`, `staff.setBranches`): never yourself or a gym admin, only
+  someone on the open branch's team, only branches the caller owns (else 404); a branch joined
+  copies this branch's `permissions`, a branch left is as Remove there (a trainer's PT members lose
+  `pt_trainer_id`); the role never changes; audited `gym.staff_branches`. The team answer carries
+  each person's `branchIds` and rows show "Branches: …" when the gym has more than one (Branches need no migration of their own). Staff / Admin Login's migration is
   `2026-11-29-gym-staff-logins.sql` (the `trainer` role, `gym_staff.kind`, `gym_staff_invites`,
   `gym_members.pt_trainer_id`); before it the portal answers 503 naming it.
 - **Role & Permission (2026-11-06, the user's request):** the gym admin (owner only) chooses what
@@ -320,7 +329,8 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
   Home open the side menu (`components/gym/GymMenu.tsx`): the account and branch, Manage items
   (Expenses; Reminder Templates; Outlets = branches; Staff / Admin Login for the gym
   admin only), Other (Send
-  Bulk SMS opens its sheet; Attendance; Location & Attendance Settings; Settings) and Sign out.
+  Bulk SMS opens its sheet; Attendance; Settings) and Sign out. Location & Attendance is reached
+  from Attendance and Settings only (its ☰ item was removed on 2026-11-09, the user's request).
   **Settings (2026-11-08, the user's request):** ☰ › Settings (`app/gym/settings.tsx`) lists every
   setting in one place, grouped Branch (Branch details, Invoice details & logo: gym admin only;
   Outlets), Attendance (Location & Attendance, the QR code), Messages (SMS & auto reminders opens
@@ -695,6 +705,25 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
   Sign in again on a 401; `body-scan` ignores Back while scanning; Home shows a skeleton until the
   first numbers arrive; `store/macro.ts` `logDate()` rolls a "today" selection past midnight
   (`lib/macroDateRules.ts`); the trainer guard in `(user)/_layout.tsx` is a `<Redirect>`.
+- **Activity log (2026-11-09, the user's request; migration approved):** the gym admin sees who
+  added, edited or deleted what at the branch: ☰ › Activity and Settings › Team › Activity
+  (`app/gym/activity.tsx`, owner only): one India day (a year back at most), Added / Edited /
+  Deleted chips with counts, a chip per person active that day, newest first, 50 a page; each row
+  "Ravi Kumar · Staff edited member Arjun M (FOR-TUM-0003)" with the line and the time. Server:
+  `gym/activity.js` `recorder` is a `router.use` after `requireArea`: for every write it reads the
+  record before (allowlisted, branch-scoped `SNAPSHOTS`), and when the route answers 2xx it reads it
+  again and inserts one `gym_activity_log` row before the answer goes out (not in the change's own
+  transaction; a failed write is logged and never fails the request). `gym/activityRules.js` (pure)
+  maps every write route to its type, action, label and line (`ROUTES`; switching branch records
+  nothing); `gym-activity-rules.test.js` walks the router so a new write route must be added there.
+  Lines name changed fields only, with values just for prices, amounts, dates and statuses (never a
+  phone, address or note); labels keep the record's name, so a deleted plan still reads; team
+  numbers are masked. Refused and failed requests are not recorded. `GET /api/gym/activity?day=&
+  action=&person=&page=` (`ownerOnly`, `activityRules.activityQuery`) deletes the branch's rows
+  older than 365 days first. Table `gym_activity_log` (migration `2026-12-14-gym-activity-log.sql`;
+  before it nothing is recorded and Activity answers 503 naming it); test cleanups delete it before
+  `gyms`. Tests: `gym-activity-rules.test.js`, `e2e/gym-activity.e2e.test.js`,
+  `ui/gym-settings.ui.test.js` (6).
 - **Tests:** `__tests__/gym-rules.test.js`, `gym-sms-rules.test.js`, `gym-attendance-rules.test.js`,
   `gym-staff-rules.test.js`, `e2e/gym-portal.e2e.test.js`, `e2e/gym-sms.e2e.test.js`,
   `e2e/gym-attendance.e2e.test.js`, `e2e/gym-staff.e2e.test.js`, `ui/gym-portal.ui.test.js`,

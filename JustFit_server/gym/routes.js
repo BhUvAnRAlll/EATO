@@ -7,6 +7,8 @@ const express = require("express");
 const { getAccount } = require("../auth");
 const { logSecurityEvent } = require("../logging");
 const { createRateLimiter, limitPerUser } = require("../rateLimit");
+const activity = require("./activity");
+const activityRules = require("./activityRules");
 const attendance = require("./attendance");
 const attendanceRules = require("./attendanceRules");
 const catalogImages = require("./catalogImages");
@@ -93,6 +95,10 @@ function requireArea(req, res, next) {
 }
 router.use(requireArea);
 
+// Activity log (gym/activity.js, 2026-11-09): every add, edit and delete that succeeds below is
+// written down with who made it, for the gym admin's ☰ › Activity
+router.use(activity.recorder(pool));
+
 // Staff / Admin Login (gym/staff.js): only the branch's gym admin (kind 'owner', linked by the
 // justFit Super Admin) sees and changes its team; Staff get a 403. Adding and removing have their
 // own hourly allowance.
@@ -106,6 +112,14 @@ const requireGymOwner = ownerOnly("Only the gym admin can manage the team.");
 // does the OTP limits, because one suite adds and removes the same people many times)
 const staffLimit = limitPerUser(createRateLimiter({ limit: Number(process.env.GYM_STAFF_CHANGES_PER_HOUR) || 30, windowMs: 60 * 60 * 1000 }));
 
+// ☰ › Activity: who added, edited or deleted what at this branch, one day at a time (gym admin only)
+const ACTIVITY_MIGRATION = "Activity needs the 2026-12-14-gym-activity-log migration on this server.";
+router.get("/activity", ownerOnly("Only the gym admin can see the activity log."), (req, res, next) => {
+  activity.list(pool(req), req.gym, req.userId, activityRules.activityQuery(req.query, today())).then((answer) => res.json(answer), (error) => {
+    if (["ER_NO_SUCH_TABLE", "ER_BAD_FIELD_ERROR"].includes(error?.code)) return res.status(503).json({ error: ACTIVITY_MIGRATION });
+    next(error);
+  });
+});
 router.get("/staff", requireGymOwner, route(async (req, res) => {
   res.json(await staff.team(pool(req), req.gym, req.userId));
 }));
@@ -118,6 +132,10 @@ router.post("/staff", requireGymOwner, staffLimit, smallBody, route(async (req, 
 const permissionLimit = limitPerUser(createRateLimiter({ limit: 30, windowMs: 60 * 60 * 1000 }));
 router.put("/staff/:userId/permissions", requireGymOwner, permissionLimit, smallBody, route(async (req, res) => {
   res.json(await staff.setPermissions(pool(req), req.gym, req.userId, staffRules.userIdParam(req.params.userId), staffRules.permissionsBody(req.body)));
+}));
+// Branches: which of the gym admin's branches someone on the team works at (the add / remove budget)
+router.put("/staff/:userId/branches", requireGymOwner, staffLimit, smallBody, route(async (req, res) => {
+  res.json(await staff.setBranches(pool(req), req.gym, req.userId, staffRules.userIdParam(req.params.userId), staffRules.branchesBody(req.body)));
 }));
 router.delete("/staff/invites/:inviteId", requireGymOwner, staffLimit, route(async (req, res) => {
   res.json(await staff.cancelInvite(pool(req), req.gym, req.userId, rules.id(req.params.inviteId, "invite")));

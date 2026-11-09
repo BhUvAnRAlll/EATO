@@ -153,6 +153,20 @@ function addBody(body) {
   return out;
 }
 
+// PUT /api/gym/staff/:userId/branches: { branchIds: [1, 2] } (2026-11-09): the branches of this gym
+// the person works at, out of those the caller manages. At least one: taking someone off every
+// branch is Remove. Answers the ids once each, in the order sent.
+function branchesBody(body) {
+  if (!isPlainObject(body)) throw new ValidationError("Send the details as JSON.");
+  if (Object.keys(body).some((key) => key !== "branchIds")) throw new ValidationError("That request has fields we don't use.");
+  const list = body.branchIds;
+  if (!Array.isArray(list) || list.length > 100) throw new ValidationError("Pick their branches.");
+  if (list.some((id) => !Number.isInteger(id) || id < 1 || id > 2147483647)) throw new ValidationError("Pick one of your branches.");
+  const branchIds = [...new Set(list)];
+  if (branchIds.length === 0) throw new ValidationError("Pick at least one branch. To take them off the team, use Remove.");
+  return { branchIds };
+}
+
 // PUT /api/gym/staff/:userId/permissions: { options: ["members.view", ...] } (an empty list is
 // allowed: Home only). The older { areas: [...] } still works and gives every option of those
 // areas. An option brings the one it needs. Answers the options in OPTIONS order, each once.
@@ -278,6 +292,19 @@ function permissionsProblem(callerId, target) {
   return null;
 }
 
+// Why the caller can't change this team member's branches, or null. target: the gym_staff row
+function branchesProblem(callerId, target) {
+  if (target.userId === callerId) return "You can't change your own branches.";
+  if (target.kind === "owner") return "Only the justFit team can change a gym admin's branches.";
+  return null;
+}
+
+// Which of the caller's branches to join and leave. current: the branch ids (of those the caller
+// manages) the person works at now; wanted: the ids picked. Both lists are of managed branches.
+function branchChanges(current, wanted) {
+  return { join: wanted.filter((id) => !current.includes(id)), leave: current.filter((id) => !wanted.includes(id)) };
+}
+
 // An account id from the path (user_ + base62; older Clerk ids are letters, numbers and _)
 function userIdParam(value) {
   if (typeof value !== "string" || !/^[A-Za-z0-9_]{1,64}$/.test(value)) throw new ValidationError("That isn't one of your team.");
@@ -329,4 +356,4 @@ function roleAfterLeaving(role, branchesLeft) {
 // "+91 ••••• ••210": lists show only the last three digits
 const maskPhone = (digits) => (typeof digits === "string" && /^[0-9]{10}$/.test(digits) ? `+91 ••••• ••${digits.slice(7)}` : null);
 
-module.exports = { KINDS, AREAS, CROSS_AREA, AREA_LABEL, OPTIONS, OPTION_IDS, ROLE_FOR, KIND_LABEL, addBody, permissionsBody, expandOptions, optionsOf, areasOf, permissionTree, dashboardFor, optionsSummary, areaOfPath, optionsOfRequest, optionLabel, permissionsProblem, userIdParam, joinProblem, checkJoin, inviteProblem, removeProblem, roleAfterLeaving, maskPhone };
+module.exports = { KINDS, AREAS, CROSS_AREA, AREA_LABEL, OPTIONS, OPTION_IDS, ROLE_FOR, KIND_LABEL, addBody, branchesBody, permissionsBody, expandOptions, optionsOf, areasOf, permissionTree, dashboardFor, optionsSummary, areaOfPath, optionsOfRequest, optionLabel, permissionsProblem, branchesProblem, branchChanges, userIdParam, joinProblem, checkJoin, inviteProblem, removeProblem, roleAfterLeaving, maskPhone };

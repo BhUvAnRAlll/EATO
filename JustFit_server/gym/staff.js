@@ -25,6 +25,12 @@ async function team(pool, gym, callerId) {
     "SELECT g.id, g.name FROM gym_staff s JOIN gyms g ON g.id = s.gym_id WHERE s.user_id = ? AND s.kind = 'owner' AND g.brand_id = ? ORDER BY g.name, g.id",
     [callerId, gym.brand_id],
   );
+  // Branches (2026-11-09): which of those branches each person works at
+  const managed = branches.map((b) => b.id);
+  const [placed] = people.length && managed.length
+    ? await pool.query("SELECT user_id, gym_id FROM gym_staff WHERE user_id IN (?) AND gym_id IN (?) ORDER BY gym_id", [people.map((p) => p.user_id), managed])
+    : [[]];
+  const branchIdsOf = (userId) => placed.filter((r) => r.user_id === userId).map((r) => r.gym_id);
   return {
     gym: { id: gym.id, name: gym.brand, branch: gym.branch },
     branches: branches.map((b) => ({ id: b.id, branch: b.name })),
@@ -36,6 +42,7 @@ async function team(pool, gym, callerId) {
       // Role & Permission: what they can use here (the gym admin everything, a trainer nothing)
       areas: rules.areasOf(p),
       options: rules.optionsOf(p),
+      branchIds: branchIdsOf(p.user_id),
       addedAt: dayOf(p.added_at),
       you: p.user_id === callerId,
     })),
@@ -127,6 +134,46 @@ async function remove(pool, gym, callerId, userId) {
   return team(pool, gym, callerId);
 }
 
+// Branches (2026-11-09): the gym admin picks which of their branches someone on this branch's team
+// works at. A branch they join gets this branch's Role & Permission (a Staff login opens the same
+// screens everywhere until edited there); a branch they leave is as Remove there (a trainer's PT
+// members at it lose their trainer). They always keep at least one branch, so the role stays.
+// Branches the caller doesn't manage are never touched.
+async function setBranches(pool, gym, callerId, userId, { branchIds }) {
+  await inTransaction(pool, async (db) => {
+    const [[here]] = await db.query("SELECT user_id, kind FROM gym_staff WHERE user_id = ? AND gym_id = ? FOR UPDATE", [userId, gym.id]);
+    if (!here) throw new NotFoundError("They aren't on your team.");
+    const problem = rules.branchesProblem(callerId, { userId: here.user_id, kind: here.kind });
+    if (problem) throw new ConflictError(problem);
+    const [owned] = await db.query(
+      "SELECT g.id, g.name FROM gym_staff s JOIN gyms g ON g.id = s.gym_id WHERE s.user_id = ? AND s.kind = 'owner' AND g.brand_id = ? FOR UPDATE",
+      [callerId, gym.brand_id],
+    );
+    const managed = owned.map((b) => b.id);
+    if (branchIds.some((id) => !managed.includes(id))) throw new NotFoundError("That branch isn't one you manage.");
+    const links = await linksOf(db, userId);
+    // A gym admin at one of those branches stays as they are (only the justFit team changes them)
+    if (links.some((l) => l.kind === "owner")) throw new ConflictError("Only the justFit team can change a gym admin's branches.");
+    const current = links.filter((l) => managed.includes(l.gymId)).map((l) => l.gymId);
+    const { join, leave } = rules.branchChanges(current, branchIds);
+    for (const id of join) {
+      await db.query(
+        "INSERT INTO gym_staff (user_id, gym_id, kind, permissions) SELECT user_id, ?, kind, permissions FROM gym_staff WHERE user_id = ? AND gym_id = ?",
+        [id, userId, gym.id],
+      );
+    }
+    for (const id of leave) {
+      await db.query("DELETE FROM gym_staff WHERE user_id = ? AND gym_id = ?", [userId, id]);
+      if (here.kind === "trainer") await db.query("UPDATE gym_members SET pt_trainer_id = NULL WHERE gym_id = ? AND pt_trainer_id = ?", [id, userId]);
+    }
+    if (join.length || leave.length) {
+      const names = branchIds.map((id) => owned.find((b) => b.id === id).name).join(", ");
+      await audit(db, callerId, "gym.staff_branches", "gym", gym.id, `The gym admin set a ${rules.KIND_LABEL[here.kind]} login's branches at ${gym.brand} to: ${names}`.slice(0, 200));
+    }
+  });
+  return team(pool, gym, callerId);
+}
+
 // Role & Permission: what a Staff login may use at this branch (an empty list leaves them Home
 // only). Takes effect on their next request: the areas are read with the branch on every call.
 async function setPermissions(pool, gym, callerId, userId, { options }) {
@@ -180,4 +227,4 @@ async function applyInvites(db, userId, phone) {
   await db.query("DELETE FROM gym_staff_invites WHERE phone = ?", [phone]);
 }
 
-module.exports = { team, add, remove, setPermissions, cancelInvite, applyInvites };
+module.exports = { team, add, remove, setBranches, setPermissions, cancelInvite, applyInvites };

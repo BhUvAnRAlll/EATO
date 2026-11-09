@@ -76,7 +76,7 @@ describe("gym portal e2e: gyms, staff, members, money and attendance", () => {
         const gymIds = [state.gymA, state.gymA2, state.gymA3, state.gymB].filter(Boolean);
         if (gymIds.length) {
           const [brands] = await connection.query("SELECT DISTINCT brand_id FROM gyms WHERE id IN (?)", [gymIds]);
-          for (const table of ["gym_attendance", "gym_payments", "gym_enquiry_contacts", "gym_enquiries", "gym_catalog_items", "gym_members", "gym_staff"]) await connection.query(`DELETE FROM \`${table}\` WHERE gym_id IN (?)`, [gymIds]);
+          for (const table of ["gym_activity_log", "gym_attendance", "gym_payments", "gym_enquiry_contacts", "gym_enquiries", "gym_catalog_items", "gym_members", "gym_staff"]) await connection.query(`DELETE FROM \`${table}\` WHERE gym_id IN (?)`, [gymIds]);
           await connection.query("DELETE FROM gyms WHERE id IN (?)", [gymIds]);
           if (brands.length) await connection.query("DELETE FROM gym_brands WHERE id IN (?)", [brands.map((b) => b.brand_id)]);
         }

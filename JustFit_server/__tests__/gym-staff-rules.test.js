@@ -22,6 +22,20 @@ describe("gym staff rules", () => {
     for (const body of [null, [], "9876543210"]) assert.throws(() => rules.addBody(body), /JSON/);
   });
 
+  it("Branches: reads a list of branch ids, at least one, each once", () => {
+    assert.deepEqual(rules.branchesBody({ branchIds: [3, 1, 3] }), { branchIds: [3, 1] });
+    assert.throws(() => rules.branchesBody({ branchIds: [] }), /at least one branch/);
+    for (const branchIds of [[0], [-1], [1.5], ["7"], ["7 OR 1=1"], [null], "1", null, {}]) assert.throws(() => rules.branchesBody({ branchIds }), { status: 400 }, JSON.stringify(branchIds));
+    assert.throws(() => rules.branchesBody({ branchIds: [1], kind: "owner" }), /fields we don't use/);
+    assert.throws(() => rules.branchesBody({ branchIds: Array.from({ length: 101 }, (_, i) => i + 1) }), /Pick their branches/);
+    for (const body of [null, [], "1"]) assert.throws(() => rules.branchesBody(body), /JSON/);
+    assert.match(rules.branchesProblem("u1", { userId: "u1", kind: "staff" }), /your own/);
+    assert.match(rules.branchesProblem("u1", { userId: "u2", kind: "owner" }), /justFit team/);
+    assert.equal(rules.branchesProblem("u1", { userId: "u2", kind: "trainer" }), null);
+    assert.deepEqual(rules.branchChanges([1, 2], [2, 3]), { join: [3], leave: [1] });
+    assert.deepEqual(rules.branchChanges([1], [1]), { join: [], leave: [] });
+  });
+
   it("takes only an account id in the path", () => {
     assert.equal(rules.userIdParam("user_Ab12"), "user_Ab12");
     for (const bad of ["", "user-1", "1 OR 1=1", "../x", "a".repeat(65), undefined]) assert.throws(() => rules.userIdParam(bad), { status: 400 }, String(bad));

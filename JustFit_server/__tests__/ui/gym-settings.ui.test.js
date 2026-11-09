@@ -123,7 +123,7 @@ describe("ui gym settings: every group for the gym admin, rows open their screen
       if (!connection) return;
       if (state.gym) {
         const [[{ brand_id: brandId }]] = await connection.query("SELECT brand_id FROM gyms WHERE id = ?", [state.gym]);
-        for (const table of ["gym_payments", "gym_members", "gym_staff_invites", "gym_staff"]) await connection.query(`DELETE FROM \`${table}\` WHERE gym_id = ?`, [state.gym]);
+        for (const table of ["gym_activity_log", "gym_payments", "gym_members", "gym_staff_invites", "gym_staff"]) await connection.query(`DELETE FROM \`${table}\` WHERE gym_id = ?`, [state.gym]);
         await connection.query("DELETE FROM gyms WHERE id = ?", [state.gym]);
         await connection.query("DELETE FROM gym_brands WHERE id = ?", [brandId]);
       }
@@ -152,6 +152,7 @@ describe("ui gym settings: every group for the gym admin, rows open their screen
     "Reminder Templates, The wording of your reminders",
     "Staff / Admin Login, Who can sign in to your gym",
     "Role & Permission, What each Staff login can open",
+    "Activity, Who added, edited or deleted what",
   ];
   const openSettings = async () => {
     await clickLabel("Menu");
@@ -186,6 +187,7 @@ describe("ui gym settings: every group for the gym admin, rows open their screen
       ["Attendance QR code, Show, print or regenerate", "/gym/attendance/qr"],
       ["Staff / Admin Login, Who can sign in to your gym", "/gym/staff"],
       ["Role & Permission, What each Staff login can open", "/gym/permissions"],
+      ["Activity, Who added, edited or deleted what", "/gym/activity"],
     ]) {
       await clickLabel(label);
       await page.waitFor(`location.pathname === ${JSON.stringify(route)}`, NAV_TIMEOUT, `${label} opens ${route}`);
@@ -218,5 +220,19 @@ describe("ui gym settings: every group for the gym admin, rows open their screen
     await clickLabel("Sign out");
     await page.waitFor(`!location.pathname.startsWith("/gym")`, 60000, "out of the gym portal");
     await h.expectText("Log in");
+  }));
+  it("6. ☰ › Activity shows the gym admin who changed what (here, their own Role & Permission change)", run("settings-activity", async () => {
+    await signIn(identities.owner, "/gym");
+    await h.expectText("Tumkur branch");
+    await clickLabel("Menu");
+    await h.expectText("Sign out");
+    await h.settle();
+    await clickLabel("Activity");
+    await page.waitFor(`location.pathname === "/gym/activity"`, NAV_TIMEOUT, "the Activity screen");
+    await h.expectText("Changed Role & Permission");
+    await h.expectText("Gym admin");
+    await snapshotAllWidths("gym-activity");
+    await page.clickText("Deleted");
+    await h.expectText("Nothing matches these filters on this day.");
   }));
 });

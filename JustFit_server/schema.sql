@@ -1515,3 +1515,23 @@ CREATE TABLE gym_added_templates (
   CONSTRAINT fk_gym_added_templates_gym FOREIGN KEY (gym_id) REFERENCES gyms (id),
   CONSTRAINT fk_gym_added_templates_updated_by FOREIGN KEY (updated_by) REFERENCES users (id) ON DELETE SET NULL
 ) ENGINE = InnoDB;
+
+-- Activity log (2026-11-09, migration 2026-12-14-gym-activity-log.sql): who added, edited or deleted
+-- what in the gym portal, read by the gym admin on ☰ › Activity; rows older than a year are deleted.
+CREATE TABLE gym_activity_log (
+  id            BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  gym_id        INT UNSIGNED NOT NULL,                -- the branch it happened at
+  actor_id      VARCHAR(64)  NULL,                    -- who made it (NULL once their account is deleted)
+  actor_kind    ENUM('owner', 'staff') NOT NULL,      -- the gym admin or a Staff login, at the time
+  action        ENUM('create', 'edit', 'delete') NOT NULL,
+  target_type   ENUM('member', 'payment', 'enquiry', 'catalog', 'expense', 'pause', 'attendance', 'sms', 'template', 'settings', 'team') NOT NULL,
+  target_id     VARCHAR(64)  NULL,
+  target_label  VARCHAR(120) NOT NULL,                -- "Arjun M (FOR-TUM-0003)", kept as it was
+  detail        VARCHAR(200) NULL,                    -- "Changed: weight, address" or "₹1,500 · cash"
+  created_at    TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (id),
+  KEY idx_gym_activity_time (gym_id, created_at),
+  KEY idx_gym_activity_actor (gym_id, actor_id, created_at),
+  CONSTRAINT fk_gym_activity_gym FOREIGN KEY (gym_id) REFERENCES gyms (id),
+  CONSTRAINT fk_gym_activity_actor FOREIGN KEY (actor_id) REFERENCES users (id) ON DELETE SET NULL
+) ENGINE = InnoDB;

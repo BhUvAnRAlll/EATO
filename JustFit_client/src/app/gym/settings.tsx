@@ -49,6 +49,7 @@ const GROUPS: SettingGroup[] = [
     rows: [
       { label: "Staff / Admin Login", text: "Who can sign in to your gym", icon: "user-cog", href: "/gym/staff", ownerOnly: true },
       { label: "Role & Permission", text: "What each Staff login can open", icon: "shield-check", href: "/gym/permissions", ownerOnly: true },
+      { label: "Activity", text: "Who added, edited or deleted what", icon: "history", href: "/gym/activity", ownerOnly: true },
     ],
   },
 ];
