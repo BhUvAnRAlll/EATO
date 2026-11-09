@@ -111,6 +111,9 @@ describe("gym staff & trainer attendance e2e: scans, the gym admin's tab, by han
     assert.equal((await as("admin").post(`/api/admin/portal/gyms/${state.gymB}/staff`, { phone: identities.ownerB.phone })).status, 201);
     assert.equal((await as("owner").post("/api/gym/staff", { phone: identities.staffer.phone, kind: "staff" })).status, 201);
     assert.equal((await as("owner").post("/api/gym/staff", { phone: identities.coach.phone, kind: "trainer" })).status, 201);
+    // Names, as a person adds them in their profile: the tab shows them and the search reads them
+    await connection.query("UPDATE users SET full_name = ? WHERE id = ?", [`Ravi Staff ${runId}`, identities.staffer.id]);
+    await connection.query("UPDATE users SET full_name = ? WHERE id = ?", [`Priya Trainer ${runId}`, identities.coach.id]);
     const m = await as("owner").post("/api/gym/members", { name: "Asif Khan", phone: identities.member.phone, unit: "months", duration: 1, fee: 1000, paid: 1000, method: "cash" });
     assert.equal(m.status, 201, JSON.stringify(m.json));
     state.member = m.json.member.id;
@@ -225,6 +228,7 @@ describe("gym staff & trainer attendance e2e: scans, the gym admin's tab, by han
 
     // Search by name narrows the visits
     const name = byKind.trainer.name;
+    assert.equal(name, `Priya Trainer ${runId}`);
     const found = await as("owner").get(`/api/gym/team-attendance?search=${encodeURIComponent(name)}`);
     assert.ok(found.json.visits.length >= 1 && found.json.visits.every((v) => v.name === name));
   }));
