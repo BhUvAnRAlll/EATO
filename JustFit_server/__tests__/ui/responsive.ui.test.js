@@ -109,7 +109,7 @@ describe("ui responsive: every main screen fits at 320–430 px without sideways
     } catch (error) {
       // A web server that went away is named with the end of its log, not blamed on the screen
       const gone = await fetch(expo.baseUrl).then(() => false, () => true);
-      failures.push(`${route}: never showed "${text}" (now on ${await page.path().catch(() => "?")})${gone ? `\n  the Expo web server stopped; its last lines:\n  ${expo.logs.slice(-15).join("\n  ")}` : ""}`);
+      failures.push(`${route}: never showed "${text}" (now on ${await page.path().catch(() => "?")})${gone ? `\n  the Expo web server stopped; its error:\n  ${expo.logs.filter((l) => /FATAL|Error|error:|ENOMEM|EMFILE|heap/i.test(l)).slice(0, 6).join("\n  ") || "(none printed)"}\n  its last lines:\n  ${expo.logs.slice(-6).join("\n  ")}` : ""}`);
       return;
     }
     await h.settle();

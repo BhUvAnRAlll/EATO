@@ -199,7 +199,7 @@ describe("ui gym permissions: Role & Permission for Staff logins", () => {
     assert.ok(!saved.some((id) => id.startsWith("payments.") || id.startsWith("sms.")), JSON.stringify(saved));
     await snapshotAllWidths("gym-permissions-saved");
 
-    const line = "Home, Members (4 of 5), Enquiries, Plans / Catalogue, Attendance, Reminder Templates, Predictions, Expenses";
+    const line = "Home, Members (4 of 5), Enquiries, Plans / Catalogue, Gym Profile, Attendance, Reminder Templates, Predictions, Expenses";
     await page.navigate(`${expo.baseUrl}/gym/permissions`);
     await page.waitFor(`[...document.querySelectorAll('[aria-label]')].some((e) => e.getAttribute("aria-label") === ${JSON.stringify(`Priya Sharma: ${line}. Change permissions`)})`, NAV_TIMEOUT, "the row says what's left");
     // Staff / Admin Login shows it too

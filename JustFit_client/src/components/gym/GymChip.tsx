@@ -64,6 +64,9 @@ export function FilterChip({ label, count, selected, onPress, onLayout, accessib
       accessibilityState={{ selected }}
       accessibilityLabel={accessibilityLabel ?? label}
       accessibilityValue={hasCount ? { text: String(count) } : undefined}
+      // The web build reads only the aria props: the tab's state and its count for screen readers
+      aria-selected={selected}
+      aria-valuetext={hasCount ? String(count) : undefined}
     >
       {selected && <GradientFill radius={999} />}
       <Text className={selected ? "gym-filter__label gym-filter__label--selected" : "gym-filter__label"} numberOfLines={1}>{label}</Text>

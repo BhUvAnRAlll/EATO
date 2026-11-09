@@ -16,6 +16,9 @@ async function startExpoWeb({ port, apiUrl, timeoutMs = 240000 }) {
     env: {
       PATH: process.env.PATH, HOME: process.env.HOME, CI: "1", BROWSER: "none", EXPO_NO_TELEMETRY: "1",
       EXPO_PUBLIC_API_URL: apiUrl, // inlined into the web bundle; takes precedence over .env
+      // Metro bundles every screen in a long run (responsive.ui.test.js) and ran out of Node's
+      // default heap ("JavaScript heap out of memory", 2026-11-09)
+      NODE_OPTIONS: "--max-old-space-size=4096",
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
