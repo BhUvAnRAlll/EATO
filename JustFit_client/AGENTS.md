@@ -1191,6 +1191,14 @@ picker were removed on 2026-11-01; don't add them back unless asked.
   `tileOrder` (null = the usual order). Screen readers get Move earlier / Move later. Column
   `gym_staff.home_tiles` (migration `2026-12-22-home-tile-order.sql`; before it Home keeps the usual
   order and saving answers 503 naming it). Tests: `gym-rules.test.js`, `e2e/gym-home-tiles.e2e.test.js`.
+- **Ongoing workout notification (2026-11-09, Android).** While the session player is open,
+  `lib/workoutNotification.ts` keeps one quiet notification that can't be swiped away
+  (expo-notifications, channel `workout`, importance LOW, `sticky`): "Bench Press · set 2 of 4" /
+  "Push Day · 5 of 18 sets done", or "Rest 1 min 30 s" with what follows. The words come from
+  `lib/workoutStatus.ts` (pure, unit-tested; meant for the iPhone Live Activity too). It changes
+  with the step, never every second; it goes when the workout finishes, the player closes, the
+  member signs out or the app next launches. Permission is asked at most once per app session,
+  when a workout starts. Local only, nothing on the server. iPhone and the web show nothing.
 - **Undo and shake to undo (2026-11-09).** A reversible removal goes at once with an Undo bar
   instead of an "Are you sure?": `offerUndo({ text, keys, commit, onDone })` from `lib/undo.ts`.
   The bar (`components/UndoBar.tsx`, at the root, above the tab bar) shows for 5 s; Undo, or a

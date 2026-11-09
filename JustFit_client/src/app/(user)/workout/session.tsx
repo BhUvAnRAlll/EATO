@@ -15,6 +15,8 @@ import { useThemeColors } from "@/theme";
 import { fonts } from "@/constants/fonts";
 import { track } from "@/lib/analytics";
 import { haptic } from "@/lib/haptics";
+import { hideWorkoutNotification, showWorkoutNotification } from "@/lib/workoutNotification";
+import { workoutStatus } from "@/lib/workoutStatus";
 
 // The session player: today's session set by set, on the dark ink surface so it reads at arm's
 // length with the phone propped against a rack. Every set of every exercise in plan order, with
@@ -283,6 +285,16 @@ function Player({ day, logId, completed, initialLogged, startExercise, getToken,
   // Worked out only when a set is logged, not on every second of the countdown
   const totals = useMemo(() => setTotals(steps, logged), [steps, logged]);
   const progress = useMemo(() => exerciseProgress(day.exercises, logged), [day, logged]);
+
+  // Outside the app: Android's ongoing notification follows the step on screen (never the
+  // countdown's every second), and goes when the workout is done or the player closes
+  const nextName = next?.kind === "set" ? next.name : null;
+  const stepName = step ? day.exercises[step.exerciseIndex]?.name ?? "" : "";
+  useEffect(() => {
+    if (finished) return void hideWorkoutNotification();
+    void showWorkoutNotification(workoutStatus({ dayTitle: day.title, step, exerciseName: stepName, nextName, done: totals.done, total: totals.total, paused }));
+  }, [index, armed, paused, finished, totals, day.title, stepName, nextName]); // eslint-disable-line react-hooks/exhaustive-deps -- the step is read through index and armed
+  useEffect(() => () => void hideWorkoutNotification(), []);
 
   if (finished) {
     return (
