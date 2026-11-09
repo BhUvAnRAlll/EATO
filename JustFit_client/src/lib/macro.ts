@@ -1,4 +1,4 @@
-import { apiFetch, type ApiResult } from "@/lib/api";
+import { apiFetch, onServerWrite, type ApiResult } from "@/lib/api";
 import type { Icon } from "@/types/profile";
 
 // The Macro diary: types, the calls to /api/macro on the justFit server, and the date and
@@ -45,10 +45,27 @@ const signedOut = <T>(): Promise<ApiResult<T>> => Promise.resolve({ ok: false, e
 const query = (params: Record<string, string | number>) =>
   "?" + Object.entries(params).map(([key, value]) => `${key}=${encodeURIComponent(String(value))}`).join("&");
 
+// The last day read, kept briefly so a screen opened from another (Add meal or Daily from the
+// Macro tab) needn't read it again. Any change sent to the server forgets it, and a read that
+// was under way while a change went out isn't kept (`generation`).
+export const DAY_FRESH_MS = 30_000;
+let dayCache: { key: string; at: number; data: DayView } | null = null;
+let generation = 0;
+onServerWrite(() => {
+  generation += 1;
+  dayCache = null;
+});
+
 export const macro = {
-  day(token: string | null, date: string): Promise<ApiResult<DayView>> {
+  // `maxAgeMs`: a day read that recently (same account and date) is answered without a request
+  async day(token: string | null, date: string, { maxAgeMs = 0 }: { maxAgeMs?: number } = {}): Promise<ApiResult<DayView>> {
     if (!token) return signedOut();
-    return apiFetch(`/api/macro/day${query({ date })}`, { token });
+    const key = `${token}|${date}`;
+    if (maxAgeMs > 0 && dayCache?.key === key && Date.now() - dayCache.at < maxAgeMs) return { ok: true, data: dayCache.data };
+    const started = generation;
+    const result = await apiFetch<DayView>(`/api/macro/day${query({ date })}`, { token });
+    if (result.ok && started === generation) dayCache = { key, at: Date.now(), data: result.data };
+    return result;
   },
   progress(token: string | null, dates: string[]): Promise<ApiResult<{ days: DayProgress[] }>> {
     if (!token) return signedOut();

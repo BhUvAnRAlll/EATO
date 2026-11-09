@@ -94,7 +94,10 @@ function WorkoutHubScreen() {
     const request = ++latest.current;
     const today = todayIso();
     const token = await getToken().catch(() => null);
-    let home = await workoutApi.home(token, today, weekOf(today), today);
+    // The hub and the last seven days are read together; a member with no plan yet has the plan
+    // built and the hub read again
+    const [first, history] = await Promise.all([workoutApi.home(token, today, weekOf(today), today), workoutApi.history(token, addDays(today, -6), today, today)]);
+    let home = first;
     if (home.ok && home.data.plan === null) {
       if (request === latest.current) setLoad({ state: "building" });
       if (!ensuring.current) ensuring.current = workoutApi.ensurePlan(token, today).finally(() => { ensuring.current = null; });
@@ -105,7 +108,6 @@ function WorkoutHubScreen() {
       }
       home = await workoutApi.home(token, today, weekOf(today), today);
     }
-    const history = await workoutApi.history(token, addDays(today, -6), today, today);
     if (request !== latest.current) return;
     if (!home.ok) return setLoad({ state: "failed", error: home.error });
     if (home.data.plan === null) return setLoad({ state: "failed", error: "Your plan isn't ready yet" });

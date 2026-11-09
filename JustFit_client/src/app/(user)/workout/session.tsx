@@ -59,7 +59,9 @@ export default function SessionPlayer() {
     let cancelled = false;
     (async () => {
       const token = await getToken().catch(() => null);
-      const home = await workoutApi.home(token, date, weekOf(date), today);
+      // The day and the sets already logged are read together; starting comes after (it needs the
+      // day). A log the start creates has no sets yet, and one already running is in `progress`.
+      const [home, progress] = await Promise.all([workoutApi.home(token, date, weekOf(date), today), workoutApi.session(token, date, today)]);
       if (cancelled) return;
       if (!home.ok) return setLoad({ state: "empty", title: "Could not start the session", text: home.error });
       if (home.data.plan === null || !home.data.day) return setLoad({ state: "empty", title: "Nothing scheduled", text: null });
@@ -77,8 +79,6 @@ export default function SessionPlayer() {
           if (start.data.created) track("workout_started");
         } else startError = start.error || "Could not start the session";
       }
-      const progress = await workoutApi.session(token, date, today);
-      if (cancelled) return;
       if (progress.ok && progress.data.log && !logId && progress.data.log.status === "in_progress") logId = progress.data.log.id;
       // Without a log every set would fail to save and Finish could never work: say so instead of playing
       if (!completed && !logId) return setLoad({ state: "failed", error: startError ?? "Could not start the session" });
@@ -280,8 +280,11 @@ function Player({ day, logId, completed, initialLogged, startExercise, getToken,
     return () => clearInterval(timer);
   }, [timedStep, index, armed, paused, finished]);
 
+  // Worked out only when a set is logged, not on every second of the countdown
+  const totals = useMemo(() => setTotals(steps, logged), [steps, logged]);
+  const progress = useMemo(() => exerciseProgress(day.exercises, logged), [day, logged]);
+
   if (finished) {
-    const totals = setTotals(steps, logged);
     return (
       <View className="player__column justify-center">
         <Text className="player__overline">Workout complete</Text>
@@ -309,7 +312,6 @@ function Player({ day, logId, completed, initialLogged, startExercise, getToken,
 
   const exercise = day.exercises[step.exerciseIndex];
   const timed = step.durationSec !== null;
-  const progress = exerciseProgress(day.exercises, logged);
   const figure = timed ? (remaining >= 60 ? `${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, "0")}` : String(remaining)) : String(reps);
   const unit = timed ? (remaining >= 60 ? "min" : "secs") : "reps";
 
@@ -403,7 +405,7 @@ function Player({ day, logId, completed, initialLogged, startExercise, getToken,
       </View>
 
       {/* One segment per exercise, filling as its sets are done */}
-      <View className="flex-row gap-1" accessibilityLabel={`${setTotals(steps, logged).done} of ${setTotals(steps, logged).total} sets done`}>
+      <View className="flex-row gap-1" accessibilityLabel={`${totals.done} of ${totals.total} sets done`}>
         {progress.map((fraction, i) => (
           <View key={day.exercises[i].id} className="player__segment">
             <View style={{ width: `${Math.round(fraction * 100)}%`, height: "100%", backgroundColor: colors.primary }} />

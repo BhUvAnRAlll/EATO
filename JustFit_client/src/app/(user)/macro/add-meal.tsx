@@ -6,7 +6,7 @@ import { SymbolView } from "@/components/SymbolView";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 
 import { MacroHeader } from "@/components/macro/MacroHeader";
-import { macro, slotForNow, slotInfo, slots, slotTimes, timeLabel, todayIso, whole, type DayView, type Slot } from "@/lib/macro";
+import { DAY_FRESH_MS, macro, slotForNow, slotInfo, slots, slotTimes, timeLabel, todayIso, whole, type DayView, type Slot } from "@/lib/macro";
 import { useSessionToken } from "@/lib/session";
 import { useMacroStore } from "@/store/macro";
 import { useThemeColors } from "@/theme";
@@ -28,7 +28,7 @@ export default function AddMeal() {
     useCallback(() => {
       let cancelled = false;
       (async () => {
-        const result = await macro.day(await getToken().catch(() => null), selectedDate);
+        const result = await macro.day(await getToken().catch(() => null), selectedDate, { maxAgeMs: DAY_FRESH_MS });
         if (!cancelled && result.ok) setDay(result.data);
       })();
       return () => {

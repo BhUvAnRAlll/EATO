@@ -102,12 +102,12 @@ function CoachScreen() {
     setError(null);
     const token = await getToken().catch(() => null);
     const today = todayIso();
-    const result = await coachApi.intake(token);
+    // The intake, the plan and today's workout are read together (one wait, not two in a row);
+    // without an intake the plan and workout answers are simply not used
+    const [result, planResult] = await Promise.all([coachApi.intake(token), coachApi.plan(token, today), loadWorkout(token, today)]);
     if (request !== latest.current) return;
     if (!result.ok) return setError(result.status ? result.error : OFFLINE);
     if (result.data.intake) {
-      const [planResult] = await Promise.all([coachApi.plan(token, today), loadWorkout(token, today)]);
-      if (request !== latest.current) return;
       if (!planResult.ok) return setError(planResult.status ? planResult.error : OFFLINE);
       setPlan(planResult.data);
       syncMealReminders(planResult.data.plan, today).catch(() => {});

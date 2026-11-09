@@ -218,8 +218,13 @@ async function draftPlan(pool, userId, today, { answers = {}, shape = {} } = {},
  * transaction and has already retired any previous active plan.
  */
 async function generateAndStore(conn, userId, today, source, prepared) {
-  const { idByName } = await programmableLibrary(conn);
   const { inputs, plan } = prepared;
+  // The ids of just the plan's exercises, read inside the transaction (an exercise archived since
+  // the plan was drafted is missing here): not the whole library a second time
+  const names = [...new Set(plan.days.flatMap((day) => day.exercises.map((e) => e.name)))];
+  const [rows] = names.length ? await conn.query("SELECT id, name FROM workout_exercise_library WHERE archived_at IS NULL AND name IN (?)", [names]) : [[]];
+  const ids = new Map(rows.map((row) => [row.name.toLowerCase(), row.id]));
+  const idByName = (name) => ids.get(name.toLowerCase());
 
   // Ids made here (no SELECT UUID() round trip each) and each table written in one multi-row
   // INSERT: the member is locked while this runs

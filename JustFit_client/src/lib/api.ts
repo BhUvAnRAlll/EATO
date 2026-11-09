@@ -55,7 +55,16 @@ export function reportRefusal(status: number, token: string | null | undefined, 
 }
 
 // Calls the justFit server. JSON in, JSON out, one friendly error line on failure.
+// Told after every request that changes something on the server (whatever its outcome), so a
+// short-lived read cache (lib/macro's day) never outlives a change made from any screen
+const writeListeners = new Set<() => void>();
+export function onServerWrite(listener: () => void): () => void {
+  writeListeners.add(listener);
+  return () => writeListeners.delete(listener);
+}
+
 export async function apiFetch<T>(path: string, options: ApiOptions = {}): Promise<ApiResult<T>> {
+  const writes = (options.method ?? "GET") !== "GET";
   const headers: Record<string, string> = {};
   if (options.body !== undefined) headers["Content-Type"] = "application/json";
   if (options.token) headers.Authorization = `Bearer ${options.token}`;
@@ -92,5 +101,6 @@ export async function apiFetch<T>(path: string, options: ApiOptions = {}): Promi
     return { ok: false, error: "Couldn't reach the server. Check your connection and try again." };
   } finally {
     clearTimeout(timer);
+    if (writes) writeListeners.forEach((listener) => listener());
   }
 }

@@ -13,7 +13,7 @@ import { MealDetailSheet } from "@/components/macro/MealDetailSheet";
 import { MealTimeline, timelineRows } from "@/components/macro/MealTimeline";
 import { Ring } from "@/components/macro/Ring";
 import { usePullToRefresh } from "@/components/PullToRefresh";
-import { isValidIso, litres, longDate, macro, todayIso, whole, type DayView, type Meal, type WaterDay } from "@/lib/macro";
+import { DAY_FRESH_MS, isValidIso, litres, longDate, macro, todayIso, whole, type DayView, type Meal, type WaterDay } from "@/lib/macro";
 import { useSessionToken } from "@/lib/session";
 import { useMacroStore } from "@/store/macro";
 import { useThemeColors } from "@/theme";
@@ -39,10 +39,11 @@ export default function DailyCalories() {
 
   // Only the newest read is shown: switching days quickly never lets an older answer land last
   const latest = useRef(0);
-  const load = useCallback(async () => {
+  // Opened from the Macro tab the day it just read is reused; a pull always reads it again
+  const load = useCallback(async ({ fresh = false }: { fresh?: boolean } = {}) => {
     const request = ++latest.current;
     const token = await getToken().catch(() => null);
-    const [result, waterResult] = await Promise.all([macro.day(token, selectedDate), macro.water(token, selectedDate)]);
+    const [result, waterResult] = await Promise.all([macro.day(token, selectedDate, { maxAgeMs: fresh ? 0 : DAY_FRESH_MS }), macro.water(token, selectedDate)]);
     if (request !== latest.current) return;
     if (result.ok) setDay(result.data);
     setLoadError(result.ok ? null : result.error);
@@ -57,7 +58,7 @@ export default function DailyCalories() {
   );
 
   // A pull reads the day and its water again
-  const { refreshControl } = usePullToRefresh(load);
+  const { refreshControl } = usePullToRefresh(() => load({ fresh: true }));
 
   const backToToday = () => {
     jumpToDate(today);
@@ -77,7 +78,7 @@ export default function DailyCalories() {
 
         {!showing && loadError ? (
           <View className="px-4 pt-2">
-            <LoadError title="Couldn't load this day" message={loadError} onRetry={load} />
+            <LoadError title="Couldn't load this day" message={loadError} onRetry={() => load({ fresh: true })} />
           </View>
         ) : !showing ? (
           <View className="px-4 pt-2">
