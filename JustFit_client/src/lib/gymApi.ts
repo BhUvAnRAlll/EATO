@@ -1,5 +1,6 @@
 import { apiFetch, type ApiResult } from "@/lib/api";
-import type { FacilityId, OpeningHours } from "@/lib/gymProfile";
+import type { GymPage } from "@/lib/discoverApi";
+import type { Closure, CustomFacility, FacilityId, OpeningHours, PublishState, ShowSections } from "@/lib/gymProfile";
 import type { AddedTemplate, CustomTemplates, TemplateKind } from "@/lib/reminderTemplates";
 
 // The gym admin portal's calls (JustFit_server/gym, mounted at /api/gym) and the Super Admin's
@@ -21,21 +22,40 @@ export type CatalogKind = "plan" | "pt" | "service" | "product";
 // imageUrl: an optional picture or brochure photo, read with the session (null: none); details:
 // what a plan or PT package includes and any limits, shown to members (Gym Hub; null: none)
 export type CatalogItem = { id: number; kind: CatalogKind; name: string; duration: number | null; unit: PlanUnit | null; price: number; stock: number | null; imageUrl: string | null; details?: string | null };
-// The branch's public profile (Gym Hub phase 2): what members will see when they discover gyms.
-// contact, hasLocation and hasLogo come from Invoice details, Location & Attendance and the logo;
-// photos are read with the session; hours null: not given yet
+// The branch's Gym Profile (Gym Hub phase 2, Gym Profile Management phase 1): the draft the gym
+// edits; members see only what was last published (publishing.state). contact.address and phone
+// come from Invoice details, hasLocation from Location & Attendance, hasLogo from the logo; photos
+// are read with the session, the first is the cover; hours null: not given yet
+export type ProfileContact = { address: string | null; phone: string | null; whatsapp: string | null; email: string | null; website: string | null; instagram: string | null; facebook: string | null };
+export type ChecklistItem = { id: string; label: string; required: boolean; done: boolean };
 export type GymProfile = {
   gym: GymInfo;
   about: string | null;
   facilities: FacilityId[];
+  custom: CustomFacility[];
   hours: OpeningHours | null;
+  closures: Closure[];
+  show: ShowSections;
   photos: { id: number; url: string }[];
   maxPhotos: number;
-  contact: { address: string | null; phone: string | null };
+  contact: ProfileContact;
   hasLocation: boolean;
   hasLogo: boolean;
+  publishing: { state: PublishState; publishedAt: string | null; editedAt: string | null; checklist: ChecklistItem[]; problem: string | null };
 };
-export type GymProfileFields = { about?: string; facilities?: FacilityId[]; hours?: OpeningHours | null };
+export type GymProfileFields = {
+  about?: string;
+  facilities?: FacilityId[];
+  hours?: OpeningHours | null;
+  custom?: CustomFacility[];
+  closures?: Closure[];
+  show?: ShowSections;
+  whatsapp?: string;
+  email?: string;
+  website?: string;
+  instagram?: string;
+  facebook?: string;
+};
 export type PayMethod = "online" | "cash";
 // receiptUrl: the bill attached to the payment (Add Member › Attach the payment bill), read with the
 // session; the member's page carries it, the other payment lists don't
@@ -75,7 +95,7 @@ export type GymAccess = "owner" | "staff";
 export type StaffKind = "staff" | "trainer";
 // Role & Permission: the portal's areas a Staff login can be given (the gym admin has all of them,
 // a trainer none). Which routes each covers is the server's call (gym/staffRules.js).
-export type StaffArea = "home" | "members" | "payments" | "enquiries" | "catalog" | "attendance" | "sms" | "templates" | "predictions" | "expenses";
+export type StaffArea = "home" | "members" | "payments" | "enquiries" | "catalog" | "profile" | "attendance" | "sms" | "templates" | "predictions" | "expenses";
 // Role & Permission's options inside each area ("members.add"); the server's list (staffRules.OPTIONS)
 // comes with the team as permissionTree, so the app draws whatever the server checks
 export type StaffOption = `${StaffArea}.${string}`;
@@ -349,6 +369,10 @@ export const gymApi = {
   updateProfile: (token: string | null, fields: GymProfileFields) => call<GymProfile>(token, "/api/gym/profile", "PATCH", fields),
   addGymPhoto: (token: string | null, image: { data: string; mediaType: string }) => call<GymProfile>(token, "/api/gym/profile/photos", "POST", { data: image.data, mediaType: image.mediaType }),
   removeGymPhoto: (token: string | null, id: number) => call<GymProfile>(token, `/api/gym/profile/photos/${id}`, "DELETE"),
+  orderGymPhotos: (token: string | null, ids: number[]) => call<GymProfile>(token, "/api/gym/profile/photos/order", "PUT", { ids }),
+  publishProfile: (token: string | null) => call<GymProfile>(token, "/api/gym/profile/publish", "POST"),
+  // The gym's page as members would see it once the draft is published
+  profilePreview: (token: string | null) => call<GymPage>(token, "/api/gym/profile/preview"),
   // Reminder Templates (gym/templates.js): every portal login reads them; the gym admin rewords
   // one (saveTemplate) or puts it back to the default (resetTemplate)
   templates: (token: string | null) => call<GymTemplates>(token, "/api/gym/templates"),

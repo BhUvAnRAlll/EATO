@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { DAYS, FACILITIES, TIME_SLOTS, copyToAll, dayText, hoursProblem, nextSession, sameHours, sessionsProblem, startingHours, timeLabel, type OpeningHours } from "../gymProfile.ts";
+import { DAYS, FACILITIES, SECTIONS, TIME_SLOTS, closureDateText, copyToAll, customProblem, dayText, hoursProblem, makeCover, movePhoto, nextSession, publishStateText, sameHours, sessionsProblem, stampText, startingHours, timeLabel, type OpeningHours } from "../gymProfile.ts";
 
 describe("Gym public profile helpers", () => {
   it("lists every facility and day once", () => {
@@ -47,3 +47,45 @@ describe("Gym public profile helpers", () => {
     assert.equal(sessionsProblem([["05:30", "21:00"], nextSession([["05:30", "21:00"]])]), null);
   });
 });
+
+describe("Gym Profile Management helpers (2026-11-09)", () => {
+  it("lists the nine sections the server knows, once each", () => {
+    assert.deepEqual(SECTIONS.map((s) => s.id), ["photos", "about", "facilities", "hours", "address", "contact", "links", "plans", "pt"]);
+  });
+
+  it("names the publishing states", () => {
+    assert.equal(publishStateText("draft").label, "Draft");
+    assert.equal(publishStateText("published").label, "Published");
+    assert.equal(publishStateText("changed").label, "Changes not published");
+  });
+
+  it("writes times in India's time: today, yesterday or the date", () => {
+    const now = Date.parse("2026-11-09T12:00:00Z"); // 5:30 pm in India
+    assert.equal(stampText("2026-11-09T10:35:00Z", now), "Today, 4:05 pm");
+    assert.equal(stampText("2026-11-08T03:30:00Z", now), "Yesterday, 9 am");
+    assert.equal(stampText("2026-11-03T13:00:00Z", now), "3 Nov 2026, 6:30 pm");
+    // 11 pm UTC on the 8th is already the 9th in India
+    assert.equal(stampText("2026-11-08T23:00:00Z", now), "Today, 4:30 am");
+  });
+
+  it("checks a facility of the gym's own", () => {
+    assert.equal(customProblem("  Boxing   ring ", []), null);
+    assert.match(customProblem("P", []) ?? "", /2 to 40/);
+    assert.match(customProblem("parking", []) ?? "", /already on the list/);
+    assert.match(customProblem("boxing ring", [{ name: "Boxing ring", on: true }]) ?? "", /already added/);
+    assert.equal(customProblem("Boxing Ring", [{ name: "Boxing ring", on: true }], 0), null);
+  });
+
+  it("moves photos and makes the cover", () => {
+    assert.deepEqual(movePhoto([1, 2, 3], 2, -1), [2, 1, 3]);
+    assert.deepEqual(movePhoto([1, 2, 3], 3, 1), [1, 2, 3]);
+    assert.deepEqual(movePhoto([1, 2, 3], 9, 1), [1, 2, 3]);
+    assert.deepEqual(makeCover([1, 2, 3], 3), [3, 1, 2]);
+    assert.deepEqual(makeCover([1, 2, 3], 9), [1, 2, 3]);
+  });
+
+  it("writes a closure's date", () => {
+    assert.equal(closureDateText("2026-12-25"), "Fri 25 Dec");
+  });
+});
+

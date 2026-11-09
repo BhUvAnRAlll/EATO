@@ -1,5 +1,5 @@
 import { apiFetch, type ApiResult } from "@/lib/api";
-import type { FacilityId, OpeningHours } from "@/lib/gymProfile";
+import type { Closure, FacilityId, OpeningHours } from "@/lib/gymProfile";
 
 // Gym Hub › Discover Gyms (JustFit_server/gym/discoverRoutes.js, /api/gyms): every gym on justFit,
 // read only, with only what each gym chose to show members. Images (coverUrl, logoUrl, photos) are
@@ -46,15 +46,23 @@ export type GymPage = {
   city: string;
   about: string | null;
   facilities: FacilityId[];
+  // The gym's own facilities, by name (Gym Profile)
+  customFacilities: string[];
   hours: OpeningHours | null;
-  contact: { address: string | null; phone: string | null };
+  // Special closures still to come
+  closures: Closure[];
+  // Only what the gym switched on for members; a section switched off arrives empty
+  contact: { address: string | null; phone: string | null; whatsapp: string | null; email: string | null; website: string | null; instagram: string | null; facebook: string | null };
   location: { latitude: number; longitude: number } | null;
   logoUrl: string | null;
   photos: { id: number; url: string }[];
   plans: ComparePlan[];
   pt: PtPackage[];
-  // The member here: their membership's id when they are one now, and their latest request
-  you: { memberId: number | null; request: JoinRequest | null };
+  // When the gym last published its profile (null: never, or the gym's own preview)
+  updatedAt: string | null;
+  // The member here: their membership's id when they are one now, and their latest request.
+  // Not sent with the gym's own preview.
+  you?: { memberId: number | null; request: JoinRequest | null };
 };
 
 const signedOut = <T>(): Promise<ApiResult<T>> => Promise.resolve({ ok: false, error: "Please sign in again." });

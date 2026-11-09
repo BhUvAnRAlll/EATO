@@ -27,7 +27,7 @@ const GROUPS: SettingGroup[] = [
     rows: [
       { label: "Branch details", text: "Name, area and city", icon: "store", href: "/gym/details", ownerOnly: true },
       { label: "Invoice details & logo", text: "Address, phone, GSTIN and your logo", icon: "file-text", href: "/gym/details", ownerOnly: true },
-      { label: "Public profile", text: "Photos, facilities and hours members see", icon: "store", href: "/gym/profile" },
+      { label: "Gym Profile", text: "What members see: photos, facilities, hours, publish", icon: "store", href: "/gym/profile", need: "profile.view" },
       { label: "Outlets", text: "Switch branch or add one", icon: "map-pin", href: "/gym/branches" },
     ],
   },

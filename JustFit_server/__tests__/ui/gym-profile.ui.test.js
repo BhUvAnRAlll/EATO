@@ -19,6 +19,7 @@ const { identitiesFor, describeIdentityError } = require("../e2e/test-identities
 const { startExpoWeb } = require("./expo-web.js");
 const { launchChrome, connect, openPage, CHROME } = require("./cdp.js");
 const { helpers, signInAs, NAV_TIMEOUT } = require("./onboarding-steps.js");
+const { png, body } = require("../e2e/images.js");
 
 const EXPO_PORT = 8090;
 const EVIDENCE_DIR = path.join(os.tmpdir(), "justfit-ui-evidence");
@@ -142,32 +143,59 @@ describe("ui gym public profile: the gym admin fills it in, Staff only read it",
     if (problems.length > 0) throw new Error(`cleanup incomplete: ${problems.join("; ")}`);
   });
 
+  // ☰ › Settings › Gym Profile opens the hub; its rows open each section
   const openProfile = async () => {
     await clickLabel("Menu");
     await h.expectText("Sign out");
     await h.settle(); // the menu slides in
     await clickLabel("Settings");
     await page.waitFor(`location.pathname === "/gym/settings"`, NAV_TIMEOUT, "the Settings screen");
-    await clickLabel("Public profile, Photos, facilities and hours members see");
-    await page.waitFor(`location.pathname === "/gym/profile"`, NAV_TIMEOUT, "the Public profile screen");
-    await h.expectText("Opening hours");
+    await clickLabel("Gym Profile, What members see: photos, facilities, hours, publish");
+    await page.waitFor(`location.pathname === "/gym/profile"`, NAV_TIMEOUT, "the Gym Profile screen");
+    await h.expectText("Sections");
+  };
+  const openSection = async (label, route) => {
+    await clickLabel(label);
+    await page.waitFor(`location.pathname === ${JSON.stringify(route)}`, NAV_TIMEOUT, `${label} opens ${route}`);
+    await h.settle();
+  };
+  const back = async (route = "/gym/profile") => {
+    await clickLabel("Back");
+    await page.waitFor(`location.pathname === ${JSON.stringify(route)}`, NAV_TIMEOUT, `back on ${route}`);
+    await h.settle();
   };
 
-  it("1. the gym admin opens an empty profile from Settings", run("profile-empty", async () => {
+  it("1. the gym admin opens an empty profile: a draft, what Publish needs, the sections", run("profile-empty", async () => {
     await viewport(390, 844);
     await signIn(identities.owner, "/gym");
     await h.expectText("Tumkur branch");
     await openProfile();
-    for (const text of ["Photos (0 of 8)", "Not added yet. Members will see when you are open.", "Also shown to members"]) await h.expectText(text);
-    assert.ok(await hasLabel("Add a photo from the gallery"), "photo buttons for the gym admin");
-    assert.ok(await hasLabel("Save profile"), "Save");
+    for (const text of ["Draft", "Not published yet", "Before you publish", "A description", "At least one photo", "Preview what members will see"]) await h.expectText(text);
+    assert.ok(await hasLabel("Photos: Add photos of your gym"), "the Photos row");
+    assert.ok(await hasLabel("What members see: Every section is on"), "the What members see row");
+    assert.ok(await hasLabel("Publish"), "Publish, not ready yet");
     await snapshotAllWidths("gym-profile-empty");
   }));
 
-  it("2. facilities, hours and the description save together", run("profile-save", async () => {
+  it("2. facilities (the list's and its own), the description and the hours save to the draft", run("profile-save", async () => {
+    await openSection("Facilities: Tick what your gym has", "/gym/profile/facilities");
     await clickLabel("Parking");
     await clickLabel("Cardio machines");
+    await page.setInput('input[placeholder="Eg. Boxing ring"]', "Boxing ring");
+    await clickLabel("Add this facility");
+    await h.expectText("Shown to members");
+    await clickLabel("Save to draft");
+    await h.expectText("Saved to your draft");
+    await back();
+
+    await openSection("Basic info and contact: Add a description and how to reach you", "/gym/profile/basic");
     await page.setInput('textarea[placeholder="Eg. Two floors of equipment, certified trainers, open since 2012."]', "Two floors, open since 2012.");
+    await page.setInput('input[placeholder="10-digit mobile number"]', "9876543210");
+    await clickLabel("Save to draft");
+    await h.expectText("Saved to your draft");
+    await back();
+
+    await openSection("Opening hours and closures: Add when you're open", "/gym/profile/hours");
     await clickLabel("Add opening hours");
     await h.expectText("Same as Monday for every day");
     await clickLabel("Sunday closed");
@@ -177,33 +205,68 @@ describe("ui gym public profile: the gym admin fills it in, Staff only read it",
     await h.settle();
     await clickLabel("6 am");
     await h.expectNoText("Opens at");
-    await snapshotAllWidths("gym-profile-filled");
-    await clickLabel("Save profile");
-    await h.expectText("Public profile saved");
+    await snapshotAllWidths("gym-profile-hours");
+    await clickLabel("Save to draft");
+    await h.expectText("Saved to your draft");
+    await back();
+
     const saved = await apiAs("owner", "GET", "/api/gym/profile");
     assert.equal(saved.status, 200, JSON.stringify(saved.json));
     assert.equal(saved.json.about, "Two floors, open since 2012.");
     assert.deepEqual(saved.json.facilities, ["cardio", "parking"]);
+    assert.deepEqual(saved.json.custom, [{ name: "Boxing ring", on: true }]);
+    assert.equal(saved.json.contact.whatsapp, "9876543210");
     assert.deepEqual(saved.json.hours.sun, []);
     assert.deepEqual(saved.json.hours.mon, [["06:00", "10:30"], ["16:30", "21:30"]]);
+    assert.equal(saved.json.publishing.state, "draft", "nothing is published by saving");
   }));
 
-  it("3. Staff read the profile but can't change it", run("profile-staff", async () => {
-    // Back to Settings, which has Sign out under the account
-    await clickLabel("Back");
-    await page.waitFor(`location.pathname === "/gym/settings"`, NAV_TIMEOUT, "back on Settings");
-    await h.settle();
+  it("3. a section switched off, a preview, then Publish", run("profile-publish", async () => {
+    await openSection("What members see: Every section is on", "/gym/profile/visibility");
+    await clickLabel("Show Personal training to members");
+    await h.expectText("Hidden from members");
+    await clickLabel("Save to draft");
+    await h.expectText("Saved to your draft");
+    await back();
+    assert.equal((await apiAs("owner", "GET", "/api/gym/profile")).json.show.pt, false);
+
+    // The two things Publish still needs, added the quick way
+    assert.equal((await apiAs("owner", "POST", "/api/gym/profile/photos", body(png(800, 600), "image/png"))).status, 201);
+    assert.equal((await apiAs("owner", "PATCH", "/api/gym/invoice-details", { address: "12, SIT Main Road" })).status, 200);
+    await back("/gym/settings");
+    await openSection("Gym Profile, What members see: photos, facilities, hours, publish", "/gym/profile");
+
+    await clickLabel("Preview what members will see");
+    await page.waitFor(`location.pathname === "/gym/profile/preview"`, NAV_TIMEOUT, "the preview");
+    for (const text of ["This is what members will see", "Two floors, open since 2012.", "Boxing ring", "Opening hours"]) await h.expectText(text);
+    await snapshotAllWidths("gym-profile-preview");
+    await clickLabel("Publish");
+    await h.expectText("Published. Members see it now");
+    await back();
+    await h.expectText("Members see this profile as it is now.");
+    const published = await apiAs("owner", "GET", "/api/gym/profile");
+    assert.equal(published.json.publishing.state, "published");
+  }));
+
+  it("4. Staff with only See read the profile but can't change or publish it", run("profile-staff", async () => {
+    assert.equal((await apiAs("owner", "PUT", `/api/gym/staff/${state.staffId}/permissions`, { options: ["profile.view"] })).status, 200);
+    await back("/gym/settings");
     await clickLabel("Sign out");
     await page.waitFor(`!location.pathname.startsWith("/gym")`, 60000, "out of the gym portal");
     await signIn(identities.staff, "/gym");
     await h.settle();
-    await openProfile();
-    await h.expectText("Only the gym admin can change it.");
+    await clickLabel("Menu");
+    await h.expectText("Sign out");
+    await h.settle();
+    await clickLabel("Gym Profile");
+    await page.waitFor(`location.pathname === "/gym/profile"`, NAV_TIMEOUT, "the Gym Profile screen");
+    await h.expectText("Your login can read the gym profile but not change it.");
+    assert.equal(await hasLabel("Publish"), false, "no Publish");
+    await openSection("Basic info and contact: Description added · 1 contact", "/gym/profile/basic");
     // The description is the text box's value (page text leaves it out), and Staff can't type in it
     const box = await page.waitFor(`(() => { const el = document.querySelector('textarea[placeholder^="Eg. Two floors"]'); return el && el.value ? { value: el.value, readOnly: el.readOnly } : null; })()`, NAV_TIMEOUT, "the saved description");
     assert.deepEqual(box, { value: "Two floors, open since 2012.", readOnly: true });
-    assert.equal(await hasLabel("Save profile"), false, "no Save");
-    assert.equal(await hasLabel("Add a photo from the gallery"), false, "no photo buttons");
+    assert.equal(await hasLabel("Save to draft"), false, "no Save");
     await snapshotAllWidths("gym-profile-staff");
   }));
 });

@@ -122,6 +122,11 @@ describe("gym discover e2e: members find gyms, compare plans, and see only what 
     assert.equal((await api("POST", "/api/gym/catalog", tokens.gymB, { kind: "plan", name: "Monthly", duration: 1, price: 2500 })).status, 201);
     const photoB = await api("POST", "/api/gym/profile/photos", tokens.gymB, body(png(800, 600), "image/png"));
     state.photoB = photoB.json.photos[0].id;
+    // Members see only published profiles (Gym Profile, 2026-11-09): gym A publishes through the
+    // portal; gym B's partial profile is published as the 2026-12-21 migration publishes one
+    const published = await api("POST", "/api/gym/profile/publish", tokens.gymA);
+    assert.equal(published.status, 200, JSON.stringify(published.json));
+    await connection.query("UPDATE gyms SET published_profile = JSON_OBJECT('about', about, 'facilities', COALESCE(facilities, JSON_ARRAY()), 'custom', JSON_ARRAY(), 'hours', opening_hours, 'closures', JSON_ARRAY(), 'contact', JSON_OBJECT('address', address, 'phone', phone), 'photos', NULL, 'show', NULL), published_at = NOW(3) WHERE id IN (?)", [[state.gymB]]);
   }));
 
   it("2. a member lists every gym, the filled-in one first, with nothing private", run(async () => {
@@ -173,7 +178,8 @@ describe("gym discover e2e: members find gyms, compare plans, and see only what 
     assert.equal(r.status, 200, JSON.stringify(r.json));
     const g = r.json;
     assert.equal(g.about, "Two floors.");
-    assert.deepEqual(g.contact, { address: "12, SIT Main Road", phone: "9876543210" });
+    assert.deepEqual(g.contact, { address: "12, SIT Main Road", phone: "9876543210", whatsapp: null, email: null, website: null, instagram: null, facebook: null });
+    assert.ok(g.updatedAt, "when the gym last published");
     assert.deepEqual(g.location, TUMKUR);
     assert.deepEqual(g.hours.mon, [["05:30", "10:30"], ["16:30", "21:30"]]);
     assert.equal(g.photos.length, 1);
@@ -186,7 +192,7 @@ describe("gym discover e2e: members find gyms, compare plans, and see only what 
     for (const secret of ["Private Person", "9123456789", "Whey", "gstin", "sms_credits", identities.gymA.phone]) assert.ok(!text.includes(secret), `no ${secret}`);
 
     const b = (await api("GET", `/api/gyms/${state.gymB}`, tokens.member)).json;
-    assert.deepEqual([b.about, b.hours, b.location, b.logoUrl, b.contact], [null, null, null, null, { address: null, phone: null }]);
+    assert.deepEqual([b.about, b.hours, b.location, b.logoUrl, b.contact.address, b.contact.phone], [null, null, null, null, null, null]);
     assert.equal((await api("GET", "/api/gyms/999999999", tokens.member)).status, 404);
     for (const id of ["abc", "0", "1%20OR%201=1"]) assert.equal((await api("GET", `/api/gyms/${id}`, tokens.member)).status, 400, id);
   }));

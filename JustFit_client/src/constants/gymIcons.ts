@@ -94,12 +94,24 @@ import {
   SlidersHorizontal,
   UserCheck,
   type LucideIcon,
+  ArrowDown,
+  ArrowUp,
+  Eye,
+  EyeOff,
+  Globe,
+  Star,
 } from "lucide-react-native";
 
 // The gym portal's icons (Lucide, ISC licence). Screens name an icon by its Lucide name
 // (lucide.dev/icons); a new icon needs a line here. The member app keeps SymbolView.
 export const gymIcons = {
   "arrow-left-right": ArrowLeftRight,
+  "arrow-up": ArrowUp,
+  "arrow-down": ArrowDown,
+  eye: Eye,
+  "eye-off": EyeOff,
+  globe: Globe,
+  star: Star,
   "arrow-right": ArrowRight,
   "badge-check": BadgeCheck,
   banknote: Banknote,

@@ -1,8 +1,11 @@
-// A branch's public profile end to end (Gym Hub phase 2, 2026-11-09): test accounts in
-// justfit_test against the real Express server. The gym admin writes the description, facilities
-// and opening hours, adds and removes gallery photos and gives plans their details; Staff read it
-// only. Attack paths: no session, a member or a trainer, Staff writing, another gym's branch and
-// photo ids, bad and unexpected fields, SQL in the input, files that aren't photos, the photo limit.
+// A branch's Gym Profile end to end (Gym Hub phase 2; Gym Profile Management phase 1, 2026-11-09):
+// test accounts in justfit_test against the real Express server. The gym admin writes the draft
+// (description, facilities of the list and its own, hours and closures, contacts and links, what
+// members see), adds, reorders and removes photos, gives plans their details, previews and
+// publishes; members see only what was published. Staff do what their Gym Profile options allow.
+// Attack paths: no session, a member or a trainer, Staff without the option, another gym's branch
+// and photo ids, bad and unexpected fields, SQL in the input, files that aren't photos, the photo
+// limit, a member reading a draft photo, publishing an incomplete profile.
 //
 //   yarn test:e2e      (needs JustFit_server/.env.test; otherwise every test is skipped)
 const assert = require("node:assert/strict");
@@ -108,15 +111,23 @@ describe("gym public profile e2e: the gym admin writes it, Staff read it, and it
     assert.equal(r.status, 200, JSON.stringify(r.json));
     assert.deepEqual(
       { about: r.json.about, facilities: r.json.facilities, hours: r.json.hours, photos: r.json.photos, maxPhotos: r.json.maxPhotos, contact: r.json.contact, hasLocation: r.json.hasLocation, hasLogo: r.json.hasLogo },
-      { about: null, facilities: [], hours: null, photos: [], maxPhotos: 8, contact: { address: null, phone: null }, hasLocation: false, hasLogo: false },
+      { about: null, facilities: [], hours: null, photos: [], maxPhotos: 8, contact: { address: null, phone: null, whatsapp: null, email: null, website: null, instagram: null, facebook: null }, hasLocation: false, hasLogo: false },
     );
+    assert.deepEqual(r.json.custom, []);
+    assert.deepEqual(r.json.closures, []);
+    assert.ok(Object.values(r.json.show).every((on) => on === true), "every section starts on");
+    assert.equal(r.json.publishing.state, "draft");
+    assert.equal(r.json.publishing.publishedAt, null);
+    assert.match(r.json.publishing.problem, /^Add a description, at least one photo/);
     assert.equal(r.json.gym.branch, "Tumkur");
     for (const token of [null, "jfs_not-a-token"]) assert.equal((await api("GET", "/api/gym/profile", token)).status, 401);
     assert.equal((await api("GET", "/api/gym/profile", tokens.member)).status, 403, "a member isn't a portal login");
     assert.equal((await api("GET", "/api/gym/profile", tokens.trainerA)).status, 403, "a trainer isn't either");
   }));
 
-  it("3. the gym admin writes it; Staff read it but can't change it; other gyms never see it", run(async () => {
+  it("3. the gym admin writes it; Staff with only Gym Profile › See read it but can't change it; other gyms never see it", run(async () => {
+    const limited = await api("PUT", `/api/gym/staff/${identities.staffA.id}/permissions`, tokens.gymA, { options: ["profile.view"] });
+    assert.equal(limited.status, 200, JSON.stringify(limited.json));
     const hours = { ...closed(), mon: [["05:30", "11:00"], ["16:00", "22:00"]], sun: [["06:00", "10:00"]] };
     const saved = await api("PATCH", "/api/gym/profile", tokens.gymA, { about: "Two floors, open since 2012.", facilities: ["parking", "cardio"], hours });
     assert.equal(saved.status, 200, JSON.stringify(saved.json));
@@ -203,5 +214,119 @@ describe("gym public profile e2e: the gym admin writes it, Staff read it, and it
     assert.equal(edited.status, 200);
     assert.equal(edited.json.items.find((i) => i.id === gold.id).details, null);
     assert.equal((await api("PATCH", `/api/gym/catalog/${gold.id}`, tokens.gymB, { details: "Not yours" })).status, 404);
+  }));
+
+  it("7. the draft takes contacts, the gym's own facilities, closures and what members see", run(async () => {
+    const t = new Date(Date.now() + 330 * 60000);
+    const inDays = (n) => new Date(t.getTime() + n * 86400000).toISOString().slice(0, 10);
+    const saved = await api("PATCH", "/api/gym/profile", tokens.gymA, {
+      whatsapp: "+91 98765 43210", email: "Desk@Forma.in", website: "forma.in", instagram: "instagram.com/forma.fit", facebook: "",
+      custom: [{ name: "Boxing ring", on: true }, { name: "Crèche", on: false }],
+      closures: [{ date: inDays(30), note: "Diwali" }, { date: inDays(2), note: null }],
+    });
+    assert.equal(saved.status, 200, JSON.stringify(saved.json));
+    assert.deepEqual(saved.json.contact, { address: null, phone: null, whatsapp: "9876543210", email: "desk@forma.in", website: "https://forma.in/", instagram: "https://instagram.com/forma.fit", facebook: null });
+    assert.deepEqual(saved.json.custom, [{ name: "Boxing ring", on: true }, { name: "Crèche", on: false }]);
+    assert.deepEqual(saved.json.closures.map((c) => c.date), [inDays(2), inDays(30)]);
+    assert.ok(saved.json.publishing.editedAt, "the edit time is kept");
+    for (const payload of [
+      { instagram: "https://evil.example/x" }, { website: "javascript:alert(1)" }, { email: "nope" }, { whatsapp: "12345" },
+      { custom: [{ name: "Parking", on: true }] }, { custom: [{ name: "x'); DROP TABLE gyms; --", on: "yes" }] },
+      { closures: [{ date: inDays(-1), note: null }] }, { closures: [{ date: "2026-02-30", note: null }] },
+      { show: { members: false } }, { show: { pt: "off" } }, { published_profile: {} },
+    ]) assert.equal((await api("PATCH", "/api/gym/profile", tokens.gymA, payload)).status, 400, JSON.stringify(payload));
+    assert.equal((await api("PATCH", "/api/gym/profile", tokens.staffA, { email: "staff@x.in" })).status, 403, "Staff without Gym Profile › Edit");
+  }));
+
+  it("8. photos are reordered with the branch's own ids only, and the first is the cover", run(async () => {
+    const before = (await api("GET", "/api/gym/profile", tokens.gymA)).json.photos.map((p) => p.id);
+    const reversed = [...before].reverse();
+    const done = await api("PUT", "/api/gym/profile/photos/order", tokens.gymA, { ids: reversed });
+    assert.equal(done.status, 200, JSON.stringify(done.json));
+    assert.deepEqual(done.json.photos.map((p) => p.id), reversed);
+    for (const ids of [before.slice(1), [...before.slice(1), 999999], [before[0], ...before.slice(0, -1)], "1,2"]) {
+      assert.equal((await api("PUT", "/api/gym/profile/photos/order", tokens.gymA, { ids })).status, 400, JSON.stringify(ids));
+    }
+    assert.equal((await api("PUT", "/api/gym/profile/photos/order", tokens.gymB, { ids: reversed })).status, 400, "gym B has none of these");
+    assert.equal((await api("PUT", "/api/gym/profile/photos/order", tokens.staffA, { ids: before })).status, 403);
+    assert.deepEqual((await api("GET", "/api/gym/profile", tokens.gymA)).json.photos.map((p) => p.id), reversed, "nothing changed after the refusals");
+  }));
+
+  it("9. draft → publish: members see only the published copy, without the sections switched off", run(async () => {
+    // Nothing published yet: members see the name and the plans only
+    let page = await api("GET", `/api/gyms/${state.gymA}`, tokens.member);
+    assert.equal(page.status, 200, JSON.stringify(page.json));
+    assert.equal(page.json.about, null);
+    assert.deepEqual(page.json.photos, []);
+    assert.equal(page.json.plans.length, 1, "plans come from the price list, published or not");
+    const draftPhoto = (await api("GET", "/api/gym/profile", tokens.gymA)).json.photos[0].id;
+    assert.equal((await api("GET", `/api/gyms/${state.gymA}/photos/${draftPhoto}`, tokens.member)).status, 404, "a draft photo isn't readable by members");
+
+    // The preview shows the draft to the gym, never to members
+    const preview = await api("GET", "/api/gym/profile/preview", tokens.staffA);
+    assert.equal(preview.status, 200, "Staff with See can preview");
+    assert.equal(preview.json.about, "Two floors, open since 2012.");
+    assert.deepEqual(preview.json.customFacilities, ["Boxing ring"]);
+    assert.match(preview.json.photos[0].url, /^\/api\/gym\/profile\/photos\//);
+    assert.equal((await api("GET", "/api/gym/profile/preview", tokens.member)).status, 403);
+
+    // Publishing an incomplete profile is refused and names what's missing
+    const empty = await api("POST", "/api/gym/profile/publish", tokens.gymB);
+    assert.equal(empty.status, 400);
+    assert.match(empty.json.error, /description, at least one photo, opening hours/);
+    const noHours = await api("POST", "/api/gym/profile/publish", tokens.gymA);
+    assert.equal(noHours.status, 400, "gym A cleared its hours in test 3");
+    assert.match(noHours.json.error, /opening hours/);
+    assert.equal((await api("POST", "/api/gym/profile/publish", tokens.staffA)).status, 403, "Staff without Publish");
+
+    const hours = { ...closed(), mon: [["06:00", "21:00"]], sat: [["06:00", "12:00"]] };
+    assert.equal((await api("PATCH", "/api/gym/profile", tokens.gymA, { hours, show: { pt: false, links: false } })).status, 200);
+    const noPlace = await api("POST", "/api/gym/profile/publish", tokens.gymA);
+    assert.equal(noPlace.status, 400);
+    assert.match(noPlace.json.error, /address or the place on the map/);
+    assert.equal((await api("PATCH", "/api/gym/invoice-details", tokens.gymA, { address: "12 MG Road" })).status, 200);
+    const published = await api("POST", "/api/gym/profile/publish", tokens.gymA);
+    assert.equal(published.status, 200, JSON.stringify(published.json));
+    assert.equal(published.json.publishing.state, "published");
+    assert.ok(published.json.publishing.publishedAt);
+    assert.equal((await api("POST", "/api/gym/profile/publish", tokens.member)).status, 403);
+
+    page = await api("GET", `/api/gyms/${state.gymA}`, tokens.member);
+    assert.equal(page.json.about, "Two floors, open since 2012.");
+    assert.deepEqual(page.json.hours, hours);
+    assert.deepEqual(page.json.customFacilities, ["Boxing ring"], "a switched-off facility of its own stays out");
+    assert.equal(page.json.contact.whatsapp, "9876543210");
+    assert.equal(page.json.contact.website, null, "links were switched off");
+    assert.deepEqual(page.json.pt, [], "PT was switched off");
+    assert.equal(page.json.photos.length, 7);
+    assert.ok(page.json.updatedAt);
+    const memberPhoto = await api("GET", page.json.photos[0].url, tokens.member);
+    assert.equal(memberPhoto.status, 200, "a published photo is readable");
+    assert.equal(page.json.photos[0].id, (await api("GET", "/api/gym/profile", tokens.gymA)).json.photos[0].id, "in the published order");
+
+    // A later edit stays in the draft until it's published again
+    const edited = await api("PATCH", "/api/gym/profile", tokens.gymA, { about: "Now with a boxing ring." });
+    assert.equal(edited.json.publishing.state, "changed");
+    assert.equal((await api("GET", `/api/gyms/${state.gymA}`, tokens.member)).json.about, "Two floors, open since 2012.", "members still see the published text");
+    const card = (await api("GET", `/api/gyms?search=Forma`, tokens.member)).json.gyms.find((g) => g.id === state.gymA);
+    assert.ok(card.coverUrl, "the card shows the published cover");
+
+    // Staff given Publish can publish
+    assert.equal((await api("PUT", `/api/gym/staff/${identities.staffA.id}/permissions`, tokens.gymA, { options: ["profile.view", "profile.publish"] })).status, 200);
+    assert.equal((await api("POST", "/api/gym/profile/publish", tokens.staffA)).status, 200);
+    assert.equal((await api("GET", `/api/gyms/${state.gymA}`, tokens.member)).json.about, "Now with a boxing ring.");
+
+    // Removing a photo takes it away from members at once
+    const gone = page.json.photos[1].id;
+    assert.equal((await api("DELETE", `/api/gym/profile/photos/${gone}`, tokens.gymA)).status, 200);
+    assert.equal((await api("GET", `/api/gyms/${state.gymA}/photos/${gone}`, tokens.member)).status, 404);
+    assert.equal((await api("GET", "/api/gym/profile", tokens.gymA)).json.publishing.state, "published", "a removal needs no new publish");
+
+    const [[audit]] = await connection.query("SELECT COUNT(*) AS n FROM admin_audit_log WHERE action = 'gym.profile_publish' AND target_id = ?", [String(state.gymA)]);
+    assert.equal(audit.n, 2, "each publish is audited");
+    const [[activity]] = await connection.query("SELECT COUNT(*) AS n FROM gym_activity_log WHERE gym_id = ? AND detail LIKE 'Published%'", [state.gymA]);
+    assert.equal(activity.n, 2, "and on the branch's Activity");
+    const [[other]] = await connection.query("SELECT published_profile FROM gyms WHERE id = ?", [state.gymB]);
+    assert.equal(other.published_profile, null, "the other gym is untouched");
   }));
 });

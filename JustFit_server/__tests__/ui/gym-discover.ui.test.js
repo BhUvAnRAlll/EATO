@@ -119,6 +119,8 @@ describe("ui discover gyms: a member finds a gym, filters, and compares its plan
     }
     assert.equal((await apiAs("zen", "PATCH", "/api/gym/profile", { facilities: ["parking"] })).status, 200);
     assert.equal((await apiAs("zen", "POST", "/api/gym/catalog", { kind: "plan", name: "Monthly", duration: 1, price: 2500 })).status, 201);
+    // Members see only published profiles: both are published as the 2026-12-21 migration publishes one
+    await connection.query("UPDATE gyms SET published_profile = JSON_OBJECT('about', about, 'facilities', COALESCE(facilities, JSON_ARRAY()), 'custom', JSON_ARRAY(), 'hours', opening_hours, 'closures', JSON_ARRAY(), 'contact', JSON_OBJECT('address', address, 'phone', phone), 'photos', NULL, 'show', NULL), published_at = NOW(3) WHERE id IN (?)", [[state.forma, state.zen]]);
   });
 
   after(async () => {
@@ -186,7 +188,7 @@ describe("ui discover gyms: a member finds a gym, filters, and compares its plan
   it("3. a gym's page: facilities, hours, plans to compare and the address; no buying", run("gym-page", async () => {
     await page.clickText("Tumkur · SIT Road, Tumakuru");
     await page.waitFor(`location.pathname === "/gym-hub/gyms/${state.forma}"`, NAV_TIMEOUT, "the gym's page");
-    for (const text of ["Two floors of equipment.", "Facilities", "Parking", "Opening hours", "Membership plans", "Best value", "Saves ₹500 a month", "Steam bath included.", "₹1,000 a month", "12, SIT Main Road, SIT Road, Tumakuru", "+91 9876543210", "To join, visit the gym's front desk."]) await h.expectText(text);
+    for (const text of ["Two floors of equipment.", "Facilities", "Parking", "Opening hours", "Membership plans", "Best value", "Saves ₹500 a month", "Steam bath included.", "₹1,000 a month", "12, SIT Main Road, SIT Road, Tumakuru", "+91 9876543210", "You pay the gym, not the app."]) await h.expectText(text);
     for (const label of ["Call Forma", "Directions to Forma"]) assert.ok(await page.evaluate(`[...document.querySelectorAll('[aria-label]')].some((e) => e.getAttribute("aria-label") === ${JSON.stringify(label)})`), label);
     for (const word of ["Buy", "Checkout", "Pay now"]) assert.equal(await page.hasText(word), false, `no ${word}`);
     await snapshotAllWidths("gym-page");

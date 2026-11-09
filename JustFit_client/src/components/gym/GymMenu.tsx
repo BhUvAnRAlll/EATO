@@ -19,6 +19,7 @@ type MenuItem = { label: string; icon: GymIconName; href?: Href; action?: "sms";
 
 const MANAGE: MenuItem[] = [
   { label: "Members", icon: "users", href: "/gym/members", need: "members.view" },
+  { label: "Gym Profile", icon: "store", href: "/gym/profile", need: "profile.view" },
   { label: "Plans / Catalogue", icon: "clipboard-list", href: "/gym/catalog", need: "catalog.view" },
   { label: "Enquiries", icon: "messages-square", href: "/gym/enquiries", need: "enquiries.view" },
   { label: "Likely to leave", icon: "user-x", href: "/gym/predictions/renewals", need: "predictions.renewals" },

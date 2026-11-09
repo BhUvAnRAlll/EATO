@@ -173,6 +173,36 @@ asking answers 503 naming it and pages show no request. Not built: a push or SMS
 on Enquiries › Today), withdrawing a request. Tests: `__tests__/gym-join-rules.test.js`,
 `e2e/gym-join.e2e.test.js`, `ui/gym-discover.ui.test.js` (5-6).
 
+**Gym Profile Management, phase 1 of 4 (2026-11-09, the user's brief; migration approved):** the
+public profile became a draft → publish module. The user's choices: photos stay on the server's disk
+(no cloud storage), reviews only by members of that gym (phase 4), trainer profiles only for trainer
+logins (phase 3), plans next (phase 2), and an on/off switch per section. ☰ › Gym Profile (also
+Settings) opens `app/gym/profile/index.tsx`: the state (Draft, Published, Changes not published) with
+when it was published and edited, "Before you publish" (`profileRules.checklist`: a description, a
+photo, hours, a phone or WhatsApp, the address or map place; facilities optional), rows for Basic info
+and contact (`basic.tsx`: the description, WhatsApp, email, website, Instagram, Facebook; name,
+address and phone link to Branch / Invoice details), Photos (`photos.tsx`: up to 8, move up/down, make
+cover, remove), Facilities (`facilities.tsx`: the list plus up to 10 of the gym's own, each on/off,
+renamed or removed), Opening hours and closures (`hours.tsx`: a Closed day is the weekly holiday;
+special closures today to a year ahead with a note), What members see (`visibility.tsx`: photos, about,
+facilities, hours, address and map, phone/WhatsApp/email, links, plans, PT), Plans (→ Catalogue) and
+Staff and trainers (→ Staff / Admin Login, gym admin only); Preview (`preview.tsx`, the member's page
+drawn by `components/gymHub/GymPageView.tsx` from the draft, which the member's gym page also uses) and
+Publish (confirmed). Edits save to the draft (`gyms` columns); Publish writes `gyms.published_profile`
+(`profileRules.snapshot`), and members (Discover, a gym's page, its photos) read only that copy with
+switched-off sections emptied (`readPublished`, `forMembers`): a draft photo is a 404 to members, a
+removed photo leaves at once. Permissions: area `profile`, options `profile.view`, `profile.edit`,
+`profile.publish` (`staffRules`; Staff still on "every option" get them, so they can now edit and
+publish until the gym admin narrows them). Server: `gym/profileRules.js`, `gym/gymProfile.js`
+(`publish`, `reorderPhotos`), `discover.previewPage`; routes `GET|PATCH /api/gym/profile`,
+`GET /profile/preview`, `POST /profile/publish`, `PUT /profile/photos/order`; audited `gym.edit` and
+`gym.profile_publish`, on Activity. Migration `2026-12-21-gym-profile-publishing.sql` (gyms: whatsapp,
+email, website, instagram, facebook, custom_facilities, closures, profile_show, profile_edited_at,
+published_profile, published_at, published_by; `gym_photos.sort_order`; profiles members already saw
+are published as they were); before it the profile routes answer 503 naming it and Discover reads
+the profile as before. Tests: `gym-profile-rules.test.js`, `e2e/gym-profile.e2e.test.js`,
+`ui/gym-profile.ui.test.js`, the client's `lib/__tests__/gymProfile.test.ts`.
+
 ### Delivery addresses (2026-11-09)
 
 Profile › Delivery addresses (and Home's "Deliver to · <pincode>" pill) is the member's address

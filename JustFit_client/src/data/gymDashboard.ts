@@ -211,6 +211,7 @@ export const STAFF_AREAS: { id: StaffArea; label: string; line: string; icon: Gy
   { id: "payments", label: "Payments", line: "Collect dues, PT, product and service sales, Transactions, Wallet", icon: "indian-rupee" },
   { id: "enquiries", label: "Enquiries", line: "Enquiry list, follow-ups and the contact log", icon: "messages-square" },
   { id: "catalog", label: "Plans / Catalogue", line: "Membership plans, PT packages, services and products", icon: "clipboard-list" },
+  { id: "profile", label: "Gym Profile", line: "What members see about the gym, and publishing it", icon: "store" },
   { id: "attendance", label: "Attendance", line: "QR attendance, check-ins, history and settings", icon: "qr-code" },
   { id: "sms", label: "SMS", line: "Send Bulk SMS, reminders and message logs", icon: "message-square-more" },
   { id: "templates", label: "Reminder Templates", line: "The Reminder Templates screen", icon: "message-square-text" },

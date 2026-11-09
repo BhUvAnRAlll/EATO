@@ -94,6 +94,11 @@ const paidLine = (amount, method) => [amount ? rupees(amount) : null, MODE[metho
 // detail (the line) } or null for a request that changes nothing (switching branch).
 // ctx: { body, answer, before, after, extra: { item } }
 const R = (methods, path, entry) => [methods, path, entry];
+// The Gym Profile draft's fields as Activity names them (never their values: contacts are personal)
+const PROFILE_FIELD = {
+  about: "description", facilities: "facilities", custom: "own facilities", hours: "opening hours", closures: "closures",
+  show: "what members see", whatsapp: "WhatsApp number", email: "email", website: "website", instagram: "Instagram", facebook: "Facebook",
+};
 const ROUTES = [
   R(["POST"], /^\/branch$/, null),
   // Arranging Home's Today tiles is the login's own view, nothing to record
@@ -145,10 +150,12 @@ const ROUTES = [
   R(["PATCH"], /^\/invoice-details$/, { type: "settings", action: "edit", label: () => "Invoice details", detail: () => "Changed the address, mobile or GSTIN" }),
   R(["PUT"], /^\/logo$/, { type: "settings", action: "edit", label: () => "Gym logo", detail: () => "Added a new logo" }),
   R(["DELETE"], /^\/logo$/, { type: "settings", action: "delete", label: () => "Gym logo", detail: () => "Removed the logo" }),
-  // The public profile (Gym Hub): the gym admin's
-  R(["PATCH"], /^\/profile$/, { type: "settings", action: "edit", label: () => "Public profile", detail: ({ body }) => `Changed the ${["about", "facilities", "hours"].filter((k) => body?.[k] !== undefined).map((k) => ({ about: "description", facilities: "facilities", hours: "opening hours" })[k]).join(", ") || "profile"}` }),
-  R(["POST"], /^\/profile\/photos$/, { type: "settings", action: "create", label: () => "Public profile", detail: () => "Added a photo" }),
-  R(["DELETE"], /^\/profile\/photos\/([^/]+)$/, { type: "settings", action: "delete", label: () => "Public profile", detail: () => "Removed a photo" }),
+  // Gym Profile (Gym Hub; Gym Profile Management): the draft, the photos and Publish
+  R(["PATCH"], /^\/profile$/, { type: "settings", action: "edit", label: () => "Gym Profile", detail: ({ body }) => `Changed the draft's ${Object.keys(PROFILE_FIELD).filter((k) => body?.[k] !== undefined).map((k) => PROFILE_FIELD[k]).join(", ") || "profile"}` }),
+  R(["POST"], /^\/profile\/photos$/, { type: "settings", action: "create", label: () => "Gym Profile", detail: () => "Added a photo" }),
+  R(["PUT"], /^\/profile\/photos\/order$/, { type: "settings", action: "edit", label: () => "Gym Profile", detail: () => "Changed the order of the photos" }),
+  R(["POST"], /^\/profile\/publish$/, { type: "settings", action: "edit", label: () => "Gym Profile", detail: () => "Published the profile to members" }),
+  R(["DELETE"], /^\/profile\/photos\/([^/]+)$/, { type: "settings", action: "delete", label: () => "Gym Profile", detail: () => "Removed a photo" }),
   R(["POST"], /^\/templates\/added$/, { type: "template", action: "create", label: ({ body }) => String(body?.name ?? "A template").slice(0, 40), detail: () => "New template" }),
   R(["PUT"], /^\/templates\/added\/([^/]+)$/, { type: "template", action: "edit", target: "template", detail: () => "Changed the template" }),
   R(["DELETE"], /^\/templates\/added\/([^/]+)$/, { type: "template", action: "delete", target: "template", detail: () => "Deleted the template" }),

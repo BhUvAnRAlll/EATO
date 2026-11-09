@@ -28,6 +28,7 @@ const predictions = require("./predictions");
 const predictionRules = require("./predictionRules");
 const service = require("./service");
 const rules = require("./rules");
+const discover = require("./discover");
 const sms = require("./sms");
 const templates = require("./templates");
 const templateRules = require("./templateRules");
@@ -463,33 +464,46 @@ router.get("/logo", logoRoute(async (req, res) => {
   logos.send(res, await logos.logoFile(pool(req), req.gym.brand_id));
 }));
 
-// The branch's public profile (gym/gymProfile.js, Gym Hub phase 2, 2026-11-09): the description,
-// facilities, opening hours and photos members will see when they discover gyms. Every portal login
-// reads it (no area, like Invoice details); only the gym admin changes it. Photos: POST
+// The branch's Gym Profile (gym/gymProfile.js; Gym Hub phase 2, then Gym Profile Management phase
+// 1, 2026-11-09): the draft (description, facilities, hours and closures, contacts and links, what
+// members may see), the photos, a preview and Publish. Area "profile" (staffRules): the gym admin
+// has every option, Staff what they were given (view, edit, publish). Photos: POST
 // { data: base64, mediaType } adds one (checked from its bytes: JPEG, PNG or WebP, at most 3 MB; up
-// to 8; the photos' hourly allowance), DELETE removes one, GET reads one. Before migration
-// 2026-12-17 the routes say so.
+// to 8; the photos' hourly allowance), PUT /order reorders, DELETE removes one (members stop seeing
+// it at once), GET reads one. Before the migrations the routes say which one is missing.
 const PROFILE_MIGRATION = "The public profile needs the 2026-12-17-gym-public-profile migration on this server.";
+const PUBLISHING_MIGRATION = "Gym Profile needs the 2026-12-21-gym-profile-publishing migration on this server.";
+const NEW_PROFILE_COLUMNS = /published_profile|published_at|published_by|profile_edited_at|profile_show|custom_facilities|closures|whatsapp|email|website|instagram|facebook|sort_order/;
 const profileRoute = (handler) => (req, res, next) =>
   handler(req, res, next).catch((error) => {
+    if (error?.code === "ER_BAD_FIELD_ERROR" && NEW_PROFILE_COLUMNS.test(String(error.message))) return res.status(503).json({ error: PUBLISHING_MIGRATION });
     if (["ER_NO_SUCH_TABLE", "ER_BAD_FIELD_ERROR"].includes(error?.code)) return res.status(503).json({ error: PROFILE_MIGRATION });
     next(error);
   });
-const profileOwner = ownerOnly("Only the gym admin can change the public profile.");
 const galleryBody = express.json({ limit: Math.ceil(gymProfile.photoLimits.maxBytes * (4 / 3)) + 1024 });
 router.get("/profile", profileRoute(async (req, res) => {
-  res.json(await gymProfile.profile(pool(req), req.gym));
+  res.json(await gymProfile.profile(pool(req), req.gym, today()));
 }));
-router.patch("/profile", profileOwner, smallBody, profileRoute(async (req, res) => {
-  res.json(await gymProfile.updateProfile(pool(req), req.gym, req.userId, profileRules.profileBody(req.body)));
+router.get("/profile/preview", profileRoute(async (req, res) => {
+  res.json(await discover.previewPage(pool(req), req.gym, today()));
 }));
-router.post("/profile/photos", profileOwner, photoLimit, galleryBody, profileRoute(async (req, res) => {
+router.patch("/profile", smallBody, profileRoute(async (req, res) => {
+  const t = today();
+  res.json(await gymProfile.updateProfile(pool(req), req.gym, req.userId, profileRules.profileBody(req.body, t), t));
+}));
+router.post("/profile/publish", profileRoute(async (req, res) => {
+  res.json(await gymProfile.publish(pool(req), req.gym, req.userId, today()));
+}));
+router.post("/profile/photos", photoLimit, galleryBody, profileRoute(async (req, res) => {
   const checked = gymProfile.checkGymPhoto(req.body);
   if (!checked.ok) return res.status(checked.status).json({ error: checked.error });
-  res.status(201).json(await gymProfile.addPhoto(pool(req), req.gym, req.userId, checked));
+  res.status(201).json(await gymProfile.addPhoto(pool(req), req.gym, req.userId, checked, today()));
 }));
-router.delete("/profile/photos/:photoId", profileOwner, profileRoute(async (req, res) => {
-  res.json(await gymProfile.removePhoto(pool(req), req.gym, req.userId, rules.id(req.params.photoId, "photo")));
+router.put("/profile/photos/order", smallBody, profileRoute(async (req, res) => {
+  res.json(await gymProfile.reorderPhotos(pool(req), req.gym, req.userId, req.body, today()));
+}));
+router.delete("/profile/photos/:photoId", profileRoute(async (req, res) => {
+  res.json(await gymProfile.removePhoto(pool(req), req.gym, req.userId, rules.id(req.params.photoId, "photo"), today()));
 }));
 router.get("/profile/photos/:photoId", profileRoute(async (req, res) => {
   gymProfile.send(res, await gymProfile.photoFile(pool(req), req.gym.id, rules.id(req.params.photoId, "photo")));

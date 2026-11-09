@@ -11,13 +11,14 @@ const KINDS = ["staff", "trainer"];
 // Role & Permission: the portal's areas a Staff login can be given (in the order the sheet shows)
 // home and templates (2026-11-08) have no routes of their own: home decides what the dashboard
 // carries (dashboardFor), templates which Staff see the Reminder Templates screen
-const AREAS = ["home", "members", "payments", "enquiries", "catalog", "attendance", "sms", "templates", "predictions", "expenses"];
+const AREAS = ["home", "members", "payments", "enquiries", "catalog", "profile", "attendance", "sms", "templates", "predictions", "expenses"];
 const AREA_LABEL = {
   home: "Home",
   members: "Members",
   payments: "Payments",
   enquiries: "Enquiries",
   catalog: "Plans / Catalogue",
+  profile: "Gym Profile",
   attendance: "Attendance",
   sms: "SMS",
   templates: "Reminder Templates",
@@ -39,6 +40,7 @@ const AREA_OF_PATH = [
   [/^\/(payments|services|sales|wallet)(\/|$)/, "payments"],
   [/^\/enquiries(\/|$)/, "enquiries"],
   [/^\/catalog(\/|$)/, "catalog"],
+  [/^\/profile(\/|$)/, "profile"],
   [/^\/sms(\/|$)/, "sms"],
   [/^\/attendance(\/|$)/, "attendance"],
   [/^\/predictions(\/|$)/, "predictions"],
@@ -66,6 +68,10 @@ const OPTIONS = [
   { id: "enquiries.contacts", area: "enquiries", label: "Log calls and visits", needs: "enquiries.view" },
   { id: "catalog.view", area: "catalog", label: "See plans and prices" },
   { id: "catalog.edit", area: "catalog", label: "Add, edit and delete plans", needs: "catalog.view" },
+  // Gym Profile (2026-11-09): what members see about the branch; publishing makes the draft live
+  { id: "profile.view", area: "profile", label: "See the gym profile and its preview" },
+  { id: "profile.edit", area: "profile", label: "Edit details, photos, facilities and hours", needs: "profile.view" },
+  { id: "profile.publish", area: "profile", label: "Publish the profile to members", needs: "profile.view" },
   { id: "attendance.view", area: "attendance", label: "Attendance and history" },
   { id: "attendance.checkin", area: "attendance", label: "Check members in and out" },
   { id: "attendance.export", area: "attendance", label: "Export history (CSV)", needs: "attendance.view" },
@@ -118,6 +124,12 @@ const OPTION_OF_ROUTE = [
   [["GET"], /^\/catalog$/, ["catalog.view", ...CATALOG_PICKERS]],
   [["GET"], /^\/catalog\/[^/]+\/image$/, ["catalog.view"]],
   [["POST", "PATCH", "PUT", "DELETE"], /^\/catalog(\/|$)/, ["catalog.edit"]],
+  [["GET"], /^\/profile(\/preview|\/photos\/[^/]+)?$/, ["profile.view"]],
+  [["PATCH"], /^\/profile$/, ["profile.edit"]],
+  [["POST"], /^\/profile\/photos$/, ["profile.edit"]],
+  [["PUT"], /^\/profile\/photos\/order$/, ["profile.edit"]],
+  [["DELETE"], /^\/profile\/photos\/[^/]+$/, ["profile.edit"]],
+  [["POST"], /^\/profile\/publish$/, ["profile.publish"]],
   [["GET"], /^\/attendance(\/visits)?$/, ["attendance.view"]],
   [["GET"], /^\/attendance\/export$/, ["attendance.export"]],
   [["GET"], /^\/attendance\/settings$/, ["attendance.settings"]],

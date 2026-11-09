@@ -1162,6 +1162,18 @@ CREATE TABLE gyms (                               -- one branch of a gym brand
   about       VARCHAR(500) NULL,                   -- Public profile (migration 2026-12-17, Gym Hub): a short description for members
   facilities  JSON         NULL,                   -- ids from gym/profileRules.js FACILITIES, e.g. ["cardio","parking"]
   opening_hours JSON       NULL,                   -- { mon: [["05:30","11:00"],["16:00","22:00"]], …, sun: [] }; NULL: not given
+  whatsapp    CHAR(10)     NULL,                   -- Gym Profile (migration 2026-12-21): more ways to reach the branch, all optional
+  email       VARCHAR(120) NULL,
+  website     VARCHAR(200) NULL,                   -- https:// links only
+  instagram   VARCHAR(200) NULL,
+  facebook    VARCHAR(200) NULL,
+  custom_facilities JSON   NULL,                   -- the gym's own facilities: [{ "name": "Boxing ring", "on": true }]
+  closures    JSON         NULL,                   -- special closures: [{ "date": "2026-12-25", "note": "Christmas" }]
+  profile_show JSON        NULL,                   -- what members may see, section by section: { "photos": true, "pt": false, … }; NULL: everything
+  profile_edited_at TIMESTAMP(3) NULL,             -- when the draft profile last changed
+  published_profile JSON   NULL,                   -- the copy members see (gym/profileRules.js snapshot); NULL: never published
+  published_at TIMESTAMP(3) NULL,
+  published_by VARCHAR(64) NULL,
   next_member_no INT UNSIGNED NOT NULL DEFAULT 1,  -- the branch's next member ID number
   next_invoice_no INT UNSIGNED NOT NULL DEFAULT 1, -- the branch's next invoice number (migration 2026-12-07)
   sms_credits INT UNSIGNED NOT NULL DEFAULT 0,     -- SMS to members it can still send (1 credit = 1 SMS)
@@ -1177,6 +1189,7 @@ CREATE TABLE gyms (                               -- one branch of a gym brand
   KEY idx_gyms_brand (brand_id),
   CONSTRAINT fk_gyms_brand FOREIGN KEY (brand_id) REFERENCES gym_brands (id),
   CONSTRAINT fk_gyms_created_by FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL,
+  CONSTRAINT fk_gyms_published_by FOREIGN KEY (published_by) REFERENCES users (id) ON DELETE SET NULL,
   CONSTRAINT chk_gyms_place CHECK ((latitude IS NULL) = (longitude IS NULL) AND (latitude IS NULL OR (latitude BETWEEN -90 AND 90 AND longitude BETWEEN -180 AND 180))),
   CONSTRAINT chk_gyms_radius CHECK (attendance_radius_m BETWEEN 20 AND 1000)
 ) ENGINE = InnoDB;
@@ -1486,6 +1499,7 @@ CREATE TABLE gym_photos (
   id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
   gym_id      INT UNSIGNED NOT NULL,
   image_key   VARCHAR(64)  NOT NULL,
+  sort_order  INT UNSIGNED NOT NULL DEFAULT 0,     -- the gallery's order, the first is the cover (migration 2026-12-21)
   created_by  VARCHAR(64)  NULL,
   created_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
