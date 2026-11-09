@@ -294,6 +294,27 @@ catalogue reads as before and saving any of the new fields answers 503 naming it
 `__tests__/gym-plan-rules.test.js`, `e2e/gym-plans.e2e.test.js`, the client's
 `data/__tests__/gymPlans.test.ts`.
 
+**Gym Profile Management, phase 3 of 4: trainer profiles (2026-11-09, migration approved):** only
+trainer logins have one (the user's choice; added and removed under Staff / Admin Login, branches
+under its Branches). Gym Profile › Trainers (`app/gym/profile/trainers.tsx`) lists every trainer at
+the branch (Shown / Hidden, experience, skills); a card opens `profile/trainer/[userId].tsx`: the
+photo (saved at once, `pickMemberPhoto`), Show to members, specialisations (quick picks
+`SPECIALIZATION_PRESETS` or typed, up to 8), years (0-60), certifications (up to 8), a bio (500) and
+availability (a week, `OpeningHoursEditor`). The name is the trainer's own account name; a trainer
+without one can't be shown. One profile per trainer per gym (`gym_trainer_profiles`, unique brand +
+user), shown at every branch the trainer works at while switched on; live, not waiting for Publish,
+but "What members see" has a Trainers switch (`SECTIONS` gains `trainers`). Members get `trainers`
+on a gym's page (`GymPageView` cards: photo or initials, experience, skills, More for bio,
+certifications, availability) with the profile's own id, never the account id or number. Server
+`gym/trainerProfileRules.js` (pure), `gym/trainerProfiles.js`; routes `GET /api/gym/profile/trainers`,
+`PUT /profile/trainers/:userId`, `PUT|DELETE|GET /profile/trainers/:userId/photo` (files in
+`TRAINER_PHOTO_DIR`, default `uploads/trainer-photos`; JPEG/PNG/WebP from the bytes, 3 MB; the photos'
+hourly allowance), member photo `GET /api/gyms/:id/trainers/:trainerId/photo` (only a shown trainer
+at that branch). Option `profile.trainers` (Gym Profile › Trainer profiles) for changes,
+`profile.view` to read; audited `gym.edit`, on Activity. Migration `2026-12-25-trainer-profiles.sql`
+(one table; `SCHEMA_TABLE_COUNT` 76); before it the routes answer 503 naming it and gym pages show no
+trainers. Tests: `__tests__/gym-trainer-profile-rules.test.js`, `e2e/gym-trainer-profiles.e2e.test.js`.
+
 ### Delivery addresses (2026-11-09)
 
 Profile › Delivery addresses (and Home's "Deliver to · <pincode>" pill) is the member's address

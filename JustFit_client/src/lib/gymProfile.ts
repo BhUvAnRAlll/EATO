@@ -113,7 +113,7 @@ export const sameHours = (a: OpeningHours | null, b: OpeningHours | null) => JSO
 // gym/profileRules.js has the same lists and limits.
 export type CustomFacility = { name: string; on: boolean };
 export type Closure = { date: string; note: string | null };
-export type ProfileSection = "photos" | "about" | "facilities" | "hours" | "address" | "contact" | "links" | "plans" | "pt";
+export type ProfileSection = "photos" | "about" | "facilities" | "hours" | "address" | "contact" | "links" | "plans" | "pt" | "trainers";
 export type ShowSections = Record<ProfileSection, boolean>;
 export type PublishState = "draft" | "published" | "changed";
 
@@ -133,7 +133,18 @@ export const SECTIONS: { id: ProfileSection; label: string; line: string }[] = [
   { id: "links", label: "Website and social", line: "Website, Instagram and Facebook" },
   { id: "plans", label: "Membership plans", line: "Plans and prices to compare" },
   { id: "pt", label: "Personal training", line: "PT packages and prices" },
+  { id: "trainers", label: "Trainers", line: "Trainer profiles switched on" },
 ];
+
+// Trainer profiles (Gym Profile phase 3): the limits the server keeps, and specialisations to pick
+// from quickly (anything else can be typed)
+export const TRAINER_LIST_MAX = 8;
+export const SPECIALIZATION_MAX = 40;
+export const CERTIFICATION_MAX = 80;
+export const BIO_MAX = 500;
+export const SPECIALIZATION_PRESETS = ["Strength training", "Weight loss", "Muscle gain", "Functional training", "CrossFit", "Yoga", "Zumba", "Calisthenics", "Sports conditioning", "Rehab and mobility", "Women's fitness", "Senior fitness"];
+// "6 years' experience", "1 year's experience", "New trainer"
+export const yearsText = (years: number | null) => (years === null ? "" : years === 0 ? "New trainer" : `${years} year${years === 1 ? "" : "s"}' experience`);
 
 // The state as a pill: Draft, Published or "Changes not published"
 export function publishStateText(state: PublishState): { label: string; line: string; tone: "draft" | "live" | "changed" } {

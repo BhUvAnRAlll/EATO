@@ -49,8 +49,8 @@ describe("Gym public profile helpers", () => {
 });
 
 describe("Gym Profile Management helpers (2026-11-09)", () => {
-  it("lists the nine sections the server knows, once each", () => {
-    assert.deepEqual(SECTIONS.map((s) => s.id), ["photos", "about", "facilities", "hours", "address", "contact", "links", "plans", "pt"]);
+  it("lists the ten sections the server knows, once each", () => {
+    assert.deepEqual(SECTIONS.map((s) => s.id), ["photos", "about", "facilities", "hours", "address", "contact", "links", "plans", "pt", "trainers"]);
   });
 
   it("names the publishing states", () => {

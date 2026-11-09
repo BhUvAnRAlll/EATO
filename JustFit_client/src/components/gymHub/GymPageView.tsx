@@ -10,7 +10,7 @@ import { MemberPhotoImage } from "@/components/gym/MemberPhotoImage";
 import type { JoinPick } from "@/components/gymHub/JoinSheet";
 import type { GymPage } from "@/lib/discoverApi";
 import { directionsUrl, facilityLabel, indiaNow, joinStateText, openNow, perMonthText, planLengthText, priceText } from "@/lib/gymDiscover";
-import { closureDateText, DAYS, dayText, stampText, timeLabel } from "@/lib/gymProfile";
+import { closureDateText, DAYS, dayText, stampText, timeLabel, yearsText } from "@/lib/gymProfile";
 import { hud } from "@/lib/hud";
 import { useThemeColors } from "@/theme";
 
@@ -31,6 +31,7 @@ export function GymPageView({ gym, at, onAsk, refreshControl }: { gym: GymPage; 
       <Hours gym={gym} at={at} />
       <Standing gym={gym} />
       <Plans gym={gym} onAsk={onAsk} />
+      <Trainers gym={gym} />
       <Place gym={gym} />
       {gym.updatedAt ? <Text className="type-caption text-muted text-center">{`Updated by the gym · ${stampText(gym.updatedAt, at)}`}</Text> : null}
     </ScrollView>
@@ -267,6 +268,64 @@ function Plans({ gym, onAsk }: { gym: GymPage; onAsk?: (pick: JoinPick) => void 
       {canAskPlan && <PrimaryButton label="Ask to join" onPress={() => onAsk!({ itemId: null, label: null })} />}
       {(gym.plans.length > 0 || gym.pt.length > 0 || canAskPlan) && (
         <Text className="type-caption text-muted">{canAskPlan ? "The gym calls you to help you join. You pay the gym, not the app." : "Prices are set by the gym. You pay the gym, not the app."}</Text>
+      )}
+    </View>
+  );
+}
+
+// The gym's trainers (Gym Profile phase 3): a card each with the photo (or initials), name,
+// experience and specialisations; More shows the bio, certifications and when they're available
+function Trainers({ gym }: { gym: GymPage }) {
+  if (!gym.trainers || gym.trainers.length === 0) return null;
+  return (
+    <View style={{ gap: 10 }}>
+      <Text className="type-headline text-ink" accessibilityRole="header">Trainers</Text>
+      {gym.trainers.map((t) => <TrainerCard key={t.id} trainer={t} />)}
+    </View>
+  );
+}
+
+function TrainerCard({ trainer: t }: { trainer: NonNullable<GymPage["trainers"]>[number] }) {
+  const colors = useThemeColors();
+  const [open, setOpen] = useState(false);
+  const initials = t.name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
+  const more = Boolean(t.bio || t.certifications.length || t.availability);
+  return (
+    <View className="card" style={{ gap: 10 }}>
+      <View className="flex-row items-center" style={{ gap: 12 }}>
+        <View style={{ width: 52, height: 52, borderRadius: 26, overflow: "hidden", backgroundColor: colors.accentSoft, alignItems: "center", justifyContent: "center" }} accessible accessibilityLabel={t.photoUrl ? `Photo of ${t.name}` : undefined}>
+          {t.photoUrl ? <MemberPhotoImage url={t.photoUrl} /> : <Text className="type-subhead text-primary-text">{initials}</Text>}
+        </View>
+        <View className="min-w-0 flex-1">
+          <Text className="card__title" numberOfLines={1}>{t.name}</Text>
+          {t.years !== null ? <Text className="card__subtitle">{yearsText(t.years)}</Text> : null}
+        </View>
+      </View>
+      {t.specializations.length > 0 && (
+        <View className="flex-row flex-wrap" style={{ gap: 6 }}>
+          {t.specializations.map((s) => (
+            <View key={s} className="address-tag"><Text className="address-tag__label">{s}</Text></View>
+          ))}
+        </View>
+      )}
+      {open && (
+        <View style={{ gap: 8 }}>
+          {t.bio ? <Text className="type-body text-ink">{t.bio}</Text> : null}
+          <Benefits list={t.certifications} />
+          {t.availability && (
+            <View style={{ gap: 2 }}>
+              <Text className="type-caption text-muted">Available</Text>
+              {DAYS.filter((d) => t.availability![d.id].length > 0).map((d) => (
+                <Text key={d.id} className="type-caption text-ink">{`${d.short}: ${dayText(t.availability![d.id])}`}</Text>
+              ))}
+            </View>
+          )}
+        </View>
+      )}
+      {more && (
+        <PressableScale onPress={() => setOpen((o) => !o)} className="self-start" hitSlop={8} accessibilityRole="button" accessibilityState={{ expanded: open }} accessibilityLabel={open ? `Less about ${t.name}` : `More about ${t.name}`}>
+          <Text className="auth__note-link">{open ? "Less" : "More about them"}</Text>
+        </PressableScale>
       )}
     </View>
   );

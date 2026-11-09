@@ -98,7 +98,7 @@ const EMAIL_MAX = 120;
 const URL_MAX = 200;
 // The sections of a gym's page the gym admin can switch on or off for members (all on by default).
 // The app shows the same list (lib/gymProfile.ts SECTIONS).
-const SECTIONS = ["photos", "about", "facilities", "hours", "address", "contact", "links", "plans", "pt"];
+const SECTIONS = ["photos", "about", "facilities", "hours", "address", "contact", "links", "plans", "pt", "trainers"];
 const LINKS = ["website", "instagram", "facebook"];
 const CONTACT_KEYS = ["whatsapp", "email", ...LINKS];
 const EMAIL = /^[^\s@]{1,64}@[^\s@]+\.[^\s@]{2,}$/;
@@ -334,6 +334,7 @@ function forMembers(profile) {
     showLocation: on.address,
     showPlans: on.plans,
     showPt: on.pt,
+    showTrainers: on.trainers,
   };
 }
 

@@ -7,6 +7,7 @@ const express = require("express");
 
 const { createRateLimiter, limitPerUser } = require("../rateLimit");
 const discover = require("./discover");
+const trainerProfiles = require("./trainerProfiles");
 const joinRequests = require("./joinRequests");
 const joinRules = require("./joinRules");
 const rules = require("./discoverRules");
@@ -49,6 +50,10 @@ router.post("/:gymId/requests", joinLimit, smallBody, route(async (req, res) => 
 }));
 router.get("/:gymId/photos/:photoId", route(async (req, res) => {
   discover.send(res, await discover.photo(pool(req), gymId(req), gymRules.id(req.params.photoId, "photo")));
+}));
+// A trainer's photo: only one members can see at that branch (Gym Profile phase 3)
+router.get("/:gymId/trainers/:trainerId/photo", route(async (req, res) => {
+  discover.send(res, await trainerProfiles.memberPhoto(pool(req), gymId(req), gymRules.id(req.params.trainerId, "trainer")));
 }));
 router.get("/:gymId/logo", route(async (req, res) => {
   discover.send(res, await discover.logo(pool(req), gymId(req)));

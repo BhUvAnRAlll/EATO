@@ -39,6 +39,8 @@ export type PtPackage = { id: number; name: string; months: number | null; price
 // state: sent (waiting), in_touch (the gym is following up), joined, closed
 export type JoinState = "sent" | "in_touch" | "joined" | "closed";
 export type JoinRequest = { id: number; gym: { id: number; name: string; branch: string }; planLabel: string | null; state: JoinState; sentOn: string };
+// A trainer as members see them; id is the profile's own; photoUrl read with the session
+export type PublicTrainer = { id: number; name: string; photoUrl: string | null; specializations: string[]; years: number | null; certifications: string[]; bio: string | null; availability: OpeningHours | null };
 export type GymPage = {
   id: number;
   name: string;
@@ -59,6 +61,8 @@ export type GymPage = {
   photos: { id: number; url: string }[];
   plans: ComparePlan[];
   pt: PtPackage[];
+  // The gym's trainers members may see (Gym Profile phase 3; absent from an older server)
+  trainers?: PublicTrainer[];
   // When the gym last published its profile (null: never, or the gym's own preview)
   updatedAt: string | null;
   // The member here: their membership's id when they are one now, and their latest request.

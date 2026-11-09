@@ -51,6 +51,23 @@ export type GymProfile = {
   hasLogo: boolean;
   publishing: { state: PublishState; publishedAt: string | null; editedAt: string | null; checklist: ChecklistItem[]; problem: string | null };
 };
+// Trainer profiles (Gym Profile phase 3): every trainer login at the branch, with what members see.
+// name is null until the trainer adds it in the app (they can't be shown before); photoUrl is read
+// with the session.
+export type TrainerProfile = {
+  userId: string;
+  name: string | null;
+  phone: string | null;
+  photoUrl: string | null;
+  specializations: string[];
+  years: number | null;
+  certifications: string[];
+  bio: string | null;
+  availability: OpeningHours | null;
+  active: boolean;
+  updatedAt: string | null;
+};
+export type TrainerProfileFields = { specializations?: string[]; years?: number | null; certifications?: string[]; bio?: string; availability?: OpeningHours | null; active?: boolean };
 export type GymProfileFields = {
   about?: string;
   facilities?: FacilityId[];
@@ -379,6 +396,10 @@ export const gymApi = {
   updateProfile: (token: string | null, fields: GymProfileFields) => call<GymProfile>(token, "/api/gym/profile", "PATCH", fields),
   addGymPhoto: (token: string | null, image: { data: string; mediaType: string }) => call<GymProfile>(token, "/api/gym/profile/photos", "POST", { data: image.data, mediaType: image.mediaType }),
   removeGymPhoto: (token: string | null, id: number) => call<GymProfile>(token, `/api/gym/profile/photos/${id}`, "DELETE"),
+  trainerProfiles: (token: string | null) => call<{ trainers: TrainerProfile[] }>(token, "/api/gym/profile/trainers"),
+  saveTrainerProfile: (token: string | null, userId: string, fields: TrainerProfileFields) => call<{ trainers: TrainerProfile[] }>(token, `/api/gym/profile/trainers/${encodeURIComponent(userId)}`, "PUT", fields),
+  setTrainerPhoto: (token: string | null, userId: string, image: { data: string; mediaType: string }) => call<{ trainers: TrainerProfile[] }>(token, `/api/gym/profile/trainers/${encodeURIComponent(userId)}/photo`, "PUT", { data: image.data, mediaType: image.mediaType }),
+  removeTrainerPhoto: (token: string | null, userId: string) => call<{ trainers: TrainerProfile[] }>(token, `/api/gym/profile/trainers/${encodeURIComponent(userId)}/photo`, "DELETE"),
   orderGymPhotos: (token: string | null, ids: number[]) => call<GymProfile>(token, "/api/gym/profile/photos/order", "PUT", { ids }),
   publishProfile: (token: string | null) => call<GymProfile>(token, "/api/gym/profile/publish", "POST"),
   // The gym's page as members would see it once the draft is published

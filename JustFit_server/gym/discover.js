@@ -14,6 +14,7 @@ const profileRules = require("./profileRules");
 const rules = require("./discoverRules");
 const { todayInIndia } = require("./rules");
 const { activeOnly, hasPlanOptions } = require("./service");
+const trainerProfiles = require("./trainerProfiles");
 
 // Enough for every branch for now; the list is filtered and sorted in code (discoverRules)
 const CANDIDATE_LIMIT = 500;
@@ -148,6 +149,17 @@ const pageItems = async (pool, gymId) => {
   );
 };
 
+// The branch's trainers members may see (Gym Profile phase 3); none before migration 2026-12-25
+async function trainersAt(pool, gymId, shown) {
+  if (!shown) return [];
+  try {
+    return await trainerProfiles.forMembers(pool, gymId);
+  } catch (error) {
+    if (error?.code === "ER_NO_SUCH_TABLE") return [];
+    throw error;
+  }
+}
+
 /** GET /api/gyms/:id: one branch's page, as published */
 async function gymPage(pool, gymId, today = todayInIndia()) {
   const withPublishing = await hasPublishing(pool);
@@ -160,6 +172,7 @@ async function gymPage(pool, gymId, today = todayInIndia()) {
   const seen = memberProfile(g, gallery.map((p) => p.id), withPublishing, today);
   return {
     ...pageOf(g, seen, gallery, items, { logo: logoUrl(g.id, g.logo_key), photo: (p) => coverUrl(g.id, p.id, p.image_key) }),
+    trainers: await trainersAt(pool, gymId, seen.showTrainers),
     updatedAt: withPublishing && g.published_at ? new Date(g.published_at).toISOString() : null,
   };
 }
@@ -176,7 +189,11 @@ async function previewPage(pool, gym, today = todayInIndia()) {
   ]);
   if (!g) throw new NotFoundError("That branch doesn't exist any more.");
   const seen = profileRules.forMembers(profileRules.snapshot(row, photos.map((p) => p.id), today));
+  // Trainers as members see them (live: they don't wait for Publish); their photos through the
+  // member route, which any signed-in account may read for a trainer shown there
+  const trainers = await trainersAt(pool, gym.id, seen.showTrainers);
   return {
+    trainers,
     ...pageOf(g, seen, photos, items, {
       logo: g.logo_key ? `/api/gym/logo?v=${g.logo_key.slice(0, 8)}` : null,
       photo: (p) => `/api/gym/profile/photos/${p.id}?v=${p.image_key.slice(0, 8)}`,

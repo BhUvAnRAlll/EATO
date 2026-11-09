@@ -29,6 +29,8 @@ const predictionRules = require("./predictionRules");
 const service = require("./service");
 const rules = require("./rules");
 const discover = require("./discover");
+const trainerProfiles = require("./trainerProfiles");
+const trainerProfileRules = require("./trainerProfileRules");
 const sms = require("./sms");
 const templates = require("./templates");
 const templateRules = require("./templateRules");
@@ -514,6 +516,37 @@ router.delete("/profile/photos/:photoId", profileRoute(async (req, res) => {
 }));
 router.get("/profile/photos/:photoId", profileRoute(async (req, res) => {
   gymProfile.send(res, await gymProfile.photoFile(pool(req), req.gym.id, rules.id(req.params.photoId, "photo")));
+}));
+
+// Trainer profiles (gym/trainerProfiles.js, Gym Profile phase 3, 2026-11-09): what members see about
+// each trainer login at the branch. Area "profile": reading with Gym Profile › See, changing with
+// Gym Profile › Trainer profiles. The trainer must work at this branch (else 404). Before migration
+// 2026-12-25 the routes say so.
+const TRAINER_PROFILE_MIGRATION = "Trainer profiles need the 2026-12-25-trainer-profiles migration on this server.";
+const trainerRoute = (handler) => (req, res, next) =>
+  handler(req, res, next).catch((error) => {
+    if (["ER_NO_SUCH_TABLE", "ER_BAD_FIELD_ERROR"].includes(error?.code)) return res.status(503).json({ error: TRAINER_PROFILE_MIGRATION });
+    next(error);
+  });
+const trainerPhotoBody = express.json({ limit: Math.ceil(trainerProfiles.photoLimits.maxBytes * (4 / 3)) + 1024 });
+router.get("/profile/trainers", trainerRoute(async (req, res) => {
+  res.json(await trainerProfiles.list(pool(req), req.gym));
+}));
+router.put("/profile/trainers/:userId", smallBody, trainerRoute(async (req, res) => {
+  const userId = staffRules.userIdParam(req.params.userId);
+  res.json(await trainerProfiles.save(pool(req), req.gym, req.userId, userId, trainerProfileRules.trainerProfileBody(req.body)));
+}));
+router.put("/profile/trainers/:userId/photo", photoLimit, trainerPhotoBody, trainerRoute(async (req, res) => {
+  const userId = staffRules.userIdParam(req.params.userId);
+  const checked = trainerProfiles.checkTrainerPhoto(req.body);
+  if (!checked.ok) return res.status(checked.status).json({ error: checked.error });
+  res.json(await trainerProfiles.setPhoto(pool(req), req.gym, req.userId, userId, checked));
+}));
+router.delete("/profile/trainers/:userId/photo", trainerRoute(async (req, res) => {
+  res.json(await trainerProfiles.removePhoto(pool(req), req.gym, req.userId, staffRules.userIdParam(req.params.userId)));
+}));
+router.get("/profile/trainers/:userId/photo", trainerRoute(async (req, res) => {
+  trainerProfiles.send(res, await trainerProfiles.photoFile(pool(req), req.gym, staffRules.userIdParam(req.params.userId)));
 }));
 
 // Reminder Templates (gym/templates.js, 2026-11-08): the branch's own wording for Send Reminder
