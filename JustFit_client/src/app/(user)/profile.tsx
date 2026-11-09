@@ -1,11 +1,11 @@
 import { useCallback, useState } from "react";
 import { Alert, Platform, Pressable, ScrollView, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { SymbolView } from "@/components/SymbolView";
 import { router, useFocusEffect, type Href } from "expo-router";
 
-import { IconButton } from "@/components/IconButton";
+import { ScreenHeader } from "@/components/ScreenHeader";
 import { MetricCard } from "@/components/MetricCard";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { FormAlert } from "@/components/FormAlert";
@@ -22,14 +22,17 @@ import type { Icon } from "@/types/profile";
 import { confirmChoice } from "@/lib/nativeSheets";
 
 // The account's places, in the order the reference design lists them (every one is an existing screen)
+// Gym Hub has its own card under the member's; a gym's trainer has no membership of their
+// own, so they get the check-in there instead (they scan in for work)
+const gymHub = { label: "Gym Hub", icon: { ios: "dumbbell", android: "fitness_center", web: "fitness_center" } as Icon, href: "/gym-hub" as Href };
+const gymCheckIn = { label: "Gym check-in", icon: { ios: "qrcode.viewfinder", android: "qr_code_scanner", web: "qr_code_scanner" } as Icon, href: "/attendance" as Href };
+
 const menu: { label: string; icon: Icon; href: Href }[] = [
   { label: "My goals", icon: { ios: "target", android: "track_changes", web: "track_changes" }, href: "/goals" },
   { label: "My plans", icon: { ios: "calendar", android: "calendar_month", web: "calendar_month" }, href: "/plans" },
   { label: "Orders", icon: { ios: "shippingbox", android: "inventory_2", web: "inventory_2" }, href: "/orders" },
   { label: "Delivery addresses", icon: { ios: "mappin.and.ellipse", android: "location_on", web: "location_on" }, href: "/addresses" },
   { label: "Notifications", icon: { ios: "bell", android: "notifications", web: "notifications" }, href: "/notifications" },
-  { label: "Gym Hub", icon: { ios: "dumbbell", android: "fitness_center", web: "fitness_center" }, href: "/gym-hub" },
-  { label: "Gym check-in", icon: { ios: "qrcode.viewfinder", android: "qr_code_scanner", web: "qr_code_scanner" }, href: "/attendance" },
 ];
 
 // BMI and its one-word band (WHO adult cut-offs), for the metric tile
@@ -40,19 +43,28 @@ function bmiOf(weightKg: number | null | undefined, heightCm: number | null | un
   return { value: value.toFixed(1), status };
 }
 
-// Profile: the member's card with body fat, weight and height, the body scan, the account's
+// Profile: the member's card (tap for their body metrics), Gym Hub, the body scan, the account's
 // places as a list, and sign out
+// The height again in feet and inches ("5′ 8″"), as many people in India say it: a neutral line
+// under the number rather than a word that reads like a button
+const feetAndInches = (cm: number) => {
+  const inches = Math.round(cm / 2.54);
+  return `${Math.floor(inches / 12)}′ ${inches % 12}″`;
+};
+
+
 export default function Profile() {
   const colors = useThemeColors();
+  const insets = useSafeAreaInsets();
   const user = useAuthStore((state) => state.user);
-  // Gym Hub (2026-11-09) holds a member's memberships, visits and check-in; a gym's trainer has no
-  // membership of their own, so they get the check-in alone (they scan in for work)
-  const rows = menu.filter((item) => (user?.role === "trainer" ? item.href !== "/gym-hub" : item.href !== "/attendance"));
+  const gym = user?.role === "trainer" ? gymCheckIn : gymHub;
   const [signingOut, setSigningOut] = useState(false);
   const getToken = useSessionToken();
   const lastScan = useSetupStore((state) => state.scan);
   const [saved, setSaved] = useState<SavedProfile | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  // The body metrics show once the member taps their card
+  const [detailsOpen, setDetailsOpen] = useState(false);
 
   // Reloaded whenever Profile shows, so a scan saved a moment ago appears at once
   const load = useCallback(async () => {
@@ -102,6 +114,12 @@ export default function Profile() {
       if (ok) signOutEverywhere();
     });
   };
+  // The latest report gets its row once there is one
+  const shortcuts: { label: string; icon: Icon; onPress: () => void; disabled?: boolean }[] = [
+    { label: gym.label, icon: gym.icon, onPress: () => router.push(gym.href) },
+    { label: "Body Composition Scan", icon: { ios: "figure.stand", android: "accessibility_new", web: "accessibility_new" }, onPress: startScan, disabled: !saved },
+    ...(lastScan ? [{ label: "Latest body report", icon: { ios: "doc.text", android: "description", web: "description" } as Icon, onPress: () => router.push("/setup/scan-report?mode=view&from=profile") }] : []),
+  ];
   const bmi = bmiOf(saved?.weightKg, saved?.heightCm);
   const initial = name.trim().charAt(0).toUpperCase() || "?";
 
@@ -109,119 +127,123 @@ export default function Profile() {
     <View className="flex-1 bg-cream">
       <StatusBar style="auto" />
       <SafeAreaView style={{ flex: 1 }} edges={["top", "left", "right"]}>
-        <View className="app-bar px-4">
-          {router.canGoBack() ? (
-            <IconButton icon={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} label="Back" onPress={() => router.back()} />
-          ) : (
-            <View style={{ width: 44 }} />
-          )}
-          <Text className="app-bar__title">Profile</Text>
-          <View style={{ width: 44 }} />
-        </View>
+        <ScreenHeader title="Profile" showBack={router.canGoBack()} />
 
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 32 }} showsVerticalScrollIndicator={false} refreshControl={refreshControl}>
-          {/* The member */}
-          <View className="card flex-row items-center gap-3.5">
-            <View className="home__avatar" style={{ width: 56, height: 56 }}>
-              <Text className="home__avatar-label" style={{ fontSize: 22, lineHeight: 28 }}>
-                {initial}
-              </Text>
-            </View>
-            <View className="flex-1">
-              <Text className="type-headline text-ink" numberOfLines={1}>
-                {name}
-              </Text>
-              <Text className="type-caption text-muted" numberOfLines={1}>
-                {accountContact(user) || "Member"}
-              </Text>
-            </View>
-          </View>
-
-          {/* Until the first read answers, the metric tiles are a skeleton rather than "—" and "Add",
-              which read as missing data; a failed first read says so and can be asked again */}
-          {saved === null && loadError === null && <View className="mt-3"><SkeletonCard tall /></View>}
-          {saved === null && loadError !== null && (
-            <View className="mt-3 gap-3">
-              <FormAlert message={loadError} />
-              <PrimaryButton label="Try again" onPress={() => { setLoadError(null); load(); }} />
-            </View>
-          )}
-          {/* Body metrics: two per row, each in its own tone */}
-          {saved !== null && <View className="mt-3 gap-3">
-            <View className="flex-row gap-3">
-              <MetricCard
-                tone="green"
-                label="Weight"
-                icon={{ ios: "scalemass", android: "monitor_weight", web: "monitor_weight" }}
-                value={saved?.weightKg != null ? String(saved.weightKg) : "—"}
-                unit="kg"
-                status={bmi ? bmi.status : "Add"}
-                onPress={saved ? () => router.push("/measurements") : undefined}
-              />
-              <MetricCard
-                tone="blue"
-                label="Height"
-                icon={{ ios: "ruler", android: "straighten", web: "straighten" }}
-                value={saved?.heightCm != null ? String(saved.heightCm) : "—"}
-                unit="cm"
-                status={saved?.heightCm != null ? "Set" : "Add"}
-                onPress={saved ? () => router.push("/measurements") : undefined}
-              />
-            </View>
-            <View className="flex-row gap-3">
-              <MetricCard
-                tone="peach"
-                label="BMI"
-                icon={{ ios: "heart", android: "favorite", web: "favorite" }}
-                value={bmi ? bmi.value : "—"}
-                unit="BMI"
-                status={bmi ? bmi.status : "Needs data"}
-                onPress={saved ? () => router.push("/measurements") : undefined}
-              />
-              <MetricCard
-                tone="lavender"
-                label="Body fat"
-                icon={{ ios: "figure.stand", android: "accessibility_new", web: "accessibility_new" }}
-                value={saved?.bodyFatPercent != null ? String(saved.bodyFatPercent) : "—"}
-                unit="%"
-                status={saved?.bodyFatPercent != null ? "Scanned" : "Not yet"}
-                onPress={saved ? startScan : undefined}
-              />
-            </View>
-          </View>}
-
-          {/* Body composition: the photo scan */}
-          <View className="card mt-4 gap-3">
-            <View className="flex-row items-center gap-3">
-              <View className="card__icon">
-                <SymbolView name={{ ios: "figure.stand", android: "accessibility_new", web: "accessibility_new" }} size={20} tintColor={colors.leaf} />
+        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 32 + insets.bottom }} showsVerticalScrollIndicator={false} refreshControl={refreshControl}>
+          {/* Personal details: the member's card; tapping it opens their body metrics under it */}
+          <View className="card">
+            <Pressable
+              onPress={() => setDetailsOpen((open) => !open)}
+              className="flex-row items-center gap-3.5"
+              accessibilityRole="button"
+              accessibilityState={{ expanded: detailsOpen }}
+              accessibilityHint="Shows your weight, height, BMI and body fat"
+            >
+              <View className="home__avatar" style={{ width: 56, height: 56 }}>
+                <Text className="home__avatar-label" style={{ fontSize: 22, lineHeight: 28 }}>
+                  {initial}
+                </Text>
               </View>
               <View className="flex-1">
-                <Text className="card__title">Body composition</Text>
-                <Text className="card__subtitle">{saved?.bodyFatPercent != null ? `Body fat ${saved.bodyFatPercent}%` : "No body scan yet"}</Text>
+                <Text className="type-headline text-ink" numberOfLines={1}>
+                  {name}
+                </Text>
+                <Text className="type-caption text-muted" numberOfLines={2}>
+                  {accountContact(user) || "Member"}
+                </Text>
               </View>
-            </View>
-            <Text className="type-caption text-muted">
-              Two photos give you a full body composition report. Saving it updates your body fat % and your daily targets. Your photos are never stored.
-            </Text>
-            {loadError && saved !== null && <Text className="type-caption text-muted">{loadError}</Text>}
-            <PrimaryButton label="Scan Body" onPress={startScan} disabled={!saved} />
-            {lastScan && (
-              <Pressable onPress={() => router.push("/setup/scan-report?mode=view&from=profile")} accessibilityRole="button" hitSlop={8} className="self-center">
-                <Text className="auth__link">View latest report</Text>
-              </Pressable>
+              <SymbolView
+                name={detailsOpen ? { ios: "chevron.up", android: "keyboard_arrow_up", web: "keyboard_arrow_up" } : { ios: "chevron.down", android: "keyboard_arrow_down", web: "keyboard_arrow_down" }}
+                size={14}
+                tintColor={colors.faint}
+              />
+            </Pressable>
+
+            {detailsOpen && (
+              <View className="mt-4 gap-3">
+              {/* Until the first read answers, the metric tiles are a skeleton rather than "—" and "Add",
+                  which read as missing data; a failed first read says so and can be asked again */}
+              {saved === null && loadError === null && <SkeletonCard tall />}
+              {saved === null && loadError !== null && (
+                <View className="gap-3">
+                  <FormAlert message={loadError} />
+                  <PrimaryButton label="Try again" onPress={() => { setLoadError(null); load(); }} />
+                </View>
+              )}
+              {loadError && saved !== null && <Text className="type-caption text-muted">{loadError}</Text>}
+              {saved !== null && (
+                <View className="gap-3">
+                  <View className="flex-row gap-3">
+                    <MetricCard
+                      tone="green"
+                      label="Weight"
+                      icon={{ ios: "scalemass", android: "monitor_weight", web: "monitor_weight" }}
+                      value={saved.weightKg != null ? String(saved.weightKg) : "—"}
+                      unit="kg"
+                      status={bmi ? bmi.status : "Add"}
+                      onPress={() => router.push("/measurements")}
+                    />
+                    <MetricCard
+                      tone="blue"
+                      label="Height"
+                      icon={{ ios: "ruler", android: "straighten", web: "straighten" }}
+                      value={saved.heightCm != null ? String(saved.heightCm) : "—"}
+                      unit="cm"
+                      status={saved.heightCm != null ? feetAndInches(saved.heightCm) : "Add"}
+                      onPress={() => router.push("/measurements")}
+                    />
+                  </View>
+                  <View className="flex-row gap-3">
+                    <MetricCard
+                      tone="peach"
+                      label="BMI"
+                      icon={{ ios: "heart", android: "favorite", web: "favorite" }}
+                      value={bmi ? bmi.value : "—"}
+                      status={bmi ? bmi.status : "Needs data"}
+                      onPress={() => router.push("/measurements")}
+                    />
+                    <MetricCard
+                      tone="lavender"
+                      label="Body fat"
+                      icon={{ ios: "figure.stand", android: "accessibility_new", web: "accessibility_new" }}
+                      value={saved.bodyFatPercent != null ? String(saved.bodyFatPercent) : "—"}
+                      unit="%"
+                      status={saved.bodyFatPercent != null ? "Scanned" : "Not yet"}
+                      onPress={startScan}
+                    />
+                  </View>
+                </View>
+              )}
+              </View>
             )}
           </View>
 
+          {/* Gym Hub (a trainer's check-in) and the body scan: rows like the account's places */}
+          <View className="card mt-4 py-1">
+            {shortcuts.map((item, index) => (
+              <Pressable
+                key={item.label}
+                onPress={item.onPress}
+                disabled={item.disabled}
+                className="list-row"
+                style={index === shortcuts.length - 1 ? { borderBottomWidth: 0 } : undefined}
+                accessibilityRole="button"
+              >
+                <SymbolView name={item.icon} size={19} tintColor={colors.forestInk} />
+                <Text className="list-row__label">{item.label}</Text>
+                <SymbolView name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }} size={14} tintColor={colors.faint} />
+              </Pressable>
+            ))}
+          </View>
 
           {/* The account's places */}
           <View className="card mt-4 py-1">
-            {rows.map((item, index) => (
+            {menu.map((item, index) => (
               <Pressable
                 key={item.label}
                 onPress={() => router.push(item.href)}
                 className="list-row"
-                style={index === rows.length - 1 ? { borderBottomWidth: 0 } : undefined}
+                style={index === menu.length - 1 ? { borderBottomWidth: 0 } : undefined}
                 accessibilityRole="button"
               >
                 <SymbolView name={item.icon} size={19} tintColor={colors.forestInk} />

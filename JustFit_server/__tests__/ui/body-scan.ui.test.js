@@ -303,11 +303,11 @@ describe("ui body scan: Scan Body, the photo instructions, the scan screen and t
     assert.equal(before.bf, null);
     assert.equal(before.formula, "mifflin_st_jeor");
 
-    await h.goto("/profile", "Body composition");
-    await h.expectText("No body scan yet");
+    await h.goto("/profile", "Body Composition Scan");
+    assert.equal(await page.hasText("Latest body report"), false, "no report row before a scan");
     if (SCREENSHOT_DIR) for (const [width, height] of WIDTHS) { await setWidth(width, height); await new Promise((r) => setTimeout(r, 500)); await page.screenshot(path.join(SCREENSHOT_DIR, `profile-body-composition-${width}.png`)); }
     await setWidth(390, 844);
-    await page.clickText(SCAN_BUTTON);
+    await page.clickText("Body Composition Scan");
     await h.expectPath("/setup/scan-guide");
     await h.expectText("How to take your photos");
     assert.equal(await page.hasText("2/7"), false, "no setup step counter outside setup");
@@ -334,15 +334,16 @@ describe("ui body scan: Scan Body, the photo instructions, the scan screen and t
     await h.expectText("Save this result?");
     await page.clickText("Confirm and save");
     await h.expectPath("/profile");
-    await h.expectText("Body fat 23%");
-    await h.expectText("View latest report");
+    await page.clickText("Scan Tester");
+    await h.expectText("Scanned");
+    await h.expectText("Latest body report");
 
     const [[after]] = await connection.query("SELECT p.body_fat_percent AS bf, t.rmr_formula AS formula, t.calories FROM profiles p JOIN nutrition_targets t ON t.user_id = p.user_id WHERE p.user_id = ?", [identities.a.id]);
     assert.equal(Number(after.bf), 23);
     assert.equal(after.formula, "katch_mcardle", "the targets now use fat-free mass");
     assert.deepEqual(await db.rowsForUser(connection, identities.a.id), { nutrition_targets: 1, body_composition_reports: 0, profiles: 1, users: 1 }, "updated in place, no new rows");
 
-    await page.clickText("View latest report");
+    await page.clickText("Latest body report");
     await h.expectPath("/setup/scan-report");
     await h.expectText("Done");
     await page.clickText("Done");
@@ -350,7 +351,8 @@ describe("ui body scan: Scan Body, the photo instructions, the scan screen and t
   }));
 
   it("6. Profile's Weight tile changes height and weight after a confirmation; the targets are recalculated and the body fat % kept", run("measurements", async () => {
-    await h.goto("/profile", "Body composition");
+    await h.goto("/profile", "Body Composition Scan");
+    await page.clickText("Scan Tester");
     await page.clickText("Weight");
     await h.expectPath("/measurements");
     await h.expectText("Height & weight");
