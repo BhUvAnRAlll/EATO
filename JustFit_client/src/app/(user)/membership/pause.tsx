@@ -21,9 +21,11 @@ const toDate = (iso: string) => {
 };
 const toIso = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 
-type Load = { state: "loading" } | { state: "failed"; error: string } | { state: "ready"; membership: Membership; today: string };
+// `missing`: the membership isn't on this number (or is gone): trying again can't help, so the
+// way out is back to the list
+type Load = { state: "loading" } | { state: "failed"; error: string; missing?: boolean } | { state: "ready"; membership: Membership; today: string };
 
-// Profile › Gym membership › Pause Membership: pick the first and last paused day and say why,
+// Gym Hub › a membership › Pause Membership: pick the first and last paused day and say why,
 // then send the request. The gym's staff approve or reject it; until then it shows as waiting.
 // The server checks the dates (today to 60 days ahead, 1 to 90 days) and the reason again.
 export default function PauseMembership() {
@@ -43,7 +45,7 @@ export default function PauseMembership() {
     const answer = await membershipApi.mine(await getToken().catch(() => null));
     if (!answer.ok) return setResult({ state: "failed", error: answer.error });
     const membership = answer.data.memberships.find((m) => String(m.id) === id);
-    if (!membership) return setResult({ state: "failed", error: "That membership isn't on your number." });
+    if (!membership) return setResult({ state: "failed", error: "That membership isn't on your number.", missing: true });
     setResult({ state: "ready", membership, today: answer.data.today });
   }, [getToken, id]);
   useFocusEffect(useCallback(() => { load(); }, [load]));
@@ -73,7 +75,7 @@ export default function PauseMembership() {
     if (!answer.ok) return setError(answer.error);
     hud.success("Pause request sent");
     if (router.canGoBack()) router.back();
-    else router.replace("/membership");
+    else router.replace("/gym-hub");
   };
 
   return (
@@ -81,7 +83,7 @@ export default function PauseMembership() {
       <StatusBar style="dark" />
       <SafeAreaView edges={["top"]} style={{ flex: 1 }}>
         <View className="flex-row items-center px-4 py-2" style={{ gap: 12 }}>
-          <IconButton icon={{ ios: "chevron.left", android: "chevron_left", web: "chevron_left" }} label="Back" onPress={() => (router.canGoBack() ? router.back() : router.replace("/membership"))} />
+          <IconButton icon={{ ios: "chevron.left", android: "chevron_left", web: "chevron_left" }} label="Back" onPress={() => (router.canGoBack() ? router.back() : router.replace("/gym-hub"))} />
           <Text className="type-title flex-1" accessibilityRole="header">Pause Membership</Text>
         </View>
 
@@ -91,7 +93,11 @@ export default function PauseMembership() {
           <View className="p-4">
             <View className="card" style={{ gap: 12 }}>
               <FormAlert message={result.error} />
-              <PrimaryButton label="Try again" onPress={() => { setResult({ state: "loading" }); load(); }} />
+              {result.missing ? (
+                <PrimaryButton label="Back to Gym Hub" onPress={() => (router.canGoBack() ? router.back() : router.replace("/gym-hub"))} />
+              ) : (
+                <PrimaryButton label="Try again" onPress={() => { setResult({ state: "loading" }); load(); }} />
+              )}
             </View>
           </View>
         ) : (

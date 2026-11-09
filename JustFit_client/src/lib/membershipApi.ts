@@ -44,10 +44,32 @@ export type Membership = {
 export type Memberships = { today: string; memberships: Membership[] };
 export type PauseFields = { from: string; until: string; reason: string };
 
+// Gym Hub's membership page (GET /api/membership/:id?month=YYYY-MM): the membership with every
+// pause, its payments and one month of attendance
+export type HubPayment = { id: number; kind: string; label: string; detail: string; method: "online" | "cash"; amount: number; paidOn: string };
+export type HubVisit = { id: number; date: string; status: "inside" | "completed" | "no_checkout"; checkedInAt: string; checkedOutAt: string | null; durationMin: number | null };
+export type HubDay = { date: string; visits: number; minutes: number };
+export type MembershipDetail = {
+  today: string;
+  membership: Membership;
+  pauseCounts: { approved: number; requested: number; daysPaused: number };
+  payments: HubPayment[];
+  attendance: {
+    month: string;
+    previousMonth: string | null;
+    nextMonth: string | null;
+    days: HubDay[];
+    visits: HubVisit[];
+    stats: { thisMonth: number; last7Days: number; totalDays: number; averageMin: number | null; lastVisit: string | null };
+  };
+};
+
 const signedOut = <T>(): Promise<ApiResult<T>> => Promise.resolve({ ok: false, error: "Please sign in again." });
 
 export const membershipApi = {
   mine: (token: string | null) => (token ? apiFetch<Memberships>("/api/membership", { token }) : signedOut<Memberships>()),
+  detail: (token: string | null, id: number, month?: string) =>
+    token ? apiFetch<MembershipDetail>(`/api/membership/${id}${month ? `?month=${month}` : ""}`, { token }) : signedOut<MembershipDetail>(),
   requestPause: (token: string | null, id: number, fields: PauseFields) =>
     token ? apiFetch<Membership>(`/api/membership/${id}/pause`, { token, method: "POST", body: fields }) : signedOut<Membership>(),
   cancelPause: (token: string | null, id: number, pauseId: number) =>

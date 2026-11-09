@@ -6743,3 +6743,76 @@
   line-height: 22px;
   text-align: center;
 }
+
+/* EmptyState: a white card, the icon in a soft red circle, a title and a line */
+@utility empty-state {
+  padding: var(--spacing-xl);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-card);
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+/* ScreenHeader: the bar plus an optional line under it, on the page colour with room below */
+@utility screen-header {
+  padding-bottom: var(--spacing-sm);
+  background-color: var(--color-cream);
+}
+
+@utility screen-header__subtitle {
+  margin-top: -4px;
+  padding-inline: var(--spacing-lg);
+  text-align: center;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+@utility address-action {
+  min-height: 36px;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  padding-inline: 12px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface-alt);
+}
+
+@utility address-action__label {
+  font-family: var(--font-sans-medium);
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--color-ink);
+}
+
+/* Gym Hub's attendance calendar (2026-11-09): a day with a visit is the brand red, today outlined */
+@utility hub-day {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-pill);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility hub-day--visited {
+  background-color: var(--color-primary);
+}
+
+@utility hub-day--today {
+  border-width: 1.5px;
+  border-color: var(--color-primary);
+}
+
+@utility hub-day__label {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--color-ink);
+}
+
+@utility hub-day__label--visited {
+  font-family: var(--font-sans-semibold);
+  color: var(--color-on-primary);
+}

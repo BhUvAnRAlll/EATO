@@ -92,6 +92,16 @@ async function myMemberships(pool, userId, today) {
   return { today, memberships };
 }
 
+// One of the caller's memberships (by phone) for Gym Hub's membership page; another member's id,
+// or one not on their number, reads as missing
+async function oneMembership(pool, userId, memberId, today) {
+  const account = await getAccount(userId, pool);
+  if (!account.phone) throw new NotFoundError("That membership isn't on your number.");
+  const [[row]] = await pool.query(`SELECT ${MEMBERSHIP_COLUMNS} ${MEMBERSHIP_FROM} WHERE m.id = ? AND m.phone = ?`, [memberId, account.phone]);
+  if (!row) throw new NotFoundError("That membership isn't on your number.");
+  return { row, membership: await membershipOf(pool, row, today) };
+}
+
 // The caller's own membership row (by phone), locked for a write
 async function ownMembership(db, userId, memberId) {
   const account = await getAccount(userId, db);
@@ -198,4 +208,4 @@ async function staffPause(pool, gym, userId, memberId, body, today) {
   return service.member(pool, gym.id, memberId, today);
 }
 
-module.exports = { myMemberships, requestPause, cancelPause, list, decide, staffPause, currentPause, openPause, pauseOf };
+module.exports = { PAUSE_COLUMNS, myMemberships, oneMembership, requestPause, cancelPause, list, decide, staffPause, currentPause, openPause, pauseOf };

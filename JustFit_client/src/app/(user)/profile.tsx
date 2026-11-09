@@ -28,8 +28,8 @@ const menu: { label: string; icon: Icon; href: Href }[] = [
   { label: "Orders", icon: { ios: "shippingbox", android: "inventory_2", web: "inventory_2" }, href: "/orders" },
   { label: "Delivery addresses", icon: { ios: "mappin.and.ellipse", android: "location_on", web: "location_on" }, href: "/addresses" },
   { label: "Notifications", icon: { ios: "bell", android: "notifications", web: "notifications" }, href: "/notifications" },
-  { label: "Gym membership", icon: { ios: "person.text.rectangle", android: "badge", web: "badge" }, href: "/membership" },
-  { label: "Gym attendance", icon: { ios: "qrcode.viewfinder", android: "qr_code_scanner", web: "qr_code_scanner" }, href: "/attendance" },
+  { label: "Gym Hub", icon: { ios: "dumbbell", android: "fitness_center", web: "fitness_center" }, href: "/gym-hub" },
+  { label: "Gym check-in", icon: { ios: "qrcode.viewfinder", android: "qr_code_scanner", web: "qr_code_scanner" }, href: "/attendance" },
 ];
 
 // BMI and its one-word band (WHO adult cut-offs), for the metric tile
@@ -45,6 +45,9 @@ function bmiOf(weightKg: number | null | undefined, heightCm: number | null | un
 export default function Profile() {
   const colors = useThemeColors();
   const user = useAuthStore((state) => state.user);
+  // Gym Hub (2026-11-09) holds a member's memberships, visits and check-in; a gym's trainer has no
+  // membership of their own, so they get the check-in alone (they scan in for work)
+  const rows = menu.filter((item) => (user?.role === "trainer" ? item.href !== "/gym-hub" : item.href !== "/attendance"));
   const [signingOut, setSigningOut] = useState(false);
   const getToken = useSessionToken();
   const lastScan = useSetupStore((state) => state.scan);
@@ -213,12 +216,12 @@ export default function Profile() {
 
           {/* The account's places */}
           <View className="card mt-4 py-1">
-            {menu.map((item, index) => (
+            {rows.map((item, index) => (
               <Pressable
                 key={item.label}
                 onPress={() => router.push(item.href)}
                 className="list-row"
-                style={index === menu.length - 1 ? { borderBottomWidth: 0 } : undefined}
+                style={index === rows.length - 1 ? { borderBottomWidth: 0 } : undefined}
                 accessibilityRole="button"
               >
                 <SymbolView name={item.icon} size={19} tintColor={colors.forestInk} />

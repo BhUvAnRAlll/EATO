@@ -7,6 +7,7 @@ const express = require("express");
 
 const { createRateLimiter, limitPerUser } = require("../rateLimit");
 const pauses = require("./pauses");
+const memberHub = require("./memberHub");
 const pauseRules = require("./pauseRules");
 const rules = require("./rules");
 
@@ -27,6 +28,11 @@ const requestLimit = limitPerUser(createRateLimiter({ limit: Number(process.env.
 
 router.get("/", route(async (req, res) => {
   res.json(await pauses.myMemberships(pool(req), req.userId, today()));
+}));
+// Gym Hub's membership page (2026-11-09): one membership with its payments, pauses and a month of
+// attendance (?month=YYYY-MM). Read only.
+router.get("/:memberId", route(async (req, res) => {
+  res.json(await memberHub.detail(pool(req), req.userId, rules.id(req.params.memberId, "membership"), req.query, today()));
 }));
 router.post("/:memberId/pause", requestLimit, smallBody, route(async (req, res) => {
   res.status(201).json(await pauses.requestPause(pool(req), req.userId, rules.id(req.params.memberId, "membership"), pauseRules.pauseBody(req.body, today()), today()));

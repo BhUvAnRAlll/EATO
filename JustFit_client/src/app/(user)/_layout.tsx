@@ -6,8 +6,9 @@ import { SessionExpiredBanner } from "@/components/SessionExpiredBanner";
 import { useThemeColors } from "@/theme";
 import { useAuthStore } from "@/store/auth";
 
-// AI Coach, Workout and Fitness screens: not part of a trainer's account (the server refuses them too)
-const NOT_FOR_TRAINERS = /^\/(coach|workout|fitness)(\/|$)/;
+// AI Coach, Workout and Fitness screens: not part of a trainer's account (the server refuses them too);
+// nor Gym membership or Gym Hub (2026-11-09): a trainer has no membership of their own
+const NOT_FOR_TRAINERS = /^\/(coach|workout|fitness|membership|gym-hub)(\/|$)/;
 
 // A member's screens: the tab bar group plus the screens pushed over it
 // (notifications, addresses, nutrition, goals). Only members ("user") and a gym's trainers

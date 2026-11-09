@@ -91,6 +91,26 @@ Do not introduce new major libraries unless there is a strong reason.
 
 Every Express route except the health check and the two sign-in routes verifies the caller's session token with `requireUser` (`JustFit_server/auth.js`) before doing anything. The sign-in routes are budgeted per IP address and per phone number instead.
 
+### Gym Hub, member side (2026-11-09, phase 1 of 4)
+
+Profile's Gym membership and Gym attendance rows became one **Gym Hub** row (`/gym-hub`; a
+trainer sees "Gym check-in" instead, `/attendance`, and is kept out of `/gym-hub` and `/membership`).
+`app/(user)/gym-hub/index.tsx`: Check in or out (opens the QR scanner, `/attendance`, unchanged),
+then My Memberships: a card per membership on the account's verified number, any gym (badge, plan,
+dates with a progress bar, dues). `gym-hub/[id].tsx`: the plan, Renewal (at the front desk),
+Attendance (visit-day stats: this month, last 7 days, all, average stay; a month calendar with
+‹ › back 24 months; the month's visits with India-time check-in and check-out), Pauses ("Paused N
+times · D days added", the open request with Cancel, Pause Membership, the history) and Payments.
+Words and the calendar grid in `lib/gymHubText.ts` (pure, unit-tested). Server:
+`GET /api/membership/:memberId?month=YYYY-MM` (`gym/memberHub.js`, rules `gym/memberHubRules.js`,
+`pauses.oneMembership`): matched by the account's phone like every `/api/membership` route; every
+query is scoped to that gym_members row and its gym; read only, no migration. `/membership` now
+redirects to `/gym-hub`; `/membership/pause`, `/attendance` and `justfit://attendance` work as before.
+The user's decisions for the next phases: no payment in the app (picking a plan sends an enquiry
+to the gym's Enquiries), Discover lists every gym; phase 2 gym public profile (migration), 3
+Discover and Gym Details, 4 the plan enquiry. Tests: `__tests__/gym-member-hub-rules.test.js`,
+`e2e/gym-member-hub.e2e.test.js`, the client's `lib/__tests__/gymHubText.test.ts`.
+
 ### Gym admin portal (2026-11-04)
 
 A portal for gym staff, separate from the removed gym owner portal and from the Super Admin.
