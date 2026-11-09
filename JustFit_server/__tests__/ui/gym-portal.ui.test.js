@@ -319,7 +319,7 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
     await h.expectText("Nobody is checked in right now.");
     await h.expectText("INSIDE NOW (0)");
     await page.waitFor(`!!document.querySelector('[aria-label^="Ravi Shankar, FOR-TUM-0002. Completed."]')`, NAV_TIMEOUT, "the completed visit in the history");
-    assert.ok(await hasLabel("Export to CSV"));
+    assert.ok(await hasLabel("Export to Excel"));
     await clickLabel("Completed");
     await h.expectText("1 visit");
     // Inside selects Today and locks the other ranges (2026-11-07, the user's rule)

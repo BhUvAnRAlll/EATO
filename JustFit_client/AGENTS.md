@@ -453,8 +453,11 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
   chart following the period: today's check-ins by India hour (5 am to 10 pm plus any outside
   hour with a visit), else a bar a day (`charts` on `GET /api/gym/attendance`, pure
   `attendanceRules.chartHours` / `chartDays`; `lastSevenDays` stays as the 7-day chart), history
-  with range/status/search and CSV
-  export; `settings.tsx`: name, map (`AttendanceMap`: react-native-maps, Google on Android with
+  with range/status/search and an Excel export (2026-11-09, the user's request; it was a CSV):
+  `GET /api/gym/attendance/export?format=xlsx` (`format` csv, the default, or xlsx; `attendanceRules.exportQuery`)
+  builds one sheet in `gym/xlsx.js` with Node's own zlib, no library: a bold frozen header, a filter,
+  numbers as numbers and text as inline strings, never formulas; the app saves `attendance-<from>-to-<to>.xlsx`
+  and opens the share sheet (`lib/attendanceExport.ts`, the button "Export Excel"); `settings.tsx`: name, map (`AttendanceMap`: react-native-maps, Google on Android with
   `GOOGLE_MAPS_ANDROID_API_KEY`, Google on iOS too with `GOOGLE_MAPS_IOS_API_KEY` (Apple Maps when
   it isn't set); both in `JustFit_client/.env` or the shell, read by `app.config.ts`, never
   committed, then `npx expo prebuild --clean`; no map on the web build), place search by the phone's geocoder,

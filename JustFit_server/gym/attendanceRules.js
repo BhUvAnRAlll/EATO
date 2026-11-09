@@ -187,15 +187,31 @@ const STATUS_LABELS = { inside: "Inside", completed: "Completed", no_checkout: "
 const SOURCE_LABELS = { qr: "QR scan", staff: "Staff" };
 const CSV_HEADER = ["Date", "Member ID", "Member", "Check-in", "Check-out", "Duration (min)", "Status", "Checked in by", "Distance at check-in (m)"];
 
+// One visit as the report's row (the CSV and the Excel file share it); numbers stay numbers
+function exportRow(v) {
+  return [
+    v.date, v.memberCode, v.memberName, v.checkInTime, v.checkOutTime ?? null, v.durationMin ?? null,
+    STATUS_LABELS[v.status] ?? v.status, SOURCE_LABELS[v.inSource] ?? v.inSource, v.checkInDistanceM ?? null,
+  ];
+}
+
 function toCsv(visits) {
   const lines = [CSV_HEADER.map(csvCell).join(",")];
-  for (const v of visits) {
-    lines.push([
-      v.date, v.memberCode, v.memberName, v.checkInTime, v.checkOutTime ?? "", v.durationMin ?? "",
-      STATUS_LABELS[v.status] ?? v.status, SOURCE_LABELS[v.inSource] ?? v.inSource, v.checkInDistanceM ?? "",
-    ].map(csvCell).join(","));
-  }
+  for (const v of visits) lines.push(exportRow(v).map(csvCell).join(","));
   return `${lines.join("\r\n")}\r\n`;
+}
+
+// The Excel report (2026-11-09): the same columns, widths in characters
+const SHEET_WIDTHS = [12, 14, 24, 20, 20, 15, 14, 14, 22];
+function toSheet(visits) {
+  return { sheetName: "Attendance", header: CSV_HEADER, rows: visits.map(exportRow), widths: SHEET_WIDTHS };
+}
+
+// ?format= on the export: csv (the default, as before) or xlsx; the rest is the history's query
+function exportQuery(query = {}, today) {
+  const { format, ...rest } = query;
+  if (format !== undefined && format !== "csv" && format !== "xlsx") throw new ValidationError("Pick csv or xlsx.");
+  return { format: format ?? "csv", query: historyQuery(rest, today) };
 }
 
 // The Statistics chart (2026-11-07, the user's request: the graph follows the period). Today is
@@ -252,5 +268,8 @@ module.exports = {
   durationMinutes,
   historyQuery,
   csvCell,
+  exportRow,
+  toSheet,
+  exportQuery,
   toCsv,
 };

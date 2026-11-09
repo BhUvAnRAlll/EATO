@@ -14,6 +14,7 @@ const { audit } = require("../admin/overview");
 const { inTransaction, gymInfo } = require("./service");
 const rules = require("./rules");
 const att = require("./attendanceRules");
+const xlsx = require("./xlsx");
 const pauses = require("./pauses");
 
 const IST_OFFSET_MS = 330 * 60 * 1000;
@@ -378,17 +379,23 @@ async function summary(pool, gym, today) {
   };
 }
 
-async function exportCsv(pool, gymId, q) {
+// The report: the filtered visits as a CSV or (format "xlsx") an Excel file
+async function exportReport(pool, gymId, q, format = "csv") {
+  const visits = await exportVisits(pool, gymId, q);
+  return format === "xlsx" ? xlsx.workbook(att.toSheet(visits)) : att.toCsv(visits);
+}
+
+async function exportVisits(pool, gymId, q) {
   await closeStale(pool, "gym_id = ?", [gymId]);
   const { where, params } = historyWhere(gymId, q);
   const [rows] = await pool.query(
     `SELECT ${VISIT_COLUMNS} FROM gym_attendance a JOIN gym_members m ON m.id = a.member_id WHERE ${where} ORDER BY a.checked_in_at, a.id LIMIT ?`,
     [...params, att.EXPORT_MAX_ROWS],
   );
-  return att.toCsv(rows.map((r) => {
+  return rows.map((r) => {
     const v = visitOf(r);
     return { ...v, checkInTime: istStamp(r.in_ms), checkOutTime: istStamp(r.out_ms), durationMin: v.status === "inside" ? null : v.durationMin };
-  }));
+  });
 }
 
 module.exports = {
@@ -403,7 +410,7 @@ module.exports = {
   myVisits,
   history,
   summary,
-  exportCsv,
+  exportReport,
   closeOpenVisits,
   startMidnightClose,
   istStamp,

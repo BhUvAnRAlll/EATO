@@ -395,6 +395,34 @@ describe("gym QR attendance e2e: settings, scans, staff, dashboard and export", 
     assert.equal((await as("member").get("/api/gym/attendance/export")).status, 403);
   }));
 
+  it("15b. Excel export: the same visits as an .xlsx, a bad format refused, staff only", run(async () => {
+    const response = await fetch(`${server.baseUrl}/api/gym/attendance/export?from=${today}&to=${today}&format=xlsx`, { headers: { Authorization: `Bearer ${tokens.gymA}` } });
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get("content-type"), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    assert.equal(response.headers.get("content-disposition"), `attachment; filename="attendance-${today}-to-${today}.xlsx"`);
+    const bytes = Buffer.from(await response.arrayBuffer());
+    assert.equal(bytes.readUInt32LE(0), 0x04034b50, "a zip, as every .xlsx is");
+    // The sheet is the last part written: inflate it and count its rows against the history
+    const zlib = require("node:zlib");
+    let at = 0;
+    let sheet = "";
+    while (bytes.readUInt32LE(at) === 0x04034b50) {
+      const size = bytes.readUInt32LE(at + 18);
+      const nameLength = bytes.readUInt16LE(at + 26);
+      const name = bytes.toString("utf8", at + 30, at + 30 + nameLength);
+      const start = at + 30 + nameLength;
+      if (name === "xl/worksheets/sheet1.xml") sheet = zlib.inflateRawSync(bytes.subarray(start, start + size)).toString("utf8");
+      at = start + size;
+    }
+    const total = (await as("gymA").get("/api/gym/attendance/visits")).json.total;
+    assert.equal((sheet.match(/<row /g) ?? []).length, total + 1, "the header and one row a visit");
+    assert.ok(sheet.includes("Asif Khan") && sheet.includes("QR scan"));
+    assert.ok(!sheet.includes(identities.member.phone), "no phone numbers");
+    assert.equal((await as("gymA").get("/api/gym/attendance/export?format=pdf")).status, 400);
+    assert.equal((await as("gymA").get("/api/gym/attendance/export?format=xlsx&from=2020-01-01")).status, 400, "more than a year");
+    assert.equal((await as("member").get("/api/gym/attendance/export?format=xlsx")).status, 403);
+  }));
+
   it("16. scans are rate limited per account: the member's budget is used up by now", run(async () => {
     const r = await as("member").post("/api/attendance/scan", { qr: state.qrA });
     assert.equal(r.status, 429);

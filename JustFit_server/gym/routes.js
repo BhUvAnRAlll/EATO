@@ -512,12 +512,18 @@ router.get("/attendance", route(async (req, res) => {
 router.get("/attendance/visits", route(async (req, res) => {
   res.json(await attendance.history(pool(req), req.gym.id, attendanceRules.historyQuery(req.query, today())));
 }));
+// The report of what is filtered: CSV by default, an Excel file with ?format=xlsx (2026-11-09)
 router.get("/attendance/export", route(async (req, res) => {
-  const query = attendanceRules.historyQuery(req.query, today());
-  const csv = await attendance.exportCsv(pool(req), req.gym.id, query);
+  const { format, query } = attendanceRules.exportQuery(req.query, today());
+  const report = await attendance.exportReport(pool(req), req.gym.id, query, format);
+  const name = `attendance-${query.from}-to-${query.to}.${format}`;
+  res.set("Content-Disposition", `attachment; filename="${name}"`);
+  if (format === "xlsx") {
+    res.set("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    return res.send(report);
+  }
   res.set("Content-Type", "text/csv; charset=utf-8");
-  res.set("Content-Disposition", `attachment; filename="attendance-${query.from}-to-${query.to}.csv"`);
-  res.send(`\uFEFF${csv}`);
+  res.send(`\uFEFF${report}`);
 }));
 
 // Wallet: the takings, and (for a login with Expenses › Expense list) what was spent and the net
