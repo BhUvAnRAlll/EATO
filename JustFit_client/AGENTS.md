@@ -600,6 +600,29 @@ The Meals module is green (`meal-*` tokens and utilities); the user chose green 
   tab says subscriptions are coming and the routes answer 503 naming it. Not built: picking each
   day's meals, plan changes by the member mid-plan, refunds. Tests:
   `__tests__/subscription-rules.test.js`, `e2e/subscriptions.e2e.test.js`, `ui/subscriptions.ui.test.js`.
+- **Issues, customers and reports (2026-11-10, Meal Operations phase 6):** a member's order page has
+  Report a problem (`components/meals/ReportIssueSheet.tsx`: Meal missing, Wrong meal, Damaged or
+  spilled, Delivered late, Not delivered, Cancel my order, Refund, Something else; what happened,
+  10-600; an optional photo) once the order isn't only placed, then shows the report's state, the
+  team's answer and any refund. Super Admin › Meals › Issues (`app/admin/issues/`: open first, status
+  chips with counts, search; an issue: the description and photo, the member (Call, their orders and
+  plans), Take it, Add note, Resolve (a note the member reads, an optional refund up to what was paid,
+  recorded only: test mode), Close with a reason, Reopen, the trail). A user's page links Meal orders
+  and plans (`app/admin/customers/[userId].tsx`: diet, cuisines, allergies and dislikes, addresses,
+  recent orders, plans, reports). Meals › Reports (`app/admin/reports.tsx`: 7 / 30 / 90 days of
+  revenue, subscription revenue, orders single and plan, average order, busiest days; per kitchen
+  orders, prep minutes (accepted → ready), stock used and wasted, % of capacity; deliveries, failed,
+  pick-up to door minutes and each partner; subscriptions started, active, paused, cancelled, meals
+  delivered of made; Export as Excel). Server `issues/` (`rules.js` pure, `service.js`, `routes.js`) and
+  `reports/service.js`: members `/api/meal-issues` (`GET /`, `POST /` with the photo checked from its
+  bytes and kept for admins only; 5 an hour, `MEAL_ISSUES_PER_HOUR`; one open report per order, 10
+  open at most); admin inside `/api/admin/kitchen`: `GET /issues?status=&search=`, `GET /issues/:id`,
+  `GET /issues/:id/photo`, `POST /issues/:id/assign|progress|note|resolve|reject|reopen` (audited
+  `order.issue_*`), `GET /customers/:userId`, `GET /reports?from=&to=&format=xlsx|csv` (at most 92
+  days, ending today). Migration `2027-01-09-meal-issues.sql` (`meal_issues`, `meal_issue_events`);
+  before it the issue routes answer 503 naming it (reports work, with null parts for later phases).
+  Not built: paying refunds (needs Razorpay), support chat, issue notifications. Tests:
+  `__tests__/issue-rules.test.js`, `e2e/issues.e2e.test.js`.
 - **Not built:** Razorpay itself (keys, the native checkout, refunds, webhook), push notifications for a step, delivery fees,
   subscriptions, gym-specific menus (the user chose one justFit menu run by the Super Admin). Tests:
   `__tests__/meal-rules.test.js`, `meal-catalog-rules.test.js`, `e2e/meals.e2e.test.js`, the client's

@@ -7,6 +7,9 @@ import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { FormAlert } from "@/components/FormAlert";
 import { LoadError } from "@/components/macro/LoadError";
 import { OrderTimeline, StatusPill } from "@/components/meals/OrderParts";
+import { ReportIssueSheet } from "@/components/meals/ReportIssueSheet";
+import { ISSUE_CATEGORY_LABEL, ISSUE_STATUS_LABEL, ORDER_CATEGORIES } from "@/data/issues";
+import { issuesApi, type Issue } from "@/lib/issuesApi";
 import { PressableScale } from "@/components/PressableScale";
 import { usePullToRefresh } from "@/components/PullToRefresh";
 import { ScreenHeader } from "@/components/ScreenHeader";
@@ -22,8 +25,8 @@ import { useThemeColors } from "@/theme";
 type Load = { state: "loading" } | { state: "failed"; error: string } | { state: "ready"; order: Order };
 
 // One order: where it is (placed → preparing → on the way → delivered), what's in it, where it
-// goes, the test payment, and Cancel while it is still only placed. Read again when the screen or
-// the app comes back to the front, and on a pull.
+// goes, the test payment, and Cancel while it is still only placed; Report a problem (phase 6) and
+// what justFit did about it. Read again when the screen or the app comes back to the front, and on a pull.
 export default function OrderDetail() {
   const colors = useThemeColors();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -31,10 +34,15 @@ export default function OrderDetail() {
   const [load, setLoad] = useState<Load>({ state: "loading" });
   const [cancelling, setCancelling] = useState(false);
   const [error, setError] = useState("");
+  const [issues, setIssues] = useState<Issue[]>([]);
+  const [reporting, setReporting] = useState(false);
 
   const read = useCallback(async () => {
     const answer = await mealsApi.order(await getToken(), String(id));
     setLoad((current) => (answer.ok ? { state: "ready", order: answer.data.order } : current.state === "ready" ? current : { state: "failed", error: answer.error }));
+    // This order's reports (none before the issues migration: the list just stays empty)
+    const mine = await issuesApi.mine(await getToken());
+    if (mine.ok) setIssues(mine.data.issues.filter((i) => i.orderId === String(id)));
   }, [getToken, id]);
   useFocusEffect(
     useCallback(() => {
@@ -139,6 +147,20 @@ export default function OrderDetail() {
               {order.status !== "placed" && order.status !== "cancelled" && order.status !== "delivered" && (
                 <Text className="meta-text text-center">{"We've started on it, so it can't be cancelled now."}</Text>
               )}
+              {issues.map((issue) => (
+                <View key={issue.id} className="card" style={{ gap: 4 }}>
+                  <Text className="type-overline text-muted">{`Your report ${issue.code} · ${ISSUE_STATUS_LABEL[issue.status]}`}</Text>
+                  <Text className="card__title">{ISSUE_CATEGORY_LABEL[issue.category]}</Text>
+                  <Text className="meta-text">{issue.description}</Text>
+                  {issue.resolutionNote ? <Text className="type-body text-forest-ink">{`justFit: ${issue.resolutionNote}`}</Text> : null}
+                  {issue.refund ? <Text className="meta-text">{`Refund of ${rupees(issue.refund)} approved (test mode: no money moves).`}</Text> : null}
+                </View>
+              ))}
+              {order.status !== "placed" && !issues.some((i) => i.status === "open" || i.status === "in_progress") && (
+                <PressableScale onPress={() => setReporting(true)} className="self-center" accessibilityRole="button">
+                  <Text className="meal-link" style={{ color: colors.danger }}>Report a problem</Text>
+                </PressableScale>
+              )}
               <PressableScale onPress={() => router.navigate("/meals")} className="self-center" accessibilityRole="button">
                 <Text className="meal-link">Order more meals</Text>
               </PressableScale>
@@ -146,6 +168,14 @@ export default function OrderDetail() {
           )}
         </ScrollView>
       </SafeAreaView>
+      {reporting && load.state === "ready" && (
+        <ReportIssueSheet
+          target={{ orderId: load.order.id }}
+          categories={ORDER_CATEGORIES}
+          onSent={(issue) => { setIssues((now) => [issue, ...now]); hud.success("Report sent"); }}
+          onClose={() => setReporting(false)}
+        />
+      )}
     </View>
   );
 }

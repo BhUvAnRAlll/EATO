@@ -18,10 +18,12 @@ import { useAuthStore } from "@/store/auth";
 import { useSwitchColors, useThemeColors } from "@/theme";
 import type { Icon } from "@/types/profile";
 
-type Link = { label: string; line: string; href: "/admin/kitchens" | "/admin/delivery" | "/admin/subscriptions" | "/admin/meal-ops" | "/admin/meals/categories" | "/admin/meals/banners" | "/admin/meals/coupons" | "/admin/meals/times"; icon: Icon };
+type Link = { label: string; line: string; href: "/admin/kitchens" | "/admin/delivery" | "/admin/subscriptions" | "/admin/issues" | "/admin/reports" | "/admin/meal-ops" | "/admin/meals/categories" | "/admin/meals/banners" | "/admin/meals/coupons" | "/admin/meals/times"; icon: Icon };
 const LINKS: Link[] = [
   { label: "Kitchens", line: "Where meals are cooked: hours, pincodes, staff", href: "/admin/kitchens", icon: { ios: "frying.pan", android: "skillet", web: "skillet" } },
   { label: "Subscriptions", line: "Meal plans and members' subscriptions", href: "/admin/subscriptions", icon: { ios: "calendar", android: "calendar_month", web: "calendar_month" } },
+  { label: "Issues", line: "Members' reports: missing, wrong, late, refunds", href: "/admin/issues", icon: { ios: "exclamationmark.bubble", android: "report", web: "report" } },
+  { label: "Reports", line: "Revenue, kitchens, delivery, subscriptions", href: "/admin/reports", icon: { ios: "chart.line.uptrend.xyaxis", android: "insights", web: "insights" } },
   { label: "Delivery", line: "Partners, who carries what, failed deliveries", href: "/admin/delivery", icon: { ios: "bicycle", android: "pedal_bike", web: "pedal_bike" } },
   { label: "Meal operations", line: "The day's orders, revenue and kitchens", href: "/admin/meal-ops", icon: { ios: "chart.bar", android: "bar_chart", web: "bar_chart" } },
   { label: "Categories", line: "Tiles and food categories on the Meals tab", href: "/admin/meals/categories", icon: { ios: "square.grid.2x2", android: "grid_view", web: "grid_view" } },

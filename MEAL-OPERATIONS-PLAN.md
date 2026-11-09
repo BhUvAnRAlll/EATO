@@ -22,7 +22,8 @@ overnight without stopping.
 | Phase 3: orders through kitchens | Built 2026-11-10; migration `2027-01-05-kitchen-orders.sql` to run by hand. No kitchen-staff screen (no logins yet) |
 | Phase 4: delivery partners | Built 2026-11-10; migration `2027-01-06-delivery.sql` to run by hand. No rider logins, so no live location or proof photos |
 | Phase 5: meal subscriptions (your screens 2 and 3) | Built 2026-11-10; migration `2027-01-08-meal-subscriptions.sql` to run by hand |
-| Phase 6: customers, issues, refunds, reports | Next |
+| Phase 6: customers, issues, refunds, reports | Built 2026-11-10; migration `2027-01-09-meal-issues.sql` to run by hand. Refunds are recorded decisions (test mode) |
+| Phase 7: end-to-end integration | Next |
 
 ## 1. What exists today (meal ordering, 2026-11-09)
 

@@ -94,6 +94,10 @@ export default function AdminUserDetail() {
                 </View>
               ))}
             </View>
+            {/* The member's meal side: preferences, addresses, orders, plans, reports (Meal Operations phase 6) */}
+            <Pressable onPress={() => router.push({ pathname: "/admin/customers/[userId]", params: { userId: user.id } })} className="admin-chip self-start" accessibilityRole="button">
+              <Text className="admin-segment__label admin-segment__label--on">Meal orders and plans</Text>
+            </Pressable>
             {/* Gym memberships and team roles, and suspending the account (the brief's section 7) */}
             <AccountGymsCard userId={user.id} isAdmin={user.kind === "admin"} />
           </ScrollView>

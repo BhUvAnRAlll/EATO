@@ -124,6 +124,8 @@ kitchenRouter.use(require("../kitchens/routes").kitchensRouter);
 kitchenRouter.use(require("../delivery/routes").deliveryRouter);
 // Meal plans and subscriptions (Meal Operations phase 5, subscriptions/routes.js)
 kitchenRouter.use(require("../subscriptions/routes").subscriptionsAdminRouter);
+// Members' meal problems, customers and reports (Meal Operations phase 6, issues/routes.js)
+kitchenRouter.use(require("../issues/routes").mealIssuesAdminRouter);
 const photoLimit = limitPerUser(createRateLimiter({ limit: 30, windowMs: 60 * 60 * 1000 }));
 
 kitchenRouter.get("/meals", route(async (req, res) => {
