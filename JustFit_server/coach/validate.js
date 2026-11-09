@@ -154,9 +154,10 @@ const mealId = (value) => id(value, "The meal");
 
 // POST /plan/meals/:mealId/options { date, preference? }: `preference` steers the options (a chip on the screen)
 function optionsBody(body, now) {
-  onlyFields(body, ["date", "preference"]);
+  onlyFields(body, ["date", "preference", "reuse"]);
   const preference = body.preference === undefined || body.preference === null ? null : oneOf(body.preference, planRules.PREFERENCES, "Pick one of the ways to steer the options.");
-  return { date: memberToday(body.date, now, "The date"), preference };
+  if (body.reuse !== undefined && typeof body.reuse !== "boolean") throw new ValidationError("reuse must be true or false.");
+  return { date: memberToday(body.date, now, "The date"), preference, reuse: body.reuse === true };
 }
 
 // One portion per food of the option, in the option's order: a number, 0 leaves the food out

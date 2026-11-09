@@ -117,10 +117,11 @@ router.post("/plan/meals/:mealId/swap", limitPerUser(swapMealLimiter), smallBody
 
 // POST /plan/meals/:mealId/options { date, preference? }: five dishes the member could have in that meal's place,
 // made for them and for what's left of the day, steered by `preference` (lighter, more_protein, different_cuisine,
-// quick) when given. One AI call, the same hourly allowance as a swap. The plan doesn't change.
+// quick) when given. One AI call, the same hourly allowance as a swap. The plan doesn't change. `reuse: true`
+// (the screen opening) answers the unused options of the last few hours when enough still fit, with no AI call.
 router.post("/plan/meals/:mealId/options", limitPerUser(swapMealLimiter), smallBody, route(async (req, res) => {
-  const { date, preference } = optionsBody(req.body, Date.now());
-  res.json(await mealOptions(pool(req), req.userId, mealId(req.params.mealId), { date, preference }));
+  const { date, preference, reuse } = optionsBody(req.body, Date.now());
+  res.json(await mealOptions(pool(req), req.userId, mealId(req.params.mealId), { date, preference, reuse }));
 }));
 
 // POST /plan/meals/:mealId/replace { date, optionId, quantities? }: that option goes in the meal's place, with the

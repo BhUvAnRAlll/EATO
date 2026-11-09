@@ -64,12 +64,14 @@ const toNumber = (value) => (value === null || value === undefined ? null : Numb
 
 // The setup profile and the saved workout answers, in the shapes profile.ts expects
 async function memberSources(conn, userId) {
-  const [[profile]] = await conn.query(
-    `SELECT DATE_FORMAT(dob, '%Y-%m-%d') AS dob, gender, goal, height_cm, weight_kg, workout_frequency, health_flags
-     FROM profiles WHERE user_id = ?`,
-    [userId],
-  );
-  const [[answers]] = await conn.query("SELECT * FROM workout_profiles WHERE user_id = ?", [userId]);
+  const [[[profile]], [[answers]]] = await Promise.all([
+    conn.query(
+      `SELECT DATE_FORMAT(dob, '%Y-%m-%d') AS dob, gender, goal, height_cm, weight_kg, workout_frequency, health_flags
+       FROM profiles WHERE user_id = ?`,
+      [userId],
+    ),
+    conn.query("SELECT * FROM workout_profiles WHERE user_id = ?", [userId]),
+  ]);
   const justfit = profile
     ? {
         dob: profile.dob,
@@ -265,22 +267,26 @@ const parseSets = (value) => (Array.isArray(value) ? value : typeof value === "s
  * completed one over one in progress), then a per-date override, then the plan's day pinned
  * to that weekday, else a rest day. Days before the plan started have no weekday session (a
  * new plan doesn't count the days before it as missed). Status: completed, in_progress, missed
- * (scheduled and past), planned (scheduled, today or later) or rest.
+ * (scheduled and past), planned (scheduled, today or later) or rest. `planDays` (the plan's own
+ * days, from planDayRows) saves reading them again when the caller already has them.
  */
-async function resolveDates(conn, userId, planId, dates, today, startDate = null) {
+async function resolveDates(conn, userId, planId, dates, today, startDate = null, planDays = null) {
   if (dates.length === 0) return [];
-  const [planDays] = planId ? await conn.query(`SELECT id, weekday FROM workout_days WHERE plan_id = ? AND user_id = ?${await planDaysOnly(conn)}`, [planId, userId]) : [[]];
-  const byWeekday = new Map(planDays.map((d) => [d.weekday, d.id]));
-  const [overrides] = await conn.query(
-    "SELECT DATE_FORMAT(on_date, '%Y-%m-%d') AS date, day_id FROM workout_day_overrides WHERE user_id = ? AND on_date IN (?)",
-    [userId, dates],
-  );
+  // The three reads don't depend on each other (on a transaction's connection they still run in turn)
+  const [days, [overrides], [logs]] = await Promise.all([
+    planDays ?? (planId ? planDayRows(conn, userId, planId) : []),
+    conn.query(
+      "SELECT DATE_FORMAT(on_date, '%Y-%m-%d') AS date, day_id FROM workout_day_overrides WHERE user_id = ? AND on_date IN (?)",
+      [userId, dates],
+    ),
+    conn.query(
+      `SELECT DATE_FORMAT(on_date, '%Y-%m-%d') AS date, day_id, status FROM workout_logs
+       WHERE user_id = ? AND on_date IN (?) AND status IN ('completed', 'in_progress')`,
+      [userId, dates],
+    ),
+  ]);
+  const byWeekday = new Map(days.map((d) => [d.weekday, d.id]));
   const overrideOf = new Map(overrides.map((o) => [o.date, o.day_id]));
-  const [logs] = await conn.query(
-    `SELECT DATE_FORMAT(on_date, '%Y-%m-%d') AS date, day_id, status FROM workout_logs
-     WHERE user_id = ? AND on_date IN (?) AND status IN ('completed', 'in_progress')`,
-    [userId, dates],
-  );
   const logOf = new Map();
   for (const log of logs) {
     // A session left running on a day that's over never finished: that day reads as missed (and
@@ -298,15 +304,20 @@ async function resolveDates(conn, userId, planId, dates, today, startDate = null
   });
 }
 
+// The plan's own days (adapted days for the other place left out): id and weekday
+async function planDayRows(conn, userId, planId) {
+  const [rows] = await conn.query(`SELECT id, weekday FROM workout_days WHERE plan_id = ? AND user_id = ?${await planDaysOnly(conn)}`, [planId, userId]);
+  return rows;
+}
+
 // Minutes, exercise and set counts for some days (the member's own only), keyed by day id
 async function daySummaries(conn, userId, dayIds) {
   const ids = [...new Set(dayIds.filter(Boolean))];
   if (ids.length === 0) return new Map();
-  const [days] = await conn.query("SELECT id, title, session_type FROM workout_days WHERE user_id = ? AND id IN (?)", [userId, ids]);
-  const [exercises] = await conn.query(
-    "SELECT day_id, section, sets, rest_sec FROM workout_day_exercises WHERE user_id = ? AND day_id IN (?)",
-    [userId, ids],
-  );
+  const [[days], [exercises]] = await Promise.all([
+    conn.query("SELECT id, title, session_type FROM workout_days WHERE user_id = ? AND id IN (?)", [userId, ids]),
+    conn.query("SELECT day_id, section, sets, rest_sec FROM workout_day_exercises WHERE user_id = ? AND day_id IN (?)", [userId, ids]),
+  ]);
   const summaries = new Map(days.map((d) => [d.id, { title: d.title, sessionType: d.session_type, seconds: 0, exerciseCount: 0, setCount: 0 }]));
   for (const e of exercises) {
     const summary = summaries.get(e.day_id);
@@ -322,18 +333,22 @@ async function daySummaries(conn, userId, dayIds) {
   return new Map([...summaries].map(([id, s]) => [id, { title: s.title, sessionType: s.sessionType, minutes: workout.toMinutes(s.seconds), exerciseCount: s.exerciseCount, setCount: s.setCount }]));
 }
 
-// One day in full: its exercises in section order with what the library knows about each
-async function dayDetail(conn, userId, dayId, weightKg) {
-  const [[day]] = await conn.query("SELECT id, weekday, title, session_type FROM workout_days WHERE id = ? AND user_id = ?", [dayId, userId]);
+// One day in full: its exercises in section order with what the library knows about each.
+// `weight` may be the member's weight or a read of it still under way (home starts it alongside).
+async function dayDetail(conn, userId, dayId, weight) {
+  const [[[day]], [rows], weightKg] = await Promise.all([
+    conn.query("SELECT id, weekday, title, session_type FROM workout_days WHERE id = ? AND user_id = ?", [dayId, userId]),
+    conn.query(
+      `SELECT e.id, e.section, e.position, e.sets, e.rest_sec, e.role, e.reps_min, e.reps_max, e.note,
+              l.name, l.muscle_group, l.pattern, l.equipment, l.timed_sec, l.instructions
+       FROM workout_day_exercises e JOIN workout_exercise_library l ON l.id = e.exercise_id
+       WHERE e.day_id = ? AND e.user_id = ?
+       ORDER BY ${SECTION_ORDER}, e.position`,
+      [dayId, userId],
+    ),
+    weight,
+  ]);
   if (!day) return null;
-  const [rows] = await conn.query(
-    `SELECT e.id, e.section, e.position, e.sets, e.rest_sec, e.role, e.reps_min, e.reps_max, e.note,
-            l.name, l.muscle_group, l.pattern, l.equipment, l.timed_sec, l.instructions
-     FROM workout_day_exercises e JOIN workout_exercise_library l ON l.id = e.exercise_id
-     WHERE e.day_id = ? AND e.user_id = ?
-     ORDER BY ${SECTION_ORDER}, e.position`,
-    [dayId, userId],
-  );
   const sectionSeconds = { warmup: 0, workout: 0, cooldown: 0 };
   const exercises = rows.map((row) => {
     const sets = parseSets(row.sets);
@@ -379,14 +394,15 @@ async function dayDetail(conn, userId, dayId, weightKg) {
 async function home(pool, userId, { date, dates, today }) {
   const plan = await activePlanRow(pool, userId);
   if (!plan) return { plan: null };
-  const [weekdays] = await pool.query(`SELECT weekday FROM workout_days WHERE plan_id = ? AND user_id = ?${await planDaysOnly(pool)}`, [plan.id, userId]);
+  // The plan's days are read once: for the plan's weekdays and for working out each date
+  const planDays = await planDayRows(pool, userId, plan.id);
   const all = [...new Set([date, ...dates])];
-  const resolved = await resolveDates(pool, userId, plan.id, all, today, plan.start_date);
+  const resolved = await resolveDates(pool, userId, plan.id, all, today, plan.start_date, planDays);
   const of = new Map(resolved.map((r) => [r.date, r]));
   const target = of.get(date);
-  const day = target.dayId ? await dayDetail(pool, userId, target.dayId, await memberWeight(pool, userId)) : null;
+  const day = target.dayId ? await dayDetail(pool, userId, target.dayId, memberWeight(pool, userId)) : null;
   return {
-    plan: planToApi(plan, weekdays.map((w) => w.weekday)),
+    plan: planToApi(plan, planDays.map((d) => d.weekday)),
     date,
     status: target.status,
     day,
@@ -804,8 +820,25 @@ async function planOverview(pool, userId) {
   };
 }
 
+/**
+ * Just the week of the active plan, Monday first: what the Coach tab and the chat show (null
+ * without a plan). planOverview's lighter sibling: no first session in full, no inputs.
+ */
+async function planSessions(pool, userId) {
+  const plan = await activePlanRow(pool, userId);
+  if (!plan) return null;
+  const days = await planDayRows(pool, userId, plan.id);
+  const ordered = [...days].sort((x, y) => ((x.weekday + 6) % 7) - ((y.weekday + 6) % 7));
+  const summaries = await daySummaries(pool, userId, ordered.map((d) => d.id));
+  return {
+    level: plan.level,
+    daysPerWeek: plan.days_per_week,
+    sessions: ordered.map((d) => ({ weekday: d.weekday, title: summaries.get(d.id)?.title ?? "", minutes: summaries.get(d.id)?.minutes ?? 0, exerciseCount: summaries.get(d.id)?.exerciseCount ?? 0 })),
+  };
+}
+
 module.exports = {
-  recreateInputs, recreatePlan, planOverview, draftFromCoach, planFromCoach, activePlanRow,
+  recreateInputs, recreatePlan, planOverview, planSessions, draftFromCoach, planFromCoach, activePlanRow,
   preferences, updatePreferences,
   syncLibrary, programmableLibrary, liveDaysOnly, pointDate, ensurePlan, home, activity, history, resolveDates, moveSessionToToday, swapDays, withMemberLock,
   sessionProgress, startSession, logSet, completeSession: (pool, userId, body) => closeSession(pool, userId, body, "completed"),

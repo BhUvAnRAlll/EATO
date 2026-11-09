@@ -1,7 +1,7 @@
 import * as ImagePicker from "expo-image-picker";
 
 import { photoTypeOf } from "@/lib/adminPrograms";
-import { hasNativeModule } from "@/lib/nativeModules";
+import { shrinkPhoto } from "@/lib/shrinkPhoto";
 
 // A picked image, ready to upload (the server checks the type and size again from the bytes) and
 // to show before it's saved: a member's photo from Add New Member (PUT /api/gym/members/:id/photo)
@@ -49,7 +49,7 @@ async function pickImage(source: PhotoSource, { square, what, side }: { square: 
   const result = source === "camera" ? await ImagePicker.launchCameraAsync(options) : await ImagePicker.launchImageLibraryAsync(options);
   if (result.canceled) return { ok: false, cancelled: true };
   const asset = result.assets[0];
-  const small = await shrink(asset, side ?? (square ? MEMBER_PHOTO_SIDE : IMAGE_LONG_SIDE));
+  const small = await shrinkPhoto(asset, side ?? (square ? MEMBER_PHOTO_SIDE : IMAGE_LONG_SIDE));
   // The web picker may give a data: URL instead of base64
   const dataUrl = /^data:([^;]+);base64,(.+)$/.exec(asset.uri ?? "");
   const data = small?.data ?? asset.base64 ?? dataUrl?.[2] ?? null;
@@ -58,24 +58,4 @@ async function pickImage(source: PhotoSource, { square, what, side }: { square: 
   if (!mediaType || !PHOTO_TYPES.includes(mediaType)) return { ok: false, error: "Choose a JPEG, PNG or WebP photo." };
   if (base64Bytes(data) > MEMBER_PHOTO_MAX_BYTES) return { ok: false, error: "That photo is too large (max 3 MB). Try another." };
   return { ok: true, photo: { data, mediaType, previewUri: small?.uri ?? asset.uri } };
-}
-
-// The picked image no larger than `side` on its longer edge, as a JPEG with its base64; null when
-// it's already small enough or when shrinking fails (the original is used then, checked as before).
-// expo-image-manipulator is loaded here only, and only when this build has it (lib/nativeModules.ts):
-// an app built before it was added sends the photo unshrunk instead of crashing every photo sheet.
-async function shrink(asset: ImagePicker.ImagePickerAsset, side: number): Promise<{ data: string; uri: string } | null> {
-  const { width, height, uri } = asset;
-  if (!uri || !width || !height || Math.max(width, height) <= side) return null;
-  if (!hasNativeModule("ExpoImageManipulator")) return null;
-  try {
-    const { ImageManipulator, SaveFormat } = await import("expo-image-manipulator");
-    const context = ImageManipulator.manipulate(uri);
-    context.resize(width >= height ? { width: side, height: null } : { width: null, height: side });
-    const image = await context.renderAsync();
-    const saved = await image.saveAsync({ format: SaveFormat.JPEG, compress: 0.8, base64: true });
-    return saved.base64 ? { data: saved.base64, uri: saved.uri } : null;
-  } catch {
-    return null;
-  }
 }

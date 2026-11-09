@@ -40,8 +40,10 @@ type HomeState = {
   // Why the last load failed (the previous content is still shown)
   error: string | null;
   loadedAt: number | null;
-  // Loads both parts; `force` ignores the freshness window (pull to refresh, app resumed)
-  load: (token: string | null, options?: { force?: boolean }) => Promise<void>;
+  // Loads both parts; `force` ignores the freshness window (pull to refresh, app resumed).
+  // Resolves false only when it skipped because the last load is still fresh, so the caller
+  // knows today's numbers weren't read (true: read now, or by a load already under way)
+  load: (token: string | null, options?: { force?: boolean }) => Promise<boolean>;
   // Re-reads today's Macro diary (Home coming back into view)
   refreshIntake: (token: string | null) => Promise<void>;
 };
@@ -94,12 +96,12 @@ export const useHomeStore = create<HomeState>((set, get) => ({
 
   load: async (token, { force = false } = {}) => {
     const { loading, loadedAt } = get();
-    if (loading) return;
-    if (!force && loadedAt !== null && Date.now() - loadedAt < FRESH_FOR_MS) return;
+    if (loading) return true;
+    if (!force && loadedAt !== null && Date.now() - loadedAt < FRESH_FOR_MS) return false;
     set({ loading: true });
     const stillCurrent = sameAccount();
     const [promotions, content, today, extras] = await Promise.all([fetchActivePromotions(token), fetchHomeContent(token), nutritionToday(token), extrasToday(token)]);
-    if (!stillCurrent()) return; // signed out meanwhile: these numbers were the previous account's
+    if (!stillCurrent()) return true; // signed out meanwhile: these numbers were the previous account's
     set(extras);
     // A failed refresh keeps the last real numbers; the bundled sample only until the first real load
     const nutrition = today ?? get().nutrition ?? sampleNutrition;
@@ -108,7 +110,7 @@ export const useHomeStore = create<HomeState>((set, get) => ({
     if (failed || !promotions.ok || !content.ok) {
       // Keep the previous content; the timestamp still moves so a failing server isn't hammered
       set({ loading: false, error: failed?.error ?? "Something went wrong. Please try again.", nutrition, loadedAt: Date.now() });
-      return;
+      return true;
     }
     set({
       promotions: promotions.data.promotions,
@@ -119,6 +121,7 @@ export const useHomeStore = create<HomeState>((set, get) => ({
       error: null,
       loadedAt: Date.now(),
     });
+    return true;
   },
 
   refreshIntake: async (token) => {

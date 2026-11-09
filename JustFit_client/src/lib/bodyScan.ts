@@ -2,6 +2,7 @@ import * as ImagePicker from "expo-image-picker";
 
 import { apiFetch } from "@/lib/api";
 import { isCompleteEstimate, photoTooLarge, type BodyScanEstimate, type ScanInputs } from "@/lib/bodyScanRules";
+import { shrinkPhoto } from "@/lib/shrinkPhoto";
 
 export type ScanView = "front" | "side";
 export type PhotoSource = "camera" | "library";
@@ -11,9 +12,15 @@ export type ScanPhoto = { data: string; previewUri: string };
 
 type PickResult = { ok: true; photo: ScanPhoto } | { ok: false; error: string } | { ok: false; cancelled: true };
 
+// Scan Food's photo is shrunk to this on its long side before upload (2026-11-09): plenty to tell
+// the foods and portions apart, about a tenth of the upload, and fewer image tokens for the model.
+// Body Scan passes no size and keeps the full photo for the Forma model.
+export const FOOD_PHOTO_SIDE = 1024;
+
 // Opens the camera or the photo library for one view. Same picker set-up as the report
 // upload: quality < 1 re-encodes to JPEG, so iPhone HEIC photos arrive in a supported format.
-export async function pickScanPhoto(source: PhotoSource): Promise<PickResult> {
+// With `maxSide` a larger photo is shrunk to fit (the original is sent if shrinking fails).
+export async function pickScanPhoto(source: PhotoSource, { maxSide }: { maxSide?: number } = {}): Promise<PickResult> {
   if (source === "camera") {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) return { ok: false, error: "Allow camera access in Settings to take your photos." };
@@ -29,9 +36,11 @@ export async function pickScanPhoto(source: PhotoSource): Promise<PickResult> {
   if (result.canceled) return { ok: false, cancelled: true };
 
   const asset = result.assets[0];
-  if (!asset.base64) return { ok: false, error: "That photo couldn't be read. Please try another." };
-  if (photoTooLarge(asset.base64)) return { ok: false, error: "That photo is too large (max 5 MB). Try again at a lower size." };
-  return { ok: true, photo: { data: asset.base64, previewUri: asset.uri } };
+  const small = maxSide ? await shrinkPhoto(asset, maxSide) : null;
+  const data = small?.data ?? asset.base64;
+  if (!data) return { ok: false, error: "That photo couldn't be read. Please try another." };
+  if (photoTooLarge(data)) return { ok: false, error: "That photo is too large (max 5 MB). Try again at a lower size." };
+  return { ok: true, photo: { data, previewUri: small?.uri ?? asset.uri } };
 }
 
 // Sends both photos and the inputs to the justFit server (POST /api/body-composition/scan),

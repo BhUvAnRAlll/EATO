@@ -196,7 +196,7 @@ export default function SwapMealScreen() {
     setError(null);
     setActionError(null);
     const token = await getToken().catch(() => null);
-    const [planResult, optionsResult] = await Promise.all([coachApi.plan(token, todayIso()), coachApi.mealOptions(token, mealId, todayIso())]);
+    const [planResult, optionsResult] = await Promise.all([coachApi.plan(token, todayIso()), coachApi.mealOptions(token, mealId, todayIso(), null, true)]);
     if (request !== latest.current) return;
     setLoading(false);
     const found = planResult.ok ? planResult.data.plan?.meals.find((m) => m.id === mealId) ?? null : null;

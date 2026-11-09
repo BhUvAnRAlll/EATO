@@ -162,14 +162,16 @@ async function activeCoachPlan(pool, userId) {
     [userId],
   );
   if (!plan) return null;
-  const [meals] = await pool.query(
-    "SELECT id, slot, name, TIME_FORMAT(meal_time, '%H:%i') AS time, note FROM coach_plan_meals WHERE plan_id = ? AND user_id = ? ORDER BY position",
-    [plan.id, userId],
-  );
-  const [items] = await pool.query(
-    "SELECT meal_id, name, quantity, unit, kcal, protein_g, carbs_g, fat_g FROM coach_plan_meal_items WHERE plan_id = ? AND user_id = ? ORDER BY meal_id, position",
-    [plan.id, userId],
-  );
+  const [[meals], [items]] = await Promise.all([
+    pool.query(
+      "SELECT id, slot, name, TIME_FORMAT(meal_time, '%H:%i') AS time, note FROM coach_plan_meals WHERE plan_id = ? AND user_id = ? ORDER BY position",
+      [plan.id, userId],
+    ),
+    pool.query(
+      "SELECT meal_id, name, quantity, unit, kcal, protein_g, carbs_g, fat_g FROM coach_plan_meal_items WHERE plan_id = ? AND user_id = ? ORDER BY meal_id, position",
+      [plan.id, userId],
+    ),
+  ]);
   return {
     id: plan.id,
     coach: plan.coach,
@@ -187,18 +189,14 @@ async function activeCoachPlan(pool, userId) {
  * What the Coach tab shows: `none` (no plan yet) or `ready` with the meals, how often each was logged on `date`, and the workout's sessions.
  */
 async function getPlan(pool, userId, { date }) {
-  const plan = await activeCoachPlan(pool, userId);
+  // The meal plan, today's plan logs and the workout week don't depend on each other: read together
+  const [plan, [logs], workout] = await Promise.all([
+    activeCoachPlan(pool, userId),
+    pool.query("SELECT plan_log_key FROM macro_meal_logs WHERE user_id = ? AND log_date = ? AND source = 'plan'", [userId, date]),
+    workoutPlans.planSessions(pool, userId),
+  ]);
   if (!plan) return { state: "none", plan: null, workout: null };
-  const [logs] = await pool.query(
-    "SELECT plan_log_key FROM macro_meal_logs WHERE user_id = ? AND log_date = ? AND source = 'plan'",
-    [userId, date],
-  );
   const meals = plan.meals.map((meal) => ({ ...meal, logged: logs.some((l) => String(l.plan_log_key).startsWith(`${date}:${meal.id}:`)) }));
-  const active = await workoutPlans.activePlanRow(pool, userId);
-  const overview = active ? await workoutPlans.planOverview(pool, userId) : null;
-  const workout = overview
-    ? { level: overview.level, daysPerWeek: overview.daysPerWeek, sessions: overview.sessions.map((s) => ({ weekday: s.weekday, title: s.title, minutes: s.minutes, exerciseCount: s.exerciseCount })) }
-    : null;
   return {
     state: "ready",
     plan: { ...plan, meals, totals: rules.totalsOf(meals.flatMap((m) => m.items)) },
@@ -257,6 +255,33 @@ async function recentOptionNames(pool, userId, slot) {
   return names;
 }
 
+// Unused options are offered again for this long, when they still fit the meal (REUSE_KCAL_SHARE)
+const REUSE_HOURS = 3;
+const REUSE_KCAL_SHARE = 0.2;
+
+// The newest options still unused for this meal of this plan, from the last few hours and made
+// after the meal last changed, that land near `targetKcal`: shown again when the screen reopens,
+// so opening Swap Meal twice isn't two paid calls. Fewer than three answers [] (ask the model).
+async function reusableOptions(pool, userId, plan, meal, targetKcal) {
+  const [rows] = await pool.query(
+    `SELECT id, kind, name, description, note, items, kcal, protein_g, carbs_g, fat_g FROM coach_meal_options
+      WHERE user_id = ? AND plan_id = ? AND meal_id = ? AND kind = 'suggestion' AND used_at IS NULL
+        AND created_at >= NOW() - INTERVAL ? HOUR
+        AND created_at > COALESCE((SELECT MAX(u.used_at) FROM coach_meal_options u WHERE u.user_id = ? AND u.meal_id = ? AND u.plan_id = ?), '1970-01-02')
+      ORDER BY created_at DESC, id LIMIT ?`,
+    [userId, plan.id, meal.id, REUSE_HOURS, userId, meal.id, plan.id, rules.limits.options * 2],
+  );
+  const picked = [];
+  for (const row of rows) {
+    if (picked.length === rules.limits.options) break;
+    if (Math.abs(Number(row.kcal) - targetKcal) > targetKcal * REUSE_KCAL_SHARE) continue;
+    const key = rules.dishKey(row.name);
+    if (key === rules.dishKey(meal.name) || picked.some((p) => rules.dishKey(p.name) === key)) continue;
+    picked.push(row);
+  }
+  return picked.length >= 3 ? picked.map((row) => optionToApi({ ...row, items: rules.storedItems(row.items) })) : [];
+}
+
 const optionToApi = (row) => ({
   id: row.id,
   kind: row.kind,
@@ -284,10 +309,12 @@ async function storeOption(conn, { userId, planId, meal, kind, option }) {
  * their targets and what the diary says is left of `date`, and the dishes offered for that slot
  * in the last week (not repeated), steered by `preference` when they picked a chip. Each option
  * is cleaned, scaled and stored, and only a stored
- * option can go into the plan (replaceMeal). The plan itself doesn't change here. One AI call,
+ * option can go into the plan (replaceMeal). The plan itself doesn't change here. With `reuse`
+ * (the screen opening, no chip) the unused options of the last few hours come back instead when
+ * enough still fit (reusableOptions), with no AI call. Otherwise one AI call,
  * recorded as coach_meal; a second ask for the same meal while one is running joins it.
  */
-async function mealOptions(pool, userId, mealId, { date, preference = null }, env = process.env) {
+async function mealOptions(pool, userId, mealId, { date, preference = null, reuse = false }, env = process.env) {
   const plan = await activeCoachPlan(pool, userId);
   const meal = plan?.meals.find((m) => m.id === mealId);
   if (!meal) throw new NotFoundError("That meal isn't in your plan.");
@@ -298,6 +325,11 @@ async function mealOptions(pool, userId, mealId, { date, preference = null }, en
   const loggedEntry = logged.has(meal.id) ? day.meals.find((m) => m.id === logged.get(meal.id)) : null;
   const remaining = rules.remainingFor(targets, day.totals, loggedEntry?.totals ?? null);
   const targetKcal = rules.optionTargetKcal(meal.totals.kcal, remaining.kcal, preference);
+  // Reopening the screen shows what was offered a little earlier, without another paid call
+  if (reuse && !preference) {
+    const reused = await reusableOptions(pool, userId, plan, meal, targetKcal);
+    if (reused.length) return { mealId: meal.id, remaining, targetKcal, preference, options: reused };
+  }
   const exclude = [meal.name, ...recent];
   await aiLimits.check(pool, { feature: "coach_meal", userId }, env);
   return dedupe.shared.run(dedupe.requestKey("coach_meal_options", userId, mealId, date, preference, exclude), async () => {

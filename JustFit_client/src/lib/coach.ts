@@ -108,9 +108,10 @@ export const coachApi = {
   },
   // Five dishes the member could have instead of a plan meal, made for them and for what's left of `date`,
   // steered by `preference` when they picked a chip (one small AI call)
-  mealOptions(token: string | null, mealId: string, date: string, preference: MealPreference | null = null): Promise<ApiResult<MealOptions>> {
+  // `reuse` (the screen opening): the server may answer the unused options of the last few hours, with no AI call
+  mealOptions(token: string | null, mealId: string, date: string, preference: MealPreference | null = null, reuse = false): Promise<ApiResult<MealOptions>> {
     if (!token) return signedOut();
-    return apiFetch(`/api/coach/plan/meals/${encodeURIComponent(mealId)}/options`, { method: "POST", body: { date, ...(preference ? { preference } : {}) }, token });
+    return apiFetch(`/api/coach/plan/meals/${encodeURIComponent(mealId)}/options`, { method: "POST", body: { date, ...(preference ? { preference } : {}), ...(reuse ? { reuse } : {}) }, token });
   },
   // Puts one of those options (or an undo snapshot) in the meal's place, with the member's portions when they
   // edited them (one per food, 0 leaves it out); answers the plan with its new totals and an undoId

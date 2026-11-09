@@ -32,14 +32,15 @@ const WEEKDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const BUSY = "Your coach couldn't answer right now. Please try again.";
 
 async function memberFacts(pool, userId, date) {
-  const [[intakeRow]] = await pool.query("SELECT * FROM coach_profiles WHERE user_id = ?", [userId]);
-  if (!intakeRow) throw new ValidationError("Answer your coach's questions first.");
-  const [[[profile]], [[targets]], day, plan] = await Promise.all([
+  // All read together; without the intake the rest isn't used
+  const [[[intakeRow]], [[profile]], [[targets]], day, plan] = await Promise.all([
+    pool.query("SELECT * FROM coach_profiles WHERE user_id = ?", [userId]),
     pool.query("SELECT diet, cuisines, dislikes, allergies FROM profiles WHERE user_id = ?", [userId]),
     pool.query("SELECT calories, protein_g AS proteinG, carbs_g AS carbsG, fat_g AS fatG FROM nutrition_targets WHERE user_id = ?", [userId]),
     diary.day(pool, userId, date),
     getPlan(pool, userId, { date }),
   ]);
+  if (!intakeRow) throw new ValidationError("Answer your coach's questions first.");
   const intake = toIntake(intakeRow);
   const meals = plan.plan ? plan.plan.meals : [];
   const plannedMeals = meals.map((m, i) => `[${rules.mealKey(i)}] ${m.time} ${m.name} (${m.totals.kcal} kcal${m.logged ? ", logged" : ""})`);
@@ -126,14 +127,18 @@ async function proposalsFor(pool, userId, facts, raw) {
  * { reply, proposals: { meals, workout }, messages: [the member's message, the reply] }
  */
 async function chat(pool, userId, { date, text, clientId }, env = process.env) {
-  const facts = await memberFacts(pool, userId, date);
-  // A retry of a send that was answered (the answer was lost on the way): the saved answer, no new AI call
+  // A retry of a send that was answered (the answer was lost on the way): the saved answer, no new
+  // AI call and nothing else read
   const saved = await chatHistory.savedAnswer(pool, userId, clientId);
   if (saved) return saved;
+  // What the coach knows and the conversation so far, read together. The limits come after the
+  // facts (a member who can't chat yet isn't charged a turn of their per-minute allowance)
+  const [facts, recent] = await Promise.all([memberFacts(pool, userId, date), chatHistory.recentContext(pool, userId)]);
   await aiLimits.check(pool, { feature: FEATURE, userId }, env);
+  // Only a conversation with the member's current coach counts (a new coach starts afresh)
+  const earlier = recent.coach === facts.intake.coach ? recent.messages : [];
   // The same send arriving twice at once (a double tap, a retried connection) is answered once
   return dedupe.shared.run(dedupe.requestKey(FEATURE, userId, clientId), async () => {
-    const earlier = await chatHistory.context(pool, userId, facts.intake.coach);
     const history = rules.modelHistory([...earlier, { role: "member", text }]);
     const instructions = `${rules.chatInstructions(facts.intake)}\n\nFacts about the member:\n${rules.memberBrief(facts)}`;
     const answer = await askCoach({ instructions, messages: history, cacheKey: `${FEATURE}:${userId}` }, env, aiUsage.tracker(pool, { feature: FEATURE, userId }));

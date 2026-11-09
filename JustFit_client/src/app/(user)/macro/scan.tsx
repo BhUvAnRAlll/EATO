@@ -9,7 +9,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { FormAlert } from "@/components/FormAlert";
 import { MacroHeader } from "@/components/macro/MacroHeader";
 import { Segmented } from "@/components/macro/Segmented";
-import { pickScanPhoto, type PhotoSource, type ScanPhoto } from "@/lib/bodyScan";
+import { FOOD_PHOTO_SIDE, pickScanPhoto, type PhotoSource, type ScanPhoto } from "@/lib/bodyScan";
 import { loggedAtFor, macro, slotForNow, slotInfo, slots, todayIso, whole, type MealItem, type Slot } from "@/lib/macro";
 import { useSessionToken } from "@/lib/session";
 import { logDate } from "@/store/macro";
@@ -69,7 +69,7 @@ export default function ScanFood() {
     setPicking(true);
     setError(null);
     try {
-      const picked = await pickScanPhoto(source);
+      const picked = await pickScanPhoto(source, { maxSide: FOOD_PHOTO_SIDE });
       if (!picked.ok) {
         if ("error" in picked) setError(picked.error);
         return;

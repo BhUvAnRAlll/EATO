@@ -62,13 +62,14 @@ export default function Home() {
   }, [getToken, load]);
 
   // Back on Home (after logging a meal, a workout, or changing the target): the content
-  // (within its freshness window, or at once after a target change) and today's numbers
+  // (within its freshness window, or at once after a target change) and today's numbers.
+  // A load that ran (or was already running) has just read them, so they're read again only
+  // when the content was still fresh and skipped
   useFocusEffect(
     useCallback(() => {
       (async () => {
         const token = await getToken().catch(() => null);
-        await load(token);
-        refreshIntake(token);
+        if (!(await load(token))) refreshIntake(token);
       })();
     }, [getToken, load, refreshIntake]),
   );

@@ -19,8 +19,9 @@ const pool = (req) => req.app.locals.pool;
 router.get("/home", route(async (req, res) => {
   const query = v.homeQuery(req.query, Date.now());
   const view = await plans.home(pool(req), req.userId, query);
-  // Today's place (At home / At center): where its session is set for, and whether it may change
-  if (view.plan && view.date === query.today) view.place = await place.todayPlace(pool(req), req.userId, { dayId: view.day?.id ?? null, status: view.status }).catch(() => null);
+  // Today's place (At home / At center): where its session is set for, and whether it may change.
+  // Only when asked for (`withPlace=1`): no screen shows the switch today
+  if (query.withPlace && view.plan && view.date === query.today) view.place = await place.todayPlace(pool(req), req.userId, { dayId: view.day?.id ?? null, status: view.status }).catch(() => null);
   res.json(view);
 }));
 

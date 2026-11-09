@@ -582,6 +582,14 @@ describe("coach e2e: the intake, its prefill, and who may see it", () => {
     assert.equal(await count("SELECT COUNT(*) AS n FROM ai_usage WHERE user_id = ? AND feature = 'coach_meal' AND status = 'ok'", [ids.a]), usageBefore + 1, "one call for five options");
     assert.deepEqual((await plan()).meals, before.meals, "asking for options never changes the plan");
 
+    // Reopening the screen (reuse) shows the same unused options again, with no AI call
+    const reopened = await api("POST", `/api/coach/plan/meals/${lunch.id}/options`, tokens.a, { date: today(), reuse: true });
+    assert.equal(reopened.status, 200, JSON.stringify(reopened.json));
+    assert.deepEqual(reopened.json.options.map((o) => o.id).sort(), offered.json.options.map((o) => o.id).sort());
+    assert.deepEqual(reopened.json.options.find((o) => o.id === offered.json.options[0].id), offered.json.options[0]);
+    assert.equal(await count("SELECT COUNT(*) AS n FROM ai_usage WHERE user_id = ? AND feature = 'coach_meal' AND status = 'ok'", [ids.a]), usageBefore + 1, "reused, not asked again");
+    assert.equal((await api("POST", `/api/coach/plan/meals/${lunch.id}/options`, tokens.c, { date: today(), reuse: "yes" })).status, 400);
+
     // Steering: a chip is accepted, a made-up one is a 400 and makes no call; extra fields and bad dates are 400s
     const lighter = await api("POST", `/api/coach/plan/meals/${lunch.id}/options`, tokens.a, { date: today(), preference: "lighter" });
     assert.equal(lighter.status, 200, JSON.stringify(lighter.json));

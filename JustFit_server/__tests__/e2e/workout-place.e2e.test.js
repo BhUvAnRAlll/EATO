@@ -37,7 +37,7 @@ describe("workout e2e: At home / At center", () => {
     try { json = await response.json(); } catch { /* empty */ }
     return { status: response.status, json };
   };
-  const home = (token) => api("GET", `/api/workout/home?date=${TODAY}&dates=${TODAY}&today=${TODAY}`, token);
+  const home = (token) => api("GET", `/api/workout/home?date=${TODAY}&dates=${TODAY}&today=${TODAY}&withPlace=1`, token);
   const setPlace = (token, body) => api("POST", "/api/workout/place", token, body);
   const count = async (table, where, params) => (await connection.query(`SELECT COUNT(*) AS n FROM \`${table}\` WHERE ${where}`, params))[0][0].n;
   const overrideOf = async (date) => {
@@ -110,6 +110,13 @@ describe("workout e2e: At home / At center", () => {
     const r = await home(tokens.a);
     assert.equal(r.status, 200, JSON.stringify(r.json));
     assert.deepEqual(r.json.place, { current: "center", plan: "center", canChange: true });
+  }));
+
+  it("2b. without withPlace=1 the hub leaves the place out (three reads saved)", run(async () => {
+    const r = await api("GET", `/api/workout/home?date=${TODAY}&dates=${TODAY}&today=${TODAY}`, tokens.a);
+    assert.equal(r.status, 200, JSON.stringify(r.json));
+    assert.ok(r.json.plan);
+    assert.equal(r.json.place, undefined);
   }));
 
   it("3. At home: today runs a home version (bodyweight only), the plan's own days unchanged", run(async () => {

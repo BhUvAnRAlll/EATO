@@ -30,8 +30,10 @@ function dates(value) {
 }
 
 // GET /home?date=…&dates=…&today=…
+// `withPlace=1` adds today's place (At home / At center); it costs three reads, so only a screen
+// that shows the switch asks for it
 function homeQuery(query, now) {
-  return { date: isoDate(query.date), dates: dates(query.dates), today: today(query.today, now) };
+  return { date: isoDate(query.date), dates: dates(query.dates), today: today(query.today, now), withPlace: query.withPlace === "1" };
 }
 
 // GET /activity?today=… (the server works the week out from today)

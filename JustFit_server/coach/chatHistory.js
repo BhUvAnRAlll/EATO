@@ -24,15 +24,24 @@ async function newestChat(db, userId, { lock = false } = {}) {
   return chat ?? null;
 }
 
+// The newest `limit` messages of the member's newest conversation, oldest first, and that
+// conversation's coach (null when it has no messages left): one query, the chat and its messages joined
+async function newestMessages(db, userId, limit) {
+  const [rows] = await db.query(
+    `SELECT m.id, m.role, m.text, m.proposals, m.created_at, c.coach
+     FROM (SELECT id, coach FROM coach_chats WHERE user_id = ? ORDER BY created_at DESC, id DESC LIMIT 1) c
+     JOIN coach_chat_messages m ON m.chat_id = c.id AND m.user_id = ?
+     WHERE m.created_at >= NOW(3) - INTERVAL ? DAY
+     ORDER BY m.id DESC LIMIT ?`,
+    [userId, userId, KEEP_DAYS, limit],
+  );
+  return { coach: rows[0]?.coach ?? null, rows: rows.reverse() };
+}
+
 // The newest `limit` messages of the conversation with this coach, oldest first ([] when there is none)
 async function currentMessages(db, userId, coach, limit) {
-  const chat = await newestChat(db, userId);
-  if (!chat || chat.coach !== coach) return [];
-  const [rows] = await db.query(
-    `SELECT ${COLUMNS} FROM coach_chat_messages WHERE user_id = ? AND chat_id = ? AND ${FRESH} ORDER BY id DESC LIMIT ?`,
-    [userId, chat.id, KEEP_DAYS, limit],
-  );
-  return rows.reverse();
+  const newest = await newestMessages(db, userId, limit);
+  return newest.coach === coach ? newest.rows : [];
 }
 
 /** GET /chat: the member's coach and their current conversation as the app shows it, oldest first */
@@ -44,9 +53,18 @@ async function history(pool, userId) {
   return { coach: profile.coach, messages: (await currentMessages(pool, userId, profile.coach, limits.shown)).map(toMessage) };
 }
 
+const forCoach = (rows) => rows.map(({ role, text }) => ({ role, text }));
+
 /** The conversation so far as the coach reads it: [{ role, text }], oldest first */
 async function context(pool, userId, coach) {
-  return (await currentMessages(pool, userId, coach, limits.turns)).map(({ role, text }) => ({ role, text }));
+  return forCoach(await currentMessages(pool, userId, coach, limits.turns));
+}
+
+/** The newest conversation as the coach would read it, with its coach, for a caller that doesn't
+ * know the member's coach yet (the chat reads it alongside the member's facts): { coach, messages } */
+async function recentContext(pool, userId) {
+  const newest = await newestMessages(pool, userId, limits.turns);
+  return { coach: newest.coach, messages: forCoach(newest.rows) };
 }
 
 const answerOf = (rows) => {
@@ -157,4 +175,4 @@ function startCleanup(pool, { everyMs = 60 * 60 * 1000, log = console } = {}) {
   return () => { clearTimeout(first); clearInterval(timer); };
 }
 
-module.exports = { history, context, savedAnswer, saveAnswer, cleanupExpired, startCleanup };
+module.exports = { history, context, recentContext, savedAnswer, saveAnswer, cleanupExpired, startCleanup };
