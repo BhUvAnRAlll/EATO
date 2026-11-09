@@ -142,7 +142,8 @@ describe("ui macro: the Macro tab hub and logging a meal by hand", () => {
     await clickTab("Macro");
     await h.expectPath("/macro");
     // The calories card: the ring with what's left, eaten and target beside it, and the three macros under it
-    assert.ok(await page.evaluate(`!!document.querySelector('[aria-label="2,000 kcal left. Eaten 0 of 2,000 kcal. Open daily calories"]')`), "the calories card opens daily calories");
+    // The card appears once the day has loaded, so wait for it rather than look straight away
+    await page.waitFor(`!!document.querySelector('[aria-label="2,000 kcal left. Eaten 0 of 2,000 kcal. Open daily calories"]')`, NAV_TIMEOUT, "the calories card opens daily calories");
     assert.ok(await page.evaluate(`!!document.querySelector('[aria-label="Protein 0 of 150 grams"]')`), "the protein bar");
     await h.expectText("kcal left");
     await h.expectText("0/150g");

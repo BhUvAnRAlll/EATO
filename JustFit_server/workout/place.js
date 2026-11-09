@@ -193,10 +193,11 @@ const sessionLine = (e) => {
 
 function brief({ place, equipmentKey, day, exercises, library }) {
   const kit = EQUIPMENT[equipmentKey] === null ? "a full gym" : (EQUIPMENT[equipmentKey] ?? EQUIPMENT.none).join(", ");
+  // The library first, as in the week's prompt, so a repeated one is read from OpenAI's cache
   return [
+    aiPlan.libraryBlock(library),
     `Today the member trains at ${PLACE_LABEL[place]} with: ${kit}.`,
     `The session "${day.title}" (section | exercise | sets | rest):\n${exercises.map(sessionLine).join("\n")}`,
-    `Library (name | muscle group | movement | equipment | difficulty | notes):\n${library.map(aiPlan.libraryLine).join("\n")}`,
   ].join("\n");
 }
 

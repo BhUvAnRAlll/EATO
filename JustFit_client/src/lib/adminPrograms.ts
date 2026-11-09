@@ -3,6 +3,7 @@ import * as ImagePicker from "expo-image-picker";
 import { apiFetch, type ApiResult } from "@/lib/api";
 import type { FitnessSection, ProgramIcon, ProgramKit, ProgramLevel, ProgramPalette, ProgramPlace, SectionLayout } from "@/lib/fitness/catalog";
 import { withVideoSessions, type ProgramCardData, type ProgramDetail } from "@/lib/fitnessApi";
+import { shrinkPhoto } from "@/lib/shrinkPhoto";
 
 // Super Admin › Programs (JustFit_server/fitness/programs.js, under /api/admin/portal/programs):
 // the Fitness tab's programs, published or hidden, edited, created and rewritten by the AI. The
@@ -50,6 +51,9 @@ export function photoTypeOf(data: string): string | null {
   return null;
 }
 
+// A cover's long side after picking (2026-11-09): sharp on any phone's widest card, a fraction of a camera photo
+const COVER_SIDE = 1200;
+
 // Bytes in a base64 string (without decoding it)
 const base64Bytes = (data: string) => Math.floor((data.length * 3) / 4) - (data.endsWith("==") ? 2 : data.endsWith("=") ? 1 : 0);
 
@@ -57,15 +61,18 @@ const base64Bytes = (data: string) => Math.floor((data.length * 3) / 4) - (data.
  * Opens the photo library for a program cover. The whole photo is kept, with no crop step: the
  * same cover fills tall posters, square tiles and wide cards, and each card centres it itself.
  * quality < 1 re-encodes to JPEG on the phone (so HEIC works, and the photo's location data is
- * left out). On the web the chosen file is sent as it is.
+ * left out). On a phone a photo larger than COVER_SIDE on its long side is shrunk to it first
+ * (lib/shrinkPhoto): every member downloads the cover, and a card never draws it bigger. On the
+ * web the chosen file is sent as it is.
  */
 export async function pickCover(): Promise<{ ok: true; photo: CoverPhoto } | { ok: false; error: string } | { ok: false; cancelled: true }> {
   const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], allowsEditing: false, quality: 0.6, base64: true, exif: false });
   if (result.canceled) return { ok: false, cancelled: true };
   const asset = result.assets[0];
+  const small = await shrinkPhoto(asset, COVER_SIDE);
   // The web picker may give a data: URL instead of base64
   const dataUrl = /^data:([^;]+);base64,(.+)$/.exec(asset.uri ?? "");
-  const data = asset.base64 ?? dataUrl?.[2] ?? null;
+  const data = small?.data ?? asset.base64 ?? dataUrl?.[2] ?? null;
   if (!data) return { ok: false, error: "That photo couldn't be read. Please try another." };
   const mediaType = photoTypeOf(data);
   if (!mediaType || !COVER_TYPES.includes(mediaType)) return { ok: false, error: "Choose a JPEG, PNG or WebP photo." };

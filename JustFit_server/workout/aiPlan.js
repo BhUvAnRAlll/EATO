@@ -108,18 +108,27 @@ function allowedLibrary(library, inputs, calibration) {
   return library.filter((e) => !(calibration.safetyMode && e.highRisk) && !(lowImpactOnly(inputs) && !e.lowImpact));
 }
 
+// The library block, sorted by name, opens the prompt: the same library gives the same opening,
+// which OpenAI's prompt cache reuses at a discount for the next call (the member's own facts
+// come after it, so they don't break the shared part)
+function libraryBlock(library) {
+  const lines = library.map(libraryLine).sort((a, b) => a.localeCompare(b, "en"));
+  return `Library (name | muscle group | movement | equipment | difficulty | notes):\n${lines.join("\n")}`;
+}
+
 /**
- * The member's facts for the prompt: goal, level and the difficulty ceilings, body, age, pace,
- * training days, the coach's notes (time, place, joints, conditions) and the library.
+ * The prompt: the library first (see libraryBlock), then the member's facts: goal, level and
+ * the difficulty ceilings, body, age, pace, training days, the coach's notes (time, place,
+ * joints, conditions).
  */
 function brief({ inputs, calibration, library, extra }) {
   const c = calibration.ceilings;
   return [
+    libraryBlock(library),
     `Goal: ${inputs.goal.replace(/_/g, " ")}. Level: ${calibration.level}. Highest difficulty: lower body ${c.lower}, pushing ${c.push}, pulling ${c.pull}, other ${c.other}.`,
     `Member: ${inputs.gender}, ${inputs.ageYears} years, ${inputs.heightCm} cm, ${inputs.weightKg} kg, ${inputs.bodyType} build, prefers a ${inputs.pace} pace.${calibration.safetyMode ? " Reported a serious injury: keep everything gentle and beginner level." : ""}`,
     `Training days (weekday numbers, 0 = Sunday): ${inputs.weekdays.map((d) => `${d} (${WEEKDAY[d]})`).join(", ")}.`,
     extra ? extra : "Session length: about 45 minutes.",
-    `Library (name | muscle group | movement | equipment | difficulty | notes):\n${library.map(libraryLine).join("\n")}`,
   ].join("\n");
 }
 
@@ -244,4 +253,4 @@ async function write(pool, userId, { inputs, enginePlan, library, extra = null }
   }
 }
 
-module.exports = { INSTRUCTIONS, schema, exerciseSchema, limits, cleanText, libraryLine, configured, brief, allowedLibrary, asAnswer, normalizeWeek, write };
+module.exports = { INSTRUCTIONS, schema, exerciseSchema, limits, cleanText, libraryLine, libraryBlock, configured, brief, allowedLibrary, asAnswer, normalizeWeek, write };

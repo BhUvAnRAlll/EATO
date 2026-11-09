@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Animated, Pressable, ScrollView, Text, View } from "react-native";
 import { useResponsive } from "@/lib/responsive";
 import { FloatingSlot, useFabOnScroll } from "@/components/FloatingSlot";
@@ -8,7 +8,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { SymbolView } from "@/components/SymbolView";
 import { PressableScale } from "@/components/PressableScale";
-import { router, useFocusEffect } from "expo-router";
+import { router, useFocusEffect, useNavigation } from "expo-router";
 
 import { IconButton } from "@/components/IconButton";
 import { DashedBlock } from "@/components/macro/DashedBlock";
@@ -60,13 +60,14 @@ export default function MacroHub() {
 
   // The selected day and the week strip. While another day loads the previous one stays
   // on screen, dimmed, so the screen never flashes empty. A failed first read says so, with Try again.
-  const load = useCallback(async () => {
+  // `withWeek: false` (another day of the same week tapped) leaves the strip as it is.
+  const load = useCallback(async ({ withWeek = true }: { withWeek?: boolean } = {}) => {
     const request = ++latest.current;
     setLoading(true);
     const token = await getToken().catch(() => null);
     const [dayResult, weekResult, planResult] = await Promise.all([
       macro.day(token, selectedDate),
-      macro.progress(token, week),
+      withWeek ? macro.progress(token, week) : Promise.resolve(null),
       // The coach's tip needs today's plan; a gym's trainer has no AI Coach
       selectedDate === today && useAuthStore.getState().user?.role !== "trainer" ? coachApi.plan(token, today) : Promise.resolve(null),
     ]);
@@ -82,19 +83,33 @@ export default function MacroHub() {
       fade.setValue(0.4);
       Animated.timing(fade, { toValue: 1, duration: 200, useNativeDriver: true }).start();
     }
-    if (weekResult.ok) setProgress(Object.fromEntries(weekResult.data.days.map((d) => [d.date, d])));
+    if (weekResult?.ok) setProgress(Object.fromEntries(weekResult.data.days.map((d) => [d.date, d])));
   }, [getToken, selectedDate, week, fade, today]);
 
-  // Loads when the tab comes into view (so a meal saved in the logging flow is there on
-  // return) and again whenever the day or the week moves
+  // Loads everything when the tab comes into view (so a meal saved in the logging flow is
+  // there on return); while it's in view, a new day reads that day, and the strip only when
+  // the week moved
+  const navigation = useNavigation();
+  const loadRef = useRef(load);
+  useEffect(() => {
+    loadRef.current = load;
+  }, [load]);
   useFocusEffect(
     useCallback(() => {
-      load();
-    }, [load]),
+      loadRef.current();
+    }, []),
   );
+  const weekKey = week.join(",");
+  const shown = useRef({ date: selectedDate, week: weekKey });
+  useEffect(() => {
+    const last = shown.current;
+    if (last.date === selectedDate && last.week === weekKey) return;
+    shown.current = { date: selectedDate, week: weekKey };
+    if (navigation.isFocused()) load({ withWeek: last.week !== weekKey });
+  }, [selectedDate, weekKey, load, navigation]);
 
   // A pull reads the day and the week strip again
-  const { refreshControl } = usePullToRefresh(load);
+  const { refreshControl } = usePullToRefresh(() => load());
 
   const showing = day;
   // The coach's word on today: only on today, with a plan (it names the member's coach)

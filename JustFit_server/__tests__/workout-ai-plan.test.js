@@ -92,11 +92,29 @@ describe("AI workout: the safety rules the server keeps", () => {
     assert.match(text, /Highest difficulty/);
     assert.match(text, /30 minutes/);
     assert.ok(text.includes(library[0].name));
+    // The library opens the prompt in name order, the member's facts after it (for OpenAI's prompt cache)
+    assert.ok(text.startsWith("Library ("));
+    assert.ok(text.indexOf("Library (") < text.indexOf("Goal:"));
+    assert.equal(ai.brief({ inputs: INPUTS, calibration: engine.calibration, library: library.slice(0, 3).reverse(), extra: "Session length: 30 minutes." }), text, "the same library in another order gives the same prompt");
     assert.match(ai.INSTRUCTIONS, /Indian/);
     assert.equal(ai.schema.properties.days.items.properties.exercises.items.additionalProperties, false);
   });
 
   it("without an AI key there is no call: the engine's week is used", async () => {
     assert.equal(await ai.write(null, "u1", { inputs: INPUTS, enginePlan: engine, library }, { NODE_ENV: "production" }), null);
+  });
+});
+
+describe("saving a plan", () => {
+  it("an exercise archived while the plan was made is a friendly 409 (the transaction rolls back), not a 500", async () => {
+    const plans = require("../workout/plans.js");
+    // A connection whose library is empty: the plan's one exercise is no longer there
+    const conn = { query: async (sql) => (sql.includes("FROM workout_exercise_library") ? [[]] : sql.includes("UUID()") ? [[{ id: "id-1" }]] : [{ affectedRows: 1 }]) };
+    const plan = { name: "P", goal: "general_fitness", level: "beginner", daysPerWeek: 1, split: "full_body", engineVersion: 1, inputHash: "h", calibration: {}, requiresProfessionalReview: false, days: [{ weekday: 1, title: "Day", sessionType: "full_body", exercises: [{ name: "Gone Squat", section: "main", order: 0, sets: [], restSec: 60, role: "main" }] }] };
+    await assert.rejects(plans.generateAndStore(conn, "u1", "2026-11-09", "engine", { inputs: {}, plan }), (error) => {
+      assert.equal(error.status, 409);
+      assert.match(error.message, /Please try again/);
+      return true;
+    });
   });
 });

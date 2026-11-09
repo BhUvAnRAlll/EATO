@@ -11,6 +11,7 @@
 const workout = require("../../JustFit_client/src/lib/workout/index.ts");
 // A failed check the member should read word for word (the route answers 400 with it)
 const { ValidationError } = require("../profile");
+const { ConflictError } = require("../errors");
 const aiPlan = require("./aiPlan");
 
 const SECTION_ORDER = "FIELD(e.section, 'warmup', 'workout', 'cooldown')";
@@ -232,7 +233,9 @@ async function generateAndStore(conn, userId, today, source, prepared) {
     await conn.query("INSERT INTO workout_days (id, plan_id, user_id, weekday, title, session_type) VALUES (?, ?, ?, ?, ?, ?)", [dayId, planId, userId, day.weekday, day.title, day.sessionType]);
     for (const e of day.exercises) {
       const exerciseId = idByName(e.name);
-      if (!exerciseId) throw new Error(`The plan has an exercise the library doesn't have: ${e.name}`);
+      // Only when an exercise was archived while this plan was being written: the transaction
+      // rolls back and the member is asked to try again (the next try reads the library afresh)
+      if (!exerciseId) throw new ConflictError("The exercise library changed while your plan was being made. Please try again.");
       await conn.query(
         `INSERT INTO workout_day_exercises (day_id, plan_id, user_id, exercise_id, section, position, sets, rest_sec, role, reps_min, reps_max, note)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -840,7 +843,7 @@ async function planSessions(pool, userId) {
 module.exports = {
   recreateInputs, recreatePlan, planOverview, planSessions, draftFromCoach, planFromCoach, activePlanRow,
   preferences, updatePreferences,
-  syncLibrary, programmableLibrary, liveDaysOnly, pointDate, ensurePlan, home, activity, history, resolveDates, moveSessionToToday, swapDays, withMemberLock,
+  syncLibrary, programmableLibrary, generateAndStore, liveDaysOnly, pointDate, ensurePlan, home, activity, history, resolveDates, moveSessionToToday, swapDays, withMemberLock,
   sessionProgress, startSession, logSet, completeSession: (pool, userId, body) => closeSession(pool, userId, body, "completed"),
   abandonSession: (pool, userId, body) => closeSession(pool, userId, body, "abandoned"), SET_LOG_CAP,
 };
