@@ -89,7 +89,22 @@ export function ptPackageText(label: string): string {
   return /^pt\b/i.test(name) ? name : `PT · ${name}`;
 }
 // A catalogue plan or PT package saved in days before then can't be picked until it's edited to months
-export const pickable = (item: { unit: PlanUnit | null }) => item.unit !== "days";
+// What the forms offer: never a plan saved in days, nor one the gym switched off or archived
+export const pickable = (item: { unit: PlanUnit | null; status?: string }) => item.unit !== "days" && (item.status ?? "active") === "active";
+// Plans / Catalogue (Gym Profile phase 2): the quick lengths, the statuses, and the limits the server keeps
+export const PLAN_PRESETS: { months: number; label: string }[] = [
+  { months: 1, label: "Monthly" },
+  { months: 3, label: "Quarterly" },
+  { months: 6, label: "Half-yearly" },
+  { months: 12, label: "Annual" },
+];
+export const CATALOG_STATUS: { id: "active" | "inactive" | "archived"; label: string; line: string }[] = [
+  { id: "active", label: "Active", line: "Members see it and the forms offer it" },
+  { id: "inactive", label: "Inactive", line: "Hidden for now; members already on it keep it" },
+  { id: "archived", label: "Archived", line: "Put away; out of the list unless you show archived" },
+];
+export const BENEFITS_MAX = 8;
+export const BENEFIT_MAX = 60;
 
 export const KIND_LABEL: Record<PaymentKind, string> = { admission: "Admission", renewal: "Renewal", due: "Due Paid", pt: "PT", service: "Service", sale: "Product" };
 export const CATALOG_KINDS: { id: CatalogKind; label: string; noun: string; example: string }[] = [

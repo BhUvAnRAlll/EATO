@@ -204,16 +204,19 @@ function Plans({ gym, onAsk }: { gym: GymPage; onAsk?: (pick: JoinPick) => void 
   // Plans can be asked about by anyone not a member here; PT by members too. The preview asks nothing.
   const canAskPlan = Boolean(onAsk && gym.you) && gym.you!.memberId === null && !asking(gym);
   const canAskPt = Boolean(onAsk && gym.you) && !asking(gym);
-  const best = gym.plans.length > 1 ? Math.min(...gym.plans.map((p) => p.perMonth ?? Infinity)) : null;
+  // The gym's own Best value when it marked one, else the cheapest a month
+  const marked = gym.plans.find((p) => p.bestValue);
+  const cheapest = gym.plans.length > 1 ? Math.min(...gym.plans.map((p) => p.perMonth ?? Infinity)) : null;
+  const isBestPlan = (p: GymPage["plans"][number]) => (marked ? p.id === marked.id : cheapest !== null && p.perMonth === cheapest);
   if (gym.plans.length === 0 && gym.pt.length === 0 && !canAskPlan) return null;
   return (
     <View style={{ gap: 10 }}>
       {gym.plans.length > 0 && <Text className="type-headline text-ink" accessibilityRole="header">Membership plans</Text>}
       {gym.plans.length > 1 && <Text className="type-caption text-muted">Compare the price a month: longer plans usually cost less.</Text>}
       {gym.plans.map((p) => {
-        const isBest = best !== null && p.perMonth === best;
+        const isBest = isBestPlan(p);
         return (
-          <View key={p.id} className={isBest ? "hub-plan hub-plan--best" : "hub-plan"} accessible accessibilityLabel={`${p.name}, ${planLengthText(p.months, p.days)}, ${priceText(p.price)}, ${perMonthText(p.perMonth)}${p.savesPerMonth ? `, saves ${priceText(p.savesPerMonth)} a month` : ""}${isBest ? ", best value" : ""}${p.details ? `. Includes: ${p.details}` : ""}`}>
+          <View key={p.id} className={isBest ? "hub-plan hub-plan--best" : "hub-plan"} accessible accessibilityLabel={`${p.name}, ${planLengthText(p.months, p.days)}, ${priceText(p.price)}, ${perMonthText(p.perMonth)}${p.savesPerMonth ? `, saves ${priceText(p.savesPerMonth)} a month` : ""}${isBest ? ", best value" : ""}${p.details ? `. ${p.details}` : ""}${p.benefits?.length ? `. Includes: ${p.benefits.join(", ")}` : ""}`}>
             <View className="flex-row items-start justify-between" style={{ gap: 8 }}>
               <View className="min-w-0 flex-1">
                 <Text className="card__title" numberOfLines={2}>{p.name}</Text>
@@ -231,6 +234,7 @@ function Plans({ gym, onAsk }: { gym: GymPage; onAsk?: (pick: JoinPick) => void 
               </View>
             )}
             {p.details ? <Text className="type-caption text-ink">{p.details}</Text> : null}
+            <Benefits list={p.benefits} />
             {canAskPlan && (
               <PressableScale onPress={() => onAsk!({ itemId: p.id, label: `${p.name} · ${planLengthText(p.months, p.days)} · ${priceText(p.price)}` })} className="self-start" hitSlop={8} accessibilityRole="button" accessibilityLabel={`Ask about ${p.name}`}>
                 <Text className="auth__note-link">Ask about this plan</Text>
@@ -250,6 +254,7 @@ function Plans({ gym, onAsk }: { gym: GymPage; onAsk?: (pick: JoinPick) => void 
               </View>
               {p.months ? <Text className="type-caption text-muted">{planLengthText(p.months)}</Text> : null}
               {p.details ? <Text className="type-caption text-ink">{p.details}</Text> : null}
+              <Benefits list={p.benefits} />
               {canAskPt && (
                 <PressableScale onPress={() => onAsk!({ itemId: p.id, label: `PT · ${p.name} · ${priceText(p.price)}` })} className="self-start" hitSlop={8} accessibilityRole="button" accessibilityLabel={`Ask about ${p.name}`}>
                   <Text className="auth__note-link">Ask about this package</Text>
@@ -263,6 +268,22 @@ function Plans({ gym, onAsk }: { gym: GymPage; onAsk?: (pick: JoinPick) => void 
       {(gym.plans.length > 0 || gym.pt.length > 0 || canAskPlan) && (
         <Text className="type-caption text-muted">{canAskPlan ? "The gym calls you to help you join. You pay the gym, not the app." : "Prices are set by the gym. You pay the gym, not the app."}</Text>
       )}
+    </View>
+  );
+}
+
+// What a plan includes, a tick a line (Gym Profile phase 2)
+function Benefits({ list }: { list?: string[] }) {
+  const colors = useThemeColors();
+  if (!list || list.length === 0) return null;
+  return (
+    <View style={{ gap: 4 }} accessible accessibilityLabel={`Includes: ${list.join(", ")}`}>
+      {list.map((b) => (
+        <View key={b} className="flex-row items-start" style={{ gap: 6 }}>
+          <SymbolView name={icon("checkmark", "check")} size={12} tintColor={colors.success} />
+          <Text className="type-caption text-ink min-w-0 flex-1">{b}</Text>
+        </View>
+      ))}
     </View>
   );
 }

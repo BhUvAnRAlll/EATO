@@ -99,6 +99,17 @@ const PROFILE_FIELD = {
   about: "description", facilities: "facilities", custom: "own facilities", hours: "opening hours", closures: "closures",
   show: "what members see", whatsapp: "WhatsApp number", email: "email", website: "website", instagram: "Instagram", facebook: "Facebook",
 };
+// Gym Profile phase 2: what a catalogue edit changed beyond the snapshot's columns
+const CATALOG_KIND_LABEL = { plan: "Membership plans", pt: "PT packages", service: "Services", product: "Products" };
+const STATUS_WORD = { active: "Made it active", inactive: "Made it inactive", archived: "Archived it" };
+function catalogExtras(body) {
+  const parts = [];
+  if (body?.status !== undefined) parts.push(STATUS_WORD[body.status] ?? "Changed its status");
+  if (body?.bestValue === true) parts.push("Marked it best value");
+  if (body?.bestValue === false) parts.push("Unmarked best value");
+  if (body?.benefits !== undefined) parts.push("Changed the benefits");
+  return parts.join(" · ") || null;
+}
 const ROUTES = [
   R(["POST"], /^\/branch$/, null),
   // Arranging Home's Today tiles is the login's own view, nothing to record
@@ -142,7 +153,8 @@ const ROUTES = [
   R(["POST"], /^\/enquiries\/([^/]+)\/contacts$/, { type: "enquiry", action: "create", target: "enquiry", detail: ({ body }) => `${body?.kind === "visit" ? "Logged a visit" : `Logged a ${body?.kind === "whatsapp" ? "WhatsApp message" : "call"}: ${body?.outcome === "no_answer" ? "no answer" : "reached"}`}${typeof body?.followUpOn === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.followUpOn) ? `, next follow-up ${body.followUpOn}` : ""}` }),
   // Plans / Catalogue
   R(["POST"], /^\/catalog$/, { type: "catalog", action: "create", label: ({ body }) => labelOf("catalog", { kind: body?.kind, name: body?.name }), detail: ({ body }) => (body?.price !== undefined ? `Price ${rupees(body.price)}` : null) }),
-  R(["PATCH"], /^\/catalog\/([^/]+)$/, { type: "catalog", action: "edit", target: "catalog", detail: ({ before, after }) => changes("catalog", before, after) }),
+  R(["PATCH"], /^\/catalog\/([^/]+)$/, { type: "catalog", action: "edit", target: "catalog", detail: ({ before, after, body }) => [changes("catalog", before, after), catalogExtras(body)].filter(Boolean).join(" · ") || null }),
+  R(["PUT"], /^\/catalog\/order$/, { type: "catalog", action: "edit", label: ({ body }) => `${CATALOG_KIND_LABEL[body?.kind] ?? "Catalogue"} order`, detail: () => "Changed the order members see" }),
   R(["DELETE"], /^\/catalog\/([^/]+)$/, { type: "catalog", action: "delete", target: "catalog", detail: ({ before }) => (before ? `Was ${rupees(before.price)}` : null) }),
   R(["PUT"], /^\/catalog\/([^/]+)\/image$/, { type: "catalog", action: "edit", target: "catalog", detail: () => "Added a new image" }),
   R(["DELETE"], /^\/catalog\/([^/]+)\/image$/, { type: "catalog", action: "delete", target: "catalog", detail: () => "Removed the image" }),

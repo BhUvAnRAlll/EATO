@@ -357,7 +357,7 @@ const memberColumns = (withPlanName) => (withPlanName ? `${MEMBER_COLUMNS}, m.pl
 // The catalogue plan's name for Add Member and Renewal: one of this branch's plans, or a 400
 async function catalogPlanName(db, gymId, planId) {
   if (planId === null) return null;
-  const [[item]] = await db.query("SELECT name FROM gym_catalog_items WHERE id = ? AND gym_id = ? AND kind = 'plan'", [planId, gymId]);
+  const [[item]] = await db.query(`SELECT name FROM gym_catalog_items WHERE id = ? AND gym_id = ? AND kind = 'plan'${await activeOnly(db)}`, [planId, gymId]);
   if (!item) throw new ValidationError("Pick one of your plans.");
   return item.name;
 }
@@ -474,7 +474,7 @@ async function sellToMember(pool, gymId, userId, memberId, kind, body, today) {
   const product = kind === "product";
   await inTransaction(pool, async (db) => {
     const row = await memberRow(db, gymId, memberId, today, { lock: true });
-    const [[item]] = await db.query("SELECT id, name, price, stock FROM gym_catalog_items WHERE id = ? AND gym_id = ? AND kind = ? FOR UPDATE", [body.itemId, gymId, kind]);
+    const [[item]] = await db.query(`SELECT id, name, price, stock FROM gym_catalog_items WHERE id = ? AND gym_id = ? AND kind = ?${await activeOnly(db)} FOR UPDATE`, [body.itemId, gymId, kind]);
     if (!item) throw new NotFoundError(`That ${product ? "product" : "service"} isn't in your catalogue.`);
     if (product && item.stock !== null && item.stock < body.quantity) {
       throw new ConflictError(item.stock === 0 ? `${item.name} is out of stock.` : `Only ${item.stock} of ${item.name} left in stock.`);
@@ -771,12 +771,24 @@ async function wallet(pool, gymId, today) {
 // ---- Plans / Catalogue: the branch's price list ------------------------------------------
 
 // imageUrl: the item's optional picture (gym/catalogImages.js), read with the session; ?v= changes with the file
-// details: what a plan or PT package includes (null before migration 2026-12-17)
+// details: what a plan or PT package includes (null before migration 2026-12-17); benefits,
+// bestValue, status, sortOrder: Gym Profile phase 2 (migration 2026-12-24; active and no
+// benefits before it)
 const itemOf = (r) => ({
   id: r.id, kind: r.kind, name: r.name, duration: r.duration ?? null, unit: r.duration_unit ?? null, price: r.price, stock: r.stock ?? null, details: r.details ?? null,
+  benefits: readBenefits(r.benefits), bestValue: Number(r.best_value ?? 0) === 1, status: r.status ?? "active", sortOrder: Number(r.sort_order ?? 0),
   imageUrl: r.image_key ? `/api/gym/catalog/${r.id}/image?v=${r.image_key.slice(0, 8)}` : null,
 });
+function readBenefits(stored) {
+  try {
+    return rules.catalogBenefits((typeof stored === "string" ? JSON.parse(stored) : stored) ?? []);
+  } catch {
+    return [];
+  }
+}
+// The gym's own order first (0, never ordered, after), then the usual one
 const KIND_ORDER = "FIELD(kind, 'plan', 'pt', 'service', 'product'), duration_unit = 'months', IF(duration_unit = 'months', duration * 30, duration), price, name, id";
+const ORDERED = `FIELD(kind, 'plan', 'pt', 'service', 'product'), sort_order = 0, sort_order, ${KIND_ORDER}`;
 
 // Whether gym_catalog_items has `details` yet (migration 2026-12-17), checked at most once a minute
 // until it does, so the catalogue keeps working before the migration
@@ -787,33 +799,88 @@ async function hasCatalogDetails(db) {
   detailsColumn = { has: Number(row.n) > 0, at: Date.now() };
   return detailsColumn.has;
 }
+// Whether it has benefits, best_value, sort_order and status yet (migration 2026-12-24), the same way
+let optionsColumn = { has: false, at: 0 };
+async function hasPlanOptions(db) {
+  if (optionsColumn.has || Date.now() - optionsColumn.at < 60000) return optionsColumn.has;
+  const [[row]] = await db.query("SELECT COUNT(*) AS n FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'gym_catalog_items' AND COLUMN_NAME = 'status'");
+  optionsColumn = { has: Number(row.n) > 0, at: Date.now() };
+  return optionsColumn.has;
+}
+// " AND status = 'active'" once the column exists: what new sales, members and join requests may use
+const activeOnly = async (db, alias = "") => ((await hasPlanOptions(db)) ? ` AND ${alias}status = 'active'` : "");
 
 async function catalog(pool, gymId) {
-  const [rows] = await pool.query(`SELECT id, kind, name, duration, duration_unit, price, stock, image_key${(await hasCatalogDetails(pool)) ? ", details" : ""} FROM gym_catalog_items WHERE gym_id = ? ORDER BY ${KIND_ORDER}`, [gymId]);
+  const [details, options] = await Promise.all([hasCatalogDetails(pool), hasPlanOptions(pool)]);
+  const [rows] = await pool.query(
+    `SELECT id, kind, name, duration, duration_unit, price, stock, image_key${details ? ", details" : ""}${options ? ", benefits, best_value, sort_order, status" : ""}
+     FROM gym_catalog_items WHERE gym_id = ? ORDER BY ${options ? ORDERED : KIND_ORDER}`,
+    [gymId],
+  );
   return { items: rows.map(itemOf) };
 }
 
+const OPTION_FIELDS = ["benefits", "bestValue", "status"];
+const needsOptions = (item) => OPTION_FIELDS.some((k) => item[k] !== undefined);
+// A plan marked Best value unmarks the branch's other plans; one archived or switched off loses the mark
+async function settleBestValue(db, gymId, itemId, fields) {
+  if (fields.bestValue === true) await db.query("UPDATE gym_catalog_items SET best_value = 0 WHERE gym_id = ? AND kind = 'plan' AND id <> ?", [gymId, itemId]);
+  if (fields.status && fields.status !== "active") await db.query("UPDATE gym_catalog_items SET best_value = 0 WHERE id = ? AND gym_id = ?", [itemId, gymId]);
+}
+
 async function addItem(pool, gymId, userId, item) {
-  const [[{ n }]] = await pool.query("SELECT COUNT(*) AS n FROM gym_catalog_items WHERE gym_id = ?", [gymId]);
-  if (n >= rules.limits.catalog) throw new ValidationError(`A branch can keep up to ${rules.limits.catalog} items. Delete one first.`);
+  if (needsOptions(item) && !(await hasPlanOptions(pool))) throw Object.assign(new Error("plan options missing"), { code: "ER_BAD_FIELD_ERROR", sqlMessage: "Unknown column 'status'" });
   const withDetails = item.details !== undefined;
-  await pool.query(
-    `INSERT INTO gym_catalog_items (gym_id, kind, name, duration, duration_unit, price, stock, created_by${withDetails ? ", details" : ""}) VALUES (?, ?, ?, ?, ?, ?, ?, ?${withDetails ? ", ?" : ""})`,
-    [gymId, item.kind, item.name, item.duration ?? null, item.unit ?? null, item.price, item.stock ?? null, userId, ...(withDetails ? [item.details] : [])],
-  );
+  const withOptions = await hasPlanOptions(pool);
+  await inTransaction(pool, async (db) => {
+    // The branch locked: the item limit and the next place in the order hold under two saves at once
+    await db.query("SELECT id FROM gyms WHERE id = ? FOR UPDATE", [gymId]);
+    const [[{ n }]] = await db.query("SELECT COUNT(*) AS n FROM gym_catalog_items WHERE gym_id = ?", [gymId]);
+    if (n >= rules.limits.catalog) throw new ValidationError(`A branch can keep up to ${rules.limits.catalog} items. Delete one first.`);
+    if (item.bestValue && item.status && item.status !== "active") throw new ValidationError("Only an active plan can be the best value.");
+    const columns = ["gym_id", "kind", "name", "duration", "duration_unit", "price", "stock", "created_by"];
+    const values = [gymId, item.kind, item.name, item.duration ?? null, item.unit ?? null, item.price, item.stock ?? null, userId];
+    if (withDetails) columns.push("details"), values.push(item.details);
+    if (withOptions) {
+      const [[{ last }]] = await db.query("SELECT COALESCE(MAX(sort_order), 0) AS last FROM gym_catalog_items WHERE gym_id = ? AND kind = ?", [gymId, item.kind]);
+      columns.push("benefits", "best_value", "sort_order", "status");
+      values.push(item.benefits ? JSON.stringify(item.benefits) : null, item.bestValue ? 1 : 0, Number(last) > 0 ? Number(last) + 1 : 0, item.status ?? "active");
+    }
+    const [inserted] = await db.query(`INSERT INTO gym_catalog_items (${columns.join(", ")}) VALUES (${columns.map(() => "?").join(", ")})`, values);
+    if (withOptions) await settleBestValue(db, gymId, inserted.insertId, item);
+  });
   return catalog(pool, gymId);
 }
 
 async function editItem(pool, gymId, itemId, fields) {
-  const [[row]] = await pool.query("SELECT kind FROM gym_catalog_items WHERE id = ? AND gym_id = ?", [itemId, gymId]);
-  if (!row) throw new NotFoundError("That item isn't in your catalogue.");
-  if (fields.unit !== undefined && !["plan", "pt"].includes(row.kind)) throw new ValidationError("Only plans and PT packages have a duration.");
-  if (fields.stock !== undefined && row.kind !== "product") throw new ValidationError("Only products have stock.");
-  if (fields.details !== undefined && !["plan", "pt"].includes(row.kind)) throw new ValidationError("Only plans and PT packages have details.");
-  // Column names only from this list
-  const columns = { name: "name", duration: "duration", unit: "duration_unit", price: "price", stock: "stock", details: "details" };
-  const keys = Object.keys(fields);
-  await pool.query(`UPDATE gym_catalog_items SET ${keys.map((k) => `${columns[k]} = ?`).join(", ")} WHERE id = ? AND gym_id = ?`, [...keys.map((k) => fields[k]), itemId, gymId]);
+  if (needsOptions(fields) && !(await hasPlanOptions(pool))) throw Object.assign(new Error("plan options missing"), { code: "ER_BAD_FIELD_ERROR", sqlMessage: "Unknown column 'status'" });
+  await inTransaction(pool, async (db) => {
+    const [[row]] = await db.query(`SELECT kind${(await hasPlanOptions(db)) ? ", status" : ""} FROM gym_catalog_items WHERE id = ? AND gym_id = ? FOR UPDATE`, [itemId, gymId]);
+    if (!row) throw new NotFoundError("That item isn't in your catalogue.");
+    if (fields.unit !== undefined && !["plan", "pt"].includes(row.kind)) throw new ValidationError("Only plans and PT packages have a duration.");
+    if (fields.stock !== undefined && row.kind !== "product") throw new ValidationError("Only products have stock.");
+    if (fields.details !== undefined && !["plan", "pt"].includes(row.kind)) throw new ValidationError("Only plans and PT packages have details.");
+    if (fields.benefits !== undefined && !["plan", "pt"].includes(row.kind)) throw new ValidationError("Only plans and PT packages have benefits.");
+    if (fields.bestValue !== undefined && row.kind !== "plan") throw new ValidationError("Only a membership plan can be the best value.");
+    if (fields.bestValue === true && (fields.status ?? row.status ?? "active") !== "active") throw new ValidationError("Only an active plan can be the best value.");
+    // Column names only from this list
+    const columns = { name: "name", duration: "duration", unit: "duration_unit", price: "price", stock: "stock", details: "details", benefits: "benefits", bestValue: "best_value", status: "status" };
+    const value = (k) => (k === "benefits" ? JSON.stringify(fields[k]) : k === "bestValue" ? (fields[k] ? 1 : 0) : fields[k]);
+    const keys = Object.keys(fields);
+    await db.query(`UPDATE gym_catalog_items SET ${keys.map((k) => `${columns[k]} = ?`).join(", ")} WHERE id = ? AND gym_id = ?`, [...keys.map(value), itemId, gymId]);
+    await settleBestValue(db, gymId, itemId, fields);
+  });
+  return catalog(pool, gymId);
+}
+
+/** PUT /catalog/order { kind, ids }: the order of one kind's items, as the gym wants them shown */
+async function orderItems(pool, gymId, body) {
+  await inTransaction(pool, async (db) => {
+    const kind = typeof body?.kind === "string" ? body.kind : "";
+    const [rows] = await db.query("SELECT id FROM gym_catalog_items WHERE gym_id = ? AND kind = ? FOR UPDATE", [gymId, kind]);
+    const ids = rules.catalogOrder(body, rows.map((r) => r.id));
+    for (const [index, id] of ids.entries()) await db.query("UPDATE gym_catalog_items SET sort_order = ? WHERE id = ? AND gym_id = ?", [index + 1, id, gymId]);
+  });
   return catalog(pool, gymId);
 }
 
@@ -835,7 +902,10 @@ module.exports = {
   payment,
   addItem,
   editItem,
+  orderItems,
   deleteItem,
+  hasPlanOptions,
+  activeOnly,
   staffGym,
   gymInfo,
   nextMemberCode,

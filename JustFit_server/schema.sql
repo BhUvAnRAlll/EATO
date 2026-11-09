@@ -1522,12 +1522,17 @@ CREATE TABLE gym_catalog_items (
   price       INT UNSIGNED NOT NULL,                -- rupees
   stock       INT UNSIGNED NULL,                    -- products only: how many are left (NULL = not counted)
   details     VARCHAR(300) NULL,                    -- plans and PT: what's included and any limits, shown to members (migration 2026-12-17)
+  benefits    JSON         NULL,                    -- plans and PT: what's included as a list, ["Steam bath", "1 diet consult"] (migration 2026-12-24)
+  best_value  TINYINT(1)   NOT NULL DEFAULT 0,      -- plans: the gym's own "Best value" (one a branch)
+  sort_order  INT UNSIGNED NOT NULL DEFAULT 0,      -- the order the gym shows its items in
+  status      ENUM('active', 'inactive', 'archived') NOT NULL DEFAULT 'active', -- inactive and archived: hidden from members and new sales
   image_key   VARCHAR(64)  NULL,                    -- an optional picture or brochure photo (a file name in CATALOG_IMAGE_DIR; migration 2026-12-04)
   created_by  VARCHAR(64)  NULL,
   created_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   KEY idx_gym_catalog_kind (gym_id, kind),
+  KEY idx_gym_catalog_status (gym_id, kind, status, sort_order),
   CONSTRAINT fk_gym_catalog_gym FOREIGN KEY (gym_id) REFERENCES gyms (id),
   CONSTRAINT fk_gym_catalog_created_by FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL,
   CONSTRAINT chk_gym_catalog_price CHECK (price BETWEEN 1 AND 1000000),

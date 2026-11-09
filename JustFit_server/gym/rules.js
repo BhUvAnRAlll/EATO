@@ -493,7 +493,8 @@ const CATALOG_KINDS = ["plan", "pt", "service", "product"];
 const MAX_STOCK = 100_000;
 const HAS_LENGTH = ["plan", "pt"];
 function catalogBody(body, { creating }) {
-  onlyKeys(body, creating ? ["kind", "name", "unit", "duration", "price", "stock", "details"] : ["name", "unit", "duration", "price", "stock", "details"]);
+  const extra = ["details", "benefits", "bestValue", "status"];
+  onlyKeys(body, creating ? ["kind", "name", "unit", "duration", "price", "stock", ...extra] : ["name", "unit", "duration", "price", "stock", ...extra]);
   const out = {};
   if (creating) {
     if (!CATALOG_KINDS.includes(body.kind)) throw new ValidationError("Pick what it is: a plan, PT, a service or a product.");
@@ -511,11 +512,53 @@ function catalogBody(body, { creating }) {
   // What a plan or PT package includes and any limits (Gym Hub, migration 2026-12-17); "" clears it
   if (body.details !== undefined) out.details = profileRules.optionalText(body.details, profileRules.DETAILS_MAX, "details");
   if (creating && body.details !== undefined && !HAS_LENGTH.includes(out.kind)) throw new ValidationError("Only plans and PT packages have details.");
+  // Gym Profile phase 2 (migration 2026-12-24): what's included as a list, the gym's own Best value
+  // plan, and whether members and the forms see it (active), it's hidden for now (inactive) or put
+  // away (archived)
+  if (body.benefits !== undefined) out.benefits = catalogBenefits(body.benefits);
+  if (body.bestValue !== undefined) {
+    if (typeof body.bestValue !== "boolean") throw new ValidationError("Say whether it's your best value plan.");
+    out.bestValue = body.bestValue;
+  }
+  if (body.status !== undefined) {
+    if (!CATALOG_STATUSES.includes(body.status)) throw new ValidationError("Pick Active, Inactive or Archived.");
+    out.status = body.status;
+  }
+  if (out.bestValue && out.status && out.status !== "active") throw new ValidationError("Only an active plan can be the best value.");
+  if (creating && out.benefits !== undefined && !HAS_LENGTH.includes(out.kind)) throw new ValidationError("Only plans and PT packages have benefits.");
+  if (creating && out.bestValue !== undefined && out.kind !== "plan") throw new ValidationError("Only a membership plan can be the best value.");
   if (creating && HAS_LENGTH.includes(out.kind) && !hasLength) throw new ValidationError(`Enter the ${out.kind === "pt" ? "PT package's" : "plan's"} duration.`);
   if (creating && !HAS_LENGTH.includes(out.kind) && hasLength) throw new ValidationError("Only plans and PT packages have a duration.");
   if (creating && out.kind !== "product" && body.stock !== undefined) throw new ValidationError("Only products have stock.");
   if (Object.keys(out).length === 0) throw new ValidationError("Change the name, the duration, the price, the stock or the details.");
   return out;
+}
+
+const CATALOG_STATUSES = ["active", "inactive", "archived"];
+const BENEFITS_MAX = 8;
+const BENEFIT_MAX = 60;
+// [] clears; each benefit 2-60 characters, once each (any case), in the order given
+function catalogBenefits(value) {
+  if (!Array.isArray(value) || value.length > BENEFITS_MAX) throw new ValidationError(`List up to ${BENEFITS_MAX} benefits.`);
+  const seen = new Set();
+  return value.map((entry) => {
+    const text = typeof entry === "string" ? entry.trim().replace(/\s+/g, " ") : "";
+    if (text.length < 2 || text.length > BENEFIT_MAX || /[\u0000-\u001F\u007F]/.test(text)) throw new ValidationError(`Write each benefit in 2 to ${BENEFIT_MAX} characters.`);
+    if (seen.has(text.toLowerCase())) throw new ValidationError(`"${text}" is there twice.`);
+    seen.add(text.toLowerCase());
+    return text;
+  });
+}
+
+// PUT /catalog/order { kind, ids }: every item of that kind at the branch, once each, in the new order
+function catalogOrder(body, existing) {
+  onlyKeys(body, ["kind", "ids"]);
+  if (!CATALOG_KINDS.includes(body.kind)) throw new ValidationError("Pick what to reorder: plans, PT, services or products.");
+  const ids = body.ids;
+  if (!Array.isArray(ids) || ids.length !== existing.length || new Set(ids).size !== ids.length || ids.some((id) => !existing.includes(id))) {
+    throw new ValidationError("Send every item once, in the order you want.");
+  }
+  return ids;
 }
 
 // A product sold or a service added to a member from their ⋯ (the GymOps designs): the catalogue
@@ -640,6 +683,9 @@ module.exports = {
   onlyKeys,
   switchBody,
   catalogBody,
+  catalogBenefits,
+  catalogOrder,
+  CATALOG_STATUSES,
   memberSaleBody,
   staffBody,
   todayInIndia,

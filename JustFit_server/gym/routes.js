@@ -53,12 +53,15 @@ const MIGRATION = "The gym portal needs its migrations (up to 2026-12-05-members
 const REFERRER_MIGRATION = "Referrals need the 2026-12-09-enquiry-referrer migration on this server.";
 // Saving a plan's details (Gym Hub) before its migration names it (the catalogue is read without them)
 const DETAILS_MIGRATION = "Plan details need the 2026-12-17-gym-public-profile migration on this server.";
+// Plan benefits, Best value, order and status (Gym Profile phase 2) before their migration
+const PLAN_OPTIONS_MIGRATION = "Plan benefits, order and status need the 2026-12-24-catalog-plan-options migration on this server.";
 // Saving what an enquiry said before its migration names it (contacts are read without notes)
 const CONTACT_NOTE_MIGRATION = "Notes on a contact need the 2026-12-18-enquiry-contact-notes migration on this server.";
 const route = (handler) => (req, res, next) =>
   handler(req, res, next).catch((error) => {
     if (error?.code === "ER_BAD_FIELD_ERROR" && String(error.sqlMessage ?? "").includes("referred_by_phone")) return res.status(503).json({ error: REFERRER_MIGRATION });
     if (error?.code === "ER_BAD_FIELD_ERROR" && String(error.sqlMessage ?? "").includes("'details'")) return res.status(503).json({ error: DETAILS_MIGRATION });
+    if (error?.code === "ER_BAD_FIELD_ERROR" && /'(status|sort_order|best_value|benefits)'/.test(String(error.sqlMessage ?? ""))) return res.status(503).json({ error: PLAN_OPTIONS_MIGRATION });
     if (error?.code === "ER_BAD_FIELD_ERROR" && String(error.sqlMessage ?? "").includes("'note'")) return res.status(503).json({ error: CONTACT_NOTE_MIGRATION });
     if (["ER_NO_SUCH_TABLE", "ER_BAD_FIELD_ERROR"].includes(error?.code)) return res.status(503).json({ error: MIGRATION });
     next(error);
@@ -349,6 +352,10 @@ router.get("/catalog", route(async (req, res) => {
 }));
 router.post("/catalog", smallBody, route(async (req, res) => {
   res.status(201).json(await service.addItem(pool(req), req.gym.id, req.userId, rules.catalogBody(req.body, { creating: true })));
+}));
+// The order the gym shows one kind's items in (members see plans and PT in it): every id once
+router.put("/catalog/order", smallBody, route(async (req, res) => {
+  res.json(await service.orderItems(pool(req), req.gym.id, req.body));
 }));
 router.patch("/catalog/:itemId", smallBody, route(async (req, res) => {
   res.json(await service.editItem(pool(req), req.gym.id, rules.id(req.params.itemId, "item"), rules.catalogBody(req.body, { creating: false })));

@@ -110,15 +110,35 @@ function pickGyms(gyms, q) {
   return { total: found.length, page: q.page, nextPage: found.length > start + PAGE_SIZE ? q.page + 1 : null, results: found.slice(start, start + PAGE_SIZE) };
 }
 
-// The branch's plans as members compare them, shortest first: the price, a month, and how much a
-// month less than the shortest plan (savings), with what each includes
+// The gym's own order first (0: never ordered, after the ordered ones)
+const byGymOrder = (a, b) => (a === 0) - (b === 0) || a - b;
+// A stored benefits list read back: strings only, at most 8
+function readBenefits(stored) {
+  let value = stored;
+  if (typeof stored === "string") {
+    try {
+      value = JSON.parse(stored);
+    } catch {
+      return [];
+    }
+  }
+  return Array.isArray(value) ? value.filter((b) => typeof b === "string" && b).slice(0, 8) : [];
+}
+
+// The branch's plans as members compare them: in the gym's order, else shortest first; the price, a
+// month, how much a month less than the shortest plan (savings), what each includes, and the gym's
+// own Best value (bestValue; when none is marked the app picks the cheapest a month)
 function comparePlans(items) {
   const plans = items
     .filter((i) => i.kind === "plan")
-    .map((i) => ({ id: i.id, name: i.name, months: i.duration_unit === "months" ? i.duration : null, days: i.duration_unit === "days" ? i.duration : null, price: i.price, perMonth: perMonth(i), details: i.details ?? null }))
-    .sort((a, b) => (a.months ?? a.days / 30) - (b.months ?? b.days / 30) || a.price - b.price);
-  const base = plans[0]?.perMonth ?? null;
-  return plans.map((p) => ({ ...p, savesPerMonth: base !== null && p.perMonth !== null && p.perMonth < base ? base - p.perMonth : 0 }));
+    .map((i) => ({
+      id: i.id, name: i.name, months: i.duration_unit === "months" ? i.duration : null, days: i.duration_unit === "days" ? i.duration : null,
+      price: i.price, perMonth: perMonth(i), details: i.details ?? null, benefits: readBenefits(i.benefits), bestValue: Number(i.best_value ?? 0) === 1, order: Number(i.sort_order ?? 0),
+    }))
+    .sort((a, b) => byGymOrder(a.order, b.order) || (a.months ?? a.days / 30) - (b.months ?? b.days / 30) || a.price - b.price);
+  const shortest = [...plans].sort((a, b) => (a.months ?? a.days / 30) - (b.months ?? b.days / 30) || a.price - b.price)[0];
+  const base = shortest?.perMonth ?? null;
+  return plans.map(({ order, ...p }) => ({ ...p, savesPerMonth: base !== null && p.perMonth !== null && p.perMonth < base ? base - p.perMonth : 0 }));
 }
 
-module.exports = { PAGE_SIZE, PRICE_CAPS, SORTS, discoverQuery, perMonth, fromPrice, matchScore, pickGyms, comparePlans };
+module.exports = { PAGE_SIZE, PRICE_CAPS, SORTS, discoverQuery, perMonth, fromPrice, matchScore, pickGyms, comparePlans, byGymOrder, readBenefits };

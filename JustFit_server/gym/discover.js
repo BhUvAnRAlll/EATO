@@ -13,6 +13,7 @@ const logos = require("./logos");
 const profileRules = require("./profileRules");
 const rules = require("./discoverRules");
 const { todayInIndia } = require("./rules");
+const { activeOnly, hasPlanOptions } = require("./service");
 
 // Enough for every branch for now; the list is filtered and sorted in code (discoverRules)
 const CANDIDATE_LIMIT = 500;
@@ -65,7 +66,7 @@ async function discover(pool, query, today = todayInIndia()) {
   );
   const ids = gyms.map((g) => g.id);
   const [[plans], photosOf] = await Promise.all([
-    ids.length ? pool.query("SELECT gym_id, duration, duration_unit, price FROM gym_catalog_items WHERE kind = 'plan' AND gym_id IN (?)", [ids]) : [[]],
+    ids.length ? pool.query(`SELECT gym_id, duration, duration_unit, price FROM gym_catalog_items WHERE kind = 'plan' AND gym_id IN (?)${await activeOnly(pool)}`, [ids]) : [[]],
     galleries(pool, ids, withPublishing),
   ]);
   const plansOf = new Map();
@@ -128,15 +129,24 @@ function pageOf(g, seen, gallery, items, urls) {
     pt: seen.showPt
       ? items
         .filter((i) => i.kind === "pt")
-        .map((i) => ({ id: i.id, name: i.name, months: i.duration_unit === "months" ? i.duration : null, price: i.price, details: i.details ?? null }))
-        .sort((a, b) => (a.months ?? 0) - (b.months ?? 0) || a.price - b.price)
+        .map((i) => ({ id: i.id, name: i.name, months: i.duration_unit === "months" ? i.duration : null, price: i.price, details: i.details ?? null, benefits: rules.readBenefits(i.benefits), order: Number(i.sort_order ?? 0) }))
+        .sort((a, b) => rules.byGymOrder(a.order, b.order) || (a.months ?? 0) - (b.months ?? 0) || a.price - b.price)
+        .map(({ order, ...p }) => p)
       : [],
   };
 }
 const PAGE_GYM = (columns) => `SELECT g.id, b.name AS brand, g.name AS branch, g.area, g.city, ${columns}, g.latitude, g.longitude, b.logo_key
   FROM gyms g JOIN gym_brands b ON b.id = g.brand_id WHERE g.id = ?`;
-const pageItems = (pool, gymId) =>
-  pool.query("SELECT id, kind, name, duration, duration_unit, price, details FROM gym_catalog_items WHERE gym_id = ? AND kind IN ('plan', 'pt')", [gymId]);
+// The branch's plans and PT packages members may see: active ones only, with benefits, the gym's
+// Best value and its order once migration 2026-12-24 has run
+const pageItems = async (pool, gymId) => {
+  const options = await hasPlanOptions(pool);
+  return pool.query(
+    `SELECT id, kind, name, duration, duration_unit, price, details${options ? ", benefits, best_value, sort_order" : ""}
+     FROM gym_catalog_items WHERE gym_id = ? AND kind IN ('plan', 'pt')${options ? " AND status = 'active'" : ""}`,
+    [gymId],
+  );
+};
 
 /** GET /api/gyms/:id: one branch's page, as published */
 async function gymPage(pool, gymId, today = todayInIndia()) {

@@ -8,7 +8,7 @@ const { getAccount } = require("../auth");
 const { ConflictError, NotFoundError } = require("../errors");
 const { ValidationError } = require("../profile");
 const rules = require("./joinRules");
-const { inTransaction } = require("./service");
+const { activeOnly, inTransaction } = require("./service");
 const { todayInIndia } = require("./rules");
 
 const DAY = (column) => `DATE_FORMAT(${column}, '%Y-%m-%d')`;
@@ -37,7 +37,8 @@ async function ask(pool, userId, gymId, body, today = todayInIndia()) {
 
     let item = null;
     if (body.itemId !== null) {
-      [[item]] = await db.query("SELECT id, kind, name, duration, duration_unit, price FROM gym_catalog_items WHERE id = ? AND gym_id = ? AND kind IN ('plan', 'pt')", [body.itemId, gymId]);
+      // Only a plan members can see (active, once migration 2026-12-24 has run)
+      [[item]] = await db.query(`SELECT id, kind, name, duration, duration_unit, price FROM gym_catalog_items WHERE id = ? AND gym_id = ? AND kind IN ('plan', 'pt')${await activeOnly(db)}`, [body.itemId, gymId]);
       if (!item) throw new ValidationError("Pick one of this gym's plans.");
     }
 

@@ -21,7 +21,15 @@ export type PlanMonths = { duration: number };
 export type CatalogKind = "plan" | "pt" | "service" | "product";
 // imageUrl: an optional picture or brochure photo, read with the session (null: none); details:
 // what a plan or PT package includes and any limits, shown to members (Gym Hub; null: none)
-export type CatalogItem = { id: number; kind: CatalogKind; name: string; duration: number | null; unit: PlanUnit | null; price: number; stock: number | null; imageUrl: string | null; details?: string | null };
+// benefits, bestValue, status, sortOrder (Gym Profile phase 2, migration 2026-12-24): what's
+// included as a list, the gym's own Best value plan, whether members and the forms see it, and
+// the gym's order (0: never ordered). Missing before the migration: read as active with none.
+export type CatalogStatus = "active" | "inactive" | "archived";
+export type CatalogItem = {
+  id: number; kind: CatalogKind; name: string; duration: number | null; unit: PlanUnit | null; price: number; stock: number | null; imageUrl: string | null; details?: string | null;
+  benefits?: string[]; bestValue?: boolean; status?: CatalogStatus; sortOrder?: number;
+};
+export type CatalogFields = { name?: string; duration?: number; price?: number; stock?: number | ""; details?: string; benefits?: string[]; bestValue?: boolean; status?: CatalogStatus };
 // The branch's Gym Profile (Gym Hub phase 2, Gym Profile Management phase 1): the draft the gym
 // edits; members see only what was last published (publishing.state). contact.address and phone
 // come from Invoice details, hasLocation from Location & Attendance, hasLogo from the logo; photos
@@ -330,8 +338,10 @@ export const gymApi = {
   },
   service: (token: string | null, fields: { item: string; amount: number; method: PayMethod }) => call<{ payment: GymPayment }>(token, "/api/gym/services", "POST", fields),
   catalog: (token: string | null) => call<{ items: CatalogItem[] }>(token, "/api/gym/catalog"),
-  addItem: (token: string | null, item: { kind: CatalogKind; name: string; duration?: number; price: number; stock?: number | ""; details?: string }) => call<{ items: CatalogItem[] }>(token, "/api/gym/catalog", "POST", item),
-  editItem: (token: string | null, id: number, fields: { name?: string; duration?: number; price?: number; stock?: number | ""; details?: string }) => call<{ items: CatalogItem[] }>(token, `/api/gym/catalog/${id}`, "PATCH", fields),
+  addItem: (token: string | null, item: CatalogFields & { kind: CatalogKind; name: string; price: number }) => call<{ items: CatalogItem[] }>(token, "/api/gym/catalog", "POST", item),
+  editItem: (token: string | null, id: number, fields: CatalogFields) => call<{ items: CatalogItem[] }>(token, `/api/gym/catalog/${id}`, "PATCH", fields),
+  // The order one kind's items are shown in (members see plans and PT in it)
+  orderItems: (token: string | null, kind: CatalogKind, ids: number[]) => call<{ items: CatalogItem[] }>(token, "/api/gym/catalog/order", "PUT", { kind, ids }),
   deleteItem: (token: string | null, id: number) => call<{ items: CatalogItem[] }>(token, `/api/gym/catalog/${id}`, "DELETE"),
   // An item's picture (base64 and its type; the server checks both from the bytes), answered with the catalogue
   setItemImage: (token: string | null, id: number, image: { data: string; mediaType: string }) => call<{ items: CatalogItem[] }>(token, `/api/gym/catalog/${id}/image`, "PUT", { data: image.data, mediaType: image.mediaType }),
