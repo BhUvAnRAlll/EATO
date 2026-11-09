@@ -1,5 +1,5 @@
 // Pause Membership in the real Expo web build against the isolated test server and justfit_test:
-// a member opens Profile › Gym membership, asks for a pause with dates and a reason (Option A);
+// a member opens Profile › Gym Hub › their membership (Gym Hub since 2026-11-09), asks for a pause with dates and a reason (Option A);
 // the gym admin sees it on Home › Needs attention › Pause requests and approves it, which moves
 // the plan's end out by the paused days; the member then sees the pause on their card.
 // Screenshots at three widths.
@@ -162,18 +162,23 @@ describe("ui pause membership: the member's request, the gym's approval, the mem
     if (problems.length > 0) throw new Error(`cleanup incomplete: ${problems.join("; ")}`);
   });
 
-  it("1. the member's Gym membership: the plan, its dates and Pause Membership", run("membership", async () => {
+  it("1. Gym Hub › My Memberships, then the membership's page with Pause Membership", run("membership", async () => {
     await viewport(390, 844);
     await signIn(identities.member, "/home");
-    await h.goto("/profile", "Gym membership");
-    await page.clickText("Gym membership");
-    await page.waitFor(`location.pathname === "/membership"`, NAV_TIMEOUT, "Gym membership");
-    await h.expectText("Forma");
+    await h.goto("/profile", "Gym Hub");
+    await page.clickText("Gym Hub");
+    await page.waitFor(`location.pathname === "/gym-hub"`, NAV_TIMEOUT, "Gym Hub");
+    // With a membership, Gym Hub opens on My Memberships
+    await h.expectText("Check in or out");
     await h.expectText("Tumkur · SIT Road, Tumakuru");
     await h.expectText("3 months plan");
-    await h.expectText(`to ${pretty(state.until)}`);
-    await h.expectText("Pause Membership");
+    await h.expectText(`Ends ${pretty(state.until)}`);
     await snapshotAllWidths("membership");
+    await page.clickText("Tumkur · SIT Road, Tumakuru");
+    await page.waitFor(`location.pathname === "/gym-hub/${state.member}"`, NAV_TIMEOUT, "the membership's page");
+    await h.expectText("Never paused");
+    await h.expectText("Pause Membership");
+    await snapshotAllWidths("membership-page");
   }));
 
   it("2. asking for a pause: the dates, the reason, the new end date, then the request waits", run("membership-pause", async () => {
@@ -187,7 +192,7 @@ describe("ui pause membership: the member's request, the gym's approval, the mem
     await h.expectText(`7 days paused. Your plan would then end on ${pretty(rules.addDays(state.until, 7))}.`);
     await snapshotAllWidths("membership-pause");
     await page.clickText("Send pause request");
-    await page.waitFor(`location.pathname === "/membership"`, NAV_TIMEOUT, "back to Gym membership");
+    await page.waitFor(`location.pathname === "/gym-hub/${state.member}"`, NAV_TIMEOUT, "back to the membership's page");
     await h.expectText(`Pause requested for ${pretty(from)} to ${pretty(until)} (7 days). Waiting for Forma to approve.`);
     await h.expectText("Reason: Travelling for work");
     await h.expectText("Cancel request");
@@ -219,9 +224,10 @@ describe("ui pause membership: the member's request, the gym's approval, the mem
 
   it("4. the member sees the approved pause and the later end date", run("membership-paused", async () => {
     await signIn(identities.member, "/home");
-    await h.goto("/membership", "Gym membership");
+    await h.goto(`/gym-hub/${state.member}`, "Pauses");
+    await h.expectText("Paused once · 7 days added to your plan");
     await h.expectText(`Paused from ${pretty(from)} to ${pretty(until)} (7 days). Those days are added to your plan.`);
-    await h.expectText(`to ${pretty(rules.addDays(state.until, 7))}`);
+    await h.expectText(pretty(rules.addDays(state.until, 7)));
     assert.equal(await page.hasText("Pause Membership"), false, "no second request while one is open");
     await snapshotAllWidths("membership-paused");
   }));

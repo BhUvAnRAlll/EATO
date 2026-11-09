@@ -91,7 +91,7 @@ Do not introduce new major libraries unless there is a strong reason.
 
 Every Express route except the health check and the two sign-in routes verifies the caller's session token with `requireUser` (`JustFit_server/auth.js`) before doing anything. The sign-in routes are budgeted per IP address and per phone number instead.
 
-### Gym Hub, member side (2026-11-09, phases 1 and 2 of 4)
+### Gym Hub, member side (2026-11-09, phases 1 to 3 of 4)
 
 Profile's Gym membership and Gym attendance rows became one **Gym Hub** row (`/gym-hub`; a
 trainer sees "Gym check-in" instead, `/attendance`, and is kept out of `/gym-hub` and `/membership`).
@@ -128,6 +128,28 @@ file); audited `gym.edit` and on Activity. Migration `2026-12-17-gym-public-prof
 profile answers 503 naming it and the catalogue is read without details (`hasCatalogDetails`).
 Members don't see any of it yet (phase 3). Tests: `__tests__/gym-profile-rules.test.js`,
 `e2e/gym-profile.e2e.test.js`, `ui/gym-profile.ui.test.js`, the client's `lib/__tests__/gymProfile.test.ts`.
+
+**Phase 3, Discover Gyms (2026-11-09):** Gym Hub has two tabs, Discover Gyms and My Memberships
+(`macro__segment`; it opens on My Memberships when the member has one, else Discover; `?tab=`).
+Discover (`components/gymHub/DiscoverGyms.tsx`): every gym branch on justFit (the user's decision),
+a search by gym, branch, area or city (every word must match; the name counts most), Near me (asks
+for the location only when tapped, `deliveryLocation.findMe`, rounded to ~100 m before it is sent,
+never stored or logged; sorts nearest first), Filters in a `BottomSheet` (sort, "Plans from" caps
+₹1,000-5,000 a month, facilities that must all be there), cards with the cover photo, logo, place,
+distance, a few facilities and "From ₹x/month", 20 a page with Show more. A card opens
+`gym-hub/gyms/[id].tsx`: photos (paged), logo, open now (India's time), Call and Directions (the
+phone's apps; Google Maps by the map place, else the address), about, facilities, the week's hours
+(today in bold), the plans to compare (shortest first, price, a month, Best value, "Saves ₹x a month",
+what each includes), PT packages, the address and phone. No buying: "To join, visit the gym's front
+desk." Words in `lib/gymDiscover.ts`, calls in `lib/discoverApi.ts`. Server `gym/discoverRules.js`
+(pure), `gym/discover.js`, `gym/discoverRoutes.js` at `/api/gyms` behind `requireUser` and a per-user
+limit: `GET /` (`search`, `facilities`, `maxPrice`, `sort`, `lat`/`lng` inside India, `page`; anything
+else 400), `GET /:id`, `GET /:id/photos/:photoId` (the photo must belong to that gym), `GET /:id/logo`.
+Read only; a branch shows only its public profile, Invoice details' address and phone, its map place,
+the logo, and its plans and PT packages: never members, payments, staff or other catalogue items. No
+new migration (2026-12-17 is needed; before it, 503 naming it). Tests:
+`__tests__/gym-discover-rules.test.js`, `e2e/gym-discover.e2e.test.js`, `ui/gym-discover.ui.test.js`,
+the client's `lib/__tests__/gymDiscover.test.ts`; `ui/gym-pauses.ui.test.js` now goes through Gym Hub.
 
 ### Delivery addresses (2026-11-09)
 

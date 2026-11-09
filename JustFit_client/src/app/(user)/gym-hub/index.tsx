@@ -1,8 +1,8 @@
 import { useCallback, useState } from "react";
-import { ScrollView, Text, View } from "react-native";
+import { Platform, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
-import { router, useFocusEffect } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 
 import { EmptyState } from "@/components/EmptyState";
 import { FormAlert } from "@/components/FormAlert";
@@ -12,6 +12,7 @@ import { usePullToRefresh } from "@/components/PullToRefresh";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { ScreenSkeleton } from "@/components/Skeleton";
 import { SymbolView } from "@/components/SymbolView";
+import { DiscoverGyms } from "@/components/gymHub/DiscoverGyms";
 import { planProgress } from "@/lib/gymHubText";
 import { membershipApi, type Membership, type Memberships } from "@/lib/membershipApi";
 import { membershipBadge, planText, prettyDate } from "@/lib/membershipText";
@@ -19,15 +20,22 @@ import { useSessionToken } from "@/lib/session";
 import { useThemeColors } from "@/theme";
 
 type Load = { state: "loading" } | { state: "failed"; error: string } | { state: "ready"; data: Memberships };
+type Tab = "discover" | "memberships";
 
-// Profile › Gym Hub (2026-11-09; it replaced the separate Gym membership and Gym attendance rows):
-// check in at the gym, then every membership on this account's number, from any gym. A card opens
-// the membership's page (dates, payments, attendance, pauses). /membership and /attendance still
-// open as before, so older links and the gym's printed QR code keep working.
+// Profile › Gym Hub (2026-11-09; it replaced the separate Gym membership and Gym attendance rows),
+// two tabs. Discover Gyms (phase 3): every gym on justFit to search, filter and open. My
+// Memberships: check in at the gym, then every membership on this account's number, from any gym;
+// a card opens the membership's page (dates, payments, attendance, pauses). It opens on My
+// Memberships when there is one, else on Discover (?tab= picks one). /membership and /attendance
+// still open as before, so older links and the gym's printed QR code keep working.
 export default function GymHub() {
   const colors = useThemeColors();
   const getToken = useSessionToken();
   const [result, setResult] = useState<Load>({ state: "loading" });
+  const params = useLocalSearchParams<{ tab?: string }>();
+  const [picked, setPicked] = useState<Tab | null>(params.tab === "discover" || params.tab === "memberships" ? params.tab : null);
+  // Until the member picks one: My Memberships when they have any (it holds the check-in)
+  const tab: Tab | null = picked ?? (result.state === "loading" ? null : result.state === "ready" && result.data.memberships.length === 0 ? "discover" : "memberships");
 
   const load = useCallback(async () => {
     const answer = await membershipApi.mine(await getToken().catch(() => null));
@@ -44,6 +52,21 @@ export default function GymHub() {
       <SafeAreaView edges={["top"]} style={{ flex: 1 }}>
         <ScreenHeader title="Gym Hub" onBack={back} />
 
+        <View className="macro__segmented px-4" style={{ paddingBottom: 4 }} accessibilityRole="tablist">
+          {(["discover", "memberships"] as const).map((t) => (
+            <PressableScale key={t} onPress={() => setPicked(t)} haptic="select" className={tab === t ? "macro__segment macro__segment--selected" : "macro__segment"} accessibilityRole="tab" accessibilityState={{ selected: tab === t }} accessibilityLabel={t === "discover" ? "Discover Gyms" : "My Memberships"}>
+              <Text className={tab === t ? "macro__segment-label macro__segment-label--selected" : "macro__segment-label"}>{t === "discover" ? "Discover Gyms" : "My Memberships"}</Text>
+            </PressableScale>
+          ))}
+        </View>
+
+        {tab === null ? (
+          <View className="p-4"><ScreenSkeleton cards={2} label="Loading Gym Hub" /></View>
+        ) : tab === "discover" ? (
+          <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 48 }} keyboardShouldPersistTaps="handled" keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"} showsVerticalScrollIndicator={false}>
+            <DiscoverGyms />
+          </ScrollView>
+        ) : (
         <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 48, gap: 16 }} refreshControl={refreshControl} showsVerticalScrollIndicator={false}>
           {/* Check in and out with the gym's QR code (the scanner every gym member uses) */}
           <PressableScale onPress={() => router.push("/attendance")} haptic="tap" className="card flex-row items-center" style={{ gap: 12 }} accessibilityRole="button" accessibilityLabel="Check in or out at your gym" accessibilityHint="Opens the scanner for the QR code at the gym's entrance">
@@ -76,6 +99,7 @@ export default function GymHub() {
             result.data.memberships.map((m) => <MembershipCard key={m.id} membership={m} today={result.data.today} />)
           )}
         </ScrollView>
+        )}
       </SafeAreaView>
     </View>
   );
