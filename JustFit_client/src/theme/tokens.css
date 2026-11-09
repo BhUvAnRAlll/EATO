@@ -76,6 +76,11 @@
   --color-icon-green: #2f8f57;
   --color-icon-peach: #c25400;
   --color-icon-lavender: #7c5cd6;
+  /* The Meals tab's quick tiles (Non-Veg, Combos; 2026-11-10 design) */
+  --color-tint-rose: #fdebe7;
+  --color-icon-rose: #e5482b;
+  --color-tint-yellow: #fff3d6;
+  --color-icon-yellow: #e09b00;
 
   /* Fitness program cards: gradient from / to (theme/index.ts programGradients) */
   --color-program-lavender-from: #8b7cf6;

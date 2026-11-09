@@ -11,10 +11,12 @@ type BrandWordmarkProps = {
   width?: number;
   // Larger tagline, for onboarding
   large?: boolean;
+  // false: the logo alone (the Meals tab's header)
+  tagline?: boolean;
 };
 
 // The justFit logo with the "BALANCED MEALS • STRONGER YOU" tagline
-export function BrandWordmark({ width = 96, large = false }: BrandWordmarkProps) {
+export function BrandWordmark({ width = 96, large = false, tagline = true }: BrandWordmarkProps) {
   return (
     <View>
       <Image
@@ -23,9 +25,9 @@ export function BrandWordmark({ width = 96, large = false }: BrandWordmarkProps)
         contentFit="contain"
         style={{ width, height: width / WORDMARK_RATIO }}
       />
-      <Text className={large ? "brand__tagline brand__tagline--lg mt-1" : "brand__tagline mt-1"}>
+      {tagline && <Text className={large ? "brand__tagline brand__tagline--lg mt-1" : "brand__tagline mt-1"}>
         Balanced meals <Text className="brand__tagline-dot">•</Text> Stronger you
-      </Text>
+      </Text>}
     </View>
   );
 }

@@ -18,16 +18,18 @@ import { useAuthStore } from "@/store/auth";
 import { useSwitchColors, useThemeColors } from "@/theme";
 import type { Icon } from "@/types/profile";
 
-type Link = { label: string; line: string; href: "/admin/meals/categories" | "/admin/meals/banners" | "/admin/meals/coupons" | "/admin/meals/times"; icon: Icon };
+type Link = { label: string; line: string; href: "/admin/kitchens" | "/admin/meal-ops" | "/admin/meals/categories" | "/admin/meals/banners" | "/admin/meals/coupons" | "/admin/meals/times"; icon: Icon };
 const LINKS: Link[] = [
+  { label: "Kitchens", line: "Where meals are cooked: hours, pincodes, staff", href: "/admin/kitchens", icon: { ios: "frying.pan", android: "skillet", web: "skillet" } },
+  { label: "Meal operations", line: "The day's orders, revenue and kitchens", href: "/admin/meal-ops", icon: { ios: "chart.bar", android: "bar_chart", web: "bar_chart" } },
   { label: "Categories", line: "Tiles and food categories on the Meals tab", href: "/admin/meals/categories", icon: { ios: "square.grid.2x2", android: "grid_view", web: "grid_view" } },
   { label: "Banners", line: "The big carousel, with dates", href: "/admin/meals/banners", icon: { ios: "photo.on.rectangle", android: "view_carousel", web: "view_carousel" } },
   { label: "Coupons", line: "Codes members apply at checkout", href: "/admin/meals/coupons", icon: { ios: "tag", android: "sell", web: "sell" } },
   { label: "Delivery times", line: "Breakfast, lunch and dinner", href: "/admin/meals/times", icon: { ios: "clock", android: "schedule", web: "schedule" } },
 ];
 
-// Super Admin › Orders › Meals: the menu and everything around it. The four links (categories,
-// banners, coupons, delivery times), Add Meal, then every meal: tap to edit, the switch shows or
+// Super Admin › Orders › Meals: the menu and everything around it. The links (kitchens, meal
+// operations, categories, banners, coupons, delivery times), Add Meal, then every meal: tap to edit, the switch shows or
 // hides it on the menu, the bin deletes it (orders already placed keep their copy).
 export default function AdminMeals() {
   const colors = useThemeColors();

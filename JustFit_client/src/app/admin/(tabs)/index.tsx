@@ -113,6 +113,15 @@ function Ready({ data, now }: { data: AdminOverview; now: number }) {
         ))}
       </View>
 
+      <Pressable onPress={() => router.push("/admin/meal-ops")} className="card flex-row items-center" style={{ gap: 12 }} accessibilityRole="button" accessibilityLabel="Meal operations: today's orders, revenue and kitchens">
+        <View className="admin-row__icon"><SymbolView name={icons.meals} size={18} tintColor={colors.forestInk} /></View>
+        <View className="min-w-0 flex-1">
+          <Text className="card__title">Meal operations</Text>
+          <Text className="meta-text">{"Today's orders, revenue and kitchens"}</Text>
+        </View>
+        <SymbolView name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }} size={14} tintColor={colors.muted} />
+      </Pressable>
+
       <Text className="setup__section">Recent admin activity</Text>
       {activity.length === 0 ? (
         <DashedBlock icon={icons.history} title="No admin activity yet" text="Publishing, editing and deleting promotions show up here." />

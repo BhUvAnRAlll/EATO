@@ -38,7 +38,7 @@ Main areas of the app:
 
 - **Onboarding**: welcome → sign up → setup: personal details (name, date of birth for the age, height, gender, weight, phone) → body composition (optional: Scan Body, instructions, two photos; no typed body fat %) → goal → activity and health conditions → food → meals per day → calculated targets. No pincode step yet. Workout frequency, type and time were removed from setup on 2026-11-09 (the user's choice): the AI Coach intake asks them in more detail, its goal is pre-filled from setup's (`coach/validate.js` `prefillFrom`), and the workout engine falls back to 3 days without them; the `profiles.workout_*` columns stay and older answers are still read
 - **Home**: calorie ring, today's deliveries, streak, XP
-- **Food**: the Meals tab (menu), meal detail, cart and checkout (test payment), my orders and an order's steps; the Super Admin's Orders tab, meals and delivery times (see "Meal ordering")
+- **Food**: the Meals tab (menu), meal detail, cart and checkout (Razorpay-shaped test payment), my orders and an order's steps; the Super Admin's Orders tab, meals and delivery times (see "Meal ordering")
 - **Subscribe**: plan picker, subscription builder, review, my subscription (skip days, wallet credit)
 - **Nutrition**: food diary, water and supplement tracking, add food, barcode scan, photo scan, weight log
 - **Training**: workout plans, active workout, summary, exercise library, cardio, progress charts. Since 2026-11-01 the Workout hub is the Workout tab (`app/(user)/(tabs)/workout.tsx`, route `/workout`), in the slot Community had; its day, session, preferences and rebuild screens stay under `app/(user)/workout/`
@@ -264,25 +264,35 @@ and saving answers 503 naming it. Tests: `__tests__/gym-crowd-rules.test.js`,
 
 The Super Admin is the menu, the kitchen and the delivery person (the user's choice). Members order
 one meal time (breakfast, lunch or dinner) on one day, today to 6 days ahead; each meal time closes
-2 hours before it starts; payment is a test payment until a gateway is added (no money is taken).
+2 hours before it starts; payment follows Razorpay's flow with a dummy gateway until Razorpay is set up
+(no money is taken; see Payments below).
 The Meals module is green (`meal-*` tokens and utilities); the user chose green app-wide the same day.
 
-- **Meals tab (redesigned the same day from the user's Swiggy/Zomato brief):** `(tabs)/meals.tsx`
+- **Meals tab (rebuilt 2026-11-10 from the user's three-phone design; white page):** `(tabs)/meals.tsx`
   reads one storefront (`GET /api/meals/storefront`, kept a minute in `store/storefront.ts`): the
-  logo, Meals, the delivery address pill, Orders and the cart with its count; search by meal,
-  cuisine or ingredient with suggestions and Veg only (vegetarian and vegan); the admin's tiles; the
-  banner carousel (`BannerCarousel`, 5 s, never with Reduce Motion); a row of cards per featured food
+  logo (no tagline), the bell (`/notifications`) and the cart with its count (My orders is on
+  Profile); Meals and "Nutritious meals for your fitness goals"; the Order Meals | Meal Subscription
+  switch (`shop-switch`; Meal Subscription says it's coming until phase 5 of `MEAL-OPERATIONS-PLAN.md`);
+  the Deliver to card (Home · area, city; the pencil opens the address book); search by meal, cuisine
+  or ingredient with suggestions and the filter button (`MealFilterSheet`: one diet, a sort; a dot
+  when on); five quick tiles (High Protein, Low Calorie ≤ 400 kcal, Veg, Non-Veg (egg too), Combos:
+  a category named like "Combos" or meals called combo / thali; `quickList`); the banner carousel
+  (`BannerCarousel`: green fading into the photo, Order Now →; 5 s, never with Reduce Motion);
+  Popular Meals (bestsellers, then specials, then the menu; `popularMeals`); the admin's tiles as
+  Collections; a row of cards per featured food
   category ("Meal Bowls"); the food categories as circles; Today's specials (tagged, or discounted);
   High protein (tagged or 25 g and over, with "x% of your protein left today" from Home's targets);
   Offers (today's coupons, Apply keeps the code in `store/cart.ts`); then All meals. Pieces in
   `components/meals/ShopParts.tsx` (`MealCard`, `CategoryTile`, `FoodCircle`, `CouponCard`,
-  `SectionTitle`), sections from `lib/mealRules.ts` `shopSections` / `searchMeals` / `suggestions`
-  (pure, unit-tested). `(user)/meals/browse.tsx` (`?category=`, `?tag=`, `?list=specials|high_protein`)
+  `SectionTitle`, `QuickTile`; cards: one green badge (a deal, Bestseller…, else Veg / Non-veg),
+  "430 kcal | P 38g C 42g F 12g", Add + or an outlined − n +), sections from `lib/mealRules.ts`
+  `shopSections` / `searchMeals` / `suggestions` / `quickList` / `sortMeals` (pure, unit-tested).
+  `(user)/meals/browse.tsx` (`?category=`, `?tag=`, `?list=popular|specials|high_protein|low_calorie|veg|non_veg|combos`)
   lists one of them two a row with Veg only and a sort. A meal (`meals/[id].tsx`): photo, tags,
   price with the struck original and % off, serving, description, kcal and macros, ingredients,
   favourite, Add to cart / − n +. The cart (`meals/cart.tsx`): meals, Delivery day, Meal time (open
   ones only), the address (`/addresses?pick=1`), a coupon (code box or applied, the saving or why
-  not, from `POST /api/orders/quote`), the bill, Test payment, Pay (one `clientId` per order). My
+  not, from `POST /api/orders/quote`), the bill, Pay (one `clientId` per order, kept until paid). My
   orders and an order (`orders/[id].tsx`, steps, the coupon line, Cancel while only placed). Home's
   Today card shows today's real delivery. A member with no delivery address first sees Access Location
   (`components/meals/AccessLocation.tsx`, the user's reference in green: a drawn map with the pin,
@@ -328,7 +338,57 @@ The Meals module is green (`meal-*` tokens and utilities); the user chose green 
   `client_id`, subtotal, discount, coupon, test payment and cancel columns;
   `macro_meal_logs.source` adds `order`; `admin_audit_log.target_type` adds `meal`, `order`); before
   it these routes answer 503 naming it (Home still reads).
-- **Not built:** real payments (PhonePe was the pick), push notifications for a step, delivery fees,
+- **Payments (2026-11-10, the user's request: the dummy built the way Razorpay will be):** Pay →
+  `POST /api/orders` saves the order as `awaiting_payment` and answers `checkout` (Razorpay's checkout
+  options: key id, `order_…`, amount in paise; never a secret) after `payments/service.openPayment`
+  makes the gateway order (`meal_payments`). `components/meals/PaymentCheckout.tsx` is the dummy's
+  checkout (UPI, card, netbanking, wallet; Pay or "Try a failed payment"; "Test mode: no money is
+  taken"): `POST /api/orders/gateway/dummy/checkout` plays Razorpay's servers and answers
+  `razorpay_payment_id`, `razorpay_order_id`, `razorpay_signature` (HMAC-SHA256 of "order|payment"
+  with a key HKDF'd from `AUTH_SECRET`, label `justfit-dummy-payments`) or Razorpay's failure shape.
+  `POST /api/orders/:id/verify-payment` checks the signature (constant time, the payment row locked)
+  and only then marks it paid and the order `placed` (`payment_ref` = the payment id); a forged one is
+  a 400 and `payment.bad_signature`. A closed checkout → `POST /api/orders/:id/payment-failed`.
+  Unpaid orders are cancelled by the system after 15 minutes (`cancelled_by = 'system'`), and a new
+  Pay cancels the member's other unpaid order (so a coupon's use is never held); a payment confirmed
+  late still places the order while its meal time is open, else it is kept as paid and the member is
+  told it will be refunded. Members and the kitchen never list an unpaid order. Rules in
+  `payments/rules.js` (pure), gateways in `payments/providers.js` (`PAYMENT_PROVIDER` dummy | razorpay;
+  Razorpay needs `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET`, checked at startup, orders made over its
+  REST API). Going live: those keys, `react-native-razorpay` (approval, rebuild) in place of the
+  dummy branch of `PaymentCheckout`, refunds and the `payment.captured` webhook (not built). 60
+  payment calls an hour (`MEAL_PAYMENTS_PER_HOUR`). Migration `2026-12-28-meal-payments.sql`
+  (status `awaiting_payment`, `cancelled_by` `system`, `payment_method` dummy / razorpay, table
+  `meal_payments`; `SCHEMA_TABLE_COUNT` 80); before it Pay places the order at once with the old
+  test payment. Tests: `__tests__/payment-rules.test.js`, `e2e/meals.e2e.test.js` (8b).
+- **Kitchens and Meal operations (2026-11-10, Meal Operations phase 1 of `MEAL-OPERATIONS-PLAN.md`;
+  the user's choice: no kitchen or rider logins yet, the Super Admin does it all):** Super Admin ›
+  Overview's Meal operations card, the Orders tab's Dashboard and Meals › Kitchens / Meal operations.
+  `app/admin/meal-ops.tsx`: one India day (‹ ›, a year back to six days ahead): orders by step
+  (New, Preparing, Out for delivery, Delivered, Cancelled), Delayed (open after its meal time ended,
+  red), revenue from orders paid that day, by meal time, kitchens by status with the active ones'
+  orders a day and today's load, the next six days' scheduled orders, and Export (the day's paid
+  orders as Excel, `exportOrdersReport`, shared on a phone, downloaded on the web).
+  `app/admin/kitchens/` (index: status chips with counts, search by name, area, city or a served
+  pincode; `new.tsx`, `[id]/edit.tsx` with `components/admin/KitchenForm.tsx`: photo, name, contact
+  and number, email, address, the map point from the phone, one opening and closing time and closed
+  days (`lib/kitchenRules.ts`, pure), served pincodes typed with commas, orders a day, meals a meal
+  time, radius; `[id]/index.tsx`: status with Change status (a reason for anything but Active, from
+  `STATUS_REASONS`), contact with Call and Directions, hours and capacity, pincodes, the staff
+  roster (`KitchenStaffSheet`: name, number, Kitchen manager / Chef / Preparation staff, available,
+  note)). Server `kitchens/` (`rules.js` pure, `service.js`, `routes.js` mounted inside
+  `/api/admin/kitchen`, so `adminOnly`): `GET /dashboard?day=`, `GET /report?day=&format=xlsx|csv`
+  (30 an hour; CSV cells that start like a formula get an apostrophe), `GET|POST /kitchens`,
+  `GET|PUT /kitchens/:id`, `GET /kitchens/:id/photo` (admins only, `meals/photos.js`, 2 MB),
+  `POST /kitchens/:id/status`, `POST /kitchens/:id/staff`, `PUT|DELETE /kitchens/:id/staff/:staffId`
+  (changes 120 an hour, `KITCHEN_CHANGES_PER_HOUR`; audited `kitchen.*`, target `kitchen`). Codes
+  `KIT-0001` come from the id. Orders are not tied to kitchens yet (phase 3), so there is no
+  kitchen filter; delivery partners, subscriptions and stock are null until their phases. Migration
+  `2026-12-30-kitchens.sql` (`kitchens`, `kitchen_pincodes`, `kitchen_staff`; audit target
+  `kitchen`; `SCHEMA_TABLE_COUNT` 83); before it these routes answer 503 naming it. Tests:
+  `__tests__/kitchen-rules.test.js`, `e2e/kitchens.e2e.test.js`, the client's
+  `lib/__tests__/kitchenRules.test.ts`.
+- **Not built:** Razorpay itself (keys, the native checkout, refunds, webhook), push notifications for a step, delivery fees,
   subscriptions, gym-specific menus (the user chose one justFit menu run by the Super Admin). Tests:
   `__tests__/meal-rules.test.js`, `meal-catalog-rules.test.js`, `e2e/meals.e2e.test.js`, the client's
   `lib/__tests__/mealRules.test.ts`.

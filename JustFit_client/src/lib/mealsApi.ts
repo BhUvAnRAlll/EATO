@@ -105,10 +105,10 @@ export type Order = {
   subtotal: number;
   discount: number;
   couponCode: string | null;
-  payment: { method: "test"; ref: string } | null;
+  payment: { method: "test" | "dummy" | "razorpay"; ref: string | null } | null;
   address: { receiverName: string | null; receiverPhone: string | null; line: string | null; pincode: string; latitude: number | null; longitude: number | null; instructions: string | null };
   cancelReason: string | null;
-  cancelledBy: "member" | "admin" | null;
+  cancelledBy: "member" | "admin" | "system" | null;
   deliveredAt: string | null;
   createdAt: string;
   items: OrderItem[];
@@ -116,6 +116,21 @@ export type Order = {
   memberName?: string | null;
 };
 export type CartItem = { mealId: string; quantity: number };
+// What Pay answers while the order waits for payment: Razorpay's checkout options (nothing secret)
+export type CheckoutOptions = {
+  provider: "dummy" | "razorpay";
+  key: string;
+  order_id: string;
+  amount: number; // paise
+  currency: string;
+  name: string;
+  description: string;
+  prefill: { contact: string | null; name: string | null };
+  theme: { color: string };
+};
+// What a successful checkout hands back, as Razorpay names it
+export type PaymentSuccess = { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string };
+export type PaymentMethod = "upi" | "card" | "netbanking" | "wallet";
 export type NewOrder = { clientId: string; addressId: number; date: string; slot: MealSlot; items: CartItem[]; couponCode?: string };
 
 const signedOut = <T,>(): Promise<ApiResult<T>> => Promise.resolve({ ok: false, error: "Please sign in again.", status: 401 });
@@ -147,7 +162,18 @@ export const mealsApi = {
   storefront: (token: string | null) => call<Storefront>(token, "/api/meals/storefront"),
   options: (token: string | null) => call<OrderOptions>(token, "/api/orders/options"),
   quote: (token: string | null, items: CartItem[], couponCode?: string) => call<Quote>(token, "/api/orders/quote", { method: "POST", body: { items, ...(couponCode ? { couponCode } : {}) } }),
-  place: (token: string | null, order: NewOrder) => call<{ order: Order; repeated: boolean }>(token, "/api/orders", { method: "POST", body: order }),
+  place: (token: string | null, order: NewOrder) => call<{ order: Order; checkout: CheckoutOptions | null; repeated: boolean }>(token, "/api/orders", { method: "POST", body: order }),
+  // The server checks the signature, then the order is placed
+  verifyPayment: (token: string | null, id: string, paid: PaymentSuccess) =>
+    call<{ order: Order; alreadyPaid: boolean }>(token, `/api/orders/${encodeURIComponent(id)}/verify-payment`, { method: "POST", body: paid }),
+  paymentFailed: (token: string | null, id: string, providerOrderId: string, reason: string) =>
+    call<{ recorded: boolean }>(token, `/api/orders/${encodeURIComponent(id)}/payment-failed`, { method: "POST", body: { razorpay_order_id: providerOrderId, reason } }),
+  // The dummy gateway (stands in for Razorpay's servers; no money moves)
+  dummyCheckout: (token: string | null, providerOrderId: string, method: PaymentMethod, outcome: "success" | "failure") =>
+    call<({ status: "captured" } & PaymentSuccess) | { status: "failed"; error: { code: string; description: string; reason: string } }>(token, "/api/orders/gateway/dummy/checkout", {
+      method: "POST",
+      body: { razorpay_order_id: providerOrderId, method, outcome },
+    }),
   orders: (token: string | null) => call<{ orders: Order[] }>(token, "/api/orders"),
   order: (token: string | null, id: string) => call<{ order: Order }>(token, `/api/orders/${encodeURIComponent(id)}`),
   cancel: (token: string | null, id: string) => call<{ order: Order }>(token, `/api/orders/${encodeURIComponent(id)}/cancel`, { method: "POST", body: {} }),

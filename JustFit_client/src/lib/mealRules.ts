@@ -4,7 +4,7 @@
 
 export type Diet = "vegetarian" | "non-vegetarian" | "eggetarian" | "vegan";
 export type MealSlot = "breakfast" | "lunch" | "dinner";
-export type OrderStatus = "placed" | "preparing" | "out_for_delivery" | "delivered" | "cancelled";
+export type OrderStatus = "awaiting_payment" | "placed" | "preparing" | "out_for_delivery" | "delivered" | "cancelled";
 
 export const MEAL_SLOTS: MealSlot[] = ["breakfast", "lunch", "dinner"];
 export const ORDER_STEPS: OrderStatus[] = ["placed", "preparing", "out_for_delivery", "delivered"];
@@ -21,6 +21,7 @@ export const SLOT_LABEL: Record<string, string> = { breakfast: "Breakfast", lunc
 
 // What the member reads for each step
 export const STATUS_LABEL: Record<OrderStatus, string> = {
+  awaiting_payment: "Awaiting payment",
   placed: "Order placed",
   preparing: "Preparing",
   out_for_delivery: "On the way",
@@ -196,4 +197,67 @@ export function shopSections<M extends ShopMeal, C extends ShopCategory>(meals: 
     specials: specials.length > 0 ? specials : shown.filter((m) => m.tags.includes("bestseller")),
     highProtein: shown.filter((m) => m.tags.includes("high_protein") || m.proteinG >= HIGH_PROTEIN_G).sort((a, b) => b.proteinG - a.proteinG).slice(0, 12),
   };
+}
+
+// ---- The Meals tab's quick lists and sort (2026-11-10 rebuild from the user's design) ----
+
+export const LOW_CALORIE_KCAL = 400; // a meal at or under this many kcal counts as low calorie
+export type QuickList = "popular" | "specials" | "high_protein" | "low_calorie" | "veg" | "non_veg" | "combos";
+export const QUICK_LIST_TITLE: Record<QuickList, string> = {
+  popular: "Popular meals",
+  specials: "Today's specials",
+  high_protein: "High protein",
+  low_calorie: "Low calorie",
+  veg: "Veg meals",
+  non_veg: "Non-veg meals",
+  combos: "Combos",
+};
+export const QUICK_LIST_SUBTITLE: Partial<Record<QuickList, string>> = {
+  specials: "Popular picks and deals",
+  high_protein: "Most protein first",
+  low_calorie: `${LOW_CALORIE_KCAL} kcal or less, lightest first`,
+  combos: "Thalis and meal combos",
+};
+export const isQuickList = (value: string | undefined): value is QuickList => !!value && Object.prototype.hasOwnProperty.call(QUICK_LIST_TITLE, value);
+
+/** Bestsellers first, then today's specials, then the rest of the menu, at most `max` */
+export function popularMeals<M extends ShopMeal>(meals: M[], max = 12): M[] {
+  const rank = (m: M) => (m.tags.includes("bestseller") ? 0 : m.tags.includes("special") || (m.mrp !== null && m.mrp > m.price) ? 1 : 2);
+  return meals.map((m, i) => ({ m, i })).sort((a, b) => rank(a.m) - rank(b.m) || a.i - b.i).slice(0, max).map((x) => x.m);
+}
+
+/** One quick list from the menu: the tiles under the search and each section's See all */
+export function quickList<M extends ShopMeal & { calories: number }, C extends ShopCategory>(meals: M[], categories: C[], list: QuickList): M[] {
+  const sections = shopSections(meals, categories, false);
+  if (list === "popular") return popularMeals(meals, meals.length);
+  if (list === "specials") return sections.specials;
+  if (list === "high_protein") return sections.highProtein;
+  if (list === "low_calorie") return meals.filter((m) => m.calories <= LOW_CALORIE_KCAL).sort((a, b) => a.calories - b.calories);
+  if (list === "veg") return meals.filter((m) => isVeg(m.diet));
+  if (list === "non_veg") return meals.filter((m) => m.diet === "non-vegetarian" || m.diet === "eggetarian");
+  // Combos: meals in a category named like "Combos", and meals called a combo or a thali
+  const inCombos = new Set(categories.filter((c) => /combo/i.test(c.name)).flatMap((c) => c.mealIds));
+  return meals.filter((m) => inCombos.has(m.id) || /\b(combo|thali)\b/i.test(m.name));
+}
+
+export type MealSort = "recommended" | "protein" | "calories" | "price";
+export const MEAL_SORTS: { value: MealSort; label: string }[] = [
+  { value: "recommended", label: "Recommended" },
+  { value: "protein", label: "Most protein" },
+  { value: "calories", label: "Fewest kcal" },
+  { value: "price", label: "Price: low to high" },
+];
+
+/** The meals in the chosen order (a copy; "recommended" keeps the menu's order) */
+export function sortMeals<M extends { price: number; proteinG: number; calories: number }>(meals: M[], sort: MealSort): M[] {
+  const list = [...meals];
+  if (sort === "price") list.sort((a, b) => a.price - b.price);
+  if (sort === "protein") list.sort((a, b) => b.proteinG - a.proteinG);
+  if (sort === "calories") list.sort((a, b) => a.calories - b.calories);
+  return list;
+}
+
+/** The menu narrowed to one diet (null = every meal) */
+export function byDiet<M extends { diet: Diet }>(meals: M[], diet: Diet | null): M[] {
+  return diet ? meals.filter((m) => m.diet === diet) : meals;
 }

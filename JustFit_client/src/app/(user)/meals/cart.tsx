@@ -10,6 +10,7 @@ import { FieldInput } from "@/components/FieldInput";
 import { FormAlert } from "@/components/FormAlert";
 import { KeyboardAvoider } from "@/components/KeyboardAvoider";
 import { LoadError } from "@/components/macro/LoadError";
+import { PaymentCheckout, type CheckoutResult } from "@/components/meals/PaymentCheckout";
 import { QuantityStepper } from "@/components/meals/QuantityStepper";
 import { PressableScale } from "@/components/PressableScale";
 import { PrimaryButton } from "@/components/PrimaryButton";
@@ -22,7 +23,7 @@ import { newId } from "@/lib/analytics";
 import { haptic } from "@/lib/haptics";
 import { hud } from "@/lib/hud";
 import { MEAL_SLOTS, SLOT_LABEL, cartTotals, closesAtText, dayLabel, rupees, timeRange, type MealSlot } from "@/lib/mealRules";
-import { mealImage, mealsApi, type MenuMeal, type OrderOptions, type Quote } from "@/lib/mealsApi";
+import { mealImage, mealsApi, type CheckoutOptions, type MenuMeal, type Order, type OrderOptions, type Quote } from "@/lib/mealsApi";
 import { useAddressBook } from "@/lib/useAddressBook";
 import { useSessionToken } from "@/lib/session";
 import { useAuthStore } from "@/store/auth";
@@ -32,8 +33,11 @@ import { useThemeColors } from "@/theme";
 type Load = { state: "loading" } | { state: "failed"; error: string } | { state: "ready"; menu: MenuMeal[]; options: OrderOptions };
 
 // The cart and checkout: the meals (− n +), the delivery day and meal time (only open ones; orders
-// close 2 hours before the meal time), the address, the bill and a test payment. Pay places the
-// order once (a retry sends the same request id) and opens it.
+// close 2 hours before the meal time), the address, the bill and the payment. Pay is Razorpay's
+// flow (2026-11-10): the server saves the order as awaiting payment and answers with the checkout's
+// options, the checkout pays (the dummy's for now, no money taken), and the server checks the
+// payment's signature before the order is placed. A retry sends the same request id, so it reopens
+// the same order's checkout instead of making a second order.
 export default function Cart() {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
@@ -57,6 +61,8 @@ export default function Cart() {
   // One request id per order: a Pay tapped again after a lost answer places nothing new
   const clientId = useRef(newId());
   const running = useRef(false);
+  // The checkout open for an order waiting for payment
+  const [checkout, setCheckout] = useState<{ orderId: string; options: CheckoutOptions } | null>(null);
 
   const read = useCallback(async () => {
     const t = await getToken();
@@ -114,14 +120,20 @@ export default function Cart() {
 
   const ready = available.length > 0 && gone.length === 0 && !!date && !!slot && !!address?.deliverable && !couponProblem && (!couponCode || couponOk);
 
+  // Paid and placed: a new request id for the next order, an empty cart, and the order's page
+  const placed = (order: Order) => {
+    clientId.current = newId();
+    clear();
+    hud.success("Paid · order placed");
+    router.replace({ pathname: "/orders/[id]", params: { id: order.id } });
+  };
+
   const pay = async () => {
     if (!ready || running.current || !address || !date || !slot) return;
     running.current = true;
     setPaying(true);
     setError("");
     haptic.tap();
-    // The test payment: a short pause standing in for the gateway, then the order
-    await new Promise((resolve) => setTimeout(resolve, 900));
     const answer = await mealsApi.place(await getToken(), {
       clientId: clientId.current,
       addressId: address.id,
@@ -134,14 +146,47 @@ export default function Cart() {
     setPaying(false);
     if (!answer.ok) {
       setError(answer.error);
-      if (answer.status === 409) read(); // a meal time closed or a meal left the menu
+      if (answer.status === 409) {
+        read(); // a meal time closed or a meal left the menu
+        clientId.current = newId(); // or this checkout expired: the next Pay is a new order
+      }
       return;
     }
-    clientId.current = newId();
-    clear();
-    hud.success("Order placed");
-    router.replace({ pathname: "/orders/[id]", params: { id: answer.data.order.id } });
+    // No checkout: placed already (before the payments migration, or paid on an earlier try)
+    if (!answer.data.checkout) {
+      if (answer.data.order.status === "cancelled") {
+        clientId.current = newId();
+        return setError("That order was cancelled. Tap Pay to place it again.");
+      }
+      return placed(answer.data.order);
+    }
+    setCheckout({ orderId: answer.data.order.id, options: answer.data.checkout });
   };
+
+  // The checkout's answer: a payment is only trusted once the server has checked its signature
+  const checkoutDone = useCallback(async (result: CheckoutResult) => {
+    const open = checkout;
+    setCheckout(null);
+    if (!open) return;
+    if (!result.ok) {
+      // Razorpay reports a closed or failed checkout to the app only: tell the server, keep the order waiting
+      if (result.cancelled) mealsApi.paymentFailed(await getToken(), open.orderId, open.options.order_id, "Checkout closed");
+      setError(result.cancelled ? "Payment cancelled. Tap Pay to try again." : result.reason);
+      return;
+    }
+    running.current = true;
+    setPaying(true);
+    const verified = await mealsApi.verifyPayment(await getToken(), open.orderId, result.paid);
+    running.current = false;
+    setPaying(false);
+    if (!verified.ok) {
+      setError(verified.error);
+      if (verified.status === 409) clientId.current = newId(); // that order is closed: Pay makes a new one
+      return;
+    }
+    placed(verified.data.order);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [checkout, getToken]);
 
   const empty = Object.keys(items).length === 0;
 
@@ -333,8 +378,8 @@ export default function Cart() {
               <View className="card flex-row" style={{ gap: 12 }}>
                 <View className="meal-icon"><SymbolView name={{ ios: "creditcard", android: "credit_card", web: "credit_card" }} size={18} tintColor={colors.mealDark} /></View>
                 <View className="flex-1">
-                  <Text className="card__title">Test payment</Text>
-                  <Text className="meta-text">Online payment is coming soon. For now Pay places your order without taking any money.</Text>
+                  <Text className="card__title">UPI, card, netbanking or wallet</Text>
+                  <Text className="meta-text">Payments are in test mode: Pay opens a test checkout and no money is taken.</Text>
                 </View>
               </View>
               {error ? <FormAlert message={error} /> : null}
@@ -343,7 +388,7 @@ export default function Cart() {
               {paying ? (
                 <View className="meal-btn" accessibilityLiveRegion="polite">
                   <ActivityIndicator size="small" color={colors.onPrimary} />
-                  <Text className="btn-forest__label">Paying…</Text>
+                  <Text className="btn-forest__label">Processing…</Text>
                 </View>
               ) : (
                 <PrimaryButton tone="meal" label={`Pay ${rupees(toPay)}`} onPress={pay} disabled={!ready} />
@@ -352,6 +397,7 @@ export default function Cart() {
           </KeyboardAvoider>
         )}
       </SafeAreaView>
+      {checkout && <PaymentCheckout options={checkout.options} onDone={checkoutDone} />}
     </View>
   );
 }

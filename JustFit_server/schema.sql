@@ -264,6 +264,68 @@ CREATE TABLE favorite_meals (
 ) ENGINE = InnoDB;
 
 -- ---------------------------------------------------------------------------
+-- Kitchens (Meal Operations phase 1, 2026-11-10): run by the Super Admin; members never see them
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE kitchens (
+  id                 INT UNSIGNED  NOT NULL AUTO_INCREMENT,    -- shown as KIT-0001
+  name               VARCHAR(80)   NOT NULL,
+  contact_name       VARCHAR(60)   NOT NULL,
+  phone              CHAR(10)      NOT NULL,
+  email              VARCHAR(120)  NULL,
+  address            VARCHAR(200)  NOT NULL,
+  area               VARCHAR(60)   NULL,
+  city               VARCHAR(40)   NOT NULL,
+  pincode            CHAR(6)       NOT NULL,
+  latitude           DECIMAL(9,6)  NULL,
+  longitude          DECIMAL(9,6)  NULL,
+  opening_hours      JSON          NOT NULL,                   -- { mon: [["06:00","22:00"]], …, sun: [] }
+  max_daily_orders   SMALLINT UNSIGNED NOT NULL,
+  prep_capacity      SMALLINT UNSIGNED NOT NULL,               -- meals it can make for one meal time
+  radius_km          DECIMAL(4,1)  NOT NULL,
+  status             ENUM('active', 'inactive', 'temporarily_closed', 'maintenance') NOT NULL DEFAULT 'active',
+  status_note        VARCHAR(200)  NULL,
+  status_changed_at  TIMESTAMP     NULL,
+  image_key          VARCHAR(64)   NULL,                       -- a photo the admin uploaded (meals/photos.js)
+  created_by         VARCHAR(64)   NULL,
+  created_at         TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at         TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_kitchens_name (name),
+  KEY idx_kitchens_status (status),
+  CONSTRAINT fk_kitchens_creator FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL,
+  CONSTRAINT chk_kitchens_pincode CHECK (pincode REGEXP '^[1-9][0-9]{5}$'),
+  CONSTRAINT chk_kitchens_phone CHECK (phone REGEXP '^[6-9][0-9]{9}$')
+) ENGINE = InnoDB;
+
+-- The pincodes a kitchen delivers to (a pincode may be served by several kitchens)
+CREATE TABLE kitchen_pincodes (
+  kitchen_id  INT UNSIGNED NOT NULL,
+  pincode     CHAR(6)      NOT NULL,
+  PRIMARY KEY (kitchen_id, pincode),
+  KEY idx_kitchen_pincodes_pincode (pincode),
+  CONSTRAINT fk_kitchen_pincodes_kitchen FOREIGN KEY (kitchen_id) REFERENCES kitchens (id) ON DELETE CASCADE,
+  CONSTRAINT chk_kitchen_pincodes_pincode CHECK (pincode REGEXP '^[1-9][0-9]{5}$')
+) ENGINE = InnoDB;
+
+-- The kitchen's people: managers, chefs and preparation staff (a roster; they don't sign in)
+CREATE TABLE kitchen_staff (
+  id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  kitchen_id  INT UNSIGNED NOT NULL,
+  name        VARCHAR(60)  NOT NULL,
+  phone       CHAR(10)     NOT NULL,
+  role        ENUM('manager', 'chef', 'prep') NOT NULL,
+  available   TINYINT(1)   NOT NULL DEFAULT 1,
+  note        VARCHAR(120) NULL,
+  created_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_kitchen_staff_phone (kitchen_id, phone),
+  CONSTRAINT fk_kitchen_staff_kitchen FOREIGN KEY (kitchen_id) REFERENCES kitchens (id) ON DELETE CASCADE,
+  CONSTRAINT chk_kitchen_staff_phone CHECK (phone REGEXP '^[6-9][0-9]{9}$')
+) ENGINE = InnoDB;
+
+-- ---------------------------------------------------------------------------
 -- Orders and the nutrition diary
 -- ---------------------------------------------------------------------------
 
@@ -283,15 +345,15 @@ CREATE TABLE orders (
   latitude          DECIMAL(9,6)  NULL,
   longitude         DECIMAL(9,6)  NULL,
   instructions      VARCHAR(200)  NULL,
-  status            ENUM('placed', 'preparing', 'out_for_delivery', 'delivered', 'cancelled') NOT NULL DEFAULT 'placed',
+  status            ENUM('awaiting_payment', 'placed', 'preparing', 'out_for_delivery', 'delivered', 'cancelled') NOT NULL DEFAULT 'placed',  -- awaiting_payment: Pay tapped, the signature not yet checked
   cancel_reason     VARCHAR(200)  NULL,
-  cancelled_by      ENUM('member', 'admin') NULL,
+  cancelled_by      ENUM('member', 'admin', 'system') NULL,              -- system: not paid within 15 minutes
   total_paise       INT UNSIGNED NOT NULL,      -- what was paid: the subtotal less the coupon's discount
   subtotal_paise    INT UNSIGNED NULL,
   discount_paise    INT UNSIGNED NOT NULL DEFAULT 0,
   coupon_id         INT UNSIGNED NULL,
   coupon_code       VARCHAR(16)  NULL,             -- kept when the coupon is deleted
-  payment_method    ENUM('test')  NULL,             -- a test payment until a real gateway is added
+  payment_method    ENUM('test', 'dummy', 'razorpay') NULL,  -- test: placed before 2026-12-28; dummy until Razorpay is set up
   payment_ref       VARCHAR(40)   NULL,
   delivered_at      TIMESTAMP   NULL,
   created_at        TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -324,6 +386,32 @@ CREATE TABLE order_items (
   CONSTRAINT fk_order_items_order FOREIGN KEY (order_id) REFERENCES orders (id) ON DELETE CASCADE,
   CONSTRAINT fk_order_items_meal FOREIGN KEY (meal_id) REFERENCES meals (id) ON DELETE SET NULL,
   CONSTRAINT chk_order_items_quantity CHECK (quantity BETWEEN 1 AND 20)
+) ENGINE = InnoDB;
+
+-- One row per gateway order (Razorpay's order_…): what it is for, how much, and how it ended.
+-- A member may try several times on one gateway order (as on Razorpay); the last attempt is kept.
+CREATE TABLE meal_payments (
+  id                   CHAR(36)     NOT NULL DEFAULT (UUID()),
+  order_id             CHAR(36)     NOT NULL,
+  user_id              VARCHAR(64)  NOT NULL,
+  provider             ENUM('dummy', 'razorpay') NOT NULL,
+  provider_order_id    VARCHAR(40)  NOT NULL,
+  provider_payment_id  VARCHAR(40)  NULL,
+  amount_paise         INT UNSIGNED NOT NULL,
+  currency             CHAR(3)      NOT NULL DEFAULT 'INR',
+  status               ENUM('created', 'paid', 'failed') NOT NULL DEFAULT 'created',
+  method               ENUM('upi', 'card', 'netbanking', 'wallet') NULL,
+  failure_reason       VARCHAR(200) NULL,
+  attempts             SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  paid_at              TIMESTAMP    NULL,
+  created_at           TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at           TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_meal_payments_provider_order (provider_order_id),
+  UNIQUE KEY uq_meal_payments_provider_payment (provider_payment_id),
+  KEY idx_meal_payments_order (order_id),
+  CONSTRAINT fk_meal_payments_order FOREIGN KEY (order_id) REFERENCES orders (id) ON DELETE CASCADE,
+  CONSTRAINT fk_meal_payments_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 ) ENGINE = InnoDB;
 
 -- Nutrition diary. Delivered order items are logged automatically (source = 'order');
@@ -885,7 +973,7 @@ CREATE TABLE admin_audit_log (
   id           CHAR(36)     NOT NULL DEFAULT (UUID()),
   admin_id     VARCHAR(64)  NULL,
   action       VARCHAR(40)  NOT NULL,                -- e.g. promotion.publish
-  target_type  ENUM('user', 'gym', 'post', 'report', 'promotion', 'exercise', 'program', 'section', 'meal', 'order') NOT NULL,
+  target_type  ENUM('user', 'gym', 'post', 'report', 'promotion', 'exercise', 'program', 'section', 'meal', 'order', 'kitchen') NOT NULL,
   target_id    VARCHAR(64)  NULL,
   summary      VARCHAR(200) NOT NULL,                -- "Verified Marcus Johnson", shown as written
   created_at   TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),  -- sub-second, so actions keep their order

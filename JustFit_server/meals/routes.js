@@ -1,6 +1,8 @@
 // Meal ordering's routes (2026-11-09), mounted in index.js:
 //   /api/meals          members: the menu, one meal, favourites, a meal's photo (requireUser)
-//   /api/orders         members: the cart's options, place an order (test payment), my orders, cancel
+//   /api/orders         members: the cart's options, place an order and pay it the Razorpay way
+//                       (payments/: the checkout's answer is verified by its signature), my orders,
+//                       cancel; while PAYMENT_PROVIDER is the dummy, its gateway at /gateway/dummy/checkout
 //   /api/admin/kitchen  the Super Admin: add and delete meals, the delivery times, the day's orders
 //                       and their steps (adminOnly: the role is read on every request)
 // Who is asking always comes from the session. Before migration 2026-12-23 the routes that need it
@@ -15,6 +17,11 @@ const catalogRules = require("./catalogRules");
 const { inTransaction } = require("../gym/service");
 const photos = require("./photos");
 const rules = require("./rules");
+const payments = require("../payments/service");
+const paymentRules = require("../payments/rules");
+
+// A wrong PAYMENT_PROVIDER or missing Razorpay keys stop the server at startup, not at the first Pay
+paymentRules.providerSettings();
 
 const pool = (req) => req.app.locals.pool;
 const smallBody = express.json({ limit: "8kb" });
@@ -83,6 +90,20 @@ ordersRouter.post("/", orderLimit, smallBody, route(async (req, res) => {
   const placed = await meals.placeOrder(pool(req), req.userId, rules.orderBody(req.body));
   res.status(placed.repeated ? 200 : 201).json(placed);
 }));
+// Payments: 60 checks, failures and dummy checkouts an hour per account
+const payLimit = limitPerUser(createRateLimiter({ limit: Number(process.env.MEAL_PAYMENTS_PER_HOUR) || 60, windowMs: 60 * 60 * 1000 }));
+// The dummy gateway: what Razorpay's servers would answer when the member pays (no money moves)
+ordersRouter.post("/gateway/dummy/checkout", payLimit, smallBody, route(async (req, res) => {
+  res.json(await payments.dummyCheckout(pool(req), req.userId, paymentRules.dummyCheckoutBody(req.body)));
+}));
+// What the checkout returned: the signature is checked before the order is placed
+ordersRouter.post("/:id/verify-payment", payLimit, smallBody, route(async (req, res) => {
+  res.json(await meals.confirmPayment(pool(req), req.userId, rules.orderId(req.params.id), paymentRules.verifyBody(req.body)));
+}));
+// A checkout that failed or was closed (the order keeps waiting; Pay tries again)
+ordersRouter.post("/:id/payment-failed", payLimit, smallBody, route(async (req, res) => {
+  res.json(await payments.fail(pool(req), req.userId, rules.orderId(req.params.id), paymentRules.failureBody(req.body)));
+}));
 ordersRouter.get("/:id", route(async (req, res) => {
   res.json(await meals.myOrder(pool(req), req.userId, rules.orderId(req.params.id)));
 }));
@@ -94,6 +115,8 @@ ordersRouter.post("/:id/cancel", orderLimit, smallBody, route(async (req, res) =
 // ---- The Super Admin: meals, delivery times, orders ----
 
 const kitchenRouter = express.Router({ caseSensitive: true, strict: true });
+// Kitchens and the meal-operations dashboard (Meal Operations phase 1, kitchens/routes.js)
+kitchenRouter.use(require("../kitchens/routes").kitchensRouter);
 const photoLimit = limitPerUser(createRateLimiter({ limit: 30, windowMs: 60 * 60 * 1000 }));
 
 kitchenRouter.get("/meals", route(async (req, res) => {

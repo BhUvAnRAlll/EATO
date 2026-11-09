@@ -17,12 +17,13 @@ const db = require("./test-db.js");
 const { startTestServer } = require("./server.js");
 const { identitiesFor, describeIdentityError } = require("./test-identities.js");
 const { png } = require("./images.js");
+const paymentRules = require("../../payments/rules");
 const rules = require("../../meals/rules");
 
 describe("meal ordering e2e: the admin's meals and times, a member's order, delivered into Macro", () => {
   const runId = crypto.randomBytes(4).toString("hex");
   let skipReason = null;
-  let env, connection, server, testAccounts, photoDir;
+  let env, connection, server, testAccounts, photoDir, authSecret;
   const identities = {};
   const tokens = {};
   const state = {};
@@ -49,6 +50,23 @@ describe("meal ordering e2e: the admin's meals and times, a member's order, deli
     city: "Tumakuru", pincode, formattedAddress: "MG Road, Tumakuru", latitude: 13.3392, longitude: 77.1017, instructions: "Ring the bell",
   });
   const order = (over = {}) => ({ clientId: crypto.randomUUID(), addressId: state.addressA, date: tomorrow, slot: "lunch", items: [{ mealId: state.mealId, quantity: 2 }], ...over });
+  // Pay the Razorpay way: the order waits, the dummy gateway pays, the server checks the signature
+  const checkoutPay = async (token, checkout, outcome = "success") => {
+    const paid = await api("POST", "/api/orders/gateway/dummy/checkout", token, { razorpay_order_id: checkout.order_id, method: "upi", outcome });
+    if (paid.status !== 200 || paid.json.status !== "captured") return paid;
+    const { status: _captured, ...answer } = paid.json;
+    return { status: 200, json: answer };
+  };
+  const placePaid = async (token, body) => {
+    const placed = await api("POST", "/api/orders", token, body);
+    if (placed.status !== 201 || !placed.json.checkout) return placed;
+    assert.equal(placed.json.order.status, "awaiting_payment");
+    const paid = await checkoutPay(token, placed.json.checkout);
+    assert.equal(paid.status, 200, JSON.stringify(paid.json));
+    const verified = await api("POST", `/api/orders/${placed.json.order.id}/verify-payment`, token, paid.json);
+    assert.equal(verified.status, 200, JSON.stringify(verified.json));
+    return { status: 201, json: { ...placed.json, order: verified.json.order } };
+  };
 
   before(async () => {
     const loaded = db.loadTestEnv();
@@ -58,7 +76,9 @@ describe("meal ordering e2e: the admin's meals and times, a member's order, deli
     assert.equal(await db.resetSchema(connection), db.SCHEMA_TABLE_COUNT);
     testAccounts = identitiesFor(env);
     photoDir = fs.mkdtempSync(path.join(os.tmpdir(), "justfit-meal-photos-"));
-    server = await startTestServer({ ...env, MEAL_PHOTO_DIR: photoDir });
+    // Pinned here so a test can sign a payment the way the dummy gateway does
+    authSecret = env.AUTH_SECRET || crypto.randomBytes(32).toString("base64url");
+    server = await startTestServer({ ...env, AUTH_SECRET: authSecret, MEAL_PHOTO_DIR: photoDir });
     try {
       for (const [tag, role] of [["admin", "admin"], ["memberA", "user"], ["memberB", "user"]]) {
         identities[tag] = await testAccounts.createIdentity(runId, tag, { role });
@@ -196,7 +216,7 @@ describe("meal ordering e2e: the admin's meals and times, a member's order, deli
       assert.equal((await api("POST", "/api/orders", tokens.memberA, bad)).status, 400, JSON.stringify(bad));
     }
     const body = order({ items: [{ mealId: state.mealId, quantity: 2 }, { mealId: state.plainMealId, quantity: 1 }] });
-    const placed = await api("POST", "/api/orders", tokens.memberA, body);
+    const placed = await placePaid(tokens.memberA, body);
     assert.equal(placed.status, 201, JSON.stringify(placed.json));
     const o = placed.json.order;
     state.orderId = o.id;
@@ -205,8 +225,8 @@ describe("meal ordering e2e: the admin's meals and times, a member's order, deli
     assert.equal(o.slot, "lunch");
     assert.equal(o.slotStartsAt, "12:00");
     assert.equal(o.date, tomorrow);
-    assert.equal(o.payment.method, "test");
-    assert.match(o.payment.ref, /^TEST-/);
+    assert.equal(o.payment.method, "dummy");
+    assert.match(o.payment.ref, /^pay_[A-Za-z0-9]{14}$/);
     assert.equal(o.address.line, `Flat 4B, MG Road, Near SIT, Tumakuru, ${DELIVERS}`);
     assert.equal(o.totals.calories, 520 * 3);
     // A retried Pay with the same request id places nothing new
@@ -214,6 +234,7 @@ describe("meal ordering e2e: the admin's meals and times, a member's order, deli
     assert.equal(again.status, 200);
     assert.equal(again.json.order.id, o.id);
     assert.equal(again.json.repeated, true);
+    assert.equal(again.json.checkout, null, "a paid order opens no checkout");
     const [[{ n }]] = await connection.query("SELECT COUNT(*) AS n FROM orders WHERE user_id = ?", [identities.memberA.id]);
     assert.equal(n, 1);
   }));
@@ -258,14 +279,14 @@ describe("meal ordering e2e: the admin's meals and times, a member's order, deli
   }));
 
   it("8. cancelling: the member while placed, the admin with a reason", run(async () => {
-    const first = await api("POST", "/api/orders", tokens.memberA, order({ slot: "breakfast" }));
+    const first = await placePaid(tokens.memberA, order({ slot: "breakfast" }));
     assert.equal(first.status, 201);
     const cancelled = await api("POST", `/api/orders/${first.json.order.id}/cancel`, tokens.memberA, { reason: "Plans changed" });
     assert.equal(cancelled.json.order.status, "cancelled");
     assert.equal(cancelled.json.order.cancelledBy, "member");
     assert.equal((await api("POST", `/api/orders/${first.json.order.id}/cancel`, tokens.memberA, {})).status, 409);
 
-    const second = await api("POST", "/api/orders", tokens.memberB, order({ addressId: state.addressB }));
+    const second = await placePaid(tokens.memberB, order({ addressId: state.addressB }));
     assert.equal(second.status, 201);
     const id = second.json.order.id;
     assert.equal((await api("POST", `/api/admin/kitchen/orders/${id}/cancel`, tokens.admin, {})).status, 400, "the admin gives a reason");
@@ -363,13 +384,13 @@ describe("meal ordering e2e: the admin's meals and times, a member's order, deli
     assert.match((await api("POST", "/api/orders/quote", tokens.memberA, { items: [{ mealId: state.dalId, quantity: 3 }], couponCode: expired.json.coupon.code })).json.coupon.problem, /expired/);
     assert.match((await api("POST", "/api/orders/quote", tokens.memberA, { items: [{ mealId: state.dalId, quantity: 3 }], couponCode: "NOPE123" })).json.coupon.problem, /isn't valid/);
 
-    const placed = await api("POST", "/api/orders", tokens.memberA, order({ slot: "breakfast", items: [{ mealId: state.dalId, quantity: 3 }, { mealId: state.plainMealId, quantity: 1 }], couponCode: code }));
+    const placed = await placePaid(tokens.memberA, order({ slot: "breakfast", items: [{ mealId: state.dalId, quantity: 3 }, { mealId: state.plainMealId, quantity: 1 }], couponCode: code }));
     assert.equal(placed.status, 201, JSON.stringify(placed.json));
     assert.deepEqual({ subtotal: placed.json.order.subtotal, discount: placed.json.order.discount, total: placed.json.order.total, code: placed.json.order.couponCode }, { subtotal: 416, discount: 100, total: 316, code });
     const again = await api("POST", "/api/orders", tokens.memberA, order({ items: [{ mealId: state.dalId, quantity: 3 }], couponCode: code }));
     assert.equal(again.status, 409, "one use per member");
     assert.match(again.json.error, /already used/);
-    assert.equal((await api("POST", "/api/orders", tokens.memberB, order({ addressId: state.addressB, items: [{ mealId: state.dalId, quantity: 2 }], couponCode: code }))).status, 201, "another member can still use it");
+    assert.equal((await placePaid(tokens.memberB, order({ addressId: state.addressB, items: [{ mealId: state.dalId, quantity: 2 }], couponCode: code }))).status, 201, "another member can still use it");
 
     // A cancelled order gives the use back
     await api("POST", `/api/orders/${placed.json.order.id}/cancel`, tokens.memberA, {});
@@ -379,6 +400,82 @@ describe("meal ordering e2e: the admin's meals and times, a member's order, deli
     assert.equal((await api("DELETE", `/api/admin/kitchen/coupons/${added.json.coupon.id}`, tokens.admin)).status, 200);
     const kept = await api("GET", `/api/orders/${placed.json.order.id}`, tokens.memberA);
     assert.equal(kept.json.order.couponCode, code, "a deleted coupon's code stays on the order");
+  }));
+
+  it("8b. payments the Razorpay way: only a checked signature places the order", run(async () => {
+    const firstBody = order({ slot: "breakfast" });
+    const placed = await api("POST", "/api/orders", tokens.memberA, firstBody);
+    assert.equal(placed.status, 201, JSON.stringify(placed.json));
+    const { order: waiting, checkout } = placed.json;
+    assert.equal(waiting.status, "awaiting_payment");
+    assert.equal(checkout.provider, "dummy");
+    assert.match(checkout.order_id, /^order_[A-Za-z0-9]{14}$/);
+    assert.equal(checkout.amount, waiting.total * 100, "the amount is the order's, in paise");
+    assert.equal(JSON.stringify(checkout).includes("secret"), false);
+    const listed = async () => (await api("GET", "/api/orders", tokens.memberA)).json.orders.some((o) => o.id === waiting.id);
+    assert.equal(await listed(), false, "an unpaid order isn't in My orders");
+    const kitchen = await api("GET", `/api/admin/kitchen/orders?day=${tomorrow}`, tokens.admin);
+    assert.equal(kitchen.json.orders.some((o) => o.id === waiting.id), false, "nor in the kitchen");
+    const verify = (token, body, id = waiting.id) => api("POST", `/api/orders/${id}/verify-payment`, token, body);
+
+    // Another member can't pay, fail or verify this payment
+    assert.equal((await checkoutPay(tokens.memberB, checkout)).status, 404);
+    assert.equal((await api("POST", `/api/orders/${waiting.id}/payment-failed`, tokens.memberB, { razorpay_order_id: checkout.order_id })).status, 404);
+    // Unsigned, forged or malformed answers never place it
+    const fakePay = "pay_ABCDEFGHIJKLMN";
+    assert.equal((await verify(tokens.memberA, { razorpay_order_id: checkout.order_id, razorpay_payment_id: fakePay, razorpay_signature: "0".repeat(64) })).status, 400, "a forged signature");
+    assert.equal((await verify(tokens.memberA, { razorpay_order_id: checkout.order_id, razorpay_payment_id: fakePay, razorpay_signature: crypto.createHmac("sha256", "guess").update(`${checkout.order_id}|${fakePay}`).digest("hex") })).status, 400, "signed with the wrong secret");
+    assert.equal((await verify(tokens.memberA, { razorpay_order_id: "order_1' OR '1'='1", razorpay_payment_id: fakePay, razorpay_signature: "0".repeat(64) })).status, 400);
+    assert.equal((await verify(tokens.memberA, { razorpay_order_id: checkout.order_id, razorpay_payment_id: fakePay, razorpay_signature: "0".repeat(64), paid: true })).status, 400);
+    assert.equal((await verify(null, {})).status, 401);
+    assert.equal((await api("GET", `/api/orders/${waiting.id}`, tokens.memberA)).json.order.status, "awaiting_payment");
+
+    // A failed payment and a closed checkout are kept; the order keeps waiting
+    const failed = await checkoutPay(tokens.memberA, checkout, "failure");
+    assert.equal(failed.json.status, "failed");
+    assert.equal(failed.json.error.reason, "payment_failed");
+    assert.equal((await api("POST", `/api/orders/${waiting.id}/payment-failed`, tokens.memberA, { razorpay_order_id: checkout.order_id, reason: "Checkout closed" })).status, 200);
+    const [[row]] = await connection.query("SELECT status, attempts, failure_reason FROM meal_payments WHERE provider_order_id = ?", [checkout.order_id]);
+    assert.deepEqual({ status: row.status, attempts: row.attempts, reason: row.failure_reason }, { status: "failed", attempts: 2, reason: "Checkout closed" });
+
+    // Pay again with the same request id: the same order and gateway order; then a good signature places it
+    const retry = await api("POST", "/api/orders", tokens.memberA, firstBody);
+    assert.equal(retry.status, 200);
+    assert.equal(retry.json.order.id, waiting.id);
+    assert.equal(retry.json.checkout.order_id, checkout.order_id, "the same gateway order");
+    const paid = await checkoutPay(tokens.memberA, checkout);
+    assert.equal(paid.status, 200);
+    assert.equal((await verify(tokens.memberB, paid.json)).status, 404, "another member's verify");
+    const done = await verify(tokens.memberA, paid.json);
+    assert.equal(done.status, 200, JSON.stringify(done.json));
+    assert.equal(done.json.order.status, "placed");
+    assert.equal(done.json.order.payment.ref, paid.json.razorpay_payment_id);
+    assert.equal((await verify(tokens.memberA, paid.json)).json.alreadyPaid, true, "a retried verify answers the same");
+    assert.equal((await checkoutPay(tokens.memberA, checkout)).status, 409, "a paid order can't be paid again");
+    assert.equal(await listed(), true, "now it's in My orders");
+
+    // Unpaid for 15 minutes: the system cancels it, and the next order isn't held up
+    const slowBody = order({ slot: "breakfast" });
+    const slow = await api("POST", "/api/orders", tokens.memberA, slowBody);
+    await connection.query("UPDATE orders SET created_at = NOW() - INTERVAL 20 MINUTE WHERE id = ?", [slow.json.order.id]);
+    const next = await api("POST", "/api/orders", tokens.memberA, order({ slot: "breakfast" }));
+    assert.equal(next.status, 201);
+    const [[expired]] = await connection.query("SELECT status, cancelled_by FROM orders WHERE id = ?", [slow.json.order.id]);
+    assert.deepEqual({ ...expired }, { status: "cancelled", cancelled_by: "system" });
+    assert.equal((await api("POST", "/api/orders", tokens.memberA, slowBody)).status, 409, "a retried Pay for an expired checkout starts over");
+    assert.equal((await checkoutPay(tokens.memberA, slow.json.checkout)).status, 409, "the dummy gateway won't take a payment for a closed order");
+    // A payment the gateway confirms late (as Razorpay may) still places it while the meal time is open
+    const latePay = "pay_LATEPAYMENT001";
+    const lateSig = crypto.createHmac("sha256", paymentRules.dummySecret(authSecret)).update(`${slow.json.checkout.order_id}|${latePay}`).digest("hex");
+    const late = await verify(tokens.memberA, { razorpay_order_id: slow.json.checkout.order_id, razorpay_payment_id: latePay, razorpay_signature: lateSig }, slow.json.order.id);
+    assert.equal(late.status, 200, JSON.stringify(late.json));
+    assert.equal(late.json.order.status, "placed");
+    assert.equal(late.json.order.cancelledBy, null);
+    // Only one order waits at a time: a new Pay cancels the member's other unpaid order
+    const third = await api("POST", "/api/orders", tokens.memberA, order({ slot: "breakfast" }));
+    const [[superseded]] = await connection.query("SELECT status, cancelled_by FROM orders WHERE id = ?", [next.json.order.id]);
+    assert.deepEqual({ ...superseded }, { status: "cancelled", cancelled_by: "system" });
+    assert.equal((await api("POST", `/api/orders/${third.json.order.id}/cancel`, tokens.memberA, {})).json.order.status, "cancelled", "the member may cancel an unpaid order");
   }));
 
   it("9. deleting a meal keeps past orders and removes the photo", run(async () => {

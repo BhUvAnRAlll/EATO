@@ -2,6 +2,9 @@
 // times, and the orders. The admin is also the kitchen and the delivery person: they move each
 // order one step at a time, and a delivered order is logged into the member's Macro diary once.
 // Every member query is scoped to the signed-in account; an order that isn't theirs reads as missing.
+// Since 2026-11-10 an order is paid the Razorpay way (payments/service.js): it waits as
+// awaiting_payment until the gateway's signature is checked, and members and the admin never list
+// an order that was never paid.
 const { NotFoundError, ConflictError } = require("../errors");
 const { ValidationError } = require("../profile");
 const { inTransaction } = require("../gym/service");
@@ -10,6 +13,11 @@ const diary = require("../macro/diary");
 const { logRequestError } = require("../logging");
 const rules = require("./rules");
 const catalog = require("./catalog");
+const payments = require("../payments/service");
+
+// Orders that were paid (or placed before payments): never one still waiting, or one the system
+// cancelled because it was never paid
+const PAID_ONLY = "o.status <> 'awaiting_payment' AND (o.cancelled_by IS NULL OR o.cancelled_by <> 'system')";
 
 const num = (v) => Number(v);
 const iso = (v) => (v instanceof Date ? v.toISOString() : v ?? null);
@@ -87,7 +95,7 @@ async function photoKey(pool, id) {
 async function adminMeals(pool, onlyId = null) {
   const [rows] = await pool.query(
     `SELECT m.*, (SELECT COUNT(*) FROM order_items oi JOIN orders o ON o.id = oi.order_id
-       WHERE oi.meal_id = m.id AND o.status NOT IN ('delivered', 'cancelled')) AS open_orders
+       WHERE oi.meal_id = m.id AND o.status NOT IN ('awaiting_payment', 'delivered', 'cancelled')) AS open_orders
      FROM meals m ${onlyId ? "WHERE m.id = ?" : ""} ORDER BY m.created_at DESC, m.name`,
     onlyId ? [onlyId] : [],
   );
@@ -257,18 +265,36 @@ async function myOrder(db, userId, id) {
 }
 
 async function myOrders(pool, userId) {
-  const found = await ordersWhere(pool, "o.user_id = ?", [userId]);
+  const found = await ordersWhere(pool, `o.user_id = ? AND ${PAID_ONLY}`, [userId]);
   return { orders: found.map((f) => orderToApi(f.row, f.items)) };
 }
 
+// The answer to Pay: the order and, while it waits for payment, the checkout's options
+async function withPayment(pool, userId, id, repeated) {
+  const { order } = await myOrder(pool, userId, id);
+  // A retried Pay for an order the system closed unpaid: the app starts a new order instead
+  if (order.status === "cancelled" && order.cancelledBy === "system") throw new ConflictError("This checkout expired before it was paid. Tap Pay to place the order again.");
+  if (order.status !== "awaiting_payment") return { order, checkout: null, repeated };
+  const checkout = await payments.openPayment(pool, userId, {
+    id: order.id, totalPaise: Math.round(order.total * 100), receiverPhone: order.address.receiverPhone, receiverName: order.address.receiverName,
+  });
+  return { order, checkout, repeated };
+}
+
 /**
- * Places an order with a test payment. The prices and macros come from the menu (never the app),
- * the address must be the member's and deliverable, the meal time must still be open; the order
- * and its items are written in one transaction. The same clientId again returns the first order.
+ * Places an order. The prices and macros come from the menu (never the app), the address must be
+ * the member's and deliverable, the meal time must still be open; the order and its items are
+ * written in one transaction. Once migration 2026-12-28 has run the order waits for payment
+ * (awaiting_payment) and the answer carries the checkout's options; before it, the old test
+ * payment places it at once. The same clientId again returns the first order (and its checkout).
+ * Any other order of the member's still waiting for payment is cancelled first, so an abandoned
+ * checkout never holds a coupon's use.
  */
 async function placeOrder(pool, userId, body, now = Date.now()) {
+  const paid = await payments.ready(pool);
   const [[existing]] = await pool.query("SELECT id FROM orders WHERE user_id = ? AND client_id = ?", [userId, body.clientId]);
-  if (existing) return { ...(await myOrder(pool, userId, existing.id)), repeated: true };
+  if (existing) return withPayment(pool, userId, existing.id, true);
+  if (paid) await payments.expireUnpaid(pool);
 
   const slots = await loadSlots(pool);
   const problem = rules.slotProblem(slots, body.date, body.slot, now);
@@ -279,6 +305,12 @@ async function placeOrder(pool, userId, body, now = Date.now()) {
   let id;
   try {
     id = await inTransaction(pool, async (db) => {
+      if (paid) {
+        await db.query(
+          "UPDATE orders SET status = 'cancelled', cancelled_by = 'system', cancel_reason = 'Payment not completed' WHERE user_id = ? AND status = 'awaiting_payment'",
+          [userId],
+        );
+      }
       const ids = body.items.map((i) => i.mealId);
       const [rows] = await db.query("SELECT * FROM meals WHERE id IN (?) AND is_available = TRUE FOR SHARE", [ids]);
       const byId = new Map(rows.map((r) => [r.id, r]));
@@ -293,11 +325,12 @@ async function placeOrder(pool, userId, body, now = Date.now()) {
       await db.query(
         `INSERT INTO orders (id, user_id, client_id, delivery_date, meal_slot, slot_starts_at, slot_ends_at, delivery_pincode,
            receiver_name, receiver_phone, delivery_address, latitude, longitude, instructions, total_paise, subtotal_paise, discount_paise,
-           coupon_id, coupon_code, payment_method, payment_ref)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'test', ?)`,
+           coupon_id, coupon_code, status, payment_method, payment_ref)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [uuid, userId, body.clientId, body.date, body.slot, slot.startsAt, slot.endsAt, address.pincode, address.receiverName, address.receiverPhone,
           rules.addressLine(address), address.latitude, address.longitude, address.instructions, subtotal - discount, subtotal, discount,
-          coupon?.id ?? null, coupon?.code ?? null, rules.testPaymentRef()],
+          coupon?.id ?? null, coupon?.code ?? null,
+          paid ? "awaiting_payment" : "placed", paid ? payments.providerName() : "test", paid ? null : rules.testPaymentRef()],
       );
       await db.query(
         "INSERT INTO order_items (order_id, meal_id, meal_name, quantity, unit_price_paise, calories, protein_g, carbs_g, fat_g) VALUES ?",
@@ -312,17 +345,31 @@ async function placeOrder(pool, userId, body, now = Date.now()) {
     // Two Pay taps raced with the same clientId: the first one's order is the answer
     if (error?.code === "ER_DUP_ENTRY") {
       const [[winner]] = await pool.query("SELECT id FROM orders WHERE user_id = ? AND client_id = ?", [userId, body.clientId]);
-      if (winner) return { ...(await myOrder(pool, userId, winner.id)), repeated: true };
+      if (winner) return withPayment(pool, userId, winner.id, true);
     }
     throw error;
   }
-  return { ...(await myOrder(pool, userId, id)), repeated: false };
+  return withPayment(pool, userId, id, false);
+}
+
+/** Whether an order's meal time is still open (a late payment may then still place it) */
+async function slotOpen(db, orderId, now = Date.now()) {
+  const [[row]] = await db.query("SELECT delivery_date, meal_slot FROM orders WHERE id = ?", [orderId]);
+  if (!row) return false;
+  return rules.slotProblem(await loadSlots(db), day(row.delivery_date), row.meal_slot, now) === null;
+}
+
+/** What the checkout returned: checked, then the order is placed */
+async function confirmPayment(pool, userId, orderId, body) {
+  await myOrder(pool, userId, orderId); // 404 when it isn't theirs
+  const result = await payments.verify(pool, userId, orderId, body, { slotOpen: (db, id) => slotOpen(db, id) });
+  return { ...(await myOrder(pool, userId, orderId)), alreadyPaid: result.alreadyPaid };
 }
 
 /** A member cancels their own order while it is still only placed (before cooking starts) */
 async function cancelMine(pool, userId, id, reason) {
   const [result] = await pool.query(
-    "UPDATE orders SET status = 'cancelled', cancelled_by = 'member', cancel_reason = ? WHERE id = ? AND user_id = ? AND status = 'placed'",
+    "UPDATE orders SET status = 'cancelled', cancelled_by = 'member', cancel_reason = ? WHERE id = ? AND user_id = ? AND status IN ('awaiting_payment', 'placed')",
     [reason, id, userId],
   );
   if (result.affectedRows === 0) {
@@ -337,7 +384,7 @@ async function cancelMine(pool, userId, id, reason) {
 const SLOT_ORDER = "FIELD(o.meal_slot, 'breakfast', 'lunch', 'snack', 'dinner'), o.created_at";
 
 async function adminOrders(pool, date) {
-  const found = await ordersWhere(pool, "o.delivery_date = ?", [date], SLOT_ORDER, 500);
+  const found = await ordersWhere(pool, `o.delivery_date = ? AND ${PAID_ONLY}`, [date], SLOT_ORDER, 500);
   const orders = found.map((f) => orderToApi(f.row, f.items, { memberName: f.row.member_name ?? null }));
   const counts = { all: orders.length };
   for (const step of [...rules.STEPS, "cancelled"]) counts[step] = orders.filter((o) => o.status === step).length;
@@ -400,7 +447,7 @@ async function advance(pool, id, { from, to }, req) {
 
 async function adminCancel(pool, id, reason) {
   const [result] = await pool.query(
-    "UPDATE orders SET status = 'cancelled', cancelled_by = 'admin', cancel_reason = ? WHERE id = ? AND status NOT IN ('delivered', 'cancelled')",
+    "UPDATE orders SET status = 'cancelled', cancelled_by = 'admin', cancel_reason = ? WHERE id = ? AND status NOT IN ('awaiting_payment', 'delivered', 'cancelled')",
     [reason, id],
   );
   if (result.affectedRows === 0) {
@@ -433,5 +480,5 @@ async function quote(pool, userId, { items, couponCode }, now = Date.now()) {
 
 module.exports = {
   menu, meal, setFavorite, photoKey, adminMeals, addMeal, updateMeal, setAvailable, deleteMeal, quote, mealToApi, loadSlots, saveSlots, orderOptions,
-  myOrders, myOrder, placeOrder, cancelMine, adminOrders, advance, adminCancel,
+  myOrders, myOrder, placeOrder, confirmPayment, cancelMine, adminOrders, advance, adminCancel,
 };

@@ -100,4 +100,29 @@ describe("meal ordering rules: the storefront", () => {
     assert.equal(cardBadge({ tags: [], proteinG: 30 }), "High protein");
     assert.equal(cardBadge({ tags: [], proteinG: 10 }), null);
   });
+
+  it("builds the quick lists, the popular row, the sort and the diet filter", async () => {
+    const { quickList, popularMeals, sortMeals, byDiet, isQuickList } = await import("../mealRules.ts");
+    const menu = [
+      { ...meals[0], calories: 520 },
+      { ...meals[1], calories: 610 },
+      { ...meals[2], calories: 320 },
+      { ...meals[3], calories: 380 },
+      { ...meal("Mini Thali"), calories: 700 },
+      { ...meal("Rajma Rice"), calories: 500 },
+    ];
+    const cats = [...categories, { id: 4, kind: "tile" as const, name: "Combos", featured: false, mealIds: ["Rajma Rice"] }];
+    assert.deepEqual(popularMeals(menu).map((m) => m.id), ["Paneer Tikka Bowl", "Chicken Biryani", "Egg Bhurji", "Dal Rice", "Mini Thali", "Rajma Rice"]);
+    assert.deepEqual(quickList(menu, cats, "low_calorie").map((m) => m.id), ["Egg Bhurji", "Dal Rice"]);
+    assert.deepEqual(quickList(menu, cats, "veg").map((m) => m.id), ["Paneer Tikka Bowl", "Dal Rice", "Mini Thali", "Rajma Rice"]);
+    assert.deepEqual(quickList(menu, cats, "non_veg").map((m) => m.id), ["Chicken Biryani", "Egg Bhurji"]);
+    assert.deepEqual(quickList(menu, cats, "combos").map((m) => m.id), ["Mini Thali", "Rajma Rice"]);
+    assert.deepEqual(sortMeals(menu, "calories").map((m) => m.calories), [320, 380, 500, 520, 610, 700]);
+    assert.equal(sortMeals(menu, "recommended")[0].id, "Paneer Tikka Bowl");
+    assert.deepEqual(byDiet(menu, "vegan").map((m) => m.id), ["Dal Rice"]);
+    assert.equal(byDiet(menu, null).length, 6);
+    assert.equal(isQuickList("combos"), true);
+    assert.equal(isQuickList("toString"), false);
+    assert.equal(isQuickList(undefined), false);
+  });
 });

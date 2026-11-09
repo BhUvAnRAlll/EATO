@@ -1187,6 +1187,11 @@
   background-color: var(--color-meal-surface);
 }
 
+/* The Meals tab's page: white, as the 2026-11-10 design */
+@utility meal-page--white {
+  background-color: var(--color-surface);
+}
+
 /* A meal in the menu: photo on the left, words in the middle, price and add on the right */
 @utility meal-row {
   flex-direction: row;
@@ -1454,9 +1459,9 @@
 
 /* A product card in a horizontal row */
 @utility shop-card {
-  border-radius: var(--radius-lg);
+  border-radius: 16px;
   border-width: 1px;
-  border-color: var(--color-meal-line);
+  border-color: var(--color-cream-line);
   background-color: var(--color-surface);
   box-shadow: var(--shadow-card);
   overflow: hidden;
@@ -1466,32 +1471,32 @@
   position: absolute;
   top: 8px;
   left: 8px;
+  flex-direction: row;
+  align-items: center;
+  gap: 3px;
   padding-inline: 8px;
   padding-block: 3px;
-  border-radius: 6px;
-  background-color: rgba(255, 255, 255, 0.94);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-meal-primary);
 }
 
-@utility shop-badge--deal {
-  background-color: var(--color-meal-primary);
+@utility shop-badge--nonveg {
+  background-color: var(--color-meal-nonveg);
 }
 
 @utility shop-badge__label {
   font-family: var(--font-sans-semibold);
   font-size: 10px;
   line-height: 14px;
-  color: var(--color-meal-dark);
-}
-
-@utility shop-badge__label--deal {
   color: var(--color-white);
 }
 
+
 @utility shop-macros {
-  font-family: var(--font-sans-medium);
-  font-size: 12px;
+  font-family: var(--font-sans);
+  font-size: 11px;
   line-height: 16px;
-  color: var(--color-meal-dark);
+  color: var(--color-muted);
 }
 
 @utility shop-note {
@@ -1510,14 +1515,14 @@
 }
 
 /* ADD: white with a green outline and green capitals, as food apps print it */
+/* Add +: a green pill with a white label (the 2026-11-10 design) */
 @utility shop-add {
-  min-height: 34px;
-  min-width: 68px;
+  min-height: 32px;
+  flex-direction: row;
+  gap: 4px;
   padding-inline: 14px;
-  border-radius: 10px;
-  border-width: 1px;
-  border-color: var(--color-meal-primary);
-  background-color: var(--color-surface);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-meal-primary);
   align-items: center;
   justify-content: center;
 }
@@ -1526,7 +1531,40 @@
   font-family: var(--font-sans-semibold);
   font-size: 13px;
   line-height: 18px;
-  color: var(--color-meal-dark);
+  color: var(--color-white);
+}
+
+/* − 1 + on a card: an outlined pill, the plus a green circle */
+@utility shop-stepper {
+  min-height: 32px;
+  flex-direction: row;
+  align-items: center;
+  padding: 2px;
+  border-radius: var(--radius-pill);
+  border-width: 1px;
+  border-color: var(--color-meal-primary);
+  background-color: var(--color-surface);
+}
+
+@utility shop-stepper__button {
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-pill);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility shop-stepper__button--on {
+  background-color: var(--color-meal-primary);
+}
+
+@utility shop-stepper__count {
+  min-width: 22px;
+  text-align: center;
+  font-family: var(--font-sans-semibold);
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--color-ink);
 }
 
 /* A promotional category tile */
@@ -1572,25 +1610,19 @@
 
 /* The banner carousel's slide: the photo, a dark shade at the bottom and the words over it */
 @utility shop-banner {
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-lg);
   overflow: hidden;
-  box-shadow: var(--shadow-card);
+  background-color: var(--color-meal-dark);
 }
 
-@utility shop-banner__shade {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 75%;
-  background-color: rgba(0, 0, 0, 0.45);
-}
 
 @utility shop-banner__body {
   position: absolute;
-  left: 16px;
-  right: 16px;
-  bottom: 14px;
+  left: 20px;
+  top: 0;
+  bottom: 0;
+  width: 58%;
+  justify-content: center;
   gap: 4px;
 }
 
@@ -1611,24 +1643,26 @@
 
 @utility shop-banner__title {
   font-family: var(--font-sans-semibold);
-  font-size: 20px;
+  font-size: 22px;
   line-height: 26px;
   color: var(--color-white);
 }
 
 @utility shop-banner__text {
   font-family: var(--font-sans);
-  font-size: 13px;
-  line-height: 18px;
-  color: rgba(255, 255, 255, 0.9);
+  font-size: 12px;
+  line-height: 17px;
+  color: rgba(255, 255, 255, 0.92);
 }
 
 @utility shop-banner__cta {
   align-self: flex-start;
-  margin-top: 4px;
-  padding-inline: 14px;
-  min-height: 32px;
-  justify-content: center;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding-inline: 16px;
+  min-height: 34px;
   border-radius: var(--radius-pill);
   background-color: var(--color-white);
 }
@@ -1705,19 +1739,18 @@
   max-width: 100%;
 }
 
+/* The header's bell and cart: plain icons with a count badge */
 @utility shop-cart {
-  width: 44px;
-  height: 44px;
-  border-radius: var(--radius-pill);
-  background-color: var(--color-meal-light);
+  width: 40px;
+  height: 40px;
   align-items: center;
   justify-content: center;
 }
 
 @utility shop-cart__count {
   position: absolute;
-  top: -2px;
-  right: -2px;
+  top: 0;
+  right: 0;
   min-width: 18px;
   height: 18px;
   padding-inline: 4px;
@@ -1744,6 +1777,271 @@
   background-color: var(--color-surface);
   box-shadow: var(--shadow-card);
   overflow: hidden;
+}
+
+/* ---- The Meals tab, rebuilt 2026-11-10 from the user's design ---- */
+@utility shop-title {
+  font-family: var(--font-sans-semibold);
+  font-size: 28px;
+  line-height: 36px;
+  color: var(--color-ink);
+}
+
+@utility shop-subtitle {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--color-muted);
+}
+
+/* Order Meals | Meal Subscription */
+@utility shop-switch {
+  flex-direction: row;
+  padding: 4px;
+  gap: 4px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface);
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  box-shadow: var(--shadow-card);
+}
+
+@utility shop-switch__option {
+  flex: 1;
+  min-height: 46px;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding-inline: 8px;
+  border-radius: var(--radius-pill);
+}
+
+@utility shop-switch__option--on {
+  background-color: var(--color-meal-primary);
+}
+
+@utility shop-switch__label {
+  font-family: var(--font-sans-semibold);
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--color-ink);
+}
+
+@utility shop-switch__label--on {
+  color: var(--color-white);
+}
+
+/* Deliver to: the pin, the address, the edit button */
+@utility shop-deliver {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding-inline: 14px;
+  padding-block: 8px;
+  border-radius: var(--radius-lg);
+  background-color: var(--color-surface);
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+}
+
+@utility shop-deliver__label {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--color-muted);
+}
+
+@utility shop-deliver__place {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--color-ink);
+}
+
+@utility shop-deliver__kind {
+  font-family: var(--font-sans-semibold);
+}
+
+@utility shop-deliver__edit {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-cream-deep);
+  align-items: center;
+  justify-content: center;
+}
+
+/* The search field and the filter button beside it */
+@utility shop-search {
+  flex: 1;
+  min-height: 50px;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  padding-inline: 14px;
+  border-radius: 14px;
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-surface);
+}
+
+@utility shop-filter {
+  width: 50px;
+  height: 50px;
+  border-radius: 14px;
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-surface);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility shop-filter__dot {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-meal-primary);
+}
+
+/* A quick tile: a tinted square with an icon, the name under it */
+@utility shop-quick {
+  align-items: center;
+  gap: 6px;
+}
+
+@utility shop-quick__icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  align-items: center;
+  justify-content: center;
+}
+
+@utility shop-quick__label {
+  font-family: var(--font-sans-medium);
+  font-size: 12px;
+  line-height: 16px;
+  text-align: center;
+  color: var(--color-ink);
+}
+
+@utility shop-see-all {
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ---- The payment checkout (2026-11-10, the dummy standing in for Razorpay's; BEM pay-*) ---- */
+@utility pay-test {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  padding-inline: 12px;
+  padding-block: 8px;
+  border-radius: var(--radius-md);
+  background-color: var(--color-warning-soft);
+}
+
+@utility pay-test__label {
+  font-family: var(--font-sans-medium);
+  font-size: 12px;
+  line-height: 17px;
+  color: var(--color-ink);
+}
+
+@utility pay-method {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  min-height: 60px;
+  padding-inline: 14px;
+  padding-block: 10px;
+  border-radius: var(--radius-md);
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-surface);
+}
+
+@utility pay-method--on {
+  border-width: 1.5px;
+  border-color: var(--color-meal-primary);
+  background-color: var(--color-meal-light);
+}
+
+@utility pay-radio {
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-pill);
+  border-width: 2px;
+  border-color: var(--color-line-strong);
+}
+
+@utility pay-radio--on {
+  border-width: 6px;
+  border-color: var(--color-meal-primary);
+}
+
+/* ---- Kitchens (Super Admin, Meal Operations phase 1; BEM kitchen-*) ---- */
+@utility kitchen-thumb {
+  width: 64px;
+  height: 64px;
+  border-radius: var(--radius-md);
+  background-color: var(--color-accent-soft);
+  overflow: hidden;
+  align-items: center;
+  justify-content: center;
+}
+
+/* A kitchen's status: green active, amber closed for a while or under maintenance, grey inactive */
+@utility kitchen-pill {
+  padding-inline: 8px;
+  padding-block: 2px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-cream-deep);
+}
+
+@utility kitchen-pill--active {
+  background-color: var(--color-accent-soft);
+}
+
+@utility kitchen-pill--temporarily_closed {
+  background-color: var(--color-warning-soft);
+}
+
+@utility kitchen-pill--maintenance {
+  background-color: var(--color-warning-soft);
+}
+
+@utility kitchen-pill__label {
+  font-family: var(--font-sans-semibold);
+  font-size: 11px;
+  line-height: 15px;
+  color: var(--color-muted);
+}
+
+@utility kitchen-pill__label--active {
+  color: var(--color-primary-text);
+}
+
+@utility kitchen-pill__label--temporarily_closed {
+  color: var(--color-ink);
+}
+
+@utility kitchen-pill__label--maintenance {
+  color: var(--color-ink);
+}
+
+@utility kitchen-pill__label--inactive {
+  color: var(--color-muted);
+}
+
+@utility kitchen-pill--inactive {
+  background-color: var(--color-cream-deep);
 }
 
 /* Today's delivery card */

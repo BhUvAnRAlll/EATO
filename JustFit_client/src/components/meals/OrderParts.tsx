@@ -15,6 +15,7 @@ export function StatusPill({ status }: { status: OrderStatus }) {
 }
 
 const STEP_LINE: Record<OrderStatus, string> = {
+  awaiting_payment: "Waiting for your payment",
   placed: "We've got your order",
   preparing: "Your meal is being cooked",
   out_for_delivery: "Your meal is on its way",

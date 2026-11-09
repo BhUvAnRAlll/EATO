@@ -104,7 +104,7 @@ export default function AdminOrders() {
         <View className="flex-row items-start justify-between" style={{ gap: 8 }}>
           <View className="min-w-0 flex-1">
             <Text className="card__title" numberOfLines={1}>{o.address.receiverName ?? o.memberName ?? "Member"}</Text>
-            <Text className="meta-text">{`#${o.code} · ${rupees(o.total)} · test payment`}</Text>
+            <Text className="meta-text">{`#${o.code} · ${rupees(o.total)} · ${o.payment?.method === "razorpay" ? "paid" : "test payment"}`}</Text>
           </View>
           <StatusPill status={o.status} />
         </View>
@@ -129,7 +129,7 @@ export default function AdminOrders() {
             <Text className="admin-segment__label admin-segment__label--on">Directions</Text>
           </PressableScale>
         </View>
-        {o.status === "cancelled" && o.cancelReason ? <Text className="meta-text">{`${o.cancelledBy === "member" ? "Member cancelled" : "You cancelled"}: ${o.cancelReason}`}</Text> : null}
+        {o.status === "cancelled" && o.cancelReason ? <Text className="meta-text">{`${o.cancelledBy === "member" ? "Member cancelled" : o.cancelledBy === "system" ? "Cancelled" : "You cancelled"}: ${o.cancelReason}`}</Text> : null}
         {o.status === "cancelled" && !o.cancelReason ? <Text className="meta-text">{o.cancelledBy === "member" ? "The member cancelled." : "Cancelled."}</Text> : null}
         {next && (
           <View className="flex-row items-center" style={{ gap: 8 }}>
@@ -159,6 +159,10 @@ export default function AdminOrders() {
               <Text className="type-overline text-muted">justFit kitchen</Text>
               <Text className="type-title text-forest-ink">Orders</Text>
             </View>
+            <Pressable onPress={() => router.push("/admin/meal-ops")} className="admin-chip flex-row" style={{ minHeight: 40, gap: 6 }} accessibilityRole="button" accessibilityLabel="Meal operations dashboard">
+              <SymbolView name={{ ios: "chart.bar", android: "bar_chart", web: "bar_chart" }} size={14} tintColor={colors.primaryText} />
+              <Text className="admin-segment__label admin-segment__label--on">Dashboard</Text>
+            </Pressable>
             <Pressable onPress={() => router.push("/admin/meals")} className="btn-forest" style={{ minHeight: 40, paddingHorizontal: 16 }} accessibilityRole="button" accessibilityLabel="Meals and delivery times">
               <SymbolView name={{ ios: "fork.knife", android: "restaurant", web: "restaurant" }} size={14} tintColor={colors.onPrimary} />
               <Text className="btn-forest__label">Meals</Text>
