@@ -6,6 +6,7 @@
 // 2026-12-29; before it, the crowd works with the defaults and saving answers 503.
 const { audit } = require("../admin/overview");
 const rules = require("./crowdRules");
+const platformSettings = require("../platform/settings");
 const profileRules = require("./profileRules");
 const pauses = require("./pauses");
 const { addDays } = require("./rules");
@@ -39,7 +40,9 @@ async function crowdFor(pool, gymId, today, now = Date.now()) {
     ),
     pool.query(`SELECT ${DAY("MIN(on_date)")} AS first_day FROM gym_attendance WHERE gym_id = ?`, [gymId]),
   ]);
-  const settings = rules.settingsOf(row);
+  // The branch's own crowd levels, else justFit's default (platform settings)
+  const platform = await platformSettings.get(pool);
+  const settings = rules.settingsOf({ ...row, crowd_thresholds: row.crowd_thresholds ?? platform.crowdThresholds });
   const stay = rules.usualStay(settings.avgStayMin, durations.map((d) => Number(d.duration_min)));
   const hours = profileRules.readHours(row.opening_hours);
   return {

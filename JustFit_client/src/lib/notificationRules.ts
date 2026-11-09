@@ -2,12 +2,12 @@
 // and the one rule the app keeps itself: a notification opens only a screen on the same short list
 // the server allows. Pure, unit-tested (lib/__tests__/notifications.test.ts).
 
-export type NotificationCategory = "membership" | "pauses" | "attendance" | "gym" | "registration";
+export type NotificationCategory = "membership" | "pauses" | "attendance" | "gym" | "registration" | "platform";
 export type AppNotification = { id: number; category: NotificationCategory; kind: string; title: string; body: string; link: string | null; read: boolean; at: string };
 export type NotificationPage = { page: number; nextPage: number | null; unread: number; notifications: AppNotification[] };
 export type NotificationPrefs = { muted: NotificationCategory[]; categories: { id: NotificationCategory; label: string }[] };
 
-const LINKS = [/^\/gym-hub(\/\d+)?$/, /^\/gym-register$/, /^\/gym\/pauses$/, /^\/gym\/members\/\d+$/, /^\/gym\/members$/, /^\/gym\/attendance$/, /^\/gym\/enquiries$/, /^\/admin\/gyms\/\d+$/, /^\/gym$/];
+const LINKS = [/^\/gym-hub(\/\d+)?$/, /^\/gym-register$/, /^\/gym\/pauses$/, /^\/gym\/members\/\d+$/, /^\/gym\/members$/, /^\/gym\/attendance$/, /^\/gym\/enquiries$/, /^\/admin\/gyms\/\d+$/, /^\/admin\/complaints\/\d+$/, /^\/gym$/];
 export const safeLink = (link: string | null | undefined): string | null => (typeof link === "string" && LINKS.some((re) => re.test(link)) ? link : null);
 
 // "just now", "5 min ago", "3 h ago", "yesterday", "12 Nov"
@@ -24,7 +24,7 @@ export function whenText(iso: string, now: number): string {
 
 // Which categories each kind of account hears about (the switches shown on its screen)
 export function categoriesFor(role: string | undefined): NotificationCategory[] {
-  if (role === "admin") return ["registration"];
+  if (role === "admin") return ["registration", "platform"];
   if (role === "gym_admin") return ["pauses", "gym", "attendance", "registration"];
   return ["membership", "pauses", "gym", "registration"];
 }

@@ -4,13 +4,14 @@
 // never reaches the same person twice.
 const { ValidationError } = require("../profile");
 
-const CATEGORIES = ["membership", "pauses", "attendance", "gym", "registration"];
+const CATEGORIES = ["membership", "pauses", "attendance", "gym", "registration", "platform"];
 const CATEGORY_LABEL = {
   membership: "Memberships",
   pauses: "Pause requests",
   attendance: "Attendance and crowd",
   gym: "Gym updates",
   registration: "Gym registration",
+  platform: "Complaints and platform alerts",
 };
 // kind → category
 const KINDS = {
@@ -31,9 +32,11 @@ const KINDS = {
   "gym.capacity": "attendance",
   "registration.submitted": "registration",
   "registration.decided": "registration",
+  "platform.complaint": "platform",
+  "gym.complaint_update": "gym",
 };
 // Screens a notification may open (the app routes them only after checking the same list)
-const LINKS = [/^\/gym-hub(\/\d+)?$/, /^\/gym-register$/, /^\/gym\/pauses$/, /^\/gym\/members\/\d+$/, /^\/gym\/members$/, /^\/gym\/attendance$/, /^\/gym\/enquiries$/, /^\/admin\/gyms\/\d+$/, /^\/gym$/];
+const LINKS = [/^\/gym-hub(\/\d+)?$/, /^\/gym-register$/, /^\/gym\/pauses$/, /^\/gym\/members\/\d+$/, /^\/gym\/members$/, /^\/gym\/attendance$/, /^\/gym\/enquiries$/, /^\/admin\/gyms\/\d+$/, /^\/admin\/complaints\/\d+$/, /^\/gym$/];
 const safeLink = (link) => (typeof link === "string" && LINKS.some((re) => re.test(link)) ? link : null);
 const PAGE = 30;
 

@@ -27,6 +27,7 @@ const profileRules = require("./profileRules");
 const { inTransaction } = require("./service");
 const gymProfile = require("./gymProfile");
 const logos = require("./logos");
+const platformSettings = require("../platform/settings");
 
 // ─── Document files ───────────────────────────────────────────────────────────────────────────
 
@@ -158,7 +159,7 @@ async function fullApplication(db, row, { forAdmin }) {
     photos,
     documents,
     history,
-    missing: rules.missing(app, documents.map((d) => d.kind)),
+    missing: rules.missing(app, documents.map((d) => d.kind), (await platformSettings.get(db)).requiredDocuments),
     canEdit: rules.EDITABLE.includes(row.status),
     canSubmit: rules.ACTIONS.submit.from.includes(row.status),
   };
@@ -178,13 +179,15 @@ async function mine(pool, userId) {
   const [rows] = await pool.query(`SELECT ${APP_COLUMNS} ${APP_FROM} WHERE b.applicant_id = ? ORDER BY g.id DESC LIMIT 10`, [userId]);
   const [[account]] = await pool.query("SELECT role FROM users WHERE id = ?", [userId]);
   const open = rows.find((r) => rules.OPEN_STATUSES.includes(r.status) || r.status === "rejected") ?? null;
+  const platform = await platformSettings.get(pool);
   return {
-    canStart: account?.role === "user" && !rows.some((r) => rules.OPEN_STATUSES.includes(r.status)),
+    registrationOpen: platform.registrationOpen,
+    canStart: platform.registrationOpen && account?.role === "user" && !rows.some((r) => rules.OPEN_STATUSES.includes(r.status)),
     current: open ? await fullApplication(pool, open, { forAdmin: false }) : null,
     applications: rows.map((r) => ({ id: r.id, gymName: r.brand, branch: r.branch, city: r.city, status: r.status, statusLabel: rules.LABEL[r.status], statusNote: r.status_note, submittedAt: iso(r.submitted_at) })),
     businessTypes: rules.BUSINESS_TYPES,
     documentKinds: rules.DOCUMENT_KINDS,
-    requiredDocuments: rules.REQUIRED_DOCUMENTS,
+    requiredDocuments: platform.requiredDocuments,
   };
 }
 
@@ -199,6 +202,8 @@ async function one(pool, userId, gymId) {
  * the account is locked so two taps can't start two.
  */
 async function start(pool, userId, fields) {
+  // The Super Admin can close new registrations (platform settings); drafts already started go on
+  if (!(await platformSettings.get(pool)).registrationOpen) throw new ForbiddenError("New gym registrations are closed for now. Please try again later.");
   const id = await inTransaction(pool, async (db) => {
     const [[account]] = await db.query("SELECT role FROM users WHERE id = ? FOR UPDATE", [userId]);
     if (!account) throw new NotFoundError("Your account isn't there any more.");
@@ -257,7 +262,7 @@ async function submit(pool, userId, gymId) {
     const problem = rules.transitionProblem("submit", row.status);
     if (problem) throw new ConflictError(problem);
     const [docs] = await db.query("SELECT kind FROM gym_documents WHERE gym_id = ?", [gymId]);
-    const missing = rules.missing(applicationOf(row), docs.map((d) => d.kind));
+    const missing = rules.missing(applicationOf(row), docs.map((d) => d.kind), (await platformSettings.get(db)).requiredDocuments);
     if (missing.length) throw new ValidationError(`Add ${missing.map((m) => m.text.charAt(0).toLowerCase() + m.text.slice(1)).join(", ")} before you submit.`);
     await db.query("UPDATE gyms SET status = 'submitted', status_note = NULL, status_changed_at = NOW(), submitted_at = NOW() WHERE id = ?", [gymId]);
     await db.query("INSERT INTO gym_status_history (gym_id, action, from_status, to_status, by_user, by_admin) VALUES (?, 'submit', ?, 'submitted', ?, 0)", [gymId, row.status, userId]);

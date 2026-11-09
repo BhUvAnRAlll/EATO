@@ -341,6 +341,25 @@ audited transaction with the reason. Server `admin/platformRules.js` (pure), `ad
 (one table); before it suspending answers 503 naming it and sign-in is unchanged. Tests:
 `__tests__/admin-platform-rules.test.js`, `e2e/gym-platform.e2e.test.js` (including a refused sign-in).
 
+**Phase 8: complaints and platform settings (2026-11-10, the brief's section 7):** a member reports a
+gym they can see (approved and published) from its page's flag (`components/gymHub/ReportGymSheet.tsx`:
+safety, fees, staff, facilities, wrong information, something else, and what happened, 20-1000
+characters); one open report per gym and five open in all; it goes to justFit, never the gym, and
+every admin is notified. Super Admin › Profile › Complaints (`app/admin/complaints/`): active first
+with counts, a case shows the gym, the words, the reporter and how many other reports the gym has;
+Take this case, internal notes (never shown to the member), Investigating / Resolve / Dismiss / Open
+again; closing needs words the member reads, and the member is notified. Platform settings
+(`app/admin/platform-settings.tsx`): gym registration open (closed: no new applications, drafts go on),
+the documents an application needs, and the default pause limits and crowd levels for branches
+without their own (`platform/settings.js`, kept 30 s; a branch's own values win). Server
+`complaints/rules.js` (pure), `complaints/service.js`, `complaints/routes.js` at `/api/complaints`
+(`GET /`, `POST /`, 10 a day), admin `GET /complaints?status=&page=`, `GET /complaints/:id`,
+`POST /complaints/:id/assign|notes|status`, `GET|PUT /platform-settings`; `platform/settingsRules.js`
+(pure). Audited `complaint.*`, `platform.settings`. Migration `2027-01-20-complaints-and-settings.sql`
+(three tables; `notifications.category` gains `platform`); before it these answer 503 naming it and
+the defaults apply. Migration dates: the meals session uses 2027-01-08 to 01-19, this work 01-20 on.
+Tests: `__tests__/complaint-settings-rules.test.js`, `e2e/gym-complaints.e2e.test.js`.
+
 ### Meal ordering (2026-11-09, the user's plan; migration approved)
 
 The Super Admin is the menu, the kitchen and the delivery person (the user's choice). Members order

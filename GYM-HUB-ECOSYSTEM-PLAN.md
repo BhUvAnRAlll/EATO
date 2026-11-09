@@ -18,7 +18,8 @@ section 9.
 | Gym roles (G9) | **Built** 2026-11-10: Gym Owner, Gym Admin, Manager, Receptionist, Attendance Staff, Trainer as permission presets; invites keep their role. Migration `2027-01-03-gym-role-presets.sql` |
 | Notifications (G10) | **Built** 2026-11-10: in-app inbox for members, gym teams and admins, per-category preferences, deduped, daily ending/ended round. No push (needs a push service decision). Migration `2027-01-04-notifications.sql` |
 | Super Admin dashboard, staff, suspension, ownership (G11, G12, G15) | **Built** 2026-11-10: gym analytics with charts and cities, all-staff directory, account suspension (sessions revoked, sign-in refused), audited ownership transfer. Migration `2027-01-07-account-suspensions.sql` |
-| Still to build | Complaints and reported gyms (G13), platform settings (G14), Discover and plan extras (G16-G18), report exports |
+| Complaints and platform settings (G13, G14) | **Built** 2026-11-10: members report gyms; admins assign, note, resolve with history; registration on/off, required documents, default pause limits and crowd levels. Migration `2027-01-20-complaints-and-settings.sql` |
+| Still to build | Discover and plan extras (G16-G18: rating / trainer / gym-type filters, featured gyms, plan duplicate and terms, facility images), report exports, push notifications (needs a decision), PDF picking (needs `expo-document-picker` approval) |
 
 ## 1. What exists today
 

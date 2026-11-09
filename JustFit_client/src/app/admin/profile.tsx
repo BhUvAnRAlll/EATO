@@ -50,6 +50,22 @@ export default function AdminProfile() {
               </View>
               <SymbolView name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }} size={14} tintColor={colors.faint} />
             </Pressable>
+            <Pressable onPress={() => router.push("/admin/complaints")} className="admin-row admin-row--divided" accessibilityRole="button" accessibilityLabel="Complaints. Reports members sent about gyms">
+              <View className="admin-row__icon"><SymbolView name={{ ios: "flag", android: "flag", web: "flag" }} size={18} tintColor={colors.forestInk} /></View>
+              <View className="min-w-0 flex-1">
+                <Text className="card__title">Complaints</Text>
+                <Text className="meta-text">Reports members sent about gyms</Text>
+              </View>
+              <SymbolView name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }} size={14} tintColor={colors.faint} />
+            </Pressable>
+            <Pressable onPress={() => router.push("/admin/platform-settings")} className="admin-row admin-row--divided" accessibilityRole="button" accessibilityLabel="Platform settings. Registration, documents and defaults">
+              <View className="admin-row__icon"><SymbolView name={{ ios: "slider.horizontal.3", android: "tune", web: "tune" }} size={18} tintColor={colors.forestInk} /></View>
+              <View className="min-w-0 flex-1">
+                <Text className="card__title">Platform settings</Text>
+                <Text className="meta-text">Registration, documents and defaults</Text>
+              </View>
+              <SymbolView name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }} size={14} tintColor={colors.faint} />
+            </Pressable>
             <Pressable onPress={() => router.push("/admin/ai-usage")} className="admin-row admin-row--divided" accessibilityRole="button" accessibilityLabel="AI Usage. What the AI features cost">
               <View className="admin-row__icon"><SymbolView name={{ ios: "chart.bar.xaxis", android: "monitoring", web: "monitoring" }} size={18} tintColor={colors.forestInk} /></View>
               <View className="min-w-0 flex-1">

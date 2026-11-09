@@ -1928,6 +1928,51 @@ CREATE TABLE gym_attendance (
   CONSTRAINT fk_gym_attendance_checked_out_by FOREIGN KEY (checked_out_by) REFERENCES users (id) ON DELETE SET NULL
 ) ENGINE = InnoDB;
 
+-- Complaints and platform settings (migration 2027-01-20): reported gyms worked by justFit admins,
+-- and justFit-wide defaults
+CREATE TABLE complaints (
+  id           INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  gym_id       INT UNSIGNED NOT NULL,                -- the branch reported
+  reporter_id  VARCHAR(64)  NULL,                    -- the member who reported it
+  category     ENUM('safety', 'billing', 'staff', 'facility', 'false_info', 'other') NOT NULL,
+  details      VARCHAR(1000) NOT NULL,
+  status       ENUM('open', 'investigating', 'resolved', 'dismissed') NOT NULL DEFAULT 'open',
+  assigned_to  VARCHAR(64)  NULL,                    -- the justFit admin on the case
+  resolution   VARCHAR(500) NULL,                    -- what the reporter is told when it closes
+  created_at   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_complaints_status (status, id),
+  KEY idx_complaints_gym (gym_id, id),
+  KEY idx_complaints_reporter (reporter_id, id),
+  CONSTRAINT fk_complaints_gym FOREIGN KEY (gym_id) REFERENCES gyms (id),
+  CONSTRAINT fk_complaints_reporter FOREIGN KEY (reporter_id) REFERENCES users (id) ON DELETE SET NULL,
+  CONSTRAINT fk_complaints_assigned FOREIGN KEY (assigned_to) REFERENCES users (id) ON DELETE SET NULL
+) ENGINE = InnoDB;
+
+CREATE TABLE complaint_events (
+  id            INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  complaint_id  INT UNSIGNED NOT NULL,
+  kind          ENUM('created', 'assigned', 'note', 'status') NOT NULL,
+  status        ENUM('open', 'investigating', 'resolved', 'dismissed') NULL,
+  note          VARCHAR(1000) NULL,                  -- internal: never shown to the reporter
+  by_user       VARCHAR(64)  NULL,
+  created_at    TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (id),
+  KEY idx_complaint_events (complaint_id, id),
+  CONSTRAINT fk_complaint_events_complaint FOREIGN KEY (complaint_id) REFERENCES complaints (id),
+  CONSTRAINT fk_complaint_events_by FOREIGN KEY (by_user) REFERENCES users (id) ON DELETE SET NULL
+) ENGINE = InnoDB;
+
+CREATE TABLE platform_settings (
+  setting_key  VARCHAR(40)  NOT NULL,                -- platform/settingsRules.js KEYS
+  value        JSON         NOT NULL,
+  updated_by   VARCHAR(64)  NULL,
+  updated_at   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (setting_key),
+  CONSTRAINT fk_platform_settings_by FOREIGN KEY (updated_by) REFERENCES users (id) ON DELETE SET NULL
+) ENGINE = InnoDB;
+
 -- Account suspensions (migration 2027-01-07): a justFit admin suspends a misused or compromised account
 CREATE TABLE account_suspensions (
   user_id       VARCHAR(64)  NOT NULL,
@@ -1943,7 +1988,7 @@ CREATE TABLE account_suspensions (
 CREATE TABLE notifications (
   id           BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   user_id      VARCHAR(64)  NOT NULL,
-  category     ENUM('membership', 'pauses', 'attendance', 'gym', 'registration') NOT NULL,
+  category     ENUM('membership', 'pauses', 'attendance', 'gym', 'registration', 'platform') NOT NULL, -- 'platform' since migration 2027-01-20
   kind         VARCHAR(40)  NOT NULL,                -- e.g. pause.approved (notifications/rules.js KINDS)
   title        VARCHAR(120) NOT NULL,
   body         VARCHAR(300) NOT NULL,

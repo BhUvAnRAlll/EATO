@@ -5,6 +5,7 @@ const { ConflictError, ForbiddenError, NotFoundError } = require("../errors");
 const { ValidationError } = require("../profile");
 const { audit } = require("../admin/overview");
 const rules = require("./standingRules");
+const platformSettings = require("../platform/settings");
 const { inTransaction } = require("./service");
 const { addDays } = require("./rules");
 const { hasStanding } = require("./gymStatus");
@@ -46,9 +47,11 @@ async function setStanding(pool, gym, userId, memberId, { standing, note }) {
 async function policyOf(db, gymId) {
   try {
     const [[row]] = await db.query("SELECT pause_policy FROM gyms WHERE id = ?", [gymId]);
-    return rules.readPolicy(row?.pause_policy ?? null);
+    // The branch's own policy, else justFit's default (platform settings)
+    if (row?.pause_policy) return rules.readPolicy(row.pause_policy);
+    return (await platformSettings.get(db)).pausePolicy;
   } catch (error) {
-    if (error?.code === "ER_BAD_FIELD_ERROR") return rules.readPolicy(null);
+    if (error?.code === "ER_BAD_FIELD_ERROR") return (await platformSettings.get(db)).pausePolicy;
     throw error;
   }
 }

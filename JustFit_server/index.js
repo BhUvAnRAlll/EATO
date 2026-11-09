@@ -48,6 +48,7 @@ const { membershipRouter } = require("./gym/membershipRoutes");
 const { discoverRouter } = require("./gym/discoverRoutes");
 const { registrationRouter } = require("./gym/registrationRoutes");
 const { notificationsRouter } = require("./notifications/routes");
+const { complaintsRouter } = require("./complaints/routes");
 const { addressesRouter } = require("./addresses/routes");
 const { mealsRouter, ordersRouter, kitchenRouter } = require("./meals/routes");
 const { trainerRouter, refuseTrainers } = require("./gym/trainerRoutes");
@@ -433,6 +434,8 @@ app.use("/api/gyms", requireUser, limitPerUser(discoverLimiter), discoverRouter)
 app.use("/api/gym-registration", requireUser, limitPerUser(registrationLimiter), registrationRouter);
 // In-app notifications (notifications/routes.js): every role's own inbox and preferences
 app.use("/api/notifications", requireUser, limitPerUser(notificationsLimiter), notificationsRouter);
+// Reporting a gym (complaints/routes.js): a member's reports; admins work them in the portal
+app.use("/api/complaints", requireUser, limitPerUser(notificationsLimiter), complaintsRouter);
 
 // A member's delivery addresses and the pincode check (addresses/routes.js)
 app.use("/api/addresses", requireUser, limitPerUser(addressLimiter), addressesRouter);

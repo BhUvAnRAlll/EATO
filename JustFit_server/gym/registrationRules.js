@@ -155,7 +155,8 @@ function applicationBody(body, { creating }) {
  * What is still missing before an application can be submitted, as short lines for the app's
  * checklist. app: the application as read (readApplication), documents: its document kinds.
  */
-function missing(app, documentKinds) {
+// required: the documents justFit asks for (platform settings; the address proof by default)
+function missing(app, documentKinds, required = REQUIRED_DOCUMENTS) {
   const out = [];
   if (!app.businessType) out.push({ key: "business", text: "The type of business" });
   if (!app.contactName) out.push({ key: "business", text: "A contact person" });
@@ -165,7 +166,8 @@ function missing(app, documentKinds) {
   if (!app.pincode) out.push({ key: "location", text: "The pincode" });
   if (!app.about) out.push({ key: "gym", text: "A short description of the gym" });
   if (!app.hours) out.push({ key: "gym", text: "Opening hours" });
-  for (const kind of REQUIRED_DOCUMENTS) if (!documentKinds.includes(kind)) out.push({ key: "documents", text: kind === "address" ? "An address proof" : "A registration document" });
+  const words = { address: "An address proof", registration: "A registration document", other: "A supporting document" };
+  for (const kind of required) if (!documentKinds.includes(kind)) out.push({ key: "documents", text: words[kind] ?? "A document" });
   return out;
 }
 

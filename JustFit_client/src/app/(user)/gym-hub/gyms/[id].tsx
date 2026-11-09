@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { View } from "react-native";
+import { Pressable, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
@@ -9,10 +9,13 @@ import { PrimaryButton } from "@/components/PrimaryButton";
 import { usePullToRefresh } from "@/components/PullToRefresh";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { ScreenSkeleton } from "@/components/Skeleton";
+import { SymbolView } from "@/components/SymbolView";
 import { GymPageView } from "@/components/gymHub/GymPageView";
 import { JoinSheet, type JoinPick } from "@/components/gymHub/JoinSheet";
+import { ReportGymSheet } from "@/components/gymHub/ReportGymSheet";
 import { discoverApi, type GymPage, type JoinRequest } from "@/lib/discoverApi";
 import { useSessionToken } from "@/lib/session";
+import { useThemeColors } from "@/theme";
 
 type Load = { state: "loading" } | { state: "failed"; error: string; missing: boolean } | { state: "ready"; gym: GymPage; at: number };
 
@@ -26,7 +29,10 @@ export default function GymDetails() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const getToken = useSessionToken();
   const [result, setResult] = useState<Load>({ state: "loading" });
+  const colors = useThemeColors();
   const [pick, setPick] = useState<JoinPick | null>(null);
+  // Report a problem (the brief's section 7): to the justFit team, never the gym
+  const [reporting, setReporting] = useState(false);
 
   const load = useCallback(async () => {
     const answer = await discoverApi.gym(await getToken().catch(() => null), Number(id));
@@ -41,7 +47,16 @@ export default function GymDetails() {
     <View className="flex-1 bg-cream">
       <StatusBar style="dark" />
       <SafeAreaView edges={["top"]} style={{ flex: 1 }}>
-        <ScreenHeader title={result.state === "ready" ? result.gym.name : "Gym"} subtitle={result.state === "ready" ? `${result.gym.branch} branch` : undefined} onBack={back} />
+        <ScreenHeader
+          title={result.state === "ready" ? result.gym.name : "Gym"}
+          subtitle={result.state === "ready" ? `${result.gym.branch} branch` : undefined}
+          onBack={back}
+          right={result.state === "ready" ? (
+            <Pressable onPress={() => setReporting(true)} hitSlop={10} accessibilityRole="button" accessibilityLabel="Report a problem with this gym">
+              <SymbolView name={{ ios: "flag", android: "flag", web: "flag" }} size={18} tintColor={colors.faint} />
+            </Pressable>
+          ) : undefined}
+        />
         {result.state === "loading" ? (
           <View className="p-4"><ScreenSkeleton cards={3} label="Loading the gym" hero /></View>
         ) : result.state === "failed" ? (
@@ -63,6 +78,7 @@ export default function GymDetails() {
             onSent={(request: JoinRequest) => setResult((current) => (current.state === "ready" ? { ...current, gym: { ...current.gym, you: { memberId: current.gym.you?.memberId ?? null, request } } } : current))}
           />
         )}
+        {reporting && result.state === "ready" && <ReportGymSheet gymId={result.gym.id} gymName={result.gym.name} onClose={() => setReporting(false)} />}
       </SafeAreaView>
     </View>
   );

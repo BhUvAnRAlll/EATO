@@ -19,7 +19,7 @@ describe("Notification words and links", () => {
   });
 
   it("shows each account the categories it hears about", () => {
-    assert.deepEqual(categoriesFor("admin"), ["registration"]);
+    assert.deepEqual(categoriesFor("admin"), ["registration", "platform"]);
     assert.ok(categoriesFor("gym_admin").includes("attendance"));
     assert.ok(categoriesFor("user").includes("membership"));
   });

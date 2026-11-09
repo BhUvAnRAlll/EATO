@@ -14,6 +14,10 @@ const registrationRules = require("../gym/registrationRules");
 const notices = require("../notifications/events");
 const platform = require("./platform");
 const platformRules = require("./platformRules");
+const complaints = require("../complaints/service");
+const complaintRules = require("../complaints/rules");
+const platformSettings = require("../platform/settings");
+const settingsRules = require("../platform/settingsRules");
 const gymProfile = require("../gym/gymProfile");
 const aiUsage = require("./aiUsage");
 const usage = require("./usage");
@@ -134,6 +138,39 @@ router.post("/gyms/:gymId/transfer", platformLimit, smallBody, platformRoute(asy
   const id = gymId(req);
   await platform.transferOwner(pool(req), req.userId, id, platformRules.transferBody(req.body));
   res.json(await gyms.detail(pool(req), id, gymRules.todayInIndia()));
+}));
+
+// Complaints about gyms and platform settings (complaints/, platform/; migration 2027-01-20)
+const COMPLAINTS_MIGRATION = "Complaints and platform settings need the 2027-01-20-complaints-and-settings migration on this server.";
+const caseRoute = (handler) => (req, res, next) =>
+  handler(req, res, next).catch((error) => {
+    if (error?.code === "ER_NO_SUCH_TABLE") return res.status(503).json({ error: COMPLAINTS_MIGRATION });
+    next(error);
+  });
+const caseId = (req) => gymRules.id(req.params.complaintId, "complaint");
+const caseBody = express.json({ limit: "4kb" });
+router.get("/complaints", caseRoute(async (req, res) => {
+  res.json(await complaints.list(pool(req), complaintRules.listQuery(req.query)));
+}));
+router.get("/complaints/:complaintId", caseRoute(async (req, res) => {
+  res.json(await complaints.detail(pool(req), caseId(req)));
+}));
+router.post("/complaints/:complaintId/assign", platformLimit, caseRoute(async (req, res) => {
+  res.json(await complaints.assignToMe(pool(req), req.userId, caseId(req)));
+}));
+router.post("/complaints/:complaintId/notes", platformLimit, caseBody, caseRoute(async (req, res) => {
+  const id = caseId(req);
+  res.json(await complaints.addNote(pool(req), req.userId, id, complaintRules.noteBody(req.body)));
+}));
+router.post("/complaints/:complaintId/status", platformLimit, caseBody, caseRoute(async (req, res) => {
+  const id = caseId(req);
+  res.json(await complaints.setStatus(pool(req), req.userId, id, complaintRules.statusBody(req.body)));
+}));
+router.get("/platform-settings", caseRoute(async (req, res) => {
+  res.json({ settings: await platformSettings.get(pool(req)), defaults: settingsRules.DEFAULTS });
+}));
+router.put("/platform-settings", platformLimit, smallBody, caseRoute(async (req, res) => {
+  res.json(await platformSettings.save(pool(req), req.userId, settingsRules.settingsBody(req.body)));
 }));
 
 // Gym registration and approval (gym/registration.js, migration 2026-12-27): a branch's application
