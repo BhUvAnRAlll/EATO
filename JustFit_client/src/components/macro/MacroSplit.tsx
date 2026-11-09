@@ -35,14 +35,19 @@ export function SplitCard({ totals, targets, size, stroke, onPress, accessibilit
   const target = calorieSplit(targets);
   const body = (
     <>
+      {/* Nothing logged: an empty grey ring, never a full-colour split of nothing */}
       <View style={{ width: size, height: size }}>
-        <View style={{ position: "absolute" }}>
-          <Ring size={size} stroke={stroke} progress={1} color={colors.fat} caps={false} />
-        </View>
-        <View style={{ position: "absolute" }}>
-          <Ring size={size} stroke={stroke} progress={(eaten.protein + eaten.carbs) / 100} color={colors.carbs} caps={false} trackColor="transparent" />
-        </View>
-        <Ring size={size} stroke={stroke} progress={eaten.protein / 100} color={colors.protein} caps={false} trackColor="transparent">
+        {!eaten.empty && (
+          <>
+            <View style={{ position: "absolute" }}>
+              <Ring size={size} stroke={stroke} progress={1} color={colors.fat} caps={false} />
+            </View>
+            <View style={{ position: "absolute" }}>
+              <Ring size={size} stroke={stroke} progress={(eaten.protein + eaten.carbs) / 100} color={colors.carbs} caps={false} trackColor="transparent" />
+            </View>
+          </>
+        )}
+        <Ring size={size} stroke={stroke} progress={eaten.empty ? 0 : eaten.protein / 100} color={colors.protein} caps={false} trackColor={eaten.empty ? undefined : "transparent"}>
           <Text className="macro__hero-number" style={{ fontSize: size < 140 ? 24 : 28, lineHeight: size < 140 ? 28 : 32 }}>{whole(totals.kcal).toLocaleString("en-IN")}</Text>
           <Text className="macro__stat-label">kcal</Text>
         </Ring>
@@ -54,7 +59,7 @@ export function SplitCard({ totals, targets, size, stroke, onPress, accessibilit
               <View className="h-2.5 w-2.5 rounded-pill" style={{ backgroundColor: row.color }} />
               <Text className="macro__bar-label">{row.label}</Text>
             </View>
-            <Text className="macro__bar-label">{eaten.empty ? "—" : `${eaten[row.split]}%`}</Text>
+            <Text className="macro__bar-label">{eaten.empty ? `${whole(totals[row.key])} g` : `${eaten[row.split]}%`}</Text>
           </View>
         ))}
         <View className="my-1 h-px bg-cream-line" />

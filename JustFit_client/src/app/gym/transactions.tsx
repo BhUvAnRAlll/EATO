@@ -1,10 +1,10 @@
 import { useCallback, useRef, useState } from "react";
-import { ActivityIndicator, RefreshControl, Text, View } from "react-native";
+import { ActivityIndicator, RefreshControl, ScrollView, Text, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 
 import { PressableScale } from "@/components/PressableScale";
 import { DateSelect } from "@/components/gym/DateSelect";
-import { GymChips } from "@/components/gym/GymField";
+import { FilterChip } from "@/components/gym/GymChip";
 import { GymEmpty, GymError, GymLoading } from "@/components/gym/GymStates";
 import { GymScreen } from "@/components/gym/GymScreen";
 import { PaymentRow } from "@/components/gym/PaymentRow";
@@ -13,6 +13,7 @@ import { indiaDay } from "@/lib/attendanceText";
 import { gymApi, type GymPayment, type PaymentKind } from "@/lib/gymApi";
 import { useSessionToken } from "@/lib/session";
 import { useGymData } from "@/lib/useGymData";
+import { haptic } from "@/lib/haptics";
 import { useThemeColors } from "@/theme";
 
 type KindFilter = PaymentKind | "all";
@@ -57,7 +58,12 @@ export default function GymTransactions() {
   const rows = result.state === "ready" ? [...result.data.payments, ...more.items] : [];
   return (
     <GymScreen title="Transactions" refreshControl={<RefreshControl refreshing={refreshing} tintColor={colors.gymPrimary} onRefresh={refresh} />}>
-      <GymChips options={KINDS.map((k) => ({ value: k, label: k === "all" ? "All" : KIND_LABEL[k] }))} value={kind} onChange={setKind} />
+      {/* One scrolling row of filter chips, edge to edge, so a cut chip reads as "scroll for more" */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -16, flexGrow: 0 }} contentContainerStyle={{ paddingHorizontal: 16, gap: 8, paddingVertical: 4 }} accessibilityRole="tablist">
+        {KINDS.map((k) => (
+          <FilterChip key={k} label={k === "all" ? "All" : KIND_LABEL[k]} selected={k === kind} onPress={() => { if (k !== kind) haptic.select(); setKind(k); }} />
+        ))}
+      </ScrollView>
       <DateSelect label="Date" value={day} onChange={setDay} min={indiaDay(-365)} max={today} />
       {result.state === "loading" && <GymLoading label="Loading transactions" />}
       {result.state === "failed" && <GymError error={result.error} onRetry={retry} />}

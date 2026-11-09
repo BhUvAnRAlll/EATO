@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, useWindowDimensions, View } from "react-native";
 import { ScreenSkeleton } from "@/components/Skeleton";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -30,6 +30,8 @@ export default function Favorites() {
   const [slot, setSlot] = useState<Slot>(upstreamSlot ?? slotForNow());
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  // Set at once (state lags a render), so a double tap logs the meal only once
+  const savingRef = useRef(false);
   // Two per row, never wider than 200
   const cardWidth = Math.min(200, Math.floor((width - 32 - 12) / 2));
 
@@ -62,17 +64,19 @@ export default function Favorites() {
   };
 
   const logIt = async () => {
-    if (!selected || saving) return;
+    if (!selected || saving || savingRef.current) return;
     setError(null);
     // The selected day, followed to the new today when midnight passed since it was picked
     const date = logDate();
     if (date !== todayIso()) return setError("Meals can only be logged for today.");
+    savingRef.current = true;
     setSaving(true);
     const result = await macro.logFavorite(await getToken().catch(() => null), selected.id, {
       date,
       slot: upstreamSlot ?? slot,
       loggedAt: loggedAtFor(date, params.hour, params.minute),
     });
+    savingRef.current = false;
     setSaving(false);
     if (!result.ok) return setError(result.status ? result.error : "Could not log that favourite.");
     router.dismissTo("/macro"); // the Macro tab reloads the day when it comes back into view

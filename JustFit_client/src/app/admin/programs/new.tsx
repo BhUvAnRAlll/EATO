@@ -10,6 +10,7 @@ import { adminPrograms, type ProgramFields } from "@/lib/adminPrograms";
 import { useSessionToken } from "@/lib/session";
 import { useAdminSections } from "@/lib/useAdminSections";
 import { useThemeColors } from "@/theme";
+import { KeyboardAvoider } from "@/components/KeyboardAvoider";
 
 const back = () => (router.canGoBack() ? router.back() : router.replace("/admin/programs"));
 
@@ -56,15 +57,18 @@ export default function NewProgramScreen() {
           <Text className="screen-bar__title" accessibilityRole="header">New program</Text>
           <View className="screen-bar__spacer" />
         </View>
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 48, gap: 16 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"} automaticallyAdjustKeyboardInsets>
-          <ProgramForm value={form} onChange={setForm} disabled={busy} sections={sections} />
-          {error && <Text className="meta-text" style={{ color: colors.danger }}>{error}</Text>}
-          <Pressable onPress={create} disabled={busy} className="btn-forest flex-row items-center justify-center" style={{ gap: 8, opacity: busy ? 0.7 : 1 }} accessibilityRole="button" accessibilityState={{ disabled: busy }}>
-            {busy ? <ActivityIndicator size="small" color={colors.onPrimary} /> : null}
-            <Text className="btn-forest__label">Create program</Text>
-          </Pressable>
-          <Text className="admin__hint">The program is free for every member. Once it exists, add its sessions (one YouTube video each) from its page.</Text>
-        </ScrollView>
+        {/* Keeps the lower fields and Save above the keyboard on Android too */}
+        <KeyboardAvoider>
+          <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 48, gap: 16 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}>
+            <ProgramForm value={form} onChange={setForm} disabled={busy} sections={sections} />
+            {error && <Text className="meta-text" style={{ color: colors.danger }}>{error}</Text>}
+            <Pressable onPress={create} disabled={busy} className="btn-forest flex-row items-center justify-center" style={{ gap: 8, opacity: busy ? 0.7 : 1 }} accessibilityRole="button" accessibilityState={{ disabled: busy }}>
+              {busy ? <ActivityIndicator size="small" color={colors.onPrimary} /> : null}
+              <Text className="btn-forest__label">Create program</Text>
+            </Pressable>
+            <Text className="admin__hint">The program is free for every member. Once it exists, add its sessions (one YouTube video each) from its page.</Text>
+          </ScrollView>
+        </KeyboardAvoider>
       </SafeAreaView>
     </View>
   );

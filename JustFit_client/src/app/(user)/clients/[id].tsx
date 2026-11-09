@@ -5,7 +5,7 @@ import { StatusBar } from "expo-status-bar";
 import { Redirect, router, useFocusEffect, useLocalSearchParams } from "expo-router";
 
 import { FormAlert } from "@/components/FormAlert";
-import { IconButton } from "@/components/IconButton";
+import { ScreenHeader } from "@/components/ScreenHeader";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { ScreenSkeleton } from "@/components/Skeleton";
 import { SymbolView } from "@/components/SymbolView";
@@ -52,10 +52,7 @@ function ClientPage() {
     <View className="flex-1 bg-cream">
       <StatusBar style="dark" />
       <SafeAreaView edges={["top"]} style={{ flex: 1 }}>
-        <View className="flex-row items-center px-4 py-2" style={{ gap: 12 }}>
-          <IconButton icon={{ ios: "chevron.left", android: "chevron_left", web: "chevron_left" }} label="Back" onPress={back} />
-          <Text className="type-title flex-1" numberOfLines={1} accessibilityRole="header">{state.status === "ready" ? state.data.client.name : "Client"}</Text>
-        </View>
+        <ScreenHeader title={state.status === "ready" ? state.data.client.name : "Client"} onBack={back} />
 
         <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 48, gap: 16 }} showsVerticalScrollIndicator={false}>
           {state.status === "loading" && <ScreenSkeleton label="Loading your client" />}

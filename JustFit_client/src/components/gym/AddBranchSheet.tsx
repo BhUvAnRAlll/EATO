@@ -21,10 +21,10 @@ export function AddBranchSheet({ gym, onClose, onSaved }: { gym: string; onClose
   return (
     <GymSheet title="Add Branch" subtitle={`Another branch of ${gym}. Its members, payments and QR code are its own.`} onClose={onClose}>
       <View style={{ gap: 14 }}>
-        <GymField label="Branch name" value={branch} onChangeText={setBranch} maxLength={80} placeholder="For example: Kunigal" autoCapitalize="words" />
+        <GymField label="Branch name" icon="store" pinLabel value={branch} onChangeText={setBranch} maxLength={80} placeholder="For example: Kunigal" autoCapitalize="words" />
         <Text className="gym-section-title">Location</Text>
-        <GymField label="Area" value={area} onChangeText={setArea} maxLength={80} placeholder="For example: Main Road" autoCapitalize="words" />
-        <GymField label="City" value={city} onChangeText={setCity} maxLength={60} placeholder="For example: Tumakuru" autoCapitalize="words" />
+        <GymField label="Area" icon="map-pin" pinLabel value={area} onChangeText={setArea} maxLength={80} placeholder="For example: Main Road" autoCapitalize="words" />
+        <GymField label="City" icon="layers" pinLabel value={city} onChangeText={setCity} maxLength={60} placeholder="For example: Tumakuru" autoCapitalize="words" />
         {error ? <FormAlert message={error} /> : null}
         <GymPrimaryButton label="Add Branch" icon="map-pin" ready={ready} busy={busy} onPress={() => save((token) => gymApi.addBranch(token, { branch: branch.trim(), area: area.trim(), city: city.trim() }))} />
       </View>

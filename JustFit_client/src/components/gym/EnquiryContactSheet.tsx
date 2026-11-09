@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
 
 import { FormAlert } from "@/components/FormAlert";
-import { PressableScale } from "@/components/PressableScale";
+import { ChoiceChip } from "@/components/gym/GymChip";
 import { GymField } from "@/components/gym/GymField";
 import { GymIcon } from "@/components/gym/GymIcon";
 import { GymPrimaryButton } from "@/components/gym/GymPrimaryButton";
@@ -112,13 +112,11 @@ export function EnquiryContactSheet({ enquiry, afterCall, onClose, onSaved }: { 
           {phrases.map((phrase) => {
             const selected = noteHas(note, phrase);
             return (
-              <PressableScale key={phrase} onPress={() => { haptic.select(); setNote((n) => toggleSaid(n, phrase)); }} className={selected ? "gym-choice gym-choice--selected" : "gym-choice"} style={{ minHeight: 32 }} accessibilityRole="button" accessibilityState={{ selected }} accessibilityLabel={selected ? `Remove ${phrase}` : `Add ${phrase}`}>
-                  <Text className={selected ? "gym-choice__label gym-choice__label--selected" : "gym-choice__label"}>{phrase}</Text>
-                </PressableScale>
+              <ChoiceChip key={phrase} onPress={() => { haptic.select(); setNote((n) => toggleSaid(n, phrase)); }} selected={selected} label={phrase} accessibilityRole="button" accessibilityState={{ selected }} accessibilityLabel={selected ? `Remove ${phrase}` : `Add ${phrase}`} />
             );
           })}
         </View>
-        <GymField label="In their words (optional)" value={note} onChangeText={setNote} maxLength={CONTACT_NOTE_MAX} placeholder={reached ? "Eg. Coming Saturday with a friend" : "Eg. Try after 6 pm"} multiline style={{ minHeight: 72, textAlignVertical: "top" }} />
+        <GymField label="In their words (optional)" icon="notebook-pen" pinLabel value={note} onChangeText={setNote} maxLength={CONTACT_NOTE_MAX} placeholder={reached ? "Eg. Coming Saturday with a friend" : "Eg. Try after 6 pm"} multiline style={{ minHeight: 72, textAlignVertical: "top" }} />
       </View>
 
       {open && (
@@ -129,9 +127,7 @@ export function EnquiryContactSheet({ enquiry, afterCall, onClose, onSaved }: { 
               const selected = choice.days === nextDays;
               const label = choice.days === null ? keepLabel : choice.label;
               return (
-                <PressableScale key={choice.label} onPress={() => { haptic.select(); setNextDays(choice.days); }} className={selected ? "gym-choice gym-choice--selected" : "gym-choice"} style={{ minHeight: 32 }} accessibilityRole="button" accessibilityState={{ selected }} accessibilityLabel={choice.days === null ? keepLabel : `Follow up in ${choice.label.toLowerCase()}`}>
-                  <Text className={selected ? "gym-choice__label gym-choice__label--selected" : "gym-choice__label"}>{label}</Text>
-                </PressableScale>
+                <ChoiceChip key={choice.label} onPress={() => { haptic.select(); setNextDays(choice.days); }} selected={selected} label={label} accessibilityRole="button" accessibilityState={{ selected }} accessibilityLabel={choice.days === null ? keepLabel : `Follow up in ${choice.label.toLowerCase()}`} />
               );
             })}
           </View>

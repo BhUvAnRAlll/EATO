@@ -57,7 +57,7 @@ export default function AdminUserDetail() {
         </View>
 
         {!user ? (
-          <View className="px-5 pt-6">
+          <View className="px-4 pt-6">
             {error ? (
               <DashedBlock icon={{ ios: "person.slash", android: "person_off", web: "person_off" }} title="Can't open this account" text={`${error.replace(/\.$/, "")}. Tap to try again.`} onPress={load} />
             ) : (

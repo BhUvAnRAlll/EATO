@@ -5,6 +5,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { FormAlert } from "@/components/FormAlert";
 import { PressableScale } from "@/components/PressableScale";
 import { GradientFill } from "@/components/gym/GradientFill";
+import { FilterChip } from "@/components/gym/GymChip";
 import { GymIcon } from "@/components/gym/GymIcon";
 import { GymScreen } from "@/components/gym/GymScreen";
 import { GymEmpty, GymError, GymLoading } from "@/components/gym/GymStates";
@@ -68,10 +69,7 @@ export default function PauseRequests() {
           const selected = v.id === view;
           const count = data && v.id === "pending" ? data.counts.pending : undefined;
           return (
-            <PressableScale key={v.id} onLayout={onChipLayout(v.id)} onPress={() => { if (!selected) haptic.select(); setDeciding(null); setView(v.id); }} className={selected ? "gym-kind gym-kind--selected" : "gym-kind"} accessibilityRole="tab" accessibilityState={{ selected }} accessibilityLabel={`${v.label}${count !== undefined ? `, ${count}` : ""}`}>
-              {selected && <GradientFill radius={999} />}
-              <Text className={selected ? "gym-kind__label gym-kind__label--selected" : "gym-kind__label"}>{count !== undefined ? `${v.label} · ${count}` : v.label}</Text>
-            </PressableScale>
+            <FilterChip key={v.id} onLayout={onChipLayout(v.id)} onPress={() => { if (!selected) haptic.select(); setDeciding(null); setView(v.id); }} selected={selected} label={v.label} count={count} accessibilityLabel={`${v.label}${count !== undefined ? `, ${count}` : ""}`} />
           );
         })}
       </ScrollView>

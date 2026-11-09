@@ -13,7 +13,7 @@ import { KIND_LABEL, adminPortal, type AdminUserRow, type UserFilter } from "@/l
 import { useSessionToken } from "@/lib/session";
 import { useThemeColors } from "@/theme";
 
-// Super Admin › Users: every account, searched by name or email and filtered by kind. Each row
+// Super Admin › Users: every account, searched by name or phone number and filtered by kind. Each row
 // opens the account's page (when they joined and what they logged).
 
 const FILTERS: { value: UserFilter; label: string }[] = [
@@ -63,13 +63,13 @@ export default function AdminUsers() {
       <SafeAreaView style={{ flex: 1 }} edges={["top", "left", "right"]}>
         <ScrollView contentContainerStyle={{ paddingBottom: 110, gap: 14 }} keyboardShouldPersistTaps="handled"
             keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"} showsVerticalScrollIndicator={false} refreshControl={refreshControl}>
-          <View className="px-5 pt-2">
+          <View className="px-4 pt-2">
             <Text className="type-overline text-muted">justFit admin</Text>
             <Text className="type-title text-forest-ink">Users</Text>
           </View>
-          <View className="search search--pill mx-5">
+          <View className="search search--pill search--on-page mx-4">
             <SymbolView name={{ ios: "magnifyingglass", android: "search", web: "search" }} size={18} tintColor={colors.muted} />
-            <TextInput className="search__input" value={search} onChangeText={setSearch} placeholder="Name or email" placeholderTextColor={colors.faint} autoCorrect={false} autoCapitalize="none" maxLength={80} accessibilityLabel="Search users" />
+            <TextInput className="search__input" value={search} onChangeText={setSearch} placeholder="Name or phone" placeholderTextColor={colors.faint} autoCorrect={false} autoCapitalize="none" maxLength={80} accessibilityLabel="Search users" />
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }} accessibilityRole="tablist">
             {FILTERS.map((f) => {
@@ -82,7 +82,7 @@ export default function AdminUsers() {
             })}
           </ScrollView>
 
-          <View className="px-5">
+          <View className="px-4">
             {load.state === "loading" ? (
               <ScreenSkeleton label="Loading users" />
             ) : load.state === "failed" ? (

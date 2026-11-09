@@ -206,8 +206,9 @@ describe("ui coach: the AI Coach intake", () => {
     await page.clickText("Meet my coach");
     await h.expectPath("/coach");
     await h.expectText("Coach Priya");
-    await h.expectText("Food first · Supportive");
-    await h.expectText("Ask Priya anything...");
+    await h.expectText("Food first");
+    await h.expectText("Style: Supportive");
+    await h.expectText("Ask anything…");
     await h.expectText("Make my plan");
     await h.expectText("Edit my answers");
     const [[row]] = await connection.query("SELECT * FROM coach_profiles WHERE user_id = ?", [identities.a.id]);
@@ -538,7 +539,8 @@ describe("ui coach: the AI Coach intake", () => {
     await h.expectText("How should Meera coach you?");
     await page.clickText("Direct");
     await clickLabel("Save");
-    await h.expectText("Mobility and yoga · Direct");
+    await h.expectText("Mobility and yoga");
+    await h.expectText("Style: Direct");
     const [[row]] = await connection.query("SELECT coach, coach_style, goal, weekdays FROM coach_profiles WHERE user_id = ?", [identities.a.id]);
     assert.deepEqual({ coach: row.coach, style: row.coach_style, goal: row.goal, days: row.weekdays }, { coach: "meera", style: "direct", goal: "build_muscle", days: [1, 2, 4] });
     // The chat with Priya is over: Meera starts a new one

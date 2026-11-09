@@ -3,6 +3,7 @@ import { Text, View } from "react-native";
 import { router } from "expo-router";
 
 import { PressableScale } from "@/components/PressableScale";
+import { ChoiceChip } from "@/components/gym/GymChip";
 import { pickable, rupees } from "@/data/gymDashboard";
 import { gymApi, type CatalogItem, type CatalogKind } from "@/lib/gymApi";
 import { haptic } from "@/lib/haptics";
@@ -42,9 +43,7 @@ export function CatalogPicks({ kind, label, selected, onPick }: { kind: CatalogK
           {items.map((item) => {
             const isSelected = item.id === selected;
             return (
-              <PressableScale key={item.id} onPress={() => { if (!isSelected) haptic.select(); onPick(item); }} className={isSelected ? "gym-choice gym-choice--selected" : "gym-choice"} accessibilityRole="radio" accessibilityState={{ selected: isSelected }} accessibilityLabel={`${item.name}, ${rupees(item.price)}`}>
-                <Text className={isSelected ? "gym-choice__label gym-choice__label--selected" : "gym-choice__label"}>{`${item.name} · ${rupees(item.price)}`}</Text>
-              </PressableScale>
+              <ChoiceChip key={item.id} onPress={() => { if (!isSelected) haptic.select(); onPick(item); }} selected={isSelected} label={item.name} trailing={`· ${rupees(item.price)}`} accessibilityRole="radio" accessibilityState={{ selected: isSelected }} accessibilityLabel={`${item.name}, ${rupees(item.price)}`} />
             );
           })}
         </View>

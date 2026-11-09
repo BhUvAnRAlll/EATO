@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from "react-native";
+import { Platform, Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { SymbolView } from "@/components/SymbolView";
@@ -8,6 +8,7 @@ import { router } from "expo-router";
 import { CoachButton } from "@/components/coach/CoachButton";
 import { intakeSteps, type IntakeStep } from "@/data/coach";
 import { useThemeColors } from "@/theme";
+import { KeyboardAvoider } from "@/components/KeyboardAvoider";
 
 type IntakeFrameProps = {
   step: IntakeStep;
@@ -38,13 +39,15 @@ export function IntakeFrame({ step, title, subtitle, children, onNext, nextLabel
           </Pressable>
           <Text className="coach__count" accessibilityLabel={`Step ${index + 1} of ${intakeSteps.length}`}>{`${index + 1}/${intakeSteps.length}`}</Text>
         </View>
-        <View className="mb-2 mt-3 flex-row gap-1.5 px-6" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+        <View className="mt-3 flex-row gap-1.5 px-6 pb-3" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
           {intakeSteps.map((name, i) => (
             <View key={name} className={i <= index ? "coach__segment coach__segment--done" : "coach__segment"} />
           ))}
         </View>
+        {/* A thin line under the header, so content scrolled up under it reads as passing beneath */}
+        <View className="h-px bg-cream-line" />
 
-        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+        <KeyboardAvoider>
           <ScrollView contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 20, paddingBottom: 24, gap: 20 }} keyboardShouldPersistTaps="handled"
             keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"} showsVerticalScrollIndicator={false}>
             <View>
@@ -58,7 +61,7 @@ export function IntakeFrame({ step, title, subtitle, children, onNext, nextLabel
           <View className="px-6 pb-2 pt-3">
             <CoachButton label={nextLabel} onPress={onNext} disabled={!canContinue} loading={loading} />
           </View>
-        </KeyboardAvoidingView>
+        </KeyboardAvoider>
       </SafeAreaView>
     </View>
   );

@@ -1,18 +1,18 @@
 import { useState } from "react";
 import {
   ActivityIndicator,
-  KeyboardAvoidingView,
   Modal,
-  Platform,
   Pressable,
   Text,
   TextInput,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { SymbolView } from "@/components/SymbolView";
 
 import { FormAlert } from "@/components/FormAlert";
 import { codeInput } from "@/lib/phone";
+import { KeyboardAvoider } from "@/components/KeyboardAvoider";
 import { useThemeColors } from "@/theme";
 
 const CODE_LENGTH = 6;
@@ -33,6 +33,7 @@ type VerificationModalProps = {
 
 export function VerificationModal({ visible, title, destination, onClose, onComplete, onResend, resendIn }: VerificationModalProps) {
   const colors = useThemeColors();
+  const insets = useSafeAreaInsets();
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isChecking, setIsChecking] = useState(false);
@@ -71,15 +72,14 @@ export function VerificationModal({ visible, title, destination, onClose, onComp
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
-      {/* Keeps the sheet sitting right above the keyboard */}
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-      >
+      {/* Keeps the sheet sitting right above the keyboard (KeyboardAvoider adds Android's
+          navigation bar, which the reported keyboard height leaves out) */}
+      <KeyboardAvoider>
         <View className="verify__backdrop">
           <Pressable className="flex-1" onPress={handleClose} accessibilityRole="button" accessibilityLabel="Close" />
 
-          <View className="verify__sheet">
+          {/* The sheet's own padding plus the navigation bar / home indicator: the Modal draws under them */}
+          <View className="verify__sheet" style={{ paddingBottom: 32 + insets.bottom }}>
             <View className="flex-row items-start justify-between">
               <Text className="type-title text-ink">{title}</Text>
               <Pressable onPress={handleClose} hitSlop={12} className="pt-1" accessibilityRole="button" accessibilityLabel="Close">
@@ -141,7 +141,7 @@ export function VerificationModal({ visible, title, destination, onClose, onComp
             </View>
           </View>
         </View>
-      </KeyboardAvoidingView>
+      </KeyboardAvoider>
     </Modal>
   );
 }

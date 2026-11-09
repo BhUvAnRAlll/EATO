@@ -9,9 +9,11 @@ import { ScreenSkeleton } from "@/components/Skeleton";
 import { DashedBlock } from "@/components/macro/DashedBlock";
 import { SymbolView } from "@/components/SymbolView";
 import { aiUsage, inr, type BudgetSettings, type BudgetView } from "@/lib/aiUsage";
+import { useResponsive } from "@/lib/responsive";
 import { useSessionToken } from "@/lib/session";
 import { useThemeColors, useSwitchColors } from "@/theme";
 import { haptic } from "@/lib/haptics";
+import { KeyboardAvoider } from "@/components/KeyboardAvoider";
 
 type Load = { state: "loading" } | { state: "failed"; error: string } | { state: "ready"; data: BudgetView };
 
@@ -112,101 +114,105 @@ export default function AiBudgetScreen() {
           <View className="screen-bar__spacer" />
         </View>
 
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40, gap: 16 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled"
-            keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"} automaticallyAdjustKeyboardInsets refreshControl={refreshControl}>
-          {load.state === "loading" ? (
-            <ScreenSkeleton label="Loading the budget" />
-          ) : load.state === "failed" ? (
-            <DashedBlock icon={{ ios: "exclamationmark.triangle.fill", android: "warning", web: "warning" }} title="Could not load the budget" text={`${load.error.replace(/\.$/, "")}. Tap to try again.`} onPress={() => { setLoad({ state: "loading" }); refresh(); }} />
-          ) : form && (
-            <>
-              <Utilization data={load.data} />
+        {/* Keeps the lower fields and Save above the keyboard on Android too */}
+        <KeyboardAvoider>
+          <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40, gap: 16 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled"
+              keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"} refreshControl={refreshControl}>
+            {load.state === "loading" ? (
+              <ScreenSkeleton label="Loading the budget" />
+            ) : load.state === "failed" ? (
+              <DashedBlock icon={{ ios: "exclamationmark.triangle.fill", android: "warning", web: "warning" }} title="Could not load the budget" text={`${load.error.replace(/\.$/, "")}. Tap to try again.`} onPress={() => { setLoad({ state: "loading" }); refresh(); }} />
+            ) : form && (
+              <>
+                <Utilization data={load.data} />
 
-              <Text className="setup__section">Settings</Text>
-              <View className="admin-list px-4 py-3" style={{ gap: 12 }}>
-                <Text className="card__title">Monthly AI spending limit (₹)</Text>
-                <TextInput
-                  className="admin__input"
-                  value={limitText}
-                  onChangeText={setLimitText}
-                  keyboardType="decimal-pad"
-                  inputMode="decimal"
-                  placeholder="4000"
-                  placeholderTextColor={colors.faint}
-                  accessibilityLabel="Monthly limit"
-                />
-                <Text className="admin__hint">0 turns the threshold alerts off.</Text>
-                <Text className="card__title">Exchange rate (₹ per US dollar)</Text>
-                <TextInput
-                  className="admin__input"
-                  value={rateText}
-                  onChangeText={setRateText}
-                  keyboardType="decimal-pad"
-                  inputMode="decimal"
-                  placeholder="84"
-                  placeholderTextColor={colors.faint}
-                  accessibilityLabel="Exchange rate"
-                />
-                <Text className="admin__hint">OpenAI bills in US dollars; each new call is converted to rupees at this rate when it is recorded. Earlier rows keep the rate they were recorded at.</Text>
-                {switches.map((item) => (
-                  <View key={item.key} className="flex-row items-center gap-3">
-                    <View className="min-w-0 flex-1">
-                      <Text className="card__title">{item.label}</Text>
-                      <Text className="meta-text">{item.note}</Text>
-                    </View>
-                    <Switch {...switchColors} value={form[item.key]} onValueChange={(value) => { haptic.select(); setForm({ ...form, [item.key]: value }); }} disabled={saving} accessibilityLabel={item.label} />
-                  </View>
-                ))}
-                {note && <Text className={note.tone === "ok" ? "admin__success" : "macro__error"} accessibilityRole={note.tone === "ok" ? undefined : "alert"}>{note.text}</Text>}
-                <Pressable onPress={save} disabled={saving} className="btn-forest" style={{ opacity: saving ? 0.6 : 1 }} accessibilityRole="button" accessibilityLabel="Save budget" accessibilityState={{ busy: saving }}>
-                  {saving ? <ActivityIndicator color={colors.white} /> : <Text className="btn-forest__label">Save</Text>}
-                </Pressable>
-                {load.data.settings.updatedAt && (
-                  <Text className="meta-text">{`Last changed ${load.data.settings.updatedBy ? `by ${load.data.settings.updatedBy} ` : ""}on ${when(load.data.settings.updatedAt)}`}</Text>
-                )}
-              </View>
-
-              <Text className="setup__section">Alerts</Text>
-              {load.data.alerts.length === 0 ? (
-                <DashedBlock icon={{ ios: "checkmark.circle", android: "check_circle", web: "check_circle" }} title="No alerts" text="Threshold and spike alerts show up here when they fire." />
-              ) : (
-                <View className="admin-list">
-                  {load.data.alerts.map((alert, i) => (
-                    <View key={alert.id} className={i === 0 ? "admin-row" : "admin-row admin-row--divided"} style={{ opacity: alert.acknowledgedAt ? 0.55 : 1 }}>
-                      <View className="admin-row__icon">
-                        <SymbolView
-                          name={alert.kind === "spike" ? { ios: "chart.line.uptrend.xyaxis", android: "trending_up", web: "trending_up" } : { ios: "exclamationmark.triangle", android: "warning", web: "warning" }}
-                          size={18}
-                          tintColor={alert.acknowledgedAt ? colors.muted : colors.danger}
-                        />
-                      </View>
+                <Text className="setup__section">Settings</Text>
+                <View className="admin-list px-4 py-3" style={{ gap: 12 }}>
+                  <Text className="card__title">Monthly AI spending limit (₹)</Text>
+                  <TextInput
+                    className="admin__input"
+                    value={limitText}
+                    onChangeText={setLimitText}
+                    keyboardType="decimal-pad"
+                    inputMode="decimal"
+                    placeholder="4000"
+                    placeholderTextColor={colors.faint}
+                    accessibilityLabel="Monthly limit"
+                  />
+                  <Text className="admin__hint">0 turns the threshold alerts off.</Text>
+                  <Text className="card__title">Exchange rate (₹ per US dollar)</Text>
+                  <TextInput
+                    className="admin__input"
+                    value={rateText}
+                    onChangeText={setRateText}
+                    keyboardType="decimal-pad"
+                    inputMode="decimal"
+                    placeholder="84"
+                    placeholderTextColor={colors.faint}
+                    accessibilityLabel="Exchange rate"
+                  />
+                  <Text className="admin__hint">OpenAI bills in US dollars; each new call is converted to rupees at this rate when it is recorded. Earlier rows keep the rate they were recorded at.</Text>
+                  {switches.map((item) => (
+                    <View key={item.key} className="flex-row items-center gap-3">
                       <View className="min-w-0 flex-1">
-                        <Text className="type-body text-forest-ink">{alert.detail}</Text>
-                        <Text className="meta-text">{alert.acknowledgedAt ? `${when(alert.at)} · acknowledged` : when(alert.at)}</Text>
+                        <Text className="card__title">{item.label}</Text>
+                        <Text className="meta-text">{item.note}</Text>
                       </View>
-                      {!alert.acknowledgedAt && (
-                        <Pressable onPress={() => acknowledge(alert.id)} disabled={acking !== null} className="btn-outline px-4" accessibilityRole="button" accessibilityLabel={`Acknowledge: ${alert.detail}`}>
-                          {acking === alert.id ? <ActivityIndicator color={colors.forestInk} /> : <Text className="btn-outline__label">Acknowledge</Text>}
-                        </Pressable>
-                      )}
+                      <Switch {...switchColors} value={form[item.key]} onValueChange={(value) => { haptic.select(); setForm({ ...form, [item.key]: value }); }} disabled={saving} accessibilityLabel={item.label} />
                     </View>
                   ))}
+                  {note && <Text className={note.tone === "ok" ? "admin__success" : "macro__error"} accessibilityRole={note.tone === "ok" ? undefined : "alert"}>{note.text}</Text>}
+                  <Pressable onPress={save} disabled={saving} className="btn-forest" style={{ opacity: saving ? 0.6 : 1 }} accessibilityRole="button" accessibilityLabel="Save budget" accessibilityState={{ busy: saving }}>
+                    {saving ? <ActivityIndicator color={colors.white} /> : <Text className="btn-forest__label">Save</Text>}
+                  </Pressable>
+                  {load.data.settings.updatedAt && (
+                    <Text className="meta-text">{`Last changed ${load.data.settings.updatedBy ? `by ${load.data.settings.updatedBy} ` : ""}on ${when(load.data.settings.updatedAt)}`}</Text>
+                  )}
                 </View>
-              )}
-            </>
-          )}
-        </ScrollView>
+
+                <Text className="setup__section">Alerts</Text>
+                {load.data.alerts.length === 0 ? (
+                  <DashedBlock icon={{ ios: "checkmark.circle", android: "check_circle", web: "check_circle" }} title="No alerts" text="Threshold and spike alerts show up here when they fire." />
+                ) : (
+                  <View className="admin-list">
+                    {load.data.alerts.map((alert, i) => (
+                      <View key={alert.id} className={i === 0 ? "admin-row" : "admin-row admin-row--divided"} style={{ opacity: alert.acknowledgedAt ? 0.55 : 1 }}>
+                        <View className="admin-row__icon">
+                          <SymbolView
+                            name={alert.kind === "spike" ? { ios: "chart.line.uptrend.xyaxis", android: "trending_up", web: "trending_up" } : { ios: "exclamationmark.triangle", android: "warning", web: "warning" }}
+                            size={18}
+                            tintColor={alert.acknowledgedAt ? colors.muted : colors.danger}
+                          />
+                        </View>
+                        <View className="min-w-0 flex-1">
+                          <Text className="type-body text-forest-ink">{alert.detail}</Text>
+                          <Text className="meta-text">{alert.acknowledgedAt ? `${when(alert.at)} · acknowledged` : when(alert.at)}</Text>
+                        </View>
+                        {!alert.acknowledgedAt && (
+                          <Pressable onPress={() => acknowledge(alert.id)} disabled={acking !== null} className="btn-outline px-4" accessibilityRole="button" accessibilityLabel={`Acknowledge: ${alert.detail}`}>
+                            {acking === alert.id ? <ActivityIndicator color={colors.forestInk} /> : <Text className="btn-outline__label">Acknowledge</Text>}
+                          </Pressable>
+                        )}
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </>
+            )}
+          </ScrollView>
+        </KeyboardAvoider>
       </SafeAreaView>
     </View>
   );
 }
 
 function Utilization({ data }: { data: BudgetView }) {
+  const { compact } = useResponsive();
   const { month } = data;
   const over = month.percent >= 100;
   const warn = month.percent >= 75;
   return (
-    <View className={`admin-stat grow-0 basis-auto ${over ? "admin-stat--danger" : warn ? "admin-stat--warning" : ""}`} accessibilityLabel={`Budget used this month: ${inr(month.spentInr)} of ${inr(month.monthlyLimitInr)}, ${month.percent}%. Remaining budget ${inr(month.remainingInr)}`}>
+    <View className={`admin-card ${over ? "admin-stat--danger" : warn ? "admin-stat--warning" : ""}`} accessibilityLabel={`Budget used this month: ${inr(month.spentInr)} of ${inr(month.monthlyLimitInr)}, ${month.percent}%. Remaining budget ${inr(month.remainingInr)}`}>
       <View className="flex-row items-center justify-between">
         <Text className="card__title">Budget used this month</Text>
         <Text className="admin-stat__label">{month.monthlyLimitInr > 0 ? `${month.percent}% used` : "No limit set"}</Text>
@@ -214,9 +220,10 @@ function Utilization({ data }: { data: BudgetView }) {
       <View className="ai-bar mt-1">
         <View className={over ? "ai-bar__fill ai-bar__fill--danger" : warn ? "ai-bar__fill ai-bar__fill--warning" : "ai-bar__fill"} style={{ width: `${Math.min(month.percent, 100)}%` }} />
       </View>
-      <View className="mt-2 flex-row flex-wrap justify-between" style={{ gap: 8 }}>
+      {/* Three side by side, or one under another on a compact phone: never two and one */}
+      <View className={compact ? "mt-2" : "mt-2 flex-row"} style={{ gap: 8 }}>
         {[["Spent this month", inr(month.spentInr)], ["Monthly budget", inr(month.monthlyLimitInr)], ["Remaining budget", inr(month.remainingInr)]].map(([label, value]) => (
-          <View key={label} className="min-w-0 flex-1" style={{ minWidth: 88 }}>
+          <View key={label} className={compact ? "min-w-0" : "min-w-0 flex-1"}>
             <Text className="admin-stat__label">{label}</Text>
             <Text className="ai-money" numberOfLines={1} adjustsFontSizeToFit>{value}</Text>
           </View>

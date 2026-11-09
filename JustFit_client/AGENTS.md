@@ -91,7 +91,7 @@ Do not introduce new major libraries unless there is a strong reason.
 
 Every Express route except the health check and the two sign-in routes verifies the caller's session token with `requireUser` (`JustFit_server/auth.js`) before doing anything. The sign-in routes are budgeted per IP address and per phone number instead.
 
-### Gym Hub, member side (2026-11-09, phases 1 to 3 of 4)
+### Gym Hub, member side (2026-11-09, phases 1 to 4 of 4)
 
 Profile's Gym membership and Gym attendance rows became one **Gym Hub** row (`/gym-hub`; a
 trainer sees "Gym check-in" instead, `/attendance`, and is kept out of `/gym-hub` and `/membership`).
@@ -150,6 +150,28 @@ the logo, and its plans and PT packages: never members, payments, staff or other
 new migration (2026-12-17 is needed; before it, 503 naming it). Tests:
 `__tests__/gym-discover-rules.test.js`, `e2e/gym-discover.e2e.test.js`, `ui/gym-discover.ui.test.js`,
 the client's `lib/__tests__/gymDiscover.test.ts`; `ui/gym-pauses.ui.test.js` now goes through Gym Hub.
+
+**Phase 4, asking to join (2026-11-09, migration approved by the user):** no payment anywhere. On a
+gym's page each plan has "Ask about this plan", each PT package "Ask about this package", and "Ask to
+join" asks without a plan; `components/gymHub/JoinSheet.tsx` (a `BottomSheet` in a
+`KeyboardAvoider fill={false}`) shows the name and number the gym will see (the account's, never
+typed), an optional message (200), Send request, then "Request sent". The page then shows Your request
+(Sent / In touch) or, for a member there, "You're a member here" linking to the membership; My
+Memberships lists My join requests. Server `gym/joinRules.js` (pure), `gym/joinRequests.js`:
+`POST /api/gyms/:id/requests { itemId?, note? }` (10 an hour, `GYM_JOIN_REQUESTS_PER_HOUR`) inserts a
+`gym_enquiries` row (source `app`, status new, follow-up today, interest membership or pt, `user_id`,
+`catalog_item_id`, `plan_label` "Gold · 3 Months · ₹4,500") with the gym's row locked: one open
+request per member per gym (409), none for a membership plan while already a member there (409; PT
+is fine), at most 10 open across gyms; the plan must be this gym's plan or PT package.
+`GET /api/gyms/requests` lists the member's own (state sent / in_touch / joined / closed, never the
+gym's notes); `GET /api/gyms/:id` carries `you: { memberId, request }`. The gym sees it in Enquiries
+(Today) as "justFit app" with "Asked about …" (`service.selectEnquiries` reads `plan_label` once the
+column exists); staff can keep `app` on such an enquiry but never choose it (`STAFF_SOURCE_LABEL`,
+`editEnquiry`). Migration `2026-12-19-gym-app-enquiries.sql` (source ENUM `app`, `user_id` FK users
+SET NULL, `catalog_item_id` FK SET NULL so deleting the plan keeps the label, an index); before it,
+asking answers 503 naming it and pages show no request. Not built: a push or SMS to the gym (it shows
+on Enquiries › Today), withdrawing a request. Tests: `__tests__/gym-join-rules.test.js`,
+`e2e/gym-join.e2e.test.js`, `ui/gym-discover.ui.test.js` (5-6).
 
 ### Delivery addresses (2026-11-09)
 
@@ -640,6 +662,17 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
   `gym_enquiry_contacts` (migration `2026-11-30-gym-enquiry-contacts.sql`; before it the list
   works without contacts and logging answers 503), `POST /api/gym/enquiries/:id/contacts`
   (`rules.contactBody`, 60 an hour), contacts and `lead` on every enquiry answer.
+  **What they said (2026-11-09, the user's request; migration approved):** the log is two steps:
+  how it went, then "What did they say?" (quick phrases that add to or come out of the note,
+  `SAID_REACHED` / `SAID_NO_ANSWER` and `toggleSaid` in `data/gymDashboard.ts`, or their own words,
+  300 characters) and "Next follow-up" (Tomorrow / 3 days / 1 week / Keep; tomorrow by default after
+  no answer, else 3 days; open enquiries only), one Save log. `contactBody` takes optional `note`
+  and `followUpOn` (today to a year ahead); `addContact` writes the contact and the enquiry's
+  `follow_up_on` (a new enquiry becomes follow-up) in one transaction and refuses a date on a closed
+  enquiry. Contacts carry `note`; the card shows the last one in quotes, the edit sheet beside each
+  contact. Activity names the date, never the note. Column `gym_enquiry_contacts.note` (migration
+  `2026-12-18-enquiry-contact-notes.sql`; before it contacts are read without notes and a log with
+  a note answers 503 naming it).
   **#2 Payment on time (2026-11-06, migration approved by the user):** Home › Due Members
   (`DueMembersSheet`, now `GET /api/gym/predictions/payments?search=`) shows each due member's chip
   and reasons, likeliest late first (`predictionRules.paymentRisk`): paid a due late 2+ times
@@ -662,17 +695,6 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
   Expired / Paused until …, dues, PT) and Pause Membership → `membership/pause.tsx`: first and last
   paused day (`DatePickerSheet`, today to 60 days ahead, 1-90 days), a reason (3-200 characters),
   "N days paused, your plan would then end on …", Send pause request. The card then says "Pause
-  **What they said (2026-11-09, the user's request; migration approved):** the log is two steps:
-  how it went, then "What did they say?" (quick phrases that add to or come out of the note,
-  `SAID_REACHED` / `SAID_NO_ANSWER` and `toggleSaid` in `data/gymDashboard.ts`, or their own words,
-  300 characters) and "Next follow-up" (Tomorrow / 3 days / 1 week / Keep; tomorrow by default after
-  no answer, else 3 days; open enquiries only), one Save log. `contactBody` takes optional `note`
-  and `followUpOn` (today to a year ahead); `addContact` writes the contact and the enquiry's
-  `follow_up_on` (a new enquiry becomes follow-up) in one transaction and refuses a date on a closed
-  enquiry. Contacts carry `note`; the card shows the last one in quotes, the edit sheet beside each
-  contact. Activity names the date, never the note. Column `gym_enquiry_contacts.note` (migration
-  `2026-12-18-enquiry-contact-notes.sql`; before it contacts are read without notes and a log with
-  a note answers 503 naming it).
   requested … Waiting for <gym> to approve" with Cancel request; a rejection shows under Earlier
   with the gym's note. **Option B, staff initiated:** a member's ⋯ › Membership › Pause Membership
   (`components/gym/PauseMembershipSheet.tsx`: dates, up to 30 days back, reason, "Please confirm
@@ -765,16 +787,6 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
   per gym rather than per branch. Tests: `__tests__/gym-template-rules.test.js`,
   `e2e/gym-templates.e2e.test.js`, `ui/gym-templates.ui.test.js`, the client's
   `lib/__tests__/reminderTemplates.test.ts`.
-- **Invoice template and gym logos (2026-11-08, the user's template):** the Invoice screen and the PDF
-  follow the user's invoice template: "Invoice" with a red rule and the kind under it ("Membership
-  Invoice", "Product Invoice"…), the gym's own logo at the top right (its initials on a red square
-  when it has none), Invoice No / Invoice Date / Due Date (the balance's due date, else the invoice's
-  date), Member Details and Plan Details cards (PT, Service or Product Details for those payments),
-  the item table with a red header, Subtotal and the Total Amount on a pink band, the Balance Due,
-  Payment Details with a green Paid badge, the signature line and the gym's footer (place, phone,
-  GSTIN). The screen stacks it for a phone; the PDF is one A4 page. The words and rows come from
-  `lib/gymInvoice.ts` (`detailRows`, `dueDate`, `invoiceSubtitle`, `itemDescription`, pure and
-  unit-tested) for both. The template's GST, discount, second line, QR and transaction ID are left
   **Added templates (2026-11-08, the user's request):** under the four, "Your templates": the gym
   admin's own named messages (the round + on Reminder Templates, `TemplateSheet` with
   `editing={{ added: null }}`: a name of 2-40 characters, the text with any member placeholder,
@@ -786,6 +798,16 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
   `gym.template_add`, `gym.template_edit`, `gym.template_delete`). `GET /api/gym/templates` carries
   `added` and `canAdd`. Table `gym_added_templates` (migration `2026-12-13-added-templates.sql`;
   before it the list is empty, the + is hidden and adding answers 503 naming it).
+- **Invoice template and gym logos (2026-11-08, the user's template):** the Invoice screen and the PDF
+  follow the user's invoice template: "Invoice" with a red rule and the kind under it ("Membership
+  Invoice", "Product Invoice"…), the gym's own logo at the top right (its initials on a red square
+  when it has none), Invoice No / Invoice Date / Due Date (the balance's due date, else the invoice's
+  date), Member Details and Plan Details cards (PT, Service or Product Details for those payments),
+  the item table with a red header, Subtotal and the Total Amount on a pink band, the Balance Due,
+  Payment Details with a green Paid badge, the signature line and the gym's footer (place, phone,
+  GSTIN). The screen stacks it for a phone; the PDF is one A4 page. The words and rows come from
+  `lib/gymInvoice.ts` (`detailRows`, `dueDate`, `invoiceSubtitle`, `itemDescription`, pure and
+  unit-tested) for both. The template's GST, discount, second line, QR and transaction ID are left
   out: justFit records none of them. **Logo:** each gym prints its own: Branch details › Invoice
   details › Logo (camera or gallery, shrunk to 512 px, `pickLogoImage`) saves at once through
   `PUT|DELETE /api/gym/logo` (gym admin only, the photos' hourly allowance, audited `gym.edit`);
@@ -1060,7 +1082,7 @@ follow screen by screen (Home first, from the reference); each is verified at 32
 
 | Role | Token(s) | Value |
 | --- | --- | --- |
-| Page background | `cream`, `background` | `#F4F4F5` |
+| Page background | `cream`, `background` | `#F6F4EF` (a soft cream, the owner's choice 2026-11-08: it looks the same on an Android screen as the light grey did on an iPhone with True Tone) |
 | Cards and sheets | `surface`, `cream-light` | `#FFFFFF` (no border, `shadow-card`) |
 | Filled containers: fields, tiles / tracks, empty bars | `cream-deep`, `surface-alt` / `cream-tab` | `#F4F4F5` / `#E9E9EC` |
 | Borders and dividers / control outlines | `cream-line`, `line`, `sand` / `line-strong` | `#E8E8EA` / `#C9C9CF` |
@@ -1098,6 +1120,14 @@ follow screen by screen (Home first, from the reference); each is verified at 32
   the setup frame (`SetupScreen`: back chevron, dashed progress, centred title, one full-width
   action). The PDF's components (MetricCard, ProgramCard, Chip, Tabs, ProgressStat, ActivityCard,
   WorkoutStep, MiniPlayer, IconButton) are built as their screens are redesigned.
+- Member app pieces (2026-11-08 visual pass): `ScreenHeader` is every pushed screen's header (44 pt
+  outlined round Back, title centred on it, optional line under, page-coloured with room below;
+  `MacroHeader` wraps it); `FieldInput` is the TextInput inside a `setup__field` row or a macro box
+  (no fixed line height, so values never clip at larger text); `setup__field` is white with a thin
+  `cream-line` edge; `EmptyState` is the one empty-state card (icon in a soft red circle); a
+  disabled `PrimaryButton` / `CoachButton` is grey (`btn--disabled`), never pale red; every selected
+  segment or chip (`macro__segment--selected`, `admin-chip--on`, `auth__tab--active`) is
+  `accent-soft` with a red outline, never blue.
 
 Avoid large inline styles unless required.
 
@@ -1138,6 +1168,31 @@ picker were removed on 2026-11-01; don't add them back unless asked.
   `BottomSheet` (a Modal is its own window); only the newest host draws. `useGymSave(done,
   success?)` shows the success line; `apiFetch` shows `hud.offline()` for a write that never reached
   the server (reads stay quiet). Form errors stay inline (`FormAlert`); the HUD is for outcomes.
+- **Swipe actions (2026-11-09).** A card that has a ⋯ sheet can also swipe:
+  `components/gym/SwipeActions.tsx` (gesture handler's `ReanimatedSwipeable`; the list needs its own
+  `GestureHandlerRootView`, as `MemberList` and `GymSheet` have, since the app's root has none). On
+  gym Members, drag left for Call and Message (the phone's own apps, only with a number), right for
+  Edit (with the Members › Edit option) and More (the ⋯ sheet); never in pick mode. One row open
+  at a time, a selection tick when a panel snaps open, a tap when an action runs; Android needs a
+  firmer drag (72 vs 48) and its buttons ripple. Every swipe action is also on the ⋯ sheet, so
+  screen readers lose nothing.
+- **Symbol effects (2026-11-09).** `SymbolView` and `GymIcon` take `bounce` (any value: a short
+  bounce each time it turns truthy, e.g. `bounce={active}`, `bounce={count}`) and `bounceOnMount`
+  (once when the icon appears). iPhone plays the SF Symbol's own bounce (`animationSpec`, the view
+  remade per bounce); Android, the web and the gym portal's Lucide icons scale to 1.18 and back
+  (`components/motion/Bounce.tsx`). Nothing with Reduce Motion on. Used on both tab bars (the tab
+  that becomes selected), the HUD's success tick, the check-in result's tick and the Attendance
+  count tiles. Keep it to moments that mean something; never on a list's every row.
+- **Undo and shake to undo (2026-11-09).** A reversible removal goes at once with an Undo bar
+  instead of an "Are you sure?": `offerUndo({ text, keys, commit, onDone })` from `lib/undo.ts`.
+  The bar (`components/UndoBar.tsx`, at the root, above the tab bar) shows for 5 s; Undo, or a
+  shake (two strong jolts within 0.8 s, `lib/undoRules.ts`, unit-tested; `expo-sensors`
+  Accelerometer, read only while the bar shows, never on the web) brings it back. The server is
+  told only when the bar ends, another undo is offered or the app leaves the front, so undoing
+  never re-creates anything; a failed send brings the row back with a HUD line. Screens leave out
+  rows whose key is in `useUndoStore`'s `hidden` (and adjust any total they show). Sign-out drops
+  the offer unsent. Used for water entries; logged meals keep their confirmation (their totals come
+  from the server on three screens).
 - **Action sheets and confirmations (2026-11-08).** Use `lib/nativeSheets.ts`, never a hand-made
   `Alert.alert` + `globalThis.confirm` pair. `confirmChoice({ title, message, confirmLabel,
   cancelLabel?, destructive? })` resolves true only on the confirm button: UIKit's action sheet
@@ -1174,9 +1229,21 @@ picker were removed on 2026-11-01; don't add them back unless asked.
 - **Lists.** Long vertical FlatLists spread `listPerf` from `lib/listPerf.ts`. An inverted chat
   uses `chatListPerf`.
 - **Keyboard.** Scroll views with inputs use `keyboardShouldPersistTaps="handled"` and
-  `keyboardDismissMode` set to "interactive" on iOS and "on-drag" on Android.
+  `keyboardDismissMode` set to "interactive" on iOS and "on-drag" on Android. Android draws the
+  app edge to edge, so the window never shrinks for the keyboard: a form screen wraps its scroll in
+  `components/KeyboardAvoider.tsx` (padding on both phones, plus the Android navigation bar that
+  the reported keyboard height leaves out), never `KeyboardAvoidingView` with an iOS-only behaviour
+  or `automaticallyAdjustKeyboardInsets` alone; `GymSheet` lifts itself the same way. Every Modal
+  is edge to edge on Android, so a sheet's bottom padding adds `insets.bottom`
+  (`lib/__tests__/crossPlatformGuards.test.ts` checks these, 2026-11-08 audit).
 - **Text size.** Text controls use `min-height`, not `height`, so labels can grow with Dynamic
-  Type. Only the tab bar caps its labels, with `maxFontSizeMultiplier` 1.3.
+  Type. Text grows with the phone's setting up to 1.3× and no further (the owner's choice,
+  2026-11-08): `metro.config.js` sends the app's own `react-native` imports to
+  `lib/reactNative.js`, which gives every `Text` and `TextInput` `maxFontSizeMultiplier`
+  `MAX_FONT_SCALE` (`constants/textScale.ts`; Reanimated's `Animated.Text` sets it itself). A
+  screen may pass a lower value (the tab bar). Layout checks that depend on space use text units,
+  `width / fontScale` from `useWindowDimensions`, so a narrow phone and a larger text size are
+  treated alike (a 360-wide phone at 1.15 behaves like 313).
 
 ## NativeWind Rule
 

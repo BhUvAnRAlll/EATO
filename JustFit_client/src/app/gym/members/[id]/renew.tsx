@@ -51,8 +51,8 @@ export default function GymRenew() {
           </View>
           <CatalogPicks kind="plan" label="From your plans" selected={picked} onPick={(item) => { setPicked(item.id); if (item.duration) setDuration(String(item.duration)); setFee(String(item.price)); setPaid(String(item.price)); }} />
           <PlanLengthFields duration={duration} onDuration={(t) => { setPicked(null); setDuration(t); }} />
-          <GymField label="Plan fee (₹)" value={fee} onChangeText={(t) => { setPicked(null); setFee(amountInput(t)); }} keyboardType="number-pad" placeholder="4500" />
-          <GymField label="Paid now (₹)" value={paid} onChangeText={(t) => setPaid(amountInput(t))} keyboardType="number-pad" placeholder="3000" />
+          <GymField label="Plan fee (₹)" icon="banknote" pinLabel value={fee} onChangeText={(t) => { setPicked(null); setFee(amountInput(t)); }} keyboardType="number-pad" placeholder="4500" />
+          <GymField label="Paid now (₹)" icon="indian-rupee" pinLabel value={paid} onChangeText={(t) => setPaid(amountInput(t))} keyboardType="number-pad" placeholder="3000" />
           <GymChips label="Paid by" options={(["online", "cash"] as const).map((m) => ({ value: m, label: METHOD_LABEL[m] }))} value={method} onChange={setMethod} />
           {leftOwed && <DueByField value={dueBy} onChange={setDueBy} />}
           {ready && feeValue > paidValue && <Text className="gym-tx__meta">{`${rupees(feeValue - paidValue)} will be added to their due${dueByIso ? `, due ${shortDate(dueByIso)}` : ""}.`}</Text>}

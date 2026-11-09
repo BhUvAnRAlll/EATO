@@ -117,6 +117,7 @@ export function TemplateSheet({ editing, templates, onClose, onSaved }: { editin
         <GymField
           label="Template name"
           icon="pencil-line"
+          pinLabel
           value={name}
           onChangeText={setName}
           maxLength={NAME_MAX}

@@ -3,9 +3,9 @@ import { Text, View } from "react-native";
 
 import { FormAlert } from "@/components/FormAlert";
 import { PressableScale } from "@/components/PressableScale";
+import { ChoiceChip } from "@/components/gym/GymChip";
 import { ConfirmDialog } from "@/components/gym/ConfirmDialog";
 import { DateSelect } from "@/components/gym/DateSelect";
-import { GradientFill } from "@/components/gym/GradientFill";
 import { ChipRow, METHODS } from "@/components/gym/GymChoice";
 import { GymField, amountInput, rupeesFromText } from "@/components/gym/GymField";
 import { GymIcon } from "@/components/gym/GymIcon";
@@ -94,25 +94,22 @@ export function ExpenseSheet({ expense, canDelete, onClose, onSaved }: { expense
           {EXPENSE_CATEGORIES.map((c) => {
             const selected = c.id === category;
             return (
-              <PressableScale
+              <ChoiceChip
                 key={c.id}
                 onPress={() => { if (!selected) haptic.select(); setCategory(c.id); }}
-                className={selected ? "gym-kind gym-kind--selected flex-row items-center" : "gym-kind flex-row items-center"}
-                style={{ gap: 6 }}
+                selected={selected}
+                label={c.label}
                 accessibilityRole="radio"
                 accessibilityState={{ selected }}
-                accessibilityLabel={c.label}
               >
-                {selected && <GradientFill radius={999} />}
                 <GymIcon name={c.icon} size={14} color={selected ? colors.white : colors.gymPrimary} />
-                <Text className={selected ? "gym-kind__label gym-kind__label--selected" : "gym-kind__label"}>{c.label}</Text>
-              </PressableScale>
+              </ChoiceChip>
             );
           })}
         </View>
       </View>
-      <GymField label={needsTitle ? "What it was for" : "What it was for (optional)"} icon="pencil-line" value={title} onChangeText={setTitle} maxLength={80} placeholder={needsTitle ? "What it was for (Eg. Water cans)" : "What it was for (Eg. November rent, optional)"} />
-      <GymField label="Paid to (optional)" icon="user" value={paidTo} onChangeText={setPaidTo} maxLength={80} placeholder="Paid to (Eg. Landlord, Ravi, optional)" />
+      <GymField label={needsTitle ? "What it was for" : "What it was for (optional)"} icon="pencil-line" pinLabel value={title} onChangeText={setTitle} maxLength={80} placeholder={needsTitle ? "e.g. Water cans" : "e.g. November rent"} />
+      <GymField label="Paid to (optional)" icon="user" pinLabel value={paidTo} onChangeText={setPaidTo} maxLength={80} placeholder="e.g. Landlord" />
       <GymField label="Amount" icon="banknote" value={amountText} onChangeText={(t) => setAmountText(amountInput(t))} keyboardType="number-pad" placeholder="Amount (Eg. 25000)" hint={amount > 1_000_000 ? "Up to ₹10,00,000." : undefined} />
       <ChipRow label="Mode" options={METHODS} value={method} onChange={(v) => setMethod(v)} />
       <DateSelect label="Date" value={spentOn} onChange={setSpentOn} min={daysFromToday(-365)} max={today} />

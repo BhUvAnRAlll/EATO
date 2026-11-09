@@ -26,6 +26,7 @@ import { useCoachIntakeStore } from "@/store/coachIntake";
 import type { Icon } from "@/types/profile";
 import { useThemeColors } from "@/theme";
 import { track } from "@/lib/analytics";
+import { useResponsive } from "@/lib/responsive";
 import { syncMealReminders } from "@/lib/mealReminders";
 
 // What the coach will do, shown before the intake
@@ -66,6 +67,10 @@ export default function Coach() {
 }
 
 function CoachScreen() {
+  // Change sits beside the coach on every phone (the same on iPhone and Android); only a very small
+  // screen or very large text (under 300 text units) puts it under the details
+  const layout = useResponsive();
+  const stackChange = layout.units < 300;
   const colors = useThemeColors();
   const getToken = useSessionToken();
   const start = useCoachIntakeStore((state) => state.start);
@@ -228,17 +233,29 @@ function CoachScreen() {
               <View className="coach__card">
                 <View className="flex-row items-center gap-3">
                   <CoachAvatar coach={coach.id} size={56} />
-                  <View className="flex-1 gap-0.5">
-                    <Text className="coach__option-title">{coach.name}</Text>
-                    <Text className="coach__option-note" numberOfLines={1}>{`${coach.note.split(".")[0]} · ${labelOf(coachStyles, intake.coachStyle)}`}</Text>
+                  {/* Name, what they're like and the chosen style each on their own line, so nothing is
+                      cut on a narrow phone or at a larger text size */}
+                  <View className="min-w-0 flex-1 gap-0.5">
+                    <Text className="coach__option-title" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>{coach.name}</Text>
+                    <Text className="coach__option-note" numberOfLines={2}>{coach.note.split(".")[0]}</Text>
+                    <Text className="coach__hint" numberOfLines={2}>{`Style: ${labelOf(coachStyles, intake.coachStyle)}`}</Text>
+                    {/* On a very small screen Change sits under the details: beside them it left the text
+                        so little room that "Motivational" broke mid-word (320 wide at 1.3×, 2026-11-08) */}
+                    {stackChange && (
+                      <Pressable onPress={() => setChanging(true)} className="coach__pill mt-1 self-start" accessibilityRole="button" accessibilityLabel="Change coach">
+                        <Text className="coach__pill-label">Change</Text>
+                      </Pressable>
+                    )}
                   </View>
-                  <Pressable onPress={() => setChanging(true)} className="coach__pill" accessibilityRole="button" accessibilityLabel="Change coach">
-                    <Text className="coach__pill-label">Change</Text>
-                  </Pressable>
+                  {!stackChange && (
+                    <Pressable onPress={() => setChanging(true)} className="coach__pill" accessibilityRole="button" accessibilityLabel="Change coach">
+                      <Text className="coach__pill-label">Change</Text>
+                    </Pressable>
+                  )}
                 </View>
                 <Pressable onPress={() => openChat()} className="coach__ask" accessibilityRole="button" accessibilityLabel={`Ask ${firstName}`}>
                   <SymbolView name={{ ios: "sparkles", android: "auto_awesome", web: "auto_awesome" }} size={18} tintColor={colors.leaf} />
-                  <Text className="coach__ask-text" numberOfLines={1}>{`Ask ${firstName} anything...`}</Text>
+                  <Text className="coach__ask-text" numberOfLines={1}>Ask anything…</Text>
                   <View className="coach__send">
                     <SymbolView name={{ ios: "paperplane.fill", android: "send", web: "send" }} size={17} tintColor={colors.onPrimary} />
                   </View>
@@ -265,7 +282,7 @@ function CoachScreen() {
                 <View className="coach__card">
                   <View className="flex-row items-center justify-between">
                     <Text className="coach__section">Your plan</Text>
-                    <Text className="coach__hint">{`${plan.plan.totals.kcal} / ${plan.plan.targets.calories} kcal`}</Text>
+                    <Text className="coach__hint">{`${plan.plan.totals.kcal.toLocaleString("en-IN")} / ${plan.plan.targets.calories.toLocaleString("en-IN")} kcal`}</Text>
                   </View>
                   <View className="coach__tabs" accessibilityRole="tablist">
                     {planTabs.map((t) => {
@@ -295,7 +312,8 @@ function CoachScreen() {
                         </View>
                         <View className="min-w-0 flex-1 gap-0.5">
                           <Text className="coach__option-title">Meal plan</Text>
-                          <Text className="coach__option-note" numberOfLines={1}>{`${plan.plan.meals.length} meals · ${plan.plan.totals.kcal.toLocaleString("en-IN")} kcal · ${plan.plan.meals.filter((m) => m.logged).length} of ${plan.plan.meals.length} logged`}</Text>
+                          <Text className="coach__option-note" numberOfLines={2}>{`${plan.plan.meals.length} meals · ${plan.plan.totals.kcal.toLocaleString("en-IN")} kcal`}</Text>
+                          <Text className="coach__hint" numberOfLines={2}>{`${plan.plan.meals.filter((m) => m.logged).length} of ${plan.plan.meals.length} logged today`}</Text>
                         </View>
                         <SymbolView name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }} size={14} tintColor={colors.faint} />
                       </Pressable>
@@ -306,7 +324,7 @@ function CoachScreen() {
                           </View>
                           <View className="min-w-0 flex-1 gap-0.5">
                             <Text className="coach__option-title">Workout</Text>
-                            <Text className="coach__option-note" numberOfLines={1}>{workoutNote(workout)}</Text>
+                            <Text className="coach__option-note" numberOfLines={2}>{workoutNote(workout)}</Text>
                           </View>
                           <SymbolView name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }} size={14} tintColor={colors.faint} />
                         </Pressable>

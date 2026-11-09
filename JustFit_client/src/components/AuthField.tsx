@@ -12,16 +12,18 @@ type AuthFieldProps = TextInputProps & {
   isPassword?: boolean;
   // Shown before the typed text and not part of it (the +91 of a mobile number)
   prefix?: string;
+  // Straight on the grey page (Sign up): white with a thin edge, so the field doesn't vanish
+  onPage?: boolean;
 };
 
-export function AuthField({ label, icon, isPassword = false, prefix, ...inputProps }: AuthFieldProps) {
+export function AuthField({ label, icon, isPassword = false, prefix, onPage = false, ...inputProps }: AuthFieldProps) {
   const colors = useThemeColors();
   const [isHidden, setIsHidden] = useState(isPassword);
 
   return (
     <View className="gap-2">
       {label && <Text className="auth__label">{label}</Text>}
-      <View className="auth__field">
+      <View className={onPage ? "auth__field auth__field--on-page" : "auth__field"}>
         <SymbolView name={icon} size={18} tintColor={colors.inkSoft} />
         {prefix && <Text className="auth__prefix">{prefix}</Text>}
         <TextInput

@@ -348,7 +348,8 @@ function enquiryEditBody(body, today = todayInIndia()) {
   if (body.phone !== undefined) out.phone = optionalPhone(body.phone);
   if (body.note !== undefined) out.note = enquiryNote(body.note);
   if (body.interest !== undefined) out.interest = interest(body.interest);
-  if (body.source !== undefined) out.source = source(body.source);
+  // "app" (a Gym Hub join request) is kept only on an enquiry that came from the app (the service checks)
+  if (body.source !== undefined) out.source = body.source === "app" ? "app" : source(body.source);
   // The referrer; the service checks it against the source and phone the enquiry ends up with
   if (body.referredBy !== undefined) out.referredBy = referrerPhone(body.referredBy);
   if (body.followUpOn !== undefined) out.followUpOn = followUpDate(body.followUpOn, today);

@@ -506,10 +506,6 @@ router.put("/templates/:kind", templateOwner, templateLimit, smallBody, template
 router.delete("/templates/:kind", templateOwner, templateLimit, templateRoute(async (req, res) => {
   res.json(await templates.reset(pool(req), req.gym, req.userId, templateRules.kindParam(req.params.kind)));
 }));
-
-// Send Bulk SMS (gym/sms.js): credits, Auto Reminders, Manual Send, a member's reminder, Message
-// Logs. Sending costs the branch's credits, so sends have their own small budget per account.
-const SMS_MIGRATION = "SMS needs the 2026-11-25-gym-sms migration on this server.";
 // The gym admin's own named templates (2026-11-08), on the same allowance. Before migration
 // 2026-12-13 the list reads as empty and these answer 503 naming it.
 const ADDED_MIGRATION = "Adding templates needs the 2026-12-13-added-templates migration on this server.";
@@ -528,6 +524,10 @@ router.put("/templates/added/:id", templateOwner, templateLimit, smallBody, adde
 router.delete("/templates/added/:id", templateOwner, templateLimit, addedRoute(async (req, res) => {
   res.json(await templates.deleteTemplate(pool(req), req.gym, req.userId, rules.id(req.params.id, "template")));
 }));
+
+// Send Bulk SMS (gym/sms.js): credits, Auto Reminders, Manual Send, a member's reminder, Message
+// Logs. Sending costs the branch's credits, so sends have their own small budget per account.
+const SMS_MIGRATION = "SMS needs the 2026-11-25-gym-sms migration on this server.";
 const smsRoute = (handler) => (req, res, next) =>
   handler(req, res, next).catch((error) => {
     if (["ER_NO_SUCH_TABLE", "ER_BAD_FIELD_ERROR"].includes(error?.code)) return res.status(503).json({ error: SMS_MIGRATION });

@@ -5,6 +5,8 @@ import { PressableScale } from "@/components/PressableScale";
 import { GymIcon } from "@/components/gym/GymIcon";
 import { GymEmpty, GymError, GymLoading } from "@/components/gym/GymStates";
 import { GradientFill } from "@/components/gym/GradientFill";
+import { FAB_CLEARANCE, FloatingSlot, useFabOnScroll } from "@/components/FloatingSlot";
+import { FilterChip } from "@/components/gym/GymChip";
 import { MemberPhotoImage } from "@/components/gym/MemberPhotoImage";
 import { CATALOG_KINDS, planLabel, rupees } from "@/data/gymDashboard";
 import { gymApi, type CatalogItem, type CatalogKind } from "@/lib/gymApi";
@@ -34,6 +36,7 @@ function pillOf(item: CatalogItem): Pill | null {
 
 export function CatalogList() {
   const colors = useThemeColors();
+  const fab = useFabOnScroll();
   const [kind, setKind] = useState<CatalogKind>("plan");
   // The selected chip stays in view (lib/useCenteredChip.ts)
   const { setRow, onRowLayout, onChipLayout } = useCenteredChip(kind);
@@ -52,23 +55,12 @@ export function CatalogList() {
         {CATALOG_KINDS.map((k) => {
           const selected = k.id === kind;
           return (
-            <PressableScale
-              key={k.id}
-              onLayout={onChipLayout(k.id)}
-              onPress={() => { if (!selected) haptic.select(); setKind(k.id); }}
-              className={selected ? "gym-kind gym-kind--selected" : "gym-kind"}
-              accessibilityRole="tab"
-              accessibilityState={{ selected }}
-              accessibilityLabel={k.label}
-            >
-              {selected && <GradientFill radius={999} />}
-              <Text className={selected ? "gym-kind__label gym-kind__label--selected" : "gym-kind__label"}>{k.label}</Text>
-            </PressableScale>
+            <FilterChip key={k.id} onLayout={onChipLayout(k.id)} onPress={() => { if (!selected) haptic.select(); setKind(k.id); }} selected={selected} label={k.label} accessibilityLabel={k.label} />
           );
         })}
       </ScrollView>
       {/* Up to 100 items a branch: they scroll, with room under the last one for the + button */}
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 96, gap: 10 }} showsVerticalScrollIndicator={false}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: FAB_CLEARANCE, gap: 10 }} showsVerticalScrollIndicator={false} onScroll={fab.onScroll} scrollEventThrottle={fab.scrollEventThrottle}>
         {result.state === "loading" && <GymLoading label="Loading the catalogue" />}
         {result.state === "failed" && <GymError error={result.error} onRetry={retry} />}
         {result.state === "ready" &&
@@ -95,11 +87,12 @@ export function CatalogList() {
                     <Text className="gym-plan__name" numberOfLines={1}>{item.name}</Text>
                     {canEdit && <GymIcon name="chevron-right" size={13} color={colors.gymInk} />}
                   </View>
-                  <View className="flex-row items-center justify-between">
+                  <View className="flex-row items-center justify-between" style={{ gap: 10 }}>
                     {pill ? (
-                      <View className="gym-plan__pill" style={pill.empty ? { backgroundColor: colors.gymDangerSoft } : undefined}>
+                      // The pill gives way to the price on a narrow phone ("30 Days · set in months to use")
+                      <View className="gym-plan__pill shrink" style={pill.empty ? { backgroundColor: colors.gymDangerSoft } : undefined}>
                         <GymIcon name={pill.icon} size={12} color={pill.empty ? colors.gymDanger : colors.gymMuted} />
-                        <Text className="gym-plan__pill-label" style={pill.empty ? { color: colors.gymDanger } : undefined}>{pill.label}</Text>
+                        <Text className="gym-plan__pill-label shrink" numberOfLines={2} style={pill.empty ? { color: colors.gymDanger } : undefined}>{pill.label}</Text>
                       </View>
                     ) : (
                       <View />
@@ -111,12 +104,12 @@ export function CatalogList() {
             })
           ))}
       </ScrollView>
-      {canEdit && <View className="absolute" style={{ right: 16, bottom: 16 }}>
+      {canEdit && <FloatingSlot hidden={fab.hidden}>
         <PressableScale onPress={() => setSheet({ item: null })} haptic="tap" className="gym-fab-round" accessibilityRole="button" accessibilityLabel={`Add a ${meta.noun}`}>
           <GradientFill radius={26} />
           <GymIcon name="plus" size={22} color={colors.white} />
         </PressableScale>
-      </View>}
+      </FloatingSlot>}
       {sheet && (
         <CatalogSheet
           kind={sheet.item?.kind ?? kind}

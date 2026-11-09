@@ -242,7 +242,7 @@ export function invoiceHtml(invoice: GymInvoice) {
       <table class="kv">
         <tr><th>Payment Mode</th><td class="colon">:</td><td>${e(METHOD_WORD[invoice.method])}</td></tr>
         <tr><th>Payment Date</th><td class="colon">:</td><td>${e(invoiceDate(invoice.date))}</td></tr>
-        <tr><th>Payment Status</th><td class="colon">:</td><td><span class="badge">✓ Paid</span></td></tr>
+        <tr><th>Status</th><td class="colon">:</td><td><span class="badge">✓ Paid</span></td></tr>
       </table>
     </div>
     <div class="sign"><div class="sign__line"></div><div class="sign__title">Authorized Signature</div><div class="sign__gym">${e(invoice.gym.name)}</div></div>

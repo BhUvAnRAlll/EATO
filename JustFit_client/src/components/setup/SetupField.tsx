@@ -1,4 +1,5 @@
-import { Keyboard, Pressable, Text, TextInput, View, type TextInputProps } from "react-native";
+import { Keyboard, Pressable, Text, View, type TextInputProps } from "react-native";
+import { FieldInput } from "@/components/FieldInput";
 import { SymbolView } from "@/components/SymbolView";
 
 import type { Icon } from "@/types/profile";
@@ -48,8 +49,8 @@ export function SetupField({
         ) : (
           <View className="mt-0.5 flex-row items-center gap-1.5">
             {prefix && <Text className="setup__field-input">{prefix}</Text>}
-            <TextInput
-              className="setup__field-input flex-1"
+            <FieldInput
+              className="flex-1"
               placeholderTextColor={colors.faint}
               value={value}
               placeholder={placeholder}

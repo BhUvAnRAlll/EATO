@@ -13,6 +13,8 @@ import { ScreenHeader } from "@/components/ScreenHeader";
 import { ScreenSkeleton } from "@/components/Skeleton";
 import { SymbolView } from "@/components/SymbolView";
 import { DiscoverGyms } from "@/components/gymHub/DiscoverGyms";
+import { discoverApi, type JoinRequest } from "@/lib/discoverApi";
+import { joinStateText } from "@/lib/gymDiscover";
 import { planProgress } from "@/lib/gymHubText";
 import { membershipApi, type Membership, type Memberships } from "@/lib/membershipApi";
 import { membershipBadge, planText, prettyDate } from "@/lib/membershipText";
@@ -37,9 +39,13 @@ export default function GymHub() {
   // Until the member picks one: My Memberships when they have any (it holds the check-in)
   const tab: Tab | null = picked ?? (result.state === "loading" ? null : result.state === "ready" && result.data.memberships.length === 0 ? "discover" : "memberships");
 
+  // The member's join requests (phase 4); a failed read just leaves the list out
+  const [requests, setRequests] = useState<JoinRequest[]>([]);
   const load = useCallback(async () => {
-    const answer = await membershipApi.mine(await getToken().catch(() => null));
+    const token = await getToken().catch(() => null);
+    const [answer, asked] = await Promise.all([membershipApi.mine(token), discoverApi.requests(token)]);
     setResult((current) => (answer.ok ? { state: "ready", data: answer.data } : current.state === "ready" ? current : { state: "failed", error: answer.error }));
+    if (asked.ok) setRequests(asked.data.requests);
   }, [getToken]);
   useFocusEffect(useCallback(() => { load(); }, [load]));
   const { refreshControl } = usePullToRefresh(load);
@@ -98,6 +104,7 @@ export default function GymHub() {
           ) : (
             result.data.memberships.map((m) => <MembershipCard key={m.id} membership={m} today={result.data.today} />)
           )}
+          {requests.length > 0 && <JoinRequests requests={requests} />}
         </ScrollView>
         )}
       </SafeAreaView>
@@ -158,5 +165,37 @@ function MembershipCard({ membership: m, today }: { membership: Membership; toda
 
       {m.due > 0 && <Text className="type-caption" style={{ color: colors.danger }}>{`₹${m.due.toLocaleString("en-IN")} due${m.dueBy ? ` · pay by ${prettyDate(m.dueBy)}` : ""}`}</Text>}
     </PressableScale>
+  );
+}
+
+// The gyms the member asked to call them (Gym Hub › a gym › Ask to join), newest first; a row
+// opens that gym's page
+function JoinRequests({ requests }: { requests: JoinRequest[] }) {
+  const colors = useThemeColors();
+  return (
+    <View style={{ gap: 12 }}>
+      <Text className="type-headline text-ink" accessibilityRole="header">My join requests</Text>
+      <View className="card" style={{ paddingVertical: 4 }}>
+        {requests.map((r, i) => {
+          const words = joinStateText(r.state, r.gym.name);
+          return (
+            <PressableScale
+              key={r.id}
+              onPress={() => router.push({ pathname: "/gym-hub/gyms/[id]", params: { id: String(r.gym.id) } })}
+              className="flex-row items-center"
+              style={{ gap: 10, paddingVertical: 12, borderTopWidth: i === 0 ? 0 : 1, borderColor: colors.line }}
+              accessibilityRole="button"
+              accessibilityLabel={`${r.gym.name} ${r.gym.branch}: ${words.label}. ${words.line}`}
+            >
+              <View className="min-w-0 flex-1" style={{ gap: 2 }}>
+                <Text className="card__title" numberOfLines={1}>{`${r.gym.name} · ${r.gym.branch}`}</Text>
+                <Text className="type-caption text-muted" numberOfLines={2}>{`${r.planLabel ? `${r.planLabel} · ` : ""}Sent ${prettyDate(r.sentOn)}`}</Text>
+              </View>
+              <View className={`badge badge--${words.tone}`}><Text className={`badge__label badge__label--${words.tone}`}>{words.label}</Text></View>
+            </PressableScale>
+          );
+        })}
+      </View>
+    </View>
   );
 }

@@ -9,6 +9,7 @@ import { SymbolView } from "@/components/SymbolView";
 import { adminPrograms, type SectionFields } from "@/lib/adminPrograms";
 import { useSessionToken } from "@/lib/session";
 import { useThemeColors } from "@/theme";
+import { KeyboardAvoider } from "@/components/KeyboardAvoider";
 
 const back = () => (router.canGoBack() ? router.back() : router.replace("/admin/categories"));
 
@@ -53,13 +54,16 @@ export default function NewCategoryScreen() {
           <Text className="screen-bar__title" accessibilityRole="header">New category</Text>
           <View className="screen-bar__spacer" />
         </View>
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 48, gap: 16 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"} automaticallyAdjustKeyboardInsets>
-          <CategoryForm value={form} onChange={setForm} disabled={busy} />
-          {error && <Text className="meta-text" style={{ color: colors.danger }}>{error}</Text>}
-          <Pressable onPress={create} disabled={busy} className="btn-forest flex-row items-center justify-center" style={{ gap: 8, opacity: busy ? 0.7 : 1 }} accessibilityRole="button" accessibilityLabel="Create category" accessibilityState={{ disabled: busy }}>
-            {busy ? <ActivityIndicator size="small" color={colors.onPrimary} /> : <Text className="btn-forest__label">Create category</Text>}
-          </Pressable>
-        </ScrollView>
+        {/* Keeps the lower fields and Save above the keyboard on Android too */}
+        <KeyboardAvoider>
+          <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 48, gap: 16 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}>
+            <CategoryForm value={form} onChange={setForm} disabled={busy} />
+            {error && <Text className="meta-text" style={{ color: colors.danger }}>{error}</Text>}
+            <Pressable onPress={create} disabled={busy} className="btn-forest flex-row items-center justify-center" style={{ gap: 8, opacity: busy ? 0.7 : 1 }} accessibilityRole="button" accessibilityLabel="Create category" accessibilityState={{ disabled: busy }}>
+              {busy ? <ActivityIndicator size="small" color={colors.onPrimary} /> : <Text className="btn-forest__label">Create category</Text>}
+            </Pressable>
+          </ScrollView>
+        </KeyboardAvoider>
       </SafeAreaView>
     </View>
   );

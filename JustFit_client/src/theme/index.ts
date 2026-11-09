@@ -11,7 +11,7 @@ export const lightColors = {
   accentSoft: "#FDEAEA",
   // AI Coach only: the bright start of the button gradient and the page wash
   primaryBright: "#F0262B",
-  coachWash: "#F4F4F5",
+  coachWash: "#F6F4EF",
   ink: "#111111",
   inkFill: "#111111",
   immersive: "#111111",
@@ -31,7 +31,7 @@ export const lightColors = {
   line: "#E8E8EA",
   lineStrong: "#C9C9CF",
   surfaceAlt: "#F4F4F5",
-  background: "#F4F4F5",
+  background: "#F6F4EF",
   surface: "#FFFFFF",
   infoSoft: "#E6EEFD",
 
@@ -54,7 +54,7 @@ export const lightColors = {
   leafSoft: "#FDEAEA",
   leafDark: "#111111",
 
-  cream: "#F4F4F5",
+  cream: "#F6F4EF",
   creamDeep: "#F4F4F5",
   forest: "#D40005",
   forestInk: "#111111",

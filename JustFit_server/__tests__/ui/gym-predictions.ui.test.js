@@ -268,7 +268,7 @@ describe("ui gym predictions: Likely to leave", () => {
     // Tomorrow's weekday fell on today−6 (Sneha's visit) and today−20 (Ravi's), both at 7:15 am;
     // the other two weeks had none: 1, 0, 1, 0 → about 1, busiest 7–8 am
     await page.navigate(`${expo.baseUrl}/gym/attendance`);
-    await h.expectText("TOMORROW'S BUSY HOURS"); // the section title is upper-cased by its style
+    await h.expectText("Tomorrow's busy hours");
     // Plain words since 2026-11-07 (the user's request): what to expect, when it's busiest and quietest
     await h.expectText("Expect about 1 check-in tomorrow");
     await h.expectText("Busiest time");

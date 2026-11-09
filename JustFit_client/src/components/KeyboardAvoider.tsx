@@ -12,7 +12,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 // out at a design width and shrunk on narrow phones (lib/reactNative.js), and the app's Keyboard
 // reports heights in those layout points, while KeyboardAvoidingView compares its own frame with
 // the keyboard's real screen position and gets the padding wrong once the app is scaled.
-export function KeyboardAvoider({ children }: { children: ReactNode }) {
+// fill: false inside something sized by its content (a bottom sheet), where flex: 1 would collapse it
+export function KeyboardAvoider({ children, fill = true }: { children: ReactNode; fill?: boolean }) {
   const insets = useSafeAreaInsets();
   const [keyboard, setKeyboard] = useState(0);
   useEffect(() => {
@@ -24,5 +25,5 @@ export function KeyboardAvoider({ children }: { children: ReactNode }) {
     };
   }, []);
   const padding = keyboard > 0 ? keyboard + (Platform.OS === "android" ? insets.bottom : 0) : 0;
-  return <View style={{ flex: 1, paddingBottom: padding }}>{children}</View>;
+  return <View style={fill ? { flex: 1, paddingBottom: padding } : { paddingBottom: padding }}>{children}</View>;
 }

@@ -12,8 +12,9 @@ import { ScreenHeader } from "@/components/ScreenHeader";
 import { ScreenSkeleton } from "@/components/Skeleton";
 import { SymbolView } from "@/components/SymbolView";
 import { MemberPhotoImage } from "@/components/gym/MemberPhotoImage";
-import { discoverApi, type GymPage } from "@/lib/discoverApi";
-import { directionsUrl, facilityLabel, indiaNow, openNow, perMonthText, planLengthText, priceText } from "@/lib/gymDiscover";
+import { JoinSheet, type JoinPick } from "@/components/gymHub/JoinSheet";
+import { discoverApi, type GymPage, type JoinRequest } from "@/lib/discoverApi";
+import { directionsUrl, facilityLabel, indiaNow, joinStateText, openNow, perMonthText, planLengthText, priceText } from "@/lib/gymDiscover";
 import { DAYS, dayText, timeLabel } from "@/lib/gymProfile";
 import { hud } from "@/lib/hud";
 import { useSessionToken } from "@/lib/session";
@@ -24,12 +25,14 @@ type Load = { state: "loading" } | { state: "failed"; error: string; missing: bo
 // Gym Hub › Discover Gyms › a gym (phase 3, 2026-11-09): what the gym chose to show members. Its
 // photos, name and logo, open now, Call and Directions (the phone's own apps), about, facilities,
 // the week's hours, the membership plans laid out to compare (price, a month, the saving on the
-// shortest plan, what each includes), PT packages, and the address. No buying here: joining is at
-// the gym's front desk for now.
+// shortest plan, what each includes), PT packages, and the address. No buying: since phase 4 the
+// member asks the gym to call them about a plan (Ask about this plan, or Ask to join), which lands
+// in the gym's Enquiries; the page then shows the request, or that they are a member here.
 export default function GymDetails() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const getToken = useSessionToken();
   const [result, setResult] = useState<Load>({ state: "loading" });
+  const [pick, setPick] = useState<JoinPick | null>(null);
 
   const load = useCallback(async () => {
     const answer = await discoverApi.gym(await getToken().catch(() => null), Number(id));
@@ -62,9 +65,19 @@ export default function GymDetails() {
             {result.gym.about ? <Text className="type-body text-ink">{result.gym.about}</Text> : null}
             <Facilities gym={result.gym} />
             <Hours gym={result.gym} at={result.at} />
-            <Plans gym={result.gym} />
+            <Standing gym={result.gym} />
+            <Plans gym={result.gym} onAsk={setPick} />
             <Place gym={result.gym} />
           </ScrollView>
+        )}
+        {pick && result.state === "ready" && (
+          <JoinSheet
+            gymId={result.gym.id}
+            gymName={result.gym.name}
+            pick={pick}
+            onClose={() => setPick(null)}
+            onSent={(request: JoinRequest) => setResult((current) => (current.state === "ready" ? { ...current, gym: { ...current.gym, you: { ...current.gym.you, request } } } : current))}
+          />
         )}
       </SafeAreaView>
     </View>
@@ -178,9 +191,45 @@ function Hours({ gym, at }: { gym: GymPage; at: number }) {
   );
 }
 
-// The plans side by side in words: the best value a month outlined, each with its saving and what it includes
-function Plans({ gym }: { gym: GymPage }) {
+// Whether a request can be sent now: not while one is waiting (the server refuses it too)
+const asking = (gym: GymPage) => gym.you.request !== null && (gym.you.request.state === "sent" || gym.you.request.state === "in_touch");
+
+// Already a member here (a link to the membership), or the request waiting with the gym
+function Standing({ gym }: { gym: GymPage }) {
   const colors = useThemeColors();
+  if (gym.you.memberId !== null) {
+    return (
+      <PressableScale onPress={() => router.push({ pathname: "/gym-hub/[id]", params: { id: String(gym.you.memberId) } })} className="card flex-row items-center" style={{ gap: 12 }} accessibilityRole="button" accessibilityLabel={`You're a member at ${gym.name}. Open your membership`}>
+        <SymbolView name={{ ios: "checkmark", android: "check", web: "check" }} size={18} tintColor={colors.success} />
+        <View className="min-w-0 flex-1">
+          <Text className="card__title">{"You're a member here"}</Text>
+          <Text className="card__subtitle">Your plan, visits and pauses</Text>
+        </View>
+        <SymbolView name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }} size={14} tintColor={colors.faint} />
+      </PressableScale>
+    );
+  }
+  const request = gym.you.request;
+  if (!request || !asking(gym)) return null;
+  const words = joinStateText(request.state, gym.name);
+  return (
+    <View className="card" style={{ gap: 8 }} accessible accessibilityLabel={`Your request: ${words.label}. ${words.line}`}>
+      <View className="flex-row items-center justify-between" style={{ gap: 8 }}>
+        <Text className="card__title">Your request</Text>
+        <View className={`badge badge--${words.tone}`}><Text className={`badge__label badge__label--${words.tone}`}>{words.label}</Text></View>
+      </View>
+      <Text className="type-body text-ink">{words.line}</Text>
+      <Text className="type-caption text-muted">{request.planLabel ? `About ${request.planLabel}` : "About joining"}</Text>
+    </View>
+  );
+}
+
+// The plans side by side in words: the best value a month outlined, each with its saving and what it includes
+function Plans({ gym, onAsk }: { gym: GymPage; onAsk: (pick: JoinPick) => void }) {
+  const colors = useThemeColors();
+  // Plans can be asked about by anyone not a member here; PT by members too
+  const canAskPlan = gym.you.memberId === null && !asking(gym);
+  const canAskPt = !asking(gym);
   const best = gym.plans.length > 1 ? Math.min(...gym.plans.map((p) => p.perMonth ?? Infinity)) : null;
   return (
     <View style={{ gap: 10 }}>
@@ -211,6 +260,11 @@ function Plans({ gym }: { gym: GymPage }) {
                   </View>
                 )}
                 {p.details ? <Text className="type-caption text-ink">{p.details}</Text> : null}
+                {canAskPlan && (
+                  <PressableScale onPress={() => onAsk({ itemId: p.id, label: `${p.name} · ${planLengthText(p.months, p.days)} · ${priceText(p.price)}` })} className="self-start" hitSlop={8} accessibilityRole="button" accessibilityLabel={`Ask about ${p.name}`}>
+                    <Text className="auth__note-link">Ask about this plan</Text>
+                  </PressableScale>
+                )}
               </View>
             );
           })}
@@ -227,11 +281,17 @@ function Plans({ gym }: { gym: GymPage }) {
               </View>
               {p.months ? <Text className="type-caption text-muted">{planLengthText(p.months)}</Text> : null}
               {p.details ? <Text className="type-caption text-ink">{p.details}</Text> : null}
+              {canAskPt && (
+                <PressableScale onPress={() => onAsk({ itemId: p.id, label: `PT · ${p.name} · ${priceText(p.price)}` })} className="self-start" hitSlop={8} accessibilityRole="button" accessibilityLabel={`Ask about ${p.name}`}>
+                  <Text className="auth__note-link">Ask about this package</Text>
+                </PressableScale>
+              )}
             </View>
           ))}
         </View>
       )}
-      <Text className="type-caption text-muted">To join, visit the gym&apos;s front desk. Prices are set by the gym.</Text>
+      {canAskPlan && <PrimaryButton label="Ask to join" onPress={() => onAsk({ itemId: null, label: null })} />}
+      <Text className="type-caption text-muted">{canAskPlan ? "The gym calls you to help you join. You pay the gym, not the app." : "Prices are set by the gym. You pay the gym, not the app."}</Text>
     </View>
   );
 }

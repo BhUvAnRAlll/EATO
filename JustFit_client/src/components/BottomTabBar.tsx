@@ -1,4 +1,5 @@
-import { Pressable, Text, useWindowDimensions, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
+import { useResponsive } from "@/lib/responsive";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { SymbolView } from "@/components/SymbolView";
 import type { BottomTabBarProps } from "expo-router/js-tabs";
@@ -25,8 +26,8 @@ export function BottomTabBar({ state, emitter, navigateToTab, tabs = homeTabs, b
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
   // Narrow phones (or six tabs): the labels only fit at a smaller size
-  const { width } = useWindowDimensions();
-  const narrow = width < 360 || (tabs.length > 5 && width < 400);
+  const { compact, narrow: belowWide } = useResponsive();
+  const narrow = compact || (tabs.length > 5 && belowWide);
 
   return (
     <View className="tabbar" style={{ paddingBottom: Math.max(insets.bottom, 10), paddingHorizontal: narrow ? 2 : 8 }} accessibilityRole="tablist">
@@ -56,10 +57,10 @@ export function BottomTabBar({ state, emitter, navigateToTab, tabs = homeTabs, b
               <View>
                 {tab.raised ? (
                   <View className={active ? "tabbar__raised tabbar__raised--active" : "tabbar__raised"} style={{ backgroundColor: active ? colors.primaryPressed : colors.primary, borderColor: colors.surface }}>
-                    <SymbolView name={tab.icon} size={24} tintColor={colors.white} />
+                    <SymbolView name={tab.icon} size={24} tintColor={colors.white} bounce={active} />
                   </View>
                 ) : (
-                  <SymbolView name={tab.icon} size={22} tintColor={active ? colors.leaf : colors.faint} />
+                  <SymbolView name={tab.icon} size={22} tintColor={active ? colors.leaf : colors.faint} bounce={active} />
                 )}
                 {badge > 0 && (
                   <View className="tab-badge">

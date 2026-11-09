@@ -64,6 +64,8 @@ export default function GymAttendance() {
   const [checkingOut, setCheckingOut] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
+  // The chart's measured width: a bar's own number is drawn only when its column has room for it
+  const [barsWidth, setBarsWidth] = useState(0);
   // A pull re-reads the history list too, not only the summary (QA 2026-11-07)
   const refreshAll = async () => {
     setRefreshKey((k) => k + 1);
@@ -106,7 +108,7 @@ export default function GymAttendance() {
   }
   const data: AttendanceSummary = result.data;
   const isOwner = data.gym.access === "owner";
-  const tabs = isOwner ? <GymChips options={TABS} value={tab} onChange={setTab} /> : null;
+  const tabs = isOwner ? <GymChips options={TABS} value={tab} onChange={setTab} segmented /> : null;
   if (isOwner && tab === "team") {
     return (
       <GymScreen title="Attendance" right={header} refreshControl={<RefreshControl refreshing={refreshing} tintColor={colors.gymPrimary} onRefresh={refreshAll} />}>
@@ -125,11 +127,18 @@ export default function GymAttendance() {
   const peak = Math.max(1, ...chart.map((c) => c.visits));
   const chartTitle = period === "today" ? "Check-ins by hour, today" : period === "week" ? "Visits, last 7 days" : "Visits, last 30 days";
   const every = period === "today" ? 3 : period === "month" ? 5 : 1;
+  // A per-bar number only where it fits whole (never "…"): Poppins digits are about 0.62 em wide
+  const barGap = every > 1 ? 2 : 6;
+  const barFont = every > 1 ? 9 : 12;
+  const columnWidth = chart.length > 0 ? (barsWidth - barGap * (chart.length - 1)) / chart.length : 0;
+  const fitsColumn = (text: string) => text.length * barFont * 0.62 + 1 <= columnWidth;
   const ticks = chart.filter((_, i) => i % every === 0).map((c, i, list) => ({ key: c.key, tick: c.tick, span: i === list.length - 1 ? chart.length - i * every : every }));
   const tiles = [
-    { label: "Inside now", value: data.insideNow, icon: "user-check" as const, color: colors.gymSuccess, bg: colors.gymSuccessSoft },
-    { label: "Check-ins today", value: data.stats.today.visits, icon: "log-in" as const, color: colors.gymPrimary, bg: colors.gymPrimarySoft },
-    { label: "Completed today", value: data.stats.today.completed, icon: "circle-check" as const, color: colors.gymPrimary, bg: colors.gymPrimarySoft },
+    // `shown`: two short lines, so a word is never broken across them in a narrow tile ("Check-/ins",
+    // "Complet/ed" at 320 wide, 2026-11-08); `label` is what a screen reader says
+    { label: "Inside now", shown: "Inside\nnow", value: data.insideNow, icon: "user-check" as const, color: colors.gymSuccess, bg: colors.gymSuccessSoft },
+    { label: "Check-ins today", shown: "Check-ins\ntoday", value: data.stats.today.visits, icon: "log-in" as const, color: colors.gymPrimary, bg: colors.gymPrimarySoft },
+    { label: "Completed today", shown: "Done\ntoday", value: data.stats.today.completed, icon: "circle-check" as const, color: colors.gymPrimary, bg: colors.gymPrimarySoft },
   ];
 
   return (
@@ -150,15 +159,15 @@ export default function GymAttendance() {
         {tiles.map((t) => (
           <View key={t.label} className="gym-dash-card gym-dash-stat flex-1" accessible accessibilityLabel={`${t.value} ${t.label}`}>
             <View className="gym-dash-stat__icon" style={{ backgroundColor: t.bg }}>
-              <GymIcon name={t.icon} size={16} color={t.color} />
+              <GymIcon name={t.icon} size={16} color={t.color} bounce={t.value} />
             </View>
             <Text className="gym-dash-stat__value">{t.value}</Text>
-            <Text className="gym-dash-stat__label" numberOfLines={2}>{t.label}</Text>
+            <Text className="gym-dash-stat__label" numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.8}>{t.shown}</Text>
           </View>
         ))}
       </View>
 
-      <Text className="gym-section-title" accessibilityRole="header">{`Inside now (${data.insideNow})`}</Text>
+      <Text className="gym-page-section" accessibilityRole="header">{`Inside now (${data.insideNow})`}</Text>
       {error ? <FormAlert message={error} /> : null}
       {data.inside.length === 0 ? (
         <Text className="gym-tx__meta">Nobody is checked in right now.</Text>
@@ -170,28 +179,28 @@ export default function GymAttendance() {
         </View>
       )}
 
-      <Text className="gym-section-title" accessibilityRole="header">Statistics</Text>
+      <Text className="gym-page-section" accessibilityRole="header">Statistics</Text>
       <View className="gym-dash-card" style={{ padding: 14, gap: 14 }}>
-        <GymChips options={PERIODS} value={period} onChange={setPeriod} />
+        <GymChips options={PERIODS} value={period} onChange={setPeriod} segmented />
         <View className="flex-row">
           {[
             ["Visits", String(stats.visits)],
             ["Members", String(stats.members)],
-            ["Completed", String(stats.completed)],
+            ["Done", String(stats.completed)],
             ["Avg. visit", stats.avgMinutes === null ? "—" : durationText(stats.avgMinutes)],
           ].map(([label, value]) => (
             <View key={label} className="gym-stat" accessible accessibilityLabel={`${label}: ${value}`}>
               <Text className="gym-tx__name">{value}</Text>
-              <Text className="gym-stat__label" numberOfLines={1}>{label}</Text>
+              <Text className="gym-stat__label" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>{label}</Text>
             </View>
           ))}
         </View>
         <Text className="gym-tx__meta">{chartTitle}</Text>
         <View accessible accessibilityLabel={`${chartTitle}, from ${chart[0]?.tick ?? ""}: ${chart.map((c) => c.visits).join(", ")}`}>
-          <View className="gym-bars" style={every > 1 ? { gap: 2 } : undefined}>
+          <View className="gym-bars" style={every > 1 ? { gap: 2 } : undefined} onLayout={(e) => setBarsWidth(e.nativeEvent.layout.width)}>
             {chart.map((c) => (
               <View key={c.key} className="gym-bars__col" style={every > 1 ? { gap: 2 } : undefined}>
-                <Text className="gym-stat__label" style={every > 1 ? { fontSize: 9, lineHeight: 11 } : undefined} numberOfLines={1}>{every === 1 || c.visits > 0 ? String(c.visits) : " "}</Text>
+                <Text className="gym-stat__label" style={every > 1 ? { fontSize: 9, lineHeight: 11 } : undefined} numberOfLines={1}>{(every === 1 || c.visits > 0) && fitsColumn(String(c.visits)) ? String(c.visits) : " "}</Text>
                 <View className="gym-bars__bar" style={{ height: `${Math.max(4, (c.visits / peak) * 60)}%`, opacity: c.strong ? 1 : 0.45 }} />
               </View>
             ))}
@@ -206,12 +215,12 @@ export default function GymAttendance() {
 
       {canPredict && (
         <>
-          <Text className="gym-section-title" accessibilityRole="header">{"Tomorrow's busy hours"}</Text>
+          <Text className="gym-page-section" accessibilityRole="header">{"Tomorrow's busy hours"}</Text>
           <BusyHoursCard result={busy.result} onRetry={busy.retry} />
         </>
       )}
 
-      <Text className="gym-section-title" accessibilityRole="header">Attendance history</Text>
+      <Text className="gym-page-section" accessibilityRole="header">Attendance history</Text>
       <VisitHistory refreshKey={refreshKey} />
     </GymScreen>
   );

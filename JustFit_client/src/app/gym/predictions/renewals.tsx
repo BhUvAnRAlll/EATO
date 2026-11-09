@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
-import { FlatList, Platform, RefreshControl, ScrollView, Text, TextInput, useWindowDimensions, View } from "react-native";
+import { FlatList, Platform, RefreshControl, ScrollView, Text, TextInput, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 
 import { PressableScale } from "@/components/PressableScale";
-import { GradientFill } from "@/components/gym/GradientFill";
+import { FilterChip } from "@/components/gym/GymChip";
 import { GymIcon } from "@/components/gym/GymIcon";
 import { GymScreen } from "@/components/gym/GymScreen";
 import { GymEmpty, GymError, GymLoading } from "@/components/gym/GymStates";
@@ -16,6 +16,7 @@ import { useCenteredChip } from "@/lib/useCenteredChip";
 import { listPerf } from "@/lib/listPerf";
 import { useGymData } from "@/lib/useGymData";
 import { useThemeColors } from "@/theme";
+import { useResponsive } from "@/lib/responsive";
 
 const LEVELS: { id: RiskListLevel; label: string }[] = [
   { id: "all", label: "All" },
@@ -38,7 +39,9 @@ const updatedAt = (iso: string) => new Date(iso).toLocaleTimeString("en-IN", { h
 export default function RenewalRisks() {
   const colors = useThemeColors();
   const params = useLocalSearchParams<{ level?: string }>();
-  const narrow = useWindowDimensions().width < 360;
+  const { compact: narrow, scale } = useResponsive();
+  // The photo spot follows the screen, as on Members (44 at the design width, 40 to 48)
+  const avatar = scale(44, { min: 40, max: 48 });
   const [level, setLevel] = useState<RiskListLevel>(isLevel(params.level) ? params.level : "all");
   // The selected chip stays in view (lib/useCenteredChip.ts)
   const { setRow, onRowLayout, onChipLayout } = useCenteredChip(level);
@@ -73,18 +76,7 @@ export default function RenewalRisks() {
             const selected = l.id === level;
             const count = data ? (l.id === "all" ? data.counts.high + data.counts.medium + data.counts.low : data.counts[l.id]) : undefined;
             return (
-              <PressableScale
-                key={l.id}
-                onLayout={onChipLayout(l.id)}
-                onPress={() => { if (!selected) haptic.select(); setLevel(l.id); }}
-                className={selected ? "gym-kind gym-kind--selected" : "gym-kind"}
-                accessibilityRole="tab"
-                accessibilityState={{ selected }}
-                accessibilityLabel={`${l.label}${count !== undefined ? `, ${count}` : ""}`}
-              >
-                {selected && <GradientFill radius={999} />}
-                <Text className={selected ? "gym-kind__label gym-kind__label--selected" : "gym-kind__label"}>{count !== undefined ? `${l.label} · ${count}` : l.label}</Text>
-              </PressableScale>
+              <FilterChip key={l.id} onLayout={onChipLayout(l.id)} onPress={() => { if (!selected) haptic.select(); setLevel(l.id); }} selected={selected} label={l.label} count={count} accessibilityLabel={`${l.label}${count !== undefined ? `, ${count}` : ""}`} />
             );
           })}
         </ScrollView>
@@ -93,7 +85,7 @@ export default function RenewalRisks() {
         </PressableScale>
       </View>
       {searchOpen && (
-        <View className="gym-field__input flex-row items-center" style={{ gap: 8 }}>
+        <View className="gym-mlist__search">
           <GymIcon name="search" size={16} color={colors.gymFaint} />
           <TextInput
             value={typed}
@@ -138,37 +130,40 @@ export default function RenewalRisks() {
           const t = tone(item.risk);
           const reasons = item.risk.reasons.map((r) => r.text).join(" · ") || "Nothing against them";
           return (
-            // The info opens the member; the buttons sit beside it (no button inside a button)
-            <View className="gym-member-card">
+            // The info opens the member; the buttons sit beside it (no button inside a button). Laid
+            // out like the Members card (2026-11-08): name; the ID small and grey; the risk chip;
+            // the reasons muted in at most two lines; avatar and buttons at the top
+            <View className="gym-member-card" style={{ alignItems: "flex-start" }}>
               <PressableScale
                 onPress={() => router.push({ pathname: "/gym/members/[id]", params: { id: String(item.id) } })}
-                className="min-w-0 flex-1 flex-row items-center"
+                className="min-w-0 flex-1 flex-row items-start"
                 style={{ gap: 12 }}
                 accessibilityRole="button"
                 accessibilityLabel={`${item.name}, ${item.code}, ${t.label} risk, score ${item.risk.score}. ${reasons}`}
               >
                 {!narrow && (
-                  <View className="gym-member-card__avatar">
-                    <GymIcon name="user" size={34} color={colors.white} />
+                  <View className="gym-member-card__avatar" style={{ width: avatar, height: avatar }}>
+                    <GymIcon name="user" size={Math.round(avatar * 0.62)} color={colors.white} />
                     <MemberPhotoImage url={item.photoUrl} />
                   </View>
                 )}
-                <View className="min-w-0 flex-1" style={{ gap: 3 }}>
-                  <Text className="gym-member-card__name" numberOfLines={1}>{item.name}</Text>
-                  {/* The level and score first, then the ID (and PT), so the name keeps its whole line */}
+                <View className="min-w-0 flex-1" style={{ gap: 4 }}>
+                  <Text className="gym-mcard__name" numberOfLines={1}>{item.name}</Text>
+                  <View className="flex-row items-center" style={{ gap: 6 }}>
+                    <GymIcon name="id-card" size={14} color={colors.gymFaint} />
+                    <Text className="gym-mcard__code" numberOfLines={1} style={{ flexShrink: 1 }}>{item.code}</Text>
+                  </View>
                   <View className="flex-row flex-wrap items-center" style={{ gap: 6 }}>
                     <View className="gym-chip" style={{ borderColor: t.bg, backgroundColor: t.bg }}>
                       <Text className="gym-chip__label" style={{ color: t.ink }}>{`${t.label} · ${item.risk.score}`}</Text>
                     </View>
-                    <GymIcon name="id-card" size={15} color={colors.gymInkSoft} />
-                    <Text className="gym-member-card__line" numberOfLines={1}>{item.code}</Text>
                     {item.pt?.active && (
                       <View className="gym-chip" style={{ borderColor: colors.gymSuccessLine, backgroundColor: colors.gymSuccessSoft }}>
                         <Text className="gym-chip__label" style={{ color: colors.gymSuccess }}>PT</Text>
                       </View>
                     )}
                   </View>
-                  <Text className="gym-member-card__line" numberOfLines={3} style={{ color: colors.gymInk }}>{reasons}</Text>
+                  <Text className="gym-mcard__code" numberOfLines={2}>{reasons}</Text>
                 </View>
               </PressableScale>
               <View className="flex-row items-center" style={{ gap: 2 }}>

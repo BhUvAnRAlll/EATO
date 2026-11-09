@@ -138,9 +138,9 @@ function SettingsForm({ settings, onSaved }: { settings: AttendanceSettings; onS
         <Text className="gym-tx__meta">{`Attendance radius: ${settings.radiusM} m`}</Text>
       </View>
 
-      <GymField label="Gym / branch name" value={branch} onChangeText={(t) => { setBranch(t.slice(0, 80)); setSaved(""); }} placeholder="e.g. Tumkur" autoCapitalize="words" />
+      <GymField label="Gym / branch name" icon="store" pinLabel value={branch} onChangeText={(t) => { setBranch(t.slice(0, 80)); setSaved(""); }} placeholder="e.g. Tumkur" autoCapitalize="words" />
 
-      <Text className="gym-section-title" accessibilityRole="header">Gym location</Text>
+      <Text className="gym-page-section" accessibilityRole="header">Gym location</Text>
       {Platform.OS !== "web" && (
         <View className="flex-row items-center" style={{ gap: 8 }}>
           <View className="gym-field--icon flex-1">
@@ -171,16 +171,18 @@ function SettingsForm({ settings, onSaved }: { settings: AttendanceSettings; onS
 
       <View className="flex-row" style={{ gap: 10 }}>
         <View className="flex-1">
-          <GymField label="Latitude" value={lat} onChangeText={(t) => { setLat(t.replace(/[^0-9.-]/g, "").slice(0, 12)); setSaved(""); }} onEndEditing={() => place && setFocus({ place, radiusM: radiusOk ? radiusM : settings.radiusM })} keyboardType={COORD_KEYBOARD} placeholder="13.339200" hint={lat && latitude === null ? "Between -90 and 90" : undefined} />
+          <GymField label="Latitude" icon="locate-fixed" pinLabel value={lat} onChangeText={(t) => { setLat(t.replace(/[^0-9.-]/g, "").slice(0, 12)); setSaved(""); }} onEndEditing={() => place && setFocus({ place, radiusM: radiusOk ? radiusM : settings.radiusM })} keyboardType={COORD_KEYBOARD} placeholder="13.339200" hint={lat && latitude === null ? "Between -90 and 90" : undefined} />
         </View>
         <View className="flex-1">
-          <GymField label="Longitude" value={lng} onChangeText={(t) => { setLng(t.replace(/[^0-9.-]/g, "").slice(0, 12)); setSaved(""); }} onEndEditing={() => place && setFocus({ place, radiusM: radiusOk ? radiusM : settings.radiusM })} keyboardType={COORD_KEYBOARD} placeholder="77.101200" hint={lng && longitude === null ? "Between -180 and 180" : undefined} />
+          <GymField label="Longitude" icon="locate-fixed" pinLabel value={lng} onChangeText={(t) => { setLng(t.replace(/[^0-9.-]/g, "").slice(0, 12)); setSaved(""); }} onEndEditing={() => place && setFocus({ place, radiusM: radiusOk ? radiusM : settings.radiusM })} keyboardType={COORD_KEYBOARD} placeholder="77.101200" hint={lng && longitude === null ? "Between -180 and 180" : undefined} />
         </View>
       </View>
 
-      <Text className="gym-section-title" accessibilityRole="header">QR attendance radius</Text>
+      <Text className="gym-page-section" accessibilityRole="header">QR attendance radius</Text>
       <GymField
         label="Attendance radius (metres)"
+        icon="map-pin"
+        pinLabel
         value={radius}
         onChangeText={(t) => { setRadius(t.replace(/[^0-9]/g, "").slice(0, 4)); setSaved(""); }}
         keyboardType="number-pad"

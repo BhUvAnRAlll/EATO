@@ -39,7 +39,7 @@ export default function GymPermissionsScreen() {
     <GymScreen title="Role & Permission">
       <Text className="gym-tx__meta">{`Choose what each Staff login can open at the ${gym.branch} branch. You, the gym admin, can open everything.`}</Text>
 
-      <Text className="gym-section-title" accessibilityRole="header">{`Staff (${staff.length})`}</Text>
+      <Text className="gym-page-section" accessibilityRole="header">{`Staff (${staff.length})`}</Text>
       {staff.length === 0 ? (
         <>
           <GymEmpty icon="shield-check" title="No Staff logins yet" text="Add someone as Staff first, then choose what they can open here." />

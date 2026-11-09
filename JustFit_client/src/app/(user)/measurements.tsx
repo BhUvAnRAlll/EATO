@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Text, View } from "react-native";
-import { router } from "expo-router";
+import { router, usePreventRemove } from "expo-router";
 
 import { FormAlert } from "@/components/FormAlert";
 import { PrimaryButton } from "@/components/PrimaryButton";
@@ -46,6 +46,12 @@ export default function Measurements() {
     setAttempt((n) => n + 1);
   };
 
+  // While a save waits for confirmation, the system back (Android, predictive back, the iOS edge
+  // swipe) returns to the fields, like the chevron, instead of leaving with the typed values
+  const allowLeaving = usePreventRemove(pending !== null, () => {
+    if (!isBusy) setPending(null);
+  });
+
   const valid = inRange(heightCm, 100, 250) && inRange(weightKg, 30, 300);
 
   // First tap: work out the save and show it
@@ -66,6 +72,8 @@ export default function Measurements() {
     if (!saved.ok) return setError(isSessionExpired(saved) ? SESSION_EXPIRED_MESSAGE : saved.error);
     track("weight_logged");
     hud.success("Profile updated");
+    setPending(null);
+    allowLeaving();
     router.back();
   };
 

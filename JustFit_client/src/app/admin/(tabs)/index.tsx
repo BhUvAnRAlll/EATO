@@ -12,6 +12,7 @@ import { rupees } from "@/data/gymDashboard";
 import { adminPortal, ago, type AdminOverview } from "@/lib/adminPortal";
 import { useSessionToken } from "@/lib/session";
 import type { Icon } from "@/types/profile";
+import { useResponsive } from "@/lib/responsive";
 import { useThemeColors } from "@/theme";
 
 // Super Admin › Overview: the platform's counts (members, and what they did in the last seven
@@ -78,6 +79,7 @@ export default function AdminOverviewScreen() {
 
 function Ready({ data, now }: { data: AdminOverview; now: number }) {
   const colors = useThemeColors();
+  const { compact } = useResponsive();
   const { counts, activity } = data;
   const stats: { label: string; value: number | string; icon: Icon; href?: Href }[] = [
     { label: "Users", value: counts.users, icon: icons.users, href: "/admin/users" },
@@ -100,13 +102,13 @@ function Ready({ data, now }: { data: AdminOverview; now: number }) {
             key={s.label}
             onPress={s.href ? () => router.push(s.href as Href) : undefined}
             disabled={!s.href}
-            className="admin-stat"
+            className={compact ? "admin-stat admin-stat--half" : "admin-stat"}
             accessibilityRole={s.href ? "button" : undefined}
             accessibilityLabel={`${s.label}: ${s.value}`}
           >
             <SymbolView name={s.icon} size={18} tintColor={colors.forestInk} />
             <Text className="admin-stat__label" numberOfLines={2}>{s.label}</Text>
-            <Text className="admin-stat__value">{s.value}</Text>
+            <Text className="admin-stat__value" numberOfLines={1} adjustsFontSizeToFit>{s.value}</Text>
           </Pressable>
         ))}
       </View>

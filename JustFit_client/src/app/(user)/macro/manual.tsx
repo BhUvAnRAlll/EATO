@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Platform, Pressable, ScrollView, Text, View } from "react-native";
+import { FieldInput } from "@/components/FieldInput";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { SymbolView } from "@/components/SymbolView";
@@ -17,6 +18,7 @@ import { track } from "@/lib/analytics";
 import { haptic } from "@/lib/haptics";
 import { findFood, nutrientsFor, rescale, searchFoods, unitsFor, type Nutrients } from "@/lib/foods";
 import type { Food, FoodUnit } from "@/data/foods";
+import { KeyboardAvoider } from "@/components/KeyboardAvoider";
 
 const UNIT_LABEL: Record<FoodUnit, string> = { g: "g", ml: "ml", piece: "pieces" };
 const macroFields = (colors: Palette) => ([
@@ -163,7 +165,7 @@ export default function ManualEntry() {
       <StatusBar style="auto" />
       <SafeAreaView style={{ flex: 1 }}>
         <MacroHeader title="Manual entry" />
-        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+        <KeyboardAvoider>
           <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24, gap: 16 }} keyboardShouldPersistTaps="handled"
             keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"} showsVerticalScrollIndicator={false}>
             <Text className="home__lead">{"Search a food and enter how much: we fill in the calories and macros. A dish with several foods? Add each one."}</Text>
@@ -173,7 +175,7 @@ export default function ManualEntry() {
                 <Text className="setup__section">Meal name (optional)</Text>
                 <View className="setup__field">
                   <SymbolView name={{ ios: "fork.knife", android: "restaurant", web: "restaurant" }} size={18} tintColor={colors.muted} />
-                  <TextInput className="setup__field-input min-w-0 flex-1" value={mealName} onChangeText={setMealName} placeholder="Lunch thali" placeholderTextColor={colors.faint} maxLength={120} accessibilityLabel="Meal name" />
+                  <FieldInput className="min-w-0 flex-1" value={mealName} onChangeText={setMealName} placeholder="Lunch thali" placeholderTextColor={colors.faint} maxLength={120} accessibilityLabel="Meal name" />
                 </View>
               </View>
             )}
@@ -219,7 +221,7 @@ export default function ManualEntry() {
               <Text className="btn-forest__label">{several ? `Save meal · ${foods.length} foods` : "Save meal"}</Text>
             </Pressable>
           </View>
-        </KeyboardAvoidingView>
+        </KeyboardAvoider>
       </SafeAreaView>
     </View>
   );
@@ -259,8 +261,8 @@ function FoodFields({ food, index, several, onChange, onEstimate, onRemove }: { 
         <Text className="setup__section">Food name</Text>
         <View className="setup__field">
           <SymbolView name={{ ios: "magnifyingglass", android: "search", web: "search" }} size={18} tintColor={colors.muted} />
-          <TextInput
-            className="setup__field-input min-w-0 flex-1"
+          <FieldInput
+            className="min-w-0 flex-1"
             value={food.name}
             onChangeText={(name) => onChange({ name, foodId: null, basis: food.basis?.source === "list" ? null : food.basis })}
             onFocus={() => setFocused(true)}
@@ -291,7 +293,7 @@ function FoodFields({ food, index, several, onChange, onEstimate, onRemove }: { 
             rather than clipping "pieces" */}
         <View className="flex-row flex-wrap items-center gap-3">
           <View className="setup__field min-w-0" style={{ flexGrow: 1, flexBasis: 100 }}>
-            <TextInput className="setup__field-input min-w-0 flex-1" value={food.quantity} onChangeText={(t) => onChange((f) => withAmount(f, numeric(t), f.unit))} placeholder={food.unit === "piece" ? "2" : "150"} placeholderTextColor={colors.faint} keyboardType="decimal-pad" accessibilityLabel={`${tag}Quantity`.trim()} />
+            <FieldInput className="min-w-0 flex-1" value={food.quantity} onChangeText={(t) => onChange((f) => withAmount(f, numeric(t), f.unit))} placeholder={food.unit === "piece" ? "2" : "150"} placeholderTextColor={colors.faint} keyboardType="decimal-pad" accessibilityLabel={`${tag}Quantity`.trim()} />
           </View>
           <View style={{ flexGrow: 1, flexBasis: 170 }}>
             <Segmented options={unitsFor(listed).map((u) => ({ value: u, label: UNIT_LABEL[u] }))} value={food.unit} onChange={(unit) => onChange((f) => withAmount(f, f.quantity, unit))} label={`${tag}Serving unit`.trim()} />
@@ -311,7 +313,7 @@ function FoodFields({ food, index, several, onChange, onEstimate, onRemove }: { 
         <Text className="setup__section">Calories</Text>
         <View className="setup__field">
           <SymbolView name={{ ios: "flame.fill", android: "local_fire_department", web: "local_fire_department" }} size={18} tintColor={colors.danger} />
-          <TextInput className="setup__field-input min-w-0 flex-1" value={food.kcal} onChangeText={(t) => typed({ kcal: numeric(t) })} placeholder="480" placeholderTextColor={colors.faint} keyboardType="decimal-pad" accessibilityLabel={`${tag}Calories in kcal`.trim()} />
+          <FieldInput className="min-w-0 flex-1" value={food.kcal} onChangeText={(t) => typed({ kcal: numeric(t) })} placeholder="480" placeholderTextColor={colors.faint} keyboardType="decimal-pad" accessibilityLabel={`${tag}Calories in kcal`.trim()} />
           <Text className="setup__unit">kcal</Text>
         </View>
       </View>
@@ -325,9 +327,9 @@ function FoodFields({ food, index, several, onChange, onEstimate, onRemove }: { 
                 <View className="h-2 w-2 rounded-pill" style={{ backgroundColor: m.color }} />
                 <Text className="macro__bar-label">{m.label}</Text>
               </View>
-              <View className="mt-1 min-w-0 flex-row items-baseline gap-1">
-                <TextInput
-                  className="setup__field-input min-w-0 flex-1"
+              <View className="mt-1 min-w-0 flex-row items-center gap-1">
+                <FieldInput
+                  className="min-w-0 flex-1"
                   value={food.grams[m.key]}
                   onChangeText={(t) => typed({ grams: { ...food.grams, [m.key]: numeric(t) } })}
                   placeholder="0"
@@ -361,8 +363,8 @@ function FoodFields({ food, index, several, onChange, onEstimate, onRemove }: { 
             tintColor={macrosAgree(typedKcal, macroKcal) ? colors.success : colors.warning}
           />
           <Text className="home__note flex-1" style={{ color: colors.muted }}>
-            Macros add up to <Text style={{ fontFamily: fonts.semibold, color: colors.forestInk }}>{macroKcal} kcal</Text>
-            {macrosAgree(typedKcal, macroKcal) ? ` — close to your ${whole(typedKcal)} entry. Looks good.` : ` — far from your ${whole(typedKcal)} entry. Worth a second look.`}
+            Macros add up to <Text style={{ fontFamily: fonts.semibold, color: colors.forestInk }}>{macroKcal.toLocaleString("en-IN")} kcal</Text>
+            {macrosAgree(typedKcal, macroKcal) ? ` — close to your ${whole(typedKcal).toLocaleString("en-IN")} entry. Looks good.` : ` — far from your ${whole(typedKcal).toLocaleString("en-IN")} entry. Worth a second look.`}
           </Text>
         </View>
       )}
@@ -371,8 +373,8 @@ function FoodFields({ food, index, several, onChange, onEstimate, onRemove }: { 
   if (!several) return <View className="gap-4">{fields}</View>;
   return (
     <View className="home__card gap-4">
-      <View className="flex-row items-center justify-between">
-        <Text className="card__title">{`Food ${index + 1}${food.name.trim() ? ` · ${food.name.trim()}` : ""}`}</Text>
+      <View className="flex-row items-center justify-between gap-3">
+        <Text className="card__title min-w-0 flex-1" numberOfLines={1}>{`Food ${index + 1}${food.name.trim() ? ` · ${food.name.trim()}` : ""}`}</Text>
         {onRemove && (
           <Pressable onPress={onRemove} hitSlop={8} className="flex-row items-center gap-1" accessibilityRole="button" accessibilityLabel={`Remove food ${index + 1}`}>
             <SymbolView name={{ ios: "trash", android: "delete", web: "delete" }} size={14} tintColor={colors.danger} />

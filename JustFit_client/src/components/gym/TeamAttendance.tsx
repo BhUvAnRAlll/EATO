@@ -115,7 +115,7 @@ export function TeamAttendance({ refreshKey = 0 }: { refreshKey?: number }) {
         {tiles.map((t) => (
           <View key={t.label} className="gym-dash-card gym-dash-stat flex-1" accessible accessibilityLabel={`${t.value} ${t.label}`}>
             <View className="gym-dash-stat__icon" style={{ backgroundColor: t.bg }}>
-              <GymIcon name={t.icon} size={16} color={t.color} />
+              <GymIcon name={t.icon} size={16} color={t.color} bounce={t.value} />
             </View>
             <Text className="gym-dash-stat__value">{t.value}</Text>
             <Text className="gym-dash-stat__label" numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.8}>{t.shown}</Text>

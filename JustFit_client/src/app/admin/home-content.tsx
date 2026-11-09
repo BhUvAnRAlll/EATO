@@ -7,9 +7,11 @@ import { router } from "expo-router";
 import { FormAlert } from "@/components/FormAlert";
 import { ScreenSkeleton } from "@/components/Skeleton";
 import { AdminButton, AdminScreen } from "@/components/admin/AdminScreen";
+import { ReorderButtons } from "@/components/admin/ReorderButtons";
 import { AdminField, ChoiceChips } from "@/components/admin/AdminField";
 import { destinations, quickActionIconKeys, type Meal, type QuickAction } from "@/data/home";
 import { adminHome, resolveImage, type HomeContentInput } from "@/lib/home";
+import { useResponsive } from "@/lib/responsive";
 import { useSessionToken } from "@/lib/session";
 import { useThemeColors, useSwitchColors } from "@/theme";
 import { haptic } from "@/lib/haptics";
@@ -23,6 +25,7 @@ const iconOptions = quickActionIconKeys.map((key) => ({ value: key, label: key }
 // members' nutrition numbers and orders never pass through here.
 export default function AdminHomeContent() {
   const colors = useThemeColors();
+  const { compact } = useResponsive();
   const switchColors = useSwitchColors();
   const getToken = useSessionToken();
   const [content, setContent] = useState<HomeContentInput | null>(null);
@@ -148,13 +151,8 @@ export default function AdminHomeContent() {
             <View key={action.id} className="admin__row gap-3">
               <View className="flex-row items-center justify-between">
                 <Text className="card__title">Card {index + 1}</Text>
-                <View className="flex-row items-center gap-3">
-                  <Pressable onPress={() => moveQuickAction(index, -1)} hitSlop={6} disabled={index === 0} style={{ opacity: index === 0 ? 0.3 : 1 }} accessibilityRole="button" accessibilityLabel="Move up">
-                    <SymbolView name={{ ios: "chevron.up", android: "arrow_upward", web: "arrow_upward" }} size={18} tintColor={colors.forestInk} />
-                  </Pressable>
-                  <Pressable onPress={() => moveQuickAction(index, 1)} hitSlop={6} disabled={index === content.quickActions.length - 1} style={{ opacity: index === content.quickActions.length - 1 ? 0.3 : 1 }} accessibilityRole="button" accessibilityLabel="Move down">
-                    <SymbolView name={{ ios: "chevron.down", android: "arrow_downward", web: "arrow_downward" }} size={18} tintColor={colors.forestInk} />
-                  </Pressable>
+                <View className="flex-row items-center gap-2">
+                  <ReorderButtons onUp={() => moveQuickAction(index, -1)} onDown={() => moveQuickAction(index, 1)} first={index === 0} last={index === content.quickActions.length - 1} label={`card ${index + 1}`} />
                   <AdminButton label="Remove" variant="danger" onPress={() => update({ quickActions: content.quickActions.filter((_, i) => i !== index) })} />
                 </View>
               </View>
@@ -170,21 +168,21 @@ export default function AdminHomeContent() {
           {content.popularMealIds.map((mealId, index) => {
             const meal = mealById.get(mealId);
             return (
-              <View key={mealId} className="admin__row flex-row items-center gap-3">
-                <Image source={resolveImage(meal?.imageUrl)} contentFit="cover" style={{ width: 44, height: 44, borderRadius: 10 }} />
-                <View className="flex-1">
-                  <Text className="card__title" numberOfLines={1}>
-                    {meal?.name ?? mealId}
-                  </Text>
-                  <Text className="card__subtitle">{meal ? `${meal.calories} kcal` : "Not on the menu"}</Text>
+              // Compact phones: the arrows and Remove go on a line under the meal, so its name has room
+              <View key={mealId} className={compact ? "admin__row gap-2" : "admin__row flex-row items-center gap-3"}>
+                <View className="min-w-0 flex-1 flex-row items-center gap-3">
+                  <Image source={resolveImage(meal?.imageUrl)} contentFit="cover" style={{ width: 44, height: 44, borderRadius: 10 }} />
+                  <View className="min-w-0 flex-1">
+                    <Text className="card__title" numberOfLines={2}>
+                      {meal?.name ?? mealId}
+                    </Text>
+                    <Text className="card__subtitle">{meal ? `${meal.calories} kcal` : "Not on the menu"}</Text>
+                  </View>
                 </View>
-                <Pressable onPress={() => movePopular(index, -1)} hitSlop={6} disabled={index === 0} style={{ opacity: index === 0 ? 0.3 : 1 }} accessibilityRole="button" accessibilityLabel="Move up">
-                  <SymbolView name={{ ios: "chevron.up", android: "arrow_upward", web: "arrow_upward" }} size={18} tintColor={colors.forestInk} />
-                </Pressable>
-                <Pressable onPress={() => movePopular(index, 1)} hitSlop={6} disabled={index === content.popularMealIds.length - 1} style={{ opacity: index === content.popularMealIds.length - 1 ? 0.3 : 1 }} accessibilityRole="button" accessibilityLabel="Move down">
-                  <SymbolView name={{ ios: "chevron.down", android: "arrow_downward", web: "arrow_downward" }} size={18} tintColor={colors.forestInk} />
-                </Pressable>
-                <AdminButton label="Remove" variant="danger" onPress={() => togglePopular(mealId)} />
+                <View className={compact ? "flex-row items-center justify-end gap-2" : "flex-row items-center gap-2"}>
+                  <ReorderButtons onUp={() => movePopular(index, -1)} onDown={() => movePopular(index, 1)} first={index === 0} last={index === content.popularMealIds.length - 1} label={meal?.name} />
+                  <AdminButton label="Remove" variant="danger" onPress={() => togglePopular(mealId)} />
+                </View>
               </View>
             );
           })}

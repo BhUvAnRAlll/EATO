@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, Text, TextInput, View, useWindowDimensions } from "react-native";
+import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { router, useFocusEffect } from "expo-router";
@@ -12,6 +12,7 @@ import { SymbolView } from "@/components/SymbolView";
 import { FEATURE_ICON, MODULE_ICON, RANK_LIMIT, SCREEN_ICON, SCREEN_LABEL } from "@/data/appUsage";
 import { appUsage, changeText, dayName, durationText, isIsoDate, rangeText, RANGE_LABEL, RANGE_OPTIONS, type FeatureUsage, type UsageQuery, type UsageRange, type UsageSummary } from "@/lib/appUsage";
 import { downloadFile } from "@/lib/download";
+import { useResponsive } from "@/lib/responsive";
 import { useSessionToken } from "@/lib/session";
 import { useThemeColors } from "@/theme";
 
@@ -35,21 +36,27 @@ export default function AppUsageScreen() {
   const latest = useRef(0);
 
   // Export: the same numbers as a CSV file, with the range the screen shows. On a phone the file
-  // is written to the app's cache (a share sheet needs expo-sharing, not installed).
+  // goes to the share sheet (Save to Files, Drive, email…); the download gives up if it stalls.
   const exportCsv = async (report: "overview" | "features" | "daily" | "members" | "retention") => {
     if (exporting) return;
     setExporting(report);
     setExportNote(null);
     const params = new URLSearchParams({ report, range: query.range });
     if (query.range === "custom" && query.from && query.to) { params.set("from", query.from); params.set("to", query.to); }
-    const result = await downloadFile(`/api/admin/portal/usage/export?${params.toString()}`, await getToken().catch(() => null));
-    setExporting(null);
+    let result: Awaited<ReturnType<typeof downloadFile>>;
+    try {
+      result = await downloadFile(`/api/admin/portal/usage/export?${params.toString()}`, await getToken().catch(() => null));
+    } catch {
+      result = { ok: false, error: "Couldn't make that file. Please try again." };
+    } finally {
+      setExporting(null);
+    }
     if (!result.ok) {
       if (Platform.OS === "web") setExportNote(result.error);
       else Alert.alert("Couldn't export", result.error);
       return;
     }
-    setExportNote(Platform.OS === "web" ? `Saved ${result.where}` : `Saved to the app's files: ${result.where.split("/").pop()}`);
+    setExportNote(Platform.OS === "web" ? `Saved ${result.where}` : `Exported ${result.where}`);
   };
 
   const refresh = useCallback(async (q: UsageQuery) => {
@@ -106,14 +113,14 @@ export default function AppUsageScreen() {
 
         <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40, gap: 16 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled"
             keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"} refreshControl={refreshControl}>
-          {/* The range: a row of chips that wraps on narrow phones */}
-          <View className="flex-row flex-wrap" style={{ gap: 8 }} accessibilityRole="tablist">
+          {/* The range: one row of chips that scrolls sideways, running edge to edge */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -16 }} contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }} accessibilityRole="tablist">
             {RANGE_OPTIONS.map((r) => (
               <Pressable key={r} onPress={() => pick(r)} className={query.range === r ? "admin-chip admin-chip--on" : "admin-chip"} accessibilityRole="tab" accessibilityState={{ selected: query.range === r }} accessibilityLabel={RANGE_LABEL[r]}>
                 <Text className={query.range === r ? "admin-segment__label admin-segment__label--on" : "admin-segment__label"}>{RANGE_LABEL[r]}</Text>
               </Pressable>
             ))}
-          </View>
+          </ScrollView>
 
           {query.range === "custom" && (
             <View className="admin-list px-4 py-3" style={{ gap: 10 }}>
@@ -315,12 +322,10 @@ function Ready({ data }: { data: UsageSummary }) {
   );
 }
 
-// Phones narrower than this show only the number in a row's pill, so the name keeps its room
-const NARROW = 360;
-
 // A count in a soft pill at the end of a row (visits, members); grey when it is zero
 function CountPill({ text, zero = false }: { text: string; zero?: boolean }) {
-  const narrow = useWindowDimensions().width < NARROW;
+  // Compact phones show only the number in a row's pill, so the name keeps its room
+  const narrow = useResponsive().compact;
   const shown = narrow ? text.split(" ")[0] : text;
   return (
     <View className={zero ? "home__pill-soft home__pill-soft--grey" : "home__pill-soft"}>

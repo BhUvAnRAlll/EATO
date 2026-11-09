@@ -1,4 +1,4 @@
-import { KeyboardAvoidingView, Platform, ScrollView, Text, useWindowDimensions, View } from "react-native";
+import { Platform, ScrollView, Text, useWindowDimensions, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import { StatusBar } from "expo-status-bar";
@@ -11,15 +11,24 @@ import { PrimaryButton } from "@/components/PrimaryButton";
 import { VerificationModal } from "@/components/VerificationModal";
 import { images } from "@/constants/images";
 import { formatIndianMobile } from "@/lib/phone";
+import { useResponsive } from "@/lib/responsive";
 import { usePhoneSignIn } from "@/lib/usePhoneSignIn";
 import { useAuthStore } from "@/store/auth";
+import { KeyboardAvoider } from "@/components/KeyboardAvoider";
 
-// The food art is 480 × 375 px in the design; it tucks ~25pt up beside the subtitle
+// The food art is 480 × 375 px in the design
 const ART_RATIO = 480 / 375;
-const ART_OVERLAP = 25;
+
+// The photo's height: about 240 pt on a 390-wide phone, following the screen, never taller than
+// its own shape at full width, and smaller on short screens so the form card still fits
+function artHeight(width: number, height: number, scale: (size: number, bounds?: { min?: number; max?: number }) => number) {
+  return Math.round(Math.min(scale(240, { min: 150, max: 290 }), width / ART_RATIO, Math.max(110, height * 0.26)));
+}
 
 export default function SignIn() {
-  const { width } = useWindowDimensions();
+  const { width, scale } = useResponsive();
+  const { height } = useWindowDimensions();
+  const photoHeight = artHeight(width, height, scale);
   const insets = useSafeAreaInsets();
   // Mobile number → a texted 6-digit code → signed in (see lib/usePhoneSignIn.ts)
   const flow = usePhoneSignIn();
@@ -32,33 +41,30 @@ export default function SignIn() {
       <View className="auth__circle" style={{ width: 98, height: 98, right: -42, top: 49 }} />
 
       <SafeAreaView style={{ flex: 1 }} edges={["top"]}>
-        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+        <KeyboardAvoider>
           <ScrollView
             contentContainerStyle={{ flexGrow: 1 }}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
             showsVerticalScrollIndicator={false}
           >
-            {/* Drawn above the photo: the photo tucks under the text block by ART_OVERLAP, and
-                the subtitle's second line must stay in front of it on every width */}
-            <View className="px-7.5" style={{ zIndex: 1 }}>
+            <View className="px-7.5">
               <BrandWordmark />
               <Text className="auth__title mt-5">{"Fuel your body,\none meal at a time."}</Text>
-              <Text className="auth__subtitle mt-1.5">{"Fresh, balanced meals made\nfor your goals."}</Text>
+              <Text className="auth__subtitle mt-1.5">Fresh, balanced meals made for your goals.</Text>
             </View>
 
+            {/* In the flow below the text with a gap, never behind it, at a fixed height */}
             <Image
               source={images.authLoginArt}
               contentFit="cover"
               contentPosition="center"
-              // Fills the space left over, so the screen fits without scrolling. The photo tucks
-              // under the text by ART_OVERLAP, except on narrow phones where the cropped photo
-              // would put food right behind the subtitle: there it starts just below the text.
-              style={{ width, flex: 1, minHeight: 120, maxHeight: width / ART_RATIO, marginTop: width < 360 ? 0 : -ART_OVERLAP }}
+              style={{ width, height: photoHeight, marginTop: 16 }}
             />
 
-            {/* Form card */}
-            <View className="auth__sheet -mt-5" style={{ paddingBottom: insets.bottom + 8 }}>
+            {/* Form card: a gap below the photo, then it grows to the bottom of the screen. When
+                an error makes it taller than the space, the whole screen scrolls instead */}
+            <View className="auth__sheet mt-3" style={{ flexGrow: 1, paddingBottom: insets.bottom + 16 }}>
               {/* Card heading */}
               <Text className="auth__slogan">Welcome back</Text>
               <Text className="auth__subtitle mt-1">Log in with your mobile number.</Text>
@@ -104,7 +110,7 @@ export default function SignIn() {
               </Text>
             </View>
           </ScrollView>
-        </KeyboardAvoidingView>
+        </KeyboardAvoider>
       </SafeAreaView>
 
       <VerificationModal

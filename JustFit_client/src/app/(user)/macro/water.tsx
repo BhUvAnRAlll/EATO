@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Animated, Modal, Pressable, ScrollView, Switch, Text, useWindowDimensions, View } from "react-native";
+import { ActivityIndicator, Animated, Modal, Pressable, ScrollView, Switch, Text, View } from "react-native";
 import { ScreenSkeleton } from "@/components/Skeleton";
 import { LoadError } from "@/components/macro/LoadError";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { SymbolView } from "@/components/SymbolView";
 import { useFocusEffect } from "expo-router";
@@ -14,10 +14,12 @@ import { usePullToRefresh } from "@/components/PullToRefresh";
 import { clockTime, hourLabel, litres, longDate, macro, todayIso, type WaterDay, type WaterEntry } from "@/lib/macro";
 import { useSessionToken } from "@/lib/session";
 import { logDate, useMacroStore } from "@/store/macro";
+import { useResponsive } from "@/lib/responsive";
 import { useThemeColors, useSwitchColors } from "@/theme";
 import { track } from "@/lib/analytics";
 import { haptic } from "@/lib/haptics";
-import { confirmChoice } from "@/lib/nativeSheets";
+import { offerUndo } from "@/lib/undo";
+import { useUndoStore } from "@/store/undo";
 
 const GLASS_ML = 250;
 const GLASS = { width: 88, height: 152 };
@@ -32,23 +34,27 @@ export default function Water() {
   const colors = useThemeColors();
   const switchColors = useSwitchColors();
   const getToken = useSessionToken();
-  const { width } = useWindowDimensions();
-  // Under 375 pt the three quick tiles are narrow: a smaller amount keeps "+250 ml" on one line
-  const compact = width < 375;
+  // Below the wide size (in text units, so a larger text size counts) the three quick tiles are
+  // narrow: a smaller amount keeps "+250 ml" on one line, and it shrinks further rather than cut off
+  const { narrow: compact } = useResponsive();
   const { selectedDate, jumpToDate } = useMacroStore();
   const today = todayIso();
   const isToday = selectedDate === today;
   const [day, setDay] = useState<WaterDay | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  // Entries being removed: a second tap on the same one sends nothing
-  const removing = useRef(new Set<string>());
+  // Entries waiting on Undo or being sent are hidden; Undo shows them again, so they can be removed again
+  const hidden = useUndoStore((state) => state.hidden);
   const [busy, setBusy] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
 
+  // Only the newest read is shown: switching days quickly never lets an older answer land last
+  const latest = useRef(0);
   const load = useCallback(async () => {
+    const request = ++latest.current;
     const result = await macro.water(await getToken().catch(() => null), selectedDate);
+    if (request !== latest.current) return;
     if (result.ok) setDay(result.data);
     setLoadError(result.ok ? null : result.error);
   }, [getToken, selectedDate]);
@@ -78,23 +84,18 @@ export default function Water() {
     load();
   };
 
+  // Removing an entry (2026-11-09): it goes at once with an Undo bar (shake to undo too); the
+  // server is told when the bar ends (lib/undo.ts), so Undo never has to log it again
   const remove = async (entry: WaterEntry) => {
-    if (removing.current.has(entry.id)) return;
-    removing.current.add(entry.id);
+    // A second tap on an entry already on its way sends nothing
+    if (useUndoStore.getState().hidden.includes(`water:${entry.id}`)) return;
     setError(null);
-    const result = await macro.removeWater(await getToken().catch(() => null), entry.id);
-    removing.current.delete(entry.id);
-    if (!result.ok) return setError("Could not remove entry. Please try again.");
-    load();
-  };
-
-  // Removing an entry can't be undone, so it asks first
-  const confirmRemove = (entry: WaterEntry) => {
-    if (removing.current.has(entry.id)) return;
-    const question = `Remove ${entry.amountMl} ml?`;
-    const detail = `${entryTitle(entry)} at ${clockTime(entry.loggedAt)} is taken off today's log.`;
-    confirmChoice({ title: question, message: detail, confirmLabel: "Remove" }).then((ok) => {
-      if (ok) remove(entry);
+    const token = await getToken().catch(() => null);
+    offerUndo({
+      text: `${entry.amountMl} ml removed`,
+      keys: [`water:${entry.id}`],
+      commit: async () => (await macro.removeWater(token, entry.id)).ok,
+      onDone: () => load(),
     });
   };
 
@@ -113,6 +114,7 @@ export default function Water() {
   // The previous day stays, dimmed, while another loads; a read that failed with a day already on
   // screen says so under the header and lifts the dimming
   const switching = day !== null && day.date !== selectedDate && !loadError;
+  const shown = day ? withoutHidden(day, hidden) : null;
 
   return (
     <View className="flex-1 bg-cream">
@@ -139,7 +141,7 @@ export default function Water() {
         ) : (
           <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 110, gap: 16, opacity: switching ? 0.55 : 1 }} showsVerticalScrollIndicator={false} refreshControl={refreshControl}>
             {loadError && <Text className="macro__error" accessibilityRole="alert">{loadError}</Text>}
-            <ProgressCard day={day} isToday={isToday} />
+            <ProgressCard day={shown ?? day} isToday={isToday} />
 
             {isToday && (
               <View className="flex-row gap-2.5">
@@ -152,30 +154,32 @@ export default function Water() {
             {error && <Text className="macro__error" accessibilityRole="alert">{error}</Text>}
 
             {isToday && (
-              <View className="home__card flex-row items-center gap-3">
-                <View className="macro__thumb" style={{ backgroundColor: colors.infoSoft }}>
-                  <SymbolView name={{ ios: "bell.fill", android: "notifications", web: "notifications" }} size={20} tintColor={colors.fat} />
+              <View className="home__card gap-2">
+                {/* Icon, title and switch on one row; the details full width under them */}
+                <View className="flex-row items-center gap-3">
+                  <View className="macro__thumb" style={{ backgroundColor: colors.infoSoft }}>
+                    <SymbolView name={{ ios: "bell.fill", android: "notifications", web: "notifications" }} size={20} tintColor={colors.fat} />
+                  </View>
+                  <Text className="card__title min-w-0 flex-1">Hydration reminders</Text>
+                  <Switch {...switchColors}
+                    value={day.preferences.remindersEnabled}
+                    onValueChange={toggleReminders}
+                    accessibilityLabel="Hydration reminders"
+                  />
                 </View>
-                <View className="flex-1">
-                  <Text className="card__title">Hydration reminders</Text>
-                  <Text className="meta-text">
-                    Every {day.preferences.intervalHours} hours · {hourLabel(day.preferences.startHour)} – {hourLabel(day.preferences.endHour)}
-                  </Text>
-                  <Text className="home__note mt-0.5">Saved now; reminders are sent once notifications arrive in a later update.</Text>
-                </View>
-                <Switch {...switchColors}
-                  value={day.preferences.remindersEnabled}
-                  onValueChange={toggleReminders}
-                  accessibilityLabel="Hydration reminders"
-                />
+                {/* No-break spaces keep "8 AM – 8 PM" together when the line wraps */}
+                <Text className="meta-text">
+                  {`Every ${day.preferences.intervalHours} hours · ${[hourLabel(day.preferences.startHour), hourLabel(day.preferences.endHour)].map((h) => h.replace(/ /g, "\u00A0")).join("\u00A0–\u00A0")}`}
+                </Text>
+                <Text className="home__note">Reminders start in a later update.</Text>
               </View>
             )}
 
             <View className="flex-row items-center justify-between">
               <Text className="setup__section">{isToday ? "Today's log" : "Log"}</Text>
-              <Text className="meta-text">{day.entries.length} {day.entries.length === 1 ? "entry" : "entries"}</Text>
+              <Text className="meta-text">{(shown ?? day).entries.length} {(shown ?? day).entries.length === 1 ? "entry" : "entries"}</Text>
             </View>
-            {day.entries.length === 0 ? (
+            {(shown ?? day).entries.length === 0 ? (
               <DashedBlock
                 icon={{ ios: "drop", android: "water_drop", web: "water_drop" }}
                 title={isToday ? "Nothing logged yet" : "Nothing was logged"}
@@ -183,7 +187,7 @@ export default function Water() {
               />
             ) : (
               <View className="gap-2">
-                {day.entries.map((entry) => (
+                {(shown ?? day).entries.map((entry) => (
                   <View key={entry.id} className="list-card flex-row items-center gap-3" accessibilityLabel={`${entryTitle(entry)}, ${entry.amountMl} ml at ${clockTime(entry.loggedAt)}`}>
                     <View className="macro__thumb" style={{ backgroundColor: colors.infoSoft }}>
                       <SymbolView name={{ ios: "drop.fill", android: "water_drop", web: "water_drop" }} size={18} tintColor={colors.fat} />
@@ -194,7 +198,7 @@ export default function Water() {
                     </View>
                     <Text className="macro__kcal">{entry.amountMl} ml</Text>
                     {isToday && (
-                      <Pressable onPress={() => confirmRemove(entry)} hitSlop={10} className="h-8 w-8 items-center justify-center" accessibilityRole="button" accessibilityLabel={`Remove ${entry.amountMl} ml`}>
+                      <Pressable onPress={() => remove(entry)} hitSlop={10} className="h-8 w-8 items-center justify-center" accessibilityRole="button" accessibilityLabel={`Remove ${entry.amountMl} ml`}>
                         <SymbolView name={{ ios: "xmark", android: "close", web: "close" }} size={14} tintColor={colors.faint} />
                       </Pressable>
                     )}
@@ -293,7 +297,7 @@ function QuickTile({ title, subtitle, quiet = false, compact, disabled, onPress 
   return (
     <Pressable onPress={onPress} disabled={disabled} className="macro__tile items-center" style={quiet ? { backgroundColor: colors.cream } : { opacity: disabled ? 0.6 : 1 }} accessibilityRole="button" accessibilityLabel={`${title}, ${subtitle}`}>
       <SymbolView name={quiet ? { ios: "slider.horizontal.3", android: "tune", web: "tune" } : { ios: "drop.fill", android: "water_drop", web: "water_drop" }} size={18} tintColor={colors.fat} />
-      <Text className="card__title mt-1.5" style={compact ? { fontSize: 14, lineHeight: 18 } : undefined} numberOfLines={1}>{title}</Text>
+      <Text className="card__title mt-1.5" style={compact ? { fontSize: 14, lineHeight: 18 } : undefined} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{title}</Text>
       <Text className="meta-text text-center" style={compact ? { fontSize: 12, lineHeight: 16 } : undefined}>{subtitle}</Text>
     </Pressable>
   );
@@ -303,13 +307,14 @@ function QuickTile({ title, subtitle, quiet = false, compact, disabled, onPress 
 // Android's Back closes the sheet instead of leaving the screen.
 function CustomSheet({ busy, onClose, onAdd }: { busy: boolean; onClose: () => void; onAdd: (ml: number) => void }) {
   const colors = useThemeColors();
+  const insets = useSafeAreaInsets();
   const [amount, setAmount] = useState(300);
   const step = (delta: number) => setAmount((current) => Math.min(3000, Math.max(10, current + delta)));
   return (
     <Modal visible transparent animationType="fade" statusBarTranslucent onRequestClose={busy ? undefined : onClose}>
       <View className="confirm__backdrop" accessibilityViewIsModal>
         <Pressable style={{ flex: 1 }} onPress={busy ? undefined : onClose} accessibilityLabel="Close" accessibilityRole="button" />
-        <View className="confirm__sheet gap-4">
+        <View className="confirm__sheet gap-4" style={{ paddingBottom: 32 + insets.bottom }}>
           <Text className="setup__section text-center">Add water</Text>
           <View className="flex-row items-center justify-center gap-6">
             <Pressable onPress={() => step(-50)} className="home__icon-button" accessibilityRole="button" accessibilityLabel="50 ml less">
@@ -338,4 +343,18 @@ function CustomSheet({ busy, onClose, onAdd }: { busy: boolean; onClose: () => v
       </View>
     </Modal>
   );
+}
+
+// The day as it looks with the entries waiting on Undo left out: the total and what is left follow
+function withoutHidden(day: WaterDay, hidden: string[]): WaterDay {
+  const gone = day.entries.filter((entry) => hidden.includes(`water:${entry.id}`));
+  if (gone.length === 0) return day;
+  const consumedMl = Math.max(0, day.consumedMl - gone.reduce((sum, entry) => sum + entry.amountMl, 0));
+  return {
+    ...day,
+    entries: day.entries.filter((entry) => !gone.includes(entry)),
+    consumedMl,
+    remainingMl: Math.max(0, day.targetMl - consumedMl),
+    progress: day.targetMl > 0 ? Math.round((consumedMl / day.targetMl) * 1000) / 1000 : 0,
+  };
 }

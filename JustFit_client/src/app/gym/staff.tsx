@@ -144,7 +144,7 @@ export default function GymStaffScreen() {
         </Animated.View>
       ) : null}
 
-      <Text className="gym-section-title" accessibilityRole="header">{`Team (${team.length})`}</Text>
+      <Text className="gym-page-section" accessibilityRole="header">{`Team (${team.length})`}</Text>
       <View style={{ gap: 10 }}>{team.map(memberRow)}</View>
       {others.length === 0 && invites.length === 0 && (
         <GymEmpty icon="users" title="No Staff or Trainers yet" text="Tap + to give someone access by their mobile number." />
@@ -152,7 +152,7 @@ export default function GymStaffScreen() {
 
       {invites.length > 0 && (
         <>
-          <Text className="gym-section-title" accessibilityRole="header">{`Pending invites (${invites.length})`}</Text>
+          <Text className="gym-page-section" accessibilityRole="header">{`Pending invites (${invites.length})`}</Text>
           <View style={{ gap: 10 }}>{invites.map(inviteRow)}</View>
         </>
       )}

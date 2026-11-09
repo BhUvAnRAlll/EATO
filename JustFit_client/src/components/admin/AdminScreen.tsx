@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from "react-native";
+import { Platform, Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { SymbolView } from "@/components/SymbolView";
@@ -7,6 +7,7 @@ import { router } from "expo-router";
 
 import { usePullToRefresh } from "@/components/PullToRefresh";
 import { useThemeColors } from "@/theme";
+import { KeyboardAvoider } from "@/components/KeyboardAvoider";
 
 type AdminScreenProps = {
   title: string;
@@ -22,7 +23,8 @@ type AdminScreenProps = {
 
 const none = async () => {};
 
-// Shared frame for the admin screens: back arrow, title, scrolling content (pull to refresh with onRefresh)
+// Shared frame for the admin screens: a stack screen's circled back button and centred title (a
+// tab root's eyebrow and large title instead), then the scrolling content (pull to refresh with onRefresh)
 export function AdminScreen({ title, subtitle, headerRight, onRefresh, hideBack = false, children }: AdminScreenProps) {
   const colors = useThemeColors();
   const { refreshControl } = usePullToRefresh(onRefresh ?? none);
@@ -30,19 +32,27 @@ export function AdminScreen({ title, subtitle, headerRight, onRefresh, hideBack 
     <View className="flex-1 bg-cream">
       <StatusBar style="auto" />
       <SafeAreaView style={{ flex: 1 }} edges={hideBack ? ["top", "left", "right"] : undefined}>
-        <View className="h-12 flex-row items-center px-5">
-          {!hideBack && (
-            <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Back">
-              <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={20} tintColor={colors.forestInk} />
+        {hideBack ? (
+          // A tab root: the eyebrow and a large title, like Overview, Users and Gyms
+          <View className="flex-row items-end px-4 pb-2 pt-2" style={{ gap: 12 }}>
+            <View className="min-w-0 flex-1">
+              <Text className="type-overline text-muted">justFit admin</Text>
+              <Text className="type-title text-forest-ink" numberOfLines={2} accessibilityRole="header">{title}</Text>
+            </View>
+            {headerRight}
+          </View>
+        ) : (
+          // A stack screen: the circled back button and a centred title
+          <View className="screen-bar">
+            <Pressable onPress={() => (router.canGoBack() ? router.back() : router.replace("/admin"))} hitSlop={12} className="screen-bar__back" accessibilityRole="button" accessibilityLabel="Back">
+              <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={20} tintColor={colors.ink} />
             </Pressable>
-          )}
-          <Text className={hideBack ? "type-subhead flex-1 text-forest-ink" : "type-subhead ml-3 flex-1 text-forest-ink"} numberOfLines={1}>
-            {title}
-          </Text>
-          {headerRight}
-        </View>
+            <Text className="screen-bar__title" numberOfLines={2} accessibilityRole="header">{title}</Text>
+            {headerRight ?? <View className="screen-bar__spacer" />}
+          </View>
+        )}
 
-        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+        <KeyboardAvoider>
           <ScrollView
             contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: hideBack ? 110 : 32 }}
             keyboardShouldPersistTaps="handled"
@@ -53,7 +63,7 @@ export function AdminScreen({ title, subtitle, headerRight, onRefresh, hideBack 
             {subtitle && <Text className="auth__subtitle mb-4">{subtitle}</Text>}
             {children}
           </ScrollView>
-        </KeyboardAvoidingView>
+        </KeyboardAvoider>
       </SafeAreaView>
     </View>
   );
@@ -64,6 +74,8 @@ type AdminButtonProps = {
   onPress: () => void;
   variant?: "default" | "primary" | "danger";
   disabled?: boolean;
+  // Shares a row equally with its neighbours (a card's line of actions)
+  grow?: boolean;
 };
 
 // Whole class strings per variant: Tailwind only generates classes it can read in the source
@@ -78,11 +90,19 @@ const buttonLabelClass = {
   danger: "admin__action-label admin__action-label--danger",
 };
 
-// Small pill action used in the admin lists and forms
-export function AdminButton({ label, onPress, variant = "default", disabled = false }: AdminButtonProps) {
+// Small pill action used in the admin lists and forms. Disabled, every variant looks the same:
+// a light grey fill with faint text (btn--disabled), like the app's other disabled buttons
+export function AdminButton({ label, onPress, variant = "default", disabled = false, grow = false }: AdminButtonProps) {
   return (
-    <Pressable onPress={onPress} disabled={disabled} className={buttonClass[variant]} style={{ opacity: disabled ? 0.5 : 1 }} accessibilityRole="button">
-      <Text className={buttonLabelClass[variant]}>{label}</Text>
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      className={disabled ? "admin__action admin__action--disabled" : buttonClass[variant]}
+      style={grow ? { flex: 1, paddingHorizontal: 6 } : undefined}
+      accessibilityRole="button"
+      accessibilityState={{ disabled }}
+    >
+      <Text className={disabled ? "admin__action-label btn--disabled-label" : buttonLabelClass[variant]} numberOfLines={1}>{label}</Text>
     </Pressable>
   );
 }

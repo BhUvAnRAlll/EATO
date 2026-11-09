@@ -10,6 +10,8 @@ import { ActivityIndicator, AppState, View } from "react-native";
 
 import { ActionSheetHost } from "@/components/ActionSheet";
 import { HudHost } from "@/components/Hud";
+import { UndoBar } from "@/components/UndoBar";
+import { UiScaleRoot } from "@/lib/uiScale";
 import { swipeBack } from "@/constants/navigation";
 import { fontFiles } from "@/constants/fonts";
 import { useAuthStore } from "@/store/auth";
@@ -83,6 +85,7 @@ function RootStack() {
   return (
     <ThemeProvider value={navTheme}>
     <StatusBar style="dark" />
+    <UiScaleRoot>
     <Stack
       screenOptions={{
         headerShown: false,
@@ -101,7 +104,9 @@ function RootStack() {
       </Stack.Protected>
     </Stack>
     <ActionSheetHost />
+    <UndoBar />
     <HudHost />
+    </UiScaleRoot>
     </ThemeProvider>
   );
 }

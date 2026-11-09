@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { Pressable, Text, useWindowDimensions, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import { Image } from "expo-image";
 import { SymbolView } from "@/components/SymbolView";
 import { router, useFocusEffect } from "expo-router";
@@ -7,9 +7,11 @@ import { router, useFocusEffect } from "expo-router";
 import { FormAlert } from "@/components/FormAlert";
 import { ScreenSkeleton } from "@/components/Skeleton";
 import { AdminButton, AdminScreen } from "@/components/admin/AdminScreen";
+import { ReorderButtons } from "@/components/admin/ReorderButtons";
 import { PromotionSlide } from "@/components/home/PromotionSlide";
 import type { Promotion } from "@/data/home";
 import { adminHome, resolveImage } from "@/lib/home";
+import { useResponsive } from "@/lib/responsive";
 import { useSessionToken } from "@/lib/session";
 import { useThemeColors } from "@/theme";
 
@@ -28,7 +30,7 @@ const statusBadge: Record<Promotion["effectiveStatus"], { badge: string; text: s
 export default function AdminPromotions({ tab = false }: { tab?: boolean }) {
   const colors = useThemeColors();
   const getToken = useSessionToken();
-  const { width } = useWindowDimensions();
+  const { width } = useResponsive();
   const [promotions, setPromotions] = useState<Promotion[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -122,10 +124,10 @@ export default function AdminPromotions({ tab = false }: { tab?: boolean }) {
                 <View className="flex-row items-center gap-3">
                   <Image source={resolveImage(promotion.imageUrl)} contentFit="cover" contentPosition={promotion.imagePosition === "left" ? "left" : "right"} style={{ width: 56, height: 56, borderRadius: 12 }} />
                   <View className="flex-1">
-                    <Text className="card__title" numberOfLines={1}>
+                    <Text className="card__title" numberOfLines={2}>
                       {promotion.title}
                     </Text>
-                    <Text className="card__subtitle" numberOfLines={1}>
+                    <Text className="card__subtitle" numberOfLines={2}>
                       {promotion.headline}
                     </Text>
                     <View className="mt-1 flex-row items-center gap-2">
@@ -137,14 +139,7 @@ export default function AdminPromotions({ tab = false }: { tab?: boolean }) {
                       </Text>
                     </View>
                   </View>
-                  <View className="gap-1">
-                    <Pressable onPress={() => move(index, -1)} disabled={busy || index === 0} hitSlop={6} accessibilityRole="button" accessibilityLabel="Move up" style={{ opacity: index === 0 ? 0.3 : 1 }}>
-                      <SymbolView name={{ ios: "chevron.up", android: "arrow_upward", web: "arrow_upward" }} size={18} tintColor={colors.forestInk} />
-                    </Pressable>
-                    <Pressable onPress={() => move(index, 1)} disabled={busy || index === promotions.length - 1} hitSlop={6} accessibilityRole="button" accessibilityLabel="Move down" style={{ opacity: index === promotions.length - 1 ? 0.3 : 1 }}>
-                      <SymbolView name={{ ios: "chevron.down", android: "arrow_downward", web: "arrow_downward" }} size={18} tintColor={colors.forestInk} />
-                    </Pressable>
-                  </View>
+                  <ReorderButtons direction="column" onUp={() => move(index, -1)} onDown={() => move(index, 1)} first={index === 0} last={index === promotions.length - 1} disabled={busy} label={promotion.title} />
                 </View>
 
                 {previewId === promotion.id && (
@@ -155,7 +150,7 @@ export default function AdminPromotions({ tab = false }: { tab?: boolean }) {
 
                 {confirmDeleteId === promotion.id ? (
                   <View className="flex-row flex-wrap items-center gap-2">
-                    <Text className="type-callout flex-1 text-danger">Delete this promotion?</Text>
+                    <Text className="type-callout flex-1 text-danger" style={{ minWidth: 120 }}>Delete this promotion?</Text>
                     <AdminButton label="Cancel" onPress={() => setConfirmDeleteId(null)} disabled={busy} />
                     <AdminButton
                       label="Delete"
@@ -168,16 +163,28 @@ export default function AdminPromotions({ tab = false }: { tab?: boolean }) {
                     />
                   </View>
                 ) : (
-                  <View className="flex-row flex-wrap gap-2">
-                    <AdminButton label="Edit" onPress={() => router.push(`/admin/promotions/${promotion.id}`)} disabled={busy} />
-                    <AdminButton label={previewId === promotion.id ? "Hide preview" : "Preview"} onPress={() => setPreviewId(previewId === promotion.id ? null : promotion.id)} />
+                  // One line on every phone: three equal actions, and Delete as a round bin
+                  <View className="flex-row items-center gap-2">
+                    <AdminButton grow label="Edit" onPress={() => router.push(`/admin/promotions/${promotion.id}`)} disabled={busy} />
+                    <AdminButton grow label={previewId === promotion.id ? "Hide" : "Preview"} onPress={() => setPreviewId(previewId === promotion.id ? null : promotion.id)} />
                     <AdminButton
+                      grow
                       label={published ? "Disable" : "Publish"}
                       variant={published ? "default" : "primary"}
                       disabled={busy}
                       onPress={() => run((token) => adminHome.setPromotionStatus(token, promotion.id, published ? "disable" : "publish"))}
                     />
-                    <AdminButton label="Delete" variant="danger" onPress={() => setConfirmDeleteId(promotion.id)} disabled={busy} />
+                    <Pressable
+                      onPress={() => setConfirmDeleteId(promotion.id)}
+                      disabled={busy}
+                      hitSlop={4}
+                      className="admin__action admin__action--danger"
+                      style={{ width: 36, paddingHorizontal: 0 }}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Delete ${promotion.title}`}
+                    >
+                      <SymbolView name={{ ios: "trash", android: "delete", web: "delete" }} size={16} tintColor={colors.danger} />
+                    </Pressable>
                   </View>
                 )}
               </View>

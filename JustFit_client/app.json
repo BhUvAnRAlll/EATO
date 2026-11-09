@@ -37,7 +37,7 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#F4F4F5",
+          "backgroundColor": "#F6F4EF",
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 220,
           "android": {
@@ -95,7 +95,8 @@
           "microphonePermission": "justFit uses the microphone so you can speak your questions to your AI coach instead of typing. Your phone turns speech into text itself; only when it can't for your language is a short clip sent to justFit, and it is never stored.",
           "speechRecognitionPermission": "justFit uses speech recognition to turn what you say into text for your AI coach."
         }
-      ]
+      ],
+      "./plugins/withPodsDeploymentTarget"
     ],
     "experiments": {
       "typedRoutes": true,
@@ -113,6 +114,6 @@
         }
       }
     },
-    "backgroundColor": "#F4F4F5"
+    "backgroundColor": "#F6F4EF"
   }
 }

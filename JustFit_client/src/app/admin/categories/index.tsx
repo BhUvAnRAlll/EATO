@@ -6,6 +6,7 @@ import { router, useFocusEffect } from "expo-router";
 
 import { usePullToRefresh } from "@/components/PullToRefresh";
 import { ScreenSkeleton } from "@/components/Skeleton";
+import { ReorderButtons } from "@/components/admin/ReorderButtons";
 import { SymbolView } from "@/components/SymbolView";
 import { DashedBlock } from "@/components/macro/DashedBlock";
 import { adminPrograms, LAYOUT_TEXT, type AdminSection } from "@/lib/adminPrograms";
@@ -88,14 +89,7 @@ export default function AdminCategoriesScreen() {
                     {!s.published && <View className="badge badge--pending"><Text className="badge__label badge__label--pending">Hidden</Text></View>}
                   </Pressable>
                   {moving === s.id ? <ActivityIndicator color={colors.leaf} /> : (
-                    <View className="flex-row" style={{ gap: 4 }}>
-                      <Pressable onPress={() => move(s, "up")} disabled={i === 0 || moving !== null} hitSlop={6} style={{ opacity: i === 0 ? 0.3 : 1, padding: 6 }} accessibilityRole="button" accessibilityLabel={`Move ${s.title} up`} accessibilityState={{ disabled: i === 0 }}>
-                        <SymbolView name={{ ios: "chevron.up", android: "keyboard_arrow_up", web: "keyboard_arrow_up" }} size={16} tintColor={colors.forestInk} />
-                      </Pressable>
-                      <Pressable onPress={() => move(s, "down")} disabled={i === load.sections.length - 1 || moving !== null} hitSlop={6} style={{ opacity: i === load.sections.length - 1 ? 0.3 : 1, padding: 6 }} accessibilityRole="button" accessibilityLabel={`Move ${s.title} down`} accessibilityState={{ disabled: i === load.sections.length - 1 }}>
-                        <SymbolView name={{ ios: "chevron.down", android: "keyboard_arrow_down", web: "keyboard_arrow_down" }} size={16} tintColor={colors.forestInk} />
-                      </Pressable>
-                    </View>
+                    <ReorderButtons onUp={() => move(s, "up")} onDown={() => move(s, "down")} first={i === 0} last={i === load.sections.length - 1} disabled={moving !== null} label={s.title} />
                   )}
                 </View>
               ))}

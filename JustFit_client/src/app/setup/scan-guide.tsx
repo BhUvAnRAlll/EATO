@@ -29,11 +29,12 @@ function InstructionVideo() {
   const height = Math.round((width * 16) / 9);
   return (
     <View className="setup__card gap-2.5" style={{ paddingBottom: 12 }}>
-      <View className="flex-row items-center gap-2">
+      {/* Centred like the screen's title and lead above it */}
+      <View className="flex-row items-center justify-center gap-2">
         <SymbolView name={{ ios: "play.rectangle", android: "smart_display", web: "smart_display" }} size={18} tintColor={colors.leaf} />
         <Text className="setup__card-title">Watch first</Text>
       </View>
-      <Text className="setup__card-text">A short video on how to stand and what to wear.</Text>
+      <Text className="setup__card-text text-center">A short video on how to stand and what to wear.</Text>
       <View className="overflow-hidden rounded-lg" style={{ height: width > 0 ? height : 0 }} onLayout={(event) => setWidth(Math.round(event.nativeEvent.layout.width))}>
         <VideoView
           player={player}

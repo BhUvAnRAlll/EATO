@@ -13,6 +13,7 @@ import { adminPrograms, type AdminSection, type SectionFields } from "@/lib/admi
 import { useSessionToken } from "@/lib/session";
 import { useThemeColors } from "@/theme";
 import { confirmChoice } from "@/lib/nativeSheets";
+import { KeyboardAvoider } from "@/components/KeyboardAvoider";
 
 type Load = { state: "loading" } | { state: "failed"; error: string } | { state: "ready"; section: AdminSection };
 
@@ -112,24 +113,26 @@ export default function AdminCategoryScreen() {
         ) : load.state === "loading" || !form ? (
           <View className="px-4"><ScreenSkeleton cards={2} label="Loading the category" /></View>
         ) : (
-          <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 48, gap: 16 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"} automaticallyAdjustKeyboardInsets refreshControl={refreshControl}>
-            {message && <Text className="meta-text" style={{ color: message.error ? colors.danger : colors.success }}>{message.text}</Text>}
-            <CategoryForm value={form} onChange={changeForm} disabled={busy !== null} />
-            <Pressable onPress={() => save(load.section)} disabled={busy !== null} className="btn-forest" style={{ opacity: busy ? 0.7 : 1 }} accessibilityRole="button" accessibilityLabel="Save category">
-              {busy === "save" ? <ActivityIndicator size="small" color={colors.onPrimary} /> : <Text className="btn-forest__label">Save</Text>}
-            </Pressable>
-            <Text className="meta-text">{`${load.section.programCount} ${load.section.programCount === 1 ? "program" : "programs"} in this category`}</Text>
-            {load.section.builtIn ? (
-              <Text className="admin__hint">{"A built-in category can't be deleted. Hide it instead."}</Text>
-            ) : load.section.programCount > 0 ? (
-              <Text className="admin__hint">To delete this category, move its programs to another one first (open each program and choose its Category).</Text>
-            ) : (
-              <Pressable onPress={() => confirmDelete(load.section)} disabled={busy !== null} className="btn-outline flex-row items-center justify-center" style={{ gap: 8, opacity: busy ? 0.7 : 1 }} accessibilityRole="button" accessibilityLabel="Delete category">
-                {busy === "delete" ? <ActivityIndicator size="small" color={colors.danger} /> : <SymbolView name={{ ios: "trash", android: "delete", web: "delete" }} size={16} tintColor={colors.danger} />}
-                <Text className="btn-outline__label" style={{ color: colors.danger }}>Delete category</Text>
+          <KeyboardAvoider>
+            <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 48, gap: 16 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"} refreshControl={refreshControl}>
+              {message && <Text className="meta-text" style={{ color: message.error ? colors.danger : colors.success }}>{message.text}</Text>}
+              <CategoryForm value={form} onChange={changeForm} disabled={busy !== null} />
+              <Pressable onPress={() => save(load.section)} disabled={busy !== null} className="btn-forest" style={{ opacity: busy ? 0.7 : 1 }} accessibilityRole="button" accessibilityLabel="Save category">
+                {busy === "save" ? <ActivityIndicator size="small" color={colors.onPrimary} /> : <Text className="btn-forest__label">Save</Text>}
               </Pressable>
-            )}
-          </ScrollView>
+              <Text className="meta-text">{`${load.section.programCount} ${load.section.programCount === 1 ? "program" : "programs"} in this category`}</Text>
+              {load.section.builtIn ? (
+                <Text className="admin__hint">{"A built-in category can't be deleted. Hide it instead."}</Text>
+              ) : load.section.programCount > 0 ? (
+                <Text className="admin__hint">To delete this category, move its programs to another one first (open each program and choose its Category).</Text>
+              ) : (
+                <Pressable onPress={() => confirmDelete(load.section)} disabled={busy !== null} className="btn-outline flex-row items-center justify-center" style={{ gap: 8, opacity: busy ? 0.7 : 1 }} accessibilityRole="button" accessibilityLabel="Delete category">
+                  {busy === "delete" ? <ActivityIndicator size="small" color={colors.danger} /> : <SymbolView name={{ ios: "trash", android: "delete", web: "delete" }} size={16} tintColor={colors.danger} />}
+                  <Text className="btn-outline__label" style={{ color: colors.danger }}>Delete category</Text>
+                </Pressable>
+              )}
+            </ScrollView>
+          </KeyboardAvoider>
         )}
       </SafeAreaView>
     </View>

@@ -89,7 +89,7 @@ export default function AiUsageHistory() {
 
         <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40, gap: 12 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled"
             keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"} refreshControl={refreshControl}>
-          <View className="search search--pill">
+          <View className="search search--pill search--on-page">
             <SymbolView name={{ ios: "magnifyingglass", android: "search", web: "search" }} size={18} tintColor={colors.muted} />
             <TextInput
               className="search__input"
@@ -171,7 +171,8 @@ export default function AiUsageHistory() {
 
 function Chips({ label, options, value, onPick }: { label: string; options: { id: string; label: string }[]; value: string; onPick: (id: string) => void }) {
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, alignItems: "center" }} accessibilityRole="tablist" accessibilityLabel={label}>
+    // Edge to edge: the row runs under the screen's 16 pt gutter, so chips aren't cut inside it
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -16 }} contentContainerStyle={{ paddingHorizontal: 16, gap: 8, alignItems: "center" }} accessibilityRole="tablist" accessibilityLabel={label}>
       <Text className="ai-kv__key">{label}</Text>
       {options.map((option) => {
         const on = option.id === value;

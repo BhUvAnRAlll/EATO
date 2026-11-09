@@ -1,4 +1,5 @@
-import { ActivityIndicator, Pressable, Text, View } from "react-native";
+import { ActivityIndicator, Modal, Pressable, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { FormAlert } from "@/components/FormAlert";
 import { useThemeColors } from "@/theme";
@@ -18,14 +19,17 @@ type WorkoutSheetProps = {
 
 // A workout prompt from the bottom ("Do it today instead?", "Swap with today?", "End this
 // session?"), drawn over the screen like ConfirmSheet but not destructive-red. While the
-// request is in flight it can't be dismissed, so a tap outside never hides a running change.
+// request is in flight it can't be dismissed, so a tap outside (or Android's back) never hides
+// a running change. A Modal, so it covers the tab bar and Android's back closes it, not the screen.
 export function WorkoutSheet({ visible, emoji, title, text, confirmLabel, cancelLabel, busy, error, onConfirm, onCancel }: WorkoutSheetProps) {
   const colors = useThemeColors();
+  const insets = useSafeAreaInsets();
   if (!visible) return null;
   return (
+    <Modal visible transparent animationType="fade" statusBarTranslucent onRequestClose={busy ? undefined : onCancel}>
     <View className="confirm__backdrop" accessibilityViewIsModal>
       <Pressable style={{ flex: 1 }} onPress={busy ? undefined : onCancel} accessibilityLabel="Close" accessibilityRole="button" />
-      <View className="confirm__sheet">
+      <View className="confirm__sheet" style={{ paddingBottom: 32 + insets.bottom }}>
         <Text className="workout-sheet__emoji">{emoji}</Text>
         <Text className="setup__section text-center">{title}</Text>
         <Text className="home__note mt-1 text-center">{text}</Text>
@@ -38,5 +42,6 @@ export function WorkoutSheet({ visible, emoji, title, text, confirmLabel, cancel
         </Pressable>
       </View>
     </View>
+    </Modal>
   );
 }

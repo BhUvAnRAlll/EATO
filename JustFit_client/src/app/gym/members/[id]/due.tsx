@@ -49,7 +49,7 @@ export default function GymDue() {
           </View>
           {owed > 0 && (
             <>
-              <GymField label="Amount paid (₹)" value={amount} onChangeText={(t) => setAmount(amountInput(t))} keyboardType="number-pad" placeholder={String(owed)} />
+              <GymField label="Amount paid (₹)" icon="banknote" pinLabel value={amount} onChangeText={(t) => setAmount(amountInput(t))} keyboardType="number-pad" placeholder={String(owed)} />
               <GymChips label="Paid by" options={(["online", "cash"] as const).map((m) => ({ value: m, label: METHOD_LABEL[m] }))} value={method} onChange={setMethod} />
               {part && <DueByField value={dueBy} onChange={setDueBy} label="Pay the rest by" />}
               {part && dueBy === null && <Text className="gym-tx__meta">{result.data.member.dueBy ? `Leave the date empty to keep ${shortDate(result.data.member.dueBy)}.` : "Pick when the rest should be paid."}</Text>}

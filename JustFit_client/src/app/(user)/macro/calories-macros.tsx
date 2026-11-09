@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import { Pressable, ScrollView, Share, Text, useWindowDimensions, View } from "react-native";
+import { Pressable, ScrollView, Share, Text, View } from "react-native";
 import { ScreenSkeleton } from "@/components/Skeleton";
 import { LoadError } from "@/components/macro/LoadError";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -13,6 +13,7 @@ import { MacroTiles, SplitCard } from "@/components/macro/MacroSplit";
 import { Segmented } from "@/components/macro/Segmented";
 import { usePullToRefresh } from "@/components/PullToRefresh";
 import { macro, todayIso, weekdayInitial, whole, type Period, type Summary } from "@/lib/macro";
+import { useResponsive } from "@/lib/responsive";
 import { useSessionToken } from "@/lib/session";
 import { useThemeColors } from "@/theme";
 
@@ -28,7 +29,7 @@ const periodWords: Record<Period, string> = { today: "day", week: "week", month:
 export default function CaloriesMacros() {
   const colors = useThemeColors();
   const getToken = useSessionToken();
-  const { width } = useWindowDimensions();
+  const { scale } = useResponsive();
   const [period, setPeriod] = useState<Period>("today");
   const [summary, setSummary] = useState<Summary | null | undefined>(undefined); // undefined = loading
   const [notice, setNotice] = useState<string | null>(null);
@@ -65,8 +66,9 @@ export default function CaloriesMacros() {
     }
   };
 
-  const ringSize = width < 375 ? 120 : 148;
-  const stroke = width < 375 ? 13 : 16;
+  // The donut follows the screen width, between 120 and 160
+  const ringSize = scale(148, { min: 120, max: 160 });
+  const stroke = Math.round(ringSize / 9.25);
 
   return (
     <View className="flex-1 bg-cream">
@@ -124,32 +126,37 @@ export default function CaloriesMacros() {
   );
 }
 
-// The last 7 days against the daily target: today's bar in the accent colour
+// The last 7 days against the daily target: today's bar in the accent colour. A week with nothing
+// logged is a short baseline and a line saying how to fill it, not a tall empty chart
 function WeekCard({ summary }: { summary: Summary }) {
   const colors = useThemeColors();
   const target = summary.targets.kcal;
   const delta = summary.trendAvg - target;
   const under = delta <= 0;
+  const empty = summary.trend.every((d) => d.kcal <= 0);
   const max = Math.max(target * 1.15, ...summary.trend.map((d) => d.kcal), 1);
   const today = todayIso();
+  const chartHeight = empty ? 24 : 96;
   return (
     <View className="home__card gap-4">
-      <View className="flex-row items-start justify-between gap-3">
-        <View className="flex-1">
+      <View className="flex-row flex-wrap items-start justify-between gap-3">
+        <View className="min-w-0 flex-1" style={{ minWidth: 140 }}>
           <Text className="card__title">This week</Text>
           <Text className="meta-text">Avg {summary.trendAvg.toLocaleString("en-IN")} kcal · target {target.toLocaleString("en-IN")}</Text>
         </View>
-        <View className="flex-row items-center gap-1 rounded-pill px-2.5 py-1" style={{ backgroundColor: under ? colors.successSoft : colors.warningSoft }}>
-          <SymbolView name={under ? { ios: "arrow.down.right", android: "south_east", web: "south_east" } : { ios: "arrow.up.right", android: "north_east", web: "north_east" }} size={12} tintColor={under ? colors.success : colors.warning} />
-          <Text className="macro__badge" style={{ color: under ? colors.success : colors.warning }}>
-            {delta > 0 ? "+" : ""}{delta.toLocaleString("en-IN")} avg
-          </Text>
-        </View>
+        {!empty && (
+          <View className="flex-row items-center gap-1 rounded-pill px-2.5 py-1" style={{ backgroundColor: under ? colors.successSoft : colors.warningSoft }}>
+            <SymbolView name={under ? { ios: "arrow.down.right", android: "south_east", web: "south_east" } : { ios: "arrow.up.right", android: "north_east", web: "north_east" }} size={12} tintColor={under ? colors.success : colors.warning} />
+            <Text className="macro__badge" style={{ color: under ? colors.success : colors.warning }}>
+              {delta === 0 ? "On target" : `${Math.abs(delta).toLocaleString("en-IN")} kcal ${under ? "under" : "over"} target`}
+            </Text>
+          </View>
+        )}
       </View>
-      <View className="flex-row items-end justify-between" style={{ height: 96 }} accessibilityLabel={`Last 7 days: ${summary.trend.map((d) => `${d.kcal} kcal`).join(", ")}`}>
+      <View className="flex-row items-end justify-between border-b border-cream-line" style={{ height: chartHeight }} accessibilityLabel={empty ? "Last 7 days: nothing logged" : `Last 7 days: ${summary.trend.map((d) => `${d.kcal} kcal`).join(", ")}`}>
         {summary.trend.map((d) => (
           <View key={d.date} className="flex-1 items-center">
-            <View className="w-5" style={{ height: Math.max(4, Math.round((d.kcal / max) * 96)), borderRadius: 5, backgroundColor: d.date === today ? colors.leaf : colors.creamLine }} />
+            {d.kcal > 0 && <View className="w-5" style={{ height: Math.max(4, Math.round((d.kcal / max) * chartHeight)), borderTopLeftRadius: 5, borderTopRightRadius: 5, backgroundColor: d.date === today ? colors.leaf : colors.creamTab }} />}
           </View>
         ))}
       </View>
@@ -158,6 +165,7 @@ function WeekCard({ summary }: { summary: Summary }) {
           <Text key={d.date} className="macro__weekday flex-1 text-center" style={d.date === today ? { color: colors.leaf } : undefined}>{weekdayInitial(d.date)}</Text>
         ))}
       </View>
+      {empty && <Text className="home__note text-center">Log meals to see your week</Text>}
     </View>
   );
 }

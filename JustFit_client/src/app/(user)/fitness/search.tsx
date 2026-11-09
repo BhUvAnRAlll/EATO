@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, Platform, Pressable, Text, TextInput, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { router, useLocalSearchParams } from "expo-router";
 
@@ -21,6 +21,7 @@ const SUGGESTIONS = ["Yoga", "Beginners", "Dance", "Strength", "Cardio", "Workpl
 // or the center. Results update a moment after typing stops; each opens its program.
 export default function FitnessSearchScreen() {
   const colors = useThemeColors();
+  const insets = useSafeAreaInsets();
   const getToken = useSessionToken();
   const params = useLocalSearchParams<{ place?: string }>();
   const [place, setPlace] = useState<Place>(params.place === "center" ? "center" : "home");
@@ -106,7 +107,7 @@ export default function FitnessSearchScreen() {
           <FlatList
             data={results}
             keyExtractor={(p) => p.id}
-            contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40, gap: 12 }}
+            contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40 + insets.bottom, gap: 12 }}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
             renderItem={({ item }) => (

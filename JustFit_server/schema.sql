@@ -1296,9 +1296,14 @@ CREATE TABLE gym_enquiries (
   status       ENUM('new', 'follow_up', 'joined', 'lost') NOT NULL DEFAULT 'new',
   follow_up_on DATE         NULL,
   interest     ENUM('membership', 'pt', 'trial', 'other') NULL,
-  source       ENUM('walk_in', 'call', 'whatsapp', 'instagram', 'referral', 'other') NULL,
+  source       ENUM('walk_in', 'call', 'whatsapp', 'instagram', 'referral', 'other', 'app') NULL,  -- app: asked to join from Gym Hub (migration 2026-12-19)
   referred_by_phone CHAR(10) NULL,                -- a referral: who referred them (migration 2026-12-09-enquiry-referrer.sql)
   member_id    INT UNSIGNED NULL,
+  -- Gym Hub join requests (migration 2026-12-19-gym-app-enquiries.sql): the member's account that
+  -- sent it, the plan or PT package picked, and that plan as it read when sent
+  user_id      VARCHAR(64)  NULL,
+  catalog_item_id INT UNSIGNED NULL,
+  plan_label   VARCHAR(120) NULL,
   enquired_on  DATE         NOT NULL,
   created_by   VARCHAR(64)  NULL,
   created_at   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -1306,7 +1311,9 @@ CREATE TABLE gym_enquiries (
   PRIMARY KEY (id),
   KEY idx_gym_enquiries_day (gym_id, enquired_on),
   KEY idx_gym_enquiries_followup (gym_id, status, follow_up_on),
+  KEY idx_gym_enquiries_user (user_id, gym_id),
   CONSTRAINT fk_gym_enquiries_gym FOREIGN KEY (gym_id) REFERENCES gyms (id),
+  CONSTRAINT fk_gym_enquiries_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE SET NULL,
   CONSTRAINT fk_gym_enquiries_member FOREIGN KEY (member_id) REFERENCES gym_members (id),
   CONSTRAINT fk_gym_enquiries_created_by FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL,
   CONSTRAINT chk_gym_enquiries_phone CHECK (phone IS NULL OR phone REGEXP '^[6-9][0-9]{9}$'),
@@ -1322,6 +1329,7 @@ CREATE TABLE gym_enquiry_contacts (
   enquiry_id    INT UNSIGNED NOT NULL,
   kind          ENUM('call', 'whatsapp', 'visit') NOT NULL,
   outcome       ENUM('reached', 'no_answer', 'visited') NOT NULL,
+  note          VARCHAR(300) NULL,                 -- what they said (2026-12-18)
   contacted_on  DATE         NOT NULL,             -- India's date
   created_by    VARCHAR(64)  NULL,
   created_at    TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -1329,7 +1337,6 @@ CREATE TABLE gym_enquiry_contacts (
   KEY idx_gym_enquiry_contacts_enquiry (enquiry_id, contacted_on),
   CONSTRAINT fk_gym_enquiry_contacts_gym FOREIGN KEY (gym_id) REFERENCES gyms (id),
   CONSTRAINT fk_gym_enquiry_contacts_enquiry FOREIGN KEY (enquiry_id) REFERENCES gym_enquiries (id),
-  note          VARCHAR(300) NULL,                 -- what they said (2026-12-18)
   CONSTRAINT fk_gym_enquiry_contacts_created_by FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL
 ) ENGINE = InnoDB;
 
@@ -1398,6 +1405,10 @@ CREATE TABLE gym_catalog_items (
     (kind IN ('plan', 'pt') AND ((duration_unit = 'months' AND duration BETWEEN 1 AND 24) OR (duration_unit = 'days' AND duration BETWEEN 1 AND 365)))
     OR (kind <> 'plan' AND duration IS NULL AND duration_unit IS NULL))
 ) ENGINE = InnoDB;
+
+-- The plan a Gym Hub join request picked (migration 2026-12-19): gym_enquiries is created before the
+-- catalogue, so its link to it is added here
+ALTER TABLE gym_enquiries ADD CONSTRAINT fk_gym_enquiries_item FOREIGN KEY (catalog_item_id) REFERENCES gym_catalog_items (id) ON DELETE SET NULL;
 
 -- Send Bulk SMS (gym/sms.js): which auto reminders a branch has switched on (no row = off)
 CREATE TABLE gym_sms_settings (

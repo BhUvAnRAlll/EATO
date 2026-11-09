@@ -133,7 +133,7 @@ describe("ui discover gyms: a member finds a gym, filters, and compares its plan
       const gymIds = [state.forma, state.zen].filter(Boolean);
       if (gymIds.length) {
         const [brands] = await connection.query("SELECT DISTINCT brand_id FROM gyms WHERE id IN (?)", [gymIds]);
-        for (const table of ["gym_activity_log", "gym_photos", "gym_catalog_items", "gym_staff"]) await connection.query(`DELETE FROM \`${table}\` WHERE gym_id IN (?)`, [gymIds]);
+        for (const table of ["gym_activity_log", "gym_enquiry_contacts", "gym_enquiries", "gym_photos", "gym_catalog_items", "gym_staff"]) await connection.query(`DELETE FROM \`${table}\` WHERE gym_id IN (?)`, [gymIds]);
         await connection.query("DELETE FROM gyms WHERE id IN (?)", [gymIds]);
         if (brands.length) await connection.query("DELETE FROM gym_brands WHERE id IN (?)", [brands.map((b) => b.brand_id)]);
       }
@@ -199,5 +199,44 @@ describe("ui discover gyms: a member finds a gym, filters, and compares its plan
     await h.expectText("No gym membership on this number");
     await h.expectText("Check in or out");
     await snapshotAllWidths("memberships-empty");
+  }));
+
+  it("5. asking about the Annual plan: the sheet, the message, Request sent; the gym gets it", run("join-request", async () => {
+    await clickLabel("Discover Gyms");
+    await page.clickText("Tumkur · SIT Road, Tumakuru");
+    await page.waitFor(`location.pathname === "/gym-hub/gyms/${state.forma}"`, NAV_TIMEOUT, "the gym's page");
+    await h.expectText("Ask to join");
+    await clickLabel("Ask about Annual");
+    await h.expectText("Ask Forma to call you");
+    await h.settle(); // the sheet slides up
+    await h.expectText("About Annual · 12 Months · ₹12,000");
+    await h.expectText("Daniel Kim");
+    await page.setInput('textarea[aria-label="Message for the gym"]', "Please call after 6 pm");
+    await snapshotAllWidths("join-sheet");
+    await page.clickText("Send request");
+    await h.expectText("Request sent");
+    await page.clickText("Done");
+    await h.expectText("Your request");
+    await h.expectText("Forma will call you soon.");
+    assert.equal(await page.hasText("Ask about this plan"), false, "no second request while one waits");
+    await snapshotAllWidths("join-sent");
+
+    const enquiries = await apiAs("forma", "GET", "/api/gym/enquiries?view=today&search=");
+    assert.equal(enquiries.status, 200, JSON.stringify(enquiries.json));
+    const lead = enquiries.json.enquiries.find((e) => e.source === "app");
+    assert.ok(lead, "the request is in Forma's Enquiries");
+    assert.deepEqual([lead.name, lead.note, lead.planLabel], ["Daniel Kim", "Please call after 6 pm", "Annual · 12 Months · ₹12,000"]);
+    const zen = await apiAs("zen", "GET", "/api/gym/enquiries?view=all&search=");
+    assert.equal(zen.json.enquiries.length, 0, "Zen never sees it");
+  }));
+
+  it("6. My Memberships lists the request", run("join-listed", async () => {
+    await clickLabel("Back");
+    await page.waitFor(`location.pathname === "/gym-hub"`, NAV_TIMEOUT, "back on Gym Hub");
+    await clickLabel("My Memberships");
+    await h.expectText("My join requests");
+    await h.expectText("Forma · Tumkur");
+    await h.expectText("Annual · 12 Months · ₹12,000");
+    await snapshotAllWidths("join-listed");
   }));
 });

@@ -52,7 +52,13 @@ export function ChoiceCard({ label, note, icon, coach, selected, onPress, layout
     >
       {leading}
       <View className={tile ? "items-center gap-1" : "min-w-0 flex-1 gap-0.5"}>
-        <Text className={tile ? "coach__option-title coach__option-title--tile text-center" : "coach__option-title"}>{label}</Text>
+        {/* A one-word tile label ("Moderate") shrinks a little rather than break mid-word in a narrow tile */}
+        <Text
+          className={tile ? "coach__option-title coach__option-title--tile text-center" : "coach__option-title"}
+          {...(tile && !label.includes(" ") ? { numberOfLines: 1, adjustsFontSizeToFit: true, minimumFontScale: 0.75 } : {})}
+        >
+          {label}
+        </Text>
         {note && <Text className={tile ? "coach__option-note text-center" : "coach__option-note"}>{note}</Text>}
       </View>
       {selected && check}

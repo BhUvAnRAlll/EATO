@@ -18,6 +18,7 @@ import { useAdminSections } from "@/lib/useAdminSections";
 import { useSwitchColors, useThemeColors } from "@/theme";
 import { haptic } from "@/lib/haptics";
 import { confirmChoice } from "@/lib/nativeSheets";
+import { KeyboardAvoider } from "@/components/KeyboardAvoider";
 
 type Load = { state: "loading" } | { state: "failed"; error: string } | { state: "ready"; program: ProgramDetail };
 type Kind = "save" | "publish" | "cover" | "hero" | "session";
@@ -154,83 +155,84 @@ export default function AdminProgramScreen() {
         ) : load.state === "loading" || !form ? (
           <View className="px-4"><ScreenSkeleton label="Loading the program" /></View>
         ) : (
-          <ScrollView
-            contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 48, gap: 16 }}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
-            automaticallyAdjustKeyboardInsets
-            refreshControl={refreshControl}
-          >
-            <View className="admin-list">
-              <View className="admin-row">
-                <View className="min-w-0 flex-1">
-                  <Text className="card__title">Shown to members</Text>
-                  <Text className="meta-text">{load.program.published !== false ? "On the Fitness tab now" : "Hidden from the Fitness tab"}</Text>
-                </View>
-                {busy === "publish" ? <ActivityIndicator color={colors.leaf} /> : (
-                  <Switch
-                    value={load.program.published !== false}
-                    disabled={busy !== null}
-                    onValueChange={(v) => {
-                      haptic.select();
-                      const go = () => run("publish", (t) => adminPrograms.update(t, load.program.id, { published: v }), v ? "Shown to members." : "Hidden from members.");
-                      // Showing is one flip; hiding takes it off every member's Fitness tab, so it asks first
-                      if (v) go();
-                      else confirmThen("Hide this program?", "Members won't see it on the Fitness tab until it's shown again.", "Hide", go);
-                    }}
-                    {...switchColors}
-                    accessibilityLabel="Shown to members"
-                  />
-                )}
-              </View>
-            </View>
-
-            {message && <Text className="meta-text" style={{ color: message.error ? colors.danger : colors.success }}>{message.text}</Text>}
-
-            <ProgramForm
-              value={form}
-              onChange={changeForm}
-              disabled={busy !== null}
-              sections={sections}
-              cover={{
-                url: load.program.coverUrl ?? null,
-                busy: busy === "cover",
-                onPick: () => changeCover(load.program.id, Boolean(load.program.coverUrl)),
-                onRemove: () => confirmThen("Remove the cover?", "The card shows the program's colours instead.", "Remove", () => run("cover", (t) => adminPrograms.removeCover(t, load.program.id), "Cover removed.")),
-              }}
-              hero={{
-                url: load.program.heroUrl ?? null,
-                busy: busy === "hero",
-                onPick: () => changeHero(load.program.id, Boolean(load.program.heroUrl)),
-                onRemove: () => confirmThen("Remove the page photo?", "The top of the program's page shows the colours instead.", "Remove", () => run("hero", (t) => adminPrograms.removeHero(t, load.program.id), "Page photo removed.")),
-              }}
-            />
-            <Pressable
-              onPress={() => {
-                const { published: _published, ...fields } = form;
-                run("save", (t) => adminPrograms.update(t, load.program.id, fields), "Saved.");
-              }}
-              disabled={busy !== null}
-              className="btn-forest"
-              style={{ opacity: busy ? 0.7 : 1 }}
-              accessibilityRole="button"
+          <KeyboardAvoider>
+            <ScrollView
+              contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 48, gap: 16 }}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+              refreshControl={refreshControl}
             >
-              {busy === "save" ? <ActivityIndicator size="small" color={colors.onPrimary} /> : <Text className="btn-forest__label">Save</Text>}
-            </Pressable>
+              <View className="admin-list">
+                <View className="admin-row">
+                  <View className="min-w-0 flex-1">
+                    <Text className="card__title">Shown to members</Text>
+                    <Text className="meta-text">{load.program.published !== false ? "On the Fitness tab now" : "Hidden from the Fitness tab"}</Text>
+                  </View>
+                  {busy === "publish" ? <ActivityIndicator color={colors.leaf} /> : (
+                    <Switch
+                      value={load.program.published !== false}
+                      disabled={busy !== null}
+                      onValueChange={(v) => {
+                        haptic.select();
+                        const go = () => run("publish", (t) => adminPrograms.update(t, load.program.id, { published: v }), v ? "Shown to members." : "Hidden from members.");
+                        // Showing is one flip; hiding takes it off every member's Fitness tab, so it asks first
+                        if (v) go();
+                        else confirmThen("Hide this program?", "Members won't see it on the Fitness tab until it's shown again.", "Hide", go);
+                      }}
+                      {...switchColors}
+                      accessibilityLabel="Shown to members"
+                    />
+                  )}
+                </View>
+              </View>
 
-            <Text className="setup__section">{`Sessions · ${programMeta(load.program)}`}</Text>
-            <ProgramSessions
-              sessions={load.program.sessions}
-              busy={busy === "session"}
-              disabled={busy !== null}
-              onAdd={(session) => run("session", (t) => adminPrograms.addSession(t, load.program.id, session), "Session added.")}
-              onEdit={(sessionId, session) => run("session", (t) => adminPrograms.editSession(t, load.program.id, sessionId, session), "Session saved.")}
-              onDelete={(sessionId) => run("session", (t) => adminPrograms.deleteSession(t, load.program.id, sessionId), "Session deleted.")}
-              onMove={(sessionId, direction) => run("session", (t) => adminPrograms.moveSession(t, load.program.id, sessionId, direction), "Session moved.")}
-            />
-            <Text className="admin__hint">{"Each session is one YouTube video, played in YouTube's own player on the program's page. Paste a video's link; playlists and uploaded files aren't used."}</Text>
-          </ScrollView>
+              {message && <Text className="meta-text" style={{ color: message.error ? colors.danger : colors.success }}>{message.text}</Text>}
+
+              <ProgramForm
+                value={form}
+                onChange={changeForm}
+                disabled={busy !== null}
+                sections={sections}
+                cover={{
+                  url: load.program.coverUrl ?? null,
+                  busy: busy === "cover",
+                  onPick: () => changeCover(load.program.id, Boolean(load.program.coverUrl)),
+                  onRemove: () => confirmThen("Remove the cover?", "The card shows the program's colours instead.", "Remove", () => run("cover", (t) => adminPrograms.removeCover(t, load.program.id), "Cover removed.")),
+                }}
+                hero={{
+                  url: load.program.heroUrl ?? null,
+                  busy: busy === "hero",
+                  onPick: () => changeHero(load.program.id, Boolean(load.program.heroUrl)),
+                  onRemove: () => confirmThen("Remove the page photo?", "The top of the program's page shows the colours instead.", "Remove", () => run("hero", (t) => adminPrograms.removeHero(t, load.program.id), "Page photo removed.")),
+                }}
+              />
+              <Pressable
+                onPress={() => {
+                  const { published: _published, ...fields } = form;
+                  run("save", (t) => adminPrograms.update(t, load.program.id, fields), "Saved.");
+                }}
+                disabled={busy !== null}
+                className="btn-forest"
+                style={{ opacity: busy ? 0.7 : 1 }}
+                accessibilityRole="button"
+              >
+                {busy === "save" ? <ActivityIndicator size="small" color={colors.onPrimary} /> : <Text className="btn-forest__label">Save</Text>}
+              </Pressable>
+
+              <Text className="setup__section">{`Sessions · ${programMeta(load.program)}`}</Text>
+              <ProgramSessions
+                sessions={load.program.sessions}
+                busy={busy === "session"}
+                disabled={busy !== null}
+                onAdd={(session) => run("session", (t) => adminPrograms.addSession(t, load.program.id, session), "Session added.")}
+                onEdit={(sessionId, session) => run("session", (t) => adminPrograms.editSession(t, load.program.id, sessionId, session), "Session saved.")}
+                onDelete={(sessionId) => run("session", (t) => adminPrograms.deleteSession(t, load.program.id, sessionId), "Session deleted.")}
+                onMove={(sessionId, direction) => run("session", (t) => adminPrograms.moveSession(t, load.program.id, sessionId, direction), "Session moved.")}
+              />
+              <Text className="admin__hint">{"Each session is one YouTube video, played in YouTube's own player on the program's page. Paste a video's link; playlists and uploaded files aren't used."}</Text>
+            </ScrollView>
+          </KeyboardAvoider>
         )}
       </SafeAreaView>
     </View>

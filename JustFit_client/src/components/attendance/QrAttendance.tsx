@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Linking, Platform, Pressable, ScrollView, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
-import { router, useFocusEffect, useLocalSearchParams, type Href } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams, usePreventRemove, type Href } from "expo-router";
 import { CameraView, useCameraPermissions, type BarcodeScanningResult } from "expo-camera";
 
 import { FormAlert } from "@/components/FormAlert";
-import { IconButton } from "@/components/IconButton";
+import { EmptyState } from "@/components/EmptyState";
+import { ScreenHeader } from "@/components/ScreenHeader";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { usePullToRefresh } from "@/components/PullToRefresh";
 import { SkeletonCard } from "@/components/Skeleton";
@@ -40,6 +41,7 @@ const linkedQr = (b?: string, v?: string, k?: string) =>
 // portal's ☰ › My check-in (Staff, `forWork`); `fallback` is where Back goes with no history.
 export function QrAttendance({ fallback, forWork = false }: { fallback: Href; forWork?: boolean }) {
   const colors = useThemeColors();
+  const insets = useSafeAreaInsets();
   const getToken = useSessionToken();
   const params = useLocalSearchParams<{ b?: string; v?: string; k?: string }>();
   const [step, setStep] = useState<Step>({ kind: "home" });
@@ -123,19 +125,25 @@ export function QrAttendance({ fallback, forWork = false }: { fallback: Href; fo
     setStep({ kind: "scanning" });
   };
 
-  const back = () => (step.kind === "home" ? (router.canGoBack() ? router.back() : router.replace(fallback)) : setStep({ kind: "home" }));
+  // Back steps out of the scanner or a result to the first card; while a check runs it waits
+  const back = () => {
+    if (step.kind === "working") return;
+    if (step.kind === "home") return router.canGoBack() ? router.back() : router.replace(fallback);
+    setStep({ kind: "home" });
+  };
+  // The system back (Android, predictive back, the iOS edge swipe) does the same as the chevron
+  usePreventRemove(step.kind !== "home", () => {
+    if (step.kind !== "working") setStep({ kind: "home" });
+  });
 
   return (
     <View className="flex-1 bg-cream">
       <StatusBar style="dark" />
       <SafeAreaView edges={["top"]} style={{ flex: 1 }}>
-        <View className="flex-row items-center px-4 py-2" style={{ gap: 12 }}>
-          <IconButton icon={{ ios: "chevron.left", android: "chevron_left", web: "chevron_left" }} label="Back" onPress={back} />
-          <Text className="type-title flex-1" accessibilityRole="header">{forWork ? "My check-in" : "Gym attendance"}</Text>
-        </View>
+        <ScreenHeader title={forWork ? "My check-in" : "Gym attendance"} onBack={back} />
 
         {step.kind === "scanning" ? (
-          <View className="flex-1 px-4 pb-6" style={{ gap: 16 }}>
+          <View className="flex-1 px-4" style={{ gap: 16, paddingBottom: 24 + insets.bottom }}>
             <View className="attendance-scanner">
               <CameraView style={{ flex: 1 }} facing="back" barcodeScannerSettings={{ barcodeTypes: ["qr"] }} onBarcodeScanned={scanned} />
               <View pointerEvents="none" className="attendance-scanner__frame" />
@@ -143,22 +151,17 @@ export function QrAttendance({ fallback, forWork = false }: { fallback: Href; fo
             <Text className="card__subtitle text-center">{"Point the camera at the QR code at your gym's front desk."}</Text>
           </View>
         ) : (
-          <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 48, gap: 16 }} refreshControl={refreshControl}>
+          <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 48 + insets.bottom, gap: 16 }} refreshControl={refreshControl}>
             {step.kind === "home" && (
-              <View className="card items-center" style={{ gap: 12 }}>
-                <View className="card__icon">
-                  <SymbolView name={{ ios: "qrcode.viewfinder", android: "qr_code_scanner", web: "qr_code_scanner" }} size={26} tintColor={colors.leaf} />
-                </View>
-                <Text className="card__title text-center">{forWork ? "Check in for work" : "Check in or out at your gym"}</Text>
-                <Text className="card__subtitle text-center">
-                  {forWork
-                    ? "Scan your branch's attendance QR code when you arrive, and the same code when you leave. Your location is checked once, when you scan, to confirm you're at the gym."
-                    : "Scan the QR code at the front desk when you arrive, and the same code when you leave. Your location is checked once, when you scan, to confirm you're at the gym."}
-                </Text>
-                <View className="self-stretch">
-                  <PrimaryButton label="Scan QR code" onPress={startScan} />
-                </View>
-              </View>
+              <EmptyState
+                icon={{ ios: "qrcode.viewfinder", android: "qr_code_scanner", web: "qr_code_scanner" }}
+                title={forWork ? "Check in for work" : "Check in or out at your gym"}
+                message={forWork
+                  ? "Scan your branch's attendance QR code when you arrive, and the same code when you leave. Your location is checked once, when you scan, to confirm you're at the gym."
+                  : "Scan the QR code at the front desk when you arrive, and the same code when you leave. Your location is checked once, when you scan, to confirm you're at the gym."}
+              >
+                <PrimaryButton label="Scan QR code" onPress={startScan} />
+              </EmptyState>
             )}
 
             {step.kind === "working" && (
@@ -221,7 +224,7 @@ function DoneCard({ result, onDone }: { result: ScanDone; onDone: () => void }) 
   const work = result.as === "staff";
   return (
     <View className="card items-center" style={{ gap: 10 }} accessibilityLiveRegion="polite">
-      <SymbolView name={{ ios: "checkmark.circle.fill", android: "check_circle", web: "check_circle" }} size={48} tintColor={colors.success} />
+      <SymbolView name={{ ios: "checkmark.circle.fill", android: "check_circle", web: "check_circle" }} size={48} tintColor={colors.success} bounceOnMount />
       <Text className="type-title text-center">{checkingIn ? "You're checked in" : "You're checked out"}</Text>
       <Text className="card__subtitle text-center">{`${result.gym.name} ${result.gym.branch}`}</Text>
       <View className="self-stretch" style={{ gap: 6 }}>

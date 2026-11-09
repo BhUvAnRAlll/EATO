@@ -1,6 +1,6 @@
 import { useCallback, useRef } from "react";
 import { Platform } from "react-native";
-import { RecordingPresets, requestRecordingPermissionsAsync, setAudioModeAsync, useAudioRecorder } from "expo-audio";
+import { AudioQuality, IOSOutputFormat, requestRecordingPermissionsAsync, setAudioModeAsync, useAudioRecorder, type RecordingOptions } from "expo-audio";
 import { File } from "expo-file-system";
 
 // Records one short clip of the member's voice (expo-audio, 64 kbps AAC in an .m4a) for the
@@ -13,8 +13,21 @@ export type ClipStart = { ok: true } | { ok: false; code: "not-allowed" | "audio
 
 const mediaTypeOf = (uri: string) => (uri.endsWith(".webm") ? "audio/webm" : uri.endsWith(".wav") ? "audio/wav" : "audio/mp4");
 
+// Speech only: mono AAC in an MPEG-4 (.m4a) file at 64 kbps on both phones. expo-audio's
+// LOW_QUALITY preset records AMR-NB in a .3gp on Android, which the server's transcription
+// (expecting AAC in MP4) can't read, so the options are spelled out here.
+const VOICE_CLIP: RecordingOptions = {
+  extension: ".m4a",
+  sampleRate: 44100,
+  numberOfChannels: 1,
+  bitRate: 64000,
+  android: { extension: ".m4a", outputFormat: "mpeg4", audioEncoder: "aac" },
+  ios: { extension: ".m4a", outputFormat: IOSOutputFormat.MPEG4AAC, audioQuality: AudioQuality.MEDIUM },
+  web: { mimeType: "audio/webm", bitsPerSecond: 64000 },
+};
+
 export function useVoiceClip() {
-  const recorder = useAudioRecorder(RecordingPresets.LOW_QUALITY);
+  const recorder = useAudioRecorder(VOICE_CLIP);
   const recording = useRef(false);
 
   const start = useCallback(async (): Promise<ClipStart> => {

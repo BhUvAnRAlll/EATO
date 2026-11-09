@@ -13,6 +13,7 @@ import { AI_SECTIONS, FEATURE_LABEL, FEATURE_SHORT, PERIOD_LABEL, PERIOD_PREVIOU
 import { aiUsage, changeLabel, compact, inr, type AiSummary, type FeatureTotals, type Period } from "@/lib/aiUsage";
 import { mergeModels } from "@/lib/aiUsageRules";
 import { dateOf } from "@/lib/macro";
+import { useResponsive } from "@/lib/responsive";
 import { useSessionToken } from "@/lib/session";
 import type { Icon } from "@/types/profile";
 import { useThemeColors } from "@/theme";
@@ -89,6 +90,7 @@ export default function AiUsageScreen() {
 
 function Ready({ data, period, onPeriod }: { data: AiSummary; period: Period; onPeriod: (p: Period) => void }) {
   const colors = useThemeColors();
+  const { compact: compactScreen } = useResponsive();
   const { allTime, today, month, current, previous, budget } = data;
   const cards: { label: string; value: string; icon: Icon }[] = [
     { label: "Total AI requests", value: allTime.requests.toLocaleString("en-US"), icon: { ios: "sparkles", android: "auto_awesome", web: "auto_awesome" } },
@@ -114,7 +116,7 @@ function Ready({ data, period, onPeriod }: { data: AiSummary; period: Period; on
     <>
       <View className="flex-row flex-wrap" style={{ gap: 10 }}>
         {cards.map((card) => (
-          <View key={card.label} className="admin-stat" accessibilityLabel={`${card.label}: ${card.value}`}>
+          <View key={card.label} className={compactScreen ? "admin-stat admin-stat--half" : "admin-stat"} accessibilityLabel={`${card.label}: ${card.value}`}>
             <SymbolView name={card.icon} size={18} tintColor={colors.forestInk} />
             <Text className="admin-stat__label" numberOfLines={2}>{card.label}</Text>
             <Text className="ai-money" numberOfLines={1} adjustsFontSizeToFit>{card.value}</Text>
@@ -124,7 +126,7 @@ function Ready({ data, period, onPeriod }: { data: AiSummary; period: Period; on
 
       <Pressable
         onPress={() => router.push("/admin/ai-usage/budget")}
-        className={`admin-stat grow-0 basis-auto ${over ? "admin-stat--danger" : warn ? "admin-stat--warning" : ""}`}
+        className={`admin-card ${over ? "admin-stat--danger" : warn ? "admin-stat--warning" : ""}`}
         accessibilityRole="button"
         accessibilityLabel={`Monthly budget: ${inr(budget.spentInr)} of ${inr(budget.monthlyLimitInr)} spent, ${budget.percent}%. Remaining budget ${inr(budget.remainingInr)}${budget.openAlerts ? `, ${budget.openAlerts} open alerts` : ""}`}
       >
@@ -135,9 +137,14 @@ function Ready({ data, period, onPeriod }: { data: AiSummary; period: Period; on
         <View className="ai-bar mt-1">
           <View className={over ? "ai-bar__fill ai-bar__fill--danger" : warn ? "ai-bar__fill ai-bar__fill--warning" : "ai-bar__fill"} style={{ width: `${Math.min(budget.percent, 100)}%` }} />
         </View>
+        {/* One fact per line, so neither squeezes the other on a narrow phone */}
         <View className="ai-kv mt-1">
-          <Text className="ai-kv__key">{`Spent ${inr(budget.spentInr)} of ${inr(budget.monthlyLimitInr)}`}</Text>
-          <Text className="ai-kv__value">{`Remaining budget ${inr(budget.remainingInr)}`}</Text>
+          <Text className="ai-kv__key">Spent this month</Text>
+          <Text className="ai-kv__value">{`${inr(budget.spentInr)} of ${inr(budget.monthlyLimitInr)}`}</Text>
+        </View>
+        <View className="ai-kv">
+          <Text className="ai-kv__key">Remaining budget</Text>
+          <Text className="ai-kv__value">{inr(budget.remainingInr)}</Text>
         </View>
         <View className="ai-kv">
           <Text className="ai-kv__key">Alerts</Text>
@@ -158,19 +165,28 @@ function Ready({ data, period, onPeriod }: { data: AiSummary; period: Period; on
         {compare.map((row) => (
           <View key={row.label} className="ai-kv" accessibilityLabel={`${row.label}: ${row.now}, ${compared(row.change, period)}`}>
             <Text className="ai-kv__key">{row.label}</Text>
-            <Text className="ai-kv__value">
-              {row.now}
-              <Text className="ai-kv__key">{`  ${compared(row.change, period)}`}</Text>
-            </Text>
+            {/* The value on top and its comparison under it, so the values line up on the right */}
+            <View className="min-w-0 shrink items-end">
+              <Text className="ai-kv__value">{row.now}</Text>
+              <Text className="ai-kv__key" style={{ textAlign: "right" }}>{compared(row.change, period)}</Text>
+            </View>
           </View>
         ))}
       </View>
 
       <View className="admin-list px-4 py-3" style={{ gap: 14 }}>
         <Text className="card__title">Cost trend</Text>
-        <BarChart points={data.series.map((p) => ({ key: p.key, value: p.costInr }))} format={inr} label={axisLabel(period)} color={colors.accentBlue} />
+        {data.series.some((p) => p.costInr > 0) ? (
+          <BarChart points={data.series.map((p) => ({ key: p.key, value: p.costInr }))} format={inr} label={axisLabel(period)} color={colors.accentBlue} />
+        ) : (
+          <Text className="meta-text">No usage yet in this period.</Text>
+        )}
         <Text className="card__title">Tokens</Text>
-        <BarChart points={data.series.map((p) => ({ key: p.key, value: p.tokens }))} format={compact} label={axisLabel(period)} color={colors.iconLavender} />
+        {data.series.some((p) => p.tokens > 0) ? (
+          <BarChart points={data.series.map((p) => ({ key: p.key, value: p.tokens }))} format={compact} label={axisLabel(period)} color={colors.iconLavender} />
+        ) : (
+          <Text className="meta-text">No usage yet in this period.</Text>
+        )}
       </View>
 
       <Text className="setup__section">By feature</Text>

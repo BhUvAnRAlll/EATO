@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Modal, Pressable, Text, useWindowDimensions, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { SymbolView } from "@/components/SymbolView";
 
 import { Ring } from "@/components/macro/Ring";
@@ -36,6 +37,7 @@ function CalendarBody({ visible, selectedDate, today, onPick, onClose }: MonthCa
   const colors = useThemeColors();
   const getToken = useSessionToken();
   const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const [month, setMonth] = useState(selectedDate.slice(0, 7));
   const [progress, setProgress] = useState<Record<string, DayProgress>>({});
 
@@ -70,7 +72,7 @@ function CalendarBody({ visible, selectedDate, today, onPick, onClose }: MonthCa
           renders nested <button>s on the web */}
       <View className="verify__backdrop">
         <Pressable className="flex-1" onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" />
-        <View className="verify__sheet gap-4" accessibilityViewIsModal>
+        <View className="verify__sheet gap-4" style={{ paddingBottom: 32 + insets.bottom }} accessibilityViewIsModal>
           <View className="flex-row items-center justify-between">
             <Text className="type-headline text-forest-ink">Jump to a day</Text>
             <Pressable onPress={onClose} hitSlop={10} accessibilityRole="button">

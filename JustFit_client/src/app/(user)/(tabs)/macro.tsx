@@ -1,10 +1,13 @@
 import { useCallback, useRef, useState } from "react";
-import { Animated, Pressable, ScrollView, Text, useWindowDimensions, View } from "react-native";
+import { Animated, Pressable, ScrollView, Text, View } from "react-native";
+import { useResponsive } from "@/lib/responsive";
+import { FloatingSlot, useFabOnScroll } from "@/components/FloatingSlot";
 import Reanimated, { FadeInDown, ReduceMotion } from "react-native-reanimated";
 import { ScreenSkeleton } from "@/components/Skeleton";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { SymbolView } from "@/components/SymbolView";
+import { PressableScale } from "@/components/PressableScale";
 import { router, useFocusEffect } from "expo-router";
 
 import { IconButton } from "@/components/IconButton";
@@ -34,9 +37,11 @@ import { useThemeColors } from "@/theme";
 const TIP_IN = FadeInDown.duration(320).reduceMotion(ReduceMotion.System);
 
 export default function MacroHub() {
+  // Below the wide size (in text units) the floating Add meal pill sits higher (the owner's choice)
+  const { width, narrow: narrowForFab } = useResponsive();
+  const fab = useFabOnScroll();
   const colors = useThemeColors();
   const getToken = useSessionToken();
-  const { width } = useWindowDimensions();
   const { selectedDate, selectDate, jumpToDate } = useMacroStore();
   const week = useMacroWeek();
   const today = todayIso();
@@ -115,7 +120,7 @@ export default function MacroHub() {
     <View className="flex-1 bg-cream">
       <StatusBar style="auto" />
       <SafeAreaView style={{ flex: 1 }} edges={["top", "left", "right"]}>
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 140, gap: 16 }} showsVerticalScrollIndicator={false} refreshControl={refreshControl}>
+        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 140, gap: 16 }} showsVerticalScrollIndicator={false} refreshControl={refreshControl} onScroll={fab.onScroll} scrollEventThrottle={fab.scrollEventThrottle}>
           {/* Header */}
           <View className="flex-row items-center pt-2">
             <View className="flex-1">
@@ -185,7 +190,6 @@ export default function MacroHub() {
                   icon={{ ios: "fork.knife", android: "restaurant", web: "restaurant" }}
                   title={isToday ? "Nothing logged yet" : "Nothing was logged"}
                   text={isToday ? "Add your first meal to start today." : "This day has no meals. You can only log meals on the day you eat them."}
-                  onPress={isToday ? () => router.push("/macro/add-meal") : undefined}
                 />
               ) : (
                 <MealTimeline key={showing.date} rows={timelineRows(showing.meals)} onOpen={setOpenMeal} />
@@ -194,19 +198,26 @@ export default function MacroHub() {
           )}
         </ScrollView>
 
-        {/* Floating action: log on today, otherwise a way back to today */}
-        <Pressable
-          onPress={isToday ? () => router.push("/macro/add-meal") : () => jumpToDate(today)}
-          className="macro__fab"
-          style={{ backgroundColor: colors.inverse, height: 60, paddingLeft: 8, paddingRight: 22, gap: 12 }}
-          accessibilityRole="button"
-          accessibilityLabel={isToday ? "Add meal" : "Back to today"}
-        >
-          <View className="items-center justify-center rounded-pill" style={{ width: 44, height: 44, backgroundColor: colors.primary }}>
-            <SymbolView name={isToday ? { ios: "plus", android: "add", web: "add" } : { ios: "arrow.uturn.backward", android: "undo", web: "undo" }} size={20} tintColor={colors.white} />
-          </View>
-          <Text className="btn-forest__label" style={{ color: colors.onInverse, fontSize: 17 }}>{isToday ? "Add meal" : "Back to today"}</Text>
-        </Pressable>
+        {/* Floating action (the design's dark pill, the same on iPhone and Android): log on today,
+            otherwise a way back to today. The same pill on every phone (the owner's choice,
+            2026-11-08); it steps aside while the list scrolls down and comes back on the way up. On a narrow screen it sits higher, clear of the AI Coach button that rises
+            above the tab bar; the list's bottom padding lets the last meal scroll out from under it. */}
+        <FloatingSlot hidden={fab.hidden} bottom={narrowForFab ? 44 : 16} right={20}>
+          <PressableScale
+            onPress={isToday ? () => router.push("/macro/add-meal") : () => jumpToDate(today)}
+            haptic="tap"
+            className="macro__fab-button"
+            style={{ backgroundColor: colors.inverse, minHeight: 60, paddingLeft: 8, paddingRight: 22, gap: 12 }}
+            accessibilityRole="button"
+            accessibilityLabel={isToday ? "Add meal" : "Back to today"}
+          >
+            <View className="items-center justify-center rounded-pill" style={{ width: 44, height: 44, backgroundColor: colors.primary }}>
+              <SymbolView name={isToday ? { ios: "plus", android: "add", web: "add" } : { ios: "arrow.uturn.backward", android: "undo", web: "undo" }} size={20} tintColor={colors.white} />
+            </View>
+            <Text className="btn-forest__label" style={{ color: colors.onInverse, fontSize: 17 }}>{isToday ? "Add meal" : "Back to today"}</Text>
+          </PressableScale>
+        </FloatingSlot>
+
       </SafeAreaView>
 
       <MealDetailSheet meal={openMeal} onClose={() => setOpenMeal(null)} onDeleted={() => load()} />

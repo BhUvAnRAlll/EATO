@@ -44,22 +44,26 @@ export function PromotionSlide({ promotion, width, height, onPress }: PromotionS
   const words = promotion.headline.trim().split(/\s+/);
   const lastWord = words.pop();
 
+  // `height` is the slide's usual height, a minimum: a long headline or large text makes the
+  // slide taller rather than cutting off the button (flexGrow keeps every slide in the
+  // carousel as tall as the tallest). The type is capped at 1.3× so it can't grow without end.
   return (
     <View
-      style={{ width, height, backgroundColor: promotion.backgroundColor ?? undefined }}
+      style={{ width, minHeight: height, flexGrow: 1, backgroundColor: promotion.backgroundColor ?? undefined }}
       className={imageLeft ? "flex-row-reverse overflow-hidden" : "flex-row overflow-hidden"}
     >
       <View
         style={{ width: width * textShare, alignItems: centered ? "center" : "flex-start" }}
         className={imageLeft ? "justify-center py-3 pr-5 pl-2" : "justify-center py-3 pl-5 pr-2"}
       >
-        <Text className="home__eyebrow" style={[halo, textColor ? { color: textColor, opacity: 0.8 } : onPhoto.eyebrow]}>
+        <Text className="home__eyebrow" style={[halo, textColor ? { color: textColor, opacity: 0.8 } : onPhoto.eyebrow]} numberOfLines={1} maxFontSizeMultiplier={1.3}>
           {promotion.eyebrow}
         </Text>
         <Text
           className="home__headline mt-2"
           style={[halo, centered && { textAlign: "center" }, compact && { fontSize: 22, lineHeight: 26 }, textColor ? { color: textColor } : onPhoto.headline]}
           numberOfLines={3}
+          maxFontSizeMultiplier={1.3}
         >
           {words.join(" ")}
           {words.length > 0 ? " " : ""}
@@ -69,6 +73,7 @@ export function PromotionSlide({ promotion, width, height, onPress }: PromotionS
           className="home__lead mt-2"
           style={[halo, centered && { textAlign: "center" }, compact && { fontSize: 13, lineHeight: 18 }, textColor ? { color: textColor, opacity: 0.85 } : onPhoto.lead]}
           numberOfLines={3}
+          maxFontSizeMultiplier={1.3}
         >
           {promotion.description}
         </Text>
@@ -80,7 +85,7 @@ export function PromotionSlide({ promotion, width, height, onPress }: PromotionS
             accessibilityRole="button"
             accessibilityLabel={promotion.ctaLabel}
           >
-            <Text className="home__cta-label">{promotion.ctaLabel}</Text>
+            <Text className="home__cta-label" maxFontSizeMultiplier={1.3}>{promotion.ctaLabel}</Text>
             <SymbolView name={{ ios: "arrow.right", android: "arrow_forward", web: "arrow_forward" }} size={18} tintColor={colors.white} />
           </PressableScale>
           {promotion.secondaryCtaLabel && promotion.secondaryCtaDestination && (
@@ -89,7 +94,7 @@ export function PromotionSlide({ promotion, width, height, onPress }: PromotionS
               className="home__cta home__cta--secondary"
               accessibilityRole="button"
             >
-              <Text className="home__cta-label home__cta-label--secondary">{promotion.secondaryCtaLabel}</Text>
+              <Text className="home__cta-label home__cta-label--secondary" maxFontSizeMultiplier={1.3}>{promotion.secondaryCtaLabel}</Text>
             </PressableScale>
           )}
         </View>

@@ -519,13 +519,23 @@ const ENQUIRY_VIEW_SQL = {
 // enquiries are read without it (selectEnquiries), so the lists keep working.
 const REFERRER_COLUMNS = "e.referred_by_phone, r.id AS referrer_id, r.full_name AS referrer_name, r.member_code AS referrer_code";
 const REFERRER_JOIN = "LEFT JOIN gym_members r ON r.gym_id = e.gym_id AND r.phone = e.referred_by_phone";
+// The plan a Gym Hub join request picked (migration 2026-12-19), once the column exists (checked
+// at most once a minute until it does)
+let planLabelColumn = { has: false, at: 0 };
+async function hasEnquiryPlan(db) {
+  if (planLabelColumn.has || Date.now() - planLabelColumn.at < 60000) return planLabelColumn.has;
+  const [[row]] = await db.query("SELECT COUNT(*) AS n FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'gym_enquiries' AND COLUMN_NAME = 'plan_label'");
+  planLabelColumn = { has: Number(row.n) > 0, at: Date.now() };
+  return planLabelColumn.has;
+}
 async function selectEnquiries(db, tail, params) {
+  const columns = (await hasEnquiryPlan(db)) ? `${ENQUIRY_COLUMNS}, e.plan_label` : ENQUIRY_COLUMNS;
   try {
-    const [rows] = await db.query(`SELECT ${ENQUIRY_COLUMNS}, ${REFERRER_COLUMNS} FROM gym_enquiries e LEFT JOIN gym_members m ON m.id = e.member_id ${REFERRER_JOIN} ${tail}`, params);
+    const [rows] = await db.query(`SELECT ${columns}, ${REFERRER_COLUMNS} FROM gym_enquiries e LEFT JOIN gym_members m ON m.id = e.member_id ${REFERRER_JOIN} ${tail}`, params);
     return rows;
   } catch (error) {
     if (error?.code !== "ER_BAD_FIELD_ERROR" || !String(error.sqlMessage ?? "").includes("referred_by_phone")) throw error;
-    const [rows] = await db.query(`SELECT ${ENQUIRY_COLUMNS} FROM gym_enquiries e LEFT JOIN gym_members m ON m.id = e.member_id ${tail}`, params);
+    const [rows] = await db.query(`SELECT ${columns} FROM gym_enquiries e LEFT JOIN gym_members m ON m.id = e.member_id ${tail}`, params);
     return rows;
   }
 }
@@ -542,6 +552,8 @@ const enquiryOf = (r, contacts = [], today = rules.todayInIndia()) => ({
   followUpOn: r.follow_up_on,
   interest: r.interest,
   source: r.source,
+  // A Gym Hub join request's plan ("Gold · 3 Months · ₹4,500"), null otherwise
+  planLabel: r.plan_label ?? null,
   referredBy: referrerOf(r),
   member: r.member_id ? { id: r.member_id, code: r.member_code } : null,
   enquiredOn: r.enquired_on,
@@ -556,6 +568,8 @@ const enquiryOf = (r, contacts = [], today = rules.todayInIndia()) => ({
 async function contactsOf(db, gymId, enquiryIds) {
   const grouped = new Map(enquiryIds.map((id) => [id, []]));
   if (enquiryIds.length === 0) return grouped;
+  const read = (note) =>
+    db.query(`SELECT id, enquiry_id, kind, outcome${note ? ", note" : ""}, ${DAY("contacted_on")} AS contacted_on FROM gym_enquiry_contacts WHERE gym_id = ? AND enquiry_id IN (?) ORDER BY contacted_on, id`, [gymId, enquiryIds]);
   try {
     let rows;
     try {
@@ -574,8 +588,6 @@ async function contactsOf(db, gymId, enquiryIds) {
 async function enquiry(db, gymId, enquiryId, today = rules.todayInIndia()) {
   const [row] = await selectEnquiries(db, "WHERE e.id = ? AND e.gym_id = ?", [enquiryId, gymId]);
   if (!row) throw new NotFoundError("That enquiry doesn't exist.");
-  const read = (note) =>
-    db.query(`SELECT id, enquiry_id, kind, outcome${note ? ", note" : ""}, ${DAY("contacted_on")} AS contacted_on FROM gym_enquiry_contacts WHERE gym_id = ? AND enquiry_id IN (?) ORDER BY contacted_on, id`, [gymId, enquiryIds]);
   return enquiryOf(row, (await contactsOf(db, gymId, [row.id])).get(row.id), today);
 }
 
@@ -663,6 +675,8 @@ async function editEnquiry(pool, gymId, enquiryId, body) {
   // A referral needs who referred them; a change to the source or the referrer is checked against
   // what the enquiry ends up with (an older referral saved without a number can still be edited
   // otherwise). Another source clears the referrer.
+  // Only the app sets "justFit app": staff can keep it on such an enquiry, never choose it
+  if (body.source === "app" && current.source !== "app") throw new ValidationError("Pick how they found the gym: walk-in, call, WhatsApp, Instagram, referral or other.");
   const finalSource = body.source !== undefined ? body.source : current.source;
   const currentReferrer = current.referredBy ? current.referredBy.phone.replace(/^\+91/, "") : null;
   if (body.source !== undefined || body.referredBy !== undefined) {

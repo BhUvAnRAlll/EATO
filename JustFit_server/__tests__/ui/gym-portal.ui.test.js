@@ -181,13 +181,12 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
     await viewport(390, 844);
     await signIn(identities.gym, "/gym");
     await h.expectPath("/gym");
-    // Home's header shows the gym's name; the admin is the account badge's initials (Arjun Kumar)
-    await h.expectText("AK");
+    // Home's header shows the gym's name and branch
     await h.expectText("Tumkur branch");
     await h.expectText("FORMA");
     const revenue = JSON.stringify(`[aria-label^="Today's revenue ₹7,700"]`);
     await page.waitFor(`!!document.querySelector(${revenue})`, NAV_TIMEOUT, "today's revenue: 4,500 online + 3,200 cash");
-    for (const label of ["1 Admission", "0 Renewal", "0 Enquiry", "0 Due Paid", "0 PT", "1 Product", "1 Due Members, Action", "0 Expiring Today, Urgent", "0 Attendance, Live", "0 Expiring soon, Soon", "0 Birthdays Today, Wish"]) {
+    for (const label of ["1 Admission", "0 Renewal", "0 Enquiry", "0 Due Paid", "0 PT", "1 Product", "1 Due Members, Action", "0 Expiring today, Urgent", "0 Attendance, Live", "0 Expiring soon, Soon", "0 Birthdays today, Wish"]) {
       assert.ok(await hasLabel(label), `${label} is shown`);
     }
     await h.expectText("Mohammed Asif");
@@ -233,7 +232,7 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
     await clickLabel("Custom plan");
     await page.setInput(h.input("Duration (Eg. 6)"), "3");
     await page.setInput(h.input("Plan Fee (Eg. 1500)"), "4500");
-    await clickLabel("CASH");
+    await clickLabel("Cash");
     await page.setInput(h.input("Amount Collected"), "4000");
     await page.waitFor(`!!document.querySelector('[aria-label="Due amount ₹500"]')`, NAV_TIMEOUT, "4500 payable, 4000 collected: ₹500 due");
     assert.ok(await page.evaluate(`!!document.querySelector('[aria-label="Amount payable ₹4,500"]')`));
@@ -268,7 +267,7 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
 
   it("3b. Attendance: the dashboard, location and radius, the QR code, a staff check-out and history", run("gym-attendance", async () => {
     await page.navigate(`${expo.baseUrl}/gym/attendance`);
-    await h.expectText("INSIDE NOW (1)");
+    await h.expectText("Inside now (1)");
     await h.expectText("Ravi Shankar");
     await h.expectText("Set your gym's location and attendance radius first");
     // Statistics: Today / Last 7 days / Last 30 days, the chart following the period (2026-11-07)
@@ -313,11 +312,11 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
 
     // Back on the dashboard: set up, and the front desk checks Ravi out
     await page.navigate(`${expo.baseUrl}/gym/attendance`);
-    await h.expectText("INSIDE NOW (1)");
+    await h.expectText("Inside now (1)");
     assert.equal(await page.hasText("Set your gym's location"), false);
     await clickLabel("Check out Ravi Shankar");
     await h.expectText("Nobody is checked in right now.");
-    await h.expectText("INSIDE NOW (0)");
+    await h.expectText("Inside now (0)");
     await page.waitFor(`!!document.querySelector('[aria-label^="Ravi Shankar, FOR-TUM-0002. Completed."]')`, NAV_TIMEOUT, "the completed visit in the history");
     assert.ok(await hasLabel("Export to Excel"));
     await clickLabel("Completed");
@@ -535,7 +534,7 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
     await snapshotAllWidths("gym-sell-product-picked");
     await page.setInput(h.input("Quantity"), "2");
     await page.setInput(h.input("Discount Amount"), "400");
-    await clickLabel("CASH");
+    await clickLabel("Cash");
     await page.setInput(h.input("Amount Collected"), "6000");
     await page.waitFor(`!!document.querySelector('[aria-label="Amount payable ₹6,000"]') && !!document.querySelector('[aria-label="Due amount ₹0"]')`, NAV_TIMEOUT, "2 × 3200 − 400 = 6000, all collected");
     // The sheet's button shares its words with the row beneath: press the last one (the sheet on top)
@@ -634,7 +633,7 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
     await stubAlerts();
     await clickLabel("Send Bulk SMS. Auto reminders, alerts and wishes");
     await h.expectText("Available Credits");
-    await h.expectText("QUICK ACTIONS");
+    await h.expectText("Quick actions");
     assert.ok(await hasLabel("4 credits"));
     await h.settle();
     await snapshotAllWidths("gym-bulk-sms");
@@ -681,7 +680,7 @@ describe("ui gym portal: live gym data, the forms, the guards and the Super Admi
     await h.settle();
     await snapshotAllWidths("gym-sms-logs");
     await clickLabel("Close");
-    await page.waitFor(`!(document.body.innerText || "").includes("QUICK ACTIONS") && !(document.body.innerText || "").includes("Message Logs")`, NAV_TIMEOUT, "the sheet closes");
+    await page.waitFor(`!(document.body.innerText || "").includes("Quick actions") && !(document.body.innerText || "").includes("Message Logs")`, NAV_TIMEOUT, "the sheet closes");
   }));
 
   it("4f. Manage › Enquiry: add one with a call-back day, it shows under Today; edit, Convert opens Add Member filled in", run("gym-enquiries", async () => {

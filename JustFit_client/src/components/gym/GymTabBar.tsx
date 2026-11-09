@@ -44,7 +44,7 @@ export function GymTabBar({ state, emitter, navigateToTab }: BottomTabBarProps) 
           <Pressable key={route.key} onPress={onPress} className="gym-tabbar__item" accessibilityRole="tab" accessibilityState={{ selected: active }} accessibilityLabel={tab.label}>
             <View className={active ? "gym-tabbar__icon gym-tabbar__icon--active" : "gym-tabbar__icon"}>
               {active && <GradientFill radius={12} />}
-              <GymIcon name={tab.icon} size={20} color={active ? colors.white : colors.gymFaint} />
+              <GymIcon name={tab.icon} size={20} color={active ? colors.white : colors.gymFaint} bounce={active} />
             </View>
             <Text className={active ? "gym-tabbar__label gym-tabbar__label--active" : "gym-tabbar__label"} numberOfLines={1} maxFontSizeMultiplier={1.3}>
               {tab.label}

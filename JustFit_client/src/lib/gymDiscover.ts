@@ -2,6 +2,17 @@
 // distances, today's opening hours in India's time, and the link that opens directions.
 import { DAYS, FACILITIES, timeLabel, type Day, type FacilityId, type OpeningHours } from "./gymProfile.ts";
 
+// A join request's state in words, with the badge it wears
+export type JoinState = "sent" | "in_touch" | "joined" | "closed";
+export function joinStateText(state: JoinState, gym: string): { label: string; line: string; tone: "pending" | "active" | "paused" } {
+  switch (state) {
+    case "in_touch": return { label: "In touch", line: `${gym} is following up with you.`, tone: "pending" };
+    case "joined": return { label: "Joined", line: `You joined ${gym}. It's under My Memberships.`, tone: "active" };
+    case "closed": return { label: "Closed", line: `${gym} closed this request. You can ask again.`, tone: "paused" };
+    default: return { label: "Sent", line: `${gym} will call you soon.`, tone: "pending" };
+  }
+}
+
 const IST_OFFSET_MS = 330 * 60_000;
 const rupees = (n: number) => `₹${n.toLocaleString("en-IN")}`;
 

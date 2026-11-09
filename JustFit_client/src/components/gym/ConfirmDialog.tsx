@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Keyboard, Text, View } from "react-native";
+import { Keyboard, ScrollView, Text, useWindowDimensions, View } from "react-native";
 import Animated, { FadeIn, ReduceMotion } from "react-native-reanimated";
 
 import { PressableScale } from "@/components/PressableScale";
@@ -13,6 +13,9 @@ import { PressableScale } from "@/components/PressableScale";
 // sendable twice with two quick taps, QA 2026-11-07)
 type ConfirmDialogProps = { rows: [string, string][]; onEdit: () => void; onConfirm: () => void; title?: string; editLabel?: string; confirmLabel?: string; busy?: boolean };
 export function ConfirmDialog({ rows, onEdit, onConfirm, title = "Please confirm the details", editLabel = "Edit", confirmLabel = "Confirm", busy = false }: ConfirmDialogProps) {
+  // The rows scroll inside the card when they don't fit (seven rows at a large text size on a small
+  // phone pushed Edit and Confirm off the screen, 2026-11-08 audit); the buttons always show
+  const rowsMax = useWindowDimensions().height * 0.55;
   useEffect(() => {
     Keyboard.dismiss();
   }, []);
@@ -20,14 +23,14 @@ export function ConfirmDialog({ rows, onEdit, onConfirm, title = "Please confirm
     <Animated.View entering={FadeIn.duration(140).reduceMotion(ReduceMotion.System)} className="gym-confirm" accessibilityViewIsModal>
       <View className="gym-confirm__card">
         <Text className="gym-confirm__title" accessibilityRole="header">{title}</Text>
-        <View style={{ gap: 14 }}>
+        <ScrollView style={{ maxHeight: rowsMax, flexGrow: 0 }} contentContainerStyle={{ gap: 14 }} showsVerticalScrollIndicator={false} bounces={false}>
           {rows.map(([label, value]) => (
             <View key={label} className="flex-row items-center justify-between" style={{ gap: 12 }} accessible accessibilityLabel={`${label}: ${value}`}>
               <Text className="gym-confirm__label">{label}</Text>
               <Text className="gym-confirm__value" style={{ flexShrink: 1, textAlign: "right" }} numberOfLines={3}>{value}</Text>
             </View>
           ))}
-        </View>
+        </ScrollView>
         <View className="flex-row justify-end" style={{ gap: 8 }}>
           <PressableScale onPress={onEdit} disabled={busy} className="gym-confirm__action" accessibilityRole="button" accessibilityLabel={editLabel}>
             <Text className="gym-confirm__action-label">{editLabel}</Text>

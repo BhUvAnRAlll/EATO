@@ -1,6 +1,5 @@
 import { useCallback, useState } from "react";
 import { Text, View } from "react-native";
-import { router } from "expo-router";
 
 import { FormAlert } from "@/components/FormAlert";
 import { PressableScale } from "@/components/PressableScale";
@@ -32,7 +31,7 @@ const COPY = {
 // products (or services) as chips, for a product the quantity beside what's in stock, a discount,
 // the mode, Amount Payable and Due Amount, Amount Collected (the rest is owed by a date), Send
 // Invoice. The server reads the price from the catalogue and takes products out of stock.
-export function MemberSaleSheet({ kind, member, gym, onClose, onSaved }: { kind: "product" | "service"; member: GymMember; gym: GymInfo; onClose: () => void; onSaved: (detail: GymMemberDetail) => void }) {
+export function MemberSaleSheet({ kind, member, gym, onClose, onSaved }: { kind: "product" | "service"; member: GymMember; gym: GymInfo; onClose: () => void; onSaved: (detail: GymMemberDetail, sendInvoice: boolean) => void }) {
   const colors = useThemeColors();
   // Adding a new product or service is Plans / Catalogue › Add, edit and delete plans
   const canAddItem = useCan()("catalog.edit");
@@ -49,11 +48,9 @@ export function MemberSaleSheet({ kind, member, gym, onClose, onSaved }: { kind:
   const [dueBy, setDueBy] = useState<string | null>(null);
   const [sendInvoice, setSendInvoice] = useState(false);
   const [adding, setAdding] = useState(false);
-  const { busy, error, save } = useGymSave((detail: GymMemberDetail) => {
-    onSaved(detail);
-    // Send Invoice (2026-11-07): the Invoice screen for this sale, to share as a PDF
-    if (sendInvoice) router.push({ pathname: "/gym/invoice", params: { memberId: String(detail.member.id) } });
-  }, isProduct ? "Sale recorded" : "Service added");
+  // Send Invoice (2026-11-07): the caller opens the Invoice screen for this sale once every sheet
+  // is closed, or it opened behind them (2026-11-08 audit)
+  const { busy, error, save } = useGymSave((detail: GymMemberDetail) => onSaved(detail, sendInvoice), isProduct ? "Sale recorded" : "Service added");
 
   const items = catalog.state === "ready" ? catalog.data.items.filter((i) => i.kind === kind) : [];
   const chosen = items.find((i) => i.id === itemId) ?? null;
@@ -117,7 +114,7 @@ export function MemberSaleSheet({ kind, member, gym, onClose, onSaved }: { kind:
             {items.map((item) => {
               const selected = item.id === itemId;
               return (
-                <PressableScale key={item.id} onPress={() => { if (!selected) haptic.select(); setItemId(item.id); }} className={selected ? "gym-kind gym-kind--selected" : "gym-kind"} style={{ minHeight: 36, paddingHorizontal: 14 }} accessibilityRole="radio" accessibilityState={{ selected }} accessibilityLabel={`${item.name}, ${rupees(item.price)}${item.stock === 0 ? ", out of stock" : ""}`}>
+                <PressableScale hitSlop={4} key={item.id} onPress={() => { if (!selected) haptic.select(); setItemId(item.id); }} className={selected ? "gym-kind gym-kind--selected" : "gym-kind"} style={{ minHeight: 36, paddingHorizontal: 14 }} accessibilityRole="radio" accessibilityState={{ selected }} accessibilityLabel={`${item.name}, ${rupees(item.price)}${item.stock === 0 ? ", out of stock" : ""}`}>
                   {selected && <GradientFill radius={999} />}
                   <Text className={selected ? "gym-kind__label gym-kind__label--selected" : "gym-kind__label"}>{item.name}</Text>
                 </PressableScale>

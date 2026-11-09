@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { Pressable, Text, View } from "react-native";
 import { SymbolView } from "@/components/SymbolView";
-import { Redirect, router, useLocalSearchParams } from "expo-router";
+import { Redirect, router, useLocalSearchParams, usePreventRemove } from "expo-router";
 
 import { FormAlert } from "@/components/FormAlert";
 import { BodyFatGauge, Pill, ScoreRing, StackedBar, ZoneRow, type Part, type Tone } from "@/components/setup/ReportGraphs";
@@ -138,6 +138,11 @@ export default function ScanReport() {
     setSessionExpired(isSessionExpired(result));
     setSaveError(isSessionExpired(result) ? SESSION_EXPIRED_MESSAGE : result.error);
   };
+  // While a save waits for confirmation, the system back (Android, predictive back, the iOS edge
+  // swipe) returns to the report, like the chevron, instead of leaving the screen
+  const allowLeaving = usePreventRemove(pendingSave !== null, () => {
+    if (!isSaving) setPendingSave(null);
+  });
 
   // Nothing to show (a reload or a direct link), or an incomplete result: back to where the scan started
   if (!result || !isCompleteEstimate(result)) return <Redirect href={home} />;
@@ -183,6 +188,8 @@ export default function ScanReport() {
     if (!saved.ok) return failSave(saved);
     acceptScan();
     hud.success("Profile updated");
+    setPendingSave(null);
+    allowLeaving();
     router.dismissTo("/profile");
   };
 

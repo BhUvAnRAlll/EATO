@@ -189,10 +189,9 @@ describe("ui gym public profile: the gym admin fills it in, Staff only read it",
   }));
 
   it("3. Staff read the profile but can't change it", run("profile-staff", async () => {
+    // Back to Settings, which has Sign out under the account
     await clickLabel("Back");
-    await clickLabel("Back");
-    await clickLabel("Menu");
-    await h.expectText("Sign out");
+    await page.waitFor(`location.pathname === "/gym/settings"`, NAV_TIMEOUT, "back on Settings");
     await h.settle();
     await clickLabel("Sign out");
     await page.waitFor(`!location.pathname.startsWith("/gym")`, 60000, "out of the gym portal");

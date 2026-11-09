@@ -21,6 +21,7 @@ import { NEEDS_NEW_BUILD, hasNativeModule } from "@/lib/nativeModules";
 import { useGymData } from "@/lib/useGymData";
 import { fonts } from "@/constants/fonts";
 import { useThemeColors } from "@/theme";
+import { useResponsive } from "@/lib/responsive";
 
 // Gym admin › Invoice (2026-11-07, the user's request; the user's template since 2026-11-08): one
 // payment's invoice as a sheet of paper on the canvas, laid out like the template, stacked for a
@@ -51,6 +52,9 @@ const LABEL_WIDTH = 104;
 
 function Invoice({ invoice }: { invoice: GymInvoice }) {
   const colors = useThemeColors();
+  // On a compact screen each label sits above its value, so a long name or a phone number keeps
+  // the card's width instead of breaking mid-word beside the label column (2026-11-08, 320 wide)
+  const { compact } = useResponsive();
   const [sharing, setSharing] = useState(false);
   const [error, setError] = useState("");
   const text = invoiceText(invoice);
@@ -94,13 +98,22 @@ function Invoice({ invoice }: { invoice: GymInvoice }) {
   };
 
   // "Label : value", the template's three columns
-  const kv = ([label, value]: InvoiceRow) => (
+  // A phone number never breaks across lines (no-break spaces)
+  const kv = ([label, raw]: InvoiceRow) => {
+    const value = label === "Phone" ? raw.replace(/ /g, "\u00A0") : raw;
+    return compact ? (
+    <View key={label} accessible accessibilityLabel={`${label}: ${value}`}>
+      <Text className="gym-tx__meta" style={{ fontSize: 12, lineHeight: 17, color: colors.muted }}>{label}</Text>
+      <Text className="gym-tx__name" style={{ fontSize: 13, lineHeight: 19, fontFamily: fonts.medium }}>{value}</Text>
+    </View>
+  ) : (
     <View key={label} className="flex-row" style={{ gap: 8 }} accessible accessibilityLabel={`${label}: ${value}`}>
       <Text className="gym-tx__meta" style={{ width: LABEL_WIDTH, fontSize: 13, lineHeight: 19, color: colors.ink }}>{label}</Text>
       <Text className="gym-tx__meta" style={{ fontSize: 13, lineHeight: 19, color: colors.ink }}>:</Text>
       <Text className="gym-tx__name min-w-0 flex-1" style={{ fontSize: 13, lineHeight: 19, fontFamily: fonts.medium }}>{value}</Text>
     </View>
   );
+  };
   // A bordered card with a red icon and title, as the template draws Member, Plan and Payment Details
   const card = (icon: GymIconName, title: string, children: React.ReactNode) => (
     <View style={{ borderWidth: 1, borderColor: colors.line, borderRadius: 12, padding: 14, gap: 8 }}>
@@ -182,9 +195,11 @@ function Invoice({ invoice }: { invoice: GymInvoice }) {
           </View>
           {invoice.balance ? (
             <View className="flex-row items-center justify-between" style={{ paddingHorizontal: 12, paddingVertical: 4, gap: 12 }} accessible accessibilityLabel={`Balance Due ${invoiceRupees(invoice.balance.due)}${invoice.balance.dueBy ? ` by ${invoiceDate(invoice.balance.dueBy)}` : ""}`}>
-              <Text className="gym-confirm__label min-w-0 flex-1" style={{ color: colors.danger, fontFamily: fonts.medium }} numberOfLines={2}>
-                Balance Due{invoice.balance.dueBy ? <Text style={{ color: colors.muted, fontFamily: fonts.regular, fontSize: 12 }}>{` by ${invoiceDate(invoice.balance.dueBy)}`}</Text> : null}
-              </Text>
+              {/* The date on a line of its own, kept whole ("by 15 Jan 2027" wrapped at 320) */}
+              <View className="min-w-0 flex-1">
+                <Text className="gym-confirm__label" style={{ color: colors.danger, fontFamily: fonts.medium }}>Balance Due</Text>
+                {invoice.balance.dueBy ? <Text style={{ color: colors.muted, fontFamily: fonts.regular, fontSize: 12, lineHeight: 17 }} numberOfLines={1}>{`by\u00A0${invoiceDate(invoice.balance.dueBy).replace(/ /g, "\u00A0")}`}</Text> : null}
+              </View>
               <Text className="gym-confirm__value" style={{ fontSize: 15, color: colors.danger }}>{invoiceRupees(invoice.balance.due)}</Text>
             </View>
           ) : (
@@ -199,9 +214,10 @@ function Invoice({ invoice }: { invoice: GymInvoice }) {
           <>
             {kv(["Payment Mode", METHOD_WORD[invoice.method]])}
             {kv(["Payment Date", invoiceDate(invoice.date)])}
+            {/* "Status": "Payment Status" wrapped in the label column and broke the colons' line */}
             <View className="flex-row items-center" style={{ gap: 8 }} accessible accessibilityLabel="Payment Status: Paid">
-              <Text className="gym-tx__meta" style={{ width: LABEL_WIDTH, fontSize: 13, lineHeight: 19, color: colors.ink }}>Payment Status</Text>
-              <Text className="gym-tx__meta" style={{ fontSize: 13, lineHeight: 19, color: colors.ink }}>:</Text>
+              <Text className="gym-tx__meta" style={{ width: compact ? undefined : LABEL_WIDTH, fontSize: 13, lineHeight: 19, color: compact ? colors.muted : colors.ink }}>Status</Text>
+              {!compact && <Text className="gym-tx__meta" style={{ fontSize: 13, lineHeight: 19, color: colors.ink }}>:</Text>}
               <View className="flex-row items-center" style={{ gap: 4, backgroundColor: colors.success, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 2 }}>
                 <GymIcon name="check" size={12} color={colors.onPrimary} />
                 <Text style={{ fontFamily: fonts.semibold, fontSize: 12, lineHeight: 18, color: colors.onPrimary }}>Paid</Text>

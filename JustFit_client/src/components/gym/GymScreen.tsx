@@ -1,12 +1,14 @@
 import type { ReactElement, ReactNode } from "react";
-import { KeyboardAvoidingView, Platform, ScrollView, Text, View, type RefreshControlProps } from "react-native";
+import { Platform, ScrollView, Text, View, type RefreshControlProps } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { router } from "expo-router";
 
 import { PressableScale } from "@/components/PressableScale";
 import { GymIcon } from "@/components/gym/GymIcon";
+import { FAB_CLEARANCE, FloatingSlot, useFabOnScroll } from "@/components/FloatingSlot";
 import { useThemeColors } from "@/theme";
+import { KeyboardAvoider } from "@/components/KeyboardAvoider";
 
 type GymScreenProps = {
   title: string;
@@ -26,6 +28,7 @@ const back = () => (router.canGoBack() ? router.back() : router.replace("/gym"))
 export function GymScreen({ title, children, right, scroll = true, refreshControl, floating }: GymScreenProps) {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
+  const fab = useFabOnScroll();
   return (
     <View className="flex-1 bg-gym-page">
       <StatusBar style="dark" />
@@ -38,12 +41,14 @@ export function GymScreen({ title, children, right, scroll = true, refreshContro
           {right}
         </View>
         {scroll ? (
-          // The keyboard pushes the content up on iOS (Android resizes the window itself), so a
-          // field low on a form and the Save under it stay in view; room is left under the content
+          // The keyboard pushes the content up on both phones (KeyboardAvoider), so a field low
+          // on a form and the Save under it stay in view; room is left under the content
           // for the round + button, which otherwise covered the last row's ⋯ (QA 2026-11-07)
-          <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+          <KeyboardAvoider>
             <ScrollView
-              contentContainerStyle={{ padding: 16, paddingBottom: floating ? 96 + insets.bottom : 48, gap: 16 }}
+              contentContainerStyle={{ padding: 16, paddingBottom: floating ? FAB_CLEARANCE + insets.bottom : 48, gap: 16 }}
+              onScroll={floating ? fab.onScroll : undefined}
+              scrollEventThrottle={fab.scrollEventThrottle}
               keyboardShouldPersistTaps="handled"
               keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
               showsVerticalScrollIndicator={false}
@@ -51,11 +56,11 @@ export function GymScreen({ title, children, right, scroll = true, refreshContro
             >
               {children}
             </ScrollView>
-          </KeyboardAvoidingView>
+          </KeyboardAvoider>
         ) : (
           children
         )}
-        {floating ? <View className="absolute" style={{ right: 16, bottom: 16 + insets.bottom }}>{floating}</View> : null}
+        {floating ? <FloatingSlot hidden={fab.hidden} bottom={16 + insets.bottom}>{floating}</FloatingSlot> : null}
       </SafeAreaView>
     </View>
   );

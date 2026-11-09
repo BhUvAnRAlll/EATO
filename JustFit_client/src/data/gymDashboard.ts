@@ -82,6 +82,12 @@ export function memberPlanText(m: { planName: string | null; planLength: { durat
   const name = m.planName?.trim();
   return name && name.toLowerCase() !== length.toLowerCase() ? `${name} · ${length}` : length;
 }
+// A PT package as a pill or line says "PT · 12 sessions", but not "PT · PT 12 sessions" when the
+// package's own name already starts with PT
+export function ptPackageText(label: string): string {
+  const name = label.trim();
+  return /^pt\b/i.test(name) ? name : `PT · ${name}`;
+}
 // A catalogue plan or PT package saved in days before then can't be picked until it's edited to months
 export const pickable = (item: { unit: PlanUnit | null }) => item.unit !== "days";
 
@@ -135,7 +141,9 @@ export const ENQUIRY_VIEWS: { id: EnquiryView; label: string }[] = [
 ];
 export const ENQUIRY_STATUS_LABEL: Record<EnquiryStatus, string> = { new: "New", follow_up: "Follow-up", joined: "Joined", lost: "Not interested" };
 export const INTEREST_LABEL: Record<EnquiryInterest, string> = { membership: "Membership", pt: "PT", trial: "Trial", other: "Other" };
-export const SOURCE_LABEL: Record<EnquirySource, string> = { walk_in: "Walk-in", call: "Call", whatsapp: "WhatsApp", instagram: "Instagram", referral: "Referral", other: "Other" };
+export const SOURCE_LABEL: Record<EnquirySource, string> = { walk_in: "Walk-in", call: "Call", whatsapp: "WhatsApp", instagram: "Instagram", referral: "Referral", other: "Other", app: "justFit app" };
+// The sources staff can pick ("justFit app" is set only by a member's join request in Gym Hub)
+export const STAFF_SOURCE_LABEL: Record<Exclude<EnquirySource, "app">, string> = { walk_in: "Walk-in", call: "Call", whatsapp: "WhatsApp", instagram: "Instagram", referral: "Referral", other: "Other" };
 
 // The conversion score's levels and a contact's wording ("Called, no answer")
 export const LEAD_LABEL: Record<LeadLevel, string> = { hot: "Hot", warm: "Warm", cold: "Cold" };
@@ -146,14 +154,6 @@ export const CONTACT_LABEL: Record<ContactKind, string> = { call: "Called", what
 export const OUTCOME_LABEL: Record<ContactOutcome, string> = { reached: "reached", no_answer: "no answer", visited: "" };
 export const contactText = (c: EnquiryContact) => `${CONTACT_LABEL[c.kind]}${c.outcome === "visited" ? "" : `, ${OUTCOME_LABEL[c.outcome]}`} · ${shortDate(c.on)}`;
 
-// "Follow up today", "Overdue by 2 days", "Follow up on 12 Nov 2026"
-export function followUpText(followUpOn: string, today: string) {
-  const days = Math.round((Date.parse(`${followUpOn}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86400000);
-  if (days === 0) return { tone: "today" as const, text: "Follow up today" };
-  if (days < 0) return { tone: "overdue" as const, text: `Overdue by ${-days} ${days === -1 ? "day" : "days"}` };
-  if (days === 1) return { tone: "later" as const, text: "Follow up tomorrow" };
-  return { tone: "later" as const, text: `Follow up on ${shortDate(followUpOn)}` };
-}
 // Log a contact (2026-11-09): quick phrases for "What did they say?" (tapping one adds it to the
 // note, tapping it again takes it out), and when to call them next
 export const CONTACT_NOTE_MAX = 300;
@@ -173,6 +173,14 @@ export function toggleSaid(note: string, phrase: string) {
   return next.join(", ").slice(0, CONTACT_NOTE_MAX);
 }
 
+// "Follow up today", "Overdue by 2 days", "Follow up on 12 Nov 2026"
+export function followUpText(followUpOn: string, today: string) {
+  const days = Math.round((Date.parse(`${followUpOn}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86400000);
+  if (days === 0) return { tone: "today" as const, text: "Follow up today" };
+  if (days < 0) return { tone: "overdue" as const, text: `Overdue by ${-days} ${days === -1 ? "day" : "days"}` };
+  if (days === 1) return { tone: "later" as const, text: "Follow up tomorrow" };
+  return { tone: "later" as const, text: `Follow up on ${shortDate(followUpOn)}` };
+}
 
 // The + sheet on Home (the user's design)
 export type AddAction = "member" | "plan" | "enquiry" | "expense" | "outlet" | "staff" | "sms" | "attendance";

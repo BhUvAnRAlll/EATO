@@ -1,4 +1,4 @@
-import { Modal, Pressable, Text, View } from "react-native";
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { SymbolView } from "@/components/SymbolView";
 
@@ -23,9 +23,10 @@ export function SelectSheet<T extends string>({ visible, title, options, selecte
       <View className="verify__backdrop">
         <Pressable className="flex-1" onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" />
         {/* The sheet's own padding plus the home indicator, so the last option never sits on it */}
-        <View className="verify__sheet" style={{ paddingBottom: 32 + insets.bottom }}>
+        {/* Capped like BottomSheet so a long list scrolls instead of running off the screen */}
+        <View className="verify__sheet" style={{ maxHeight: "86%", paddingBottom: 32 + insets.bottom }}>
           <Text className="setup__title">{title}</Text>
-          <View className="mt-4 gap-2">
+          <ScrollView className="mt-4" contentContainerStyle={styles.options} showsVerticalScrollIndicator={false}>
             {options.map((option) => {
               const isSelected = option.id === selected;
               return (
@@ -53,9 +54,13 @@ export function SelectSheet<T extends string>({ visible, title, options, selecte
                 </Pressable>
               );
             })}
-          </View>
+          </ScrollView>
         </View>
       </View>
     </Modal>
   );
 }
+
+const styles = StyleSheet.create({
+  options: { gap: 8 },
+});

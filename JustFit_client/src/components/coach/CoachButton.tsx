@@ -22,8 +22,7 @@ export function CoachButton({ label, onPress, loading = false, disabled = false 
       onPress={onPress}
       disabled={loading || disabled}
       haptic="tap"
-      className="coach__cta"
-      style={{ opacity: disabled ? 0.45 : 1 }}
+      className={disabled ? "coach__cta btn--disabled" : "coach__cta"}
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ disabled: loading || disabled, busy: loading }}
@@ -32,9 +31,9 @@ export function CoachButton({ label, onPress, loading = false, disabled = false 
         <ActivityIndicator color={colors.white} />
       ) : (
         <>
-          <Text className="coach__cta-label">{label}</Text>
-          <View className="coach__cta-arrow">
-            <SymbolView name={{ ios: "arrow.right", android: "arrow_forward", web: "arrow_forward" }} size={20} tintColor={colors.white} />
+          <Text className={disabled ? "coach__cta-label btn--disabled-label" : "coach__cta-label"}>{label}</Text>
+          <View className="coach__cta-arrow" style={disabled ? { backgroundColor: "transparent" } : undefined}>
+            <SymbolView name={{ ios: "arrow.right", android: "arrow_forward", web: "arrow_forward" }} size={20} tintColor={disabled ? colors.faint : colors.white} />
           </View>
         </>
       )}

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { AppState, ScrollView, Text, useWindowDimensions, View } from "react-native";
+import { AppState, ScrollView, Text, View } from "react-native";
+import { useResponsive } from "@/lib/responsive";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { router, useFocusEffect } from "expo-router";
@@ -36,7 +37,7 @@ const GAP = 8;
 // (admins edit them); the numbers are the member's own; orders aren't built yet, so that
 // card is a sample.
 export default function Home() {
-  const { width } = useWindowDimensions();
+  const { width, compact } = useResponsive();
   const getToken = useSessionToken();
   const { promotions, content, nutrition, water, workout, activity, load, refreshIntake, loading, error, source } = useHomeStore();
   const cart = useCartStore();
@@ -108,7 +109,7 @@ export default function Home() {
   const quickActions = content.quickActions;
   // Four cards across on standard phones; below 360pt that leaves under 70pt per card, so
   // narrow phones get two per row (the row wraps, keeping the admin's order)
-  const perRow = Math.min(width < 360 ? 2 : 4, Math.max(1, quickActions.length));
+  const perRow = Math.min(compact ? 2 : 4, Math.max(1, quickActions.length));
   const quickWidth = Math.floor((contentWidth - GAP * (perRow - 1)) / perRow);
   // Only meals the admin picked: sample meals shown as "popular" would read as real ones
   const popularMeals = content.popularMeals;

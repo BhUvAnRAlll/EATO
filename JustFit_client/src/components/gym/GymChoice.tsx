@@ -3,24 +3,25 @@ import { Text, View } from "react-native";
 import { PressableScale } from "@/components/PressableScale";
 import { GymIcon } from "@/components/gym/GymIcon";
 import { GradientFill } from "@/components/gym/GradientFill";
+import { ChoiceChip } from "@/components/gym/GymChip";
 import { haptic } from "@/lib/haptics";
 import { useThemeColors } from "@/theme";
 
-// One-of chips in a row with their label, as in the designs (Gender, Mode). `clearable`: tap the
-// chosen one again to clear it.
+// One-of chips under their label, as in the designs (Gender, Mode). The label sits above the
+// chips, full width, so chips that wrap line up under each other. `clearable`: tap the chosen one
+// again to clear it.
 export function ChipRow<T extends string>({ label, options, value, onChange, clearable = false }: { label: string; options: Record<T, string>; value: T | ""; onChange: (value: T | "") => void; clearable?: boolean }) {
   return (
-    <View className="flex-row flex-wrap items-center" style={{ gap: 8 }} accessibilityRole="radiogroup" accessibilityLabel={label}>
-      <Text className="gym-field__label" style={{ fontSize: 14, marginRight: 4 }}>{label}</Text>
-      {(Object.keys(options) as T[]).map((id) => {
-        const selected = id === value;
-        return (
-          <PressableScale key={id} onPress={() => { haptic.select(); onChange(selected && clearable ? "" : id); }} className={selected ? "gym-kind gym-kind--selected" : "gym-kind"} accessibilityRole="radio" accessibilityState={{ selected }} accessibilityLabel={options[id]}>
-            {selected && <GradientFill radius={999} />}
-            <Text className={selected ? "gym-kind__label gym-kind__label--selected" : "gym-kind__label"}>{options[id]}</Text>
-          </PressableScale>
-        );
-      })}
+    <View style={{ gap: 8 }}>
+      <Text className="gym-field__label" style={{ fontSize: 14 }}>{label}</Text>
+      <View className="flex-row flex-wrap items-center" style={{ gap: 8 }} accessibilityRole="radiogroup" accessibilityLabel={label}>
+        {(Object.keys(options) as T[]).map((id) => {
+          const selected = id === value;
+          return (
+            <ChoiceChip key={id} onPress={() => { haptic.select(); onChange(selected && clearable ? "" : id); }} selected={selected} label={options[id]} accessibilityRole="radio" accessibilityState={{ selected }} />
+          );
+        })}
+      </View>
     </View>
   );
 }
@@ -39,4 +40,4 @@ export function CheckRow({ label, checked, onChange }: { label: string; checked:
   );
 }
 
-export const METHODS = { online: "ONLINE", cash: "CASH" } as const;
+export const METHODS = { online: "Online", cash: "Cash" } as const;

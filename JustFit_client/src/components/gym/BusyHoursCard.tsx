@@ -58,8 +58,10 @@ export function BusyHoursCard({ result, onRetry }: { result: GymLoad<BusyHours>;
         { icon: "clock" as const, label: "Quietest time", value: `${hourRange(d.quietest.hour)} · ${people(d.quietest.expected)}` },
       ]
     : [];
-  // The hour ticks under the bars: one label per three bars (a bar is too narrow for its own)
-  const ticks = d.hours.filter((_, i) => i % 3 === 0).map((h, i, list) => ({ hour: h.hour, span: i === list.length - 1 ? d.hours.length - i * 3 : 3 }));
+  // The hour ticks under the bars: one label per three bars (a bar is too narrow for its own),
+  // each starting at its own bar. The tick row has one cell per bar with the bars' 6 px gap, so the
+  // labels can't drift; a label needs the room of three bars, so none starts in the last two
+  const tickAt = (i: number) => i % 3 === 0 && i <= d.hours.length - 3;
   return (
     <View className="gym-dash-card" style={{ padding: 14, gap: 12 }}>
       <View>
@@ -93,9 +95,13 @@ export function BusyHoursCard({ result, onRetry }: { result: GymLoad<BusyHours>;
             </View>
           ))}
         </View>
-        <View className="flex-row" style={{ gap: 6, marginTop: 4 }}>
-          {ticks.map((t) => (
-            <Text key={t.hour} className="gym-stat__label" style={{ flex: t.span, fontSize: 10, lineHeight: 12 }} numberOfLines={1}>{hourTick(t.hour)}</Text>
+        <View className="flex-row" style={{ gap: 6, marginTop: 4, height: 12 }}>
+          {d.hours.map((h, i) => (
+            <View key={h.hour} style={{ flex: 1, overflow: "visible" }}>
+              {tickAt(i) && (
+                <Text className="gym-stat__label" style={{ position: "absolute", left: 0, width: 48, fontSize: 10, lineHeight: 12 }} numberOfLines={1}>{hourTick(h.hour)}</Text>
+              )}
+            </View>
           ))}
         </View>
       </View>

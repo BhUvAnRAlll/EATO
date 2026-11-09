@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { ScreenSkeleton } from "@/components/Skeleton";
 import { LoadError } from "@/components/macro/LoadError";
@@ -37,9 +37,13 @@ export default function DailyCalories() {
     if (isValidIso(params.date) && params.date <= todayIso()) jumpToDate(params.date);
   }, [params.date, jumpToDate]);
 
+  // Only the newest read is shown: switching days quickly never lets an older answer land last
+  const latest = useRef(0);
   const load = useCallback(async () => {
+    const request = ++latest.current;
     const token = await getToken().catch(() => null);
     const [result, waterResult] = await Promise.all([macro.day(token, selectedDate), macro.water(token, selectedDate)]);
+    if (request !== latest.current) return;
     if (result.ok) setDay(result.data);
     setLoadError(result.ok ? null : result.error);
     // The water card only appears once its data has loaded (nothing shifts before that)

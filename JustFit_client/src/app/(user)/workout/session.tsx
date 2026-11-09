@@ -334,7 +334,7 @@ function Player({ day, logId, completed, initialLogged, startExercise, getToken,
             <SymbolView name={icon.restart} size={18} tintColor={colors.white} />
           </Pressable>
           <View className="flex-1 items-center">
-            <Text className="player__figure" accessibilityLabel={`${figure} ${unit}`}>{figure}</Text>
+            <Text className="player__figure" numberOfLines={1} adjustsFontSizeToFit maxFontSizeMultiplier={1.2} accessibilityLabel={`${figure} ${unit}`}>{figure}</Text>
             <Text className="player__unit">{unit}</Text>
           </View>
           {timed || step.kind === "rest" ? (

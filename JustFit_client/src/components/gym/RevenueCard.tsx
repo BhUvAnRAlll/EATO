@@ -45,7 +45,7 @@ export function RevenueCard({ online, cash, action }: RevenueCardProps) {
 
       <View style={{ gap: 4 }}>
         <View className="flex-row items-center" style={{ gap: 10 }}>
-          <Text className="gym-hero__label flex-1" numberOfLines={1}>{"Today's Revenue"}</Text>
+          <Text className="gym-hero__label flex-1" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>{"Today's Revenue"}</Text>
           {action ? (
             <PressableScale onPress={action.onPress} hitSlop={8} className="gym-dash-hero__link" accessibilityRole="button" accessibilityLabel={action.label}>
               <Text className="gym-dash-hero__link-label">{action.label}</Text>

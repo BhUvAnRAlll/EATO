@@ -1,6 +1,6 @@
-import { Text, View } from "react-native";
+import { View } from "react-native";
 
-import { PressableScale } from "@/components/PressableScale";
+import { ChoiceChip } from "@/components/gym/GymChip";
 import { DateSelect } from "@/components/gym/DateSelect";
 import { daysFromToday } from "@/data/gymDashboard";
 import { haptic } from "@/lib/haptics";
@@ -22,9 +22,7 @@ export function DueByField({ value, onChange, label = "Pay the rest by" }: { val
           const iso = daysFromToday(q.days);
           const selected = iso === value;
           return (
-            <PressableScale key={q.label} onPress={() => { haptic.select(); onChange(iso); }} className={selected ? "gym-choice gym-choice--selected" : "gym-choice"} style={{ minHeight: 32 }} accessibilityRole="button" accessibilityState={{ selected }} accessibilityLabel={`In ${q.label}`}>
-              <Text className={selected ? "gym-choice__label gym-choice__label--selected" : "gym-choice__label"}>{`In ${q.label}`}</Text>
-            </PressableScale>
+            <ChoiceChip key={q.label} onPress={() => { haptic.select(); onChange(iso); }} selected={selected} label={`In ${q.label}`} accessibilityRole="button" accessibilityState={{ selected }} />
           );
         })}
       </View>

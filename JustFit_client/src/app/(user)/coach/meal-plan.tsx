@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, View, type ScrollViewInstance } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { router, useFocusEffect } from "expo-router";
 
@@ -33,6 +33,7 @@ const back = () => (router.canGoBack() ? router.back() : router.replace("/coach"
 // own card on the Coach tab.
 export default function MealPlanScreen() {
   const colors = useThemeColors();
+  const insets = useSafeAreaInsets();
   const getToken = useSessionToken();
   const start = useCoachIntakeStore((state) => state.start);
   const [loaded, setLoaded] = useState<{ intake: Intake | null; prefill: IntakePrefill } | null>(null);
@@ -136,14 +137,18 @@ export default function MealPlanScreen() {
     <View className="coach__page">
       <StatusBar style="auto" />
       <SafeAreaView style={{ flex: 1 }} edges={["top", "left", "right"]}>
-        <View className="h-14 flex-row items-center px-4" style={{ gap: 12 }}>
+        <View className="min-h-14 flex-row items-center px-4" style={{ gap: 12 }}>
           <Pressable onPress={back} className="coach__circle-btn" accessibilityRole="button" accessibilityLabel="Back">
             <SymbolView name={{ ios: "arrow.left", android: "arrow_back", web: "arrow_back" }} size={20} tintColor={colors.forestInk} />
           </Pressable>
-          <Text className="coach__title flex-1" style={{ fontSize: 24, lineHeight: 30 }} accessibilityRole="header" numberOfLines={1}>Meal Plan</Text>
+          {/* The count sits under the title: beside it, the title was cut to "Meal …" on a 360-wide
+              phone at its larger text (2026-11-08) */}
+          <View className="min-w-0 flex-1">
+            <Text className="coach__title" style={{ fontSize: 24, lineHeight: 30 }} accessibilityRole="header" numberOfLines={1}>Meal Plan</Text>
+            {plan?.plan && <Text className="coach__hint" numberOfLines={1}>{`${meals.length} Meals · ${plan.plan.totals.kcal.toLocaleString("en-IN")} kcal`}</Text>}
+          </View>
           {plan?.plan && (
-            <View className="min-w-0 flex-row items-center" style={{ gap: 10, flexShrink: 1 }}>
-              <Text className="coach__hint" numberOfLines={1} style={{ flexShrink: 1 }}>{`${meals.length} Meals · ${plan.plan.totals.kcal.toLocaleString("en-IN")} kcal`}</Text>
+            <View className="flex-row items-center">
               <Pressable onPress={() => setAdjusting((v) => !v)} hitSlop={10} accessibilityRole="button" accessibilityLabel="Adjust plan options" accessibilityState={{ expanded: adjusting }}>
                 <SymbolView name={{ ios: "slider.horizontal.3", android: "tune", web: "tune" }} size={22} tintColor={colors.forestInk} />
               </Pressable>
@@ -151,7 +156,7 @@ export default function MealPlanScreen() {
           )}
         </View>
 
-        <ScrollView ref={scroll} contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 32, gap: 16 }} showsVerticalScrollIndicator={false} refreshControl={refreshControl}>
+        <ScrollView ref={scroll} contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 32 + insets.bottom, gap: 16 }} showsVerticalScrollIndicator={false} refreshControl={refreshControl}>
           {!plan && !error && <ScreenSkeleton cards={3} label="Loading your meal plan" />}
 
           {error && (

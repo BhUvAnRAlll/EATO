@@ -5,6 +5,8 @@ import { PressableScale } from "@/components/PressableScale";
 import { ExpenseDetailsSheet } from "@/components/gym/ExpenseDetailsSheet";
 import { ExpenseSheet } from "@/components/gym/ExpenseSheet";
 import { GradientFill } from "@/components/gym/GradientFill";
+import { FAB_CLEARANCE, FloatingSlot, useFabOnScroll } from "@/components/FloatingSlot";
+import { FilterChip } from "@/components/gym/GymChip";
 import { GymIcon } from "@/components/gym/GymIcon";
 import { GymEmpty, GymError, GymLoading } from "@/components/gym/GymStates";
 import { ReceiptViewer } from "@/components/gym/ReceiptViewer";
@@ -29,6 +31,7 @@ const FILTERS: { id: Filter; label: string }[] = [{ id: "all", label: "All" }, .
 // `addOnOpen`: open Add Expense at once (Home's + › Add Expense, ☰ › Expenses).
 export function ExpenseList({ addOnOpen = false }: { addOnOpen?: boolean }) {
   const colors = useThemeColors();
+  const fab = useFabOnScroll();
   const getToken = useSessionToken();
   const thisMonth = todayIso().slice(0, 7);
   const firstMonth = shiftMonth(thisMonth, -EXPENSE_MONTHS_BACK);
@@ -127,18 +130,7 @@ export function ExpenseList({ addOnOpen = false }: { addOnOpen?: boolean }) {
             const selected = f.id === filter;
             const count = data?.counts[f.id];
             return (
-              <PressableScale
-                key={f.id}
-                onLayout={onChipLayout(f.id)}
-                onPress={() => { if (!selected) haptic.select(); setFilter(f.id); }}
-                className={selected ? "gym-kind gym-kind--selected" : "gym-kind"}
-                accessibilityRole="tab"
-                accessibilityState={{ selected }}
-                accessibilityLabel={`${f.label}${count !== undefined ? `, ${count}` : ""}`}
-              >
-                {selected && <GradientFill radius={999} />}
-                <Text className={selected ? "gym-kind__label gym-kind__label--selected" : "gym-kind__label"}>{count !== undefined ? `${f.label} · ${count}` : f.label}</Text>
-              </PressableScale>
+              <FilterChip key={f.id} onLayout={onChipLayout(f.id)} onPress={() => { if (!selected) haptic.select(); setFilter(f.id); }} selected={selected} label={f.label} count={count} accessibilityLabel={`${f.label}${count !== undefined ? `, ${count}` : ""}`} />
             );
           })}
         </ScrollView>
@@ -147,7 +139,7 @@ export function ExpenseList({ addOnOpen = false }: { addOnOpen?: boolean }) {
         </PressableScale>
       </View>
       {searchOpen && (
-        <View className="gym-field__input flex-row items-center" style={{ gap: 8 }}>
+        <View className="gym-mlist__search">
           <GymIcon name="search" size={16} color={colors.gymFaint} />
           <TextInput
             value={typed}
@@ -166,13 +158,17 @@ export function ExpenseList({ addOnOpen = false }: { addOnOpen?: boolean }) {
   );
 
   return (
-    <>
+    // A flex-1 box, so the round + sits at the bottom of the list's own area, inside the screen's
+    // safe-area padding, not over the home indicator or the Android navigation bar
+    <View className="flex-1">
       <FlatList
         {...listPerf}
         refreshControl={<RefreshControl refreshing={refreshing} tintColor={colors.gymPrimary} onRefresh={refresh} />}
         data={expenses}
         keyExtractor={(e) => String(e.id)}
-        contentContainerStyle={{ padding: 16, paddingBottom: 120, gap: 10 }}
+        contentContainerStyle={{ padding: 16, paddingBottom: FAB_CLEARANCE + 16, gap: 10 }}
+        onScroll={fab.onScroll}
+        scrollEventThrottle={fab.scrollEventThrottle}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
         ListHeaderComponent={header}
@@ -249,12 +245,12 @@ export function ExpenseList({ addOnOpen = false }: { addOnOpen?: boolean }) {
           );
         }}
       />
-      {canEdit && <View className="absolute" style={{ right: 16, bottom: 16 }}>
+      {canEdit && <FloatingSlot hidden={fab.hidden}>
         <PressableScale onPress={() => setEditing("new")} haptic="tap" className="gym-fab-round" accessibilityRole="button" accessibilityLabel="Add an expense">
           <GradientFill radius={26} />
           <GymIcon name="plus" size={22} color={colors.white} />
         </PressableScale>
-      </View>}
+      </FloatingSlot>}
       {editing && (
         <ExpenseSheet
           expense={editing === "new" ? null : editing}
@@ -265,6 +261,6 @@ export function ExpenseList({ addOnOpen = false }: { addOnOpen?: boolean }) {
       )}
       {showing && <ExpenseDetailsSheet expense={showing} onClose={() => setShowing(null)} onEdit={canEdit ? editShown : undefined} />}
       {viewing?.billUrl && <ReceiptViewer url={viewing.billUrl} title={`${expenseTitle(viewing)} · ${shortDate(viewing.spentOn)}`} onClose={() => setViewing(null)} />}
-    </>
+    </View>
   );
 }

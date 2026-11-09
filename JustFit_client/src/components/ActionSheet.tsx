@@ -1,4 +1,5 @@
 import { Modal, Pressable, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useActionSheetStore, type SheetAction } from "@/store/actionSheet";
 import { useThemeColors } from "@/theme";
@@ -9,13 +10,15 @@ type ActionSheetProps = { visible: boolean; title?: string; message?: string; ac
 // shows UIKit's own). Same look as the setup sheets.
 export function ActionSheet({ visible, title, message, actions, onClose }: ActionSheetProps) {
   const colors = useThemeColors();
+  const insets = useSafeAreaInsets();
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       {/* The backdrop is a sibling of the sheet, not its parent: a Pressable inside a Pressable
           renders nested <button>s on the web */}
       <View className="verify__backdrop">
         <Pressable className="flex-1" onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" />
-        <View className="verify__sheet gap-2" accessibilityViewIsModal>
+        {/* The sheet's own padding plus the navigation bar / home indicator: the Modal draws under them */}
+        <View className="verify__sheet gap-2" style={{ paddingBottom: 32 + insets.bottom }} accessibilityViewIsModal>
           {title && <Text className="setup__section mb-1 text-center">{title}</Text>}
           {message && <Text className="card__subtitle mb-1 text-center">{message}</Text>}
           {actions.map((action) => (

@@ -37,7 +37,7 @@ export default function IntakeLifestyle() {
       </View>
 
       <Text className="coach__section mt-2">Stress lately (optional)</Text>
-      <View className="flex-row gap-3" accessibilityRole="radiogroup">
+      <View className="flex-row gap-2" accessibilityRole="radiogroup">
         {stressLevels.map((level) => (
           <ChoiceCard key={level.id} layout="tile" label={level.label} icon={level.icon} selected={draft.stress === level.id} onPress={() => update({ stress: draft.stress === level.id ? null : level.id })} />
         ))}

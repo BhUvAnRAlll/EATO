@@ -248,7 +248,7 @@ describe("ui macro: the Macro tab hub and logging a meal by hand", () => {
     await h.expectText("This week");
     // One lunch of 480 kcal (32 g protein, 40 g carbs, 18 g fat) against 2000 kcal (150/200/60 g)
     await h.expectText("31 / 41 / 28"); // the target split
-    for (const text of ["28%", "36%", "21% of 150g", "20% of 200g", "30% of 60g", "Avg 69 kcal · target 2,000", "-1,931 avg"]) await h.expectText(text);
+    for (const text of ["28%", "36%", "21% of 150g", "20% of 200g", "30% of 60g", "Avg 69 kcal · target 2,000", "1,931 kcal under target"]) await h.expectText(text);
     assert.ok(await page.evaluate(`!!document.querySelector('[aria-label="Protein: 32 grams, 21% of 150 grams"]')`), "the protein tile");
     await snapshotAllWidths("macro-calories-today");
     // The week averages over 7 days, the month over 30
@@ -306,7 +306,7 @@ describe("ui macro: the Macro tab hub and logging a meal by hand", () => {
     await page.setInput('input[aria-label="Protein target in grams"]', "150");
     await page.setInput('input[aria-label="Carbs target in grams"]', "200");
     await page.setInput('input[aria-label="Fat target in grams"]', "60");
-    await h.expectText("Macros add up to 1940 kcal");
+    await h.expectText("Macros add up to 1,940 kcal");
     await clickLabel("Save targets");
     await h.expectPath("/macro/calories-macros");
     assert.deepEqual(await targetRow(), { calories: 2000, protein_g: 150, carbs_g: 200, fat_g: 60, source: "user_adjusted" });
@@ -348,8 +348,19 @@ describe("ui macro: the Macro tab hub and logging a meal by hand", () => {
     await h.expectText("71% of goal");
     assert.deepEqual((await water()).map((w) => [w.amount_ml, w.source, w.label]), [[250, "quick_add", "Glass"], [1000, "custom", null], [250, "quick_add", "Glass"]]);
     await snapshotAllWidths("macro-water-logged");
-    // Remove the litre
+    // Remove the litre (2026-11-09, undo): it goes from the screen at once with an Undo bar, and
+    // nothing is sent until the bar ends; Undo brings it back and sends nothing
     await clickLabel("Remove 1000 ml");
+    await h.expectText("1000 ml removed");
+    await h.expectText("24% of goal");
+    assert.equal((await water()).length, 3, "nothing is removed on the server while Undo shows");
+    await clickLabel("Undo: 1000 ml removed");
+    await h.expectText("71% of goal");
+    await new Promise((r) => setTimeout(r, 6000));
+    assert.equal((await water()).length, 3, "an undone removal is never sent");
+    // Removed again and left alone: the bar ends and the server removes it
+    await clickLabel("Remove 1000 ml");
+    await h.expectText("24% of goal");
     await waitForWater(2);
     await h.expectText("24% of goal");
     // Reminders off is saved for this member

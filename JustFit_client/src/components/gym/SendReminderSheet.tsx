@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { Alert, AppState, Platform, Text, TextInput, useWindowDimensions, View } from "react-native";
+import { Alert, AppState, Platform, Text, TextInput, View } from "react-native";
 
 import { PressableScale } from "@/components/PressableScale";
+import { ChoiceChip } from "@/components/gym/GymChip";
 import { ConfirmDialog } from "@/components/gym/ConfirmDialog";
 import { GymIcon } from "@/components/gym/GymIcon";
 import { WhatsAppMark } from "@/components/gym/WhatsAppMark";
@@ -12,19 +13,21 @@ import type { GymIconName } from "@/constants/gymIcons";
 import { planLabel, rupees } from "@/data/gymDashboard";
 import { addedReminder, daysLeftText, dueReminder, expiredReminder, invoice, sms, whatsapp } from "@/lib/gymContact";
 import { gymApi, type GymInfo, type GymMember, type GymPayment, type GymSms, type GymTemplates, type SmsKind } from "@/lib/gymApi";
+import { useCan } from "@/store/gymAccess";
 import { memberStatus } from "@/lib/gymMember";
 import { SMS_KIND_LABEL, membershipKind } from "@/lib/gymSms";
 import { haptic } from "@/lib/haptics";
 import { useSessionToken } from "@/lib/session";
 import { useReminderTemplates } from "@/lib/useReminderTemplates";
 import { useThemeColors } from "@/theme";
+import { useResponsive } from "@/lib/responsive";
 
 export type ReminderKind = "due" | "expired" | "invoice";
 type Channel = "whatsapp" | "sms";
-const MAX_CHARS = 300;
-
 // A template on Use Template: one of the reminders, or one the gym admin added ("added-12")
 type TemplateId = ReminderKind | `added-${number}`;
+const MAX_CHARS = 300;
+
 // Send Reminder (the user's design, 2026-11-07; from a card's bell and the ⋯ sheet's Reminders):
 // the member's card (status, days left, payment due, plan), Send via as tiles you can combine
 // (WhatsApp, SMS; Notification is coming soon: justFit has no push server), and the message, from
@@ -38,7 +41,9 @@ export function SendReminderSheet({ kind, member, gym, payment, onClose, onSent 
   const colors = useThemeColors();
   // Under 360 pt each stat takes the whole row: at a 45% share "Membership" and "Expires today"
   // were cut short (QA 2026-11-07, the 320 screenshots)
-  const narrow = useWindowDimensions().width < 360;
+  // Measured in text units, so a 360-wide phone at a larger system text size counts too (2026-11-08,
+  // a OnePlus at 1.15: "Members…" and "Payment …" were cut, and the Member ID)
+  const { compact: narrow } = useResponsive();
   const stat = narrow ? { flexBasis: "100%" as const } : undefined;
   const getToken = useSessionToken();
   // The branch's own wording from Reminder Templates once it arrives (null: justFit's defaults)
@@ -67,9 +72,13 @@ export function SendReminderSheet({ kind, member, gym, payment, onClose, onSent 
   const [queue, setQueue] = useState<(() => void)[]>([]);
   const afterConfirm = useRef<(() => void)[]>([]);
 
-  // justFit SMS: whether the server can send and the branch's credits, read when the sheet opens
-  const [status, setStatus] = useState<GymSms | "loading" | "error">("loading");
+  // justFit SMS: whether the server can send and the branch's credits, read when the sheet opens.
+  // A login without Bulk SMS isn't asked (the server refuses it): its SMS go from the phone's own
+  // Messages app (2026-11-08 audit: the 403 showed "Couldn't check credits" on every bell)
+  const canSendSms = useCan()("sms.send");
+  const [status, setStatus] = useState<GymSms | "loading" | "error" | "phone">(canSendSms ? "loading" : "phone");
   useEffect(() => {
+    if (!canSendSms) return;
     let live = true;
     (async () => {
       const answer = await gymApi.sms(await getToken().catch(() => null));
@@ -78,7 +87,7 @@ export function SendReminderSheet({ kind, member, gym, payment, onClose, onSent 
     return () => {
       live = false;
     };
-  }, [getToken]);
+  }, [getToken, canSendSms]);
 
   const say = (title: string, body: string) => {
     if (Platform.OS === "web") globalThis.alert?.(`${title}\n\n${body}`);
@@ -96,6 +105,7 @@ export function SendReminderSheet({ kind, member, gym, payment, onClose, onSent 
     : !smsKind ? "Your own template goes from your phone's Messages app"
     : ownWording ? "Your own template goes from your phone's Messages app"
     : !unedited ? "An edited message goes from your phone's Messages app"
+    : status === "phone" ? "Opens your phone's Messages app"
     : status === "error" ? "Couldn't check credits: opens your phone's Messages app"
     : !viaApp?.sending ? "SMS sending is off: opens your phone's Messages app"
     : "No credits left: opens your phone's Messages app";
@@ -191,20 +201,31 @@ export function SendReminderSheet({ kind, member, gym, payment, onClose, onSent 
         accessibilityState={{ checked: on, disabled: soon }}
         accessibilityLabel={soon ? "Notification, coming soon" : `Send by ${label}`}
       >
-        <View className="flex-row items-start justify-between">
-          <View className="gym-remind__tile-icon" style={{ backgroundColor: iconGround }}>
-            {icon === "whatsapp" ? <WhatsAppMark size={28} /> : <GymIcon name={icon} size={24} color={iconColor} />}
-          </View>
-          <View className={on ? "gym-remind__tick gym-remind__tick--on" : "gym-remind__tick"}>
-            {on && <GymIcon name="check" size={13} color={colors.white} />}
-          </View>
+        {/* The tick sits in the tile's corner and the one-word label shrinks to fit, so three
+            tiles fit a 320-point phone (2026-11-08 audit: the tick spilled out, "Notification" broke) */}
+        <View className="gym-remind__tile-icon" style={{ backgroundColor: iconGround }}>
+          {icon === "whatsapp" ? <WhatsAppMark size={28} /> : <GymIcon name={icon} size={24} color={iconColor} />}
         </View>
-        <Text className="gym-remind__tile-label" numberOfLines={2}>{label}</Text>
-        {soon && <Text className="gym-tx__meta" numberOfLines={2}>Coming soon</Text>}
+        <View className={on ? "gym-remind__tick gym-remind__tick--on gym-remind__tick--corner" : "gym-remind__tick gym-remind__tick--corner"}>
+          {on && <GymIcon name="check" size={13} color={colors.white} />}
+        </View>
+        <Text className="gym-remind__tile-label" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{label}</Text>
+        {/* One short tag on one line ("Coming soon" wrapped into two tiny lines, 2026-11-08) */}
+        {soon && (
+          <View className="gym-tag" style={{ backgroundColor: colors.gymBar }}>
+            <Text className="gym-tag__label" numberOfLines={1} style={{ color: colors.gymMuted }}>Soon</Text>
+          </View>
+        )}
       </PressableScale>
     );
   };
 
+  const statusPill = (
+    <View className="gym-mcard__status" style={{ backgroundColor: tone.ground }} accessibilityLabel={`Status: ${state.label}`}>
+      <View className="gym-mcard__dot" style={{ backgroundColor: tone.color }} />
+      <Text className="gym-mcard__status-label" style={{ color: tone.color }}>{state.label}</Text>
+    </View>
+  );
   return (
     <GymSheet
       onClose={onClose}
@@ -247,11 +268,9 @@ export function SendReminderSheet({ kind, member, gym, payment, onClose, onSent 
               <GymIcon name="id-card" size={16} color={colors.gymFaint} />
               <Text className="gym-mcard__code" numberOfLines={1} style={{ flexShrink: 1 }}>{member.code}</Text>
             </View>
+            {narrow && <View className="self-start">{statusPill}</View>}
           </View>
-          <View className="gym-mcard__status" style={{ backgroundColor: tone.ground }} accessibilityLabel={`Status: ${state.label}`}>
-            <View className="gym-mcard__dot" style={{ backgroundColor: tone.color }} />
-            <Text className="gym-mcard__status-label" style={{ color: tone.color }}>{state.label}</Text>
-          </View>
+          {!narrow && statusPill}
         </View>
         <View className="gym-remind__stats">
           <View className="gym-remind__stat" style={stat}>
@@ -305,9 +324,7 @@ export function SendReminderSheet({ kind, member, gym, payment, onClose, onSent 
             {templates.map((t) => {
               const selected = t.id === template;
               return (
-                <PressableScale key={t.id} onPress={() => pickTemplate(t.id)} className={selected ? "gym-kind gym-kind--selected" : "gym-kind"} accessibilityRole="radio" accessibilityState={{ selected }} accessibilityLabel={`Template: ${t.label}`}>
-                  <Text className={selected ? "gym-kind__label gym-kind__label--selected" : "gym-kind__label"}>{t.label}</Text>
-                </PressableScale>
+                <ChoiceChip key={t.id} onPress={() => pickTemplate(t.id)} selected={selected} label={t.label} accessibilityRole="radio" accessibilityState={{ selected }} accessibilityLabel={`Template: ${t.label}`} />
               );
             })}
           </View>

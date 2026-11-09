@@ -1,4 +1,5 @@
-import { Pressable, Text, useWindowDimensions, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
+import { useResponsive } from "@/lib/responsive";
 
 import { macroRows } from "@/components/macro/MacroSplit";
 import { Ring } from "@/components/macro/Ring";
@@ -20,8 +21,9 @@ type Props = {
 
 export function CaloriesCard({ totals, targets, onPress }: Props) {
   const colors = useThemeColors();
-  const { width } = useWindowDimensions();
-  const ring = width < 375 ? 128 : 148;
+  // The ring follows the screen width, between 128 and 160
+  const { scale } = useResponsive();
+  const ring = scale(148, { min: 128, max: 160 });
   const eaten = whole(totals.kcal);
   const over = eaten > targets.kcal;
   const left = Math.abs(targets.kcal - eaten);
@@ -63,14 +65,16 @@ export function CaloriesCard({ totals, targets, onPress }: Props) {
   );
 }
 
-// One macro: "Protein 52/120g" over a thin bar that eases to its new width
+// One macro: "Protein" over "52/120g" over a thin bar that eases to its new width. Always stacked:
+// side by side, each column wrapped on its own, so Protein and Carbs broke onto two lines while Fat
+// stayed on one and the three bars sat at different heights (the owner's photo, 2026-11-08)
 function MacroColumn({ label, color, value, target }: { label: string; color: string; value: number; target: number }) {
   const width = useTween(target > 0 ? Math.min(100, (value / target) * 100) : 0);
   return (
     <View className="min-w-0 flex-1" style={{ gap: 8 }} accessibilityLabel={`${label} ${value} of ${target} grams`}>
-      <View className="flex-row flex-wrap items-baseline justify-between" style={{ columnGap: 4 }}>
+      <View style={{ gap: 2 }}>
         <Text className="macro__bar-value" numberOfLines={1}>{label}</Text>
-        <AnimatedNumber className="macro__stat-label" numberOfLines={1}>{`${value}/${target}g`}</AnimatedNumber>
+        <AnimatedNumber className="macro__stat-label" numberOfLines={1} adjustsFontSizeToFit>{`${value}/${target}g`}</AnimatedNumber>
       </View>
       <View className="macro__track">
         <View className="h-full rounded-pill" style={{ width: `${width}%`, backgroundColor: color }} />

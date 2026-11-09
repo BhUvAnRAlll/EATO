@@ -24,9 +24,9 @@ export default function GymSale() {
   return (
     <GymScreen title="Product">
       <CatalogPicks kind="product" label="From your products" selected={picked} onPick={(i) => { setPicked(i.id); setItem(i.name); setAmount(String(i.price)); }} />
-      <GymField label="Item" value={item} onChangeText={(t) => { setPicked(null); setItem(t); }} maxLength={80} placeholder="For example: Whey Protein 1kg" />
+      <GymField label="Item" icon="package" pinLabel value={item} onChangeText={(t) => { setPicked(null); setItem(t); }} maxLength={80} placeholder="For example: Whey Protein 1kg" />
       <GymChips label="Type" options={SALE_CATEGORIES.map((c) => ({ value: c.id, label: c.label }))} value={category} onChange={setCategory} />
-      <GymField label="Amount (₹)" value={amount} onChangeText={(t) => { setPicked(null); setAmount(amountInput(t)); }} keyboardType="number-pad" placeholder="3200" />
+      <GymField label="Amount (₹)" icon="banknote" pinLabel value={amount} onChangeText={(t) => { setPicked(null); setAmount(amountInput(t)); }} keyboardType="number-pad" placeholder="3200" />
       <GymChips label="Paid by" options={(["online", "cash"] as const).map((m) => ({ value: m, label: METHOD_LABEL[m] }))} value={method} onChange={setMethod} />
       {error ? <FormAlert message={error} /> : null}
       <SaveButton label="Save product sale" ready={ready} busy={busy} onPress={() => save((token) => gymApi.sale(token, { item: item.trim(), category, amount: value, method }))} />

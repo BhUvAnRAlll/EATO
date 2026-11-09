@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { Text, useWindowDimensions, View } from "react-native";
+import { Text, View } from "react-native";
 
 import { PressableScale } from "@/components/PressableScale";
 import { GymIcon } from "@/components/gym/GymIcon";
@@ -18,6 +18,7 @@ import {
 } from "@/lib/gymApi";
 import { useGymData } from "@/lib/useGymData";
 import { useThemeColors } from "@/theme";
+import { useResponsive } from "@/lib/responsive";
 
 // Home › Due Members (the user's design): everyone who owes money, each with their ID (PT when on
 // personal training), days left on their plan and what they owe; the bell opens Send Reminder
@@ -49,7 +50,7 @@ export function DueMembersSheet({
           ? { bg: colors.gymSuccessSoft, ink: colors.gymSuccess }
           : { bg: colors.gymBar, ink: colors.gymMuted };
   // Narrow phones: smaller round buttons, so the name and ID keep their room
-  const narrow = useWindowDimensions().width < 360;
+  const { compact: narrow } = useResponsive();
   const btn = narrow
     ? { width: 30, height: 30, borderRadius: 9 }
     : { width: 36, height: 36 };
@@ -137,12 +138,12 @@ export function DueMembersSheet({
                   </View>
                 )}
                 <View className="min-w-0 flex-1" style={{ gap: 3 }}>
-                  <Text className="gym-tx__name" numberOfLines={1}>
+                  <Text className="gym-tx__name" numberOfLines={2}>
                     {m.name}
                   </Text>
                   <View className="flex-row items-center" style={{ gap: 6 }}>
                     <GymIcon name="id-card" size={13} color={colors.gymMuted} />
-                    <Text className="gym-tx__meta" numberOfLines={1}>
+                    <Text className="gym-tx__meta" numberOfLines={1} style={{ flexShrink: 1 }}>
                       {m.code}
                     </Text>
                     {m.pt?.active && (
@@ -175,8 +176,10 @@ export function DueMembersSheet({
                       </Text>
                     </View>
                   </View>
+                  {/* Names and reasons get more lines: beside the bell and ⋯ they were cut off on a
+                      360-wide phone at its larger text (2026-11-08) */}
                   {pay.reasons ? (
-                    <Text className="gym-tx__meta" numberOfLines={2}>
+                    <Text className="gym-tx__meta" numberOfLines={4}>
                       {pay.reasons}
                     </Text>
                   ) : null}

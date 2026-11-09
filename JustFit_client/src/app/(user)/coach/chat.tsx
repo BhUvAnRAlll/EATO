@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View, type ScrollViewInstance } from "react-native";
+import { ActivityIndicator, Keyboard, Platform, Pressable, ScrollView, Text, TextInput, View, type ScrollViewInstance } from "react-native";
 import Animated, { FadeIn, FadeInDown, ReduceMotion } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
@@ -21,6 +21,7 @@ import { useVoiceInput } from "@/lib/useVoiceInput";
 import { mergeTranscript } from "@/lib/voiceInputRules";
 import { proposalsFor, useCoachChatStore } from "@/store/coachChat";
 import { useThemeColors } from "@/theme";
+import { KeyboardAvoider } from "@/components/KeyboardAvoider";
 
 // A bubble that's new on screen: the member's rises in from the ask box, the coach's fades up
 const SENT_IN = FadeInDown.duration(320).reduceMotion(ReduceMotion.System);
@@ -145,8 +146,8 @@ export default function CoachChat() {
       <StatusBar style="auto" />
       <SafeAreaView style={{ flex: 1 }} edges={["top", "left", "right", "bottom"]}>
         <View className="flex-row items-center gap-3 px-4 pb-3 pt-2">
-          <Pressable onPress={back} className="coach__circle-btn" accessibilityRole="button" accessibilityLabel="Back">
-            <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={18} tintColor={colors.forestInk} />
+          <Pressable onPress={back} className="screen-bar__back" accessibilityRole="button" accessibilityLabel="Back">
+            <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={20} tintColor={colors.ink} />
           </Pressable>
           {coachId && <CoachAvatar coach={coachId} size={40} />}
           <View className="flex-1">
@@ -155,7 +156,7 @@ export default function CoachChat() {
           </View>
         </View>
 
-        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+        <KeyboardAvoider>
           <ScrollView
             ref={scroll}
             contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 12, gap: 12 }}
@@ -276,7 +277,7 @@ export default function CoachChat() {
               <TextInput
                 value={text}
                 onChangeText={setText}
-                placeholder={voice.listening ? "Speak now…" : voice.transcribing ? "One moment…" : "Ask your coach..."}
+                placeholder={voice.listening ? "Speak now…" : voice.transcribing ? "One moment…" : "Ask anything…"}
                 placeholderTextColor={colors.faint}
                 maxLength={CHAT_MAX_TEXT}
                 multiline
@@ -314,7 +315,7 @@ export default function CoachChat() {
               </View>
             )}
           </View>
-        </KeyboardAvoidingView>
+        </KeyboardAvoider>
       </SafeAreaView>
     </View>
   );

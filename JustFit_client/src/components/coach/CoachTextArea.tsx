@@ -11,7 +11,8 @@ type CoachTextAreaProps = {
   minHeight?: number;
 };
 
-// A multi-line text field on the coach screens: pink-tinted with a soft pink edge. TextInput
+// A multi-line text field on the coach screens: a white field with a thin edge, so it reads as a
+// field on the grey page. TextInput
 // takes inline styles (see AGENTS.md); outline-none turns off the browser's focus ring on the web.
 export function CoachTextArea({ value, onChangeText, placeholder, accessibilityLabel, minHeight = 120 }: CoachTextAreaProps) {
   const colors = useThemeColors();
@@ -27,10 +28,10 @@ export function CoachTextArea({ value, onChangeText, placeholder, accessibilityL
       style={{
         minHeight,
         padding: 14,
-        borderRadius: 16,
+        borderRadius: 12,
         borderWidth: 1,
-        borderColor: colors.accentSoft,
-        backgroundColor: colors.coachWash,
+        borderColor: colors.creamLine,
+        backgroundColor: colors.surface,
         color: colors.forestInk,
         fontFamily: fonts.regular,
         fontSize: 15,

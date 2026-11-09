@@ -15,9 +15,11 @@ type OptionCardProps = {
   // "row": icon, text, radio in a line. "tile": small stacked tile (diet, workout).
   // "grid": a tall tile for a 2 × 2 choice (fitness goal), icon in a circle above the label
   layout?: "row" | "tile" | "grid";
+  // Tiles only: two to a line in a wrapping row (narrow phones), so labels never break mid-word
+  twoUp?: boolean;
 };
 
-export function OptionCard({ label, description, icon, selected, onPress, layout = "row" }: OptionCardProps) {
+export function OptionCard({ label, description, icon, selected, onPress, layout = "row", twoUp = false }: OptionCardProps) {
   const colors = useThemeColors();
   const cardClass = selected ? "setup__card setup__card--selected" : "setup__card";
   const tint = selected ? colors.leaf : colors.inkSoft;
@@ -51,7 +53,7 @@ export function OptionCard({ label, description, icon, selected, onPress, layout
 
   if (layout === "tile") {
     return (
-      <PressableScale haptic="select" onPress={onPress} className={`${cardClass} flex-1 items-center gap-2 py-3.5`} accessibilityRole="radio" accessibilityState={{ checked: selected }} accessibilityLabel={label}>
+      <PressableScale haptic="select" onPress={onPress} className={`${cardClass} ${twoUp ? "" : "flex-1"} items-center gap-2 py-3.5`} style={twoUp ? { flexGrow: 1, flexBasis: "40%" } : undefined} accessibilityRole="radio" accessibilityState={{ checked: selected }} accessibilityLabel={label}>
         {icon && <SymbolView name={icon} size={22} tintColor={tint} />}
         <Text className="setup__card-text text-center" style={{ color: tint, fontFamily: selected ? fonts.semibold : fonts.medium }}>
           {label}

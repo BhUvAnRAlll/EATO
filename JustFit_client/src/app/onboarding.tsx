@@ -3,7 +3,6 @@ import {
   FlatList,
   Pressable,
   Text,
-  useWindowDimensions,
   View,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
@@ -17,6 +16,7 @@ import { useReducedMotion } from "react-native-reanimated";
 
 import { BrandWordmark } from "@/components/BrandWordmark";
 import { onboardingSlides, type OnboardingSlide } from "@/data/onboarding";
+import { useResponsive } from "@/lib/responsive";
 import { useThemeColors } from "@/theme";
 
 // Slides advance on their own this often (ms), always moving forward
@@ -25,6 +25,9 @@ const AUTO_ADVANCE_MS = 1800;
 const SLIDE_ANIMATION_MS = 500;
 // Space between the food image and the screen edges
 const ART_PADDING = 20;
+// The photo is a rounded card below the text (its cream background reads as a card, not a box)
+const ART_GAP = 12;
+const ART_RADIUS = 24;
 
 // Endless forward loop: a copy of slide 1 sits after the last slide. We slide
 // forward onto the copy, then jump (without animation) to the real slide 1.
@@ -33,7 +36,7 @@ const loopSlides = [...onboardingSlides, { ...onboardingSlides[0], id: `${onboar
 
 export default function Onboarding() {
   const colors = useThemeColors();
-  const { width } = useWindowDimensions();
+  const { width } = useResponsive();
   const listRef = useRef<FlatList<OnboardingSlide>>(null);
   const [index, setIndex] = useState(0);
   // The slides hold still with Reduce Motion on, and stop once Sign up is open over this screen
@@ -101,8 +104,7 @@ export default function Onboarding() {
           className="flex-1"
           renderItem={({ item }) => (
             <View style={{ width, height: listHeight > 0 ? listHeight : undefined }} className="flex-1">
-              {/* Above the art, which tucks under the text (negative margin) and has a white edge */}
-              <View className={short ? "px-9 pt-4" : "px-9 pt-7"} style={{ zIndex: 1 }}>
+              <View className={short ? "px-9 pt-4" : "px-9 pt-7"}>
                 <Text className="onboarding__title" style={short ? { fontSize: 30, lineHeight: 34 } : undefined}>
                   {item.title}
                 </Text>
@@ -112,11 +114,12 @@ export default function Onboarding() {
               </View>
               <Image
                 source={item.art}
-                contentFit="contain"
-                contentPosition="top"
+                contentFit="cover"
+                contentPosition="center"
                 style={{
                   width: artWidth,
-                  marginTop: -item.artOverlap,
+                  marginTop: ART_GAP,
+                  borderRadius: ART_RADIUS,
                   marginHorizontal: ART_PADDING,
                   ...(short
                     ? { height: Math.max(120, Math.min(Math.round(artWidth / item.artRatio), Math.round(listHeight * 0.45))) }

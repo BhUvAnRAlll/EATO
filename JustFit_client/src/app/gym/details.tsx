@@ -1,6 +1,5 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Text, View } from "react-native";
-import { router } from "expo-router";
 
 import { FormAlert } from "@/components/FormAlert";
 import { GymField } from "@/components/gym/GymField";
@@ -11,7 +10,7 @@ import { PressableScale } from "@/components/PressableScale";
 import { GymScreen } from "@/components/gym/GymScreen";
 import { SaveButton } from "@/components/gym/SaveButton";
 import { phoneInput } from "@/data/gymDashboard";
-import { gymApi, type GymDashboard, type InvoiceDetailFields, type InvoiceDetails } from "@/lib/gymApi";
+import { gymApi, type GymDashboard, type GymInfo, type InvoiceDetailFields, type InvoiceDetails } from "@/lib/gymApi";
 import { useGymSave } from "@/lib/gymForm";
 import { pickLogoImage, type PhotoSource } from "@/lib/gymPhoto";
 import { useThemeColors } from "@/theme";
@@ -68,11 +67,18 @@ function InvoiceFields({ saved }: { saved: InvoiceDetails }) {
     setLogoVersion((v) => v + 1);
     setLogoNote(data.logoUrl ? "Logo saved. It prints at the top right of every invoice." : "Logo removed.");
   });
+  // A ref, so a double tap can't open two pickers (busy is only set once the upload starts)
+  const picking = useRef(false);
   const chooseLogo = async (source: PhotoSource) => {
-    if (logoSave.busy) return;
+    if (logoSave.busy || picking.current) return;
+    picking.current = true;
     setLogoError("");
     setLogoNote("");
-    const picked = await pickLogoImage(source);
+    const picked = await pickLogoImage(source)
+      .catch(() => ({ ok: false as const, error: "Couldn't open the camera or gallery. Please try again." }))
+      .finally(() => {
+        picking.current = false;
+      });
     if (!picked.ok) {
       if (!("cancelled" in picked)) setLogoError(picked.error);
       return;
@@ -98,11 +104,11 @@ function InvoiceFields({ saved }: { saved: InvoiceDetails }) {
 
   return (
     <>
-      <Text className="gym-section-title" style={{ marginTop: 8 }}>Invoice details</Text>
+      <Text className="gym-page-section" style={{ marginTop: 8 }}>Invoice details</Text>
       <Text className="gym-tx__meta">Printed on every invoice. Leave a field empty to keep it off the invoice.</Text>
-      <GymField label="Address" value={address} onChangeText={(t) => { setAddress(t); setDone(false); }} maxLength={160} placeholder="For example: 12, 1st Main Road, SS Puram" />
-      <GymField label="Mobile number" value={phone} onChangeText={(t) => { setPhone(phoneInput(t)); setDone(false); }} keyboardType="phone-pad" placeholder="10 digits" hint={phoneOk ? undefined : "Enter a 10-digit Indian mobile number."} />
-      <GymField label="GSTIN" value={gstin} onChangeText={(t) => { setGstin(t); setDone(false); }} autoCapitalize="characters" maxLength={15} placeholder="For example: 29ABCDE1234F1Z5" hint={gstinOk ? undefined : "A GSTIN is 15 characters, like 29ABCDE1234F1Z5."} />
+      <GymField label="Address" icon="map-pin" pinLabel value={address} onChangeText={(t) => { setAddress(t); setDone(false); }} maxLength={160} placeholder="For example: 12, 1st Main Road, SS Puram" />
+      <GymField label="Mobile number" icon="phone" pinLabel value={phone} onChangeText={(t) => { setPhone(phoneInput(t)); setDone(false); }} keyboardType="phone-pad" placeholder="10 digits" hint={phoneOk ? undefined : "Enter a 10-digit Indian mobile number."} />
+      <GymField label="GSTIN" icon="receipt-text" pinLabel value={gstin} onChangeText={(t) => { setGstin(t); setDone(false); }} autoCapitalize="characters" maxLength={15} placeholder="For example: 29ABCDE1234F1Z5" hint={gstinOk ? undefined : "A GSTIN is 15 characters, like 29ABCDE1234F1Z5."} />
       {error ? <FormAlert message={error} /> : null}
       {done && !error ? <Text className="gym-tx__meta" style={{ textAlign: "center" }}>Saved. New invoices carry these details.</Text> : null}
       <SaveButton label="Save invoice details" ready={ready} busy={busy} onPress={() => save((token) => gymApi.updateInvoiceDetails(token, changes))} />
@@ -143,22 +149,28 @@ function DetailsForm({ gym }: { gym: GymDashboard["gym"] }) {
   const [branch, setBranch] = useState(gym.branch);
   const [area, setArea] = useState(gym.area);
   const [city, setCity] = useState(gym.city);
-  const { busy, error, save } = useGymSave(() => router.back());
+  // What the server holds now. Saving stays on this screen (a HUD line says so), so unsaved
+  // invoice details below aren't lost and a screen opened from a link has nowhere to go back to
+  const [current, setCurrent] = useState({ branch: gym.branch, area: gym.area, city: gym.city });
+  const { busy, error, save } = useGymSave(
+    (data: { gym: GymInfo }) => setCurrent({ branch: data.gym.branch, area: data.gym.area, city: data.gym.city }),
+    "Branch details saved",
+  );
 
   // Only what changed is sent
   const changes: { branch?: string; area?: string; city?: string } = {};
-  if (branch.trim() !== gym.branch) changes.branch = branch.trim();
-  if (area.trim() !== gym.area) changes.area = area.trim();
-  if (city.trim() !== gym.city) changes.city = city.trim();
+  if (branch.trim() !== current.branch) changes.branch = branch.trim();
+  if (area.trim() !== current.area) changes.area = area.trim();
+  if (city.trim() !== current.city) changes.city = city.trim();
   const valid = [branch, area, city].every((v) => v.trim().length >= 2);
   const ready = valid && Object.keys(changes).length > 0;
 
   return (
     <>
-      <Text className="gym-section-title">{`${gym.name} branch`}</Text>
-      <GymField label="Branch name" value={branch} onChangeText={setBranch} maxLength={80} placeholder="For example: Tumkur" />
-      <GymField label="Area" value={area} onChangeText={setArea} maxLength={80} placeholder="For example: Anna Nagar" />
-      <GymField label="City" value={city} onChangeText={setCity} maxLength={60} placeholder="For example: Chennai" />
+      <Text className="gym-page-section">{`${gym.name} branch`}</Text>
+      <GymField label="Branch name" icon="store" pinLabel value={branch} onChangeText={setBranch} maxLength={80} placeholder="For example: Tumkur" />
+      <GymField label="Area" icon="map-pin" pinLabel value={area} onChangeText={setArea} maxLength={80} placeholder="For example: Anna Nagar" />
+      <GymField label="City" icon="layers" pinLabel value={city} onChangeText={setCity} maxLength={60} placeholder="For example: Chennai" />
       {error ? <FormAlert message={error} /> : null}
       <SaveButton label="Save" ready={ready} busy={busy} onPress={() => save((token) => gymApi.updateDetails(token, changes))} />
     </>

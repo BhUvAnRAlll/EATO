@@ -1,9 +1,11 @@
 import type { ReactNode } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { SymbolView } from "@/components/SymbolView";
 import { router } from "expo-router";
+
+import { ScreenHeader } from "@/components/ScreenHeader";
 
 import type { Icon } from "@/types/profile";
 import { useThemeColors } from "@/theme";
@@ -28,17 +30,7 @@ export function PlaceholderScreen({ title, subtitle, icon, children, showBack = 
     <View className="flex-1 bg-cream">
       <StatusBar style="auto" />
       <SafeAreaView style={{ flex: 1 }} edges={["top", "left", "right"]}>
-        <View className="screen-bar">
-          {canGoBack ? (
-            <Pressable onPress={() => router.back()} className="screen-bar__back" accessibilityRole="button" accessibilityLabel="Back">
-              <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={20} tintColor={colors.ink} />
-            </Pressable>
-          ) : (
-            <View className="screen-bar__spacer" />
-          )}
-          <Text className="screen-bar__title">{title}</Text>
-          <View className="screen-bar__spacer" />
-        </View>
+        <ScreenHeader title={title} showBack={canGoBack} />
 
         <ScrollView contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 16, paddingBottom: 24 }} showsVerticalScrollIndicator={false}>
           <View className="flex-1 items-center justify-center gap-3 py-10">

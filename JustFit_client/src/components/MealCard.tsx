@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Pressable, Text, View } from "react-native";
 
 import { SymbolView } from "@/components/SymbolView";
+import { useResponsive } from "@/lib/responsive";
 import { useThemeColors } from "@/theme";
 
 type Totals = { kcal: number; proteinG: number; carbsG: number; fatG: number };
@@ -29,23 +30,28 @@ const round = (n: number) => Math.round(n);
 // other buttons passes them as `before` / `after` (each its own button, never nested).
 export function MealCard({ label, time, title, foods, totals, onDetails, before, after }: MealCardProps) {
   const colors = useThemeColors();
+  // One row of buttons on every phone, the same on iPhone and Android (the owner's request,
+  // 2026-11-08); only a very small screen or very large text (under 300 text units) stacks Log Meal
+  const { units } = useResponsive();
+  const stack = units < 300;
   const foodLine = foods.join(", ");
   const macros: [string, number][] = [["P", totals.proteinG], ["C", totals.carbsG], ["F", totals.fatG]];
   return (
     <View className="coach__meal-card">
       <Pressable onPress={onDetails} style={{ gap: 6 }} accessibilityRole="button" accessibilityLabel={`${label} at ${time}: ${title}, ${round(totals.kcal)} kcal. View meal`}>
-        <View className="flex-row flex-wrap items-center justify-between" style={{ gap: 8 }}>
-          <View className="flex-row items-center" style={{ gap: 8 }}>
+        {/* The slot and time on the left (they may wrap), the calories always at the top right */}
+        <View className="flex-row items-start justify-between" style={{ gap: 8 }}>
+          <View className="min-w-0 flex-1 flex-row flex-wrap items-center" style={{ gap: 8 }}>
             <View className="coach__slot-pill">
-              <Text className="coach__slot-pill-label">{label}</Text>
+              <Text className="coach__slot-pill-label" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{label}</Text>
             </View>
             <View className="flex-row items-center" style={{ gap: 4 }}>
               <SymbolView name={{ ios: "clock", android: "schedule", web: "schedule" }} size={12} tintColor={colors.faint} />
               <Text className="home__note">{time}</Text>
             </View>
           </View>
-          <View className="flex-row items-center" style={{ gap: 6 }}>
-            <Text className="coach__meal-kcal">{`${round(totals.kcal)} kcal`}</Text>
+          <View className="flex-row items-center" style={{ gap: 6, minHeight: 28 }}>
+            <Text className="coach__meal-kcal" numberOfLines={1}>{`${round(totals.kcal).toLocaleString("en-IN")} kcal`}</Text>
             <SymbolView name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }} size={14} tintColor={colors.faint} />
           </View>
         </View>
@@ -59,13 +65,16 @@ export function MealCard({ label, time, title, foods, totals, onDetails, before,
           ))}
         </View>
       </Pressable>
-      <View className="flex-row flex-wrap items-center justify-end" style={{ gap: 10 }}>
-        {before}
-        <Pressable onPress={onDetails} className="coach__log coach__log--meal coach__log--done" accessibilityRole="button" accessibilityLabel={`View ${title}`}>
-          <Text className="coach__log-label coach__log-label--done">View meal</Text>
-          <SymbolView name={{ ios: "chevron.up", android: "expand_less", web: "expand_less" }} size={12} tintColor={colors.leaf} />
-        </Pressable>
-        {after}
+      <View style={{ gap: 10 }}>
+        <View className="flex-row items-center justify-end" style={{ gap: 8 }}>
+          {before}
+          <Pressable onPress={onDetails} className="coach__log coach__log--meal coach__log--done" accessibilityRole="button" accessibilityLabel={`View ${title}`}>
+            <Text className="coach__log-label coach__log-label--done" numberOfLines={1}>View meal</Text>
+            <SymbolView name={{ ios: "chevron.up", android: "expand_less", web: "expand_less" }} size={12} tintColor={colors.leaf} />
+          </Pressable>
+          {after && !stack ? after : null}
+        </View>
+        {after && stack ? after : null}
       </View>
     </View>
   );

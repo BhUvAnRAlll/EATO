@@ -12,7 +12,7 @@ import { GymScreen } from "@/components/gym/GymScreen";
 import { EditProfileSheet } from "@/components/gym/EditProfileSheet";
 import { MemberActionsSheet } from "@/components/gym/MemberActionsSheet";
 import { PaymentRow } from "@/components/gym/PaymentRow";
-import { GENDER_LABEL, STATUS_LABEL, initialsOf, memberPlanText, phoneText, rupees, shortDate } from "@/data/gymDashboard";
+import { GENDER_LABEL, STATUS_LABEL, initialsOf, memberPlanText, phoneText, ptPackageText, rupees, shortDate } from "@/data/gymDashboard";
 import { gymApi, type GymInfo, type GymMemberDetail } from "@/lib/gymApi";
 import { durationText } from "@/lib/attendanceText";
 import { useGymSave } from "@/lib/gymForm";
@@ -71,7 +71,7 @@ export default function GymMember() {
       {options && gym && <MemberActionsSheet member={member} payments={payments} gym={gym} onMemberPage onClose={() => setOptions(false)} onChanged={(detail) => { set(detail); setOptions(false); }} />}
       {editing && <EditProfileSheet member={member} onClose={() => setEditing(false)} onSaved={(detail) => { set(detail); setEditing(false); }} />}
       <View className="gym-card p-4" style={{ gap: 12 }}>
-        <View className="flex-row items-center" style={{ gap: 12 }}>
+        <View className="flex-row items-start" style={{ gap: 12 }}>
           <View className="gym-avatar" style={{ width: 52, height: 52 }}>
             <Text className="gym-avatar__label">{initialsOf(member.name)}</Text>
             <MemberPhotoImage url={member.photoUrl} />
@@ -81,24 +81,32 @@ export default function GymMember() {
             <Text className="gym-tx__meta" style={{ color: colors.gymPrimaryText }} accessibilityLabel={`Member ID ${member.code}`}>{member.code}</Text>
             <Text className="gym-tx__meta">{member.phone ? phoneText(member.phone) : "No phone number"}</Text>
             {member.gender ? <Text className="gym-tx__meta">{GENDER_LABEL[member.gender]}</Text> : null}
-            {[member.heightCm ? `${member.heightCm} cm` : null, member.weightKg ? `${member.weightKg} kg` : null, member.email].filter(Boolean).length > 0 ? (
-              <Text className="gym-tx__meta" numberOfLines={2}>{[member.heightCm ? `${member.heightCm} cm` : null, member.weightKg ? `${member.weightKg} kg` : null, member.email].filter(Boolean).join(" · ")}</Text>
+            {/* Height and weight share a line (each kept whole, so a "·" never ends a line); the
+                email has a line of its own and never breaks mid-word (2026-11-08) */}
+            {member.heightCm || member.weightKg ? (
+              <Text className="gym-tx__meta" numberOfLines={1}>{[member.heightCm ? `${member.heightCm} cm` : null, member.weightKg ? `${member.weightKg} kg` : null].filter(Boolean).join(" · ")}</Text>
             ) : null}
+            {member.email ? <Text className="gym-tx__meta" numberOfLines={1} ellipsizeMode="middle">{member.email}</Text> : null}
             {member.address ? <Text className="gym-tx__meta" numberOfLines={2}>{member.address}</Text> : null}
             {member.notes ? <Text className="gym-tx__meta" numberOfLines={3}>{`Note: ${member.notes}`}</Text> : null}
             {member.birthdayToday ? <Text className="gym-tx__meta" style={{ color: colors.gymPrimaryText }}>Birthday today</Text> : member.dob ? <Text className="gym-tx__meta">{`Born ${shortDate(member.dob)}`}</Text> : null}
           </View>
-          {can("members.edit") && <PressableScale onPress={() => setEditing(true)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Edit profile">
+          {can("members.edit") && <PressableScale onPress={() => setEditing(true)} hitSlop={8} style={{ paddingTop: 2 }} accessibilityRole="button" accessibilityLabel="Edit profile">
             <Text className="gym-link">Edit</Text>
           </PressableScale>}
         </View>
         <View className="gym-summary">
-          <View className="flex-row items-center justify-between">
-            <Text className="gym-tx__meta">{memberPlanText(member)}</Text>
+          <View className="flex-row items-center justify-between" style={{ gap: 8 }}>
+            <Text className="gym-tx__meta min-w-0 flex-1" numberOfLines={2}>{memberPlanText(member)}</Text>
             <Text className="gym-tag__label" style={{ color: statusColor }}>{STATUS_LABEL[member.status]}</Text>
           </View>
           <Text className="gym-tx__name">{`Until ${shortDate(member.expiresOn)}`}</Text>
-          <Text className="gym-tx__meta">{`Joined ${shortDate(member.joinedOn)} · ${member.visitsThisMonth} ${member.visitsThisMonth === 1 ? "visit" : "visits"} this month${member.lastVisit ? ` · last ${shortDate(member.lastVisit)}` : ""}`}</Text>
+          {/* Each fact its own piece, so a wrap never leaves a "·" at the end of a line */}
+          <View className="flex-row flex-wrap" style={{ columnGap: 4 }}>
+            <Text className="gym-tx__meta">{`Joined ${shortDate(member.joinedOn)}`}</Text>
+            <Text className="gym-tx__meta">{`· ${member.visitsThisMonth} ${member.visitsThisMonth === 1 ? "visit" : "visits"} this month`}</Text>
+            {member.lastVisit ? <Text className="gym-tx__meta">{`· last ${shortDate(member.lastVisit)}`}</Text> : null}
+          </View>
           <Text className="gym-tx__name" style={{ color: member.due > 0 ? colors.gymDanger : colors.gymSuccess }}>{member.due > 0 ? `Due ${rupees(member.due)}${member.dueBy ? ` · pay by ${shortDate(member.dueBy)}` : ""}` : "No dues"}</Text>
           {member.overdue ? <Text className="gym-tag__label" style={{ color: colors.gymDanger }}>Overdue: the payment date has passed</Text> : null}
           {member.pause ? (
@@ -113,7 +121,7 @@ export default function GymMember() {
         {member.pt ? (
           <View className="gym-summary" accessibilityLabel={`Personal training: ${member.pt.label}, ${member.pt.active ? "active" : "ended"}, ${shortDate(member.pt.from)} to ${shortDate(member.pt.until)}${member.pt.trainer ? `, with ${member.pt.trainer.name}` : ""}`}>
             <View className="flex-row items-center justify-between" style={{ gap: 8 }}>
-              <Text className="gym-tx__meta min-w-0 flex-1" numberOfLines={1}>{`PT · ${member.pt.label}`}</Text>
+              <Text className="gym-tx__meta min-w-0 flex-1" numberOfLines={1}>{ptPackageText(member.pt.label)}</Text>
               <Text className="gym-tag__label" style={{ color: member.pt.active ? colors.gymSuccess : colors.gymDanger }}>{member.pt.active ? "Active" : "Ended"}</Text>
             </View>
             <Text className="gym-tx__name">{`${shortDate(member.pt.from)} to ${shortDate(member.pt.until)}`}</Text>
@@ -144,15 +152,17 @@ export default function GymMember() {
           <Text className="gym-link">Attendance history</Text>
         </PressableScale>
       )}
+      {/* Three buttons share the row: their side padding is small and a label shrinks to fit
+          rather than cutting off ("Pay d…" at a 360-wide phone's larger text, 2026-11-08) */}
       <View className="flex-row flex-wrap" style={{ gap: 10 }}>
         {can("payments.pt") && (
-        <PressableScale onPress={() => router.push({ pathname: "/gym/members/[id]/pt", params: { id: String(memberId) } })} className="gym-btn gym-btn--outline flex-1" accessibilityRole="button" accessibilityLabel="Personal training payment">
-          <Text className="gym-btn__label gym-btn__label--outline">PT</Text>
+        <PressableScale onPress={() => router.push({ pathname: "/gym/members/[id]/pt", params: { id: String(memberId) } })} className="gym-btn gym-btn--outline flex-1" style={{ paddingHorizontal: 8 }} accessibilityRole="button" accessibilityLabel="Personal training payment">
+          <Text className="gym-btn__label gym-btn__label--outline" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>PT</Text>
         </PressableScale>
         )}
         {can("members.renew") && (
-        <PressableScale onPress={() => router.push({ pathname: "/gym/members/[id]/renew", params: { id: String(memberId) } })} className="gym-btn gym-btn--outline flex-1" accessibilityRole="button" accessibilityLabel="Renew plan">
-          <Text className="gym-btn__label gym-btn__label--outline">Renew</Text>
+        <PressableScale onPress={() => router.push({ pathname: "/gym/members/[id]/renew", params: { id: String(memberId) } })} className="gym-btn gym-btn--outline flex-1" style={{ paddingHorizontal: 8 }} accessibilityRole="button" accessibilityLabel="Renew plan">
+          <Text className="gym-btn__label gym-btn__label--outline" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>Renew</Text>
         </PressableScale>
         )}
         {can("payments.collect") && (
@@ -160,16 +170,16 @@ export default function GymMember() {
           onPress={() => router.push({ pathname: "/gym/members/[id]/due", params: { id: String(memberId) } })}
           disabled={member.due === 0}
           className="gym-btn gym-btn--outline flex-1"
-          style={{ opacity: member.due === 0 ? 0.5 : 1 }}
+          style={{ opacity: member.due === 0 ? 0.5 : 1, paddingHorizontal: 8 }}
           accessibilityRole="button"
           accessibilityLabel="Collect due"
         >
-          <Text className="gym-btn__label gym-btn__label--outline" numberOfLines={1}>Pay due</Text>
+          <Text className="gym-btn__label gym-btn__label--outline" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>Pay due</Text>
         </PressableScale>
         )}
       </View>
 
-      <Text className="gym-section-title" accessibilityRole="header">Payments</Text>
+      <Text className="gym-page-section" accessibilityRole="header">Payments</Text>
       {payments.length === 0 ? <Text className="gym-tx__meta">No payments yet.</Text> : <View style={{ gap: 10 }}>{payments.map((p) => <PaymentRow key={p.id} payment={p} invoice />)}</View>}
     </GymScreen>
   );

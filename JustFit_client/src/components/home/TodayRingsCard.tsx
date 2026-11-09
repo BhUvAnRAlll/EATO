@@ -59,7 +59,7 @@ export function TodayRingsCard({ heading, nutrition, water, width, onOpen }: Tod
             </ProgressRing>
             <View className="items-center">
               <Text className="home__ring-label">{ring.label}</Text>
-              <Text className="home__ring-of" numberOfLines={1}>{ring.of}</Text>
+              <Text className="home__ring-of" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>{ring.of}</Text>
             </View>
           </View>
         ))}

@@ -183,6 +183,7 @@ export function AddMemberSheet({ onClose, onSaved, initial }: { onClose: () => v
       title="Add New Member"
       subtitle="Add member profile."
       onClose={onClose}
+      scrollKey={step}
       overlay={confirming ? <ConfirmDialog rows={rows} onEdit={() => setConfirming(false)} onConfirm={submit} busy={busy} /> : null}
       onDismissOverlay={() => setConfirming(false)}
       stack={
@@ -292,13 +293,13 @@ export function AddMemberSheet({ onClose, onSaved, initial }: { onClose: () => v
             {plans.map((p) => {
               const selected = p.id === planId;
               return (
-                <PressableScale key={p.id} onPress={() => { haptic.select(); setPlanId(p.id); }} className={selected ? "gym-kind gym-kind--selected" : "gym-kind"} style={{ minHeight: 36, paddingHorizontal: 14 }} accessibilityRole="radio" accessibilityState={{ selected }} accessibilityLabel={`${p.name}, ${rupees(p.price)}`}>
+                <PressableScale hitSlop={4} key={p.id} onPress={() => { haptic.select(); setPlanId(p.id); }} className={selected ? "gym-kind gym-kind--selected" : "gym-kind"} style={{ minHeight: 36, paddingHorizontal: 14 }} accessibilityRole="radio" accessibilityState={{ selected }} accessibilityLabel={`${p.name}, ${rupees(p.price)}`}>
                   {selected && <GradientFill radius={999} />}
                   <Text className={selected ? "gym-kind__label gym-kind__label--selected" : "gym-kind__label"}>{p.name}</Text>
                 </PressableScale>
               );
             })}
-            <PressableScale onPress={() => { haptic.select(); setPlanId("custom"); }} className={planId === "custom" ? "gym-kind gym-kind--selected" : "gym-kind"} style={{ minHeight: 36, paddingHorizontal: 14 }} accessibilityRole="radio" accessibilityState={{ selected: planId === "custom" }} accessibilityLabel="Custom plan">
+            <PressableScale hitSlop={4} onPress={() => { haptic.select(); setPlanId("custom"); }} className={planId === "custom" ? "gym-kind gym-kind--selected" : "gym-kind"} style={{ minHeight: 36, paddingHorizontal: 14 }} accessibilityRole="radio" accessibilityState={{ selected: planId === "custom" }} accessibilityLabel="Custom plan">
               {planId === "custom" && <GradientFill radius={999} />}
               <Text className={planId === "custom" ? "gym-kind__label gym-kind__label--selected" : "gym-kind__label"}>Custom</Text>
             </PressableScale>

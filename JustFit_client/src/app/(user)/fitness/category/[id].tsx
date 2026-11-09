@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import { FlatList, Text, useWindowDimensions, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 
@@ -23,6 +23,7 @@ const back = () => (router.canGoBack() ? router.back() : router.replace("/workou
 // section; a category that's hidden or now empty says so. Each card opens its program.
 export default function FitnessCategoryScreen() {
   const getToken = useSessionToken();
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ id: string; place?: string; title?: string }>();
   const place = params.place === "center" ? "center" : "home";
   const { width } = useWindowDimensions();
@@ -79,7 +80,7 @@ export default function FitnessCategoryScreen() {
             numColumns={2}
             style={{ alignSelf: "center", width: gridWidth }}
             columnWrapperStyle={{ gap: GAP }}
-            contentContainerStyle={{ paddingHorizontal: GUTTER, paddingTop: 4, paddingBottom: 40, gap: GAP }}
+            contentContainerStyle={{ paddingHorizontal: GUTTER, paddingTop: 4, paddingBottom: 40 + insets.bottom, gap: GAP }}
             showsVerticalScrollIndicator={false}
             renderItem={({ item }) => <FitnessProgramCard program={item} variant="tile" width={cardWidth} onOpen={open} />}
           />

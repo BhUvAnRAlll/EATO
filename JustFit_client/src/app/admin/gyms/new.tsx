@@ -10,6 +10,7 @@ import { AdminField } from "@/components/admin/AdminField";
 import { adminGyms } from "@/lib/gymApi";
 import { useGymSave } from "@/lib/gymForm";
 import { useThemeColors } from "@/theme";
+import { KeyboardAvoider } from "@/components/KeyboardAvoider";
 
 const back = () => (router.canGoBack() ? router.back() : router.replace("/admin/gyms"));
 
@@ -34,17 +35,20 @@ export default function AdminNewGym() {
           <Text className="screen-bar__title" accessibilityRole="header">New gym</Text>
           <View className="screen-bar__spacer" />
         </View>
-        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40, gap: 16 }} keyboardShouldPersistTaps="handled" keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"} automaticallyAdjustKeyboardInsets>
-          <AdminField label="Gym name" value={name} onChangeText={setName} maxLength={80} placeholder="For example: Forma" />
-          <AdminField label="First branch" value={branch} onChangeText={setBranch} maxLength={80} placeholder="For example: Tumkur" />
-          <AdminField label="Area" value={area} onChangeText={setArea} maxLength={80} placeholder="For example: SIT Road" />
-          <AdminField label="City" value={city} onChangeText={setCity} maxLength={60} placeholder="For example: Tumakuru" />
-          {error ? <FormAlert message={error} /> : null}
-          <Pressable onPress={() => save((token) => adminGyms.create(token, { name: name.trim(), branch: branch.trim(), area: area.trim(), city: city.trim() }))} disabled={!ready || busy} className="btn-forest" style={{ opacity: ready && !busy ? 1 : 0.5 }} accessibilityRole="button" accessibilityLabel="Create gym">
-            {busy && <ActivityIndicator size="small" color={colors.onPrimary} />}
-            <Text className="btn-forest__label">Create gym</Text>
-          </Pressable>
-        </ScrollView>
+        {/* Keeps the lower fields and Save above the keyboard on Android too */}
+        <KeyboardAvoider>
+          <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40, gap: 16 }} keyboardShouldPersistTaps="handled" keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}>
+            <AdminField label="Gym name" value={name} onChangeText={setName} maxLength={80} placeholder="For example: Forma" />
+            <AdminField label="First branch" value={branch} onChangeText={setBranch} maxLength={80} placeholder="For example: Tumkur" />
+            <AdminField label="Area" value={area} onChangeText={setArea} maxLength={80} placeholder="For example: SIT Road" />
+            <AdminField label="City" value={city} onChangeText={setCity} maxLength={60} placeholder="For example: Tumakuru" />
+            {error ? <FormAlert message={error} /> : null}
+            <Pressable onPress={() => save((token) => adminGyms.create(token, { name: name.trim(), branch: branch.trim(), area: area.trim(), city: city.trim() }))} disabled={!ready || busy} className={ready ? "btn-forest" : "btn-forest btn--disabled"} style={{ opacity: busy ? 0.7 : 1 }} accessibilityRole="button" accessibilityLabel="Create gym">
+              {busy && <ActivityIndicator size="small" color={colors.onPrimary} />}
+              <Text className={ready ? "btn-forest__label" : "btn-forest__label btn--disabled-label"}>Create gym</Text>
+            </Pressable>
+          </ScrollView>
+        </KeyboardAvoider>
       </SafeAreaView>
     </View>
   );

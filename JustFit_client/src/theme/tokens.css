@@ -27,7 +27,7 @@
   /* AI Coach only (the coach's own look, approved 2026-10-29): the bright start of the red
      button gradient and the pink wash behind the coach screens */
   --color-primary-bright: #f0262b;
-  --color-coach-wash: #f4f4f5; /* was the coach's pink wash; neutral since 2026-10-31 */
+  --color-coach-wash: #f6f4ef; /* was the coach's pink wash; neutral since 2026-10-31 */
   --color-coach-arrow: rgba(255, 255, 255, 0.18); /* the arrow circle on the red button */
   --color-ink: #111111;
   /* Near-black fills that carry white text or icons (filled buttons, badges, chat bubbles,
@@ -55,7 +55,7 @@
   --color-line: #e8e8ea;
   --color-line-strong: #c9c9cf;
   --color-surface-alt: #f4f4f5;
-  --color-background: #f4f4f5; /* the page: light grey, cards white on it (2026-10-31) */
+  --color-background: #f6f4ef; /* the page: a soft cream, cards white on it (the owner's choice, 2026-11-08; light grey #f4f4f5 before) */
   --color-surface: #ffffff;
   --color-info-soft: #e6eefd;
 
@@ -164,7 +164,7 @@
   --color-leaf-dark: #111111;
 
   /* Surfaces and ink: page (cream), primary buttons (forest), titles, borders and tracks */
-  --color-cream: #f4f4f5;
+  --color-cream: #f6f4ef;
   --color-cream-deep: #f4f4f5;
   --color-forest: #d40005;
   --color-forest-ink: #111111;

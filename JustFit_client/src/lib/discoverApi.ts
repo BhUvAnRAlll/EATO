@@ -34,6 +34,10 @@ export type DiscoverQuery = {
 // savesPerMonth: how much a month less than the shortest plan
 export type ComparePlan = { id: number; name: string; months: number | null; days: number | null; price: number; perMonth: number | null; savesPerMonth: number; details: string | null };
 export type PtPackage = { id: number; name: string; months: number | null; price: number; details: string | null };
+// A join request (phase 4): asking a gym to call about a plan; it lands in the gym's Enquiries.
+// state: sent (waiting), in_touch (the gym is following up), joined, closed
+export type JoinState = "sent" | "in_touch" | "joined" | "closed";
+export type JoinRequest = { id: number; gym: { id: number; name: string; branch: string }; planLabel: string | null; state: JoinState; sentOn: string };
 export type GymPage = {
   id: number;
   name: string;
@@ -49,6 +53,8 @@ export type GymPage = {
   photos: { id: number; url: string }[];
   plans: ComparePlan[];
   pt: PtPackage[];
+  // The member here: their membership's id when they are one now, and their latest request
+  you: { memberId: number | null; request: JoinRequest | null };
 };
 
 const signedOut = <T>(): Promise<ApiResult<T>> => Promise.resolve({ ok: false, error: "Please sign in again." });
@@ -68,4 +74,8 @@ export function discoverPath(q: DiscoverQuery): string {
 export const discoverApi = {
   gyms: (token: string | null, q: DiscoverQuery) => (token ? apiFetch<GymList>(discoverPath(q), { token }) : signedOut<GymList>()),
   gym: (token: string | null, id: number) => (token ? apiFetch<GymPage>(`/api/gyms/${id}`, { token }) : signedOut<GymPage>()),
+  // Ask the gym to call about a plan or PT package (or neither); the name and number are the account's
+  ask: (token: string | null, gymId: number, body: { itemId: number | null; note: string }) =>
+    token ? apiFetch<{ request: JoinRequest }>(`/api/gyms/${gymId}/requests`, { token, method: "POST", body: { itemId: body.itemId, note: body.note.trim() || null } }) : signedOut<{ request: JoinRequest }>(),
+  requests: (token: string | null) => (token ? apiFetch<{ requests: JoinRequest[] }>("/api/gyms/requests", { token }) : signedOut<{ requests: JoinRequest[] }>()),
 };

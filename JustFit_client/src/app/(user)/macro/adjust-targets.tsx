@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Platform, Pressable, ScrollView, Text, View } from "react-native";
+import { FieldInput } from "@/components/FieldInput";
 import { ScreenSkeleton } from "@/components/Skeleton";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
@@ -14,6 +15,7 @@ import { useHomeStore } from "@/store/home";
 import { useThemeColors, Palette } from "@/theme";
 import { fonts } from "@/constants/fonts";
 import { confirmChoice } from "@/lib/nativeSheets";
+import { KeyboardAvoider } from "@/components/KeyboardAvoider";
 
 const macroFields = (colors: Palette) => ([
   { key: "proteinG", label: "Protein", color: colors.protein },
@@ -124,7 +126,7 @@ export default function AdjustTargets() {
             <Text className="placeholder__text">{"Finish your profile first — there's no calculated target yet to adjust."}</Text>
           </View>
         ) : (
-          <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+          <KeyboardAvoider>
             <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24, gap: 16 }} keyboardShouldPersistTaps="handled"
             keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"} showsVerticalScrollIndicator={false}>
               <Text className="home__lead">
@@ -137,7 +139,7 @@ export default function AdjustTargets() {
                 <Text className="setup__section">Daily calories</Text>
                 <View className="setup__field">
                   <SymbolView name={{ ios: "flame.fill", android: "local_fire_department", web: "local_fire_department" }} size={18} tintColor={colors.danger} />
-                  <TextInput className="setup__field-input min-w-0 flex-1" value={kcal} onChangeText={(t) => {
+                  <FieldInput className="min-w-0 flex-1" value={kcal} onChangeText={(t) => {
                     const next = numeric(t);
                     if (next !== kcal) setGrams((g) => ({ proteinG: edited.proteinG ? g.proteinG : "", carbsG: edited.carbsG ? g.carbsG : "", fatG: edited.fatG ? g.fatG : "" }));
                     setKcal(next);
@@ -155,9 +157,9 @@ export default function AdjustTargets() {
                         <View className="h-2 w-2 rounded-pill" style={{ backgroundColor: m.color }} />
                         <Text className="macro__bar-label">{m.label}</Text>
                       </View>
-                      <View className="mt-1 min-w-0 flex-row items-baseline gap-1">
-                        <TextInput
-                          className="setup__field-input min-w-0 flex-1"
+                      <View className="mt-1 min-w-0 flex-row items-center gap-1">
+                        <FieldInput
+                          className="min-w-0 flex-1"
                           value={grams[m.key]}
                           onChangeText={(t) => {
                             setEdited((e) => ({ ...e, [m.key]: true }));
@@ -184,8 +186,8 @@ export default function AdjustTargets() {
                     tintColor={macrosAgree(typedKcal, macroKcal) ? colors.success : colors.warning}
                   />
                   <Text className="home__note flex-1" style={{ color: colors.muted }}>
-                    Macros add up to <Text style={{ fontFamily: fonts.semibold, color: colors.forestInk }}>{macroKcal} kcal</Text>
-                    {macrosAgree(typedKcal, macroKcal) ? ` — close to your ${whole(typedKcal)} entry.` : ` — far from your ${whole(typedKcal)} entry.`}
+                    Macros add up to <Text style={{ fontFamily: fonts.semibold, color: colors.forestInk }}>{macroKcal.toLocaleString("en-IN")} kcal</Text>
+                    {macrosAgree(typedKcal, macroKcal) ? ` — close to your ${whole(typedKcal).toLocaleString("en-IN")} entry.` : ` — far from your ${whole(typedKcal).toLocaleString("en-IN")} entry.`}
                   </Text>
                 </View>
               )}
@@ -206,7 +208,7 @@ export default function AdjustTargets() {
                 <Text className="btn-forest__label">Save targets</Text>
               </Pressable>
             </View>
-          </KeyboardAvoidingView>
+          </KeyboardAvoider>
         )}
       </SafeAreaView>
     </View>

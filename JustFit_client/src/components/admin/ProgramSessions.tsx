@@ -142,8 +142,8 @@ function SessionForm({ initial, busy, onSave, onCancel }: { initial: SessionFiel
       />
       {error ? <FormAlert message={error} /> : null}
       <View className="flex-row gap-2">
-        <Pressable onPress={save} disabled={!ready || busy} className="btn-forest flex-1" style={{ opacity: ready && !busy ? 1 : 0.5 }} accessibilityRole="button" accessibilityLabel="Save session">
-          {busy ? <ActivityIndicator size="small" color={colors.onPrimary} /> : <Text className="btn-forest__label">Save session</Text>}
+        <Pressable onPress={save} disabled={!ready || busy} className={ready ? "btn-forest flex-1" : "btn-forest btn--disabled flex-1"} accessibilityRole="button" accessibilityLabel="Save session">
+          {busy ? <ActivityIndicator size="small" color={colors.onPrimary} /> : <Text className={ready ? "btn-forest__label" : "btn-forest__label btn--disabled-label"}>Save session</Text>}
         </Pressable>
         <Pressable onPress={onCancel} className="btn-outline" style={{ paddingHorizontal: 18 }} accessibilityRole="button" accessibilityLabel="Cancel">
           <Text className="btn-outline__label">Cancel</Text>

@@ -6,7 +6,7 @@ import { SessionExpiredBanner } from "@/components/SessionExpiredBanner";
 import { useThemeColors } from "@/theme";
 
 // The Super Admin portal opens on its tabs (Overview · Users · Content)
-export const unstable_settings = { initialRouteName: "(tabs)" };
+export const unstable_settings = { anchor: "(tabs)" };
 
 // Admin screens. Only people with the "admin" role can open these (see the root layout).
 export default function AdminLayout() {

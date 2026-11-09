@@ -23,7 +23,7 @@ export function Segmented<T extends string>({ options, value, onChange, label }:
             aria-checked={selected}
             accessibilityLabel={option.label}
           >
-            <Text className={selected ? "macro__segment-label macro__segment-label--selected" : "macro__segment-label"} numberOfLines={1}>
+            <Text className={selected ? "macro__segment-label macro__segment-label--selected" : "macro__segment-label"} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
               {option.label}
             </Text>
           </PressableScale>

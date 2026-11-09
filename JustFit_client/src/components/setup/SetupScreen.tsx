@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from "react-native";
+import { Platform, ScrollView, Text, View } from "react-native";
 import { PressableScale } from "@/components/PressableScale";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
@@ -11,6 +11,7 @@ import { setupSteps, type SetupStep } from "@/data/setup";
 import { useAuthStore } from "@/store/auth";
 import { useThemeColors } from "@/theme";
 import { confirmChoice } from "@/lib/nativeSheets";
+import { KeyboardAvoider } from "@/components/KeyboardAvoider";
 
 type SetupScreenProps = {
   step: SetupStep;
@@ -72,24 +73,29 @@ export function SetupScreen({
           <PressableScale onPress={handleBack} className="screen-bar__back" accessibilityRole="button" accessibilityLabel="Back">
             <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={20} tintColor={colors.ink} />
           </PressableScale>
-          <View className="flex-1 flex-row items-center justify-center gap-1.5">
-            {showProgress &&
-              steps.map((name, stepIndex) => (
+          {/* Outside the setup flow (Profile › Height & weight) the bar carries the title, like every
+              other pushed screen, and the lead stays under it */}
+          {showProgress ? (
+            <View className="flex-1 flex-row items-center justify-center gap-1.5">
+              {steps.map((name, stepIndex) => (
                 <View key={name} className={stepIndex <= index ? "setup__dash setup__dash--done" : "setup__dash"} />
               ))}
-          </View>
+            </View>
+          ) : (
+            <Text className="screen-bar__title" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} accessibilityRole="header">{title}</Text>
+          )}
           <View className="h-11 w-11 items-end justify-center">{showProgress && <Text className="setup__step">{`${index + 1}/${steps.length}`}</Text>}</View>
         </View>
 
-        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+        <KeyboardAvoider>
           <ScrollView
             contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 24, paddingBottom: 24 }}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
             showsVerticalScrollIndicator={false}
           >
-            <Text className="setup__title text-center">{title}</Text>
-            <Text className="auth__subtitle mt-2 text-center">{subtitle}</Text>
+            {showProgress && <Text className="setup__title text-center">{title}</Text>}
+            <Text className={showProgress ? "auth__subtitle mt-2 text-center" : "auth__subtitle text-center"}>{subtitle}</Text>
             <View className="mt-7">{children}</View>
           </ScrollView>
 
@@ -97,7 +103,7 @@ export function SetupScreen({
           <View className="px-6 pb-2 pt-3">
             <PrimaryButton label={nextLabel} onPress={onNext} disabled={!canContinue} loading={loading} />
           </View>
-        </KeyboardAvoidingView>
+        </KeyboardAvoider>
       </SafeAreaView>
     </View>
   );

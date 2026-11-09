@@ -107,7 +107,8 @@ export default function ExercisesScreen() {
             ))}
           </View>
 
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+          {/* Edge to edge, so the chips aren't cut inside the screen's gutter */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -16 }} contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}>
             {[null, ...MUSCLE_GROUPS].map((g) => (
               <Pressable key={g ?? "all"} onPress={() => { setGroup(g); setLoad({ state: "loading" }); }} className={group === g ? "admin-chip admin-chip--on" : "admin-chip"} accessibilityRole="button" accessibilityState={{ selected: group === g }} accessibilityLabel={g ? `Only ${MUSCLE_LABEL[g]}` : "Every muscle group"}>
                 <Text className={group === g ? "admin-segment__label admin-segment__label--on" : "admin-segment__label"}>{g ? MUSCLE_LABEL[g] : "All groups"}</Text>

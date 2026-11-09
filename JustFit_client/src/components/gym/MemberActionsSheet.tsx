@@ -19,6 +19,7 @@ import { call, daysLeftText, email, sms, whatsapp } from "@/lib/gymContact";
 import type { GymInfo, GymMember, GymMemberDetail, GymPayment } from "@/lib/gymApi";
 import { useCan } from "@/store/gymAccess";
 import { useThemeColors } from "@/theme";
+import { useResponsive } from "@/lib/responsive";
 import type { GymIconName } from "@/constants/gymIcons";
 
 type Row = { label: string; icon: GymIconName; tone?: "danger"; onPress: () => void };
@@ -43,6 +44,8 @@ export function MemberActionsSheet({ member, payments, gym, onClose, onChanged, 
   // Role & Permission: rows a Staff login's areas don't include are left out, as on Home (QA 2026-11-07)
   const can = useCan();
   const go = (href: Href) => { onClose(); onLeave?.(); router.push(href); };
+  // Send Invoice from a sheet opened here: every sheet closes first, then the Invoice screen opens
+  const openInvoice = (detail: GymMemberDetail) => go({ pathname: "/gym/invoice", params: { memberId: String(detail.member.id) } });
   const openMember = () => (onMemberPage ? onClose() : go({ pathname: "/gym/members/[id]", params: { id: String(member.id) } }));
   const id = String(member.id);
   const start = planStart(member.expiresOn, member.planLength.duration, member.planLength.unit);
@@ -97,20 +100,30 @@ export function MemberActionsSheet({ member, payments, gym, onClose, onChanged, 
       {icon === "whatsapp" ? <WhatsAppMark size={22} /> : <GymIcon name={icon} size={18} color={colors.white} />}
     </PressableScale>
   );
-  const period = (title: string, note: string, from: string, until: string, tag?: string) => (
-    <View className="flex-row items-center" style={{ gap: 10 }} accessible accessibilityLabel={`${title}, ${note}, ${shortDate(from)} to ${shortDate(until)}`}>
-      <View className="min-w-0 flex-1" style={{ gap: 2 }}>
-        <View className="flex-row items-center" style={{ gap: 6 }}>
-          {tag ? <View className="gym-hero-tag"><Text className="gym-hero-tag__label">{tag}</Text></View> : null}
-          <Text className="gym-hero__plan" numberOfLines={1}>{title}</Text>
-        </View>
-        <Text className="gym-hero__note">{note}</Text>
+  // On a narrow screen (in text units) the two dates go under the plan, which was cut to "12 Mont…"
+  // beside them (2026-11-08, a 360-wide phone at 1.15 text)
+  const { narrow: stackDates } = useResponsive();
+  const period = (title: string, note: string, from: string, until: string, tag?: string) => {
+    const dates = (
+      <View className="flex-row items-center" style={{ gap: 10 }}>
+        <View className="gym-hero-date"><Text className="gym-hero-date__label">{shortDate(from)}</Text></View>
+        <GymIcon name="arrow-right" size={12} color={colors.white} />
+        <View className="gym-hero-date"><Text className="gym-hero-date__label">{shortDate(until)}</Text></View>
       </View>
-      <View className="gym-hero-date"><Text className="gym-hero-date__label">{shortDate(from)}</Text></View>
-      <GymIcon name="arrow-right" size={12} color={colors.white} />
-      <View className="gym-hero-date"><Text className="gym-hero-date__label">{shortDate(until)}</Text></View>
-    </View>
-  );
+    );
+    return (
+      <View className={stackDates ? "" : "flex-row items-center"} style={{ gap: stackDates ? 8 : 10 }} accessible accessibilityLabel={`${title}, ${note}, ${shortDate(from)} to ${shortDate(until)}`}>
+        <View className={stackDates ? "" : "min-w-0 flex-1"} style={{ gap: 2 }}>
+          <View className="flex-row items-center" style={{ gap: 6 }}>
+            {tag ? <View className="gym-hero-tag"><Text className="gym-hero-tag__label">{tag}</Text></View> : null}
+            <Text className="gym-hero__plan shrink" numberOfLines={1}>{title}</Text>
+          </View>
+          <Text className="gym-hero__note">{note}</Text>
+        </View>
+        {dates}
+      </View>
+    );
+  };
   const ptDays = member.pt ? Math.round((Date.parse(`${member.pt.until}T00:00:00Z`) - Date.parse(`${member.expiresOn}T00:00:00Z`)) / 86400000) + member.daysLeft : 0;
 
   return (
@@ -118,12 +131,12 @@ export function MemberActionsSheet({ member, payments, gym, onClose, onChanged, 
       onClose={onClose}
       stack={
         <>
-          {selling && <MemberSaleSheet kind={selling} member={member} gym={gym} onClose={() => setSelling(null)} onSaved={(detail) => { setSelling(null); onChanged(detail); }} />}
+          {selling && <MemberSaleSheet kind={selling} member={member} gym={gym} onClose={() => setSelling(null)} onSaved={(detail, invoice) => { setSelling(null); onChanged(detail); if (invoice) openInvoice(detail); }} />}
           {changingTrainer && <ChangeTrainerSheet member={member} onClose={() => setChangingTrainer(false)} onSaved={(detail) => { setChangingTrainer(false); onChanged(detail); }} />}
           {reminding && <SendReminderSheet kind={reminding} member={member} gym={gym} payment={payments?.[0]} onClose={() => setReminding(null)} />}
           {editingProfile && <EditProfileSheet member={member} onClose={() => setEditingProfile(false)} onSaved={(detail) => { setEditingProfile(false); onChanged(detail); }} />}
           {pausing && <PauseMembershipSheet member={member} onClose={() => setPausing(false)} onSaved={(detail) => { setPausing(false); onChanged(detail); }} />}
-          {collecting && <CollectDueSheet member={member} gym={gym} onClose={() => setCollecting(false)} onSaved={(detail) => { setCollecting(false); onChanged(detail); }} />}
+          {collecting && <CollectDueSheet member={member} gym={gym} onClose={() => setCollecting(false)} onSaved={(detail, invoice) => { setCollecting(false); onChanged(detail); if (invoice) openInvoice(detail); }} />}
         </>
       }
     >

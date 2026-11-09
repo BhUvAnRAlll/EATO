@@ -159,7 +159,7 @@ describe("ui gym invoice: a payment's invoice, the member's Invoice chip, Invoic
     await h.expectText("Member Details");
     await h.expectText("Ravi Kumar");
     await h.expectText(state.code);
-    await h.expectText("+91 91234 56789");
+    await h.expectText("+91\u00A091234\u00A056789"); // no-break spaces: the number never wraps
     await h.expectText("Plan Details");
     await h.expectText("3 Months");
     await h.expectText("Active");
@@ -168,7 +168,7 @@ describe("ui gym invoice: a payment's invoice, the member's Invoice chip, Invoic
     await h.expectText("Total Amount");
     await h.expectText("₹4,000");
     await h.expectText("Balance Due");
-    await h.expectText("by 15 Jan 2027");
+    await h.expectText("by\u00A015\u00A0Jan\u00A02027");
     await h.expectText("₹500");
     await h.expectText("Payment Details");
     await h.expectText("Cash");

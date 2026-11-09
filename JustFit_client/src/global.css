@@ -123,7 +123,8 @@
 
 /* Status badge: <View className="badge badge--booked"><Text className="badge__label badge__label--booked" /> */
 @utility badge {
-  height: 28px;
+  min-height: 28px;
+  padding-block: 2px;
   padding-inline: var(--spacing-md);
   border-radius: var(--radius-sm);
   align-items: center;
@@ -312,6 +313,16 @@
   gap: 10px;
 }
 
+/* Disabled main button: grey with faint text (never a pale pink with white text) */
+@utility btn--disabled {
+  background-color: var(--color-cream-tab);
+  box-shadow: none;
+}
+
+@utility btn--disabled-label {
+  color: var(--color-faint);
+}
+
 @utility btn-forest__label {
   font-family: var(--font-sans-semibold);
   font-size: 14px;
@@ -354,7 +365,8 @@
 
 @utility auth__tab--active {
   border-width: 1.5px;
-  border-color: var(--color-accent-blue);
+  border-color: var(--color-primary);
+  background-color: var(--color-accent-soft);
 }
 
 @utility auth__tab-label {
@@ -387,6 +399,11 @@
   flex-direction: row;
   align-items: center;
   gap: 12px;
+}
+
+@utility auth__field--on-page {
+  border-color: var(--color-cream-line);
+  background-color: var(--color-surface);
 }
 
 @utility auth__input {
@@ -587,14 +604,15 @@
 }
 
 /* Field row: icon + small label + value (or input) + unit/chevron */
+/* White with a thin edge, so it reads as a field on the grey page and inside a white card */
 @utility setup__field {
-  min-height: 60px;
+  min-height: 56px;
   padding-inline: var(--spacing-lg);
   padding-block: var(--spacing-sm);
   border-radius: var(--radius-md);
   border-width: 1px;
-  border-color: var(--color-surface-alt);
-  background-color: var(--color-surface-alt);
+  border-color: var(--color-cream-line);
+  background-color: var(--color-surface);
   flex-direction: row;
   align-items: center;
   gap: 14px;
@@ -612,6 +630,16 @@
   font-family: var(--font-sans-medium);
   font-size: 15px;
   line-height: 20px;
+  color: var(--color-forest-ink);
+}
+
+/* The TextInput of a field row (components/FieldInput.tsx): no fixed line height, so the value
+   grows with the text size instead of clipping; a little padding above and below */
+@utility field-input {
+  padding-inline: 0;
+  padding-block: 6px;
+  font-family: var(--font-sans-medium);
+  font-size: 15px;
   color: var(--color-forest-ink);
 }
 
@@ -746,6 +774,8 @@
   border-width: 1px;
   border-color: var(--color-line-strong);
   background-color: var(--color-surface);
+  flex-direction: row;
+  gap: var(--spacing-sm);
   align-items: center;
   justify-content: center;
 }
@@ -1282,6 +1312,16 @@
 }
 
 /* Placeholder screen for areas that aren't built yet */
+/* EmptyState: a white card, the icon in a soft red circle, a title and a line */
+@utility empty-state {
+  padding: var(--spacing-xl);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-card);
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
 @utility placeholder__icon {
   width: 72px;
   height: 72px;
@@ -1343,6 +1383,12 @@
 
 @utility admin__action-label--danger {
   color: var(--color-danger);
+}
+
+/* Disabled, any variant: the app's grey disabled look */
+@utility admin__action--disabled {
+  border-color: var(--color-cream-tab);
+  background-color: var(--color-cream-tab);
 }
 
 @utility admin__input {
@@ -1570,7 +1616,7 @@
 
 /* Screen bar: back chevron, centred title, hairline below */
 @utility screen-bar {
-  height: 56px;
+  min-height: 56px;
   padding-inline: var(--spacing-lg);
   flex-direction: row;
   align-items: center;
@@ -1949,6 +1995,14 @@
   box-shadow: var(--shadow-fab);
 }
 
+/* The Macro tab's floating Add meal pill inside a FloatingSlot (which places it) */
+@utility macro__fab-button {
+  border-radius: var(--radius-pill);
+  flex-direction: row;
+  align-items: center;
+  box-shadow: var(--shadow-fab);
+}
+
 /* Add meal: two slot cards per row */
 @utility macro__slot {
   flex-basis: 46%;
@@ -2015,7 +2069,7 @@
 }
 
 @utility macro__segmented {
-  height: 44px;
+  min-height: 44px;
   flex-direction: row;
   gap: var(--spacing-sm);
 }
@@ -2033,7 +2087,8 @@
 
 @utility macro__segment--selected {
   border-width: 1.5px;
-  border-color: var(--color-accent-blue);
+  border-color: var(--color-primary);
+  background-color: var(--color-accent-soft);
 }
 
 @utility macro__segment-label {
@@ -2441,6 +2496,21 @@
   box-shadow: var(--shadow-card);
 }
 
+/* Compact phones: two to a row, so values like ₹11,500 and the labels fit */
+@utility admin-stat--half {
+  flex-basis: 40%;
+}
+
+/* A full-width card straight in the scroll (SMS credits, monthly budget): no flex sizing, so it
+   is as tall as its content and never stretches inside a vertical list */
+@utility admin-card {
+  gap: 4px;
+  padding: var(--spacing-md);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-card);
+}
+
 @utility admin-stat--danger {
   border-color: var(--color-danger);
   background-color: var(--color-danger-soft);
@@ -2537,7 +2607,7 @@
 @utility admin-segment {
   flex: 1;
   min-height: 40px;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-pill);
   border-width: 1px;
   border-color: var(--color-line);
   background-color: var(--color-surface);
@@ -2547,7 +2617,8 @@
 
 @utility admin-segment--on {
   border-width: 1.5px;
-  border-color: var(--color-accent-blue);
+  border-color: var(--color-primary);
+  background-color: var(--color-accent-soft);
 }
 
 @utility admin-segment__label {
@@ -2567,7 +2638,7 @@
   min-height: 40px;
   padding-left: 12px;
   padding-right: 12px;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-pill);
   border-width: 1px;
   border-color: var(--color-line);
   background-color: var(--color-surface);
@@ -2577,7 +2648,8 @@
 
 @utility admin-chip--on {
   border-width: 1.5px;
-  border-color: var(--color-accent-blue);
+  border-color: var(--color-primary);
+  background-color: var(--color-accent-soft);
 }
 
 /* ---- Super Admin › AI Usage (app/admin/ai-usage; BEM ai-*) ---- */
@@ -2704,6 +2776,8 @@
   font-size: 13px;
   line-height: 18px;
   color: var(--color-muted);
+  /* Both may wrap, so a long key or value never pushes the other out of a narrow card */
+  flex-shrink: 1;
 }
 
 @utility ai-kv__value {
@@ -2712,6 +2786,8 @@
   line-height: 18px;
   color: var(--color-ink);
   text-align: right;
+  /* Both may wrap, so a long key or value never pushes the other out of a narrow card */
+  flex-shrink: 1;
 }
 
 /* The monetary figure on a summary card */
@@ -3416,7 +3492,7 @@
 }
 
 @utility coach__log--meal {
-  height: 44px;
+  min-height: 44px;
   padding-inline: 20px;
   border-radius: var(--radius-pill);
 }
@@ -3463,12 +3539,13 @@
 }
 
 @utility coach__log {
-  height: 34px;
+  min-height: 34px;
   padding-inline: 14px;
   border-radius: var(--radius-pill);
   background-color: var(--color-primary);
   flex-direction: row;
   align-items: center;
+  justify-content: center;
   gap: 4px;
 }
 
@@ -4041,7 +4118,8 @@
 
 @utility metric-card__status {
   flex-shrink: 1;
-  height: 26px;
+  min-height: 26px;
+  padding-block: 2px;
   padding-inline: var(--spacing-md);
   border-radius: var(--radius-pill);
   background-color: var(--color-surface);
@@ -4065,6 +4143,22 @@
 }
 
 /* Keeps the app bar title centred when there is nothing on the right */
+/* ScreenHeader: the bar plus an optional line under it, on the page colour with room below */
+@utility screen-header {
+  padding-bottom: var(--spacing-sm);
+  background-color: var(--color-cream);
+}
+
+@utility screen-header__subtitle {
+  margin-top: -4px;
+  padding-inline: var(--spacing-lg);
+  text-align: center;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
 @utility screen-bar__spacer {
   width: 44px;
   height: 44px;
@@ -4081,7 +4175,8 @@
   flex-direction: row;
   align-items: center;
   gap: 4px;
-  height: 28px;
+  min-height: 28px;
+  padding-block: 2px;
   padding-inline: 10px;
   border-radius: var(--radius-pill);
   background-color: var(--color-accent-soft);
@@ -4941,6 +5036,15 @@
   line-height: 15px;
 }
 
+/* A page-level section title (2026-11-08): bold sentence case, like Home's "Needs attention".
+   gym-section-title's small spaced capitals stay only for groups inside a card or sheet */
+@utility gym-page-section {
+  font-family: var(--font-sans-semibold);
+  font-size: 16px;
+  line-height: 22px;
+  color: var(--color-gym-ink);
+}
+
 @utility gym-section-title {
   flex: 1;
   font-family: var(--font-sans-medium);
@@ -5112,20 +5216,21 @@
   padding-inline: 14px;
 }
 
+/* Selected: the indigo gradient (GradientFill) over solid indigo, white text, as gym-kind */
 @utility gym-choice--selected {
-  border-color: var(--color-gym-primary);
-  background-color: var(--color-gym-primary-soft);
+  border-color: transparent;
+  background-color: var(--color-gym-primary);
 }
 
 @utility gym-choice__label {
   font-family: var(--font-sans-medium);
   font-size: 13px;
   line-height: 18px;
-  color: var(--color-gym-ink-soft);
+  color: var(--color-gym-ink);
 }
 
 @utility gym-choice__label--selected {
-  color: var(--color-gym-primary-text);
+  color: var(--color-white);
 }
 
 @utility gym-btn {
@@ -5144,6 +5249,16 @@
   font-size: 15px;
   line-height: 20px;
   color: var(--color-white);
+}
+
+/* A main button that can't be pressed yet: solid light grey with muted text, not a faded
+   gradient (2026-11-08) */
+@utility gym-btn--disabled {
+  background-color: var(--color-gym-line);
+}
+
+@utility gym-btn__label--disabled {
+  color: var(--color-gym-muted);
 }
 
 @utility gym-btn--outline {
@@ -5186,28 +5301,86 @@
   color: var(--color-gym-ink);
 }
 
+/* The portal's choice chip (ChoiceChip, ChipRow; 2026-11-08 one look everywhere): white with a
+   grey outline and ink text; selected is the indigo gradient (GradientFill) with white text, solid
+   indigo under it */
 @utility gym-kind {
-  min-height: 30px;
+  min-height: 36px;
   justify-content: center;
   border-radius: var(--radius-pill);
   border-width: 1px;
-  border-color: var(--color-gym-primary-line);
-  padding-inline: 11px;
+  border-color: var(--color-gym-line);
+  background-color: var(--color-gym-page);
+  padding-inline: 14px;
 }
 
 @utility gym-kind--selected {
-  border-color: var(--color-gym-primary);
+  border-color: transparent;
   background-color: var(--color-gym-primary);
 }
 
 @utility gym-kind__label {
-  font-family: var(--font-sans);
+  font-family: var(--font-sans-medium);
   font-size: 13px;
   line-height: 18px;
-  color: var(--color-gym-primary-text);
+  color: var(--color-gym-ink);
 }
 
 @utility gym-kind__label--selected {
+  color: var(--color-white);
+}
+
+/* A list screen's filter chip (FilterChip): the Members chip, its count in a bubble */
+@utility gym-filter {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding-inline: 14px;
+  border-radius: var(--radius-pill);
+  border-width: 1px;
+  border-color: var(--color-gym-line);
+  background-color: var(--color-gym-page);
+}
+
+@utility gym-filter--selected {
+  border-color: transparent;
+  background-color: var(--color-gym-primary);
+}
+
+@utility gym-filter__label {
+  font-family: var(--font-sans-medium);
+  font-size: 14px;
+  line-height: 19px;
+  color: var(--color-gym-ink);
+}
+
+@utility gym-filter__label--selected {
+  color: var(--color-white);
+}
+
+@utility gym-filter__count {
+  min-width: 22px;
+  min-height: 22px;
+  padding-inline: 6px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-gym-hairline);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility gym-filter__count--selected {
+  background-color: rgba(255, 255, 255, 0.28);
+}
+
+@utility gym-filter__count-label {
+  font-family: var(--font-sans-medium);
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--color-gym-ink);
+}
+
+@utility gym-filter__count-label--selected {
   color: var(--color-white);
 }
 
@@ -5449,7 +5622,7 @@
 @utility gym-member-photo {
   width: 84px;
   height: 84px;
-  border-radius: 12px;
+  border-radius: var(--radius-pill);
   background-color: var(--color-gym-faint);
   align-items: center;
   justify-content: center;
@@ -5691,59 +5864,6 @@
   background-color: var(--color-gym-page);
 }
 
-@utility gym-mlist__chip {
-  flex-direction: row;
-  align-items: center;
-  gap: 8px;
-  min-height: 44px;
-  padding-inline: 18px;
-  border-radius: 999px;
-  border-width: 1px;
-  border-color: var(--color-gym-line);
-  background-color: var(--color-gym-page);
-}
-
-@utility gym-mlist__chip--selected {
-  border-color: var(--color-gym-grad-to);
-  background-color: var(--color-gym-grad-to);
-}
-
-@utility gym-mlist__chip-label {
-  font-family: var(--font-sans-medium);
-  font-size: 15px;
-  line-height: 20px;
-  color: var(--color-gym-ink);
-}
-
-@utility gym-mlist__chip-label--selected {
-  color: var(--color-white);
-}
-
-@utility gym-mlist__count {
-  min-width: 24px;
-  min-height: 24px;
-  padding-inline: 7px;
-  border-radius: 999px;
-  background-color: var(--color-gym-hairline);
-  align-items: center;
-  justify-content: center;
-}
-
-@utility gym-mlist__count--selected {
-  background-color: rgba(255, 255, 255, 0.28);
-}
-
-@utility gym-mlist__count-label {
-  font-family: var(--font-sans-medium);
-  font-size: 12px;
-  line-height: 16px;
-  color: var(--color-gym-ink);
-}
-
-@utility gym-mlist__count-label--selected {
-  color: var(--color-white);
-}
-
 /* A member's card: the photo spot, name, ID and status; the days-left and payment-due pills; a
    pills line with Collect and the bell at its end (compact since 2026-11-07) */
 @utility gym-mcard {
@@ -5752,6 +5872,69 @@
   border-radius: 20px;
   background-color: var(--color-gym-page);
   box-shadow: var(--shadow-gym-card);
+}
+
+/* Swipe actions on a card (SwipeActions): the card's rounded ground and shadow sit on the wrapper,
+   so the revealed buttons stay inside the same rounded shape */
+/* The Undo bar (UndoBar): a dark snackbar above the tab bar, the line and its Undo */
+@utility undo-bar {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 10px 8px 10px 16px;
+  border-radius: 14px;
+  box-shadow: var(--shadow-sheet);
+}
+
+@utility undo-bar__text {
+  flex: 1;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+@utility undo-bar__action {
+  min-height: 36px;
+  justify-content: center;
+  padding: 0 12px;
+  border-radius: 9999px;
+}
+
+@utility undo-bar__action-label {
+  font-family: var(--font-sans-semibold);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+@utility gym-swipe {
+  border-radius: 20px;
+  background-color: var(--color-gym-page);
+  box-shadow: var(--shadow-gym-card);
+}
+
+@utility gym-swipe__panel {
+  flex-direction: row;
+  gap: 6px;
+  padding: 6px;
+}
+
+@utility gym-swipe__action {
+  width: 72px;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+@utility gym-swipe__label {
+  font-family: var(--font-sans-medium);
+  font-size: 12px;
+  line-height: 16px;
 }
 
 @utility gym-mcard__avatar {
@@ -5953,6 +6136,12 @@
   border-color: var(--color-gym-line);
   align-items: center;
   justify-content: center;
+}
+
+@utility gym-remind__tick--corner {
+  position: absolute;
+  top: 8px;
+  right: 8px;
 }
 
 @utility gym-remind__tick--on {
@@ -6744,77 +6933,11 @@
   text-align: center;
 }
 
-/* EmptyState: a white card, the icon in a soft red circle, a title and a line */
-@utility empty-state {
-  padding: var(--spacing-xl);
-  border-radius: var(--radius-lg);
-  background-color: var(--color-surface);
-  box-shadow: var(--shadow-card);
-  align-items: center;
-  gap: var(--spacing-sm);
-}
-
-/* ScreenHeader: the bar plus an optional line under it, on the page colour with room below */
-@utility screen-header {
-  padding-bottom: var(--spacing-sm);
-  background-color: var(--color-cream);
-}
-
-@utility screen-header__subtitle {
-  margin-top: -4px;
-  padding-inline: var(--spacing-lg);
-  text-align: center;
-  font-family: var(--font-sans);
-  font-size: 13px;
-  line-height: 18px;
-  color: var(--color-muted);
-}
-
-@utility address-action {
-  min-height: 36px;
-  flex-direction: row;
-  align-items: center;
-  gap: 6px;
-  padding-inline: 12px;
-  border-radius: var(--radius-pill);
-  background-color: var(--color-surface-alt);
-}
-
-@utility address-action__label {
-  font-family: var(--font-sans-medium);
-  font-size: 13px;
-  line-height: 18px;
-  color: var(--color-ink);
-}
-
-/* Gym Hub's attendance calendar (2026-11-09): a day with a visit is the brand red, today outlined */
-@utility hub-day {
-  width: 34px;
-  height: 34px;
-  border-radius: var(--radius-pill);
-  align-items: center;
-  justify-content: center;
-}
-
-@utility hub-day--visited {
-  background-color: var(--color-primary);
-}
-
-@utility hub-day--today {
-  border-width: 1.5px;
-  border-color: var(--color-primary);
-}
-
-@utility hub-day__label {
-  font-family: var(--font-sans);
-  font-size: 13px;
-  line-height: 18px;
-  color: var(--color-ink);
-}
-
-@utility hub-day__label--visited {
+/* Expense details (2026-11-08): the amount spent, large, at the top of the sheet */
+@utility gym-expense-detail__amount {
   font-family: var(--font-sans-semibold);
-  color: var(--color-on-primary);
+  font-size: 28px;
+  line-height: 36px;
 }
 
 /* Delivery addresses (2026-11-09): Select Delivery Location's map, pin and panel, the saved
@@ -7028,11 +7151,34 @@
   background-color: var(--color-success-soft);
 }
 
-/* Expense details (2026-11-08): the amount spent, large, at the top of the sheet */
-@utility gym-expense-detail__amount {
+/* Gym Hub's attendance calendar (2026-11-09): a day with a visit is the brand red, today outlined */
+@utility hub-day {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-pill);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility hub-day--visited {
+  background-color: var(--color-primary);
+}
+
+@utility hub-day--today {
+  border-width: 1.5px;
+  border-color: var(--color-primary);
+}
+
+@utility hub-day__label {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--color-ink);
+}
+
+@utility hub-day__label--visited {
   font-family: var(--font-sans-semibold);
-  font-size: 28px;
-  line-height: 36px;
+  color: var(--color-on-primary);
 }
 
 /* Settings › Public profile (Gym Hub phase 2): the photo gallery as tiles, three a row, a remove

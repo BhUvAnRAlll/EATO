@@ -171,10 +171,10 @@ describe("ui gym expenses: Manage › Expense, the Add Expense sheet and Wallet'
     await h.settle(); // the sheet slides up
     assert.equal(await page.evaluate(`document.querySelector('[aria-label="Add Expense"]').getAttribute("aria-disabled")`), "true", "Add waits for the category, amount and mode");
     await clickLabel("Rent");
-    await page.setInput(h.input("What it was for (Eg. November rent, optional)"), "November rent");
-    await page.setInput(h.input("Paid to (Eg. Landlord, Ravi, optional)"), "Landlord");
+    await page.setInput(h.input("e.g. November rent"), "November rent");
+    await page.setInput(h.input("e.g. Landlord"), "Landlord");
     await page.setInput(h.input("Amount (Eg. 25000)"), "25000");
-    await clickLabel("ONLINE");
+    await clickLabel("Online");
     await snapshotAllWidths("gym-expenses-sheet");
     await page.evaluate(`document.querySelector('[aria-label="Add Expense"]').scrollIntoView({ block: "center" })`);
     await h.settle();

@@ -1,20 +1,25 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, Platform, Pressable, RefreshControl, ScrollView, Text, TextInput, useWindowDimensions, View } from "react-native";
+import { ActivityIndicator, FlatList, Platform, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from "react-native";
 import { router } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 import { PressableScale } from "@/components/PressableScale";
 import { GymIcon } from "@/components/gym/GymIcon";
+import { ChoiceChip, FilterChip } from "@/components/gym/GymChip";
 import { MemberPhotoImage } from "@/components/gym/MemberPhotoImage";
 import { AddMemberSheet } from "@/components/gym/AddMemberSheet";
 import { CollectDueSheet } from "@/components/gym/CollectDueSheet";
+import { EditProfileSheet } from "@/components/gym/EditProfileSheet";
 import { GradientFill } from "@/components/gym/GradientFill";
+import { FAB_CLEARANCE, FloatingSlot, useFabOnScroll } from "@/components/FloatingSlot";
 import { GymEmpty, GymError, GymLoading } from "@/components/gym/GymStates";
 import { GymSheet } from "@/components/gym/GymSheet";
 import { MemberActionsSheet } from "@/components/gym/MemberActionsSheet";
 import { SendReminderSheet, type ReminderKind } from "@/components/gym/SendReminderSheet";
-import { DEFAULT_EXPIRING_DAYS, EXPIRING_SOON_DAYS, MEMBER_FILTERS, expiringDaysLabel, expiringDaysText, memberPlanText, rupees, type ExpiringDays } from "@/data/gymDashboard";
+import { SwipeActions, type SwipeAction } from "@/components/gym/SwipeActions";
+import { DEFAULT_EXPIRING_DAYS, EXPIRING_SOON_DAYS, MEMBER_FILTERS, expiringDaysLabel, expiringDaysText, memberPlanText, ptPackageText, rupees, type ExpiringDays } from "@/data/gymDashboard";
 import { gymApi, type GymInfo, type GymMember, type MemberFilter, type MemberSort } from "@/lib/gymApi";
+import * as contact from "@/lib/gymContact";
 import { haptic } from "@/lib/haptics";
 import { useCenteredChip } from "@/lib/useCenteredChip";
 import { memberStatus } from "@/lib/gymMember";
@@ -23,6 +28,7 @@ import { useSessionToken } from "@/lib/session";
 import { useGymData } from "@/lib/useGymData";
 import { useCan } from "@/store/gymAccess";
 import { useThemeColors } from "@/theme";
+import { useResponsive } from "@/lib/responsive";
 
 export const isMemberFilter = (value: unknown): value is MemberFilter => typeof value === "string" && MEMBER_FILTERS.some((f) => f.id === value);
 
@@ -54,13 +60,17 @@ function daysText(days: number) {
 // selected; a fresh list opens on All, Home's row on its 3 days). The chip reads "Expiring soon" alone (the user's request); its count
 // follows the picked days.
 // In pick mode (from + › Renewal, Due payment or PT) tapping a member opens that form.
-export function MemberList({ pick = null, initialFilter = "all", initialDays = DEFAULT_EXPIRING_DAYS, focusSearch = false }: { pick?: MemberPick; initialFilter?: MemberFilter; initialDays?: ExpiringDays; focusSearch?: boolean }) {
+// `addButton`: the round + (Manage's tab; the Members screen has Add in its header instead)
+export function MemberList({ pick = null, initialFilter = "all", initialDays = DEFAULT_EXPIRING_DAYS, focusSearch = false, addButton = true }: { pick?: MemberPick; initialFilter?: MemberFilter; initialDays?: ExpiringDays; focusSearch?: boolean; addButton?: boolean }) {
   const colors = useThemeColors();
-  const insets = useSafeAreaInsets();
+  const fab = useFabOnScroll();
   // Role & Permission: Collect is for logins with Payments (the server refuses the rest anyway)
   const can = useCan();
   // Narrow phones (under 360): the status pill moves under the name, beside the days-left pill
-  const narrow = useWindowDimensions().width < 360;
+  // Narrow in text units: a 360-wide phone at a larger system text size (Android's default is
+  // 1.15 on many phones) cut the name and the Member ID off, so the status moves under them there
+  // too (seen on a OnePlus, 2026-11-08)
+  const { compact: narrow } = useResponsive();
   const [filter, setFilter] = useState<MemberFilter>(initialFilter);
   const [days, setDays] = useState<ExpiringDays>(initialDays);
   // The filter row keeps the filter that is on in the middle (lib/useCenteredChip.ts), so Home's
@@ -73,6 +83,7 @@ export function MemberList({ pick = null, initialFilter = "all", initialDays = D
   const [sheet, setSheet] = useState<"sort" | "add" | null>(null);
   const [actions, setActions] = useState<GymMember | null>(null);
   const [collecting, setCollecting] = useState<GymMember | null>(null);
+  const [editing, setEditing] = useState<GymMember | null>(null);
   const [reminding, setReminding] = useState<{ member: GymMember; kind: ReminderKind } | null>(null);
 
   // Search after a short pause in typing
@@ -128,7 +139,7 @@ export function MemberList({ pick = null, initialFilter = "all", initialDays = D
           <TextInput
             value={typed}
             onChangeText={setTyped}
-            placeholder="Search member by name or ID..."
+            placeholder="Search members"
             placeholderTextColor={colors.gymFaint}
             autoFocus={focusSearch}
             autoCorrect={false}
@@ -153,23 +164,15 @@ export function MemberList({ pick = null, initialFilter = "all", initialDays = D
           const selected = f.id === filter;
           const count = counts ? counts[f.id] : null;
           return (
-            <PressableScale
+            <FilterChip
               key={f.id}
               onLayout={onFilterChipLayout(f.id)}
               onPress={() => { if (!selected) haptic.select(); setFilter(f.id); }}
-              className={selected ? "gym-mlist__chip gym-mlist__chip--selected" : "gym-mlist__chip"}
-              accessibilityRole="tab"
-              accessibilityState={{ selected }}
+              selected={selected}
+              label={filterTitle(f.id)}
+              count={count}
               accessibilityLabel={f.id === "expiring_soon" ? `Expiring soon, ${expiringDaysText(days)}` : filterTitle(f.id)}
-              accessibilityValue={count === null ? undefined : { text: String(count) }}
-            >
-              <Text className={selected ? "gym-mlist__chip-label gym-mlist__chip-label--selected" : "gym-mlist__chip-label"}>{filterTitle(f.id)}</Text>
-              {count !== null && (
-                <View className={selected ? "gym-mlist__count gym-mlist__count--selected" : "gym-mlist__count"}>
-                  <Text className={selected ? "gym-mlist__count-label gym-mlist__count-label--selected" : "gym-mlist__count-label"}>{count}</Text>
-                </View>
-              )}
-            </PressableScale>
+            />
           );
         })}
       </ScrollView>
@@ -179,17 +182,16 @@ export function MemberList({ pick = null, initialFilter = "all", initialDays = D
           {EXPIRING_SOON_DAYS.map((d) => {
             const selected = d === days;
             return (
-              <PressableScale
+              <ChoiceChip
                 key={d}
                 onLayout={onDayChipLayout(d)}
                 onPress={() => { if (!selected) haptic.select(); setDays(d); }}
-                className={selected ? "gym-choice gym-choice--selected" : "gym-choice"}
+                selected={selected}
+                label={expiringDaysLabel(d)}
                 accessibilityRole="radio"
                 accessibilityState={{ selected }}
                 accessibilityLabel={d === "all" ? "All plans still running" : `Next ${d} days`}
-              >
-                <Text className={selected ? "gym-choice__label gym-choice__label--selected" : "gym-choice__label"}>{expiringDaysLabel(d)}</Text>
-              </PressableScale>
+              />
             );
           })}
         </ScrollView>
@@ -213,14 +215,17 @@ export function MemberList({ pick = null, initialFilter = "all", initialDays = D
     </GymSheet>
   );
 
+  // Its own gesture root: the cards' swipe actions need one, and the app's root has none
   return (
-    <>
+    <GestureHandlerRootView style={{ flex: 1 }}>
       <FlatList
         {...listPerf}
         data={members}
         keyExtractor={(m) => String(m.id)}
         style={{ backgroundColor: colors.gymCanvas }}
-        contentContainerStyle={{ padding: 16, paddingBottom: 120, gap: 10 }}
+        contentContainerStyle={{ padding: 16, paddingBottom: FAB_CLEARANCE + 16, gap: 10 }}
+        onScroll={fab.onScroll}
+        scrollEventThrottle={fab.scrollEventThrottle}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
         refreshControl={<RefreshControl refreshing={refreshing} tintColor={colors.gymPrimary} onRefresh={refresh} />}
@@ -260,14 +265,39 @@ export function MemberList({ pick = null, initialFilter = "all", initialDays = D
           // The plan they took and their PT, as pills beside the days left (2026-11-08, the user's
           // request): "Gold · 3 Months" (a custom plan: its length), "PT · 12 sessions"
           const planText = memberPlanText(item);
-          const ptText = item.pt ? `PT · ${item.pt.label}${item.pt.active ? "" : " · ended"}` : null;
+          const ptText = item.pt ? `${ptPackageText(item.pt.label)}${item.pt.active ? "" : " · ended"}` : null;
           const statusPill = (
             <View className="gym-mcard__status" style={{ backgroundColor: status.ground }} accessibilityLabel={`Status: ${status.label}`}>
               <View className="gym-mcard__dot" style={{ backgroundColor: status.color }} />
               <Text className="gym-mcard__status-label" style={{ color: status.color }}>{status.label}</Text>
             </View>
           );
+          const bell = (
+            <PressableScale
+              onPress={() => { haptic.select(); setReminding({ member: item, kind }); }}
+              className="gym-mcard__bell"
+              hitSlop={6}
+              style={item.status === "expired" ? { backgroundColor: colors.gymDangerSoft } : undefined}
+              accessibilityRole="button"
+              accessibilityLabel={`Send ${item.name} ${item.status === "expired" ? "an expired" : kind === "due" ? "a due" : "an expiry"} reminder`}
+            >
+              <GymIcon name="bell" size={18} color={item.status === "expired" ? colors.gymDanger : colors.gymPrimary} />
+            </PressableScale>
+          );
+          // Swipe actions (not in pick mode): left for Call and Message (the phone's own apps), right
+          // for Edit (with the Edit option) and More (the ⋯ sheet)
+          const swipeRight: SwipeAction[] = item.phone
+            ? [
+                { key: "call", label: "Call", icon: "phone", color: colors.gymSuccess, ground: colors.gymSuccessSoft, onPress: () => contact.call(item) },
+                { key: "sms", label: "Message", icon: "message-square", color: colors.gymPrimary, ground: colors.gymPrimarySoft, onPress: () => contact.sms(item) },
+              ]
+            : [];
+          const swipeLeft: SwipeAction[] = [
+            ...(can("members.edit") ? [{ key: "edit", label: "Edit", icon: "square-pen" as const, color: colors.gymPrimary, ground: colors.gymPrimarySoft, onPress: () => setEditing(item) }] : []),
+            { key: "more", label: "More", icon: "ellipsis", color: colors.gymInkSoft, ground: colors.gymBar, onPress: () => setActions(item) },
+          ];
           return (
+            <SwipeActions enabled={!pick} left={swipeLeft} right={swipeRight}>
             <View className="gym-mcard">
               {/* The member's row opens them; the status, ⋯ and the footer's buttons sit outside it (no button inside a button) */}
               <View className="flex-row items-center" style={{ gap: 10 }}>
@@ -301,7 +331,9 @@ export function MemberList({ pick = null, initialFilter = "all", initialDays = D
               </View>
               {/* The plan, the days left and PT side by side (2026-11-08, the user's request); then the
                   payment due, with Collect and the bell at the end */}
-              <View className="flex-row flex-wrap items-center" style={{ gap: 6 }}>
+              {/* With nothing owed the bell ends this row (it sat alone on a row of its own, 2026-11-08) */}
+              <View className="flex-row items-center" style={{ gap: 8 }}>
+              <View className="min-w-0 flex-1 flex-row flex-wrap items-center" style={{ gap: 6 }}>
                 {!pick && narrow && statusPill}
                 <View className="gym-mcard__pill gym-mcard__pill--plan" accessibilityLabel={`Plan: ${planText}`}>
                   <GymIcon name="clipboard-list" size={14} color={colors.gymInkSoft} />
@@ -312,13 +344,15 @@ export function MemberList({ pick = null, initialFilter = "all", initialDays = D
                   <Text className="gym-mcard__pill-label" numberOfLines={1} style={days.expired ? { color: colors.gymDanger } : undefined}>{days.expired ? `Expired ${days.text}` : days.text}</Text>
                 </View>
                 {ptText && (
-                  <View className="gym-mcard__pill" style={{ backgroundColor: item.pt?.active ? colors.gymSuccessSoft : colors.gymBar }} accessibilityLabel={ptText}>
+                  <View className="gym-mcard__pill" style={{ maxWidth: "100%", backgroundColor: item.pt?.active ? colors.gymSuccessSoft : colors.gymBar }} accessibilityLabel={ptText}>
                     <GymIcon name="dumbbell" size={14} color={item.pt?.active ? colors.gymSuccess : colors.gymFaint} />
                     <Text className="gym-mcard__pill-label" numberOfLines={1} style={{ flexShrink: 1, color: item.pt?.active ? colors.gymSuccess : colors.gymMuted }}>{ptText}</Text>
                   </View>
                 )}
               </View>
-              {(item.due > 0 || !pick) && (
+              {!pick && item.due === 0 && bell}
+              </View>
+              {item.due > 0 && (
               <View className="flex-row items-center" style={{ gap: 8 }}>
                 <View className="min-w-0 flex-1 flex-row items-center">
                   {item.due > 0 && (
@@ -336,31 +370,25 @@ export function MemberList({ pick = null, initialFilter = "all", initialDays = D
                         <Text className="gym-mcard__collect-label">Collect</Text>
                       </PressableScale>
                     )}
-                    <PressableScale
-                      onPress={() => { haptic.select(); setReminding({ member: item, kind }); }}
-                      className="gym-mcard__bell"
-                      hitSlop={6}
-                      style={item.status === "expired" ? { backgroundColor: colors.gymDangerSoft } : undefined}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Send ${item.name} ${item.status === "expired" ? "an expired" : kind === "due" ? "a due" : "an expiry"} reminder`}
-                    >
-                      <GymIcon name="bell" size={18} color={item.status === "expired" ? colors.gymDanger : colors.gymPrimary} />
-                    </PressableScale>
+                    {bell}
                   </View>
                 )}
               </View>
               )}
             </View>
+            </SwipeActions>
           );
         }}
       />
-      {!pick && (
-        <View className="absolute" style={{ right: 16, bottom: 16 + insets.bottom }}>
+      {/* Only with Add Member in the login's options; above the tab bar, which already clears the
+          home indicator (2026-11-08 audit: it floated 34 pt high on iPhones and showed to every login) */}
+      {!pick && addButton && can("members.add") && (
+        <FloatingSlot hidden={fab.hidden}>
           <PressableScale onPress={() => setSheet("add")} haptic="tap" className="gym-fab" accessibilityRole="button" accessibilityLabel="Add a member">
             <GradientFill radius={18} />
             <GymIcon name="plus" size={22} color={colors.white} />
           </PressableScale>
-        </View>
+        </FloatingSlot>
       )}
       {sheet === "add" && (
         <AddMemberSheet
@@ -374,8 +402,9 @@ export function MemberList({ pick = null, initialFilter = "all", initialDays = D
       )}
       {sheet === "sort" && choiceSheet("Sort members", SORTS, sort, setSort)}
       {reminding && gym && <SendReminderSheet kind={reminding.kind} member={reminding.member} gym={gym} onClose={() => setReminding(null)} onSent={reload} />}
-      {collecting && gym && <CollectDueSheet member={collecting} gym={gym} onClose={() => setCollecting(null)} onSaved={() => { setCollecting(null); reload(); }} />}
+      {collecting && gym && <CollectDueSheet member={collecting} gym={gym} onClose={() => setCollecting(null)} onSaved={(detail, invoice) => { setCollecting(null); reload(); if (invoice) router.push({ pathname: "/gym/invoice", params: { memberId: String(detail.member.id) } }); }} />}
       {actions && gym && <MemberActionsSheet member={actions} gym={gym} onClose={() => setActions(null)} onChanged={(detail) => { setActions(detail.member); reload(); }} />}
-    </>
+      {editing && <EditProfileSheet member={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); reload(); }} />}
+    </GestureHandlerRootView>
   );
 }

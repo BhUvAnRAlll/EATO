@@ -365,8 +365,8 @@ function AboutTab({ plan, day }: { plan: Plan; day: TrainingDay }) {
     <View className="home__card" style={{ paddingVertical: 4 }}>
       {rows.map(([label, value], i) => (
         <View key={label} className="flex-row items-center justify-between py-3" style={i < rows.length - 1 ? { borderBottomWidth: 1, borderColor: colors.creamLine } : undefined}>
-          <Text className="meta-text">{label}</Text>
-          <Text className="card__title">{value}</Text>
+          <Text className="meta-text" style={{ flexShrink: 0 }}>{label}</Text>
+          <Text className="card__title" numberOfLines={2} style={{ flexShrink: 1, textAlign: "right", marginLeft: 12 }}>{value}</Text>
         </View>
       ))}
     </View>

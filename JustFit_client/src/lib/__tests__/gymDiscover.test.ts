@@ -48,3 +48,13 @@ describe("Discover Gyms helpers", () => {
     assert.equal(directionsUrl({ ...gym, location: null }), "https://www.google.com/maps/search/?api=1&query=Forma%20Tumkur%2C%2012%2C%20SIT%20Main%20Road%2C%20SIT%20Road%2C%20Tumakuru");
   });
 });
+
+describe("join request words", () => {
+  it("says where a request stands", async () => {
+    const { joinStateText } = await import("../gymDiscover.ts");
+    assert.deepEqual(joinStateText("sent", "Forma"), { label: "Sent", line: "Forma will call you soon.", tone: "pending" });
+    assert.equal(joinStateText("in_touch", "Forma").label, "In touch");
+    assert.equal(joinStateText("joined", "Forma").tone, "active");
+    assert.match(joinStateText("closed", "Forma").line, /ask again/);
+  });
+});

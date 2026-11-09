@@ -88,7 +88,7 @@ export default function GymSettings() {
                       </View>
                       <View className="min-w-0 flex-1">
                         <Text className="gym-dash-row__title" numberOfLines={1}>{row.label}</Text>
-                        <Text className="gym-dash-row__text" numberOfLines={1}>{row.text}</Text>
+                        <Text className="gym-dash-row__text" numberOfLines={2}>{row.text}</Text>
                       </View>
                       <GymIcon name="chevron-right" size={14} color={colors.gymFaint} />
                     </PressableScale>

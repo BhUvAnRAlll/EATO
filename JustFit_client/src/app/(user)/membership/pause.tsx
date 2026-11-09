@@ -1,11 +1,11 @@
 import { useCallback, useState } from "react";
-import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from "react-native";
+import { Platform, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 
 import { FormAlert } from "@/components/FormAlert";
-import { IconButton } from "@/components/IconButton";
+import { ScreenHeader } from "@/components/ScreenHeader";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { ScreenSkeleton } from "@/components/Skeleton";
 import { DatePickerSheet } from "@/components/setup/DatePickerSheet";
@@ -14,6 +14,7 @@ import { hud } from "@/lib/hud";
 import { membershipApi, type Membership } from "@/lib/membershipApi";
 import { addDays, daysBetween, prettyDate } from "@/lib/membershipText";
 import { useSessionToken } from "@/lib/session";
+import { KeyboardAvoider } from "@/components/KeyboardAvoider";
 
 const toDate = (iso: string) => {
   const [y, m, d] = iso.split("-").map(Number);
@@ -82,10 +83,7 @@ export default function PauseMembership() {
     <View className="flex-1 bg-cream">
       <StatusBar style="dark" />
       <SafeAreaView edges={["top"]} style={{ flex: 1 }}>
-        <View className="flex-row items-center px-4 py-2" style={{ gap: 12 }}>
-          <IconButton icon={{ ios: "chevron.left", android: "chevron_left", web: "chevron_left" }} label="Back" onPress={() => (router.canGoBack() ? router.back() : router.replace("/gym-hub"))} />
-          <Text className="type-title flex-1" accessibilityRole="header">Pause Membership</Text>
-        </View>
+        <ScreenHeader title="Pause Membership" fallback="/gym-hub" />
 
         {result.state === "loading" ? (
           <ScreenSkeleton cards={2} label="Loading your membership" />
@@ -101,7 +99,7 @@ export default function PauseMembership() {
             </View>
           </View>
         ) : (
-          <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+          <KeyboardAvoider>
           <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 48, gap: 16 }} keyboardShouldPersistTaps="handled" keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"} showsVerticalScrollIndicator={false}>
             <View className="card" style={{ gap: 4 }}>
               <Text className="card__title">{`${result.membership.gym.name} · ${result.membership.gym.branch}`}</Text>
@@ -149,7 +147,7 @@ export default function PauseMembership() {
             <PrimaryButton label="Send pause request" onPress={submit} disabled={!valid} loading={busy} />
             <Text className="type-caption text-muted text-center">{"Nothing changes until the gym approves. You can cancel the request while it's waiting."}</Text>
           </ScrollView>
-          </KeyboardAvoidingView>
+          </KeyboardAvoider>
         )}
 
         {ready && (

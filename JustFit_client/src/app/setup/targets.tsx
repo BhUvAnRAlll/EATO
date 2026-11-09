@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Pressable, Text, TextInput, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
+import { FieldInput } from "@/components/FieldInput";
 import { SymbolView } from "@/components/SymbolView";
 
 import { FormAlert } from "@/components/FormAlert";
@@ -39,7 +40,8 @@ function MacroTile({ label, value, note, color, icon }: MacroTileProps) {
       <View className="setup__ring" style={{ borderColor: color }}>
         <SymbolView name={icon} size={18} tintColor={color} />
       </View>
-      <View>
+      {/* min-w-0 lets the text wrap inside a narrow tile (320 px) instead of running past it */}
+      <View className="min-w-0 flex-1">
         <Text className="setup__card-text">{label}</Text>
         <Text className="setup__macro-value">{value}</Text>
         <Text className="setup__card-text">{note}</Text>
@@ -266,8 +268,8 @@ export default function NutritionTargets() {
               size={20}
               tintColor={colors.inkSoft}
             />
-            <TextInput
-              className="setup__field-input flex-1"
+            <FieldInput
+              className="flex-1"
               placeholder="e.g. 2000"
               placeholderTextColor={colors.faint}
               keyboardType="number-pad"

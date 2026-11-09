@@ -25,7 +25,7 @@ export default function AdminGyms() {
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.leaf} colors={[colors.leaf]} progressBackgroundColor={colors.surface} />}
         >
-          <View className="flex-row items-end px-5 pt-2">
+          <View className="flex-row items-end px-4 pt-2">
             <View className="flex-1">
               <Text className="type-overline text-muted">justFit admin</Text>
               <Text className="type-title text-forest-ink">Gyms</Text>
@@ -35,7 +35,7 @@ export default function AdminGyms() {
               <Text className="btn-forest__label">New gym</Text>
             </Pressable>
           </View>
-          <View className="px-5" style={{ gap: 12 }}>
+          <View className="px-4" style={{ gap: 12 }}>
             {result.state === "loading" && <ScreenSkeleton label="Loading gyms" />}
             {result.state === "failed" && (
               <DashedBlock icon={{ ios: "exclamationmark.triangle.fill", android: "warning", web: "warning" }} title="Could not load gyms" text={`${result.error.replace(/\.$/, "")}. Tap to try again.`} onPress={retry} />

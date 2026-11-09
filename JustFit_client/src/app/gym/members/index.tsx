@@ -35,7 +35,7 @@ export default function GymMembers() {
         ) : undefined
       }
     >
-      <MemberList pick={pick} initialFilter={isMemberFilter(params.filter) ? params.filter : "all"} initialDays={parseExpiringDays(params.days)} focusSearch={params.focus === "search"} />
+      <MemberList pick={pick} initialFilter={isMemberFilter(params.filter) ? params.filter : "all"} initialDays={parseExpiringDays(params.days)} focusSearch={params.focus === "search"} addButton={false} />
       {adding && <AddMemberSheet onClose={() => setAdding(false)} onSaved={(detail) => { setAdding(false); router.push({ pathname: "/gym/members/[id]", params: { id: String(detail.member.id) } }); }} />}
     </GymScreen>
   );

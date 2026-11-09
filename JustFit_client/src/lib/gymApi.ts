@@ -186,7 +186,8 @@ export type MemberSort = "name" | "days" | "due";
 // Enquiry follow-up: lost shows as "Not interested"; joined has the member they became
 export type EnquiryStatus = "new" | "follow_up" | "joined" | "lost";
 export type EnquiryInterest = "membership" | "pt" | "trial" | "other";
-export type EnquirySource = "walk_in" | "call" | "whatsapp" | "instagram" | "referral" | "other";
+// app: a Gym Hub join request from the justFit app (staff can't choose it)
+export type EnquirySource = "walk_in" | "call" | "whatsapp" | "instagram" | "referral" | "other" | "app";
 export type EnquiryView = "today" | "overdue" | "open" | "joined" | "lost" | "all";
 // A contact attempt with an enquiry and how it went (a visit is always visited)
 export type ContactKind = "call" | "whatsapp" | "visit";
@@ -204,6 +205,8 @@ export type GymEnquiry = {
   followUpOn: string | null;
   interest: EnquiryInterest | null;
   source: EnquirySource | null;
+  // A Gym Hub join request's plan as it read when sent ("Gold · 3 Months · ₹4,500"), else null
+  planLabel?: string | null;
   // A referral: who referred them (their number) and, when that number is one of the branch's
   // members, that member (2026-11-08)
   referredBy: { phone: string; member: { id: number; name: string; code: string } | null } | null;

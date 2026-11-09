@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Text } from "react-native";
-import { router } from "expo-router";
 
 import { FormAlert } from "@/components/FormAlert";
 import { DateSelect } from "@/components/gym/DateSelect";
@@ -15,17 +14,15 @@ import { useGymSave } from "@/lib/gymForm";
 
 // Collect Due (the user's design): the collected date, the amount (all of what's owed to start; a
 // part is fine, with a date for the rest), the mode and Send Invoice (opens the payment's Invoice
-// screen once it's saved, 2026-11-07)
-export function CollectDueSheet({ member, gym, onClose, onSaved }: { member: GymMember; gym: GymInfo; onClose: () => void; onSaved: (detail: GymMemberDetail) => void }) {
+// screen once it's saved, 2026-11-07). The caller opens the invoice: it must close every sheet
+// first, or the screen opens behind them (2026-11-08 audit)
+export function CollectDueSheet({ member, gym, onClose, onSaved }: { member: GymMember; gym: GymInfo; onClose: () => void; onSaved: (detail: GymMemberDetail, sendInvoice: boolean) => void }) {
   const [paidOn, setPaidOn] = useState(daysFromToday(0));
   const [amount, setAmount] = useState(String(member.due));
   const [method, setMethod] = useState<PayMethod | "">("online");
   const [dueBy, setDueBy] = useState<string | null>(member.dueBy);
   const [sendInvoice, setSendInvoice] = useState(false);
-  const { busy, error, save } = useGymSave((detail: GymMemberDetail) => {
-    onSaved(detail);
-    if (sendInvoice) router.push({ pathname: "/gym/invoice", params: { memberId: String(detail.member.id) } });
-  }, "Payment recorded");
+  const { busy, error, save } = useGymSave((detail: GymMemberDetail) => onSaved(detail, sendInvoice), "Payment recorded");
   const value = rupeesFromText(amount);
   const part = value >= 1 && value < member.due;
   const ready = value >= 1 && value <= member.due && method !== "" && (!part || dueBy !== null);

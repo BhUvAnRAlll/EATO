@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 
-import { IconButton } from "@/components/IconButton";
+import { ScreenHeader } from "@/components/ScreenHeader";
 import { PressableScale } from "@/components/PressableScale";
 import { ScreenSkeleton } from "@/components/Skeleton";
 import { SymbolView } from "@/components/SymbolView";
@@ -59,9 +59,15 @@ const KIT_NOTE = { none: "No equipment", some: "Some equipment", full_gym: "Full
 // Under the picture: how many sessions, how long each is, and where (with the equipment)
 function InfoStrip({ program }: { program: ProgramDetail }) {
   const colors = useThemeColors();
+  // Before the admin adds a session there is no count or length to show: "Sessions coming soon"
+  // instead of "0 sessions" and a bare "–"
+  const hasSessions = program.sessionCount > 0 && program.minutes.max > 0;
+  const play: Icon = { ios: "play.rectangle", android: "smart_display", web: "smart_display" };
   const items: { icon: Icon; title: string; note: string }[] = [
-    { icon: { ios: "play.rectangle", android: "smart_display", web: "smart_display" }, title: `${program.sessionCount} ${program.sessionCount === 1 ? "session" : "sessions"}`, note: "free" },
-    { icon: { ios: "clock", android: "schedule", web: "schedule" }, title: sessionMinutes(program), note: "per session" },
+    hasSessions
+      ? { icon: play, title: `${program.sessionCount} ${program.sessionCount === 1 ? "session" : "sessions"}`, note: "free" }
+      : { icon: play, title: "Sessions", note: "coming soon" },
+    ...(hasSessions ? [{ icon: { ios: "clock", android: "schedule", web: "schedule" } as Icon, title: sessionMinutes(program), note: "per session" }] : []),
     { icon: program.place === "center" ? { ios: "dumbbell", android: "fitness_center", web: "fitness_center" } : { ios: "house", android: "home", web: "home" }, title: PLACE_TEXT[program.place], note: KIT_NOTE[program.kit] },
   ];
   return (
@@ -106,19 +112,24 @@ export default function ProgramScreen() {
 
   return (
     <View className="flex-1 bg-cream">
-      <StatusBar style={load.state === "ready" ? "light" : "auto"} />
+      <StatusBar style="dark" />
+      {/* The header sits above the picture, never on it: page photos carry their own design (pills,
+          titles) in the top corners, which a floating Back covered */}
+      <View style={{ paddingTop: insets.top }}>
+        <ScreenHeader title={load.state === "ready" ? load.program.title : "Program"} onBack={back} />
+      </View>
       {load.state === "loading" ? (
-        <View className="px-4" style={{ paddingTop: insets.top + 56 }}>
+        <View className="px-4">
           <ScreenSkeleton cards={2} hero label="Loading the program" />
         </View>
       ) : load.state === "failed" ? (
-        <View className="px-4" style={{ paddingTop: insets.top + 56 }}>
+        <View className="px-4">
           <DashedBlock icon={{ ios: "exclamationmark.triangle.fill", android: "warning", web: "warning" }} title="Could not open the program" text={`${load.error.replace(/\.$/, "")}. Tap to try again.`} onPress={() => { setLoad({ state: "loading" }); refresh(); }} />
         </View>
       ) : (
         <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 40 }} showsVerticalScrollIndicator={false}>
           {/* The top: the picture alone (the page photo carries its own design); screen readers hear the title */}
-          <View style={{ height: 280 + insets.top }} className="overflow-hidden" accessible accessibilityRole="header" accessibilityLabel={`${load.program.title}. ${load.program.subtitle}. ${LEVEL_TEXT[load.program.level]}, free.`}>
+          <View style={{ height: 280 }} className="overflow-hidden" accessible accessibilityRole="header" accessibilityLabel={`${load.program.title}. ${load.program.subtitle}. ${LEVEL_TEXT[load.program.level]}, free.`}>
             <ProgramArt palette={load.program.palette} icon={load.program.icon} iconSize={96} id={`detail-${load.program.id}`} coverUrl={load.program.heroUrl} shade={false} />
           </View>
 
@@ -141,9 +152,6 @@ export default function ProgramScreen() {
           </View>
         </ScrollView>
       )}
-      <View className="absolute left-4" style={{ top: insets.top + 8 }}>
-        <IconButton icon={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} label="Back" onPress={back} />
-      </View>
     </View>
   );
 }

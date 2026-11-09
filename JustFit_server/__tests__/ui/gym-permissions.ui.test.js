@@ -166,7 +166,7 @@ describe("ui gym permissions: Role & Permission for Staff logins", () => {
     await clickLabel("Role & Permission");
     await page.waitFor(`location.pathname === "/gym/permissions"`, NAV_TIMEOUT, "Role & Permission");
     await h.expectText("Choose what each Staff login can open at the Tumkur branch");
-    await h.expectText("STAFF (1)"); // the section title is set in capitals
+    await h.expectText("Staff (1)");
     assert.ok(await hasLabel("Priya Sharma: All areas. Change permissions"), "Priya with every area");
     await snapshotAllWidths("gym-permissions-list");
   }));

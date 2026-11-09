@@ -14,7 +14,8 @@ import { SMS_KIND_LABEL } from "@/lib/gymSms";
 import { useSessionToken } from "@/lib/session";
 import { useGymData } from "@/lib/useGymData";
 import { useCan } from "@/store/gymAccess";
-import { useThemeColors, type Palette } from "@/theme";
+import { useSwitchColors, useThemeColors, type Palette } from "@/theme";
+import { useResponsive } from "@/lib/responsive";
 import type { GymIconName } from "@/constants/gymIcons";
 
 type Page = "home" | "auto" | "manual" | "logs";
@@ -41,6 +42,9 @@ const when = (iso: string) =>
 // and Message Logs. One sheet whose pages swap, with a back arrow on the inner ones.
 export function BulkSmsSheet({ onClose }: { onClose: () => void }) {
   const colors = useThemeColors();
+  // Every switch is the app's switch, in the portal's indigo when on
+  const switchColors = useSwitchColors();
+  const { compact } = useResponsive();
   const getToken = useSessionToken();
   const { result, retry, set } = useGymData(gymApi.sms);
   // Role & Permission: Auto Reminders is SMS › Auto reminder settings, Manual Send is SMS › Send SMS
@@ -137,7 +141,7 @@ export function BulkSmsSheet({ onClose }: { onClose: () => void }) {
           {offNote}
           <View className="gym-credits">
             <View className="flex-1" style={{ gap: 2 }}>
-              <Text className="gym-credits__label">Available Credits</Text>
+              <Text className="gym-credits__label" numberOfLines={1}>Available Credits</Text>
               <View className="flex-row items-center" style={{ gap: 10 }} accessible accessibilityLabel={`${credits} credits`}>
                 <GymIcon name="message-square-text" size={20} color={colors.white} />
                 <Text className="gym-credits__value">{credits.toLocaleString("en-IN")}</Text>
@@ -146,13 +150,10 @@ export function BulkSmsSheet({ onClose }: { onClose: () => void }) {
             </View>
             <PressableScale onPress={() => say("Buy Credits", "SMS credits are added by the justFit team. Contact them to top up this branch.")} className="gym-credits__buy" accessibilityRole="button" accessibilityLabel="Buy credits">
               <GymIcon name="circle-plus" size={18} color={colors.white} />
-              <Text className="gym-credits__buy-label">Buy Credits</Text>
+              <Text className="gym-credits__buy-label" numberOfLines={1}>{compact ? "Buy" : "Buy Credits"}</Text>
             </PressableScale>
           </View>
-          <View className="gym-section-rule">
-            <Text className="gym-section-rule__label">QUICK ACTIONS</Text>
-            <View className="gym-section-rule__line" />
-          </View>
+          <Text className="gym-dash-section__title" accessibilityRole="header">Quick actions</Text>
           <View style={{ gap: 14 }}>
             {(
               [
@@ -178,11 +179,13 @@ export function BulkSmsSheet({ onClose }: { onClose: () => void }) {
 
       {data && page === "auto" && (
         <>
-          <View className="gym-warning">
-            <GymIcon name="triangle-alert" size={18} color={colors.gymWarning} />
-            <Text className="gym-warning__text">Make sure you have enough SMS credits. Reminders will be skipped if your balance runs out.</Text>
-          </View>
-          {offNote}
+          {/* One warning, not two stacked (2026-11-08): sending off says so; otherwise the credits */}
+          {data.sending ? (
+            <View className="gym-warning">
+              <GymIcon name="triangle-alert" size={18} color={colors.gymWarning} />
+              <Text className="gym-warning__text">Make sure you have enough SMS credits. Reminders will be skipped if your balance runs out.</Text>
+            </View>
+          ) : offNote}
           <View className="flex-row items-center" style={{ gap: 6 }}>
             <GymIcon name="info" size={14} color={colors.gymFaint} />
             <Text className="gym-tx__meta" style={{ color: colors.gymFaint }}>{`1 Credit = 1 SMS · ${credits.toLocaleString("en-IN")} left`}</Text>
@@ -190,22 +193,24 @@ export function BulkSmsSheet({ onClose }: { onClose: () => void }) {
           <View>
             {data.reminders.map((r, i) => (
               <View key={r.kind} className="gym-reminder" style={i > 0 ? { borderTopWidth: 1, borderColor: colors.gymLine } : undefined}>
-                <View className="gym-reminder__icon" style={{ backgroundColor: look[r.kind].box }}>
-                  <GymIcon name={look[r.kind].icon} size={22} color={look[r.kind].tint} />
-                </View>
+                {/* No icon on a compact screen, so the title has the width */}
+                {!compact && (
+                  <View className="gym-reminder__icon" style={{ width: 40, height: 40, backgroundColor: look[r.kind].box }}>
+                    <GymIcon name={look[r.kind].icon} size={20} color={look[r.kind].tint} />
+                  </View>
+                )}
                 <View className="min-w-0 flex-1">
                   <Text className="gym-reminder__title" numberOfLines={2}>{r.title}</Text>
                   <Text className="gym-reminder__when">
                     {`${r.when} · `}
-                    <Text onPress={() => setPreview({ title: r.title, text: r.preview })} style={{ color: look[r.kind].tint, fontFamily: "Poppins-Medium" }} accessibilityRole="link" accessibilityLabel={`Preview the ${r.title}`}>Preview</Text>
+                    <Text onPress={() => setPreview({ title: r.title, text: r.preview })} style={{ color: colors.gymPrimary, fontFamily: "Poppins-Medium" }} accessibilityRole="link" accessibilityLabel={`Preview the ${r.title}`}>Preview</Text>
                   </Text>
                 </View>
                 <Switch
                   value={r.on}
                   onValueChange={(on) => toggle(r.kind, on)}
-                  trackColor={{ false: colors.gymLine, true: colors.gymPrimary }}
-                  thumbColor={colors.white}
-                  ios_backgroundColor={colors.gymLine}
+                  {...switchColors}
+                  trackColor={{ false: switchColors.trackColor.false, true: colors.gymPrimary }}
                   accessibilityLabel={`${r.title}, ${r.when}`}
                 />
               </View>
@@ -237,7 +242,7 @@ export function BulkSmsSheet({ onClose }: { onClose: () => void }) {
                       <GymIcon name={look[g.kind].icon} size={18} color={look[g.kind].tint} />
                     </View>
                     <View className="min-w-0 flex-1">
-                      <Text className={selected ? "gym-choice__label gym-choice__label--selected" : "gym-choice__label"} numberOfLines={1}>{g.label}</Text>
+                      <Text className="gym-choice__label" numberOfLines={1} style={selected ? { color: colors.gymPrimaryText } : undefined}>{g.label}</Text>
                       <Text className="gym-tx__meta" numberOfLines={1}>{SMS_KIND_LABEL[g.kind]}</Text>
                     </View>
                     <Text className="gym-tx__amount" style={{ color: colors.gymInk, paddingRight: 6 }}>{g.count}</Text>

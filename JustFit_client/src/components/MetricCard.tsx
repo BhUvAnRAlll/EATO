@@ -12,7 +12,8 @@ type MetricCardProps = {
   icon: SymbolViewProps["name"];
   // Pre-formatted number ("1,350") and its unit ("Kcal")
   value: string;
-  unit: string;
+  // Left out when the label already says what the number is (BMI)
+  unit?: string;
   // One friendly word under the number ("Perfect", "Rest")
   status: string;
   onPress?: () => void;
@@ -40,7 +41,7 @@ export function MetricCard({ tone, label, icon, value, unit, status, onPress, ac
       className="metric-card"
       style={{ backgroundColor: ground }}
       accessibilityRole={onPress ? "button" : undefined}
-      accessibilityLabel={accessibilityLabel ?? `${label}: ${value} ${unit}, ${status}`}
+      accessibilityLabel={accessibilityLabel ?? `${label}: ${value}${unit ? ` ${unit}` : ""}, ${status}`}
     >
       <View className="flex-row items-center justify-between">
         <Text className="metric-card__label" numberOfLines={1}>
@@ -50,11 +51,11 @@ export function MetricCard({ tone, label, icon, value, unit, status, onPress, ac
       </View>
       <Text className="metric-card__value" numberOfLines={1}>
         {value}
-        <Text className="metric-card__unit">{` / ${unit}`}</Text>
+        {unit ? <Text className="metric-card__unit">{` / ${unit}`}</Text> : null}
       </Text>
       <View className="flex-row items-center justify-between gap-2">
         <View className="metric-card__status">
-          <Text className="metric-card__status-label" numberOfLines={1}>
+          <Text className="metric-card__status-label" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
             {status}
           </Text>
         </View>

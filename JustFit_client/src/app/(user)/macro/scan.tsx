@@ -1,5 +1,6 @@
-import { useState } from "react";
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { useRef, useState } from "react";
+import { ActivityIndicator, Platform, Pressable, ScrollView, Text, View } from "react-native";
+import { FieldInput } from "@/components/FieldInput";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { SymbolView } from "@/components/SymbolView";
@@ -16,6 +17,7 @@ import { logDate } from "@/store/macro";
 import { useThemeColors, Palette } from "@/theme";
 import { track } from "@/lib/analytics";
 import { haptic } from "@/lib/haptics";
+import { KeyboardAvoider } from "@/components/KeyboardAvoider";
 
 const macroFields = (colors: Palette) => ([
   { key: "kcal", label: "kcal", color: colors.danger },
@@ -52,6 +54,8 @@ export default function ScanFood() {
   const [slot, setSlot] = useState<Slot>(slots.includes(params.slot as Slot) ? (params.slot as Slot) : slotForNow());
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  // Set at once (state lags a render), so a double tap logs the meal only once
+  const savingRef = useRef(false);
 
   const scan = async (picked: ScanPhoto) => {
     setScanning(true);
@@ -96,13 +100,14 @@ export default function ScanFood() {
   const totals = (rows ?? []).reduce((sum, row) => ({ kcal: sum.kcal + num(row.kcal), proteinG: sum.proteinG + num(row.proteinG), carbsG: sum.carbsG + num(row.carbsG), fatG: sum.fatG + num(row.fatG) }), { kcal: 0, proteinG: 0, carbsG: 0, fatG: 0 });
 
   const save = async () => {
-    if (saving || !rows) return;
+    if (saving || savingRef.current || !rows) return;
     setError(null);
     // The selected day, followed to the new today when midnight passed since it was picked
     const date = logDate();
     if (date !== todayIso()) return setError("Meals can only be logged for today.");
     if (rows.length === 0) return setError("Keep at least one food, or scan again.");
     if (!title.trim()) return setError("Give the meal a name.");
+    savingRef.current = true;
     setSaving(true);
     const result = await macro.logMeal(await getToken().catch(() => null), {
       date,
@@ -112,6 +117,7 @@ export default function ScanFood() {
       source: "manual",
       items: rows.map((row) => ({ name: row.name, quantity: row.quantity, unit: row.unit, kcal: num(row.kcal), proteinG: num(row.proteinG), carbsG: num(row.carbsG), fatG: num(row.fatG) })),
     });
+    savingRef.current = false;
     setSaving(false);
     if (!result.ok) return setError(result.status ? result.error : "Could not save that meal.");
     track("meal_logged", { source: "scan" });
@@ -124,7 +130,7 @@ export default function ScanFood() {
       <StatusBar style="auto" />
       <SafeAreaView style={{ flex: 1 }}>
         <MacroHeader title="Scan food" />
-        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+        <KeyboardAvoider>
           <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24, gap: 16 }} keyboardShouldPersistTaps="handled"
             keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"} showsVerticalScrollIndicator={false}>
             {photo ? (
@@ -146,7 +152,7 @@ export default function ScanFood() {
                 <Text className="setup__section">Note (optional)</Text>
                 <View className="setup__field">
                   <SymbolView name={{ ios: "text.bubble", android: "chat", web: "chat" }} size={18} tintColor={colors.muted} />
-                  <TextInput className="setup__field-input min-w-0 flex-1" value={hint} onChangeText={setHint} placeholder="2 rotis, paneer butter masala" placeholderTextColor={colors.faint} maxLength={200} editable={!scanning} accessibilityLabel="Note about the food" />
+                  <FieldInput className="min-w-0 flex-1" value={hint} onChangeText={setHint} placeholder="2 rotis, paneer butter masala" placeholderTextColor={colors.faint} maxLength={200} editable={!scanning} accessibilityLabel="Note about the food" />
                 </View>
               </View>
             )}
@@ -164,7 +170,7 @@ export default function ScanFood() {
                   <Text className="setup__section">Meal name</Text>
                   <View className="setup__field">
                     <SymbolView name={{ ios: "pencil", android: "edit", web: "edit" }} size={18} tintColor={colors.muted} />
-                    <TextInput className="setup__field-input min-w-0 flex-1" value={title} onChangeText={setTitle} maxLength={120} accessibilityLabel="Meal name" />
+                    <FieldInput className="min-w-0 flex-1" value={title} onChangeText={setTitle} maxLength={120} accessibilityLabel="Meal name" />
                   </View>
                 </View>
 
@@ -188,9 +194,9 @@ export default function ScanFood() {
                               <View className="h-2 w-2 rounded-pill" style={{ backgroundColor: m.color }} />
                               <Text className="macro__bar-label">{m.label}</Text>
                             </View>
-                            <View className="mt-1 min-w-0 flex-row items-baseline gap-1">
-                              <TextInput
-                                className="setup__field-input min-w-0 flex-1"
+                            <View className="mt-1 min-w-0 flex-row items-center gap-1">
+                              <FieldInput
+                                className="min-w-0 flex-1"
                                 value={row[m.key]}
                                 onChangeText={(t) => setField(index, m.key, t)}
                                 placeholder="0"
@@ -262,7 +268,7 @@ export default function ScanFood() {
               </>
             ) : null}
           </View>
-        </KeyboardAvoidingView>
+        </KeyboardAvoider>
       </SafeAreaView>
     </View>
   );

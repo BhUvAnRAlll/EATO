@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Keyboard, Modal, Platform, Pressable, Text, useWindowDimensions, View } from "react-native";
+import { Keyboard, Modal, Platform, Pressable, Text, useWindowDimensions, View, type ScrollViewInstance } from "react-native";
 import { GestureDetector, GestureHandlerRootView, ScrollView, usePanGesture } from "react-native-gesture-handler";
 import Animated, { FadeIn, ReduceMotion, SlideInDown, useAnimatedStyle, useSharedValue, withSpring, withTiming } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -25,6 +25,9 @@ type GymSheetProps = {
   // Closes the overlay (a confirm dialog) instead of the sheet: Android's back button and the
   // backdrop then take one step back, not the whole form away (QA 2026-11-07)
   onDismissOverlay?: () => void;
+  // When it changes (a step of a multi-step form), the content scrolls back to the top, so the new
+  // step opens on its heading and a pull down closes the sheet again (2026-11-08 audit)
+  scrollKey?: string | number;
 };
 
 // The gym portal's bottom sheet (the user's designs): dimmed page, a white sheet rising from the
@@ -35,7 +38,7 @@ const CLOSE_DISTANCE = 120;
 const CLOSE_VELOCITY = 600; // points a second
 const HANDLE_HEIGHT = 30;
 
-export function GymSheet({ title, subtitle, onClose, children, overlay, onBack, stack, onDismissOverlay }: GymSheetProps) {
+export function GymSheet({ title, subtitle, onClose, children, overlay, onBack, stack, onDismissOverlay, scrollKey }: GymSheetProps) {
   // With an overlay up, a step back closes the overlay; without one, the sheet
   const requestClose = overlay && onDismissOverlay ? onDismissOverlay : onClose;
   const colors = useThemeColors();
@@ -43,14 +46,18 @@ export function GymSheet({ title, subtitle, onClose, children, overlay, onBack, 
   const { height } = useWindowDimensions();
   // The keyboard's height while it's open: the sheet then sits right on it and shrinks to the room
   // left above (so it never slides under the top of the screen or leaves a see-through gap)
-  const [keyboard, setKeyboard] = useState(0);
+  const [reported, setReported] = useState(0);
+  // Android reports the keyboard without the navigation bar under it, while the sheet's window
+  // reaches the bottom of the screen (edge to edge): the bar is added back, or the sheet's last
+  // button stayed behind the keyboard (2026-11-08 cross-platform audit)
+  const keyboard = reported > 0 && Platform.OS === "android" ? reported + insets.bottom : reported;
   useEffect(() => {
     // A sheet opens with no field focused, so a keyboard still up belongs to whatever is under it
     // (another sheet's field) and would cover this one: put it away (2026-11-07, the user's
     // screenshots: dialogs and second sheets opened over the keyboard on every screen)
     Keyboard.dismiss();
-    const show = Keyboard.addListener(Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow", (e) => setKeyboard(e.endCoordinates.height));
-    const hide = Keyboard.addListener(Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide", () => setKeyboard(0));
+    const show = Keyboard.addListener(Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow", (e) => setReported(e.endCoordinates.height));
+    const hide = Keyboard.addListener(Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide", () => setReported(0));
     return () => {
       show.remove();
       hide.remove();
@@ -67,6 +74,11 @@ export function GymSheet({ title, subtitle, onClose, children, overlay, onBack, 
   // closed from its thin handle. A drag counts from the handle always, from the content only when
   // it started scrolled to the top (otherwise it just scrolls).
   const scrollY = useRef(0);
+  const scrollRef = useRef<ScrollViewInstance>(null);
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+    scrollY.current = 0;
+  }, [scrollKey]);
   const closing = useRef(false);
   const fromTop = useRef(true);
   const dragY = useSharedValue(0);
@@ -107,7 +119,7 @@ export function GymSheet({ title, subtitle, onClose, children, overlay, onBack, 
             </View>
             {/* The content scrolls inside the sheet, so the last button is always reachable; its
                 scroll runs alongside the drag, which only follows a pull from the top */}
-            <ScrollView simultaneousWith={pan} style={{ flexShrink: 1, maxHeight: sheetMax - bottomPad - 30 }} contentContainerStyle={{ gap: 16, paddingTop: title ? 0 : 4 }} keyboardShouldPersistTaps="handled" keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"} showsVerticalScrollIndicator={false} bounces={false} overScrollMode="never" scrollEventThrottle={16} onScroll={(e) => { scrollY.current = e.nativeEvent.contentOffset.y; }}>
+            <ScrollView ref={scrollRef} simultaneousWith={pan} style={{ flexShrink: 1, maxHeight: sheetMax - bottomPad - 30 }} contentContainerStyle={{ gap: 16, paddingTop: title ? 0 : 4 }} keyboardShouldPersistTaps="handled" keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"} showsVerticalScrollIndicator={false} bounces={false} overScrollMode="never" scrollEventThrottle={16} onScroll={(e) => { scrollY.current = e.nativeEvent.contentOffset.y; }}>
               {title ? (
                 <View className="flex-row items-start" style={{ gap: 12 }}>
                   {onBack && (

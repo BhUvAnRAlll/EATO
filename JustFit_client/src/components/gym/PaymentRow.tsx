@@ -38,8 +38,10 @@ export function PaymentRow({ payment, onPress, invoice = false }: { payment: Gym
         )}
         <View className="min-w-0 flex-1" style={{ gap: 3 }}>
           <Text className="gym-tx__name" numberOfLines={1}>{payment.title}</Text>
-          <View className="flex-row flex-wrap items-center" style={{ gap: 6 }}>
-            <Text className="gym-tx__meta" numberOfLines={1}>{payment.detail}</Text>
+          {/* The detail on its own line, then the type and the mode side by side (they used to
+              wrap onto three lines at 360 wide with a larger text size, 2026-11-08) */}
+          <Text className="gym-tx__meta" numberOfLines={1}>{payment.detail}</Text>
+          <View className="flex-row items-center" style={{ gap: 6 }}>
             {payment.kind !== "sale" && (
               <View className="gym-chip" style={{ backgroundColor: colors.gymPrimarySoft, borderColor: colors.gymPrimaryLine }}>
                 <Text className="gym-chip__label" style={{ color: colors.gymPrimaryText }}>{KIND_LABEL[payment.kind]}</Text>
@@ -56,15 +58,15 @@ export function PaymentRow({ payment, onPress, invoice = false }: { payment: Gym
         </View>
       </Row>
       {chips && (
-        <View className="flex-row flex-wrap items-center" style={{ gap: 6, paddingLeft: 56 }}>
+        <View className="flex-row items-center" style={{ gap: 8, paddingLeft: 56 }}>
           {invoice && (
-            <PressableScale onPress={() => router.push({ pathname: "/gym/invoice", params: { paymentId: String(payment.id) } })} className="gym-chip flex-row items-center" style={chipStyle} accessibilityRole="button" accessibilityLabel={`Invoice for ${payment.title}, ${payment.detail}`}>
+            <PressableScale onPress={() => router.push({ pathname: "/gym/invoice", params: { paymentId: String(payment.id) } })} hitSlop={8} className="gym-chip flex-row items-center" style={chipStyle} accessibilityRole="button" accessibilityLabel={`Invoice for ${payment.title}, ${payment.detail}`}>
               <GymIcon name="file-text" size={12} color={colors.gymPrimaryText} />
               <Text className="gym-chip__label" style={{ color: colors.gymPrimaryText }}>Invoice</Text>
             </PressableScale>
           )}
           {payment.receiptUrl && (
-            <PressableScale onPress={() => setViewing(true)} className="gym-chip flex-row items-center" style={chipStyle} accessibilityRole="button" accessibilityLabel="View the payment bill">
+            <PressableScale onPress={() => setViewing(true)} hitSlop={8} className="gym-chip flex-row items-center" style={chipStyle} accessibilityRole="button" accessibilityLabel="View the payment bill">
               <GymIcon name="receipt-text" size={12} color={colors.gymPrimaryText} />
               <Text className="gym-chip__label" style={{ color: colors.gymPrimaryText }}>Bill</Text>
             </PressableScale>

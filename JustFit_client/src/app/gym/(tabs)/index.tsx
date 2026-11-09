@@ -1,4 +1,4 @@
-import { RefreshControl, ScrollView, Text, useWindowDimensions, View } from "react-native";
+import { RefreshControl, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { router, type Href } from "expo-router";
@@ -24,6 +24,7 @@ import { gymApi, type GymAccess, type StaffOption } from "@/lib/gymApi";
 import { useGymData } from "@/lib/useGymData";
 import { useCan, useGymAccess } from "@/store/gymAccess";
 import { useThemeColors, type Palette } from "@/theme";
+import { useResponsive } from "@/lib/responsive";
 import type { GymIconName } from "@/constants/gymIcons";
 
 // The pill beside the gym's name: the account's role as the server gave it
@@ -68,7 +69,7 @@ export default function GymHome() {
     else setTimeout(() => comingSoon("This"), 250);
   };
   // Six counts in one row on a tablet or the web, otherwise two rows of three
-  const columns = useWindowDimensions().width >= 700 ? 6 : 3;
+  const columns = useResponsive().width >= 700 ? 6 : 3;
   const now = new Date();
   const data = result.state === "ready" ? result.data : null;
   // Role & Permission: what this login may open (the dashboard says); the rest of the portal hides it
@@ -104,10 +105,10 @@ export default function GymHome() {
         { id: "due", value: data.alerts.dueMembers, label: "Due Members", tag: "Action", hint: "Payments to collect", tone: "danger", icon: "triangle-alert", href: "/gym/members?filter=due", need: ["predictions.payments", "members.view"] },
         { id: "risk", value: data.alerts.renewalRisk, label: "Likely to leave", tag: "Risk", hint: "High renewal risk, worth a call", tone: "danger", icon: "user-x", href: "/gym/predictions/renewals", need: ["predictions.renewals"] },
         { id: "pauses", value: data.alerts.pauseRequests, label: "Pause requests", tag: "Review", hint: "Members asking to pause their plan", tone: "ink", icon: "circle-pause", href: "/gym/pauses", need: ["members.pause"] },
-        { id: "expiring", value: data.alerts.expiringToday, label: "Expiring Today", tag: "Urgent", hint: "Plans ending today", tone: "warning", icon: "clock", href: "/gym/members?filter=expiring", need: ["members.view"] },
+        { id: "expiring", value: data.alerts.expiringToday, label: "Expiring today", tag: "Urgent", hint: "Plans ending today", tone: "warning", icon: "clock", href: "/gym/members?filter=expiring", need: ["members.view"] },
         { id: "attendance", value: data.alerts.attendance, label: "Attendance", tag: "Live", hint: "Checked in today", tone: "primary", icon: "scan-qr-code", href: "/gym/attendance", need: ["attendance.view"] },
         { id: "expiring-soon", value: data.alerts.expiringSoon, label: "Expiring soon", tag: "Soon", hint: "Renewals coming up", tone: "warning", icon: "calendar-clock", href: `/gym/members?filter=expiring_soon&days=${HOME_EXPIRING_DAYS}`, need: ["members.view"] },
-        { id: "birthdays", value: data.alerts.birthdays, label: "Birthdays Today", tag: "Wish", hint: "Send them a wish", tone: "success", icon: "cake", href: "/gym/members?filter=birthday", need: ["members.view"] },
+        { id: "birthdays", value: data.alerts.birthdays, label: "Birthdays today", tag: "Wish", hint: "Send them a wish", tone: "success", icon: "cake", href: "/gym/members?filter=birthday", need: ["members.view"] },
       ] as const
     : [])
     .filter((alert) => alert.value !== null && alert.need.some(can))
@@ -125,7 +126,7 @@ export default function GymHome() {
             <GymIcon name="menu" size={18} color={colors.gymInk} />
           </PressableScale>
           <View className="min-w-0 flex-1">
-            <Text className="gym-dash-header__eyebrow" numberOfLines={1}>{data ? data.gym.name.toUpperCase() : " "}</Text>
+            <Text className="gym-dash-header__eyebrow" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{data ? data.gym.name.toUpperCase() : " "}</Text>
             {data && (
               <PressableScale onPress={() => router.push("/gym/branches")} className="flex-row items-center self-start" style={{ gap: 6, maxWidth: "100%" }} accessibilityRole="button" accessibilityLabel={`${data.gym.branch} branch, ${data.gym.area}, ${data.gym.city}. Switch or edit branch`}>
                 <Text className="gym-dash-header__branch" numberOfLines={1}>{`${data.gym.branch} branch`}</Text>
@@ -138,10 +139,16 @@ export default function GymHome() {
             <GymIcon name="search" size={18} color={colors.gymInk} />
           </PressableScale>
           )}
+          {/* The + lives in the header on Home (2026-11-08 review): floating, it always sat on
+              something at rest (a Today tile, a Needs attention count, a payment's amount) */}
+          <PressableScale onPress={() => setSheet("add")} haptic="tap" className="gym-dash-icon-btn" style={{ borderWidth: 0 }} accessibilityRole="button" accessibilityLabel="Add a member, plan, enquiry or payment">
+            <GradientFill radius={12} />
+            <GymIcon name="plus" size={20} color={colors.white} />
+          </PressableScale>
         </View>
 
         <ScrollView
-          contentContainerStyle={{ paddingTop: 8, paddingBottom: 120 }}
+          contentContainerStyle={{ paddingTop: 8, paddingBottom: 48 }}
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} tintColor={colors.gymPrimary} onRefresh={async () => { setRefreshing(true); await reload(); setRefreshing(false); }} />}
         >
@@ -153,7 +160,7 @@ export default function GymHome() {
                 <Animated.View entering={enter(0)} style={{ gap: 2 }}>
                   <Text className="gym-dash-greeting">{`${greetingFor(now)},`}</Text>
                   <View className="flex-row items-center" style={{ gap: 8 }}>
-                    <Text className="gym-dash-name" numberOfLines={1}>{data.gym.name}</Text>
+                    <Text className="gym-dash-name" numberOfLines={2} style={{ flexShrink: 1 }}>{data.gym.name}</Text>
                     <View className="gym-role-pill">
                       <GradientFill radius={6} />
                       <Text className="gym-role-pill__label">{roleLabel(data?.gym.access)}</Text>
@@ -211,7 +218,7 @@ export default function GymHome() {
                           </View>
                           <View className="min-w-0 flex-1">
                             <Text className="gym-dash-row__title" numberOfLines={1}>{alert.label}</Text>
-                            <Text className="gym-dash-row__text" numberOfLines={1}>{alert.hint}</Text>
+                            <Text className="gym-dash-row__text" numberOfLines={2}>{alert.hint}</Text>
                           </View>
                           <View className="gym-dash-count" style={{ backgroundColor: active ? tone.soft : colors.gymBar }}>
                             <AnimatedNumber className="gym-dash-count__label" style={{ color: active ? tone.text : colors.gymFaint }}>{String(alert.value)}</AnimatedNumber>
@@ -263,12 +270,6 @@ export default function GymHome() {
           </View>
         </ScrollView>
 
-        <View className="absolute" style={{ right: 16, bottom: 16 }}>
-          <PressableScale onPress={() => setSheet("add")} haptic="tap" className="gym-fab" accessibilityRole="button" accessibilityLabel="Add a member, plan, enquiry or payment">
-            <GradientFill radius={18} />
-            <GymIcon name="plus" size={24} color={colors.white} />
-          </PressableScale>
-        </View>
       </SafeAreaView>
       {sheet === "add" && <AddSheet onClose={() => setSheet(null)} onPick={pick} canManageTeam={data?.gym.access === "owner"} />}
       {sheet === "sms" && <BulkSmsSheet onClose={() => setSheet(null)} />}

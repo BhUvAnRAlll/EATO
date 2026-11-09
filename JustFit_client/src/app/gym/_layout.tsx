@@ -6,7 +6,7 @@ import { SessionExpiredBanner } from "@/components/SessionExpiredBanner";
 import { useThemeColors } from "@/theme";
 
 // The gym admin portal opens on its tabs (Home · Settings · Wallet)
-export const unstable_settings = { initialRouteName: "(tabs)" };
+export const unstable_settings = { anchor: "(tabs)" };
 
 // Gym admin screens. Only people with the "gym_admin" role can open these (see the root layout).
 export default function GymLayout() {

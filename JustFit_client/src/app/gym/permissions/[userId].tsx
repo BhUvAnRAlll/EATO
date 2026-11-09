@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import Animated, { FadeInDown, ReduceMotion } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, usePreventRemove } from "expo-router";
 
 import { FormAlert } from "@/components/FormAlert";
 import { PressableScale } from "@/components/PressableScale";
@@ -13,6 +13,7 @@ import { GymError, GymLoading } from "@/components/gym/GymStates";
 import { gymApi, type GymTeam, type PermissionTile, type StaffOption, type TeamMember } from "@/lib/gymApi";
 import { useGymSave } from "@/lib/gymForm";
 import { haptic } from "@/lib/haptics";
+import { confirmChoice } from "@/lib/nativeSheets";
 import { NO_MODULES, filterTree, sameOptions, tickedIn, toggleOption, toggleTile } from "@/lib/permissionTree";
 import { useGymData } from "@/lib/useGymData";
 import { useThemeColors } from "@/theme";
@@ -66,7 +67,18 @@ function PermissionsEditor({ member, tree, onSaved }: { member: TeamMember; tree
     onSaved(team);
     setNotice(`Saved. ${member.name ?? "They"} will see the change on their next tap.`);
   });
-  const name = member.name ?? "Staff login";
+  // The person, by name or (with none yet) by their masked number, never a generic "Staff login"
+  const name = member.name?.trim() || member.phone || "Staff login";
+  // Leaving with unsaved ticks (back, the edge swipe, Android back) asks first
+  const [discarding, setDiscarding] = useState(false);
+  const dirty = !sameOptions(ticked, saved);
+  usePreventRemove(dirty && !busy && !discarding, ({ repeat }) => {
+    void confirmChoice({ title: "Discard changes?", message: `${name}'s permissions haven't been saved.`, confirmLabel: "Discard", cancelLabel: "Keep editing", destructive: true }).then((discard) => {
+      if (!discard) return;
+      setDiscarding(true);
+      repeat();
+    });
+  });
   const searching = query.trim().length > 0;
   const shown = filterTree(tree, query);
   const change = (next: StaffOption[]) => {
@@ -161,7 +173,7 @@ function PermissionsEditor({ member, tree, onSaved }: { member: TeamMember; tree
         ) : null}
         {ticked.length === 0 ? <Text className="gym-perm-count text-center">{"With nothing ticked they can only see Home."}</Text> : null}
         {error ? <FormAlert message={error} /> : null}
-        <GymPrimaryButton label="Save Permissions" icon="check" ready={!sameOptions(ticked, saved)} busy={busy} onPress={() => save((token) => gymApi.setPermissions(token, member.id, ticked))} />
+        <GymPrimaryButton label="Save Permissions" icon="check" ready={dirty} busy={busy} onPress={() => save((token) => gymApi.setPermissions(token, member.id, ticked))} />
       </View>
     </GymScreen>
   );

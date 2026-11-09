@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 import { ActivityIndicator, Animated, Pressable, ScrollView, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 
@@ -98,8 +98,11 @@ function OptionCard({ option, chosen, busy, replacing, onReplace }: { option: Me
           const step = stepFor(item.unit);
           if (!editing) return <Text key={`${option.id}-${i}`} className="swap__ing" style={out ? { textDecorationLine: "line-through", color: colors.faint } : undefined}>{`• ${item.name} · ${portion(quantity > 0 ? quantity : item.quantity, item.unit)} · ${Math.round(scaled(item, quantity > 0 ? quantity : item.quantity).kcal)} kcal`}</Text>;
           return (
-            <View key={`${option.id}-${i}`} className="flex-row items-center" style={{ gap: 8 }}>
-              <Text className="swap__ing min-w-0 flex-1" numberOfLines={2} style={out ? { textDecorationLine: "line-through", color: colors.faint } : undefined}>{`${item.name} · ${Math.round(scaled(item, out ? 0 : quantity).kcal)} kcal`}</Text>
+            // The food's name has the card's full width; its controls sit on the line under it,
+            // so a long name never gets squeezed beside four buttons on a narrow phone.
+            <View key={`${option.id}-${i}`} style={{ gap: 6 }}>
+              <Text className="swap__ing" numberOfLines={2} style={out ? { textDecorationLine: "line-through", color: colors.faint } : undefined}>{`${item.name} · ${Math.round(scaled(item, out ? 0 : quantity).kcal)} kcal`}</Text>
+              <View className="flex-row items-center justify-end" style={{ gap: 8 }}>
               {out ? (
                 <Pressable onPress={() => setQuantity(i, item.quantity)} disabled={busy} className="swap__step swap__step--wide" accessibilityRole="button" accessibilityLabel={`Put back ${item.name}`}>
                   <Text className="swap__step-label">Put back</Text>
@@ -118,6 +121,7 @@ function OptionCard({ option, chosen, busy, replacing, onReplace }: { option: Me
                   </Pressable>
                 </>
               )}
+              </View>
             </View>
           );
         })}
@@ -171,6 +175,7 @@ function OptionCard({ option, chosen, busy, replacing, onReplace }: { option: Me
 // amounts before it goes in.
 export default function SwapMealScreen() {
   const colors = useThemeColors();
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ mealId?: string | string[] }>();
   // A link param may arrive as an array (the same key twice): the first value is the one meant
   const mealId = Array.isArray(params.mealId) ? params.mealId[0] : params.mealId;
@@ -287,7 +292,7 @@ export default function SwapMealScreen() {
           {slot && <Text className="coach__hint" numberOfLines={1}>{slot}</Text>}
         </View>
 
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 40, gap: 16 }} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 40 + insets.bottom, gap: 16 }} showsVerticalScrollIndicator={false}>
           {meal && (
             <View className="coach__meal-card" accessibilityLabel={`Replacing ${meal.name}, ${kcal(meal.totals.kcal)} kcal`}>
               <View className="flex-row flex-wrap items-center justify-between" style={{ gap: 8 }}>

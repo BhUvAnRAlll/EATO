@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Text, useWindowDimensions, View } from "react-native";
+import { ActivityIndicator, Text, View } from "react-native";
 import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
 
@@ -12,6 +12,7 @@ import { homeImageKeys } from "@/constants/images";
 import { destinations, type PromotionFields, type PromotionStatus } from "@/data/home";
 import { formatLocalDateTime, parseLocalDateTime } from "@/lib/date";
 import { adminHome, resolveImage } from "@/lib/home";
+import { useResponsive } from "@/lib/responsive";
 import { useSessionToken } from "@/lib/session";
 import { useThemeColors } from "@/theme";
 
@@ -51,7 +52,7 @@ export default function EditPromotion() {
   const promotionId = Number(id);
   const invalidId = !isNew && (!Number.isInteger(promotionId) || promotionId < 1);
   const getToken = useSessionToken();
-  const { width } = useWindowDimensions();
+  const { width } = useResponsive();
 
   const [fields, setFields] = useState<PromotionFields | null>(isNew ? emptyPromotion : null);
   // Text as typed for the fields that aren't plain strings
@@ -136,7 +137,9 @@ export default function EditPromotion() {
       setSaving(false);
     }
     if (!result.ok) return setError(result.error);
-    router.back();
+    // A screen opened from a link has nothing to go back to
+    if (router.canGoBack()) router.back();
+    else router.replace("/admin");
   };
 
   const previewWidth = width - 32;

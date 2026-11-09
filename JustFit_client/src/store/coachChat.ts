@@ -4,6 +4,7 @@ import type { CoachId } from "@/data/coach";
 import { onAccountCleared, sameAccount } from "@/lib/accountScope";
 import { CHAT_MAX_TEXT, coachApi, type ChatLine, type ChatMessage, type ChatProposals } from "@/lib/coach";
 import { isoOf, todayIso } from "@/lib/macro";
+import { syncMealReminders } from "@/lib/mealReminders";
 import { newId, track } from "@/lib/analytics";
 
 // One line on screen: a saved message, a coach reply (with any plan changes it recommends), or a
@@ -116,7 +117,10 @@ export const useCoachChatStore = create<CoachChatState>((set, get) => {
       const key = proposalKey(turnId, mealId);
       if (get().proposals[key]?.status === "busy") return;
       mark(key, { status: "busy" });
-      const result = await coachApi.replaceMeal(await getToken().catch(() => null), mealId, todayIso(), optionId);
+      const date = todayIso();
+      const result = await coachApi.replaceMeal(await getToken().catch(() => null), mealId, date, optionId);
+      // The meal's reminder follows the new meal (fire and forget: a reminder never fails the change)
+      if (result.ok) syncMealReminders(result.data.plan, date).catch(() => {});
       mark(key, result.ok ? { status: "applied", undoId: result.data.undoId } : { status: "failed", error: result.status ? result.error : unreachable });
     },
     undoMeal: async (getToken, turnId, mealId) => {
@@ -124,9 +128,11 @@ export const useCoachChatStore = create<CoachChatState>((set, get) => {
       const undoId = get().proposals[key]?.undoId;
       if (!undoId) return;
       mark(key, { status: "busy", undoId });
-      const result = await coachApi.replaceMeal(await getToken().catch(() => null), mealId, todayIso(), undoId);
+      const date = todayIso();
+      const result = await coachApi.replaceMeal(await getToken().catch(() => null), mealId, date, undoId);
       // Undone: the card offers Apply again (the suggestion is still stored)
       if (result.ok) {
+        syncMealReminders(result.data.plan, date).catch(() => {});
         const { [key]: _, ...rest } = get().proposals;
         set({ proposals: rest });
       } else mark(key, { status: "applied", undoId, error: result.status ? result.error : unreachable });

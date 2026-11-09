@@ -84,7 +84,7 @@ export default function GymPersonalTraining() {
                 // A package with a length fills the period too
                 if (item.duration) { setDuration(String(item.duration)); setEndPick(null); }
               }} />
-            <GymField label="Package" value={pack} onChangeText={(t) => { setPicked(null); setPack(t); }} maxLength={60} placeholder="For example: 12 sessions" />
+            <GymField label="Package" icon="dumbbell" pinLabel value={pack} onChangeText={(t) => { setPicked(null); setPack(t); }} maxLength={60} placeholder="For example: 12 sessions" />
             <PlanLengthFields duration={duration} onDuration={typeDuration} />
             <View className="flex-row" style={{ gap: 16 }}>
               <View className="min-w-0 flex-1"><DateSelect label="Start date" value={start} onChange={pickStart} min={daysFromToday(-365)} max={daysFromToday(60)} stacked /></View>
@@ -92,7 +92,7 @@ export default function GymPersonalTraining() {
             </View>
             {followsOn && <Text className="gym-tx__meta">{`Follows on from their current PT, which runs until ${shortDate(followsOn)}.`}</Text>}
             <TrainerChips value={trainer ?? result.data.member.pt?.trainer?.id ?? ""} onChange={setTrainer} />
-            <GymField label="Amount (₹)" value={amount} onChangeText={(t) => { setPicked(null); setAmount(amountInput(t)); }} keyboardType="number-pad" placeholder="6000" />
+            <GymField label="Amount (₹)" icon="banknote" pinLabel value={amount} onChangeText={(t) => { setPicked(null); setAmount(amountInput(t)); }} keyboardType="number-pad" placeholder="6000" />
             <GymChips label="Paid by" options={(["online", "cash"] as const).map((m) => ({ value: m, label: METHOD_LABEL[m] }))} value={method} onChange={setMethod} />
             {error ? <FormAlert message={error} /> : null}
             <SaveButton label="Save PT payment" ready={ready} busy={busy} onPress={() => save((token) => gymApi.personalTraining(token, memberId, { package: pack.trim(), amount: value, method, duration: length ?? 1, ...(startPick !== null ? { startsOn: start } : {}), ...(endPick !== null && end !== null ? { endsOn: end } : {}), trainerId: (trainer ?? result.data.member.pt?.trainer?.id ?? "") || null }))} />

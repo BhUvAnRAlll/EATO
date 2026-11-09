@@ -1,5 +1,7 @@
+import { useWindowDimensions } from "react-native";
 import { useEffect, useRef } from "react";
 import type { StyleProp, TextStyle } from "react-native";
+import { maxTextScaleFor } from "@/constants/textScale";
 import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from "react-native-reanimated";
 
 type AnimatedNumberProps = {
@@ -17,6 +19,7 @@ type AnimatedNumberProps = {
 // so it never shifts its neighbours. The screen opens on the value as it is; Reduce Motion
 // shows changes at once.
 export function AnimatedNumber({ children, style, ...text }: AnimatedNumberProps) {
+  const { width: screenWidth } = useWindowDimensions();
   const reduceMotion = useReducedMotion();
   const arrive = useSharedValue(1);
   const shown = useRef(children);
@@ -32,7 +35,8 @@ export function AnimatedNumber({ children, style, ...text }: AnimatedNumberProps
   const motion = useAnimatedStyle(() => ({ opacity: 0.25 + 0.75 * arrive.get(), transform: [{ translateY: 6 * (1 - arrive.get()) }] }));
 
   return (
-    <Animated.Text {...text} style={[style, motion]}>
+    // Reanimated's Text isn't the app's capped one (lib/reactNative.js), so the cap is set here too
+    <Animated.Text maxFontSizeMultiplier={maxTextScaleFor(screenWidth)} {...text} style={[style, motion]}>
       {children}
     </Animated.Text>
   );

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Platform, StyleSheet, Text, View } from "react-native";
+import { Keyboard, Platform, StyleSheet, Text, View } from "react-native";
 import Animated, { FadeIn, FadeInDown, FadeOut, ReduceMotion } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -34,6 +34,18 @@ export function HudHost() {
   const [id] = useState(newHostId);
   const current = useHudStore((state) => state.current);
   const isTop = useHudStore((state) => topHost(state.hosts) === id);
+  // The snackbar rides above the keyboard while one is open: Android doesn't resize the window for
+  // it (edge to edge), so a message shown while typing was hidden behind it (2026-11-08 audit)
+  const [keyboard, setKeyboard] = useState(0);
+  useEffect(() => {
+    if (CENTRED) return;
+    const show = Keyboard.addListener("keyboardDidShow", (e) => setKeyboard(e.endCoordinates.height));
+    const hide = Keyboard.addListener("keyboardDidHide", () => setKeyboard(0));
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
 
   useEffect(() => {
     const { addHost, removeHost } = useHudStore.getState();
@@ -59,10 +71,10 @@ export function HudHost() {
   return (
     <View
       pointerEvents="none"
-      style={[StyleSheet.absoluteFill, CENTRED ? { alignItems: "center", justifyContent: "center" } : { justifyContent: "flex-end", paddingHorizontal: 16, paddingBottom: insets.bottom + BAR_LIFT }]}
+      style={[StyleSheet.absoluteFill, CENTRED ? { alignItems: "center", justifyContent: "center" } : { justifyContent: "flex-end", paddingHorizontal: 16, paddingBottom: keyboard > 0 ? insets.bottom + keyboard + 16 : insets.bottom + BAR_LIFT }]}
     >
       <Animated.View key={key} entering={entering} exiting={exiting} className={CENTRED ? "hud hud--centre" : "hud hud--bar"} accessibilityLiveRegion="polite">
-        <SymbolView name={ICON[current.kind]} size={CENTRED ? 34 : 20} tintColor={tint(current.kind, colors)} />
+        <SymbolView name={ICON[current.kind]} size={CENTRED ? 34 : 20} tintColor={tint(current.kind, colors)} bounceOnMount={current.kind === "success"} />
         <Text className={CENTRED ? "hud__label hud__label--centre" : "hud__label"} maxFontSizeMultiplier={1.4}>
           {current.text}
         </Text>
