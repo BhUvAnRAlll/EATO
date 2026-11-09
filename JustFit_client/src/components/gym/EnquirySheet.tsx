@@ -71,7 +71,7 @@ export function EnquirySheet({ enquiry, onClose, onSaved, onConvert, onOpenMembe
         <View style={{ gap: 4 }}>
           <Text className="gym-field__label">Contacts</Text>
           {enquiry.contacts.map((c) => (
-            <Text key={c.id} className="gym-tx__meta">{contactText(c)}</Text>
+            <Text key={c.id} className="gym-tx__meta">{c.note ? `${contactText(c)} · “${c.note}”` : contactText(c)}</Text>
           ))}
         </View>
       )}

@@ -545,18 +545,25 @@ const enquiryOf = (r, contacts = [], today = rules.todayInIndia()) => ({
   referredBy: referrerOf(r),
   member: r.member_id ? { id: r.member_id, code: r.member_code } : null,
   enquiredOn: r.enquired_on,
-  contacts: contacts.map((c) => ({ id: c.id, kind: c.kind, outcome: c.outcome, on: c.contacted_on })),
+  contacts: contacts.map((c) => ({ id: c.id, kind: c.kind, outcome: c.outcome, note: c.note ?? null, on: c.contacted_on })),
   lead: predictionRules.enquiryScore({ today, status: r.status, enquiredOn: r.enquired_on, source: r.source, interest: r.interest, contacts: contacts.map((c) => ({ kind: c.kind, outcome: c.outcome, contactedOn: c.contacted_on })) }),
 });
 
 // The contact attempts of these enquiries, grouped by enquiry, oldest first. Before migration
 // 2026-11-30-gym-enquiry-contacts.sql has run there are none (the list still works; logging one
-// answers 503 through the route's handler).
+// answers 503 through the route's handler); before 2026-12-18-enquiry-contact-notes.sql they are
+// read without their notes.
 async function contactsOf(db, gymId, enquiryIds) {
   const grouped = new Map(enquiryIds.map((id) => [id, []]));
   if (enquiryIds.length === 0) return grouped;
   try {
-    const [rows] = await db.query(`SELECT id, enquiry_id, kind, outcome, ${DAY("contacted_on")} AS contacted_on FROM gym_enquiry_contacts WHERE gym_id = ? AND enquiry_id IN (?) ORDER BY contacted_on, id`, [gymId, enquiryIds]);
+    let rows;
+    try {
+      [rows] = await read(true);
+    } catch (error) {
+      if (error?.code !== "ER_BAD_FIELD_ERROR" || !String(error.sqlMessage ?? "").includes("'note'")) throw error;
+      [rows] = await read(false);
+    }
     for (const row of rows) grouped.get(row.enquiry_id)?.push(row);
   } catch (error) {
     if (error?.code !== "ER_NO_SUCH_TABLE") throw error;
@@ -567,14 +574,28 @@ async function contactsOf(db, gymId, enquiryIds) {
 async function enquiry(db, gymId, enquiryId, today = rules.todayInIndia()) {
   const [row] = await selectEnquiries(db, "WHERE e.id = ? AND e.gym_id = ?", [enquiryId, gymId]);
   if (!row) throw new NotFoundError("That enquiry doesn't exist.");
+  const read = (note) =>
+    db.query(`SELECT id, enquiry_id, kind, outcome${note ? ", note" : ""}, ${DAY("contacted_on")} AS contacted_on FROM gym_enquiry_contacts WHERE gym_id = ? AND enquiry_id IN (?) ORDER BY contacted_on, id`, [gymId, enquiryIds]);
   return enquiryOf(row, (await contactsOf(db, gymId, [row.id])).get(row.id), today);
 }
 
-// POST /api/gym/enquiries/:id/contacts: a contact attempt, dated today; answers the enquiry with
-// its new score
-async function addContact(pool, gymId, userId, enquiryId, { kind, outcome }, today) {
-  await enquiry(pool, gymId, enquiryId, today);
-  await pool.query("INSERT INTO gym_enquiry_contacts (gym_id, enquiry_id, kind, outcome, contacted_on, created_by) VALUES (?, ?, ?, ?, ?, ?)", [gymId, enquiryId, kind, outcome, today, userId]);
+// POST /api/gym/enquiries/:id/contacts: a contact attempt, dated today, with what they said and
+// the next follow-up date when given (a new enquiry then moves to follow-up), in one transaction;
+// answers the enquiry with its new score. The note's column is written only with a note, so a
+// plain log works before its migration.
+async function addContact(pool, gymId, userId, enquiryId, { kind, outcome, note, followUpOn }, today) {
+  const current = await enquiry(pool, gymId, enquiryId, today);
+  if (followUpOn && !["new", "follow_up"].includes(current.status)) throw new ValidationError("This enquiry is closed, so it has no follow-up date to move.");
+  await inTransaction(pool, async (db) => {
+    const noted = note ? { column: ", note", mark: ", ?", values: [note] } : { column: "", mark: "", values: [] };
+    await db.query(
+      `INSERT INTO gym_enquiry_contacts (gym_id, enquiry_id, kind, outcome${noted.column}, contacted_on, created_by) VALUES (?, ?, ?, ?${noted.mark}, ?, ?)`,
+      [gymId, enquiryId, kind, outcome, ...noted.values, today, userId],
+    );
+    if (followUpOn) {
+      await db.query("UPDATE gym_enquiries SET follow_up_on = ?, status = IF(status = 'new', 'follow_up', status) WHERE id = ? AND gym_id = ?", [followUpOn, enquiryId, gymId]);
+    }
+  });
   return { enquiry: await enquiry(pool, gymId, enquiryId, today) };
 }
 

@@ -247,6 +247,7 @@ export function EnquiryList({ initialView = "open" }: { initialView?: EnquiryVie
                   {open && canLog && (
                     <PressableScale onPress={() => setLogging({ enquiry: item, afterCall: false })} hitSlop={6} className="gym-member-card__action" accessibilityRole="button" accessibilityLabel={`Log a contact with ${item.name}`}>
                       <GymIcon name="clipboard-list" size={20} color={colors.gymInkSoft} />
+                  {lastContact?.note ? <Text className="gym-tx__meta" numberOfLines={2} style={{ color: colors.gymInkSoft }}>{`“${lastContact.note}”`}</Text> : null}
                     </PressableScale>
                   )}
                 </View>

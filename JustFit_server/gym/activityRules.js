@@ -132,7 +132,7 @@ const ROUTES = [
   // Enquiries
   R(["POST"], /^\/enquiries$/, { type: "enquiry", action: "create", label: ({ body, answer }) => answer?.enquiry?.name ?? body?.name ?? null, detail: () => "New enquiry" }),
   R(["PATCH"], /^\/enquiries\/([^/]+)$/, { type: "enquiry", action: "edit", target: "enquiry", detail: ({ before, after }) => changes("enquiry", before, after) }),
-  R(["POST"], /^\/enquiries\/([^/]+)\/contacts$/, { type: "enquiry", action: "create", target: "enquiry", detail: ({ body }) => (body?.kind === "visit" ? "Logged a visit" : `Logged a ${body?.kind === "whatsapp" ? "WhatsApp message" : "call"}: ${body?.outcome === "no_answer" ? "no answer" : "reached"}`) }),
+  R(["POST"], /^\/enquiries\/([^/]+)\/contacts$/, { type: "enquiry", action: "create", target: "enquiry", detail: ({ body }) => `${body?.kind === "visit" ? "Logged a visit" : `Logged a ${body?.kind === "whatsapp" ? "WhatsApp message" : "call"}: ${body?.outcome === "no_answer" ? "no answer" : "reached"}`}${typeof body?.followUpOn === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.followUpOn) ? `, next follow-up ${body.followUpOn}` : ""}` }),
   // Plans / Catalogue
   R(["POST"], /^\/catalog$/, { type: "catalog", action: "create", label: ({ body }) => labelOf("catalog", { kind: body?.kind, name: body?.name }), detail: ({ body }) => (body?.price !== undefined ? `Price ${rupees(body.price)}` : null) }),
   R(["PATCH"], /^\/catalog\/([^/]+)$/, { type: "catalog", action: "edit", target: "catalog", detail: ({ before, after }) => changes("catalog", before, after) }),

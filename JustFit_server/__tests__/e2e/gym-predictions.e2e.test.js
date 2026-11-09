@@ -334,7 +334,7 @@ describe("gym predictions e2e: who may not renew, and tomorrow's busy hours", ()
   it("12. contacts: bad bodies, another gym's enquiry, and the usual guards", run(async () => {
     const gym = as("gymB");
     const kiran = (await gym.get("/api/gym/enquiries?view=open")).json.enquiries.find((e) => e.name === "Kiran P");
-    for (const body of [{ kind: "email", outcome: "reached" }, { kind: "call" }, { kind: "call", outcome: "visited" }, { kind: "call", outcome: "reached", note: "x" }, { kind: "visit", gymId: 1 }]) {
+    for (const body of [{ kind: "email", outcome: "reached" }, { kind: "call" }, { kind: "call", outcome: "visited" }, { kind: "call", outcome: "reached", note: "x".repeat(601) }, { kind: "call", outcome: "reached", followUpOn: "2020-01-01" }, { kind: "visit", gymId: 1 }]) {
       assert.equal((await gym.post(`/api/gym/enquiries/${kiran.id}/contacts`, body)).status, 400, JSON.stringify(body));
     }
     assert.equal((await gym.post("/api/gym/enquiries/999999/contacts", { kind: "visit" })).status, 404);
@@ -343,6 +343,30 @@ describe("gym predictions e2e: who may not renew, and tomorrow's busy hours", ()
     assert.equal((await api("POST", `/api/gym/enquiries/${kiran.id}/contacts`, null, { kind: "visit" })).status, 401);
     for (const tag of ["member", "admin", "loner"]) assert.equal((await as(tag).post(`/api/gym/enquiries/${kiran.id}/contacts`, { kind: "visit" })).status, 403, `${tag} is refused`);
     assert.equal(await count("gym_enquiry_contacts", "enquiry_id = ?", [kiran.id]), 2, "only Kiran's two real contacts were written");
+  }));
+
+  it("12b. contacts carry what they said and move the next follow-up date in the same save", run(async () => {
+    const gym = as("gymB");
+    const walk = (await gym.get("/api/gym/enquiries?view=open")).json.enquiries.find((e) => e.name === "Walked In");
+    assert.equal(walk.status, "new");
+    const next = rules.addDays(today, 3);
+    const logged = await gym.post(`/api/gym/enquiries/${walk.id}/contacts`, { kind: "call", outcome: "reached", note: "Will visit Saturday, price is high", followUpOn: next });
+    assert.equal(logged.status, 201, JSON.stringify(logged.json));
+    assert.deepEqual(logged.json.enquiry.contacts.map((c) => [c.kind, c.outcome, c.note, c.on]), [["call", "reached", "Will visit Saturday, price is high", today]]);
+    assert.deepEqual([logged.json.enquiry.followUpOn, logged.json.enquiry.status], [next, "follow_up"], "a new enquiry moves to follow-up");
+    // Without a note or date: nothing else changes
+    const plain = await gym.post(`/api/gym/enquiries/${walk.id}/contacts`, { kind: "call", outcome: "no_answer" });
+    assert.deepEqual([plain.json.enquiry.contacts[1].note, plain.json.enquiry.followUpOn], [null, next]);
+    // The list carries the notes too
+    const listed = (await gym.get("/api/gym/enquiries?view=open")).json.enquiries.find((e) => e.id === walk.id);
+    assert.equal(listed.contacts[0].note, "Will visit Saturday, price is high");
+    // A closed enquiry has no follow-up to move: refused, and nothing written
+    const deepa = (await gym.get("/api/gym/enquiries?view=lost")).json.enquiries.find((e) => e.name === "Deepa N");
+    const closed = await gym.post(`/api/gym/enquiries/${deepa.id}/contacts`, { kind: "call", outcome: "reached", followUpOn: next });
+    assert.equal(closed.status, 400);
+    assert.equal(await count("gym_enquiry_contacts", "enquiry_id = ?", [deepa.id]), 2);
+    // Another gym can't move this one's date
+    assert.equal((await as("gymA").post(`/api/gym/enquiries/${walk.id}/contacts`, { kind: "visit", followUpOn: next })).status, 404);
   }));
 
   it("13. payments: a due payment keeps the due date it was paid against; the Due Members list scores late payers first", run(async () => {

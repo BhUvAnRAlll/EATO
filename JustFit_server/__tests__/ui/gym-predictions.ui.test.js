@@ -308,13 +308,23 @@ describe("ui gym predictions: Likely to leave", () => {
     await h.expectText("Log a contact");
     await h.settle(); // the sheet slides in: a tap mid-animation lands elsewhere
     await clickLabel("Reached them");
+    // Step two: what they said and the next follow-up, saved together
+    await h.expectText("What did they say?");
+    await h.expectText("Next follow-up");
+    await clickLabel("Add Will visit the gym");
+    await snapshotAllWidths("gym-enquiry-log-note");
+    await clickLabel("Save log");
     await h.expectText("Hot · 70");
     await h.expectText("Called back within 2 days");
     await h.expectText("Called, reached · ");
+    await h.expectText("“Will visit the gym”");
     // The edit sheet lists the contacts
-    await clickLabel("Kiran P, New, Hot · 70, Membership · Referral, Referred by +91 90000 00099. Edit");
+    // Saving the log set a follow-up date, so Kiran is Follow-up now; the label carries that date
+    const card = await page.waitFor(`[...document.querySelectorAll("[aria-label]")].map((e) => e.getAttribute("aria-label")).find((l) => l.startsWith("Kiran P, Follow-up, Hot · 70, ") && l.endsWith(", Membership · Referral, Referred by +91 90000 00099. Edit")) ?? null`, NAV_TIMEOUT, "Kiran's card, Follow-up and Hot");
+    await clickLabel(card);
     await h.expectText("Contacts");
     await h.expectText("Called, reached");
+    await h.expectText("· “Will visit the gym”");
     await snapshotAllWidths("gym-enquiry-contacts");
   }));
 

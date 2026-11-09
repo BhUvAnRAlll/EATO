@@ -61,6 +61,8 @@ describe("gym activity rules", () => {
     assert.deepEqual(admitted, { action: "create", type: "member", label: "Arjun M (FOR-TUM-0003)", detail: "New member · paid ₹1,500 · cash" });
     const contact = rules.rowFor(rules.routeOf("POST", "/enquiries/4/contacts").entry, { before: { full_name: "Sneha" }, body: { kind: "call", outcome: "no_answer" } });
     assert.equal(contact.detail, "Logged a call: no answer");
+    const planned = rules.rowFor(rules.routeOf("POST", "/enquiries/4/contacts").entry, { before: { full_name: "Sneha" }, body: { kind: "call", outcome: "reached", note: "Price is high", followUpOn: "2026-11-12" } });
+    assert.equal(planned.detail, "Logged a call: reached, next follow-up 2026-11-12", "the date, never the note");
     const long = rules.rowFor(rules.routeOf("POST", "/services").entry, { body: { item: "x".repeat(300), amount: 100, method: "cash" } });
     assert.ok(long.label.length <= 120 && long.detail.length <= 200);
   });

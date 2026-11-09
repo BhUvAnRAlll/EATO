@@ -662,6 +662,17 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
   Expired / Paused until …, dues, PT) and Pause Membership → `membership/pause.tsx`: first and last
   paused day (`DatePickerSheet`, today to 60 days ahead, 1-90 days), a reason (3-200 characters),
   "N days paused, your plan would then end on …", Send pause request. The card then says "Pause
+  **What they said (2026-11-09, the user's request; migration approved):** the log is two steps:
+  how it went, then "What did they say?" (quick phrases that add to or come out of the note,
+  `SAID_REACHED` / `SAID_NO_ANSWER` and `toggleSaid` in `data/gymDashboard.ts`, or their own words,
+  300 characters) and "Next follow-up" (Tomorrow / 3 days / 1 week / Keep; tomorrow by default after
+  no answer, else 3 days; open enquiries only), one Save log. `contactBody` takes optional `note`
+  and `followUpOn` (today to a year ahead); `addContact` writes the contact and the enquiry's
+  `follow_up_on` (a new enquiry becomes follow-up) in one transaction and refuses a date on a closed
+  enquiry. Contacts carry `note`; the card shows the last one in quotes, the edit sheet beside each
+  contact. Activity names the date, never the note. Column `gym_enquiry_contacts.note` (migration
+  `2026-12-18-enquiry-contact-notes.sql`; before it contacts are read without notes and a log with
+  a note answers 503 naming it).
   requested … Waiting for <gym> to approve" with Cancel request; a rejection shows under Earlier
   with the gym's note. **Option B, staff initiated:** a member's ⋯ › Membership › Pause Membership
   (`components/gym/PauseMembershipSheet.tsx`: dates, up to 30 days back, reason, "Please confirm

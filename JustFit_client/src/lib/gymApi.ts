@@ -191,7 +191,7 @@ export type EnquiryView = "today" | "overdue" | "open" | "joined" | "lost" | "al
 // A contact attempt with an enquiry and how it went (a visit is always visited)
 export type ContactKind = "call" | "whatsapp" | "visit";
 export type ContactOutcome = "reached" | "no_answer" | "visited";
-export type EnquiryContact = { id: number; kind: ContactKind; outcome: ContactOutcome; on: string };
+export type EnquiryContact = { id: number; kind: ContactKind; outcome: ContactOutcome; note: string | null; on: string };
 // The conversion score (Predictions #3): Hot 60+, Warm 30-59, Cold below; null once joined or lost
 export type LeadLevel = "hot" | "warm" | "cold";
 export type EnquiryLead = { score: number; level: LeadLevel; reasons: { points: number; text: string }[] };
@@ -318,7 +318,7 @@ export const gymApi = {
   addEnquiry: (token: string | null, fields: EnquiryFields) => call<{ enquiry: GymEnquiry }>(token, "/api/gym/enquiries", "POST", fields),
   editEnquiry: (token: string | null, id: number, fields: Partial<EnquiryFields> & { status?: EnquiryStatus; memberId?: number }) =>
     call<{ enquiry: GymEnquiry }>(token, `/api/gym/enquiries/${id}`, "PATCH", fields),
-  addContact: (token: string | null, id: number, contact: { kind: ContactKind; outcome?: ContactOutcome }) =>
+  addContact: (token: string | null, id: number, contact: { kind: ContactKind; outcome?: ContactOutcome; note?: string; followUpOn?: string }) =>
     call<{ enquiry: GymEnquiry }>(token, `/api/gym/enquiries/${id}/contacts`, "POST", contact),
   wallet: (token: string | null) => call<GymWallet>(token, "/api/gym/wallet"),
   // Expenses: a month (YYYY-MM) at a time, 50 a page; deleting is the gym admin's alone

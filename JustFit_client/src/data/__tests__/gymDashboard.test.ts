@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { daysFromToday, dobFromText, dobInput, followUpText, phoneInput, referrerText, todayIso } from "../gymDashboard.ts";
+import { SAID_NO_ANSWER, SAID_REACHED, daysFromToday, dobFromText, dobInput, followUpText, noteHas, phoneInput, referrerText, todayIso, toggleSaid } from "../gymDashboard.ts";
 
 describe("gym portal inputs", () => {
   it("mobile numbers keep to 10 digits, whatever is typed or pasted", () => {
@@ -49,5 +49,16 @@ describe("referrerText", () => {
     assert.equal(referrerText({ phone: "+919876543210", member: { name: "Ravi Kumar", code: "FOR-TUM-0003" } }), "Referred by Ravi Kumar (FOR-TUM-0003)");
     assert.equal(referrerText({ phone: "+919876543210", member: null }), "Referred by +91 98765 43210");
     assert.equal(referrerText(null), null);
+  });
+
+  it("Log a contact: a quick phrase is added to what they said, and taken out again", () => {
+    assert.equal(toggleSaid("", "Will visit the gym"), "Will visit the gym");
+    assert.equal(toggleSaid("Will visit the gym", "Price is high"), "Will visit the gym, Price is high");
+    assert.equal(toggleSaid("Will visit the gym, Price is high", "will visit the gym"), "Price is high", "any case");
+    assert.equal(toggleSaid("Coming Saturday with a friend", "Wants a trial"), "Coming Saturday with a friend, Wants a trial", "typed words stay");
+    assert.ok(noteHas("Coming Saturday,  Price is high ", "Price is high"));
+    assert.ok(!noteHas("Price is higher", "Price is high"));
+    assert.ok(toggleSaid("x".repeat(299), "Call back later").length <= 300);
+    for (const phrase of [...SAID_REACHED, ...SAID_NO_ANSWER]) assert.ok(!phrase.includes(","), `${phrase} has no comma, so it can be taken out again`);
   });
 });

@@ -1327,6 +1327,7 @@ CREATE TABLE gym_enquiry_contacts (
   KEY idx_gym_enquiry_contacts_enquiry (enquiry_id, contacted_on),
   CONSTRAINT fk_gym_enquiry_contacts_gym FOREIGN KEY (gym_id) REFERENCES gyms (id),
   CONSTRAINT fk_gym_enquiry_contacts_enquiry FOREIGN KEY (enquiry_id) REFERENCES gym_enquiries (id),
+  note          VARCHAR(300) NULL,                 -- what they said (2026-12-18)
   CONSTRAINT fk_gym_enquiry_contacts_created_by FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL
 ) ENGINE = InnoDB;
 

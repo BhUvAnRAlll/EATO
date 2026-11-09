@@ -367,15 +367,25 @@ function enquiryEditBody(body, today = todayInIndia()) {
 }
 
 // A contact attempt with an enquiry: how (call, WhatsApp, a visit) and how it went. A visit is
-// always "visited"; a call or message is reached or no answer.
+// always "visited"; a call or message is reached or no answer. Optional (2026-11-09): what they
+// said (300 characters) and the next follow-up date, written to the enquiry.
 const CONTACT_KINDS = ["call", "whatsapp", "visit"];
 const CONTACT_OUTCOMES = ["reached", "no_answer", "visited"];
-function contactBody(body) {
-  onlyKeys(body, ["kind", "outcome"]);
+const CONTACT_NOTE_MAX = 300;
+function contactBody(body, today = todayInIndia()) {
+  onlyKeys(body, ["kind", "outcome", "note", "followUpOn"]);
   if (!CONTACT_KINDS.includes(body.kind)) throw new ValidationError("Pick how you reached them: a call, WhatsApp or a visit.");
   const outcome = body.kind === "visit" ? "visited" : body.outcome;
   if (!CONTACT_OUTCOMES.includes(outcome) || (body.kind !== "visit" && outcome === "visited")) throw new ValidationError("Say how it went: reached or no answer.");
-  return { kind: body.kind, outcome };
+  if (!blank(body.note) && (typeof body.note !== "string" || body.note.length > CONTACT_NOTE_MAX * 2)) throw new ValidationError(`Keep what they said to ${CONTACT_NOTE_MAX} characters.`);
+  const note = (blank(body.note) ? "" : cleanText(body.note, CONTACT_NOTE_MAX)) || null;
+  const out = { kind: body.kind, outcome, note };
+  if (!blank(body.followUpOn)) {
+    const date = followUpDate(body.followUpOn, today);
+    if (date < today) throw new ValidationError("Pick a follow-up date from today on.");
+    out.followUpOn = date;
+  }
+  return out;
 }
 
 // Manage › Enquiry's lists and search

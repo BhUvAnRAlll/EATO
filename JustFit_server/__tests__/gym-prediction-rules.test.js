@@ -234,14 +234,29 @@ describe("enquiry conversion: how likely an open enquiry is to join", () => {
   });
 
   it("the contact body: kind and outcome from the lists, a visit is always visited", () => {
-    assert.deepEqual(contactBody({ kind: "call", outcome: "no_answer" }), { kind: "call", outcome: "no_answer" });
-    assert.deepEqual(contactBody({ kind: "whatsapp", outcome: "reached" }), { kind: "whatsapp", outcome: "reached" });
-    assert.deepEqual(contactBody({ kind: "visit" }), { kind: "visit", outcome: "visited" });
-    assert.deepEqual(contactBody({ kind: "visit", outcome: "reached" }), { kind: "visit", outcome: "visited" });
+    assert.deepEqual(contactBody({ kind: "call", outcome: "no_answer" }), { kind: "call", outcome: "no_answer", note: null });
+    assert.deepEqual(contactBody({ kind: "whatsapp", outcome: "reached" }), { kind: "whatsapp", outcome: "reached", note: null });
+    assert.deepEqual(contactBody({ kind: "visit" }), { kind: "visit", outcome: "visited", note: null });
+    assert.deepEqual(contactBody({ kind: "visit", outcome: "reached" }), { kind: "visit", outcome: "visited", note: null });
     refuses(() => contactBody({ kind: "call", outcome: "visited" }), /reached or no answer/);
     refuses(() => contactBody({ kind: "email", outcome: "reached" }), /call, WhatsApp or a visit/);
     refuses(() => contactBody({ kind: "call" }), /reached or no answer/);
-    refuses(() => contactBody({ kind: "call", outcome: "reached", note: "x" }), /fields we don't use/);
+    refuses(() => contactBody({ kind: "call", outcome: "reached", status: "joined" }), /fields we don't use/);
+  });
+
+  it("the contact body: what they said and the next follow-up date (2026-11-09)", () => {
+    const today = "2026-11-09";
+    assert.deepEqual(contactBody({ kind: "call", outcome: "reached", note: "  Will visit,   Saturday  ", followUpOn: "2026-11-12" }, today), { kind: "call", outcome: "reached", note: "Will visit, Saturday", followUpOn: "2026-11-12" });
+    assert.deepEqual(contactBody({ kind: "call", outcome: "reached", note: "", followUpOn: "" }, today), { kind: "call", outcome: "reached", note: null }, "empty fields are left out");
+    assert.equal(contactBody({ kind: "visit", note: "<script>alert(1)</script>" }, today).note, "script alert(1) /script", "only everyday characters are kept");
+    assert.equal(contactBody({ kind: "visit", note: "a".repeat(300) }, today).note.length, 300);
+    assert.equal(contactBody({ kind: "visit", followUpOn: today }, today).followUpOn, today, "today is allowed");
+    refuses(() => contactBody({ kind: "visit", note: "a".repeat(601) }, today), /300 characters/);
+    refuses(() => contactBody({ kind: "visit", note: 42 }, today), /300 characters/);
+    refuses(() => contactBody({ kind: "visit", followUpOn: "2026-11-08" }, today), /from today on/);
+    refuses(() => contactBody({ kind: "visit", followUpOn: "2026-02-30" }, today), /follow-up date/);
+    refuses(() => contactBody({ kind: "visit", followUpOn: "2028-01-01" }, today), /follow-up date/);
+    refuses(() => contactBody({ kind: "visit", followUpOn: "1' OR '1'='1" }, today), /follow-up date/);
     refuses(() => contactBody(null), /JSON/);
   });
 });

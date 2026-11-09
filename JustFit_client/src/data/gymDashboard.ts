@@ -154,6 +154,25 @@ export function followUpText(followUpOn: string, today: string) {
   if (days === 1) return { tone: "later" as const, text: "Follow up tomorrow" };
   return { tone: "later" as const, text: `Follow up on ${shortDate(followUpOn)}` };
 }
+// Log a contact (2026-11-09): quick phrases for "What did they say?" (tapping one adds it to the
+// note, tapping it again takes it out), and when to call them next
+export const CONTACT_NOTE_MAX = 300;
+export const SAID_REACHED = ["Will visit the gym", "Call back later", "Price is high", "Joining next month", "Wants a trial", "Not interested"];
+export const SAID_NO_ANSWER = ["Phone switched off", "Cut the call", "Not reachable"];
+export const NEXT_FOLLOW_UP: { label: string; days: number | null }[] = [
+  { label: "Tomorrow", days: 1 },
+  { label: "3 days", days: 3 },
+  { label: "1 week", days: 7 },
+  { label: "Keep date", days: null },
+];
+const notePhrases = (note: string) => note.split(",").map((p) => p.trim()).filter(Boolean);
+export const noteHas = (note: string, phrase: string) => notePhrases(note).some((p) => p.toLowerCase() === phrase.toLowerCase());
+export function toggleSaid(note: string, phrase: string) {
+  const parts = notePhrases(note);
+  const next = noteHas(note, phrase) ? parts.filter((p) => p.toLowerCase() !== phrase.toLowerCase()) : [...parts, phrase];
+  return next.join(", ").slice(0, CONTACT_NOTE_MAX);
+}
+
 
 // The + sheet on Home (the user's design)
 export type AddAction = "member" | "plan" | "enquiry" | "expense" | "outlet" | "staff" | "sms" | "attendance";
