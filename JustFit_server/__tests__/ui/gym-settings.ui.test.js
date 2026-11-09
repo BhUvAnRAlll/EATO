@@ -203,15 +203,16 @@ describe("ui gym settings: every group for the gym admin, rows open their screen
     await snapshotAllWidths("gym-settings-sms");
   }));
 
-  it("4. a Staff login with only Members sees no gym-admin, Attendance or SMS rows", run("settings-staff", async () => {
+  it("4. a Staff login with only Members sees no gym-admin, Attendance, SMS or Reminder Templates rows", run("settings-staff", async () => {
     const set = await apiAs("owner", "PUT", `/api/gym/staff/${state.staffId}/permissions`, { areas: ["members"] });
     assert.equal(set.status, 200, JSON.stringify(set.json));
     await signIn(identities.staff, "/gym");
     await h.settle(); // Home reads which areas this login has
     await openSettings();
     await h.expectText("Forma · Staff");
-    for (const label of ["Outlets, Switch branch or add one", "Reminder Templates, The wording of your reminders"]) assert.ok(await hasLabel(label), label);
-    for (const label of ADMIN_ROWS.filter((l) => !l.startsWith("Outlets") && !l.startsWith("Reminder"))) assert.equal(await hasLabel(label), false, `${label} is hidden`);
+    assert.ok(await hasLabel("Outlets, Switch branch or add one"), "Outlets");
+    // Reminder Templates is an option of its own since 2026-11-08 (templates.view): Members alone doesn't include it
+    for (const label of ADMIN_ROWS.filter((l) => !l.startsWith("Outlets"))) assert.equal(await hasLabel(label), false, `${label} is hidden`);
     for (const title of ["Attendance", "Team"]) assert.equal(await page.evaluate(`[...document.querySelectorAll("div")].some((e) => e.children.length === 0 && e.textContent === ${JSON.stringify(title)})`), false, `${title} group hidden`);
     await snapshotAllWidths("gym-settings-staff");
   }));
