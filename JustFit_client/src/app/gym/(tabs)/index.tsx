@@ -18,11 +18,10 @@ import { GradientFill } from "@/components/gym/GradientFill";
 import { PaymentRow } from "@/components/gym/PaymentRow";
 import { RevenueCard } from "@/components/gym/RevenueCard";
 import { GymEmpty, GymError, GymLoading } from "@/components/gym/GymStates";
-import { HOME_EXPIRING_DAYS, greetingFor, initialsOf, type AddAction } from "@/data/gymDashboard";
+import { HOME_EXPIRING_DAYS, greetingFor, type AddAction } from "@/data/gymDashboard";
 import { comingSoon } from "@/lib/gymPortal";
 import { gymApi, type GymAccess, type StaffOption } from "@/lib/gymApi";
 import { useGymData } from "@/lib/useGymData";
-import { useAuthStore } from "@/store/auth";
 import { useCan, useGymAccess } from "@/store/gymAccess";
 import { useThemeColors, type Palette } from "@/theme";
 import type { GymIconName } from "@/constants/gymIcons";
@@ -47,8 +46,6 @@ const toneColors = (colors: Palette, tone: Tone) =>
 // the server's (GET /api/gym/dashboard), read again whenever Home comes into view.
 export default function GymHome() {
   const colors = useThemeColors();
-  const user = useAuthStore((state) => state.user);
-  const name = user?.fullName?.trim() || "Admin";
   const { result, reload, retry } = useGymData(gymApi.dashboard);
   const [refreshing, setRefreshing] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -141,10 +138,6 @@ export default function GymHome() {
             <GymIcon name="search" size={18} color={colors.gymInk} />
           </PressableScale>
           )}
-          <PressableScale onPress={() => setMenuOpen(true)} className="gym-brand-badge" style={{ width: 40, height: 40, borderRadius: 12 }} accessibilityRole="button" accessibilityLabel="Your account">
-            <GradientFill radius={12} />
-            <Text className="gym-brand-badge__label">{initialsOf(name)}</Text>
-          </PressableScale>
         </View>
 
         <ScrollView
