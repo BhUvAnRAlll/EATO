@@ -443,6 +443,9 @@ app.use("/api/addresses", requireUser, limitPerUser(addressLimiter), addressesRo
 // kitchen and delivery person (adminOnly reads the role every time)
 app.use("/api/meals", requireUser, limitPerUser(mealsLimiter), mealsRouter);
 app.use("/api/orders", requireUser, limitPerUser(mealsLimiter), ordersRouter);
+// Meal plans and subscriptions (Meal Operations phase 5; members)
+const { subscriptionsRouter, startSubscriptionOrders } = require("./subscriptions/routes");
+app.use("/api/subscriptions", requireUser, limitPerUser(mealsLimiter), subscriptionsRouter);
 app.use("/api/admin/kitchen", ...adminOnly, kitchenRouter);
 
 // A gym trainer's PT clients (gym/trainerRoutes.js): trainers only, their own clients only
@@ -490,6 +493,8 @@ require("./fitness/youtubeRefresh").startRefresh(pool);
 require("./gym/sms").startReminders(pool, gymSms);
 // Gym visits nobody checked out of are closed as "no check-out" at midnight, India time
 require("./gym/attendance").startMidnightClose(pool);
+// Tomorrow's meal-subscription orders, every hour (idempotent; Meal Operations phase 5)
+startSubscriptionOrders(pool, (error) => logRequestError({ method: "JOB", path: "subscription-orders" }, error));
 // Membership ending / ended notifications and the gyms' daily count, once a day in the daytime
 require("./notifications/events").startDaily(pool);
 if (process.env.NODE_ENV !== "test") console.log(gymSms.enabled ? "Gym SMS: sending on" : `Gym SMS: off (${gymSms.reason})`);

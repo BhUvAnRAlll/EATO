@@ -25,6 +25,17 @@ async function ready(pool) {
   return readyCache.value;
 }
 
+// Whether migration 2027-01-08 has run (payments for subscriptions too), checked at most once a minute
+let subsCache = { at: 0, value: false };
+async function subscriptionsReady(pool) {
+  if (Date.now() - subsCache.at < 60_000) return subsCache.value;
+  const [[row]] = await pool.query(
+    "SELECT COUNT(*) AS n FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'meal_payments' AND column_name = 'subscription_id'",
+  );
+  subsCache = { at: Date.now(), value: Number(row.n) > 0 };
+  return subsCache.value;
+}
+
 /** Cancels orders still unpaid after 15 minutes (all members), so the kitchen never sees them */
 async function expireUnpaid(db) {
   await db.query(
@@ -39,9 +50,11 @@ async function expireUnpaid(db) {
  */
 async function openPayment(pool, userId, order) {
   const gw = gateway();
+  // What it pays for: an order, or (phase 5) a subscription (`kind`); the column comes from this allowlist
+  const column = order.kind === "subscription" ? "subscription_id" : "order_id";
   const [[open]] = await pool.query(
     `SELECT provider_order_id, amount_paise, currency FROM meal_payments
-     WHERE order_id = ? AND user_id = ? AND provider = ? AND status <> 'paid' AND attempts < ? ORDER BY created_at DESC LIMIT 1`,
+     WHERE ${column} = ? AND user_id = ? AND provider = ? AND status <> 'paid' AND attempts < ? ORDER BY created_at DESC LIMIT 1`,
     [order.id, userId, gw.name, rules.MAX_ATTEMPTS],
   );
   let payment = open;
@@ -49,7 +62,7 @@ async function openPayment(pool, userId, order) {
     const made = await gw.createOrder({ amountPaise: order.totalPaise, currency: "INR", receipt: `jf_${order.id.slice(0, 8)}` });
     if (made.amount !== order.totalPaise) throw new Error("The gateway order's amount differs from the order's");
     await pool.query(
-      "INSERT INTO meal_payments (order_id, user_id, provider, provider_order_id, amount_paise, currency) VALUES (?, ?, ?, ?, ?, ?)",
+      `INSERT INTO meal_payments (${column}, user_id, provider, provider_order_id, amount_paise, currency) VALUES (?, ?, ?, ?, ?, ?)`,
       [order.id, userId, gw.name, made.id, made.amount, made.currency],
     );
     payment = { provider_order_id: made.id, amount_paise: made.amount, currency: made.currency };
@@ -61,6 +74,7 @@ async function openPayment(pool, userId, order) {
     amountPaise: Number(payment.amount_paise),
     currency: payment.currency,
     orderCode: order.id.slice(0, 8).toUpperCase(),
+    description: order.kind === "subscription" ? `${order.planName ?? "Meal plan"} subscription` : undefined,
     contact: order.receiverPhone,
     name: order.receiverName,
   });
@@ -143,11 +157,18 @@ async function fail(pool, userId, orderId, body) {
 async function dummyCheckout(pool, userId, body) {
   const gw = gateway();
   if (gw.name !== "dummy") throw new NotFoundError("Not found.");
-  const [[row]] = await pool.query(
-    `SELECT p.id, p.status, p.attempts, o.status AS order_status FROM meal_payments p JOIN orders o ON o.id = p.order_id
-     WHERE p.provider_order_id = ? AND p.user_id = ? AND p.provider = 'dummy'`,
-    [body.providerOrderId, userId],
-  );
+  const [[row]] = (await subscriptionsReady(pool))
+    ? await pool.query(
+        `SELECT p.id, p.status, p.attempts, COALESCE(o.status, s.status) AS order_status FROM meal_payments p
+         LEFT JOIN orders o ON o.id = p.order_id LEFT JOIN meal_subscriptions s ON s.id = p.subscription_id
+         WHERE p.provider_order_id = ? AND p.user_id = ? AND p.provider = 'dummy'`,
+        [body.providerOrderId, userId],
+      )
+    : await pool.query(
+        `SELECT p.id, p.status, p.attempts, o.status AS order_status FROM meal_payments p JOIN orders o ON o.id = p.order_id
+         WHERE p.provider_order_id = ? AND p.user_id = ? AND p.provider = 'dummy'`,
+        [body.providerOrderId, userId],
+      );
   if (!row) throw new NotFoundError("That payment isn't on your account.");
   if (row.status === "paid") throw new ConflictError("This order is already paid.");
   if (row.order_status !== "awaiting_payment") throw new ConflictError("This order is no longer waiting for payment. Please place it again.");
@@ -167,7 +188,58 @@ async function dummyCheckout(pool, userId, body) {
   };
 }
 
+/**
+ * Phase 5: what a subscription's checkout returned. The signature is checked with the subscription's
+ * payment row locked; then the payment is paid and the subscription active from its start day. A
+ * payment for a subscription that lapsed unpaid is kept as paid and the member told it's refunded.
+ */
+async function verifySubscription(pool, userId, subscriptionId, body) {
+  const gw = gateway();
+  return inTransaction(pool, async (db) => {
+    const [[row]] = await db.query(
+      `SELECT p.id, p.provider, p.status, p.provider_payment_id, s.status AS sub_status FROM meal_payments p JOIN meal_subscriptions s ON s.id = p.subscription_id
+       WHERE p.provider_order_id = ? AND p.subscription_id = ? AND p.user_id = ? FOR UPDATE`,
+      [body.providerOrderId, subscriptionId, userId],
+    );
+    if (!row) throw new NotFoundError("That payment isn't on your subscription.");
+    if (row.status === "paid") {
+      if (row.provider_payment_id === body.providerPaymentId) return { alreadyPaid: true };
+      throw new ConflictError("This subscription is already paid.");
+    }
+    if (row.provider !== gw.name || !rules.signatureOk(gw.secret(), body.providerOrderId, body.providerPaymentId, body.signature)) {
+      logSecurityEvent("payment.bad_signature", { userId, subscriptionId });
+      throw new ValidationError("We couldn't confirm this payment. If money was taken, it will be refunded.");
+    }
+    await db.query("UPDATE meal_payments SET status = 'paid', provider_payment_id = ?, failure_reason = ?, attempts = attempts + 1, paid_at = NOW() WHERE id = ?",
+      [body.providerPaymentId, row.sub_status === "awaiting_payment" ? null : "Paid after the subscription lapsed: refund", row.id]);
+    if (row.sub_status !== "awaiting_payment") return { alreadyPaid: false, lapsed: true };
+    await db.query("UPDATE meal_subscriptions SET status = 'active', payment_method = ?, payment_ref = ? WHERE id = ?", [gw.name, body.providerPaymentId, subscriptionId]);
+    return { alreadyPaid: false, lapsed: false };
+  }).then((result) => {
+    if (result.lapsed) throw new ConflictError("Your payment came after this subscription lapsed, so it will be refunded. Please subscribe again.");
+    return result;
+  });
+}
+
+/** A subscription's checkout that failed or was closed */
+async function failSubscription(pool, userId, subscriptionId, body) {
+  const [result] = await pool.query(
+    "UPDATE meal_payments SET status = 'failed', failure_reason = ?, attempts = attempts + 1 WHERE provider_order_id = ? AND subscription_id = ? AND user_id = ? AND status <> 'paid'",
+    [body.reason, body.providerOrderId, subscriptionId, userId],
+  );
+  if (result.affectedRows === 0) throw new NotFoundError("That payment isn't waiting on your subscription.");
+  return { recorded: true };
+}
+
+/** Subscriptions still unpaid after 15 minutes are cancelled (they never start) */
+async function expireUnpaidSubscriptions(db) {
+  await db.query(
+    `UPDATE meal_subscriptions SET status = 'cancelled', cancel_reason = 'Payment not completed'
+     WHERE status = 'awaiting_payment' AND created_at < NOW() - INTERVAL ${rules.UNPAID_MINUTES} MINUTE`,
+  );
+}
+
 /** The gateway new orders are paid through ("dummy" or "razorpay") */
 const providerName = () => gateway().name;
 
-module.exports = { ready, expireUnpaid, openPayment, verify, fail, dummyCheckout, providerName };
+module.exports = { ready, expireUnpaid, openPayment, verify, fail, dummyCheckout, providerName, subscriptionsReady, verifySubscription, failSubscription, expireUnpaidSubscriptions };

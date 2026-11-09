@@ -75,7 +75,7 @@ export type MealOpsDashboard = {
   upcoming: { date: string; orders: number }[];
   kitchens: { counts: KitchenCounts; activeCapacity: number; load: number | null };
   delivery: { partners: number; free: number; unassigned: number; assigned: number; ongoing: number; failed: number; delivered: number } | null;
-  subscriptions: null;
+  subscriptions: { newToday: number; active: number; paused: number; expiring: number; tomorrow: number } | null;
   stock: { items: number; low: number; out: number; expiring: number } | null;
 };
 

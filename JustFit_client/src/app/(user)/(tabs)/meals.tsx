@@ -11,6 +11,7 @@ import { FieldInput } from "@/components/FieldInput";
 import { LoadError } from "@/components/macro/LoadError";
 import { MealRow } from "@/components/meals/MealRow";
 import { MealFilterSheet, NO_MEAL_FILTERS, type MealFilters } from "@/components/meals/MealFilterSheet";
+import { SubscriptionTab } from "@/components/meals/SubscriptionTab";
 import { BannerCarousel, CategoryTile, CouponCard, FoodCircle, MealCard, QuickTile, SectionTitle } from "@/components/meals/ShopParts";
 import { PressableScale } from "@/components/PressableScale";
 import { usePullToRefresh } from "@/components/PullToRefresh";
@@ -38,7 +39,7 @@ type Mode = "order" | "subscription";
 // suggestions and the filter button (diet, sort); five quick tiles; the banner carousel; Popular
 // Meals; then the admin's collections, featured rows, food categories, specials, high protein,
 // offers and every meal. All of it comes from one storefront read (store/storefront.ts).
-// Meal Subscription says what's coming until subscriptions are built (MEAL-OPERATIONS-PLAN.md, phase 5).
+// Meal Subscription (phase 5, the design's second phone) is components/meals/SubscriptionTab.
 export default function Meals() {
   const colors = useThemeColors();
   const { width, fontScale } = useWindowDimensions();
@@ -358,14 +359,8 @@ export default function Meals() {
             </View>
           )}
           ListEmptyComponent={
-            <View className="px-4">
-              {mode === "subscription" ? (
-                <EmptyState tone="meal" icon={{ ios: "calendar", android: "calendar_month", web: "calendar_month" }} title="Meal subscriptions are coming" message="Fat loss, muscle gain and maintenance meal plans, delivered every day. Order single meals in the meantime.">
-                  <PressableScale haptic="select" onPress={() => switchTo("order")} className="shop-add self-center" accessibilityRole="button">
-                    <Text className="shop-add__label">Order Meals</Text>
-                  </PressableScale>
-                </EmptyState>
-              ) : null}
+            <View className={mode === "subscription" ? undefined : "px-4"}>
+              {mode === "subscription" ? <SubscriptionTab width={width} /> : null}
               {mode === "order" && load.state === "loading" && <ScreenSkeleton label="Loading meals" hero />}
               {mode === "order" && load.state === "failed" && <LoadError tone="meal" title="Meals couldn't load" message={load.error} onRetry={async () => read(await getToken(), { force: true })} />}
               {mode === "order" && load.state === "ready" && (

@@ -9,6 +9,7 @@ const xlsx = require("../gym/xlsx");
 const rules = require("./rules");
 const inventory = require("./inventory");
 const deliveries = require("../delivery/service");
+const subscriptions = require("../subscriptions/service");
 
 const num = (v) => Number(v);
 const iso = (v) => (v instanceof Date ? v.toISOString() : v ?? null);
@@ -205,8 +206,8 @@ async function dashboard(pool, { day: date, today }, now = Date.now()) {
   const { start, end } = rules.dayBounds(date);
   const at = rules.indiaNow(now);
   const todayStart = rules.dayBounds(today).start;
-  const [[orders], [[revenue]], [upcoming], [kitchens], stock, delivery] = await Promise.all([
-    pool.query(`SELECT o.id, o.status, o.delivery_date, o.meal_slot, o.slot_ends_at FROM orders o WHERE o.delivery_date = ? AND ${PAID_ONLY}`, [date]),
+  const [[orders], [[revenue]], [upcoming], [kitchens], stock, delivery, subscriptionStats] = await Promise.all([
+    pool.query(`SELECT o.* FROM orders o WHERE o.delivery_date = ? AND ${PAID_ONLY}`, [date]), // o.subscription_id once phase 5 runs
     pool.query(
       `SELECT COUNT(*) AS n, COALESCE(SUM(o.total_paise), 0) AS paise FROM orders o
        WHERE o.created_at >= FROM_UNIXTIME(?) AND o.created_at < FROM_UNIXTIME(?) AND o.status <> 'cancelled' AND ${PAID_ONLY}`,
@@ -222,6 +223,8 @@ async function dashboard(pool, { day: date, today }, now = Date.now()) {
     inventory.stockAlerts(pool, now),
     // Phase 4: today's delivery board counts (null before migration 2027-01-06)
     deliveries.ready(pool).then((on) => (on ? deliveries.board(pool, todayStart, today).then((b) => b.counts) : null)),
+    // Phase 5: subscriptions (null before migration 2027-01-08)
+    subscriptions.stats(pool, today, todayStart),
   ]);
   const byStep = Object.fromEntries(STEPS.map((s) => [s, 0]));
   const bySlot = { breakfast: 0, lunch: 0, dinner: 0 };
@@ -243,8 +246,8 @@ async function dashboard(pool, { day: date, today }, now = Date.now()) {
     today,
     orders: {
       total: orders.length,
-      individual: orders.length,
-      subscription: null, // phase 5
+      individual: orders.filter((o) => !o.subscription_id).length,
+      subscription: orders.filter((o) => o.subscription_id).length,
       steps: byStep,
       open: byStep.placed + byStep.accepted + byStep.preparing + byStep.quality_check + byStep.ready + byStep.out_for_delivery,
       delayed,
@@ -259,7 +262,7 @@ async function dashboard(pool, { day: date, today }, now = Date.now()) {
       load: activeCapacity > 0 ? Math.min(999, Math.round((live / activeCapacity) * 100)) : null,
     },
     delivery, // { partners, free, unassigned, assigned, ongoing, failed, delivered }
-    subscriptions: null, // phase 5
+    subscriptions: subscriptionStats, // { newToday, active, paused, expiring, tomorrow }
     stock, // { items, low, out, expiring } across kitchens; null before migration 2026-12-31
   };
 }

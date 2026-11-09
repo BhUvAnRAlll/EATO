@@ -186,7 +186,7 @@ describe("kitchens e2e: the Super Admin's kitchens, roster and meal-operations d
     assert.equal(today.status, 200, JSON.stringify(today.json));
     assert.equal(today.json.kitchens.counts.active, 2);
     assert.equal(today.json.kitchens.activeCapacity, 900);
-    assert.equal(today.json.orders.subscription, null);
+    assert.equal(today.json.orders.subscription, 0, "no subscription orders today");
     assert.equal(typeof today.json.revenue.amount, "number");
     for (const bad of ["2026-02-30", "yesterday", "1999-01-01"]) assert.equal((await api("GET", `${base}/dashboard?day=${bad}`, tokens.admin)).status, 400);
     assert.equal((await api("GET", `${base}/dashboard?kitchen=1`, tokens.admin)).status, 400);

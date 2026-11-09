@@ -161,7 +161,7 @@ describe("ui meals: the Meals tab from the design, and paying the Razorpay way",
     await page.waitFor(`[...document.querySelectorAll('[aria-label]')].some((e) => e.getAttribute("aria-label") === "Cart, 2 meals")`, NAV_TIMEOUT, "two in the cart");
   }));
 
-  it("3. the filter sheet narrows the tab to one diet; Meal Subscription says what's coming", run("meals-filter", async () => {
+  it("3. the filter sheet narrows the tab to one diet; Meal Subscription lists the plans", run("meals-filter", async () => {
     await clickLabel("Filters");
     await h.expectText("Sort by");
     await h.settle(); // the sheet has finished sliding up
@@ -178,7 +178,7 @@ describe("ui meals: the Meals tab from the design, and paying the Razorpay way",
     await page.waitFor(`!(document.body.innerText || "").includes("Sort by")`, NAV_TIMEOUT, "the sheet closed");
     await h.expectText(`Grilled Chicken Bowl ${runId}`);
     await page.clickText("Meal Subscription");
-    await h.expectText("Meal subscriptions are coming");
+    await h.expectText("Explore Meal Subscription Plans");
     await snapshotAllWidths("meals-subscription");
     await page.clickText("Order Meals");
     await h.expectText("Popular Meals");

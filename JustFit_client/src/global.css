@@ -2044,6 +2044,260 @@
   background-color: var(--color-cream-deep);
 }
 
+/* ---- Meal subscriptions (phase 5, the user's design: Meal Subscription tab, Plan Details; BEM sub-*) ---- */
+@utility sub-active {
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background-color: var(--color-meal-dark);
+}
+
+@utility sub-active__pill {
+  align-self: flex-start;
+  flex-direction: row;
+  align-items: center;
+  gap: 5px;
+  padding-inline: 9px;
+  padding-block: 3px;
+  border-radius: var(--radius-pill);
+  background-color: rgba(255, 255, 255, 0.92);
+}
+
+@utility sub-active__pill-label {
+  font-family: var(--font-sans-semibold);
+  font-size: 11px;
+  line-height: 15px;
+  color: var(--color-meal-dark);
+}
+
+@utility sub-active__name {
+  font-family: var(--font-sans-semibold);
+  font-size: 22px;
+  line-height: 28px;
+  color: var(--color-white);
+}
+
+@utility sub-active__line {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 18px;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+@utility sub-active__meter {
+  margin: 10px;
+  padding: 12px;
+  gap: 8px;
+  border-radius: var(--radius-md);
+  background-color: rgba(0, 0, 0, 0.18);
+}
+
+@utility sub-active__track {
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background-color: rgba(255, 255, 255, 0.25);
+  overflow: hidden;
+}
+
+@utility sub-active__fill {
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-meal-secondary);
+}
+
+@utility sub-tile {
+  flex: 1;
+  min-height: 76px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-radius: 14px;
+  background-color: var(--color-surface);
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  box-shadow: var(--shadow-card);
+}
+
+@utility sub-tile__label {
+  font-family: var(--font-sans-medium);
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--color-ink);
+  text-align: center;
+}
+
+@utility sub-plan {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  min-height: 68px;
+  padding-inline: 14px;
+  padding-block: 10px;
+  border-radius: 14px;
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-surface);
+}
+
+@utility sub-plan--on {
+  border-width: 1.5px;
+  border-color: var(--color-meal-primary);
+  background-color: var(--color-meal-surface);
+}
+
+@utility sub-plan__icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  align-items: center;
+  justify-content: center;
+}
+
+@utility sub-plan__name {
+  font-family: var(--font-sans-semibold);
+  font-size: 15px;
+  line-height: 20px;
+  color: var(--color-ink);
+}
+
+@utility sub-plan__price {
+  font-family: var(--font-sans-semibold);
+  font-size: 15px;
+  line-height: 20px;
+  color: var(--color-ink);
+  text-align: right;
+}
+
+@utility sub-radio {
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-pill);
+  border-width: 1.5px;
+  border-color: var(--color-line-strong);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility sub-radio--on {
+  border-width: 0;
+  background-color: var(--color-meal-primary);
+}
+
+@utility sub-cta {
+  min-height: 54px;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-meal-primary);
+}
+
+@utility sub-cta__label {
+  font-family: var(--font-sans-semibold);
+  font-size: 17px;
+  line-height: 22px;
+  color: var(--color-white);
+}
+
+@utility sub-stat {
+  flex: 1;
+  min-height: 86px;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding-inline: 4px;
+  border-radius: 14px;
+  background-color: var(--color-surface);
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  box-shadow: var(--shadow-card);
+}
+
+@utility sub-stat__value {
+  font-family: var(--font-sans-semibold);
+  font-size: 16px;
+  line-height: 20px;
+  color: var(--color-ink);
+}
+
+@utility sub-stat__label {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  line-height: 14px;
+  color: var(--color-muted);
+  text-align: center;
+}
+
+@utility sub-length {
+  flex: 1;
+  min-height: 92px;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 8px;
+  border-radius: 14px;
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-card);
+}
+
+@utility sub-length--on {
+  border-width: 1.5px;
+  border-color: var(--color-meal-primary);
+  background-color: var(--color-meal-surface);
+}
+
+@utility sub-length__days {
+  font-family: var(--font-sans-semibold);
+  font-size: 15px;
+  line-height: 20px;
+  color: var(--color-ink);
+}
+
+@utility sub-length__price {
+  font-family: var(--font-sans-semibold);
+  font-size: 16px;
+  line-height: 21px;
+  color: var(--color-ink);
+}
+
+@utility sub-save {
+  padding-inline: 8px;
+  padding-block: 2px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-meal-light);
+}
+
+@utility sub-save--on {
+  background-color: var(--color-meal-primary);
+}
+
+@utility sub-save__label {
+  font-family: var(--font-sans-semibold);
+  font-size: 11px;
+  line-height: 15px;
+  color: var(--color-meal-dark);
+}
+
+@utility sub-save__label--on {
+  color: var(--color-white);
+}
+
+@utility sub-check {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-meal-primary);
+  border-width: 2px;
+  border-color: var(--color-surface);
+  align-items: center;
+  justify-content: center;
+}
+
 /* Today's delivery card */
 @utility today__card {
   padding: var(--spacing-md);

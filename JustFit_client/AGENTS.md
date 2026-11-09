@@ -545,6 +545,42 @@ The Meals module is green (`meal-*` tokens and utilities); the user chose green 
   status `failed`); before it these answer 503 naming it. Not built: rider logins and app, live
   location, delivery proof photos, ETAs. Tests: `__tests__/delivery-rules.test.js`,
   `e2e/delivery.e2e.test.js`.
+- **Meal subscriptions (2026-11-10, Meal Operations phase 5, the user's design phones 2 and 3):** the
+  Meals tab's Meal Subscription side (`components/meals/SubscriptionTab.tsx`): the running plan on a
+  green card (Active / Paused, meals a day, kcal, "x of y meals used", "z meals left"), Pause /
+  Change Plan / Delivery / Manage (open `(user)/meals/subscription.tsx`), Explore Meal Subscription
+  Plans (the goal's mark, name, line, the 28-day price "/month", a radio) and Subscribe Now →
+  `(user)/meals/plans/[slug].tsx` Plan Details (mark, name, description, bowl; Meals / Day, kcal /
+  Day, Protein, Water; Plan Duration 7 / 28 / 90 days with "Save x%" against the shortest; What's
+  Included; "Subscribe for ₹x →", off while a plan runs) → `(user)/meals/subscribe.tsx` (start from
+  tomorrow, 7 days offered; the address; the bill; Pay → the same test checkout, verified by its
+  signature) → My meal plan (`subscription.tsx`: dates and meals, Pause 1 / 3 / 7 days from tomorrow
+  or Resume, how to change plans, the next 7 days with each meal time's state and Skip day / Undo
+  skip, Cancel plan, earlier plans). Rules: one running plan a member; a meal counts as used only
+  when its order is delivered (failed or cancelled never); a paused or skipped day moves the end on
+  (resume gives unused days back); unpaid checkouts lapse after 15 minutes; a payment after that is
+  kept and refunded. Orders: `subscriptions.generate(day)` (hourly for tomorrow, `startSubscriptionOrders`
+  in index.js, never in tests; also Super Admin › Subscriptions › Make tomorrow's orders) makes one
+  order a meal time with the plan's next meal in turn (`rules.mealFor`), total ₹0, payment
+  `subscription`, given a kitchen like any order; holidays, a switched-off meal time or no kitchen
+  able mark it unfilled. Admin: Meals › Subscriptions (filters, search; a subscription: Activate if
+  paid in person, Pause 3 days / Resume, Extend 7 days, Change plan, Cancel with a reason) and Plans
+  (`plans.tsx`, `plan.tsx`: name, line, description, goal, meals a day, kcal and macros, water,
+  included, up to 4 lengths with prices, the meals it rotates, shown). The dashboard adds Meal
+  subscriptions (new today, active, paused, ending in 3 days, deliveries tomorrow) and splits
+  individual and subscription orders. Server `subscriptions/` (`rules.js` pure, `service.js`,
+  `routes.js`): members `/api/subscriptions` (`GET /plans`, `/plans/:slug`, `/mine`; `POST /`,
+  `/:id/verify-payment`, `/:id/payment-failed`, `/:id/pause`, `/:id/resume`, `/:id/skip`,
+  `/:id/unskip`, `/:id/cancel`; 30 changes an hour, `SUBSCRIPTION_CHANGES_PER_HOUR`); admin inside
+  `/api/admin/kitchen` (`/subscription-plans`, `/subscriptions`, `/subscriptions/:id/activate|pause|
+  resume|cancel|extend|plan`, `/subscriptions/generate`). Payments: `meal_payments.subscription_id`
+  (`payments.verifySubscription`, the dummy gateway reads both). Migration
+  `2027-01-08-meal-subscriptions.sql` (`meal_plans` seeded with the design's three plans and prices,
+  `meal_plan_lengths`, `meal_plan_meals`, `meal_subscriptions`, `subscription_days`;
+  `orders.subscription_id`, payment `subscription`; `meal_payments.order_id` nullable); before it the
+  tab says subscriptions are coming and the routes answer 503 naming it. Not built: picking each
+  day's meals, plan changes by the member mid-plan, refunds. Tests:
+  `__tests__/subscription-rules.test.js`, `e2e/subscriptions.e2e.test.js`, `ui/subscriptions.ui.test.js`.
 - **Not built:** Razorpay itself (keys, the native checkout, refunds, webhook), push notifications for a step, delivery fees,
   subscriptions, gym-specific menus (the user chose one justFit menu run by the Super Admin). Tests:
   `__tests__/meal-rules.test.js`, `meal-catalog-rules.test.js`, `e2e/meals.e2e.test.js`, the client's

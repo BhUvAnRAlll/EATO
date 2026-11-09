@@ -161,6 +161,21 @@ export default function MealOps() {
               </Pressable>
             ) : null}
 
+            {data.subscriptions ? (
+              <Pressable onPress={() => router.push("/admin/subscriptions")} className="card" style={{ gap: 8 }} accessibilityRole="button" accessibilityLabel="Subscriptions">
+                <View className="flex-row items-center">
+                  <Text className="card__title flex-1">Meal subscriptions</Text>
+                  <SymbolView name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }} size={14} tintColor={colors.muted} />
+                </View>
+                {([["New today", data.subscriptions.newToday], ["Active", data.subscriptions.active], ["Paused today", data.subscriptions.paused], ["Ending in 3 days", data.subscriptions.expiring], ["Deliveries tomorrow", data.subscriptions.tomorrow]] as const).map(([label, n]) => (
+                  <View key={label} className="flex-row justify-between">
+                    <Text className="type-body text-muted">{label}</Text>
+                    <Text className="type-body text-forest-ink">{n}</Text>
+                  </View>
+                ))}
+              </Pressable>
+            ) : null}
+
             {data.stock ? (
               <View className={data.stock.out + data.stock.low + data.stock.expiring > 0 ? "card admin-stat--warning" : "card"} style={{ gap: 8 }}>
                 <Text className="card__title">Stock across kitchens</Text>
@@ -190,8 +205,7 @@ export default function MealOps() {
                 ))
               )}
             </View>
-            <Text className="meta-text">Meal subscriptions join this dashboard with phase 5.</Text>
-          </>
+                      </>
         )}
       </View>
     </AdminScreen>

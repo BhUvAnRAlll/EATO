@@ -122,6 +122,8 @@ const kitchenRouter = express.Router({ caseSensitive: true, strict: true });
 kitchenRouter.use(require("../kitchens/routes").kitchensRouter);
 // Delivery partners and deliveries (Meal Operations phase 4, delivery/routes.js)
 kitchenRouter.use(require("../delivery/routes").deliveryRouter);
+// Meal plans and subscriptions (Meal Operations phase 5, subscriptions/routes.js)
+kitchenRouter.use(require("../subscriptions/routes").subscriptionsAdminRouter);
 const photoLimit = limitPerUser(createRateLimiter({ limit: 30, windowMs: 60 * 60 * 1000 }));
 
 kitchenRouter.get("/meals", route(async (req, res) => {

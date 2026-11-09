@@ -90,7 +90,7 @@ function dummySecret(authSecret) {
 }
 
 /** What the app's checkout opens with (Razorpay's checkout options, nothing secret) */
-function checkoutOptions({ provider, keyId, providerOrderId, amountPaise, currency, orderCode, contact, name }) {
+function checkoutOptions({ provider, keyId, providerOrderId, amountPaise, currency, orderCode, contact, name, description }) {
   return {
     provider,
     key: keyId,
@@ -98,7 +98,7 @@ function checkoutOptions({ provider, keyId, providerOrderId, amountPaise, curren
     amount: amountPaise,
     currency,
     name: "justFit",
-    description: `Meal order ${orderCode}`,
+    description: description ?? `Meal order ${orderCode}`,
     prefill: { contact: contact ? `+91${contact}` : null, name: name || null },
     theme: { color: "#20BF65" },
   };
