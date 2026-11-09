@@ -36,7 +36,7 @@ justFit combines healthy meal delivery (single orders and subscriptions) with nu
 
 Main areas of the app:
 
-- **Onboarding**: welcome → sign up → setup: personal details (name, date of birth for the age, height, gender, weight, phone) → body composition (optional: Scan Body, instructions, two photos; no typed body fat %) → goal → activity and health conditions → food → lifestyle → calculated targets. No pincode step yet
+- **Onboarding**: welcome → sign up → setup: personal details (name, date of birth for the age, height, gender, weight, phone) → body composition (optional: Scan Body, instructions, two photos; no typed body fat %) → goal → activity and health conditions → food → meals per day → calculated targets. No pincode step yet. Workout frequency, type and time were removed from setup on 2026-11-09 (the user's choice): the AI Coach intake asks them in more detail, its goal is pre-filled from setup's (`coach/validate.js` `prefillFrom`), and the workout engine falls back to 3 days without them; the `profiles.workout_*` columns stay and older answers are still read
 - **Home**: calorie ring, today's deliveries, streak, XP
 - **Food**: menu, meal detail, cart, checkout, order success, live order tracking
 - **Subscribe**: plan picker, subscription builder, review, my subscription (skip days, wallet credit)

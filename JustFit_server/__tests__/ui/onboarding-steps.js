@@ -10,7 +10,7 @@ const defaultAnswers = {
   fullName: "E2E Tester", phone: "9876543210", gender: "Female",
   goal: "Lose fat", heightCm: "170", weightKg: "60", activity: "Lightly active", activityHint: "exercise 1–3 days per week",
   diet: "Vegan", cuisine: "South Indian", dislikes: "okra",
-  workoutFrequency: "3–4 days", workoutType: "Home", workoutTime: "Evening", mealsPerDay: "3",
+  mealsPerDay: "3",
 };
 
 // What the web date field takes and what the personal step then displays for a given age
@@ -139,9 +139,7 @@ async function fillSetup(page, baseUrl, overrides = {}, age = 30) {
   await page.clickText("Next");
   await h.expectPath("/setup/lifestyle");
 
-  await page.clickText(a.workoutFrequency);
-  await page.clickText(a.workoutType);
-  await page.clickText(a.workoutTime);
+  await h.expectNoText("Workout frequency");
   await page.clickText(a.mealsPerDay);
   await page.clickText("Next");
   await h.expectPath("/setup/targets");

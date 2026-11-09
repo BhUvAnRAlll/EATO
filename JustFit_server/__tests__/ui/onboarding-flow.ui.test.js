@@ -245,12 +245,10 @@ describe("ui flow: onboarding steps in Expo web (signed in, nothing saved)", () 
     await expectText("6/7");
   }));
 
-  it("7. lifestyle: all four choices are required before the targets step", run("lifestyle", async () => {
-    await assertStuck("/setup/lifestyle");
-    await page.clickText("3–4 days");
-    await page.clickText("Home");
-    await page.clickText("Evening");
+  it("7. lifestyle: only meals per day, required before the targets step", run("lifestyle", async () => {
     await assertStuck("/setup/lifestyle"); // meals per day missing
+    // The workout questions moved to the AI Coach intake (2026-11-09)
+    for (const gone of ["Workout frequency", "Workout type", "Workout time"]) assert.ok(!(await page.hasText(gone)), `${gone} is no longer asked`);
     await page.clickText("3");
     await next();
     await expectPath("/setup/targets");

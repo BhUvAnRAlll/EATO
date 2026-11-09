@@ -6,9 +6,6 @@ import type {
   HealthFlag,
   MealsPerDay,
   Option,
-  WorkoutFrequency,
-  WorkoutTime,
-  WorkoutType,
 } from "@/types/profile";
 
 // Every profile setup screen, in order (the progress counter, "2/7", follows this list)
@@ -78,26 +75,6 @@ export const dietOptions: Option<DietId>[] = [
 ];
 
 export const cuisineOptions = ["South Indian", "North Indian", "Mediterranean", "Asian", "Continental", "Others"];
-
-export const workoutFrequencyOptions: Option<WorkoutFrequency>[] = [
-  { id: "1-2", label: "1–2 days" },
-  { id: "3-4", label: "3–4 days" },
-  { id: "5-6", label: "5–6 days" },
-  { id: "7", label: "7 days" },
-];
-
-export const workoutTypeOptions: Option<WorkoutType>[] = [
-  { id: "gym", label: "Gym", icon: { ios: "dumbbell.fill", android: "fitness_center", web: "fitness_center" } },
-  { id: "home", label: "Home", icon: { ios: "house", android: "home", web: "home" } },
-  { id: "cardio", label: "Cardio", icon: { ios: "figure.run", android: "directions_run", web: "directions_run" } },
-  { id: "other", label: "Other", icon: { ios: "ellipsis", android: "more_horiz", web: "more_horiz" } },
-];
-
-export const workoutTimeOptions: Option<WorkoutTime>[] = [
-  { id: "morning", label: "Morning", icon: { ios: "sunrise", android: "wb_sunny", web: "wb_sunny" } },
-  { id: "afternoon", label: "Afternoon", icon: { ios: "sun.max", android: "light_mode", web: "light_mode" } },
-  { id: "evening", label: "Evening", icon: { ios: "moon", android: "dark_mode", web: "dark_mode" } },
-];
 
 export const mealsPerDayOptions: Option<MealsPerDay>[] = [
   { id: "3", label: "3" },
