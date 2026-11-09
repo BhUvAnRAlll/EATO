@@ -9,6 +9,7 @@ const { createRateLimiter, limitPerUser } = require("../rateLimit");
 const pauses = require("./pauses");
 const memberHub = require("./memberHub");
 const crowd = require("./crowd");
+const notices = require("../notifications/events");
 const pauseRules = require("./pauseRules");
 const rules = require("./rules");
 
@@ -40,7 +41,10 @@ router.get("/:memberId/crowd", route(async (req, res) => {
   res.json(await crowd.forMember(pool(req), req.userId, rules.id(req.params.memberId, "membership"), today()));
 }));
 router.post("/:memberId/pause", requestLimit, smallBody, route(async (req, res) => {
-  res.status(201).json(await pauses.requestPause(pool(req), req.userId, rules.id(req.params.memberId, "membership"), pauseRules.pauseBody(req.body, today()), today()));
+  const memberId = rules.id(req.params.memberId, "membership");
+  const answer = await pauses.requestPause(pool(req), req.userId, memberId, pauseRules.pauseBody(req.body, today()), today());
+  if (answer.pause?.id) await notices.pauseRequested(pool(req), memberId, answer.pause.id);
+  res.status(201).json(answer);
 }));
 router.delete("/:memberId/pause/:pauseId", requestLimit, route(async (req, res) => {
   res.json(await pauses.cancelPause(pool(req), req.userId, rules.id(req.params.memberId, "membership"), pauseRules.pauseId(req.params.pauseId), today()));

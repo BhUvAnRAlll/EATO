@@ -185,6 +185,11 @@ async function verifyOtp(pool, phone, code, { otpKey, config }) {
         if (!user) throw error;
       }
     }
+    // A justFit admin suspended this account (Super Admin › Users): the code is used up, no session
+    if (!isNew && (await sessions.isSuspended(conn, user.id))) {
+      await conn.commit();
+      throw refusal(403, "This account is suspended. Please contact justFit support.");
+    }
     await gymStaff.applyInvites(conn, user.id, phone);
     const session = await sessions.createSession(conn, user.id);
     await conn.commit();

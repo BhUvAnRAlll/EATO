@@ -3,6 +3,9 @@
 // scanned code names; nothing in the request names a gym or a member. The GPS reading is checked
 // here (age, accuracy, mock flag, distance), never trusted as the app's verdict.
 const express = require("express");
+const crowd = require("./crowd");
+const crowdRules = require("./crowdRules");
+const notices = require("../notifications/events");
 
 const attendance = require("./attendance");
 const att = require("./attendanceRules");
@@ -33,7 +36,16 @@ router.post("/scan", smallBody, route(async (req, res) => {
   res.json(await attendance.scanPreview(pool(req), req.userId, qrKey(req), att.scanBody(req.body, { withPosition: false }), today()));
 }));
 router.post("/check-in", smallBody, route(async (req, res) => {
-  res.status(201).json(await attendance.memberCheckIn(pool(req), req.userId, qrKey(req), att.scanBody(req.body, { withPosition: true }), today()));
+  const body = att.scanBody(req.body, { withPosition: true });
+  const answer = await attendance.memberCheckIn(pool(req), req.userId, qrKey(req), body, today());
+  // Crowd alerts for the gym's team (notifications/events.js); never fails the check-in
+  try {
+    const { live } = await crowd.crowdFor(pool(req), body.qr.gymId, today());
+    await notices.capacityCheck(pool(req), body.qr.gymId, live, today(), crowdRules.hourInIndia(Date.now()));
+  } catch {
+    // nothing to tell
+  }
+  res.status(201).json(answer);
 }));
 router.post("/check-out", smallBody, route(async (req, res) => {
   res.json(await attendance.memberCheckOut(pool(req), req.userId, qrKey(req), att.scanBody(req.body, { withPosition: true }), today()));

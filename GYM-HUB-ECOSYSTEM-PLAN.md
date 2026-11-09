@@ -16,7 +16,9 @@ section 9.
 | Membership states and pause policy (G6, G7) | **Built** 2026-11-10: suspend / cancel / reactivate with reasons, no check-in or pause while inactive, per-branch pause limits, rejection reasons required. Migration `2027-01-01-gym-membership-standing.sql` to run by hand |
 | Attendance corrections and streaks (G8) | **Built** 2026-11-10: add a missed visit or correct times with a required reason, corrections history, member streak and weekly visits. Migration `2027-01-02-gym-attendance-corrections.sql` |
 | Gym roles (G9) | **Built** 2026-11-10: Gym Owner, Gym Admin, Manager, Receptionist, Attendance Staff, Trainer as permission presets; invites keep their role. Migration `2027-01-03-gym-role-presets.sql` |
-| Everything else in section 4 | Not started |
+| Notifications (G10) | **Built** 2026-11-10: in-app inbox for members, gym teams and admins, per-category preferences, deduped, daily ending/ended round. No push (needs a push service decision). Migration `2027-01-04-notifications.sql` |
+| Super Admin dashboard, staff, suspension, ownership (G11, G12, G15) | **Built** 2026-11-10: gym analytics with charts and cities, all-staff directory, account suspension (sessions revoked, sign-in refused), audited ownership transfer. Migration `2027-01-07-account-suspensions.sql` |
+| Still to build | Complaints and reported gyms (G13), platform settings (G14), Discover and plan extras (G16-G18), report exports |
 
 ## 1. What exists today
 

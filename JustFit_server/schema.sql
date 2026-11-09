@@ -1816,6 +1816,43 @@ CREATE TABLE gym_attendance (
   CONSTRAINT fk_gym_attendance_checked_out_by FOREIGN KEY (checked_out_by) REFERENCES users (id) ON DELETE SET NULL
 ) ENGINE = InnoDB;
 
+-- Account suspensions (migration 2027-01-07): a justFit admin suspends a misused or compromised account
+CREATE TABLE account_suspensions (
+  user_id       VARCHAR(64)  NOT NULL,
+  reason        VARCHAR(200) NOT NULL,
+  suspended_by  VARCHAR(64)  NULL,
+  suspended_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (user_id),
+  CONSTRAINT fk_account_suspensions_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+  CONSTRAINT fk_account_suspensions_by FOREIGN KEY (suspended_by) REFERENCES users (id) ON DELETE SET NULL
+) ENGINE = InnoDB;
+
+-- Notifications (migration 2027-01-04): the in-app inbox and each person's muted categories
+CREATE TABLE notifications (
+  id           BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  user_id      VARCHAR(64)  NOT NULL,
+  category     ENUM('membership', 'pauses', 'attendance', 'gym', 'registration') NOT NULL,
+  kind         VARCHAR(40)  NOT NULL,                -- e.g. pause.approved (notifications/rules.js KINDS)
+  title        VARCHAR(120) NOT NULL,
+  body         VARCHAR(300) NOT NULL,
+  link         VARCHAR(200) NULL,                    -- an app route from the allowlist, or none
+  dedupe_key   VARCHAR(120) NOT NULL,                -- one notification per person and event
+  read_at      TIMESTAMP    NULL,
+  created_at   TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_notifications_once (user_id, dedupe_key),
+  KEY idx_notifications_user (user_id, id),
+  CONSTRAINT fk_notifications_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+) ENGINE = InnoDB;
+
+CREATE TABLE notification_preferences (
+  user_id      VARCHAR(64)  NOT NULL,
+  muted        JSON         NOT NULL,                -- categories switched off, e.g. ["attendance"]
+  updated_at   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (user_id),
+  CONSTRAINT fk_notification_prefs_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+) ENGINE = InnoDB;
+
 -- Attendance corrections (migration 2027-01-02): every fixed or added visit, with the times before
 -- and after, the reason and who made it
 CREATE TABLE gym_attendance_corrections (

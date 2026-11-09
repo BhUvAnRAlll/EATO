@@ -42,7 +42,15 @@ export default function AdminProfile() {
 
           <Text className="setup__section">Tools</Text>
           <View className="admin-list">
-            <Pressable onPress={() => router.push("/admin/ai-usage")} className="admin-row" accessibilityRole="button" accessibilityLabel="AI Usage. What the AI features cost">
+            <Pressable onPress={() => router.push("/admin/notifications")} className="admin-row" accessibilityRole="button" accessibilityLabel="Notifications. Gyms waiting for review">
+              <View className="admin-row__icon"><SymbolView name={{ ios: "bell", android: "notifications", web: "notifications" }} size={18} tintColor={colors.forestInk} /></View>
+              <View className="min-w-0 flex-1">
+                <Text className="card__title">Notifications</Text>
+                <Text className="meta-text">Gyms waiting for review and other alerts</Text>
+              </View>
+              <SymbolView name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }} size={14} tintColor={colors.faint} />
+            </Pressable>
+            <Pressable onPress={() => router.push("/admin/ai-usage")} className="admin-row admin-row--divided" accessibilityRole="button" accessibilityLabel="AI Usage. What the AI features cost">
               <View className="admin-row__icon"><SymbolView name={{ ios: "chart.bar.xaxis", android: "monitoring", web: "monitoring" }} size={18} tintColor={colors.forestInk} /></View>
               <View className="min-w-0 flex-1">
                 <Text className="card__title">AI Usage</Text>

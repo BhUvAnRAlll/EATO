@@ -305,6 +305,42 @@ before. Migration `2027-01-03-gym-role-presets.sql` (the invite column); before 
 can be invited. Tests: `__tests__/gym-role-preset-rules.test.js`, `e2e/gym-roles.e2e.test.js`,
 `gym-staff.e2e` and `ui/gym-staff.ui.test.js`.
 
+**Phase 6: notifications (2026-11-10, the brief's section 9):** an in-app inbox for every role (no
+push: justFit has no push server). Members: membership activated, ending in 3 days, ended,
+suspended, cancelled, reactivated; pause sent, approved, rejected (with the reason), paused by the
+gym. Gym team (only logins whose options cover it): new pause request (`members.pause`), request to
+join (`enquiries.view`), memberships ending in the next 3 days (`members.view`), crowd Busy / Very
+busy after a check-in (`attendance.view`, once an hour per level). Applicant and gym owners: every
+review step. justFit admins: a gym submitted for review. Each event reaches a person once
+(`notifications.dedupe_key`, unique per person); a person can switch categories off
+(`notification_preferences`). Screens: member Profile › Notifications, gym ☰ › Notifications, Super
+Admin Profile › Notifications, all `components/NotificationInbox.tsx` (tap marks read and opens only
+an allowed screen, `lib/notificationRules.ts` `safeLink`, the same list as the server). Server
+`notifications/rules.js` (pure), `service.js` (writing never fails the action), `events.js` (who
+hears what; `startDaily` runs the ending/ended round hourly 9 am-9 pm India time, deduped per day),
+`routes.js` at `/api/notifications` (`GET /`, `POST /read`, `GET|PUT /preferences`). Migration
+`2027-01-04-notifications.sql` (two tables, removed with the account); before it nothing is written
+and the inbox answers 503. Tests: `__tests__/notification-rules.test.js`,
+`e2e/gym-notifications.e2e.test.js`, the client's `lib/__tests__/notifications.test.ts`.
+
+**Phase 7: Super Admin platform (2026-11-10, the brief's section 7):** Super Admin › Gyms has
+Analytics (`app/admin/gyms/analytics.tsx`: branches by approval state, members, gym staff,
+memberships active / expired, visits today and inside now, 7 / 30 / 90-day charts of new branches,
+new memberships and visits, and the top cities) and All staff (`app/admin/gyms/staff.tsx`: every
+gym's owners, Staff with their role, trainers; search; a row opens the account). An account's page
+(`components/admin/AccountGymsCard.tsx`) lists its gym memberships and team roles and can suspend it
+with a reason: its sessions are revoked, `requireUser` refuses it (`auth/sessions.js` `findSession`
+skips suspended accounts) and a correct sign-in code answers 403 with no session (`auth/service.js`);
+reactivating restores it. Never a justFit admin or yourself. A gym's page has Transfer ownership
+(`components/admin/TransferOwnerCard.tsx`): a new gym admin by sign-in number (a member, or Staff of
+the same gym), the old owners leave the branch (and become members when it was their last), one
+audited transaction with the reason. Server `admin/platformRules.js` (pure), `admin/platform.js`;
+`GET /api/admin/portal/gym-analytics?days=`, `GET /gym-staff?role=&search=&page=`,
+`GET /users/:id/gyms`, `POST /users/:id/suspend|reactivate`, `POST /gyms/:id/transfer`; audited
+`user.suspend`, `user.reactivate`, `gym.owner_transfer`. Migration `2027-01-07-account-suspensions.sql`
+(one table); before it suspending answers 503 naming it and sign-in is unchanged. Tests:
+`__tests__/admin-platform-rules.test.js`, `e2e/gym-platform.e2e.test.js` (including a refused sign-in).
+
 ### Meal ordering (2026-11-09, the user's plan; migration approved)
 
 The Super Admin is the menu, the kitchen and the delivery person (the user's choice). Members order

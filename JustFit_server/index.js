@@ -47,6 +47,7 @@ const { attendanceRouter } = require("./gym/attendanceRoutes");
 const { membershipRouter } = require("./gym/membershipRoutes");
 const { discoverRouter } = require("./gym/discoverRoutes");
 const { registrationRouter } = require("./gym/registrationRoutes");
+const { notificationsRouter } = require("./notifications/routes");
 const { addressesRouter } = require("./addresses/routes");
 const { mealsRouter, ordersRouter, kitchenRouter } = require("./meals/routes");
 const { trainerRouter, refuseTrainers } = require("./gym/trainerRoutes");
@@ -120,6 +121,7 @@ const gymLimiter = createRateLimiter({ ...rateLimits.frequent, limit: Number(pro
 const membershipLimiter = createRateLimiter(rateLimits.frequent); // a member's gym memberships and pause requests
 const discoverLimiter = createRateLimiter(rateLimits.frequent); // Gym Hub › Discover Gyms: the list, a gym's page and its photos
 const registrationLimiter = createRateLimiter(rateLimits.frequent); // Register your gym: the application, its images and documents
+const notificationsLimiter = createRateLimiter(rateLimits.frequent); // the in-app inbox
 const addressLimiter = createRateLimiter(rateLimits.frequent); // a member's delivery addresses
 const mealsLimiter = createRateLimiter(rateLimits.frequent); // the menu, meal photos, the cart's options and a member's orders
 const attendanceLimiter = createRateLimiter({ limit: 30, windowMs: 10 * 60 * 1000 }); // members' QR check-ins and check-outs
@@ -429,6 +431,8 @@ app.use("/api/membership", requireUser, limitPerUser(membershipLimiter), members
 app.use("/api/gyms", requireUser, limitPerUser(discoverLimiter), discoverRouter);
 // Register your gym (gym/registrationRoutes.js): a member applies; the justFit team reviews it
 app.use("/api/gym-registration", requireUser, limitPerUser(registrationLimiter), registrationRouter);
+// In-app notifications (notifications/routes.js): every role's own inbox and preferences
+app.use("/api/notifications", requireUser, limitPerUser(notificationsLimiter), notificationsRouter);
 
 // A member's delivery addresses and the pincode check (addresses/routes.js)
 app.use("/api/addresses", requireUser, limitPerUser(addressLimiter), addressesRouter);
@@ -486,6 +490,8 @@ require("./fitness/youtubeRefresh").startRefresh(pool);
 require("./gym/sms").startReminders(pool, gymSms);
 // Gym visits nobody checked out of are closed as "no check-out" at midnight, India time
 require("./gym/attendance").startMidnightClose(pool);
+// Membership ending / ended notifications and the gyms' daily count, once a day in the daytime
+require("./notifications/events").startDaily(pool);
 if (process.env.NODE_ENV !== "test") console.log(gymSms.enabled ? "Gym SMS: sending on" : `Gym SMS: off (${gymSms.reason})`);
 app.listen(port, "0.0.0.0", () => {
   console.log(`justFit server listening on http://localhost:${port}`);

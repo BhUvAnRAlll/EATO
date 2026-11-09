@@ -1,11 +1,20 @@
-import { PlaceholderScreen } from "@/components/PlaceholderScreen";
+import { View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { StatusBar } from "expo-status-bar";
 
+import { NotificationInbox } from "@/components/NotificationInbox";
+import { ScreenHeader } from "@/components/ScreenHeader";
+
+// Profile › Notifications: updates about the member's memberships, pause requests and gyms
+// (components/NotificationInbox.tsx; the brief's section 9). No push yet: shown here in the app.
 export default function Notifications() {
   return (
-    <PlaceholderScreen
-      title="Notifications"
-      subtitle="Delivery updates, reminders and offers will be listed here."
-      icon={{ ios: "bell", android: "notifications", web: "notifications" }}
-    />
+    <View className="flex-1 bg-cream">
+      <StatusBar style="dark" />
+      <SafeAreaView edges={["top"]} style={{ flex: 1 }}>
+        <ScreenHeader title="Notifications" fallback="/profile" />
+        <NotificationInbox />
+      </SafeAreaView>
+    </View>
   );
 }

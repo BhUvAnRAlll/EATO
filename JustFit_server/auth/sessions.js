@@ -27,12 +27,31 @@ async function createSession(conn, userId) {
 
 // The live session a token belongs to: { sessionId, userId } or null (malformed, unknown,
 // expired, revoked, or the account is gone). Refreshes last_used_at when it is stale.
+// Whether account suspensions (migration 2027-01-07) exist on this database: asked once, and again
+// a minute later while missing, so sign-in works the same before the migration
+let suspensionsTable = { has: false, at: 0 };
+async function hasSuspensions(db) {
+  if (suspensionsTable.has || Date.now() - suspensionsTable.at < 60000) return suspensionsTable.has;
+  const [[row]] = await db.query("SELECT COUNT(*) AS n FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'account_suspensions'");
+  suspensionsTable = { has: Number(row.n) > 0, at: Date.now() };
+  return suspensionsTable.has;
+}
+
+/** Whether a justFit admin has suspended the account (never before the migration) */
+async function isSuspended(db, userId) {
+  if (!(await hasSuspensions(db))) return false;
+  const [[row]] = await db.query("SELECT 1 AS yes FROM account_suspensions WHERE user_id = ?", [userId]);
+  return Boolean(row);
+}
+
 async function findSession(pool, token) {
   if (typeof token !== "string" || !TOKEN.test(token)) return null;
+  // A suspended account's session is never live, even if one slipped through being revoked
+  const notSuspended = (await hasSuspensions(pool)) ? " AND NOT EXISTS (SELECT 1 FROM account_suspensions x WHERE x.user_id = s.user_id)" : "";
   const [rows] = await pool.query(
     `SELECT s.id, s.user_id, (s.last_used_at IS NULL OR s.last_used_at < NOW() - INTERVAL ? SECOND) AS stale
        FROM auth_sessions s JOIN users u ON u.id = s.user_id
-      WHERE s.token_hash = ? AND s.revoked_at IS NULL AND s.expires_at > NOW()`,
+      WHERE s.token_hash = ? AND s.revoked_at IS NULL AND s.expires_at > NOW()${notSuspended}`,
     [TOUCH_AFTER_SECONDS, hashToken(token)],
   );
   const session = rows[0];
@@ -62,4 +81,4 @@ async function revokeAllSessions(pool, userId) {
   return result.affectedRows;
 }
 
-module.exports = { TOKEN, SESSION_DAYS, newToken, hashToken, createSession, findSession, revokeSession, revokeAllSessions };
+module.exports = { TOKEN, SESSION_DAYS, newToken, hashToken, createSession, findSession, revokeSession, revokeAllSessions, isSuspended, hasSuspensions };

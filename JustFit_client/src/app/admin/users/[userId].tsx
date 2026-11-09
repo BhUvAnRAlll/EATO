@@ -9,13 +9,15 @@ import { usePullToRefresh } from "@/components/PullToRefresh";
 import { ScreenSkeleton } from "@/components/Skeleton";
 import { Avatar } from "@/components/Avatar";
 import { DashedBlock } from "@/components/macro/DashedBlock";
+import { AccountGymsCard } from "@/components/admin/AccountGymsCard";
 import { KIND_LABEL, adminPortal, type AdminUser } from "@/lib/adminPortal";
 import { useSessionToken } from "@/lib/session";
 import type { Icon } from "@/types/profile";
 import { useThemeColors } from "@/theme";
 
 // Super Admin › a user's page: when they joined, and how many meals they logged, workouts they
-// finished and orders they placed. Read only.
+// finished and orders they placed; their gyms (memberships and team roles), and suspending or
+// reactivating the account.
 
 const back = () => (router.canGoBack() ? router.back() : router.replace("/admin/users"));
 
@@ -92,6 +94,8 @@ export default function AdminUserDetail() {
                 </View>
               ))}
             </View>
+            {/* Gym memberships and team roles, and suspending the account (the brief's section 7) */}
+            <AccountGymsCard userId={user.id} isAdmin={user.kind === "admin"} />
           </ScrollView>
         )}
       </SafeAreaView>

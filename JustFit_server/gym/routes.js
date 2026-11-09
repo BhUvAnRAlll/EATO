@@ -34,6 +34,7 @@ const standing = require("./standing");
 const standingRules = require("./standingRules");
 const corrections = require("./corrections");
 const correctionRules = require("./correctionRules");
+const notices = require("../notifications/events");
 const { ForbiddenError } = require("../errors");
 const rules = require("./rules");
 const discover = require("./discover");
@@ -239,7 +240,9 @@ router.get("/members", route(async (req, res) => {
   res.json({ ...(await service.members(pool(req), req.gym.id, rules.membersQuery(req.query), today())), gym: service.gymInfo(req.gym) });
 }));
 router.post("/members", smallBody, route(async (req, res) => {
-  res.status(201).json(await service.admit(pool(req), req.gym, req.userId, rules.admissionBody(req.body), today()));
+  const answer = await service.admit(pool(req), req.gym, req.userId, rules.admissionBody(req.body), today());
+  await notices.memberAdmitted(pool(req), answer.member.id);
+  res.status(201).json(answer);
 }));
 // The ID the next new member will get, shown on Add New Member before saving
 router.get("/members/next-code", route(async (req, res) => {
@@ -288,13 +291,17 @@ router.get("/pauses", route(async (req, res) => {
   res.json(await pauses.list(pool(req), req.gym.id, pauseRules.listQuery(req.query), today()));
 }));
 router.post("/pauses/:pauseId/approve", pauseLimit, smallBody, route(async (req, res) => {
-  res.json(await pauses.decide(pool(req), req.gym, req.userId, pauseRules.pauseId(req.params.pauseId), true, pauseRules.decisionBody(req.body), today()));
+  const answer = await pauses.decide(pool(req), req.gym, req.userId, pauseRules.pauseId(req.params.pauseId), true, pauseRules.decisionBody(req.body), today());
+  await notices.pauseDecided(pool(req), answer.pause.id);
+  res.json(answer);
 }));
 router.post("/pauses/:pauseId/reject", pauseLimit, smallBody, route(async (req, res) => {
   // A rejection always says why (the member reads it); the brief's rule, 2026-11-09
   const decision = pauseRules.decisionBody(req.body);
   if (!decision.note || decision.note.length < 3) return res.status(400).json({ error: "Say why the pause isn't approved. The member reads it." });
-  res.json(await pauses.decide(pool(req), req.gym, req.userId, pauseRules.pauseId(req.params.pauseId), false, decision, today()));
+  const answer = await pauses.decide(pool(req), req.gym, req.userId, pauseRules.pauseId(req.params.pauseId), false, decision, today());
+  await notices.pauseDecided(pool(req), answer.pause.id);
+  res.json(answer);
 }));
 // Membership states (gym/standing.js, migration 2027-01-01): suspend, cancel or reactivate a member
 const STANDING_MIGRATION = "Suspending memberships needs the 2027-01-01-gym-membership-standing migration on this server.";
@@ -305,7 +312,9 @@ const standingRoute = (handler) => (req, res, next) =>
   });
 router.post("/members/:memberId/standing", pauseLimit, smallBody, standingRoute(async (req, res) => {
   const id = rules.id(req.params.memberId);
-  await standing.setStanding(pool(req), req.gym, req.userId, id, standingRules.standingBody(req.body));
+  const change = standingRules.standingBody(req.body);
+  await standing.setStanding(pool(req), req.gym, req.userId, id, change);
+  await notices.standingChanged(pool(req), id, change.standing, change.note, Date.now());
   res.json(await service.member(pool(req), req.gym.id, id, today()));
 }));
 // The branch's pause policy for members' requests
@@ -316,12 +325,17 @@ router.put("/pause-policy", smallBody, standingRoute(async (req, res) => {
   res.json(await standing.savePolicy(pool(req), req.gym, req.userId, standingRules.policyBody(req.body)));
 }));
 router.post("/members/:memberId/pause", pauseLimit, smallBody, route(async (req, res) => {
-  res.status(201).json(await pauses.staffPause(pool(req), req.gym, req.userId, rules.id(req.params.memberId), pauseRules.pauseBody(req.body, today(), { staff: true }), today()));
+  const memberId = rules.id(req.params.memberId);
+  const answer = await pauses.staffPause(pool(req), req.gym, req.userId, memberId, pauseRules.pauseBody(req.body, today(), { staff: true }), today());
+  const [[latest]] = await pool(req).query("SELECT id FROM gym_membership_pauses WHERE member_id = ? AND gym_id = ? ORDER BY id DESC LIMIT 1", [memberId, req.gym.id]);
+  if (latest) await notices.pauseDecided(pool(req), latest.id);
+  res.status(201).json(answer);
 }));
 
 router.post("/members/:memberId/check-in", route(async (req, res) => {
   const memberId = rules.id(req.params.memberId);
   const { alreadyIn } = await attendance.staffCheckIn(pool(req), req.gym.id, req.userId, memberId, today());
+  if (!alreadyIn) await crowdAlert(pool(req), req.gym.id);
   res.json({ ...(await service.member(pool(req), req.gym.id, memberId, today())), alreadyIn });
 }));
 router.post("/members/:memberId/check-out", route(async (req, res) => {
@@ -678,6 +692,15 @@ router.patch("/attendance/visits/:visitId", pauseLimit, smallBody, correctionRou
 router.get("/attendance/corrections", correctionRoute(async (req, res) => {
   res.json(await corrections.list(pool(req), req.gym, correctionRules.listQuery(req.query)));
 }));
+// After a check-in: tell the team when the live crowd reaches Busy or Very busy (once an hour per level)
+async function crowdAlert(db, gymId) {
+  try {
+    const { live } = await crowd.crowdFor(db, gymId, today());
+    await notices.capacityCheck(db, gymId, live, today(), crowdRules.hourInIndia(Date.now()));
+  } catch {
+    // an alert never fails the check-in
+  }
+}
 // Live crowd and best time to visit (gym/crowd.js): the estimate and the forecast, and the gym's
 // crowd settings (capacity, usual workout, levels; migration 2026-12-29)
 const CROWD_MIGRATION = "Crowd settings need the 2026-12-29-gym-crowd migration on this server.";

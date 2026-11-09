@@ -34,6 +34,7 @@ const OTHER: MenuItem[] = [
   { label: "Send Bulk SMS", icon: "message-square-more", action: "sms", need: "sms.view" },
   { label: "Attendance", icon: "qr-code", href: "/gym/attendance", need: "attendance.view" },
   { label: "My check-in", icon: "scan-qr-code", href: "/gym/check-in", staffOnly: true },
+  { label: "Notifications", icon: "bell", href: "/gym/notifications" },
   { label: "Settings", icon: "settings", href: "/gym/settings" },
 ];
 

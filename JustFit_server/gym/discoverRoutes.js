@@ -12,6 +12,7 @@ const joinRequests = require("./joinRequests");
 const joinRules = require("./joinRules");
 const rules = require("./discoverRules");
 const gymRules = require("./rules");
+const notices = require("../notifications/events");
 
 const router = express.Router({ caseSensitive: true, strict: true });
 const pool = (req) => req.app.locals.pool;
@@ -54,10 +55,10 @@ router.get("/:gymId", route(async (req, res) => {
   res.json({ ...page, you });
 }));
 router.post("/:gymId/requests", joinLimit, smallBody, route(async (req, res) => {
-  res.status(201).json(await joinRequests.ask(pool(req), req.userId, gymId(req), joinRules.joinBody(req.body)));
-}));
-router.get("/:gymId/photos/:photoId", route(async (req, res) => {
-  discover.send(res, await discover.photo(pool(req), gymId(req), gymRules.id(req.params.photoId, "photo")));
+  const id = gymId(req);
+  const answer = await joinRequests.ask(pool(req), req.userId, id, joinRules.joinBody(req.body));
+  await notices.joinRequested(pool(req), id, answer.request.id, null);
+  res.status(201).json(answer);
 }));
 // A trainer's photo: only one members can see at that branch (Gym Profile phase 3)
 router.get("/:gymId/trainers/:trainerId/photo", route(async (req, res) => {

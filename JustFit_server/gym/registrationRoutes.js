@@ -12,6 +12,7 @@ const gymRules = require("./rules");
 const gymProfile = require("./gymProfile");
 const logos = require("./logos");
 const covers = require("../fitness/covers");
+const notices = require("../notifications/events");
 
 const router = express.Router({ caseSensitive: true, strict: true });
 const pool = (req) => req.app.locals.pool;
@@ -48,7 +49,10 @@ router.patch("/:gymId", changeLimit, smallBody, route(async (req, res) => {
   res.json(await registration.edit(pool(req), req.userId, id, rules.applicationBody(req.body, { creating: false })));
 }));
 router.post("/:gymId/submit", changeLimit, route(async (req, res) => {
-  res.json(await registration.submit(pool(req), req.userId, gymId(req)));
+  const id = gymId(req);
+  const answer = await registration.submit(pool(req), req.userId, id);
+  await notices.gymSubmitted(pool(req), id);
+  res.json(answer);
 }));
 
 // Documents: photos or PDFs, private to the applicant and the justFit team

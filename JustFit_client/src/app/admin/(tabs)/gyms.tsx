@@ -43,6 +43,14 @@ export default function AdminGyms() {
               <Text className="btn-forest__label">New gym</Text>
             </Pressable>
           </View>
+          <View className="flex-row px-4" style={{ gap: 8 }}>
+            <Pressable onPress={() => router.push("/admin/gyms/analytics")} className="admin-chip flex-1" accessibilityRole="button" accessibilityLabel="Gym analytics">
+              <Text className="type-caption text-ink">Analytics</Text>
+            </Pressable>
+            <Pressable onPress={() => router.push("/admin/gyms/staff")} className="admin-chip flex-1" accessibilityRole="button" accessibilityLabel="All gym staff">
+              <Text className="type-caption text-ink">All staff</Text>
+            </Pressable>
+          </View>
           {counts ? (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}>
               {LIST_FILTERS.map((f) => (
