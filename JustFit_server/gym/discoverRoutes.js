@@ -32,6 +32,14 @@ const smallBody = express.json({ limit: "2kb" });
 // 10 join requests an hour per member (GYM_JOIN_REQUESTS_PER_HOUR; the test server raises it)
 const joinLimit = limitPerUser(createRateLimiter({ limit: Number(process.env.GYM_JOIN_REQUESTS_PER_HOUR) || 10, windowMs: 60 * 60 * 1000 }));
 
+// Every route about one branch: members reach only an approved, published one (else 404)
+router.param("gymId", (req, res, next, value) => {
+  route(async () => {
+    await discover.assertVisible(pool(req), gymRules.id(value, "gym"));
+    next();
+  })(req, res, next);
+});
+
 router.get("/", route(async (req, res) => {
   res.json(await discover.discover(pool(req), rules.discoverQuery(req.query)));
 }));

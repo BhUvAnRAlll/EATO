@@ -11,28 +11,52 @@ const { toE164 } = require("../auth/phone");
 const { audit } = require("./overview");
 const gymService = require("../gym/service");
 const gymSms = require("../gym/sms");
+const gymStatus = require("../gym/gymStatus");
+const registrationRules = require("../gym/registrationRules");
 
-const gymOf = (r) => ({ id: r.id, brandId: r.brand_id, name: r.brand, branch: r.branch, area: r.area, city: r.city, createdAt: r.created_at ? new Date(r.created_at).toISOString() : null });
+const gymOf = (r) => ({
+  id: r.id, brandId: r.brand_id, name: r.brand, branch: r.branch, area: r.area, city: r.city, createdAt: r.created_at ? new Date(r.created_at).toISOString() : null,
+  status: r.status ?? "approved", statusLabel: registrationRules.LABEL[r.status ?? "approved"], statusNote: r.status_note ?? null,
+});
 const GYM_COLUMNS = "g.id, g.brand_id, b.name AS brand, g.name AS branch, g.area, g.city, g.created_at";
+// With gym registration (migration 2026-12-27) a branch has an approval state; before it, approved
+const columnsFor = async (db) => ((await gymStatus.hasRegistration(db)) ? `${GYM_COLUMNS}, g.status, g.status_note` : GYM_COLUMNS);
 
-async function list(pool, today) {
+/**
+ * Every branch with today's numbers, filtered by status (registrationRules.listQuery: all, review or
+ * one status), with how many are in each status for the filter chips
+ */
+async function list(pool, today, { status = "all" } = {}) {
+  const withStatus = await gymStatus.hasRegistration(pool);
+  const statuses = withStatus ? registrationRules.statusesFor(status) : null;
+  if (!withStatus && status !== "all" && status !== "approved") return { gyms: [], counts: null };
   const [rows] = await pool.query(
-    `SELECT ${GYM_COLUMNS},
+    `SELECT ${await columnsFor(pool)},
        (SELECT COUNT(*) FROM gym_staff s WHERE s.gym_id = g.id AND s.kind = 'owner') AS staff,
        (SELECT COUNT(*) FROM gym_members m WHERE m.gym_id = g.id) AS members,
        (SELECT COUNT(*) FROM gym_members m WHERE m.gym_id = g.id AND m.expires_on >= ?) AS active,
        (SELECT COALESCE(SUM(p.amount), 0) FROM gym_payments p WHERE p.gym_id = g.id AND p.paid_on = ?) AS revenue_today,
        (SELECT COUNT(DISTINCT a.member_id) FROM gym_attendance a WHERE a.gym_id = g.id AND a.on_date = ?) AS attendance_today
-     FROM gyms g JOIN gym_brands b ON b.id = g.brand_id ORDER BY b.name, b.id, g.name, g.id`,
-    [today, today, today],
+     FROM gyms g JOIN gym_brands b ON b.id = g.brand_id${statuses ? " WHERE g.status IN (?)" : ""}
+     ORDER BY ${withStatus ? "FIELD(g.status, 'submitted', 'pending_review') DESC, " : ""}b.name, b.id, g.name, g.id`,
+    statuses ? [today, today, today, statuses] : [today, today, today],
   );
+  let counts = null;
+  if (withStatus) {
+    const [byStatus] = await pool.query("SELECT status, COUNT(*) AS n FROM gyms GROUP BY status");
+    counts = Object.fromEntries(registrationRules.STATUSES.map((st) => [st, 0]));
+    for (const r of byStatus) counts[r.status] = Number(r.n);
+    counts.review = counts.submitted + counts.pending_review;
+    counts.all = registrationRules.STATUSES.reduce((sum, st) => sum + counts[st], 0);
+  }
   return {
+    counts,
     gyms: rows.map((r) => ({ ...gymOf(r), staff: r.staff, members: r.members, active: r.active, revenueToday: Number(r.revenue_today), attendanceToday: r.attendance_today })),
   };
 }
 
 async function gymRow(db, gymId) {
-  const [[row]] = await db.query(`SELECT ${GYM_COLUMNS} FROM gyms g JOIN gym_brands b ON b.id = g.brand_id WHERE g.id = ?`, [gymId]);
+  const [[row]] = await db.query(`SELECT ${await columnsFor(db)} FROM gyms g JOIN gym_brands b ON b.id = g.brand_id WHERE g.id = ?`, [gymId]);
   if (!row) throw new NotFoundError("That gym doesn't exist.");
   return row;
 }
@@ -190,9 +214,14 @@ async function overviewCounts(pool, today) {
       "SELECT (SELECT COUNT(*) FROM gym_brands) AS gyms, (SELECT COALESCE(SUM(amount), 0) FROM gym_payments WHERE paid_on = ?) AS revenue_today",
       [today],
     );
-    return { gyms: Number(row.gyms), gymRevenueToday: Number(row.revenue_today) };
+    let gymsToReview = null;
+    if (await gymStatus.hasRegistration(pool)) {
+      const [[waiting]] = await pool.query("SELECT COUNT(*) AS n FROM gyms WHERE status IN ('submitted', 'pending_review')");
+      gymsToReview = Number(waiting.n);
+    }
+    return { gyms: Number(row.gyms), gymRevenueToday: Number(row.revenue_today), gymsToReview };
   } catch (error) {
-    if (error?.code === "ER_NO_SUCH_TABLE") return { gyms: null, gymRevenueToday: null };
+    if (error?.code === "ER_NO_SUCH_TABLE") return { gyms: null, gymRevenueToday: null, gymsToReview: null };
     throw error;
   }
 }

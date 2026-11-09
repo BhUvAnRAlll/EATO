@@ -5,6 +5,8 @@ import { router, useLocalSearchParams } from "expo-router";
 import { FormAlert } from "@/components/FormAlert";
 import { PressableScale } from "@/components/PressableScale";
 import { BusyHoursCard, hourTick } from "@/components/gym/BusyHoursCard";
+import { CrowdForecastCard, LiveCrowdCard } from "@/components/gymHub/CrowdCard";
+import { crowdApi } from "@/lib/gymCrowd";
 import { GymChips } from "@/components/gym/GymField";
 import { GymIcon } from "@/components/gym/GymIcon";
 import { GymError, GymLoading } from "@/components/gym/GymStates";
@@ -58,6 +60,8 @@ export default function GymAttendance() {
   const canCheckOut = can("attendance.checkin");
   const loadBusy = useCallback((token: string | null) => (canPredict ? gymApi.busyHours(token) : Promise.resolve({ ok: false as const, error: "Your login doesn't include Predictions.", status: 403 })), [canPredict]);
   const busy = useGymData(loadBusy);
+  // Live crowd and the usual crowd (gym/crowd.js): Attendance › Attendance and history
+  const crowd = useGymData(crowdApi.gym);
   const [period, setPeriod] = useState<Period>("today");
   const params = useLocalSearchParams<{ tab?: string }>();
   const [tab, setTab] = useState<Tab>(params.tab === "team" ? "team" : "members");
@@ -69,7 +73,7 @@ export default function GymAttendance() {
   // A pull re-reads the history list too, not only the summary (QA 2026-11-07)
   const refreshAll = async () => {
     setRefreshKey((k) => k + 1);
-    await Promise.all([refresh(), canPredict ? busy.reload() : Promise.resolve()]);
+    await Promise.all([refresh(), crowd.reload(), canPredict ? busy.reload() : Promise.resolve()]);
   };
 
   // A ref, not state, so two taps in one frame can't send two check-outs
@@ -212,6 +216,23 @@ export default function GymAttendance() {
           </View>
         </View>
       </View>
+
+      <View className="flex-row items-center">
+        <Text className="gym-page-section flex-1" accessibilityRole="header">Crowd</Text>
+        {canSetUp ? (
+          <PressableScale onPress={() => router.push("/gym/attendance/crowd")} hitSlop={8} accessibilityRole="button" accessibilityLabel="Crowd settings">
+            <Text className="gym-link">Crowd settings</Text>
+          </PressableScale>
+        ) : null}
+      </View>
+      {crowd.result.state === "loading" ? <GymLoading label="Loading the crowd" /> : null}
+      {crowd.result.state === "failed" ? <GymError error={crowd.result.error} onRetry={crowd.retry} /> : null}
+      {crowd.result.state === "ready" ? (
+        <>
+          <LiveCrowdCard live={crowd.result.data.live} />
+          <CrowdForecastCard forecast={crowd.result.data.forecast} />
+        </>
+      ) : null}
 
       {canPredict && (
         <>

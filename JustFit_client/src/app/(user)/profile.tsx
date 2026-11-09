@@ -119,6 +119,8 @@ export default function Profile() {
     { label: gym.label, icon: gym.icon, onPress: () => router.push(gym.href) },
     { label: "Body Composition Scan", icon: { ios: "figure.stand", android: "accessibility_new", web: "accessibility_new" }, onPress: startScan, disabled: !saved },
     ...(lastScan ? [{ label: "Latest body report", icon: { ios: "doc.text", android: "description", web: "description" } as Icon, onPress: () => router.push("/setup/scan-report?mode=view&from=profile") }] : []),
+    // Gym owners apply here; the justFit team approves the gym (a trainer is already a team account)
+    ...(user?.role === "user" ? [{ label: "Register your gym", icon: { ios: "building.2", android: "storefront", web: "storefront" } as Icon, onPress: () => router.push("/gym-register") }] : []),
   ];
   const bmi = bmiOf(saved?.weightKg, saved?.heightCm);
   const initial = name.trim().charAt(0).toUpperCase() || "?";

@@ -11,6 +11,7 @@ import { usePullToRefresh } from "@/components/PullToRefresh";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { ScreenSkeleton } from "@/components/Skeleton";
 import { SymbolView } from "@/components/SymbolView";
+import { MemberCrowdSection } from "@/components/gymHub/CrowdCard";
 import { durationText, monthGrid, monthLabel, pausedTimes, planProgress, timeText } from "@/lib/gymHubText";
 import { hud } from "@/lib/hud";
 import { membershipApi, type MembershipDetail } from "@/lib/membershipApi";
@@ -23,7 +24,7 @@ type Load = { state: "loading" } | { state: "failed"; error: string; missing: bo
 
 const WEEKDAYS = ["M", "T", "W", "T", "F", "S", "S"];
 
-// Gym Hub › a membership: the plan and its dates, renewal, attendance (stats, a month's calendar and
+// Gym Hub › a membership: the plan and its dates, renewal, the gym's live crowd and usual crowd, attendance (stats, a month's calendar and
 // its visits with their times), pauses (the open one, how many, the history, Pause Membership) and
 // the payments the gym recorded. Everything comes from the server for this account's own number.
 export default function MembershipPage() {
@@ -47,7 +48,13 @@ export default function MembershipPage() {
     setResult((current) => (current.state === "ready" && wanted ? current : { state: "failed", error: answer.error, missing: answer.status === 404 || answer.status === 400 }));
   }, [getToken, memberId]);
   useFocusEffect(useCallback(() => { load(month); }, [load, month]));
-  const { refreshControl } = usePullToRefresh(() => load(month));
+  // The crowd section reads again on every focus and pull
+  const [crowdKey, setCrowdKey] = useState(0);
+  useFocusEffect(useCallback(() => setCrowdKey((k) => k + 1), []));
+  const { refreshControl } = usePullToRefresh(() => {
+    setCrowdKey((k) => k + 1);
+    return load(month);
+  });
 
   const showMonth = (next: string | null) => {
     if (!next) return;
@@ -95,6 +102,7 @@ export default function MembershipPage() {
           <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 48, gap: 16 }} refreshControl={refreshControl} showsVerticalScrollIndicator={false}>
             <Overview data={result.data} />
             <Renewal data={result.data} />
+            <MemberCrowdSection membershipId={memberId} refreshKey={crowdKey} />
             <Attendance data={result.data} loading={monthLoading} onMonth={showMonth} />
             <Pauses data={result.data} cancelling={cancelling} error={cancelError} onCancel={() => cancelPause(result.data)} />
             <Payments data={result.data} />

@@ -8,6 +8,7 @@ const express = require("express");
 const { createRateLimiter, limitPerUser } = require("../rateLimit");
 const pauses = require("./pauses");
 const memberHub = require("./memberHub");
+const crowd = require("./crowd");
 const pauseRules = require("./pauseRules");
 const rules = require("./rules");
 
@@ -33,6 +34,10 @@ router.get("/", route(async (req, res) => {
 // attendance (?month=YYYY-MM). Read only.
 router.get("/:memberId", route(async (req, res) => {
   res.json(await memberHub.detail(pool(req), req.userId, rules.id(req.params.memberId, "membership"), req.query, today()));
+}));
+// Live crowd and best time to visit at the member's own gym (gym/crowd.js): read only
+router.get("/:memberId/crowd", route(async (req, res) => {
+  res.json(await crowd.forMember(pool(req), req.userId, rules.id(req.params.memberId, "membership"), today()));
 }));
 router.post("/:memberId/pause", requestLimit, smallBody, route(async (req, res) => {
   res.status(201).json(await pauses.requestPause(pool(req), req.userId, rules.id(req.params.memberId, "membership"), pauseRules.pauseBody(req.body, today()), today()));

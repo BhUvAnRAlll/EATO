@@ -135,6 +135,8 @@ const OPTION_OF_ROUTE = [
   [["GET"], /^\/attendance(\/visits)?$/, ["attendance.view"]],
   [["GET"], /^\/attendance\/export$/, ["attendance.export"]],
   [["GET"], /^\/attendance\/settings$/, ["attendance.settings"]],
+  [["GET"], /^\/attendance\/crowd$/, ["attendance.view"]],
+  [["PUT"], /^\/attendance\/crowd-settings$/, ["attendance.settings"]],
   [["PUT", "POST"], /^\/attendance\/(location|qr)$/, ["attendance.settings"]],
   [["GET"], /^\/sms(\/logs)?$/, ["sms.view"]],
   [["POST"], /^\/sms\/send$/, ["sms.send"]],

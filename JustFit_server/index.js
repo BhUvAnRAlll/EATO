@@ -46,6 +46,7 @@ const { gymRouter } = require("./gym/routes");
 const { attendanceRouter } = require("./gym/attendanceRoutes");
 const { membershipRouter } = require("./gym/membershipRoutes");
 const { discoverRouter } = require("./gym/discoverRoutes");
+const { registrationRouter } = require("./gym/registrationRoutes");
 const { addressesRouter } = require("./addresses/routes");
 const { mealsRouter, ordersRouter, kitchenRouter } = require("./meals/routes");
 const { trainerRouter, refuseTrainers } = require("./gym/trainerRoutes");
@@ -117,6 +118,7 @@ const analyticsLimiter = createRateLimiter(rateLimits.frequent); // the app's us
 const gymLimiter = createRateLimiter({ ...rateLimits.frequent, limit: Number(process.env.GYM_REQUESTS_PER_MINUTE) || rateLimits.frequent.limit });
 const membershipLimiter = createRateLimiter(rateLimits.frequent); // a member's gym memberships and pause requests
 const discoverLimiter = createRateLimiter(rateLimits.frequent); // Gym Hub › Discover Gyms: the list, a gym's page and its photos
+const registrationLimiter = createRateLimiter(rateLimits.frequent); // Register your gym: the application, its images and documents
 const addressLimiter = createRateLimiter(rateLimits.frequent); // a member's delivery addresses
 const mealsLimiter = createRateLimiter(rateLimits.frequent); // the menu, meal photos, the cart's options and a member's orders
 const attendanceLimiter = createRateLimiter({ limit: 30, windowMs: 10 * 60 * 1000 }); // members' QR check-ins and check-outs
@@ -424,6 +426,8 @@ app.use("/api/attendance", requireUser, limitPerUser(attendanceLimiter), attenda
 app.use("/api/membership", requireUser, limitPerUser(membershipLimiter), membershipRouter);
 // Gym Hub › Discover Gyms (gym/discoverRoutes.js): every gym's public profile and plans, read only
 app.use("/api/gyms", requireUser, limitPerUser(discoverLimiter), discoverRouter);
+// Register your gym (gym/registrationRoutes.js): a member applies; the justFit team reviews it
+app.use("/api/gym-registration", requireUser, limitPerUser(registrationLimiter), registrationRouter);
 
 // A member's delivery addresses and the pincode check (addresses/routes.js)
 app.use("/api/addresses", requireUser, limitPerUser(addressLimiter), addressesRouter);

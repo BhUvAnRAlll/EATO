@@ -93,6 +93,8 @@ describe("gym join requests e2e: a member asks, the gym follows up, nobody else 
       state[key] = gym.json.gym.id;
       assert.equal((await api("POST", `/api/admin/portal/gyms/${state[key]}/staff`, tokens.admin, { phone: identities[key].phone })).status, 201);
     }
+    // Members see approved, published gyms only (gym registration)
+    await db.publishGyms(connection, [state.gymA, state.gymB]);
     const add = async (tag, item) => {
       const r = await api("POST", "/api/gym/catalog", tokens[tag], item);
       assert.equal(r.status, 201, JSON.stringify(r.json));

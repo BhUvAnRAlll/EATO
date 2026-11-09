@@ -203,6 +203,63 @@ are published as they were); before it the profile routes answer 503 naming it a
 the profile as before. Tests: `gym-profile-rules.test.js`, `e2e/gym-profile.e2e.test.js`,
 `ui/gym-profile.ui.test.js`, the client's `lib/__tests__/gymProfile.test.ts`.
 
+### Gym Hub ecosystem, phase 1: gym registration and approval (2026-11-09, the user's brief)
+
+The user's "Complete Gym Hub Ecosystem" brief (plan and gaps in `GYM-HUB-ECOSYSTEM-PLAN.md` at the
+repo root) overrides earlier gym decisions: gyms register themselves and the Super Admin approves
+them. A member (role `user` only) opens Profile › Register your gym (`app/(user)/gym-register/`:
+`index.tsx` the status, four sections with what is missing, Submit, the history; `business.tsx`,
+`location.tsx` (address, state chips, pincode, the phone's location), `gym.tsx` (description,
+facilities, `OpeningHoursEditor`), `files.tsx` (logo, photos, documents as photos of the papers; the
+server also takes PDFs, a document picker needs approval)). Words and rules in
+`lib/gymRegistrationRules.ts` (pure, unit-tested), calls in `lib/gymRegistration.ts`, the shared copy
+in `store/gymRegistration.ts`. A branch's `gyms.status`: draft → submitted → pending_review →
+approved / rejected, or back to draft with a note (request documents / changes); approved ⇄
+suspended. The Super Admin's Gyms tab filters by status (To review first) and a gym's page has the
+Approval card (`components/admin/GymReviewCard.tsx`: the application, logo, photos and documents,
+the allowed steps with a required reason for reject, suspend and requests, the history). Approving
+makes the applicant `gym_admin` and the branch's owner in the same transaction (refused if their
+account changed role or works at a gym). Members see a branch only when approved **and** published
+(`discover.assertVisible`, `router.param` in `discoverRoutes.js`); a suspended branch answers its
+portal 403 `{ suspended: true }` and refuses QR check-ins (`gym/gymStatus.js`). A gym the Super
+Admin creates, and an owner's new branch, start approved. Server `gym/registrationRules.js` (pure),
+`gym/registration.js`, `gym/registrationRoutes.js` at `/api/gym-registration` (requireUser, per-user
+limit, changes 60 an hour `GYM_REGISTRATION_CHANGES_PER_HOUR`; another member's application is a
+404); admin `GET /api/admin/portal/gyms?status=`, `GET …/gyms/:id/application`,
+`POST …/gyms/:id/decision { action, note }` (120 an hour, audited `gym.<action>`), and the
+application's documents, photos and logo. Documents: JPEG/PNG/WebP/PDF from the bytes, 5 MB, 8 per
+application, `GYM_DOCUMENT_DIR` (default `uploads/gym-documents`), never served to members.
+Migration `2026-12-27-gym-registration.sql` (existing gyms approved by the default; `gym_brands`
+business and contact columns and `applicant_id`; `gyms.state`, `pincode`, `status`, `status_note`,
+`status_changed_at`, `submitted_at`; tables `gym_documents`, `gym_status_history`;
+`SCHEMA_TABLE_COUNT` 79); before it registering answers 503 naming it and every branch counts as
+approved. Test suites that read Discover publish their gyms with `test-db.js` `publishGyms`. Tests:
+`__tests__/gym-registration-rules.test.js`, `e2e/gym-registration.e2e.test.js`, the client's
+`lib/__tests__/gymRegistration.test.ts`. Not built yet: notifications of each step (phase 7), PDF
+viewing in the app, sensitive-change approval after a gym is live.
+
+**Phase 2: live crowd and best time to visit (2026-11-10):** a member's membership page
+(`gym-hub/[id].tsx`) has Crowd (`components/gymHub/CrowdCard.tsx` `MemberCrowdSection`): a LIVE
+card (people inside now, % of capacity, Low / Moderate / Busy / Very busy, when it was worked out)
+and a USUAL CROWD · FORECAST card (quietest and busiest today, best time left today, best time
+tomorrow, today's hourly bars, the week's heatmap), never mixed. Live = today's open visits; one open
+longer than twice the usual workout (at least 2 h) counts as gone and is shown as "not counted".
+Forecast = people inside at the middle of each hour (check-in to check-out, or the usual workout
+when it never checked out), averaged per weekday over the last 28 days from the branch's first
+visit; a weekday needs 2 recorded days, else "Not enough visits yet". No capacity: a count but no
+level (the forecast's levels then compare the gym's own peak, and say so). Shown hours follow the
+gym's opening hours. Gym portal: Attendance shows the same two cards; Attendance › Crowd settings
+(`app/gym/attendance/crowd.tsx`, also Settings › Attendance; option `attendance.settings`):
+capacity (5-2,000), the usual workout (15-300 min, else the history's average from 10 visits, else
+75) and the three levels (rising %, default 40/70/90). Server `gym/crowdRules.js` (pure), `gym/crowd.js`;
+`GET /api/membership/:memberId/crowd` (the member's own, by phone; no settings), `GET
+/api/gym/attendance/crowd` (`attendance.view`), `PUT /api/gym/attendance/crowd-settings`
+(`attendance.settings`, audited `gym.edit`, on Activity). Words in `lib/gymCrowdRules.ts` (pure),
+calls in `lib/gymCrowd.ts`. Migration `2026-12-29-gym-crowd.sql` (`gyms.capacity`,
+`avg_stay_min`, `crowd_thresholds`); before it the crowd works with the defaults and no capacity,
+and saving answers 503 naming it. Tests: `__tests__/gym-crowd-rules.test.js`,
+`e2e/gym-crowd.e2e.test.js`, the client's `lib/__tests__/gymCrowd.test.ts`.
+
 ### Meal ordering (2026-11-09, the user's plan; migration approved)
 
 The Super Admin is the menu, the kitchen and the delivery person (the user's choice). Members order

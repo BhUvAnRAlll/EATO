@@ -196,7 +196,7 @@ describe("admin portal e2e: the Overview, users and the admin audit log", () => 
     for (const [method, route] of [
       ["GET", "/api/admin/portal/reports"], ["POST", "/api/admin/portal/reports/resolve"],
       ["PUT", `/api/admin/portal/users/${ids.marcus}/verified`], ["POST", `/api/community/admin/members/${ids.rohan}/suspend`],
-      ["GET", "/api/community/feed"], ["GET", "/api/gyms"], ["GET", "/api/owner/gyms"], ["GET", "/api/media/00000000-0000-0000-0000-000000000000"],
+      ["GET", "/api/community/feed"], ["GET", "/api/owner/gyms"], ["GET", "/api/media/00000000-0000-0000-0000-000000000000"],
     ]) {
       assert.equal((await api(method, route, tokens.admin, method === "GET" ? undefined : {})).status, 404, `${method} ${route}`);
     }

@@ -15,6 +15,7 @@ const rules = require("./discoverRules");
 const { todayInIndia } = require("./rules");
 const { activeOnly, hasPlanOptions } = require("./service");
 const trainerProfiles = require("./trainerProfiles");
+const gymStatus = require("./gymStatus");
 
 // Enough for every branch for now; the list is filtered and sorted in code (discoverRules)
 const CANDIDATE_LIMIT = 500;
@@ -55,6 +56,19 @@ async function galleries(pool, ids, withPublishing) {
   return out;
 }
 
+// Members see a branch only when it is approved by justFit (gym registration, migration 2026-12-27)
+// and has published its profile (Gym Profile, migration 2026-12-21); before either migration, that
+// part of the rule doesn't apply
+async function visibility(db, withPublishing) {
+  return `${await gymStatus.visibleClause(db)}${withPublishing ? " AND g.published_profile IS NOT NULL" : ""}`;
+}
+
+/** 404 unless members may see the branch: every member route about one branch checks it first */
+async function assertVisible(pool, gymId) {
+  const [[row]] = await pool.query(`SELECT g.id FROM gyms g WHERE g.id = ?${await visibility(pool, await hasPublishing(pool))}`, [gymId]);
+  if (!row) throw new NotFoundError("That gym isn't on justFit any more.");
+}
+
 /** GET /api/gyms: a page of branches for the member's search, filters and sort */
 async function discover(pool, query, today = todayInIndia()) {
   const withPublishing = await hasPublishing(pool);
@@ -62,6 +76,7 @@ async function discover(pool, query, today = todayInIndia()) {
     `SELECT g.id, b.name AS brand, g.name AS branch, g.area, g.city, ${withPublishing ? "g.published_profile" : "g.about, g.facilities, g.opening_hours"},
        g.latitude, g.longitude, b.logo_key
      FROM gyms g JOIN gym_brands b ON b.id = g.brand_id
+     WHERE 1 = 1${await visibility(pool, withPublishing)}
      ORDER BY g.id LIMIT ?`,
     [CANDIDATE_LIMIT],
   );
@@ -224,4 +239,4 @@ async function logo(pool, gymId) {
   return file;
 }
 
-module.exports = { discover, gymPage, previewPage, photo, logo, hasPublishing, send: covers.send };
+module.exports = { discover, assertVisible, gymPage, previewPage, photo, logo, hasPublishing, send: covers.send };

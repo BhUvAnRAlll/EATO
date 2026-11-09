@@ -8,6 +8,7 @@ import { FormAlert } from "@/components/FormAlert";
 import { ScreenSkeleton } from "@/components/Skeleton";
 import { SymbolView } from "@/components/SymbolView";
 import { AdminField } from "@/components/admin/AdminField";
+import { GymReviewCard } from "@/components/admin/GymReviewCard";
 import { DashedBlock } from "@/components/macro/DashedBlock";
 import { KIND_LABEL, METHOD_LABEL, phoneInput, phoneText, rupees, shortDate } from "@/data/gymDashboard";
 import type { ApiResult } from "@/lib/api";
@@ -92,6 +93,7 @@ export default function AdminGymDetailScreen() {
             )}
             {data && (
               <>
+                <GymReviewCard gymId={gymId} onChanged={refresh} />
                 <View className="flex-row flex-wrap" style={{ gap: 10 }}>
                   {tiles.map((t) => (
                     <View key={t.label} className={compact ? "admin-stat admin-stat--half" : "admin-stat"} accessible accessibilityLabel={`${t.label}: ${t.value}, ${t.note}`}>

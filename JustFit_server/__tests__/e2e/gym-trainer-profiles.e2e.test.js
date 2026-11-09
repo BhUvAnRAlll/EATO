@@ -103,6 +103,8 @@ describe("trainer profiles e2e: the gym writes them, members see the ones switch
       state[key] = gym.json.gym.id;
       assert.equal((await api("POST", `/api/admin/portal/gyms/${state[key]}/staff`, tokens.admin, { phone: identities[key].phone })).status, 201);
     }
+    // Members see approved, published gyms only (gym registration)
+    await db.publishGyms(connection, [state.gymA, state.gymB]);
     assert.equal((await api("POST", "/api/gym/staff", tokens.gymA, { phone: identities.staffA.phone, kind: "staff" })).status, 201);
     assert.equal((await api("PUT", `/api/gym/staff/${identities.staffA.id}/permissions`, tokens.gymA, { options: ["profile.view"] })).status, 200);
     for (const tag of ["trainerA", "trainerB"]) assert.equal((await api("POST", "/api/gym/staff", tokens.gymA, { phone: identities[tag].phone, kind: "trainer" })).status, 201);
@@ -183,12 +185,14 @@ describe("trainer profiles e2e: the gym writes them, members see the ones switch
     state.kunigal = added.json.branch?.id ?? added.json.gym?.id;
     assert.ok(state.kunigal, JSON.stringify(added.json));
     await connection.query("INSERT INTO gym_staff (user_id, gym_id, kind) VALUES (?, ?, 'owner'), (?, ?, 'trainer')", [identities.gymA.id, state.kunigal, identities.trainerA.id, state.kunigal]);
+    await db.publishGyms(connection, [state.kunigal]);
     assert.deepEqual((await api("GET", `/api/gyms/${state.kunigal}`, tokens.member)).json.trainers.map((t) => t.name), ["Ravi Kumar"], "the same profile at the other branch");
 
     // What members see › Trainers off, published
     await connection.query("UPDATE gyms SET published_profile = JSON_OBJECT('about', 'x', 'facilities', JSON_ARRAY(), 'custom', JSON_ARRAY(), 'hours', NULL, 'closures', JSON_ARRAY(), 'contact', JSON_OBJECT(), 'photos', NULL, 'show', JSON_OBJECT('trainers', false)) WHERE id = ?", [state.gymA]);
     assert.deepEqual((await api("GET", `/api/gyms/${state.gymA}`, tokens.member)).json.trainers, [], "the section is off");
     await connection.query("UPDATE gyms SET published_profile = NULL WHERE id = ?", [state.gymA]);
+    await db.publishGyms(connection, [state.gymA]); // published again with every section on
 
     const removed = await api("DELETE", `/api/gym/staff/${identities.trainerA.id}`, tokens.gymA);
     assert.equal(removed.status, 200, JSON.stringify(removed.json));

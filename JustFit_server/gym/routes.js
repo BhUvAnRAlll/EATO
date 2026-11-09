@@ -27,6 +27,10 @@ const pauseRules = require("./pauseRules");
 const predictions = require("./predictions");
 const predictionRules = require("./predictionRules");
 const service = require("./service");
+const gymStatus = require("./gymStatus");
+const crowd = require("./crowd");
+const crowdRules = require("./crowdRules");
+const { ForbiddenError } = require("../errors");
 const rules = require("./rules");
 const discover = require("./discover");
 const trainerProfiles = require("./trainerProfiles");
@@ -88,6 +92,13 @@ async function requireGymStaff(req, res, next) {
     return next(error);
   }
   if (!req.gym) return res.status(403).json({ error: "Your account isn't linked to a gym yet. Ask the justFit team to add you to your gym." });
+  // A branch justFit has suspended (gym registration) is closed to its portal until reactivated
+  try {
+    await gymStatus.refuseSuspended(pool(req), req.gym.id);
+  } catch (error) {
+    if (error instanceof ForbiddenError) return res.status(403).json({ error: error.message, suspended: true });
+    return next(error);
+  }
   next();
 }
 
@@ -623,6 +634,17 @@ router.get("/sms/logs", smsRoute(async (req, res) => {
 // QR attendance (gym/attendance.js): the branch's location, radius and QR code, the dashboard,
 // the history and its CSV export. The QR code is signed with a key from AUTH_SECRET.
 const qrKey = (req) => req.app.locals.gymQrKey;
+// Live crowd and best time to visit (gym/crowd.js): the estimate and the forecast, and the gym's
+// crowd settings (capacity, usual workout, levels; migration 2026-12-29)
+const CROWD_MIGRATION = "Crowd settings need the 2026-12-29-gym-crowd migration on this server.";
+router.get("/attendance/crowd", route(async (req, res) => {
+  res.json(await crowd.forGym(pool(req), req.gym, today()));
+}));
+router.put("/attendance/crowd-settings", smallBody, (req, res, next) =>
+  crowd.saveSettings(pool(req), req.gym, req.userId, crowdRules.settingsBody(req.body), today()).then((answer) => res.json(answer)).catch((error) => {
+    if (error?.code === "ER_BAD_FIELD_ERROR") return res.status(503).json({ error: CROWD_MIGRATION });
+    next(error);
+  }));
 router.get("/attendance/settings", route(async (req, res) => {
   res.json(await attendance.settings(pool(req), req.gym, qrKey(req)));
 }));

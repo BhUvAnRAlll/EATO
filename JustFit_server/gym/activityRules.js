@@ -180,6 +180,7 @@ const ROUTES = [
   R(["PATCH"], /^\/sms\/settings$/, { type: "sms", action: "edit", label: () => "Auto reminders", detail: () => "Changed the auto reminder switches" }),
   R(["POST"], /^\/sms\/send$/, { type: "sms", action: "create", label: ({ body }) => `SMS to ${SMS_GROUP[body?.group] ?? "a group"}`, detail: ({ answer }) => (answer && Number.isInteger(answer.sent) ? `${answer.sent} sent` : null) }),
   R(["PUT"], /^\/attendance\/location$/, { type: "attendance", action: "edit", label: () => "Location & Attendance", detail: () => "Changed the gym location or check-in radius" }),
+  R(["PUT"], /^\/attendance\/crowd-settings$/, { type: "attendance", action: "edit", label: () => "Crowd settings", detail: ({ body }) => [body?.capacity !== undefined ? `capacity ${body.capacity ?? "cleared"}` : null, body?.avgStayMin !== undefined ? `usual workout ${body.avgStayMin ?? "from history"}` : null, body?.thresholds !== undefined ? "crowd levels" : null].filter(Boolean).join(", ") || null }),
   R(["POST"], /^\/attendance\/qr$/, { type: "attendance", action: "edit", label: () => "Attendance QR code", detail: () => "Made a new QR code (old prints stop working)" }),
   // Expenses
   R(["POST"], /^\/expenses$/, { type: "expense", action: "create", label: ({ body, answer }) => labelOf("expense", { title: answer?.expense?.title ?? body?.title, category: body?.category }), detail: ({ body }) => paidLine(body?.amount, body?.method) }),

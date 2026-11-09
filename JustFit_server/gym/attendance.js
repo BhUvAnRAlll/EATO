@@ -17,6 +17,7 @@ const att = require("./attendanceRules");
 const xlsx = require("./xlsx");
 const pauses = require("./pauses");
 const staffAttendance = require("./staffAttendance");
+const gymStatus = require("./gymStatus");
 
 const IST_OFFSET_MS = 330 * 60 * 1000;
 // "2026-11-04 18:05" in India time, from epoch milliseconds
@@ -165,6 +166,7 @@ async function scannedGym(db, userId, qrKey, qr) {
     logSecurityEvent("attendance.bad_qr", { userId, gymId: qr.gymId });
     throw new ForbiddenError(NOT_VALID);
   }
+  await gymStatus.refuseSuspended(db, gym.id, "member");
   const place = { name: gym.brand, branch: gym.branch, area: gym.area, city: gym.city };
   return { id: gym.id, place, latitude: gym.latitude, longitude: gym.longitude, radiusM: gym.attendance_radius_m };
 }

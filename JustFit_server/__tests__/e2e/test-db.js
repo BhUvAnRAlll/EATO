@@ -94,6 +94,16 @@ async function deleteUsers(connection, userIds) {
 // How many tables schema.sql creates. Every suite that rebuilds justfit_test checks it, so a
 // table added to schema.sql (or a migration missing from it) is caught at once. Update it
 // here, in one place, when schema.sql gains or loses a table.
-const SCHEMA_TABLE_COUNT = 76;
+const SCHEMA_TABLE_COUNT = 78;
 
-module.exports = { SCHEMA_TABLE_COUNT, PROFILE_TABLES, loadTestEnv, connect, schemaStatements, resetSchema, rowCounts, rowsForUser, deleteUsers };
+// Members see only approved, published gyms (gym registration, 2026-11-09): publishes test gyms'
+// profiles as they are, the way migration 2026-12-21 published existing ones, for suites about
+// what members see rather than about publishing
+async function publishGyms(connection, gymIds) {
+  await connection.query(
+    "UPDATE gyms SET published_profile = JSON_OBJECT('about', about, 'facilities', COALESCE(facilities, JSON_ARRAY()), 'custom', JSON_ARRAY(), 'hours', opening_hours, 'closures', JSON_ARRAY(), 'contact', JSON_OBJECT('address', address, 'phone', phone), 'photos', NULL, 'show', NULL), published_at = NOW(3) WHERE id IN (?) AND published_profile IS NULL",
+    [gymIds],
+  );
+}
+
+module.exports = { SCHEMA_TABLE_COUNT, publishGyms, PROFILE_TABLES, loadTestEnv, connect, schemaStatements, resetSchema, rowCounts, rowsForUser, deleteUsers };

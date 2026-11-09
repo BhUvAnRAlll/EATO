@@ -253,12 +253,10 @@ describe("gym public profile e2e: the gym admin writes it, Staff read it, and it
   }));
 
   it("9. draft → publish: members see only the published copy, without the sections switched off", run(async () => {
-    // Nothing published yet: members see the name and the plans only
+    // Nothing published yet: members can't open the gym at all (approved and published only, gym
+    // registration 2026-11-09)
     let page = await api("GET", `/api/gyms/${state.gymA}`, tokens.member);
-    assert.equal(page.status, 200, JSON.stringify(page.json));
-    assert.equal(page.json.about, null);
-    assert.deepEqual(page.json.photos, []);
-    assert.equal(page.json.plans.length, 1, "plans come from the price list, published or not");
+    assert.equal(page.status, 404, JSON.stringify(page.json));
     const draftPhoto = (await api("GET", "/api/gym/profile", tokens.gymA)).json.photos[0].id;
     assert.equal((await api("GET", `/api/gyms/${state.gymA}/photos/${draftPhoto}`, tokens.member)).status, 404, "a draft photo isn't readable by members");
 

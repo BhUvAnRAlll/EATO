@@ -101,6 +101,8 @@ describe("gym plans e2e: benefits, best value, order and status; members see onl
       state[key] = gym.json.gym.id;
       assert.equal((await api("POST", `/api/admin/portal/gyms/${state[key]}/staff`, tokens.admin, { phone: identities[key].phone })).status, 201);
     }
+    // Members see approved, published gyms only (gym registration)
+    await db.publishGyms(connection, [state.gymA, state.gymB]);
     assert.equal((await api("POST", "/api/gym/staff", tokens.gymA, { phone: identities.staffA.phone, kind: "staff" })).status, 201);
     assert.equal((await api("PUT", `/api/gym/staff/${identities.staffA.id}/permissions`, tokens.gymA, { options: ["catalog.view"] })).status, 200);
   }));

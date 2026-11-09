@@ -1259,12 +1259,19 @@ CREATE TABLE analytics_sessions (
 CREATE TABLE gym_brands (
   id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
   name        VARCHAR(80)  NOT NULL,              -- the gym's name, e.g. Forma
+  legal_name  VARCHAR(120) NULL,                  -- Gym registration (migration 2026-12-27): the business behind it, as the applicant gave it
+  business_type ENUM('individual', 'partnership', 'private_limited', 'llp', 'other') NULL,
+  contact_name VARCHAR(80) NULL,
+  contact_phone CHAR(10)   NULL,
+  contact_email VARCHAR(120) NULL,
+  applicant_id VARCHAR(64) NULL,                  -- the account that registered it from the member app; NULL: made by a justFit admin
   logo_key    VARCHAR(64)  NULL,                  -- the logo's file name in GYM_LOGO_DIR (gym/logos.js, migration 2026-12-08); NULL: no logo
   created_by  VARCHAR(64)  NULL,
   created_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
-  CONSTRAINT fk_gym_brands_created_by FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL
+  CONSTRAINT fk_gym_brands_created_by FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL,
+  CONSTRAINT fk_gym_brands_applicant FOREIGN KEY (applicant_id) REFERENCES users (id) ON DELETE SET NULL
 ) ENGINE = InnoDB;
 
 CREATE TABLE gyms (                               -- one branch of a gym brand
@@ -1273,6 +1280,12 @@ CREATE TABLE gyms (                               -- one branch of a gym brand
   name        VARCHAR(80)  NOT NULL,              -- the branch's name, e.g. Tumkur
   area        VARCHAR(80)  NOT NULL,
   city        VARCHAR(60)  NOT NULL,
+  state       VARCHAR(40)  NULL,                   -- Gym registration (migration 2026-12-27)
+  pincode     CHAR(6)      NULL,
+  status      ENUM('draft', 'submitted', 'pending_review', 'approved', 'rejected', 'suspended') NOT NULL DEFAULT 'approved', -- members see approved, published branches only; suspended closes the portal and check-ins
+  status_note VARCHAR(300) NULL,                   -- the latest reason or request from the Super Admin
+  status_changed_at TIMESTAMP NULL,
+  submitted_at TIMESTAMP   NULL,
   address     VARCHAR(160) NULL,                   -- Invoice details (migration 2026-12-07): printed on invoices, all optional
   phone       CHAR(10)     NULL,
   gstin       CHAR(15)     NULL,
@@ -1297,6 +1310,9 @@ CREATE TABLE gyms (                               -- one branch of a gym brand
   latitude    DECIMAL(9,6) NULL,                   -- QR attendance (2026-11-27): the entrance, picked on the map
   longitude   DECIMAL(9,6) NULL,
   attendance_radius_m SMALLINT UNSIGNED NOT NULL DEFAULT 100,  -- how far from it a scan counts (20-1000 m)
+  capacity    SMALLINT UNSIGNED NULL,              -- Crowd (migration 2026-12-29): people it holds at once; NULL: not set (no crowd level)
+  avg_stay_min SMALLINT UNSIGNED NULL,             -- the usual workout, for visits that never checked out; NULL: from history
+  crowd_thresholds JSON  NULL,                     -- { moderate, busy, veryBusy }: % of capacity where each level starts; NULL: 40/70/90
   qr_version  INT UNSIGNED NOT NULL DEFAULT 0,     -- the attendance QR code's version (0: none yet); a new one voids the old
   qr_made_at  TIMESTAMP    NULL,
   created_by  VARCHAR(64)  NULL,
@@ -1304,11 +1320,49 @@ CREATE TABLE gyms (                               -- one branch of a gym brand
   updated_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   KEY idx_gyms_brand (brand_id),
+  KEY idx_gyms_status (status, id),
   CONSTRAINT fk_gyms_brand FOREIGN KEY (brand_id) REFERENCES gym_brands (id),
   CONSTRAINT fk_gyms_created_by FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL,
   CONSTRAINT fk_gyms_published_by FOREIGN KEY (published_by) REFERENCES users (id) ON DELETE SET NULL,
   CONSTRAINT chk_gyms_place CHECK ((latitude IS NULL) = (longitude IS NULL) AND (latitude IS NULL OR (latitude BETWEEN -90 AND 90 AND longitude BETWEEN -180 AND 180))),
-  CONSTRAINT chk_gyms_radius CHECK (attendance_radius_m BETWEEN 20 AND 1000)
+  CONSTRAINT chk_gyms_radius CHECK (attendance_radius_m BETWEEN 20 AND 1000),
+  CONSTRAINT chk_gyms_capacity CHECK (capacity IS NULL OR capacity BETWEEN 5 AND 2000),
+  CONSTRAINT chk_gyms_stay CHECK (avg_stay_min IS NULL OR avg_stay_min BETWEEN 15 AND 300)
+) ENGINE = InnoDB;
+
+-- Gym registration (migration 2026-12-27): documents sent with an application. Private files on the
+-- server's disk (GYM_DOCUMENT_DIR), read only by the applicant and justFit admins, never by members.
+CREATE TABLE gym_documents (
+  id           INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  gym_id       INT UNSIGNED NOT NULL,
+  kind         ENUM('registration', 'address', 'other') NOT NULL,
+  file_key     VARCHAR(64)  NOT NULL,
+  media_type   ENUM('image/jpeg', 'image/png', 'image/webp', 'application/pdf') NOT NULL,
+  bytes        INT UNSIGNED NOT NULL,
+  uploaded_by  VARCHAR(64)  NULL,
+  created_at   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_gym_documents_file (file_key),
+  KEY idx_gym_documents_gym (gym_id, id),
+  CONSTRAINT fk_gym_documents_gym FOREIGN KEY (gym_id) REFERENCES gyms (id),
+  CONSTRAINT fk_gym_documents_by FOREIGN KEY (uploaded_by) REFERENCES users (id) ON DELETE SET NULL
+) ENGINE = InnoDB;
+
+-- Every step of a branch's approval: who, which action, from and to which state, and why
+CREATE TABLE gym_status_history (
+  id           INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  gym_id       INT UNSIGNED NOT NULL,
+  action       ENUM('create', 'submit', 'start_review', 'approve', 'reject', 'request_documents', 'request_changes', 'suspend', 'reactivate') NOT NULL,
+  from_status  ENUM('draft', 'submitted', 'pending_review', 'approved', 'rejected', 'suspended') NULL,
+  to_status    ENUM('draft', 'submitted', 'pending_review', 'approved', 'rejected', 'suspended') NOT NULL,
+  note         VARCHAR(300) NULL,
+  by_user      VARCHAR(64)  NULL,
+  by_admin     TINYINT(1)   NOT NULL DEFAULT 0,
+  created_at   TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (id),
+  KEY idx_gym_status_history_gym (gym_id, id),
+  CONSTRAINT fk_gym_status_history_gym FOREIGN KEY (gym_id) REFERENCES gyms (id),
+  CONSTRAINT fk_gym_status_history_by FOREIGN KEY (by_user) REFERENCES users (id) ON DELETE SET NULL
 ) ENGINE = InnoDB;
 
 -- A branch's team. owner: the gym admin, linked by the justFit Super Admin; staff and trainer:

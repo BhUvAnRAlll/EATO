@@ -36,6 +36,7 @@ const GROUPS: SettingGroup[] = [
     rows: [
       { label: "Location & Attendance", text: "Gym location and check-in radius", icon: "locate-fixed", href: "/gym/attendance/settings", need: "attendance.settings" },
       { label: "Attendance QR code", text: "Show, print or regenerate", icon: "qr-code", href: "/gym/attendance/qr", need: "attendance.settings" },
+      { label: "Crowd settings", text: "Capacity, usual workout and crowd levels", icon: "users", href: "/gym/attendance/crowd", need: "attendance.settings" },
     ],
   },
   {

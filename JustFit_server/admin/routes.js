@@ -9,6 +9,9 @@ const users = require("./users");
 const gyms = require("./gyms");
 const smsRules = require("../gym/smsRules");
 const gymRules = require("../gym/rules");
+const registration = require("../gym/registration");
+const registrationRules = require("../gym/registrationRules");
+const gymProfile = require("../gym/gymProfile");
 const aiUsage = require("./aiUsage");
 const usage = require("./usage");
 const retention = require("./retention");
@@ -62,7 +65,7 @@ const gymRoute = (handler) => (req, res, next) =>
   });
 const gymId = (req) => gymRules.id(req.params.gymId, "gym");
 router.get("/gyms", gymRoute(async (req, res) => {
-  res.json(await gyms.list(pool(req), gymRules.todayInIndia()));
+  res.json(await gyms.list(pool(req), gymRules.todayInIndia(), registrationRules.listQuery(req.query)));
 }));
 router.post("/gyms", smallBody, gymRoute(async (req, res) => {
   const id = await gyms.create(pool(req), req.userId, gymRules.gymBody(req.body, { creating: true }));
@@ -95,6 +98,33 @@ router.delete("/gyms/:gymId/staff/:userId", gymRoute(async (req, res) => {
   const id = gymId(req);
   await gyms.unlinkStaff(pool(req), req.userId, id, userId(req));
   res.json(await gyms.detail(pool(req), id, gymRules.todayInIndia()));
+}));
+
+// Gym registration and approval (gym/registration.js, migration 2026-12-27): a branch's application
+// with its documents and history, the review's decisions, and the application's private files
+const REGISTRATION_MIGRATION = "Gym approval needs the 2026-12-27-gym-registration migration on this server.";
+const reviewRoute = (handler) => (req, res, next) =>
+  handler(req, res, next).catch((error) => {
+    if (["ER_NO_SUCH_TABLE", "ER_BAD_FIELD_ERROR"].includes(error?.code)) return res.status(503).json({ error: REGISTRATION_MIGRATION });
+    next(error);
+  });
+// 120 decisions an hour per admin, so a stuck button can't flood the history
+const decisionLimit = limitPerUser(createRateLimiter({ limit: 120, windowMs: 60 * 60 * 1000 }));
+router.get("/gyms/:gymId/application", reviewRoute(async (req, res) => {
+  res.json(await registration.forAdmin(pool(req), gymId(req)));
+}));
+router.post("/gyms/:gymId/decision", decisionLimit, smallBody, reviewRoute(async (req, res) => {
+  const id = gymId(req);
+  res.json(await registration.decide(pool(req), req.userId, id, registrationRules.decisionBody(req.body)));
+}));
+router.get("/gyms/:gymId/documents/:documentId", reviewRoute(async (req, res) => {
+  registration.sendDocument(res, await registration.adminDocument(pool(req), gymId(req), gymRules.id(req.params.documentId, "document")));
+}));
+router.get("/gyms/:gymId/photos/:photoId", reviewRoute(async (req, res) => {
+  fitnessCovers.send(res, await gymProfile.photoFile(pool(req), gymId(req), gymRules.id(req.params.photoId, "photo")));
+}));
+router.get("/gyms/:gymId/logo", reviewRoute(async (req, res) => {
+  fitnessCovers.send(res, await registration.adminLogo(pool(req), gymId(req)));
 }));
 
 // AI usage and cost (admin/aiUsage.js): the summary for a period, the call history, the budget.
