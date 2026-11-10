@@ -5,6 +5,7 @@ import { StatusBar } from "expo-status-bar";
 import { Image } from "expo-image";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 
+import { LegalNote } from "@/components/LegalNote";
 import { FormAlert } from "@/components/FormAlert";
 import { LoadError } from "@/components/macro/LoadError";
 import { DietMark } from "@/components/meals/DietMark";
@@ -245,6 +246,7 @@ export default function Subscribe() {
                 </View>
                 <Text className="meta-text">Payments are in test mode: Pay opens a test checkout and no money is taken.</Text>
               </View>
+              <LegalNote className="text-center" lead="By paying you agree to our" />
               {error ? <FormAlert message={error} /> : null}
             </ScrollView>
             <View className="meal-buybar" style={{ paddingBottom: Math.max(insets.bottom, 14) }}>

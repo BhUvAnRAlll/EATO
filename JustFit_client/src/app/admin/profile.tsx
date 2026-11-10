@@ -35,6 +35,11 @@ export default function AdminProfile() {
         </View>
 
         <View className="admin-list">
+          <AdminLinkRow icon={{ ios: "doc.text", android: "description", web: "description" }} label="Terms & Conditions" line="What members and gyms agree to" onPress={() => router.push("/legal/terms")} />
+          <AdminLinkRow icon={{ ios: "lock.shield", android: "shield_lock", web: "shield_lock" }} label="Privacy Policy" line="How justFit handles personal data" divided onPress={() => router.push("/legal/privacy")} />
+        </View>
+
+        <View className="admin-list">
           <Pressable onPress={() => useAuthStore.getState().signOut()} className="admin-row" accessibilityRole="button" accessibilityLabel="Sign out">
             <View className="admin-row__icon admin-row__icon--danger"><SymbolView name={{ ios: "rectangle.portrait.and.arrow.right", android: "logout", web: "logout" }} size={18} tintColor={colors.danger} /></View>
             <Text className="card__title flex-1" style={{ color: colors.danger }}>Sign out</Text>

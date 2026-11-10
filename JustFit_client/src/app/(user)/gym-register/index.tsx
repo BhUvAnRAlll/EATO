@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 import { Keyboard, Pressable, Text, View } from "react-native";
 import { router, useFocusEffect } from "expo-router";
 
+import { LegalNote } from "@/components/LegalNote";
 import { FormAlert } from "@/components/FormAlert";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { ScreenSkeleton } from "@/components/Skeleton";
@@ -78,6 +79,7 @@ function StartForm({ canStart, hadApproved }: { canStart: boolean; hadApproved: 
           Members will find your gym, compare your plans and check in with a QR code. Tell us about the gym and send an address proof; the justFit team reviews every gym before it goes live.
         </Text>
         <Text className="type-caption text-muted">{"Once approved, this account becomes the gym's admin and opens the gym portal instead of the member app."}</Text>
+        <LegalNote lead="By applying you agree to our" />
       </View>
       {canStart ? (
         <>

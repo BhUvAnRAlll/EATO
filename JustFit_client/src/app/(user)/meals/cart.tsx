@@ -5,6 +5,7 @@ import { StatusBar } from "expo-status-bar";
 import { Image } from "expo-image";
 import { router, useFocusEffect } from "expo-router";
 
+import { LegalNote } from "@/components/LegalNote";
 import { EmptyState } from "@/components/EmptyState";
 import { FieldInput } from "@/components/FieldInput";
 import { FormAlert } from "@/components/FormAlert";
@@ -397,6 +398,7 @@ export default function Cart() {
               ) : (
                 <PrimaryButton tone="meal" label={`Pay ${rupees(toPay)}`} onPress={pay} disabled={!ready} />
               )}
+              <LegalNote className="mt-2 text-center" lead="By paying you agree to our" />
             </View>
           </KeyboardAvoider>
         )}

@@ -2476,6 +2476,17 @@ Anything users create or that changes over time (meals on the menu, orders, the 
 belongs in MySQL. The tables already exist in `JustFit_server/schema.sql`; do not change the schema or
 the database contents without asking first.
 
+### Terms & Conditions and Privacy Policy (added 2026-11-10)
+
+The text lives in `data/legal.ts` (a draft written from what the app does; a lawyer reviews it and
+`LEGAL_CONTACT`'s placeholders are filled in before launch; change `LEGAL_UPDATED` with the
+wording). `app/legal/[doc].tsx` shows `/legal/terms` and `/legal/privacy`, outside every role's
+guard so they open signed in or out. `components/LegalNote.tsx` ("By … you agree to our Terms &
+Conditions and Privacy Policy.") sits on sign-in, sign-up, the cart, Subscribe and Register your
+gym; Profile, the gym portal's Settings › Legal and Super Admin › Profile have rows. Acceptance is
+not recorded on the server (the user's choice); that would need a migration. When a feature changes
+what data justFit collects or shares, update the Privacy Policy with it.
+
 ### YouTube videos (added 2026-11-03)
 
 YouTube videos belong to a program's sessions (2026-11-03; the program-level link, playlists, Follow

@@ -3,6 +3,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { router } from "expo-router";
 
+import { LegalNote } from "@/components/LegalNote";
 import { AuthField } from "@/components/AuthField";
 import { BrandWordmark } from "@/components/BrandWordmark";
 import { FormAlert } from "@/components/FormAlert";
@@ -100,10 +101,7 @@ export default function SignUp() {
               />
             </View>
 
-            <Text className="auth__note mt-4">
-              {/* Plain text until justFit has a terms and privacy page to link to */}
-              We&apos;ll text you a 6-digit code. By continuing you agree to our {"Terms & Privacy"}.
-            </Text>
+            <LegalNote className="mt-4" lead="We'll text you a 6-digit code. By continuing you agree to our" />
             {flow.error && (
               <View className="mt-3">
                 <FormAlert message={flow.error} />

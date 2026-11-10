@@ -4,6 +4,7 @@ import { Image } from "expo-image";
 import { StatusBar } from "expo-status-bar";
 import { router } from "expo-router";
 
+import { LegalNote } from "@/components/LegalNote";
 import { AuthField } from "@/components/AuthField";
 import { BrandWordmark } from "@/components/BrandWordmark";
 import { FormAlert } from "@/components/FormAlert";
@@ -101,6 +102,8 @@ export default function SignIn() {
               <View className="mt-4">
                 <PrimaryButton label="Send code" onPress={flow.sendCode} loading={flow.sending} />
               </View>
+
+              <LegalNote className="mt-3 text-center" lead="By continuing you agree to our" />
 
               <Text className="auth__footer mt-4 text-center">
                 {"New to justFit?  "}

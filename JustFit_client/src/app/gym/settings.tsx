@@ -55,6 +55,13 @@ const GROUPS: SettingGroup[] = [
       { label: "Activity", text: "Who added, edited or deleted what", icon: "history", href: "/gym/activity", ownerOnly: true },
     ],
   },
+  {
+    title: "Legal",
+    rows: [
+      { label: "Terms & Conditions", text: "Including the terms for gym partners", icon: "file-text", href: "/legal/terms" },
+      { label: "Privacy Policy", text: "How justFit handles personal data", icon: "shield-check", href: "/legal/privacy" },
+    ],
+  },
 ];
 
 // ☰ › Settings (2026-11-08, the user's request): one place for the portal's settings, which

@@ -36,6 +36,12 @@ const menu: { label: string; icon: Icon; href: Href }[] = [
   { label: "Notifications", icon: { ios: "bell", android: "notifications", web: "notifications" }, href: "/notifications" },
 ];
 
+// Legal, at the bottom above Sign out (app/legal/[doc].tsx)
+const legal: { label: string; icon: Icon; href: Href }[] = [
+  { label: "Terms & Conditions", icon: { ios: "doc.text", android: "description", web: "description" }, href: "/legal/terms" },
+  { label: "Privacy Policy", icon: { ios: "lock.shield", android: "shield_lock", web: "shield_lock" }, href: "/legal/privacy" },
+];
+
 // BMI and its one-word band (WHO adult cut-offs), for the metric tile
 function bmiOf(weightKg: number | null | undefined, heightCm: number | null | undefined) {
   if (!weightKg || !heightCm) return null;
@@ -247,6 +253,22 @@ export default function Profile() {
                 onPress={() => router.push(item.href)}
                 className="list-row"
                 style={index === menu.length - 1 ? { borderBottomWidth: 0 } : undefined}
+                accessibilityRole="button"
+              >
+                <SymbolView name={item.icon} size={19} tintColor={colors.forestInk} />
+                <Text className="list-row__label">{item.label}</Text>
+                <SymbolView name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }} size={14} tintColor={colors.faint} />
+              </Pressable>
+            ))}
+          </View>
+
+          <View className="card mt-4 py-1">
+            {legal.map((item, index) => (
+              <Pressable
+                key={item.label}
+                onPress={() => router.push(item.href)}
+                className="list-row"
+                style={index === legal.length - 1 ? { borderBottomWidth: 0 } : undefined}
                 accessibilityRole="button"
               >
                 <SymbolView name={item.icon} size={19} tintColor={colors.forestInk} />
