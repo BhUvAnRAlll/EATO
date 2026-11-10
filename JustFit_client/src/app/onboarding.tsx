@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   FlatList,
   Pressable,
@@ -73,6 +73,39 @@ export default function Onboarding() {
     return () => clearTimeout(timer);
   });
 
+  // Only the dots change on each auto-advance tick, so the slides keep one renderer and don't
+  // redraw (or re-decode their photos) every 1.8 s
+  const renderSlide = useCallback(
+    ({ item }: { item: OnboardingSlide }) => (
+            <View style={{ width, height: listHeight > 0 ? listHeight : undefined }} className="flex-1">
+              <View className={short ? "px-9 pt-4" : "px-9 pt-7"}>
+                <Text className="onboarding__title" style={short ? { fontSize: 30, lineHeight: 34 } : undefined}>
+                  {item.title}
+                </Text>
+                <Text className={short ? "onboarding__subtitle mt-2" : "onboarding__subtitle mt-3"} style={short ? { fontSize: 15, lineHeight: 20 } : undefined}>
+                  {item.subtitle}
+                </Text>
+              </View>
+              <Image
+                source={item.art}
+                  cachePolicy="memory"
+                contentFit="cover"
+                contentPosition="center"
+                style={{
+                  width: artWidth,
+                  marginTop: ART_GAP,
+                  borderRadius: ART_RADIUS,
+                  marginHorizontal: ART_PADDING,
+                  ...(short
+                    ? { height: Math.max(120, Math.min(Math.round(artWidth / item.artRatio), Math.round(listHeight * 0.45))) }
+                    : { flex: 1, maxHeight: artWidth / item.artRatio }),
+                }}
+              />
+            </View>
+    ),
+    [width, listHeight, short, artWidth],
+  );
+
   const goToSignUp = () => router.push("/sign-up");
 
   const handleScrollEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -102,32 +135,9 @@ export default function Onboarding() {
           onMomentumScrollEnd={handleScrollEnd}
           onLayout={(event) => setListHeight(event.nativeEvent.layout.height)}
           className="flex-1"
-          renderItem={({ item }) => (
-            <View style={{ width, height: listHeight > 0 ? listHeight : undefined }} className="flex-1">
-              <View className={short ? "px-9 pt-4" : "px-9 pt-7"}>
-                <Text className="onboarding__title" style={short ? { fontSize: 30, lineHeight: 34 } : undefined}>
-                  {item.title}
-                </Text>
-                <Text className={short ? "onboarding__subtitle mt-2" : "onboarding__subtitle mt-3"} style={short ? { fontSize: 15, lineHeight: 20 } : undefined}>
-                  {item.subtitle}
-                </Text>
-              </View>
-              <Image
-                source={item.art}
-                contentFit="cover"
-                contentPosition="center"
-                style={{
-                  width: artWidth,
-                  marginTop: ART_GAP,
-                  borderRadius: ART_RADIUS,
-                  marginHorizontal: ART_PADDING,
-                  ...(short
-                    ? { height: Math.max(120, Math.min(Math.round(artWidth / item.artRatio), Math.round(listHeight * 0.45))) }
-                    : { flex: 1, maxHeight: artWidth / item.artRatio }),
-                }}
-              />
-            </View>
-          )}
+          renderItem={renderSlide}
+          getItemLayout={(_, i) => ({ length: width, offset: width * i, index: i })}
+          initialNumToRender={loopSlides.length}
         />
 
         {/* Dots */}

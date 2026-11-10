@@ -4,9 +4,9 @@ import whatsappLogo from "../../assets/images/whatsapp-logo.png";
 import justfitLogo from "../../assets/images/justfit-logo.png";
 // The JUSTFIT word cropped from justfit-logo.png (not redrawn), for small headers
 import justfitWordmark from "../../assets/images/justfit-wordmark.png";
-import onboardingArtMeals from "../../assets/images/onboarding-art-meals.png";
-import onboardingArtNutrition from "../../assets/images/onboarding-art-nutrition.png";
-import onboardingArtProgress from "../../assets/images/onboarding-art-progress.png";
+import onboardingArtMeals from "../../assets/images/onboarding-art-meals.webp";
+import onboardingArtNutrition from "../../assets/images/onboarding-art-nutrition.webp";
+import onboardingArtProgress from "../../assets/images/onboarding-art-progress.webp";
 import authSignupBowl from "../../assets/images/auth-signup-bowl.png";
 import authSignupBottomLeft from "../../assets/images/auth-signup-bottom-left.png";
 import authLeafLeft from "../../assets/images/auth-leaf-left.png";
