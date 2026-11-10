@@ -35,8 +35,8 @@ type ShopSectionsProps = {
 };
 
 // The Meals tab under the search, Zomato-style (the user's 2026-11-10 ask), top to bottom: the
-// today's offers first (the user's 2026-11-10 ask: coupons on top), the
-// promotional section (the Super Admin's live banners, else justFit's own two promos), quick tiles,
+// the promotional section (the Super Admin's live banners, else justFit's own two promos), today's
+// offers right under it (the user's 2026-11-10 ask), quick tiles,
 // What's on your mind? (every category as a circle), Popular, For your goal (high protein, with
 // what's left of today's protein), the admin's first two featured rows (Today's specials are already in Popular); All meals
 // follows as the screen's grid. Each section shows only when it has something.
@@ -58,6 +58,7 @@ export function ShopSections({ store, sections, popular, again, proteinLeft, cou
 
   return (
     <View style={{ gap: 24 }}>
+      <BannerCarousel banners={slides} width={width} />
       {store.coupons.length > 0 && (
         <View style={{ gap: 10 }}>
           <SectionTitle title="Offers for you" />
@@ -74,7 +75,6 @@ export function ShopSections({ store, sections, popular, again, proteinLeft, cou
           </ScrollView>
         </View>
       )}
-      <BannerCarousel banners={slides} width={width} />
       <QuickTiles width={width} onPick={(list) => browse({ list })} />
       {explore.length > 0 && (
         <View style={{ gap: 12 }}>
