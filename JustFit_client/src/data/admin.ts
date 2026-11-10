@@ -36,6 +36,7 @@ export const adminSections: AdminSection[] = [
       { label: "Banners", line: "The big carousel, with dates", href: "/admin/meals/banners", icon: { ios: "photo.on.rectangle", android: "view_carousel", web: "view_carousel" } },
       { label: "Coupons", line: "Codes members apply at checkout", href: "/admin/meals/coupons", icon: { ios: "tag", android: "sell", web: "sell" } },
       { label: "Delivery times", line: "Breakfast, lunch, dinner and holidays", href: "/admin/meals/times", icon: { ios: "clock", android: "schedule", web: "schedule" } },
+      { label: "Delivery areas", line: "The pincodes justFit delivers to", href: "/admin/meals/areas", icon: { ios: "mappin.and.ellipse", android: "location_on", web: "location_on" } },
     ],
   },
   {

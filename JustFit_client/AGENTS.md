@@ -807,10 +807,14 @@ deliveries decided by a pincode list, the selected address kept on the server.
   20. `service.deliverableAddress` is the check meal checkout calls (409 outside the list).
 - **Tables** `user_addresses` and `delivery_pincodes` (migration
   `2026-12-16-delivery-addresses.sql`; before it the routes answer 503 naming it and Home's pill
-  stays hidden). Pincodes are managed with `npm run delivery-pincode -- list | add <pincode> [area] |
-  off <pincode>` in `JustFit_server` (no admin screen yet).
-- **Not built:** Google Places autocomplete, an admin screen for pincodes,
-  per-address delivery slots. Tests: `__tests__/address-rules.test.js`, `e2e/addresses.e2e.test.js`,
+  stays hidden). Since 2026-11-10 the Super Admin manages the pincodes in **Meals › Delivery areas**
+  (`app/admin/meals/areas.tsx`; `addresses/areas.js`: `GET|POST /api/admin/kitchen/delivery-areas`,
+  `PUT|DELETE /delivery-areas/:pincode { area?, active? }`, admins only, the kitchen changes' hourly
+  budget, audited `meal.delivery_area_add|edit|remove`): add with an area name, rename, switch off
+  and on, remove; each area shows the kitchens serving it and how many saved addresses are there.
+  `npm run delivery-pincode -- list | add <pincode> [area] | off <pincode>` still works. A new
+  address saved from the map returns to where the member started (the form and the map close).
+- **Not built:** Google Places autocomplete, per-address delivery slots. Tests: `__tests__/address-rules.test.js`, `e2e/addresses.e2e.test.js`,
   the client's `lib/__tests__/addressRules.test.ts`.
 
 ### Gym admin portal (2026-11-04)

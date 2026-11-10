@@ -18,7 +18,7 @@ import { useAuthStore } from "@/store/auth";
 import { useSwitchColors, useThemeColors } from "@/theme";
 import type { Icon } from "@/types/profile";
 
-type Link = { label: string; line: string; href: "/admin/kitchens" | "/admin/delivery" | "/admin/subscriptions" | "/admin/issues" | "/admin/reports" | "/admin/meal-ops" | "/admin/meals/categories" | "/admin/meals/banners" | "/admin/meals/coupons" | "/admin/meals/times"; icon: Icon };
+type Link = { label: string; line: string; href: "/admin/kitchens" | "/admin/delivery" | "/admin/subscriptions" | "/admin/issues" | "/admin/reports" | "/admin/meal-ops" | "/admin/meals/categories" | "/admin/meals/banners" | "/admin/meals/coupons" | "/admin/meals/times" | "/admin/meals/areas"; icon: Icon };
 const LINKS: Link[] = [
   { label: "Kitchens", line: "Where meals are cooked: hours, pincodes, staff", href: "/admin/kitchens", icon: { ios: "frying.pan", android: "skillet", web: "skillet" } },
   { label: "Subscriptions", line: "Meal plans and members' subscriptions", href: "/admin/subscriptions", icon: { ios: "calendar", android: "calendar_month", web: "calendar_month" } },
@@ -30,6 +30,7 @@ const LINKS: Link[] = [
   { label: "Banners", line: "The big carousel, with dates", href: "/admin/meals/banners", icon: { ios: "photo.on.rectangle", android: "view_carousel", web: "view_carousel" } },
   { label: "Coupons", line: "Codes members apply at checkout", href: "/admin/meals/coupons", icon: { ios: "tag", android: "sell", web: "sell" } },
   { label: "Delivery times", line: "Breakfast, lunch and dinner", href: "/admin/meals/times", icon: { ios: "clock", android: "schedule", web: "schedule" } },
+  { label: "Delivery areas", line: "The pincodes justFit delivers to", href: "/admin/meals/areas", icon: { ios: "mappin.and.ellipse", android: "location_on", web: "location_on" } },
 ];
 
 // Super Admin › Orders › Meals: the menu and everything around it. The links (kitchens, meal

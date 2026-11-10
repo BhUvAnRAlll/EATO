@@ -118,7 +118,15 @@ const call = <T,>(token: string | null, path: string, options: { method?: "GET" 
   token ? apiFetch<T>(path, { ...options, token }) : signedOut<T>();
 const base = "/api/admin/kitchen";
 
+// Super Admin › Meals › Delivery areas: the pincodes justFit delivers to (2026-11-10)
+export type DeliveryArea = { pincode: string; area: string | null; active: boolean; addresses: number; kitchens: { id: number; name: string; active: boolean }[] };
+
 export const kitchensApi = {
+  deliveryAreas: (token: string | null) => call<{ areas: DeliveryArea[] }>(token, `${base}/delivery-areas`),
+  addDeliveryArea: (token: string | null, pincode: string, area: string) => call<{ areas: DeliveryArea[] }>(token, `${base}/delivery-areas`, { method: "POST", body: { pincode, area } }),
+  editDeliveryArea: (token: string | null, pincode: string, changes: { area?: string; active?: boolean }) =>
+    call<{ areas: DeliveryArea[] }>(token, `${base}/delivery-areas/${encodeURIComponent(pincode)}`, { method: "PUT", body: changes }),
+  removeDeliveryArea: (token: string | null, pincode: string) => call<{ areas: DeliveryArea[] }>(token, `${base}/delivery-areas/${encodeURIComponent(pincode)}`, { method: "DELETE" }),
   dashboard: (token: string | null, day: string) => call<MealOpsDashboard>(token, `${base}/dashboard?day=${encodeURIComponent(day)}`),
   list: (token: string | null, query: { status?: KitchenStatus | null; search?: string }) => {
     const params = new URLSearchParams();

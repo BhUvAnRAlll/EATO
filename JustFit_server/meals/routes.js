@@ -122,6 +122,8 @@ const kitchenRouter = express.Router({ caseSensitive: true, strict: true });
 kitchenRouter.use(require("../kitchens/routes").kitchensRouter);
 // Delivery partners and deliveries (Meal Operations phase 4, delivery/routes.js)
 kitchenRouter.use(require("../delivery/routes").deliveryRouter);
+// Delivery areas: the pincodes justFit delivers to (addresses/areas.js, 2026-11-10)
+kitchenRouter.use(require("../addresses/areas").deliveryAreasRouter);
 // Meal plans and subscriptions (Meal Operations phase 5, subscriptions/routes.js)
 kitchenRouter.use(require("../subscriptions/routes").subscriptionsAdminRouter);
 // Members' meal problems, customers and reports (Meal Operations phase 6, issues/routes.js)
