@@ -147,13 +147,13 @@ describe("ui subscriptions: a meal's page, subscribing and My subscriptions", ()
     if (problems.length > 0) throw new Error(`cleanup incomplete: ${problems.join("; ")}`);
   });
 
-  it("1. a meal's page: One-time Order | Meal Subscription, the lengths, the quantity", run("meal-subscription", async () => {
+  it("1. a meal's page: the lengths, the quantity, Add Subscription and the order-once link (no switch)", run("meal-subscription", async () => {
     await viewport(390, 844);
     await signInAs(page, h, identities.member);
     await page.waitFor(`location.pathname.startsWith("/home")`, 60000, "Home");
-    await h.goto(`/meals/${mealIds[0]}`, "Choose How You Want It");
-    for (const text of [`Grilled Chicken Bowl ${runId}`, "per meal", "Calories", "One-time Order", "Meal Subscription", "Add to cart · ₹259"]) await h.expectText(text);
-    await page.clickText("Meal Subscription");
+    await h.goto(`/meals/${mealIds[0]}`, "Subscription Plans");
+    for (const text of [`Grilled Chicken Bowl ${runId}`, "per meal", "Calories", "Or order just once", "Add to cart ₹259"]) await h.expectText(text);
+    assert.equal(await page.evaluate(`(document.body.innerText || "").includes("One-time Order")`), false, "no One-time | Subscription switch");
     for (const text of ["Subscription Plans", "Save up to 10%", "3 Days", "7 Days", "15 Days", "1 Month", "26 meals", "₹6,061", "10% off", "Daily meal delivery for 26 days", "Add Subscription · ₹6,061"]) await h.expectText(text);
     await snapshotAllWidths("meal-subscription");
     await clickLabel("7 Days, 7 meals, ₹1,722, 5% off");
@@ -166,7 +166,7 @@ describe("ui subscriptions: a meal's page, subscribing and My subscriptions", ()
   it("2. subscribe: start, meal time, address and bill, then pay in the test checkout", run("subscribe", async () => {
     await page.clickText("Add Subscription · ₹3,445");
     await page.waitFor(`location.pathname === "/meals/subscribe"`, NAV_TIMEOUT, "the checkout");
-    for (const text of ["Starts on", "Meal time", "Breakfast", "Lunch", "Dinner", "2 a day · 7 Days · 14 meals", "7 Days · 5% off", "Delivered to", "Pay ₹3,445"]) await h.expectText(text);
+    for (const text of ["Your plan", "14 meals · 2 a day", "Daily meal delivery for 7 days", "Starts on", "Meal time", "Breakfast", "Lunch", "Dinner", "Delivered to", "Bill details", "7 Days · 5% off", "Pay ₹3,445"]) await h.expectText(text);
     await snapshotAllWidths("subscribe-checkout");
     await clickLabel("Pay ₹3,445");
     await h.expectText("Test mode: no money is taken");
@@ -182,7 +182,7 @@ describe("ui subscriptions: a meal's page, subscribing and My subscriptions", ()
   it("3. a subscription's own page: pause, the next days, cancel; Profile links to it", run("manage", async () => {
     await clickLabel(`Grilled Chicken Bowl ${runId}, Lunch · 2 a day. Manage`);
     await page.waitFor(`location.pathname.startsWith("/meals/subscriptions/")`, NAV_TIMEOUT, "the subscription");
-    for (const text of ["Pause deliveries", "Tomorrow", "Next deliveries", "Skip day", "Cancel subscription"]) await h.expectText(text);
+    for (const text of ["Delivered", "Last day", "14 meals · paid ₹3,445", "5% off", "Pause deliveries", "Tomorrow", "Next deliveries", "Skip day", "Cancel subscription"]) await h.expectText(text);
     await snapshotAllWidths("manage-subscription");
     await h.goto("/profile", "My subscriptions");
   }));

@@ -12,7 +12,7 @@ import { ScreenHeader } from "@/components/ScreenHeader";
 import { ScreenSkeleton } from "@/components/Skeleton";
 import { SymbolView } from "@/components/SymbolView";
 import { hud } from "@/lib/hud";
-import { SLOT_LABEL, STATUS_LABEL, addDays, dayLabel, type OrderStatus } from "@/lib/mealRules";
+import { SLOT_LABEL, STATUS_LABEL, addDays, dayLabel, rupees, type OrderStatus } from "@/lib/mealRules";
 import { mealImage } from "@/lib/mealsApi";
 import { todayIso } from "@/lib/macro";
 import { confirmChoice } from "@/lib/nativeSheets";
@@ -30,8 +30,9 @@ const PAUSES = [
   { label: "A week", days: 7 },
 ];
 
-// Profile › My subscriptions › one (2026-11-10): the meal on a dark card (meal time and how many,
-// the dates, meals delivered of all); pause from tomorrow (1 day, 3 days, a week) or resume; the
+// Profile › My subscriptions › one (2026-11-10, in the meal page's look): the meal's photo with Active
+// or Paused, the name, delivered / left / a day / last day in the macros card's style, the plan bought,
+// the address; pause from tomorrow (1 day, 3 days, a week) or resume; the
 // next 7 days with Skip day / Undo skip; Cancel subscription. A paused or skipped day moves the end on.
 export default function ManageSubscription() {
   const colors = useThemeColors();
@@ -89,29 +90,51 @@ export default function ManageSubscription() {
           )}
           {sub && (
             <>
-              <View className="sub-active" style={{ padding: 16, gap: 14 }}>
-                <View className="flex-row items-center" style={{ gap: 12 }}>
-                  <View className="meal-row__photo" style={{ width: 64, height: 64 }}>
-                    {sub.meal?.imageUrl ? <Image source={mealImage(sub.meal.imageUrl, token)} contentFit="cover" style={{ width: "100%", height: "100%" }} /> : null}
-                  </View>
-                  <View className="min-w-0 flex-1" style={{ gap: 3 }}>
-                    <View className="sub-active__pill">
-                      <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: pausedNow ? colors.warning : colors.primaryBright }} />
-                      <Text className="sub-active__pill-label">{pausedNow ? "Paused" : "Active"}</Text>
-                    </View>
-                    <Text className="sub-active__name" style={{ fontSize: 19, lineHeight: 25 }} numberOfLines={2}>{sub.planName}</Text>
-                    <Text className="sub-active__line">{`${subscriptionLine(sub)} · ${shortDate(sub.startsOn)} – ${shortDate(sub.endsOn)}`}</Text>
-                  </View>
+              <View className="meal__card" style={{ aspectRatio: 5 / 3, backgroundColor: colors.creamDeep }}>
+                {sub.meal?.imageUrl ? <Image source={mealImage(sub.meal.imageUrl, token)} contentFit="cover" style={{ width: "100%", height: "100%" }} transition={150} accessibilityLabel={sub.planName} /> : null}
+                <View className={pausedNow ? "shop-badge" : "shop-badge shop-badge--deal"}>
+                  <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: pausedNow ? colors.warning : colors.primaryBright }} />
+                  <Text className={pausedNow ? "shop-badge__label" : "shop-badge__label shop-badge__label--deal"}>{pausedNow ? "Paused" : "Active"}</Text>
                 </View>
-                <View style={{ gap: 8 }}>
-                  <View className="flex-row justify-between">
-                    <Text className="sub-active__line">{`${sub.mealsUsed} of ${sub.mealsTotal} delivered`}</Text>
-                    <Text className="sub-active__line">{`${sub.mealsLeft} left`}</Text>
-                  </View>
-                  <View className="sub-active__track"><View className="sub-active__fill" style={{ width: `${Math.round(share * 100)}%` }} /></View>
-                </View>
-                {sub.address.line ? <Text className="sub-active__line" numberOfLines={2}>{`To ${sub.address.line}`}</Text> : null}
               </View>
+              <View style={{ gap: 4 }}>
+                <Text className="shop-title" style={{ fontSize: 24, lineHeight: 32 }} accessibilityRole="header">{sub.planName}</Text>
+                <Text className="type-body text-muted">{`${subscriptionLine(sub)} · ${shortDate(sub.startsOn)} – ${shortDate(sub.endsOn)}`}</Text>
+              </View>
+              <View className="meal-facts">
+                {[
+                  { label: "Delivered", value: `${sub.mealsUsed}` },
+                  { label: "Left", value: `${sub.mealsLeft}` },
+                  { label: "A day", value: `${sub.meal?.quantity ?? sub.mealsPerDay}` },
+                  { label: "Last day", value: shortDate(sub.endsOn) },
+                ].map((f, i) => (
+                  <View key={f.label} className="flex-1 items-center" style={{ borderLeftWidth: i === 0 ? 0 : 1, borderColor: colors.creamLine, gap: 2 }}>
+                    <Text className="admin-stat__value" numberOfLines={1} style={{ fontSize: 18, lineHeight: 24, color: colors.ink }}>{f.value}</Text>
+                    <Text className="meta-text">{f.label}</Text>
+                  </View>
+                ))}
+              </View>
+              <View style={{ gap: 6 }}>
+                <View style={{ height: 6, borderRadius: 3, backgroundColor: colors.creamTab, overflow: "hidden" }}>
+                  <View style={{ height: 6, width: `${Math.round(share * 100)}%`, backgroundColor: colors.mealPrimary }} />
+                </View>
+                <Text className="meta-text">{`${sub.mealsUsed} of ${sub.mealsTotal} meals delivered`}</Text>
+              </View>
+              {sub.meal ? (
+                <View className="meal-plan-card">
+                  <View className="min-w-0 flex-1" style={{ gap: 2 }}>
+                    <Text className="meal-length__label" style={{ textAlign: "left" }}>{`${sub.days} days`}</Text>
+                    <Text className="meal-length__meals">{`${sub.days * sub.meal.quantity} meals · paid ${rupees(sub.price)}`}</Text>
+                  </View>
+                  {sub.meal.percentOff > 0 ? <View className="meal-off" style={{ marginTop: 0 }}><Text className="meal-off__label">{`${sub.meal.percentOff}% off`}</Text></View> : null}
+                </View>
+              ) : null}
+              {sub.address.line ? (
+                <View className="meal-info-row">
+                  <SymbolView name={{ ios: "mappin.and.ellipse", android: "location_on", web: "location_on" }} size={18} tintColor={colors.ink} />
+                  <Text className="type-body text-forest-ink flex-1" numberOfLines={2}>{sub.address.line}</Text>
+                </View>
+              ) : null}
 
               <View className="card" style={{ gap: 10 }}>
                 <Text className="card__title">{pausedNow ? "Paused" : "Pause deliveries"}</Text>

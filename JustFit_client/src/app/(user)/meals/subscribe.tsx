@@ -7,6 +7,7 @@ import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 
 import { FormAlert } from "@/components/FormAlert";
 import { LoadError } from "@/components/macro/LoadError";
+import { DietMark } from "@/components/meals/DietMark";
 import { PaymentCheckout, type CheckoutResult } from "@/components/meals/PaymentCheckout";
 import { PressableScale } from "@/components/PressableScale";
 import { ScreenHeader } from "@/components/ScreenHeader";
@@ -16,7 +17,7 @@ import { KIND_LABEL, addressLines } from "@/lib/addressRules";
 import { newId } from "@/lib/analytics";
 import { haptic } from "@/lib/haptics";
 import { hud } from "@/lib/hud";
-import { MEAL_SLOTS, SLOT_LABEL, addDays, dayLabel, rupees, timeRange, type MealSlot } from "@/lib/mealRules";
+import { DIET_LABEL, MEAL_SLOTS, SLOT_LABEL, addDays, dayLabel, rupees, timeRange, type MealSlot } from "@/lib/mealRules";
 import { mealImage, mealsApi, type CheckoutOptions, type MenuMeal, type Slots } from "@/lib/mealsApi";
 import { todayIso } from "@/lib/macro";
 import { useAddressBook } from "@/lib/useAddressBook";
@@ -31,8 +32,9 @@ const date = (d: string) => new Date(`${d}T00:00:00Z`).toLocaleDateString("en-IN
 
 type Load = { state: "loading" } | { state: "failed"; error: string } | { state: "ready"; meal: MenuMeal; length: SubscriptionLength | null; slots: Slots };
 
-// A meal › Add Subscription (2026-11-10): the meal, how many a day and for how long (from its page),
-// then when it starts, the meal time, where it's delivered, the bill and Pay, which opens the same
+// A meal › Add Subscription (2026-11-10, in the meal page's look: the photo, the name and price, the
+// plan picked on a green-edged card): then when it starts, the meal time, where it's delivered, the
+// bill and Pay (pinned like the meal page's bar), which opens the same
 // test checkout as an order; the server prices it again and checks the payment's signature before
 // it starts. Then Profile › My subscriptions.
 export default function Subscribe() {
@@ -124,21 +126,43 @@ export default function Subscribe() {
     <View className="flex-1 meal-page">
       <StatusBar style="dark" />
       <SafeAreaView style={{ flex: 1 }} edges={["top", "left", "right"]}>
-        <ScreenHeader title="Meal Subscription" subtitle={meal?.name} fallback="/meals" />
+        <ScreenHeader title="Meal Subscription" fallback="/meals" />
         {load.state === "loading" && <View className="px-4"><ScreenSkeleton label="Loading the subscription" /></View>}
         {load.state === "failed" && <View className="px-4"><LoadError tone="meal" title="This subscription couldn't load" message={load.error} onRetry={read} /></View>}
         {meal && !length && <View className="px-4"><LoadError tone="meal" title="That length isn't offered now" message="Go back and pick another length." onRetry={() => router.back()} /></View>}
         {meal && length && price && ready && (
           <>
             <ScrollView contentContainerStyle={{ padding: 16, gap: 20 }} showsVerticalScrollIndicator={false}>
-              <View className="card flex-row items-center" style={{ gap: 12 }}>
-                <View className="meal-row__photo" style={{ width: 64, height: 64 }}>
-                  <Image source={mealImage(meal.imageUrl, token)} contentFit="cover" style={{ width: "100%", height: "100%" }} />
+              <View className="meal__card" style={{ aspectRatio: 5 / 3 }}>
+                <Image source={mealImage(meal.imageUrl, token)} contentFit="cover" style={{ width: "100%", height: "100%" }} transition={150} accessibilityLabel={meal.name} />
+              </View>
+              <View style={{ gap: 4 }}>
+                <View className="flex-row items-center" style={{ gap: 6 }}>
+                  <DietMark diet={meal.diet} />
+                  <Text className="meta-text">{DIET_LABEL[meal.diet]}</Text>
                 </View>
-                <View className="min-w-0 flex-1" style={{ gap: 2 }}>
-                  <Text className="card__title" numberOfLines={1}>{meal.name}</Text>
-                  <Text className="meta-text">{`${quantity} a day · ${length.label} · ${length.days * quantity} meals`}</Text>
-                  <Text className="meta-text">A meal counts as used only when it&apos;s delivered.</Text>
+                <Text className="shop-title" style={{ fontSize: 24, lineHeight: 32 }} accessibilityRole="header">{meal.name}</Text>
+                <View className="flex-row items-baseline" style={{ gap: 6 }}>
+                  <Text className="shop-title" style={{ fontSize: 22, lineHeight: 30 }}>{rupees(meal.price)}</Text>
+                  <Text className="type-body text-forest-ink">per meal</Text>
+                </View>
+              </View>
+
+              <View style={{ gap: 10 }}>
+                <Text className="meal-section__title">Your plan</Text>
+                <View className="meal-plan-card">
+                  <View className="min-w-0 flex-1" style={{ gap: 2 }}>
+                    <Text className="meal-length__label" style={{ textAlign: "left" }}>{length.label}</Text>
+                    <Text className="meal-length__meals">{`${length.days * quantity} meals · ${quantity} a day`}</Text>
+                  </View>
+                  <View className="items-end">
+                    <Text className="meal-length__price" style={{ marginTop: 0 }}>{rupees(price.total)}</Text>
+                    {length.percentOff > 0 ? <View className="meal-off"><Text className="meal-off__label">{`${length.percentOff}% off`}</Text></View> : null}
+                  </View>
+                </View>
+                <View className="meal-info-row">
+                  <SymbolView name={{ ios: "calendar", android: "calendar_month", web: "calendar_month" }} size={19} tintColor={colors.ink} />
+                  <Text className="type-body text-forest-ink flex-1">{`Daily meal delivery for ${length.days} ${length.days === 1 ? "day" : "days"}`}</Text>
                 </View>
               </View>
 
@@ -193,7 +217,8 @@ export default function Subscribe() {
                 </PressableScale>
               </View>
 
-              <View className="card" style={{ gap: 8 }}>
+              <Text className="meal-section__title">Bill details</Text>
+              <View className="card" style={{ gap: 8, marginTop: -8 }}>
                 <View className="flex-row justify-between"><Text className="type-body text-muted">{`${rupees(meal.price)} × ${quantity} × ${length.days} days`}</Text><Text className="type-body text-forest-ink">{rupees(price.full)}</Text></View>
                 {length.percentOff > 0 ? (
                   <View className="flex-row justify-between"><Text className="type-body text-muted">{`${length.label} · ${length.percentOff}% off`}</Text><Text className="type-body" style={{ color: colors.success }}>{`− ${rupees(price.full - price.total)}`}</Text></View>

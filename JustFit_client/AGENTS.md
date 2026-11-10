@@ -448,10 +448,13 @@ The Meals module is green (`meal-*` tokens and utilities); the user chose green 
   Meals, For your goal (high protein), the admin's featured rows, Today's specials, Offers for you, All
   meals as a two-column grid, and the floating cart bar while the cart has meals. There is no Order |
   Subscription switch (the Meal Subscription tab, Plan Details and the whole meal plans are gone).
-  **A meal's page** (`meals/[id].tsx`): photo, diet, name, "₹x per meal", macros, then Choose How You
-  Want It: One-time Order (the cart) | Meal Subscription (`components/meals/SubscriptionChoice.tsx`:
-  "Save up to x%", a card per length with meals, price and "x% off", "Daily meal delivery for N days");
-  the bar pins `QuantityPill` (1-3) and Add to cart / View cart / Add Subscription · ₹x.
+  **A meal's page** (`meals/[id].tsx`): photo, diet, name, "₹x per meal", macros, then Subscription
+  Plans (`components/meals/SubscriptionChoice.tsx`: "Save up to x%", a card per length with meals,
+  price and "x% off", "Daily meal delivery for N days"); no One-time | Subscription switch (the user's
+  choice, later the same day): the bar pins `QuantityPill` (1-3) and Add Subscription · ₹x, with "Or
+  order just once · Add to cart ₹x" (or "n in your cart · View cart") under it. Before the migration the
+  bar is Add to cart. The checkout, My subscriptions and a subscription's page follow the same look
+  (photo on top, name and price, the plan on a green-edged `meal-plan-card`, `meal-facts`).
   **Subscribing** (`meals/subscribe.tsx`): start day (tomorrow to 7 days), meal time (the ones on),
   address, the bill (price × how many × days, less the % off), Pay through the same test checkout →
   **Profile › My subscriptions** (`meals/subscriptions/index.tsx`: running ones as cards, then ended;

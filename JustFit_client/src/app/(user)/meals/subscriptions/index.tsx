@@ -21,8 +21,9 @@ import { useThemeColors } from "@/theme";
 
 type Load = { state: "loading" } | { state: "failed"; error: string } | { state: "ready"; mine: Mine };
 
-// Profile › My subscriptions (2026-11-10): every running meal subscription as a card (the meal's
-// photo, meal time and how many, the dates, meals delivered of all, paused), tap to manage; then the
+// Profile › My subscriptions (2026-11-10, in the meal page's look): every running meal subscription as
+// a photo card (Active / Paused on it, meal time and how many, the dates, meals delivered of all), tap
+// to manage; then the
 // ones that ended. New ones start from a meal's page (Meal Subscription).
 export default function MySubscriptions() {
   const colors = useThemeColors();
@@ -56,31 +57,29 @@ export default function MySubscriptions() {
             load.mine.active.map((sub) => {
               const share = sub.mealsTotal > 0 ? Math.min(1, sub.mealsUsed / sub.mealsTotal) : 0;
               return (
-                <PressableScale key={sub.id} scaleTo={0.98} onPress={() => router.push({ pathname: "/meals/subscriptions/[id]", params: { id: sub.id } })} className="card" style={{ gap: 12 }} accessibilityRole="button" accessibilityLabel={`${sub.planName}, ${subscriptionLine(sub)}. Manage`}>
-                  <View className="flex-row items-center" style={{ gap: 12 }}>
-                    <View className="meal-row__photo" style={{ width: 60, height: 60 }}>
-                      {sub.meal?.imageUrl ? <Image source={mealImage(sub.meal.imageUrl, token)} contentFit="cover" style={{ width: "100%", height: "100%" }} /> : (
-                        <View className="flex-1 items-center justify-center"><SymbolView name={{ ios: "fork.knife", android: "restaurant", web: "restaurant" }} size={22} tintColor={colors.faint} /></View>
-                      )}
-                    </View>
-                    <View className="min-w-0 flex-1" style={{ gap: 2 }}>
-                      <Text className="card__title" numberOfLines={1}>{sub.planName}</Text>
-                      <Text className="meta-text">{subscriptionLine(sub)}</Text>
-                      <Text className="meta-text">{`${shortDate(sub.startsOn)} – ${shortDate(sub.endsOn)}`}</Text>
-                    </View>
-                    {sub.pausedNow ? (
-                      <View className="order-pill" style={{ backgroundColor: colors.tintYellow }}><Text className="order-pill__label" style={{ color: colors.warning }}>Paused</Text></View>
-                    ) : (
-                      <View className="order-pill order-pill--done"><Text className="order-pill__label order-pill__label--done">Active</Text></View>
+                <PressableScale key={sub.id} scaleTo={0.98} onPress={() => router.push({ pathname: "/meals/subscriptions/[id]", params: { id: sub.id } })} className="shop-card" accessibilityRole="button" accessibilityLabel={`${sub.planName}, ${subscriptionLine(sub)}. Manage`}>
+                  <View style={{ width: "100%", aspectRatio: 2.4, backgroundColor: colors.creamDeep }}>
+                    {sub.meal?.imageUrl ? <Image source={mealImage(sub.meal.imageUrl, token)} contentFit="cover" style={{ width: "100%", height: "100%" }} /> : (
+                      <View className="flex-1 items-center justify-center"><SymbolView name={{ ios: "fork.knife", android: "restaurant", web: "restaurant" }} size={28} tintColor={colors.faint} /></View>
                     )}
-                  </View>
-                  <View style={{ gap: 6 }}>
-                    <View className="flex-row justify-between">
-                      <Text className="meta-text">{`${sub.mealsUsed} of ${sub.mealsTotal} delivered`}</Text>
-                      <Text className="meta-text">{`${sub.mealsLeft} left`}</Text>
+                    <View className={sub.pausedNow ? "shop-badge" : "shop-badge shop-badge--deal"}>
+                      <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: sub.pausedNow ? colors.warning : colors.primaryBright }} />
+                      <Text className={sub.pausedNow ? "shop-badge__label" : "shop-badge__label shop-badge__label--deal"}>{sub.pausedNow ? "Paused" : "Active"}</Text>
                     </View>
-                    <View style={{ height: 6, borderRadius: 3, backgroundColor: colors.creamTab, overflow: "hidden" }}>
-                      <View style={{ height: 6, width: `${Math.round(share * 100)}%`, backgroundColor: colors.mealPrimary }} />
+                  </View>
+                  <View style={{ padding: 14, gap: 10 }}>
+                    <View style={{ gap: 2 }}>
+                      <Text className="meal-section__title" numberOfLines={1}>{sub.planName}</Text>
+                      <Text className="meta-text">{`${subscriptionLine(sub)} · ${shortDate(sub.startsOn)} – ${shortDate(sub.endsOn)}`}</Text>
+                    </View>
+                    <View style={{ gap: 6 }}>
+                      <View className="flex-row justify-between">
+                        <Text className="meta-text">{`${sub.mealsUsed} of ${sub.mealsTotal} delivered`}</Text>
+                        <Text className="meta-text">{`${sub.mealsLeft} left`}</Text>
+                      </View>
+                      <View style={{ height: 6, borderRadius: 3, backgroundColor: colors.creamTab, overflow: "hidden" }}>
+                        <View style={{ height: 6, width: `${Math.round(share * 100)}%`, backgroundColor: colors.mealPrimary }} />
+                      </View>
                     </View>
                   </View>
                 </PressableScale>
