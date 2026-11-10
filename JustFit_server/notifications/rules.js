@@ -4,7 +4,7 @@
 // never reaches the same person twice.
 const { ValidationError } = require("../profile");
 
-const CATEGORIES = ["membership", "pauses", "attendance", "gym", "registration", "platform"];
+const CATEGORIES = ["membership", "pauses", "attendance", "gym", "registration", "platform", "offers"];
 const CATEGORY_LABEL = {
   membership: "Memberships",
   pauses: "Pause requests",
@@ -12,6 +12,7 @@ const CATEGORY_LABEL = {
   gym: "Gym updates",
   registration: "Gym registration",
   platform: "Complaints and platform alerts",
+  offers: "Meal offers",
 };
 // kind → category
 const KINDS = {
@@ -36,6 +37,7 @@ const KINDS = {
   "registration.decided": "registration",
   "platform.complaint": "platform",
   "gym.complaint_update": "gym",
+  "meal.offer": "offers", // the Super Admin announced a meal coupon (meals/offers.js, migration 2027-02-03)
   "diet.plan": "gym", // a trainer shared or updated a member's diet plan (gym/dietPlans.js)
 };
 // What a member is told about their gym membership (2026-11-10, the user's choice: members don't
@@ -75,7 +77,7 @@ function readMemberOff(value) {
 }
 
 // Screens a notification may open (the app routes them only after checking the same list)
-const LINKS = [/^\/gym-hub(\/\d+)?$/, /^\/gym-hub\/gyms\/\d+$/, /^\/gym-register$/, /^\/gym\/pauses$/, /^\/gym\/members\/\d+$/, /^\/gym\/members$/, /^\/gym\/attendance$/, /^\/gym\/enquiries$/, /^\/admin\/gyms\/\d+$/, /^\/admin\/complaints\/\d+$/, /^\/gym$/, /^\/coach\/meal-plan$/];
+const LINKS = [/^\/gym-hub(\/\d+)?$/, /^\/gym-hub\/gyms\/\d+$/, /^\/gym-register$/, /^\/gym\/pauses$/, /^\/gym\/members\/\d+$/, /^\/gym\/members$/, /^\/gym\/attendance$/, /^\/gym\/enquiries$/, /^\/admin\/gyms\/\d+$/, /^\/admin\/complaints\/\d+$/, /^\/gym$/, /^\/coach\/meal-plan$/, /^\/meals$/];
 const safeLink = (link) => (typeof link === "string" && LINKS.some((re) => re.test(link)) ? link : null);
 const PAGE = 30;
 

@@ -14,6 +14,7 @@ const { recordAdminAction } = require("../admin/overview");
 const meals = require("./service");
 const catalog = require("./catalog");
 const catalogRules = require("./catalogRules");
+const offers = require("./offers");
 const { inTransaction } = require("../gym/service");
 const photos = require("./photos");
 const rules = require("./rules");
@@ -264,6 +265,15 @@ kitchenRouter.put("/coupons/:id", smallBody, route(async (req, res) => {
   const saved = await catalog.saveCoupon(pool(req), id, values);
   await recordAdminAction(pool(req), req, "meal.coupon_edit", "meal", String(id), `Edited coupon ${values.code}`);
   res.json(saved);
+}));
+
+// Offer notices (phase 4): one notification per member per coupon, 10 announcements an hour
+const announceLimit = limitPerUser(createRateLimiter({ limit: 10, windowMs: 60 * 60 * 1000 }));
+kitchenRouter.post("/coupons/:id/announce", announceLimit, route(async (req, res) => {
+  const id = catalogRules.id(req.params.id, "coupon");
+  const result = await offers.announceCoupon(pool(req), id);
+  await recordAdminAction(pool(req), req, "meal.coupon_announce", "meal", String(id), `Told ${result.sent} members about coupon ${result.coupon.code}`);
+  res.json({ sent: result.sent, members: result.members });
 }));
 
 for (const [kind, label] of [["categories", "category"], ["banners", "banner"], ["coupons", "coupon"]]) {

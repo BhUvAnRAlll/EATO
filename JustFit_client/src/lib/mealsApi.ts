@@ -216,6 +216,7 @@ export const kitchenApi = {
   coupons: (token: string | null) => call<{ coupons: Coupon[] }>(token, "/api/admin/kitchen/coupons"),
   saveCoupon: (token: string | null, id: number | null, input: CouponInput) =>
     call<{ coupon: Coupon }>(token, id ? `/api/admin/kitchen/coupons/${id}` : "/api/admin/kitchen/coupons", { method: id ? "PUT" : "POST", body: input }),
+  announceCoupon: (token: string | null, id: number) => call<{ sent: number; members: number }>(token, `/api/admin/kitchen/coupons/${id}/announce`, { method: "POST" }),
   remove: (token: string | null, kind: "categories" | "banners" | "coupons", id: number) => call<{ deleted: true }>(token, `/api/admin/kitchen/${kind}/${id}`, { method: "DELETE" }),
   deleteMeal: (token: string | null, id: string) => call<{ deleted: true }>(token, `/api/admin/kitchen/meals/${encodeURIComponent(id)}`, { method: "DELETE" }),
   // A hidden copy of a meal (with its recipe and kitchens), opened to edit

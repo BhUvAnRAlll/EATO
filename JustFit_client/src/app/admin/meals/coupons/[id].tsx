@@ -58,6 +58,7 @@ function CouponForm({ coupon }: { coupon: Coupon | null }) {
   const [active, setActive] = useState(coupon?.active ?? true);
   const [firstOrderOnly, setFirstOrderOnly] = useState(coupon?.firstOrderOnly ?? false);
   const [deleting, setDeleting] = useState(false);
+  const [announcing, setAnnouncing] = useState(false);
   const { busy, error, save } = useGymSave(() => back(), coupon ? "Coupon saved" : "Coupon added");
 
   const pct = Number(percentOff);
@@ -96,6 +97,18 @@ function CouponForm({ coupon }: { coupon: Coupon | null }) {
     back();
   };
 
+  // Offer notices (marketing phase 4): one in-app notification per member, never twice for a coupon
+  const announce = async () => {
+    if (!coupon || announcing) return;
+    const who = coupon.firstOrderOnly ? "every member who hasn't ordered yet" : "every member";
+    if (!(await confirmChoice({ title: `Tell members about ${coupon.code}?`, message: `Sends ${who} a notification about this offer. Members already told aren't told again.`, confirmLabel: "Send notice" }))) return;
+    setAnnouncing(true);
+    const answer = await kitchenApi.announceCoupon(await getToken(), coupon.id);
+    setAnnouncing(false);
+    if (!answer.ok) return hud.error(answer.error);
+    hud.success(answer.data.sent === 0 ? "Everyone was already told" : `Told ${answer.data.sent} members`);
+  };
+
   return (
     <View style={{ gap: 16 }}>
       <View className="shop-coupon">
@@ -129,6 +142,11 @@ function CouponForm({ coupon }: { coupon: Coupon | null }) {
         {busy && <ActivityIndicator size="small" color={colors.onPrimary} />}
         <Text className={ready ? "btn-forest__label" : "btn-forest__label btn--disabled-label"}>{coupon ? "Save changes" : "Add coupon"}</Text>
       </Pressable>
+      {coupon?.state === "live" && (
+        <Pressable onPress={announce} disabled={announcing} className="admin-chip self-center" style={{ paddingHorizontal: 20 }} accessibilityRole="button">
+          <Text className="admin-segment__label">{announcing ? "Sending…" : "Tell members about this offer"}</Text>
+        </Pressable>
+      )}
       {coupon && (
         <Pressable onPress={remove} disabled={deleting} className="admin-chip self-center" style={{ paddingHorizontal: 20 }} accessibilityRole="button">
           <Text className="admin-segment__label" style={{ color: colors.danger }}>{deleting ? "Deleting…" : "Delete coupon"}</Text>

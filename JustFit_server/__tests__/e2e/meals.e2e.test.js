@@ -427,6 +427,30 @@ describe("meal ordering e2e: the admin's meals and times, a member's order, deli
     assert.equal((await api("DELETE", `/api/admin/kitchen/coupons/${added.json.coupon.id}`, tokens.admin)).status, 200);
   }));
 
+  it("12c. offer notices: the admin tells members about a live coupon, once each", run(async () => {
+    const added = await api("POST", "/api/admin/kitchen/coupons", tokens.admin, { code: `N${runId}`.slice(0, 16), title: `Notice ${runId}`, kind: "flat", flatOff: 30, firstOrderOnly: true });
+    assert.equal(added.status, 201, JSON.stringify(added.json));
+    const id = added.json.coupon.id;
+    const told = async (tag) => (await api("GET", "/api/notifications", tokens[tag])).json.notifications.filter((n) => n.kind === "meal.offer" && n.title === `Notice ${runId}`);
+    assert.equal((await api("POST", `/api/admin/kitchen/coupons/${id}/announce`, tokens.memberC)).status, 403, "members can't announce");
+    assert.equal((await api("POST", "/api/admin/kitchen/coupons/1%20OR%201=1/announce", tokens.admin)).status, 400);
+    const first = await api("POST", `/api/admin/kitchen/coupons/${id}/announce`, tokens.admin);
+    assert.equal(first.status, 200, JSON.stringify(first.json));
+    assert.ok(first.json.sent >= 1);
+    const [note] = await told("memberC");
+    assert.ok(note, "a member who never ordered is told");
+    assert.equal(note.link, "/meals");
+    assert.match(note.body, new RegExp(added.json.coupon.code));
+    assert.equal((await told("memberA")).length, 0, "a first-order offer skips members who have ordered");
+    const again = await api("POST", `/api/admin/kitchen/coupons/${id}/announce`, tokens.admin);
+    assert.equal(again.json.sent, 0, "never twice");
+    assert.equal((await told("memberC")).length, 1);
+    await api("PUT", `/api/admin/kitchen/coupons/${id}`, tokens.admin, { code: added.json.coupon.code, title: `Notice ${runId}`, kind: "flat", flatOff: 30, firstOrderOnly: true, active: false });
+    assert.equal((await api("POST", `/api/admin/kitchen/coupons/${id}/announce`, tokens.admin)).status, 409, "a switched-off coupon can't be announced");
+    assert.equal((await api("DELETE", `/api/admin/kitchen/coupons/${id}`, tokens.admin)).status, 200);
+    assert.equal((await api("POST", `/api/admin/kitchen/coupons/${id}/announce`, tokens.admin)).status, 404);
+  }));
+
   it("8b. payments the Razorpay way: only a checked signature places the order", run(async () => {
     const firstBody = order({ slot: "breakfast" });
     const placed = await api("POST", "/api/orders", tokens.memberA, firstBody);

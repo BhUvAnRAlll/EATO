@@ -2085,7 +2085,7 @@ CREATE TABLE account_suspensions (
 CREATE TABLE notifications (
   id           BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   user_id      VARCHAR(64)  NOT NULL,
-  category     ENUM('membership', 'pauses', 'attendance', 'gym', 'registration', 'platform') NOT NULL, -- 'platform' since migration 2027-01-20
+  category     ENUM('membership', 'pauses', 'attendance', 'gym', 'registration', 'platform', 'offers') NOT NULL, -- 'platform' since migration 2027-01-20, 'offers' 2027-02-03
   kind         VARCHAR(40)  NOT NULL,                -- e.g. pause.approved (notifications/rules.js KINDS)
   title        VARCHAR(120) NOT NULL,
   body         VARCHAR(300) NOT NULL,
