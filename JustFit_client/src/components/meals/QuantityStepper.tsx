@@ -22,12 +22,12 @@ export function QuantityStepper({ quantity, max, name, onChange, size = "md" }: 
       <PressableScale
         haptic="select"
         onPress={() => onChange(quantity - 1)}
-        className="meal-stepper__button"
+        className={`meal-stepper__button ${quantity === 1 ? "meal-stepper__button--remove" : "meal-stepper__button--minus"}`}
         style={{ width: box, height: box }}
         accessibilityRole="button"
         accessibilityLabel={quantity === 1 ? `Remove ${name} from cart` : `One less ${name}`}
       >
-        <SymbolView name={quantity === 1 ? { ios: "trash", android: "delete", web: "delete" } : { ios: "minus", android: "remove", web: "remove" }} size={size === "sm" ? 14 : 16} tintColor={colors.onPrimary} />
+        <SymbolView name={quantity === 1 ? { ios: "trash", android: "delete", web: "delete" } : { ios: "minus", android: "remove", web: "remove" }} size={size === "sm" ? 14 : 16} tintColor={quantity === 1 ? colors.danger : colors.ink} meaningColor={false} />
       </PressableScale>
       <Text className="meal-stepper__count" style={{ minWidth: size === "sm" ? 22 : 28 }}>{quantity}</Text>
       <PressableScale

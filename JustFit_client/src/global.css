@@ -1203,6 +1203,14 @@
   box-shadow: var(--shadow-card);
 }
 
+/* Why a recommended meal suits the member, under its macros */
+@utility meal-row__note {
+  font-family: var(--font-sans-medium);
+  font-size: 12px;
+  line-height: 17px;
+  color: var(--color-primary-text);
+}
+
 /* The macros under a meal's name, on a soft grey pill */
 @utility meal-row__macros {
   align-self: flex-start;
@@ -1311,7 +1319,7 @@
   border-radius: var(--radius-pill);
 }
 
-/* − 2 + in green */
+/* − 2 +: only the plus is green */
 @utility meal-stepper {
   flex-direction: row;
   align-items: center;
@@ -1323,6 +1331,15 @@
   background-color: var(--color-meal-primary);
   align-items: center;
   justify-content: center;
+}
+
+/* Minus is quiet: a grey circle; at 1 it is the bin, on a soft red */
+@utility meal-stepper__button--minus {
+  background-color: var(--color-cream-deep);
+}
+
+@utility meal-stepper__button--remove {
+  background-color: var(--color-danger-soft);
 }
 
 @utility meal-stepper__count {
@@ -1806,14 +1823,14 @@
   padding-inline: 8px;
   padding-block: 2px;
   border-radius: 6px;
-  background-color: var(--color-meal-primary);
+  background-color: var(--color-surface);
 }
 
 @utility shop-banner__badge-label {
   font-family: var(--font-sans-semibold);
   font-size: 11px;
   line-height: 15px;
-  color: var(--color-white);
+  color: var(--color-ink);
 }
 
 @utility shop-banner__title {
