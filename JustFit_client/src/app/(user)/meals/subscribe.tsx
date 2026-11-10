@@ -10,6 +10,7 @@ import { LoadError } from "@/components/macro/LoadError";
 import { DietMark } from "@/components/meals/DietMark";
 import { PaymentCheckout, type CheckoutResult } from "@/components/meals/PaymentCheckout";
 import { PressableScale } from "@/components/PressableScale";
+import { DatePickerSheet } from "@/components/setup/DatePickerSheet";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { ScreenSkeleton } from "@/components/Skeleton";
 import { SymbolView } from "@/components/SymbolView";
@@ -27,7 +28,10 @@ import { subscriptionsApi, type SubscriptionLength } from "@/lib/subscriptionsAp
 import { useAuthStore } from "@/store/auth";
 import { useThemeColors } from "@/theme";
 
-const START_DAYS = 7; // starts offered: tomorrow and the six days after (the server allows two weeks)
+const START_DAYS = 7; // chips for tomorrow and the six days after; the calendar reaches the server's two weeks
+const LATEST_START_DAYS = 14;
+const toIso = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+const toDate = (iso: string) => new Date(`${iso}T00:00:00`);
 const date = (d: string) => new Date(`${d}T00:00:00Z`).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });
 
 type Load = { state: "loading" } | { state: "failed"; error: string } | { state: "ready"; meal: MenuMeal; length: SubscriptionLength | null; slots: Slots };
@@ -49,6 +53,7 @@ export default function Subscribe() {
   const today = todayIso();
   const [startsOn, setStartsOn] = useState(addDays(today, 1));
   const [slot, setSlot] = useState<MealSlot | null>(null);
+  const [picking, setPicking] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [checkout, setCheckout] = useState<{ subId: string; options: CheckoutOptions } | null>(null);
@@ -178,6 +183,16 @@ export default function Subscribe() {
                       </PressableScale>
                     );
                   })}
+                  {/* A later day from the calendar (shown as the chip once picked) */}
+                  {(() => {
+                    const later = startsOn > addDays(today, START_DAYS);
+                    return (
+                      <PressableScale haptic="select" onPress={() => setPicking(true)} className={later ? "meal-choice meal-choice--on" : "meal-choice"} style={{ minWidth: 84 }} accessibilityRole="button" accessibilityLabel={later ? `Starts ${date(startsOn)}. Pick another date` : "Pick a later date"} accessibilityState={{ selected: later }}>
+                        <SymbolView name={{ ios: "calendar", android: "calendar_month", web: "calendar_month" }} size={18} tintColor={colors.ink} />
+                        <Text className="meal-choice__meta">{later ? new Date(`${startsOn}T00:00:00Z`).toLocaleDateString("en-IN", { day: "numeric", month: "short", timeZone: "UTC" }) : "Pick date"}</Text>
+                      </PressableScale>
+                    );
+                  })()}
                 </ScrollView>
                 <Text className="meta-text">{`Last delivery ${date(addDays(startsOn, length.days - 1))} (later if you pause or skip a day)`}</Text>
               </View>
@@ -241,6 +256,15 @@ export default function Subscribe() {
           </>
         )}
       </SafeAreaView>
+      <DatePickerSheet
+        visible={picking}
+        title="Starts on"
+        value={toDate(startsOn)}
+        minimumDate={toDate(addDays(today, 1))}
+        maximumDate={toDate(addDays(today, LATEST_START_DAYS))}
+        onSelect={(picked) => setStartsOn(toIso(picked))}
+        onClose={() => setPicking(false)}
+      />
       {checkout && <PaymentCheckout options={checkout.options} onDone={checkoutDone} />}
     </View>
   );

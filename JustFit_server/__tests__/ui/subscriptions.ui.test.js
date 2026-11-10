@@ -170,7 +170,7 @@ describe("ui subscriptions: a meal's page, subscribing and My subscriptions", ()
   it("2. subscribe: start, meal time, address and bill, then pay in the test checkout", run("subscribe", async () => {
     await page.clickText("Add Subscription · ₹3,445");
     await page.waitFor(`location.pathname === "/meals/subscribe"`, NAV_TIMEOUT, "the checkout");
-    for (const text of ["Your plan", "14 meals · 2 a day", "Daily meal delivery for 7 days", "Starts on", "Meal time", "Breakfast", "Lunch", "Dinner", "Delivered to", "Bill details", "7 Days · 5% off", "Pay ₹3,445"]) await h.expectText(text);
+    for (const text of ["Your plan", "14 meals · 2 a day", "Daily meal delivery for 7 days", "Starts on", "Pick date", "Meal time", "Breakfast", "Lunch", "Dinner", "Delivered to", "Bill details", "7 Days · 5% off", "Pay ₹3,445"]) await h.expectText(text);
     await snapshotAllWidths("subscribe-checkout");
     await clickLabel("Pay ₹3,445");
     await h.expectText("Test mode: no money is taken");
