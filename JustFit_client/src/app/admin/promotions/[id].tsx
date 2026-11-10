@@ -163,20 +163,20 @@ export default function EditPromotion() {
         <View className="gap-5">
           {preview && (
             <View>
-              <Text className="setup__section mb-2">Preview</Text>
+              <Text className="admin-section__title mb-2">Preview</Text>
               <View className="admin__preview">
                 <PromotionSlide promotion={preview} width={previewWidth} height={Math.round(previewWidth * 0.6)} />
               </View>
             </View>
           )}
 
-          <Text className="setup__section">Content</Text>
+          <Text className="admin-section__title">Content</Text>
           <AdminField label="Title (admin only)" value={fields.title} onChangeText={(title) => update({ title })} placeholder="Chef-prepared meals" maxLength={80} />
           <AdminField label="Eyebrow" value={fields.eyebrow} onChangeText={(eyebrow) => update({ eyebrow })} placeholder="CHEF-PREPARED" maxLength={40} autoCapitalize="characters" />
           <AdminField label="Headline" value={fields.headline} onChangeText={(headline) => update({ headline })} placeholder="Healthy meals for a stronger you" maxLength={80} hint="The last word is shown in green." />
           <AdminField label="Description" value={fields.description} onChangeText={(description) => update({ description })} placeholder="Nutritious, chef-prepared meals delivered to your doorstep." maxLength={160} multiline />
 
-          <Text className="setup__section">Image</Text>
+          <Text className="admin-section__title">Image</Text>
           <View className="flex-row items-center gap-3">
             <Image source={resolveImage(preview?.imageUrl)} contentFit="cover" contentPosition={fields.imagePosition === "left" ? "left" : "right"} style={{ width: 64, height: 64, borderRadius: 12 }} />
             <Text className="admin__hint flex-1">Pick a bundled image, or paste an https image URL below (it replaces the pick).</Text>
@@ -185,7 +185,7 @@ export default function EditPromotion() {
           <AdminField label="Image URL (optional)" value={imageUrlText} onChangeText={setImageUrlText} placeholder="https://…" autoCapitalize="none" autoCorrect={false} keyboardType="url" />
           <AdminField label="Image description (accessibility)" value={fields.imageAlt ?? ""} onChangeText={(imageAlt) => update({ imageAlt })} placeholder="Grilled chicken bowl with vegetables" maxLength={160} />
 
-          <Text className="setup__section">Button</Text>
+          <Text className="admin-section__title">Button</Text>
           <AdminField label="Button label" value={fields.ctaLabel} onChangeText={(ctaLabel) => update({ ctaLabel })} placeholder="Order Now" maxLength={30} />
           <ChoiceChips label="Opens" options={destinationOptions} value={fields.ctaDestination} onChange={(ctaDestination) => update({ ctaDestination })} />
           <AdminField label="Secondary button label (optional)" value={fields.secondaryCtaLabel ?? ""} onChangeText={(secondaryCtaLabel) => update({ secondaryCtaLabel })} placeholder="Learn more" maxLength={30} />
@@ -196,13 +196,13 @@ export default function EditPromotion() {
             onChange={(value) => update({ secondaryCtaDestination: value === NONE ? null : value })}
           />
 
-          <Text className="setup__section">Layout</Text>
+          <Text className="admin-section__title">Layout</Text>
           <ChoiceChips label="Text alignment" options={[{ value: "left", label: "Left" }, { value: "center", label: "Centre" }]} value={fields.textAlign} onChange={(textAlign) => update({ textAlign })} />
           <ChoiceChips label="Image position" options={[{ value: "right", label: "Right" }, { value: "left", label: "Left" }]} value={fields.imagePosition} onChange={(imagePosition) => update({ imagePosition })} />
           <AdminField label="Background colour (optional)" value={fields.backgroundColor ?? ""} onChangeText={(backgroundColor) => update({ backgroundColor })} placeholder="#FDFAF4" maxLength={7} autoCapitalize="characters" hint="Hex colour. Leave empty for the page colour. Keep text readable." />
           <AdminField label="Text colour (optional)" value={fields.textColor ?? ""} onChangeText={(textColor) => update({ textColor })} placeholder="#0B0B0F" maxLength={7} autoCapitalize="characters" />
 
-          <Text className="setup__section">Schedule and rotation</Text>
+          <Text className="admin-section__title">Schedule and rotation</Text>
           <AdminField label="Seconds before the next slide" value={rotationText} onChangeText={setRotationText} keyboardType="number-pad" maxLength={2} hint="1 to 30 seconds; 2 is the default." />
           <AdminField label="Show from (optional)" value={startsText} onChangeText={setStartsText} placeholder="2026-10-20 09:00" autoCapitalize="none" hint="Local time, YYYY-MM-DD HH:mm." />
           <AdminField label="Show until (optional)" value={endsText} onChangeText={setEndsText} placeholder="2026-10-27 18:00" autoCapitalize="none" />

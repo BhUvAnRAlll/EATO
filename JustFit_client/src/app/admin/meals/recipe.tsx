@@ -55,7 +55,7 @@ function RecipeForm({ recipe, tint }: { recipe: Recipe; tint: string }) {
   return (
     <View style={{ gap: 14 }}>
       <AdminField label="Preparation time (minutes, optional)" value={prep} onChangeText={(t) => setPrep(t.replace(/[^0-9]/g, ""))} keyboardType="number-pad" maxLength={3} placeholder="20" hint="How long one order of it takes to cook and pack." />
-      <Text className="setup__section">{`One serving uses (${rows.length})`}</Text>
+      <Text className="admin-section__title">{`One serving uses (${rows.length})`}</Text>
       {rows.length === 0 ? (
         <DashedBlock icon={{ ios: "carrot", android: "nutrition", web: "nutrition" }} title="No ingredients yet" text="Add what one serving uses, so kitchens can see what they'll need." onPress={() => setPicking(true)} />
       ) : (

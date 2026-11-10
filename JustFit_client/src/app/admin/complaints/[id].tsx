@@ -5,7 +5,7 @@ import { StatusBar } from "expo-status-bar";
 import { router, useLocalSearchParams } from "expo-router";
 
 import { FormAlert } from "@/components/FormAlert";
-import { ScreenHeader } from "@/components/ScreenHeader";
+import { AdminStackHeader } from "@/components/admin/AdminStackHeader";
 import { ScreenSkeleton } from "@/components/Skeleton";
 import { AdminField } from "@/components/admin/AdminField";
 import { DashedBlock } from "@/components/macro/DashedBlock";
@@ -44,7 +44,7 @@ export default function AdminComplaint() {
     <View className="flex-1 bg-cream">
       <StatusBar style="dark" />
       <SafeAreaView edges={["top"]} style={{ flex: 1 }}>
-        <ScreenHeader title={`Complaint #${id}`} fallback="/admin/complaints" />
+        <AdminStackHeader title={`Complaint #${id}`} fallback="/admin/complaints" />
         <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 48, gap: 12 }} keyboardShouldPersistTaps="handled" refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.leaf} colors={[colors.leaf]} />} showsVerticalScrollIndicator={false}>
           {result.state === "loading" ? <ScreenSkeleton cards={3} label="Loading the complaint" /> : null}
           {result.state === "failed" ? <DashedBlock icon={{ ios: "exclamationmark.triangle.fill", android: "warning", web: "warning" }} title="Could not load it" text={`${result.error.replace(/\.$/, "")}. Tap to try again.`} onPress={retry} /> : null}
@@ -71,7 +71,7 @@ export default function AdminComplaint() {
                 </Pressable>
 
                 <View className="card" style={{ gap: 8 }}>
-                  <Text className="setup__section">Internal note</Text>
+                  <Text className="admin-section__title">Internal note</Text>
                   <AdminField label="Only justFit admins see it" value={note} onChangeText={setNote} maxLength={1000} multiline />
                   <Pressable onPress={() => note.trim().length >= 3 && save.save((t) => complaintsApi.note(t, caseId, note.trim()))} disabled={note.trim().length < 3 || save.busy} className={note.trim().length < 3 ? "btn-forest btn--disabled" : "btn-forest"} accessibilityRole="button">
                     <Text className={note.trim().length < 3 ? "btn-forest__label btn--disabled-label" : "btn-forest__label"}>Add note</Text>
@@ -79,7 +79,7 @@ export default function AdminComplaint() {
                 </View>
 
                 <View className="card" style={{ gap: 8 }}>
-                  <Text className="setup__section">Move it</Text>
+                  <Text className="admin-section__title">Move it</Text>
                   <View className="flex-row flex-wrap" style={{ gap: 8 }}>
                     {MOVES.filter((m) => m.id !== c.status && (m.id !== "open" || ["resolved", "dismissed"].includes(c.status))).map((m) => (
                       <Pressable key={m.id} onPress={() => setMove(move === m.id ? null : m.id)} className={move === m.id ? "admin-chip admin-chip--on" : "admin-chip"} accessibilityRole="button" accessibilityState={{ selected: move === m.id }}>
@@ -96,7 +96,7 @@ export default function AdminComplaint() {
                 </View>
 
                 <View className="card" style={{ gap: 8 }}>
-                  <Text className="setup__section">History</Text>
+                  <Text className="admin-section__title">History</Text>
                   {result.data.history.map((h, i) => (
                     <View key={i} style={{ gap: 2 }}>
                       <Text className="type-body">{`${HISTORY_WORDS[h.kind]}${h.status ? ` · ${h.status}` : ""} · ${h.by}`}</Text>

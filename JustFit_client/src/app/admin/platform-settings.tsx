@@ -4,7 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 
 import { FormAlert } from "@/components/FormAlert";
-import { ScreenHeader } from "@/components/ScreenHeader";
+import { AdminStackHeader } from "@/components/admin/AdminStackHeader";
 import { ScreenSkeleton } from "@/components/Skeleton";
 import { AdminField } from "@/components/admin/AdminField";
 import { DashedBlock } from "@/components/macro/DashedBlock";
@@ -39,7 +39,7 @@ export default function PlatformSettings() {
     <View className="flex-1 bg-cream">
       <StatusBar style="dark" />
       <SafeAreaView edges={["top"]} style={{ flex: 1 }}>
-        <ScreenHeader title="Platform settings" fallback="/admin/profile" />
+        <AdminStackHeader title="Platform settings" fallback="/admin/profile" />
         {result.state === "loading" ? <View className="p-4"><ScreenSkeleton cards={3} label="Loading settings" /></View> : null}
         {result.state === "failed" ? <View className="p-4"><DashedBlock icon={{ ios: "exclamationmark.triangle.fill", android: "warning", web: "warning" }} title="Could not load settings" text={`${result.error.replace(/\.$/, "")}. Tap to try again.`} onPress={retry} /></View> : null}
         {result.state === "ready" ? <Form initial={result.data.settings} onSaved={(s) => set({ settings: s })} /> : null}

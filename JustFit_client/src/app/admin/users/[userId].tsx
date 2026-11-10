@@ -14,6 +14,7 @@ import { KIND_LABEL, adminPortal, type AdminUser } from "@/lib/adminPortal";
 import { useSessionToken } from "@/lib/session";
 import type { Icon } from "@/types/profile";
 import { useThemeColors } from "@/theme";
+import { AdminStackHeader } from "@/components/admin/AdminStackHeader";
 
 // Super Admin › a user's page: when they joined, and how many meals they logged, workouts they
 // finished and orders they placed; their gyms (memberships and team roles), and suspending or
@@ -47,16 +48,7 @@ export default function AdminUserDetail() {
     <View className="flex-1 bg-cream">
       <StatusBar style="auto" />
       <SafeAreaView style={{ flex: 1 }}>
-        <View className="screen-bar">
-          <Pressable onPress={back} hitSlop={12} className="screen-bar__back" accessibilityRole="button" accessibilityLabel="Back">
-            <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={20} tintColor={colors.ink} />
-          </Pressable>
-          <View className="flex-1 items-center">
-            <Text className="screen-bar__title" numberOfLines={1}>{user?.name ?? "Account"}</Text>
-            {user && <Text className="screen-bar__subtitle">{KIND_LABEL[user.kind]}</Text>}
-          </View>
-          <View className="screen-bar__spacer" />
-        </View>
+        <AdminStackHeader title={user?.name ?? "Account"} subtitle={user ? KIND_LABEL[user.kind] : undefined} onBack={back} />
 
         {!user ? (
           <View className="px-4 pt-6">

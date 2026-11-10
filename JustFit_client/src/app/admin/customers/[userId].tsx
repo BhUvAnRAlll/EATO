@@ -47,19 +47,19 @@ export default function AdminCustomer() {
               <Text className="meta-text">Not set up yet.</Text>
             )}
           </View>
-          <Text className="setup__section">{`Addresses (${c.addresses.length})`}</Text>
+          <Text className="admin-section__title">{`Addresses (${c.addresses.length})`}</Text>
           {c.addresses.map((a) => <Text key={a.id} className="meta-text">{`${a.selected ? "● " : ""}${a.kind} · ${a.line}`}</Text>)}
-          <Text className="setup__section">{`Recent orders (${c.orders.length})`}</Text>
+          <Text className="admin-section__title">{`Recent orders (${c.orders.length})`}</Text>
           {c.orders.length === 0 ? <Text className="meta-text">No orders yet.</Text> : null}
           {c.orders.map((o) => <Text key={o.id} className="meta-text">{`#${o.code} · ${date(o.date)} ${SLOT_LABEL[o.slot] ?? o.slot} · ${STATUS_LABEL[o.status as OrderStatus] ?? o.status} · ${rupees(o.total)}`}</Text>)}
-          <Text className="setup__section">{`Meal plans (${c.subscriptions.length})`}</Text>
+          <Text className="admin-section__title">{`Meal plans (${c.subscriptions.length})`}</Text>
           {c.subscriptions.length === 0 ? <Text className="meta-text">No meal plans.</Text> : null}
           {c.subscriptions.map((s) => (
             <Pressable key={s.id} onPress={() => router.push({ pathname: "/admin/subscriptions/[id]", params: { id: s.id } })} accessibilityRole="button">
               <Text className="meta-text">{`${s.planName} · ${s.days} days · ${date(s.startsOn)} – ${date(s.endsOn)} · ${s.status}`}</Text>
             </Pressable>
           ))}
-          <Text className="setup__section">{`Reports (${c.issues.length})`}</Text>
+          <Text className="admin-section__title">{`Reports (${c.issues.length})`}</Text>
           {c.issues.length === 0 ? <Text className="meta-text">No reports.</Text> : null}
           {c.issues.map((i) => (
             <Pressable key={i.id} onPress={() => router.push({ pathname: "/admin/issues/[id]", params: { id: String(i.id) } })} accessibilityRole="button">

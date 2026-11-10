@@ -4,7 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { router } from "expo-router";
 
-import { ScreenHeader } from "@/components/ScreenHeader";
+import { AdminStackHeader } from "@/components/admin/AdminStackHeader";
 import { ScreenSkeleton } from "@/components/Skeleton";
 import { DashedBlock } from "@/components/macro/DashedBlock";
 import { COMPLAINT_STATUSES, complaintsApi } from "@/lib/complaints";
@@ -25,7 +25,7 @@ export default function AdminComplaints() {
     <View className="flex-1 bg-cream">
       <StatusBar style="dark" />
       <SafeAreaView edges={["top"]} style={{ flex: 1 }}>
-        <ScreenHeader title="Complaints" fallback="/admin/profile" />
+        <AdminStackHeader title="Complaints" fallback="/admin/profile" />
         <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 48, gap: 12 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.leaf} colors={[colors.leaf]} />} showsVerticalScrollIndicator={false}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
             {COMPLAINT_STATUSES.map((s) => (

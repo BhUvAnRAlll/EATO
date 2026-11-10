@@ -1498,6 +1498,10 @@ Staff / Admin Login. The old trainer portal and coaching stay removed.)
   Gyms, Fitness content, Platform. Profile keeps only the account, Notifications, All admin tools and
   Sign out. Users filters All / Members / Admins and an account's page shows when they joined and
   how many meals, workouts and orders they have.
+  Every screen under a tab (2026-11-10) has `components/admin/AdminStackHeader.tsx`: the round
+  Back, the title large on the left, an optional line under it and an action on the right, through
+  `AdminScreen` or placed directly; section headings are `admin-section__title`. `body-scans` still
+  uses `ScreenHeader`.
 - Kept as history: `admin_audit_log` rows about gyms, posts and reports; `ai_usage` rows of the
   `gym_assistant` feature (still in the ENUM, labelled "removed" on AI Usage, no section); old
   `analytics_events` of the community events (the server no longer accepts new ones).

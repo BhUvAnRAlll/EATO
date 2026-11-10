@@ -190,7 +190,7 @@ export function StockItemSheet({ kitchenId, ingredientId, kitchens, onChanged, o
                   <Text className={ready ? "btn-forest__label" : "btn-forest__label btn--disabled-label"}>{SAVE_LABEL[action]}</Text>
                 </Pressable>
 
-                <Text className="setup__section">History</Text>
+                <Text className="admin-section__title">History</Text>
                 {moves.length === 0 ? (
                   <Text className="meta-text">No changes yet.</Text>
                 ) : (

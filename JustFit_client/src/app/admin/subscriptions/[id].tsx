@@ -84,7 +84,7 @@ export default function AdminSubscription() {
               </>
             ) : null}
           </View>
-          <Text className="setup__section">Next 7 days</Text>
+          <Text className="admin-section__title">Next 7 days</Text>
           {(sub.upcoming ?? []).length === 0 ? <Text className="meta-text">No deliveries coming up.</Text> : null}
           {(sub.upcoming ?? []).map((d) => (
             <View key={d.day} className="card" style={{ gap: 4 }}>

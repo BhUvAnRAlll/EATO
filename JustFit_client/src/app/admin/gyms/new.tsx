@@ -5,12 +5,12 @@ import { StatusBar } from "expo-status-bar";
 import { router } from "expo-router";
 
 import { FormAlert } from "@/components/FormAlert";
-import { SymbolView } from "@/components/SymbolView";
 import { AdminField } from "@/components/admin/AdminField";
 import { adminGyms } from "@/lib/gymApi";
 import { useGymSave } from "@/lib/gymForm";
 import { useThemeColors } from "@/theme";
 import { KeyboardAvoider } from "@/components/KeyboardAvoider";
+import { AdminStackHeader } from "@/components/admin/AdminStackHeader";
 
 const back = () => (router.canGoBack() ? router.back() : router.replace("/admin/gyms"));
 
@@ -28,13 +28,7 @@ export default function AdminNewGym() {
     <View className="flex-1 bg-cream">
       <StatusBar style="auto" />
       <SafeAreaView style={{ flex: 1 }}>
-        <View className="screen-bar">
-          <Pressable onPress={back} hitSlop={12} className="screen-bar__back" accessibilityRole="button" accessibilityLabel="Back">
-            <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={20} tintColor={colors.ink} />
-          </Pressable>
-          <Text className="screen-bar__title" accessibilityRole="header">New gym</Text>
-          <View className="screen-bar__spacer" />
-        </View>
+        <AdminStackHeader title="New gym" onBack={back} />
         {/* Keeps the lower fields and Save above the keyboard on Android too */}
         <KeyboardAvoider>
           <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40, gap: 16 }} keyboardShouldPersistTaps="handled" keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}>

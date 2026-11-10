@@ -12,6 +12,7 @@ import { adminExercises, DIFFICULTY_LABEL, MUSCLE_LABEL, type AdminExercise } fr
 import { useSessionToken } from "@/lib/session";
 import { useThemeColors } from "@/theme";
 import { confirmChoice } from "@/lib/nativeSheets";
+import { AdminStackHeader } from "@/components/admin/AdminStackHeader";
 
 type Load = { state: "loading" } | { state: "failed"; error: string } | { state: "ready"; exercise: AdminExercise };
 
@@ -62,13 +63,7 @@ export default function ExerciseDetailScreen() {
     <View className="flex-1 bg-cream">
       <StatusBar style="auto" />
       <SafeAreaView style={{ flex: 1 }}>
-        <View className="screen-bar">
-          <Pressable onPress={back} hitSlop={12} className="screen-bar__back" accessibilityRole="button" accessibilityLabel="Back">
-            <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={20} tintColor={colors.ink} />
-          </Pressable>
-          <Text className="screen-bar__title" accessibilityRole="header">Exercise</Text>
-          <View className="screen-bar__spacer" />
-        </View>
+        <AdminStackHeader title="Exercise" onBack={back} />
 
         {load.state === "loading" ? (
           <View className="px-4"><ScreenSkeleton label="Loading the exercise" /></View>
@@ -84,7 +79,7 @@ export default function ExerciseDetailScreen() {
               <Text className="meta-text">{`${SOURCE_LABEL[load.exercise.source]}${load.exercise.archived ? " · Archived" : ""}${load.exercise.inUse > 0 ? ` · in ${load.exercise.inUse} members' plans` : ""}`}</Text>
             </View>
 
-            <Text className="setup__section">Demo video</Text>
+            <Text className="admin-section__title">Demo video</Text>
             <View className="admin-list" style={{ padding: 16, gap: 8 }}>
               <View className="flex-row items-center" style={{ gap: 10 }}>
                 <SymbolView name={load.exercise.hasVideo ? { ios: "play.rectangle.fill", android: "smart_display", web: "smart_display" } : { ios: "video.slash", android: "videocam_off", web: "videocam_off" }} size={22} tintColor={load.exercise.hasVideo ? colors.success : colors.faint} />
@@ -97,7 +92,7 @@ export default function ExerciseDetailScreen() {
               </Text>
             </View>
 
-            <Text className="setup__section">Steps members see</Text>
+            <Text className="admin-section__title">Steps members see</Text>
             <View className="admin-list" style={{ padding: 16, gap: 8 }}>
               {load.exercise.instructions.length === 0 ? (
                 <Text className="meta-text">No steps written for this exercise.</Text>
@@ -111,7 +106,7 @@ export default function ExerciseDetailScreen() {
               )}
             </View>
 
-            <Text className="setup__section">Details</Text>
+            <Text className="admin-section__title">Details</Text>
             <View className="admin-list" style={{ padding: 16, gap: 8 }}>
               {[
                 ["Movement", load.exercise.pattern.replace(/_/g, " ")],

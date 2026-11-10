@@ -15,6 +15,7 @@ import { downloadFile } from "@/lib/download";
 import { useResponsive } from "@/lib/responsive";
 import { useSessionToken } from "@/lib/session";
 import { useThemeColors } from "@/theme";
+import { AdminStackHeader } from "@/components/admin/AdminStackHeader";
 
 type Load = { state: "loading" } | { state: "failed"; error: string } | { state: "ready"; data: UsageSummary };
 
@@ -101,15 +102,15 @@ export default function AppUsageScreen() {
     <View className="flex-1 bg-cream">
       <StatusBar style="auto" />
       <SafeAreaView style={{ flex: 1 }}>
-        <View className="screen-bar">
-          <Pressable onPress={back} hitSlop={12} className="screen-bar__back" accessibilityRole="button" accessibilityLabel="Back">
-            <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={20} tintColor={colors.ink} />
-          </Pressable>
-          <Text className="screen-bar__title" accessibilityRole="header">App Usage</Text>
-          <Pressable onPress={() => exportCsv("features")} disabled={exporting !== null || load.state !== "ready"} hitSlop={12} className="screen-bar__back" accessibilityRole="button" accessibilityLabel="Export features as CSV" accessibilityState={{ disabled: exporting !== null || load.state !== "ready", busy: exporting !== null }}>
-            {exporting ? <ActivityIndicator color={colors.ink} /> : <SymbolView name={{ ios: "square.and.arrow.up", android: "ios_share", web: "ios_share" }} size={20} tintColor={colors.ink} />}
-          </Pressable>
-        </View>
+        <AdminStackHeader
+          title="App Usage"
+          onBack={back}
+          right={
+            <Pressable onPress={() => exportCsv("features")} disabled={exporting !== null || load.state !== "ready"} hitSlop={6} className="admin-header__button" accessibilityRole="button" accessibilityLabel="Export features as CSV" accessibilityState={{ disabled: exporting !== null || load.state !== "ready", busy: exporting !== null }}>
+              {exporting ? <ActivityIndicator color={colors.ink} /> : <SymbolView name={{ ios: "square.and.arrow.up", android: "ios_share", web: "ios_share" }} size={20} tintColor={colors.forestInk} />}
+            </Pressable>
+          }
+        />
 
         <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40, gap: 16 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled"
             keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"} refreshControl={refreshControl}>
@@ -148,7 +149,7 @@ export default function AppUsageScreen() {
           ) : (
             <>
               <Ready data={load.data} />
-              <Text className="setup__section">Export</Text>
+              <Text className="admin-section__title">Export</Text>
               <View className="admin-list">
                 {([["features", "Features", "Every feature's members, uses and change"], ["overview", "Overview", "The member counts and totals"], ["daily", "Daily", "Active members per day"], ["members", "Members", "Every member's activity"], ["retention", "Retention", "Cohorts and their retention"]] as const).map(([report, title, note], i) => (
                   <Pressable key={report} onPress={() => exportCsv(report)} disabled={exporting !== null} className={i > 0 ? "admin-row admin-row--divided" : "admin-row"} accessibilityRole="button" accessibilityLabel={`Export ${title} as CSV. ${note}`} accessibilityState={{ disabled: exporting !== null }}>
@@ -238,7 +239,7 @@ function Ready({ data }: { data: UsageSummary }) {
 
       {data.engagement && (
         <>
-          <Text className="setup__section">Sessions and screens</Text>
+          <Text className="admin-section__title">Sessions and screens</Text>
           <View className="flex-row flex-wrap" style={{ gap: 10 }}>
             <View className="admin-stat" style={{ flexBasis: "46%" }} accessibilityLabel={`App sessions: ${data.engagement.sessions.total}, ${data.engagement.sessions.perMember} per member, ${changeText(data.engagement.sessions.changePercent)} vs ${before}`}>
               <Text className="admin-stat__label" numberOfLines={1}>App sessions</Text>
@@ -276,7 +277,7 @@ function Ready({ data }: { data: UsageSummary }) {
         </>
       )}
 
-      <Text className="setup__section">Most used</Text>
+      <Text className="admin-section__title">Most used</Text>
       <View className="admin-list">
         {mostUsed.length === 0 ? (
           <Text className="meta-text px-4 py-3">No feature was used in this range.</Text>
@@ -285,12 +286,12 @@ function Ready({ data }: { data: UsageSummary }) {
         )}
       </View>
 
-      <Text className="setup__section">Least used</Text>
+      <Text className="admin-section__title">Least used</Text>
       <View className="admin-list">
         {leastUsed.map((f, i) => <FeatureRow key={f.id} feature={f} active={members.active} divided={i > 0} />)}
       </View>
 
-      <Text className="setup__section">By area</Text>
+      <Text className="admin-section__title">By area</Text>
       {data.modules.map((m) => {
         const features = data.features.filter((f) => m.features.includes(f.id));
         return (
@@ -309,7 +310,7 @@ function Ready({ data }: { data: UsageSummary }) {
 
       {data.notTracked.length > 0 && (
         <>
-          <Text className="setup__section">Not tracked yet</Text>
+          <Text className="admin-section__title">Not tracked yet</Text>
           <View className="admin-list px-4 py-3" style={{ gap: 6 }}>
             {data.notTracked.map((n) => (
               <Text key={n.id} className="meta-text">{`${n.label}: ${n.reason}`}</Text>

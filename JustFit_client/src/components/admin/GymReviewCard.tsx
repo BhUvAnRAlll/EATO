@@ -106,7 +106,7 @@ export function GymReviewCard({ gymId, onChanged }: { gymId: number; onChanged: 
         </View>
       ) : null}
 
-      <Text className="setup__section">Documents</Text>
+      <Text className="admin-section__title">Documents</Text>
       {app.documents.length === 0 ? <Text className="type-caption text-muted">None sent.</Text> : null}
       {app.documents.map((d) => {
         const image = d.mediaType.startsWith("image/");
@@ -129,7 +129,7 @@ export function GymReviewCard({ gymId, onChanged }: { gymId: number; onChanged: 
 
       {app.actions.length ? (
         <>
-          <Text className="setup__section">Decide</Text>
+          <Text className="admin-section__title">Decide</Text>
           <View className="flex-row flex-wrap" style={{ gap: 8 }}>
             {app.actions.map((a) => (
               <Pressable
@@ -162,7 +162,7 @@ export function GymReviewCard({ gymId, onChanged }: { gymId: number; onChanged: 
 
       {app.history.length ? (
         <>
-          <Text className="setup__section">History</Text>
+          <Text className="admin-section__title">History</Text>
           {app.history.map((h, i) => (
             <View key={`${h.action}-${i}`} style={{ gap: 2 }}>
               <Text className="type-body">{`${h.text} · ${h.by}`}</Text>

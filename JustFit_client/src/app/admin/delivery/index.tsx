@@ -75,7 +75,7 @@ export default function AdminDelivery() {
               <Text className="admin-segment__label admin-segment__label--on">Give ready orders to partners</Text>
             </Pressable>
           ) : null}
-          <Text className="setup__section">{`Partners (${data.partners.length})`}</Text>
+          <Text className="admin-section__title">{`Partners (${data.partners.length})`}</Text>
           {data.partners.length === 0 ? (
             <DashedBlock icon={{ ios: "bicycle", android: "pedal_bike", web: "pedal_bike" }} title="No delivery partners yet" text="Add the people who deliver: their vehicle, ID check and the pincodes they cover." onPress={() => router.push("/admin/delivery/new")} />
           ) : (

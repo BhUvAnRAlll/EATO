@@ -5,7 +5,7 @@ import { StatusBar } from "expo-status-bar";
 import { router } from "expo-router";
 
 import { PrimaryButton } from "@/components/PrimaryButton";
-import { ScreenHeader } from "@/components/ScreenHeader";
+import { AdminStackHeader } from "@/components/admin/AdminStackHeader";
 import { ScreenSkeleton } from "@/components/Skeleton";
 import { DashedBlock } from "@/components/macro/DashedBlock";
 import { adminPlatform, type StaffDirectory, type StaffRole } from "@/lib/adminPlatform";
@@ -47,7 +47,7 @@ export default function PlatformStaff() {
     <View className="flex-1 bg-cream">
       <StatusBar style="dark" />
       <SafeAreaView edges={["top"]} style={{ flex: 1 }}>
-        <ScreenHeader title="All gym staff" fallback="/admin/gyms" />
+        <AdminStackHeader title="All gym staff" fallback="/admin/gyms" />
         <ScrollView
           contentContainerStyle={{ padding: 16, paddingBottom: 48, gap: 12 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.leaf} colors={[colors.leaf]} />}

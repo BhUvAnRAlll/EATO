@@ -17,6 +17,7 @@ import { todayIso } from "@/lib/macro";
 import { kitchenApi, type Slots } from "@/lib/mealsApi";
 import { useGymData } from "@/lib/useGymData";
 import { useSwitchColors, useThemeColors } from "@/theme";
+import { AdminStackHeader } from "@/components/admin/AdminStackHeader";
 
 const back = () => (router.canGoBack() ? router.back() : router.replace("/admin/meals"));
 const CUTOFF_MINUTES = 120; // the server's rule: orders close 2 hours before the meal time starts
@@ -58,13 +59,7 @@ export default function AdminDeliveryTimes() {
     <View className="flex-1 bg-cream">
       <StatusBar style="auto" />
       <SafeAreaView style={{ flex: 1 }}>
-        <View className="screen-bar">
-          <Pressable onPress={back} hitSlop={12} className="screen-bar__back" accessibilityRole="button" accessibilityLabel="Back">
-            <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={20} tintColor={colors.ink} />
-          </Pressable>
-          <Text className="screen-bar__title" accessibilityRole="header">Delivery times</Text>
-          <View className="screen-bar__spacer" />
-        </View>
+        <AdminStackHeader title="Delivery times" onBack={back} />
         <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40, gap: 14 }}>
           {result.state === "loading" && <ScreenSkeleton label="Loading delivery times" />}
           {result.state === "failed" && (

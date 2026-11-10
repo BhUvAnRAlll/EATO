@@ -17,6 +17,7 @@ import { useResponsive } from "@/lib/responsive";
 import { useSessionToken } from "@/lib/session";
 import type { Icon } from "@/types/profile";
 import { useThemeColors } from "@/theme";
+import { AdminStackHeader } from "@/components/admin/AdminStackHeader";
 
 type Load = { state: "loading" } | { state: "failed"; error: string } | { state: "ready"; data: AiSummary };
 
@@ -59,15 +60,15 @@ export default function AiUsageScreen() {
     <View className="flex-1 bg-cream">
       <StatusBar style="auto" />
       <SafeAreaView style={{ flex: 1 }}>
-        <View className="screen-bar">
-          <Pressable onPress={back} hitSlop={12} className="screen-bar__back" accessibilityRole="button" accessibilityLabel="Back">
-            <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={20} tintColor={colors.ink} />
-          </Pressable>
-          <Text className="screen-bar__title" accessibilityRole="header">AI Usage</Text>
-          <Pressable onPress={() => router.push("/admin/ai-usage/budget")} hitSlop={12} className="screen-bar__back" accessibilityRole="button" accessibilityLabel="Budget and alerts">
-            <SymbolView name={{ ios: "slider.horizontal.3", android: "tune", web: "tune" }} size={20} tintColor={colors.ink} />
-          </Pressable>
-        </View>
+        <AdminStackHeader
+          title="AI Usage"
+          onBack={back}
+          right={
+            <Pressable onPress={() => router.push("/admin/ai-usage/budget")} hitSlop={6} className="admin-header__button" accessibilityRole="button" accessibilityLabel="Budget and alerts">
+              <SymbolView name={{ ios: "slider.horizontal.3", android: "tune", web: "tune" }} size={20} tintColor={colors.forestInk} />
+            </Pressable>
+          }
+        />
 
         <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40, gap: 16 }} showsVerticalScrollIndicator={false} refreshControl={refreshControl}>
           {load.state === "loading" ? (
@@ -189,7 +190,7 @@ function Ready({ data, period, onPeriod }: { data: AiSummary; period: Period; on
         )}
       </View>
 
-      <Text className="setup__section">By feature</Text>
+      <Text className="admin-section__title">By feature</Text>
       <View className="admin-list px-4 py-3" style={{ gap: 10 }}>
         {data.features.length === 0 ? (
           <Text className="meta-text">No AI calls in this period.</Text>
@@ -206,7 +207,7 @@ function Ready({ data, period, onPeriod }: { data: AiSummary; period: Period; on
         )}
       </View>
 
-      <Text className="setup__section">By model</Text>
+      <Text className="admin-section__title">By model</Text>
       <View className="admin-list px-4 py-3" style={{ gap: 10 }}>
         {data.byModel.length === 0 ? (
           <Text className="meta-text">No AI calls in this period.</Text>
@@ -220,7 +221,7 @@ function Ready({ data, period, onPeriod }: { data: AiSummary; period: Period; on
         )}
       </View>
 
-      <Text className="setup__section">Top members</Text>
+      <Text className="admin-section__title">Top members</Text>
       <View className="admin-list px-4 py-3" style={{ gap: 10 }}>
         {data.topMembers.length === 0 ? (
           <Text className="meta-text">No member AI calls in this period.</Text>
@@ -243,7 +244,7 @@ function Ready({ data, period, onPeriod }: { data: AiSummary; period: Period; on
           <View key={section.id} style={{ gap: 8 }}>
             <View className="flex-row items-center gap-2">
               <SymbolView name={section.icon} size={16} tintColor={colors.forestInk} />
-              <Text className="setup__section">{section.title}</Text>
+              <Text className="admin-section__title">{section.title}</Text>
             </View>
             <View className="admin-list px-4 py-3" style={{ gap: 10 }}>
               <Text className="meta-text">{section.note}</Text>

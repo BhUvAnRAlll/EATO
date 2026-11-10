@@ -7,10 +7,10 @@ import { router, useFocusEffect } from "expo-router";
 import { usePullToRefresh } from "@/components/PullToRefresh";
 import { ScreenSkeleton } from "@/components/Skeleton";
 import { DashedBlock } from "@/components/macro/DashedBlock";
-import { SymbolView } from "@/components/SymbolView";
 import { appUsage, cohortText, type CohortUnit, type Retention } from "@/lib/appUsage";
 import { useSessionToken } from "@/lib/session";
 import { useThemeColors } from "@/theme";
+import { AdminStackHeader } from "@/components/admin/AdminStackHeader";
 
 type Load = { state: "loading" } | { state: "failed"; error: string } | { state: "ready"; data: Retention };
 
@@ -60,13 +60,7 @@ export default function RetentionScreen() {
     <View className="flex-1 bg-cream">
       <StatusBar style="auto" />
       <SafeAreaView style={{ flex: 1 }}>
-        <View className="screen-bar">
-          <Pressable onPress={back} hitSlop={12} className="screen-bar__back" accessibilityRole="button" accessibilityLabel="Back">
-            <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={20} tintColor={colors.ink} />
-          </Pressable>
-          <Text className="screen-bar__title" accessibilityRole="header">Retention</Text>
-          <View style={{ width: 44 }} />
-        </View>
+        <AdminStackHeader title="Retention" onBack={back} />
 
         <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40, gap: 16 }} showsVerticalScrollIndicator={false} refreshControl={refreshControl}>
           <View className="flex-row rounded-full bg-cream-tab p-1" accessibilityRole="tablist">
@@ -104,7 +98,7 @@ export default function RetentionScreen() {
                 ))}
               </View>
 
-              <Text className="setup__section">{unit === "week" ? "Week by week" : "Month by month"}</Text>
+              <Text className="admin-section__title">{unit === "week" ? "Week by week" : "Month by month"}</Text>
               <View className="admin-list px-4 py-3" style={{ gap: 12 }}>
                 <Text className="meta-text">{`For each group, the share still active in each later ${unit}. The first bar is the ${unit} they joined.`}</Text>
                 {load.data.cohorts.map((c) => (

@@ -176,7 +176,7 @@ export default function AdminKitchen() {
           </View>
 
           <View className="flex-row items-center">
-            <Text className="setup__section flex-1">{`Staff (${kitchen.staff?.length ?? 0})`}</Text>
+            <Text className="admin-section__title flex-1">{`Staff (${kitchen.staff?.length ?? 0})`}</Text>
             <Pressable onPress={() => setEditing("new")} hitSlop={8} className="admin-chip admin-chip--on flex-row" style={{ gap: 4 }} accessibilityRole="button" accessibilityLabel="Add staff">
               <SymbolView name={{ ios: "plus", android: "add", web: "add" }} size={14} tintColor={colors.primaryText} />
               <Text className="admin-segment__label admin-segment__label--on">Add</Text>

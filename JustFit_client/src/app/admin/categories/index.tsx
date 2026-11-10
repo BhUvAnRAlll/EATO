@@ -12,6 +12,7 @@ import { DashedBlock } from "@/components/macro/DashedBlock";
 import { adminPrograms, LAYOUT_TEXT, type AdminSection } from "@/lib/adminPrograms";
 import { useSessionToken } from "@/lib/session";
 import { useThemeColors } from "@/theme";
+import { AdminStackHeader } from "@/components/admin/AdminStackHeader";
 
 type Load = { state: "loading" } | { state: "failed"; error: string } | { state: "ready"; sections: AdminSection[] };
 
@@ -52,13 +53,7 @@ export default function AdminCategoriesScreen() {
     <View className="flex-1 bg-cream">
       <StatusBar style="auto" />
       <SafeAreaView style={{ flex: 1 }}>
-        <View className="screen-bar">
-          <Pressable onPress={back} hitSlop={12} className="screen-bar__back" accessibilityRole="button" accessibilityLabel="Back">
-            <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={20} tintColor={colors.ink} />
-          </Pressable>
-          <Text className="screen-bar__title" accessibilityRole="header">Categories</Text>
-          <View className="screen-bar__spacer" />
-        </View>
+        <AdminStackHeader title="Categories" onBack={back} />
 
         <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40, gap: 12 }} showsVerticalScrollIndicator={false} refreshControl={refreshControl}>
           <Pressable onPress={() => router.push("/admin/categories/new")} className="btn-forest flex-row items-center justify-center" style={{ gap: 8 }} accessibilityRole="button" accessibilityLabel="New category">

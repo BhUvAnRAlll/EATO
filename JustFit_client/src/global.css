@@ -3747,6 +3747,24 @@
   color: var(--color-on-inverse);
 }
 
+/* Every Super Admin screen under a tab: round Back, the title large on the left, an action right */
+@utility admin-stack-header {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  padding-inline: var(--spacing-lg);
+  padding-top: var(--spacing-sm);
+  padding-bottom: 12px;
+  background-color: var(--color-cream);
+}
+
+@utility admin-stack-header__title {
+  font-family: var(--font-sans-semibold);
+  font-size: 20px;
+  line-height: 28px;
+  color: var(--color-forest-ink);
+}
+
 /* The Overview's dark Today card: the day's money large, its counts in pills under it */
 @utility admin-hero {
   gap: 14px;

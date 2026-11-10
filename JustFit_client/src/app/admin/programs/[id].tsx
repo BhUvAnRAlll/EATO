@@ -8,7 +8,6 @@ import { ProgramForm } from "@/components/admin/ProgramForm";
 import { ProgramSessions, type SessionOutcome } from "@/components/admin/ProgramSessions";
 import { usePullToRefresh } from "@/components/PullToRefresh";
 import { ScreenSkeleton } from "@/components/Skeleton";
-import { SymbolView } from "@/components/SymbolView";
 import { DashedBlock } from "@/components/macro/DashedBlock";
 import { adminPrograms, pickCover, type ProgramFields } from "@/lib/adminPrograms";
 import type { ProgramIcon, ProgramPalette } from "@/lib/fitness/catalog";
@@ -19,6 +18,7 @@ import { useSwitchColors, useThemeColors } from "@/theme";
 import { haptic } from "@/lib/haptics";
 import { confirmChoice } from "@/lib/nativeSheets";
 import { KeyboardAvoider } from "@/components/KeyboardAvoider";
+import { AdminStackHeader } from "@/components/admin/AdminStackHeader";
 
 type Load = { state: "loading" } | { state: "failed"; error: string } | { state: "ready"; program: ProgramDetail };
 type Kind = "save" | "publish" | "cover" | "hero" | "session";
@@ -140,13 +140,7 @@ export default function AdminProgramScreen() {
     <View className="flex-1 bg-cream">
       <StatusBar style="auto" />
       <SafeAreaView style={{ flex: 1 }}>
-        <View className="screen-bar">
-          <Pressable onPress={back} hitSlop={12} className="screen-bar__back" accessibilityRole="button" accessibilityLabel="Back">
-            <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={20} tintColor={colors.ink} />
-          </Pressable>
-          <Text className="screen-bar__title" accessibilityRole="header">Program</Text>
-          <View className="screen-bar__spacer" />
-        </View>
+        <AdminStackHeader title="Program" onBack={back} />
 
         {load.state === "failed" ? (
           <View className="px-4">
@@ -220,7 +214,7 @@ export default function AdminProgramScreen() {
                 {busy === "save" ? <ActivityIndicator size="small" color={colors.onPrimary} /> : <Text className="btn-forest__label">Save</Text>}
               </Pressable>
 
-              <Text className="setup__section">{`Sessions · ${programMeta(load.program)}`}</Text>
+              <Text className="admin-section__title">{`Sessions · ${programMeta(load.program)}`}</Text>
               <ProgramSessions
                 sessions={load.program.sessions}
                 busy={busy === "session"}

@@ -94,7 +94,7 @@ export default function AdminPromotions({ tab = false }: { tab?: boolean }) {
         <SymbolView name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }} size={16} tintColor={colors.muted} />
       </Pressable>
 
-      <Text className="setup__section mb-2">Promotions</Text>
+      <Text className="admin-section__title mb-2">Promotions</Text>
       <Text className="admin__hint mb-3">Members see published promotions inside their dates, in this order. Changes reach the app on its next refresh.</Text>
 
       {error && (

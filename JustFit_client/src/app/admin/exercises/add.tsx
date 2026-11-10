@@ -10,6 +10,7 @@ import { adminExercises, MUSCLE_LABEL, type DraftResult } from "@/lib/adminExerc
 import { useSessionToken } from "@/lib/session";
 import { useThemeColors } from "@/theme";
 import { KeyboardAvoider } from "@/components/KeyboardAvoider";
+import { AdminStackHeader } from "@/components/admin/AdminStackHeader";
 
 const back = () => (router.canGoBack() ? router.back() : router.replace("/admin/exercises"));
 
@@ -56,13 +57,7 @@ export default function AddExercisesScreen() {
     <View className="flex-1 bg-cream">
       <StatusBar style="auto" />
       <SafeAreaView style={{ flex: 1 }}>
-        <View className="screen-bar">
-          <Pressable onPress={back} hitSlop={12} className="screen-bar__back" accessibilityRole="button" accessibilityLabel="Back">
-            <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={20} tintColor={colors.ink} />
-          </Pressable>
-          <Text className="screen-bar__title" accessibilityRole="header">Add with AI</Text>
-          <View className="screen-bar__spacer" />
-        </View>
+        <AdminStackHeader title="Add with AI" onBack={back} />
 
         {/* Keeps the lower fields and Save above the keyboard on Android too */}
         <KeyboardAvoider>
@@ -99,7 +94,7 @@ export default function AddExercisesScreen() {
 
             {result && (
               <>
-                <Text className="setup__section">{result.added.length === 0 ? "Nothing new added" : `Added ${result.added.length} ${result.added.length === 1 ? "exercise" : "exercises"}`}</Text>
+                <Text className="admin-section__title">{result.added.length === 0 ? "Nothing new added" : `Added ${result.added.length} ${result.added.length === 1 ? "exercise" : "exercises"}`}</Text>
                 {result.added.length > 0 && (
                   <View className="admin-list">
                     {result.added.map((e, i) => (
@@ -116,7 +111,7 @@ export default function AddExercisesScreen() {
                 )}
                 {result.skipped.length > 0 && (
                   <>
-                    <Text className="setup__section">{`Left out (${result.skipped.length})`}</Text>
+                    <Text className="admin-section__title">{`Left out (${result.skipped.length})`}</Text>
                     <View className="admin-list">
                       {result.skipped.map((s, i) => (
                         <View key={`${s.name}-${i}`} className={i > 0 ? "admin-row admin-row--divided" : "admin-row"}>

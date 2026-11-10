@@ -2,12 +2,10 @@ import type { ReactNode } from "react";
 import { Platform, Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
-import { SymbolView } from "@/components/SymbolView";
-import { router } from "expo-router";
 
 import { usePullToRefresh } from "@/components/PullToRefresh";
-import { useThemeColors } from "@/theme";
 import { KeyboardAvoider } from "@/components/KeyboardAvoider";
+import { AdminStackHeader } from "@/components/admin/AdminStackHeader";
 import { AdminTabHeader } from "@/components/admin/AdminTabHeader";
 
 type AdminScreenProps = {
@@ -24,10 +22,9 @@ type AdminScreenProps = {
 
 const none = async () => {};
 
-// Shared frame for the admin screens: a stack screen's circled back button and centred title (a
-// tab root's eyebrow and large title instead), then the scrolling content (pull to refresh with onRefresh)
+// Shared frame for the admin screens: a stack screen's AdminStackHeader (a tab root's
+// AdminTabHeader), then the scrolling content (pull to refresh with onRefresh)
 export function AdminScreen({ title, subtitle, headerRight, onRefresh, hideBack = false, children }: AdminScreenProps) {
-  const colors = useThemeColors();
   const { refreshControl } = usePullToRefresh(onRefresh ?? none);
   return (
     <View className="flex-1 bg-cream">
@@ -37,14 +34,8 @@ export function AdminScreen({ title, subtitle, headerRight, onRefresh, hideBack 
           // A tab root: the shared tab header (title, bell, profile), headerRight as its actions row
           <AdminTabHeader title={title} actions={headerRight} />
         ) : (
-          // A stack screen: the circled back button and a centred title
-          <View className="screen-bar">
-            <Pressable onPress={() => (router.canGoBack() ? router.back() : router.replace("/admin"))} hitSlop={12} className="screen-bar__back" accessibilityRole="button" accessibilityLabel="Back">
-              <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={20} tintColor={colors.ink} />
-            </Pressable>
-            <Text className="screen-bar__title" numberOfLines={2} accessibilityRole="header">{title}</Text>
-            {headerRight ?? <View className="screen-bar__spacer" />}
-          </View>
+          // A stack screen: the shared admin header (round Back, the title large on the left)
+          <AdminStackHeader title={title} right={headerRight} />
         )}
 
         <KeyboardAvoider>

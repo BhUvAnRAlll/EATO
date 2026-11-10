@@ -6,7 +6,6 @@ import { router, useLocalSearchParams } from "expo-router";
 
 import { FormAlert } from "@/components/FormAlert";
 import { ScreenSkeleton } from "@/components/Skeleton";
-import { SymbolView } from "@/components/SymbolView";
 import { AdminField } from "@/components/admin/AdminField";
 import { GymReviewCard } from "@/components/admin/GymReviewCard";
 import { TransferOwnerCard } from "@/components/admin/TransferOwnerCard";
@@ -20,6 +19,7 @@ import { useGymData } from "@/lib/useGymData";
 import { useResponsive } from "@/lib/responsive";
 import { useThemeColors } from "@/theme";
 import { KeyboardAvoider } from "@/components/KeyboardAvoider";
+import { AdminStackHeader } from "@/components/admin/AdminStackHeader";
 
 const back = () => (router.canGoBack() ? router.back() : router.replace("/admin/gyms"));
 
@@ -70,16 +70,7 @@ export default function AdminGymDetailScreen() {
     <View className="flex-1 bg-cream">
       <StatusBar style="auto" />
       <SafeAreaView style={{ flex: 1 }}>
-        <View className="screen-bar">
-          <Pressable onPress={back} hitSlop={12} className="screen-bar__back" accessibilityRole="button" accessibilityLabel="Back">
-            <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={20} tintColor={colors.ink} />
-          </Pressable>
-          <View className="min-w-0 flex-1 items-center">
-            <Text className="screen-bar__title" numberOfLines={1} accessibilityRole="header">{data?.gym.name ?? "Gym"}</Text>
-            {data && <Text className="screen-bar__subtitle" numberOfLines={1}>{`${data.gym.branch} branch · ${data.gym.area}, ${data.gym.city}`}</Text>}
-          </View>
-          <View className="screen-bar__spacer" />
-        </View>
+        <AdminStackHeader title={data?.gym.name ?? "Gym"} subtitle={data ? `${data.gym.branch} branch · ${data.gym.area}, ${data.gym.city}` : undefined} onBack={back} />
         {/* Keeps the lower fields and Save above the keyboard on Android too */}
         <KeyboardAvoider>
           <ScrollView
@@ -106,7 +97,7 @@ export default function AdminGymDetailScreen() {
                   ))}
                 </View>
 
-                <Text className="setup__section">{`${data.gym.name}'s branches`}</Text>
+                <Text className="admin-section__title">{`${data.gym.name}'s branches`}</Text>
                 <View className="flex-row flex-wrap" style={{ gap: 8 }}>
                   {data.branches.map((b) => {
                     const current = b.id === data.gym.id;
@@ -153,7 +144,7 @@ export default function AdminGymDetailScreen() {
                   </View>
                 )}
 
-                <Text className="setup__section">{`Gym admins at ${data.gym.branch}`}</Text>
+                <Text className="admin-section__title">{`Gym admins at ${data.gym.branch}`}</Text>
                 <View className="admin-list">
                   {data.staff.length === 0 ? (
                     <View className="admin-row"><Text className="meta-text flex-1">{"No gym admin yet. Link one below so they can use the gym portal."}</Text></View>
@@ -202,7 +193,7 @@ export default function AdminGymDetailScreen() {
                 <FeatureGymCard gymId={gymId} />
                 <TransferOwnerCard gymId={gymId} onDone={set} />
 
-                <Text className="setup__section">SMS credits</Text>
+                <Text className="admin-section__title">SMS credits</Text>
                 {data.smsCredits === null ? (
                   <Text className="meta-text">SMS needs the 2026-11-25-gym-sms migration on this server.</Text>
                 ) : (
@@ -228,7 +219,7 @@ export default function AdminGymDetailScreen() {
                   </>
                 )}
 
-                <Text className="setup__section">Latest payments</Text>
+                <Text className="admin-section__title">Latest payments</Text>
                 {data.recent.length === 0 ? (
                   <Text className="meta-text">No payments recorded yet.</Text>
                 ) : (
@@ -248,7 +239,7 @@ export default function AdminGymDetailScreen() {
                   </View>
                 )}
 
-                <Text className="setup__section">Details</Text>
+                <Text className="admin-section__title">Details</Text>
                 {editing ? (
                   <View style={{ gap: 12 }}>
                     <AdminField label="Gym name" hint="Shared by all its branches" value={fields.name} onChangeText={(name) => setFields((f) => ({ ...f, name }))} maxLength={80} />

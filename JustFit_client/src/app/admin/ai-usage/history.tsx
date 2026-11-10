@@ -12,6 +12,7 @@ import { FEATURE_SHORT, PROVIDER_LABEL, STATUS_LABEL } from "@/data/aiUsage";
 import { aiUsage, compact, inr, type AiFeature, type AiStatus, type HistoryFilters, type HistoryPage, type HistorySort } from "@/lib/aiUsage";
 import { useSessionToken } from "@/lib/session";
 import { useThemeColors } from "@/theme";
+import { AdminStackHeader } from "@/components/admin/AdminStackHeader";
 
 type Load = { state: "loading" } | { state: "failed"; error: string } | { state: "ready"; data: HistoryPage };
 
@@ -79,13 +80,7 @@ export default function AiUsageHistory() {
     <View className="flex-1 bg-cream">
       <StatusBar style="auto" />
       <SafeAreaView style={{ flex: 1 }}>
-        <View className="screen-bar">
-          <Pressable onPress={back} hitSlop={12} className="screen-bar__back" accessibilityRole="button" accessibilityLabel="Back">
-            <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={20} tintColor={colors.ink} />
-          </Pressable>
-          <Text className="screen-bar__title" accessibilityRole="header">Usage history</Text>
-          <View className="screen-bar__spacer" />
-        </View>
+        <AdminStackHeader title="Usage history" onBack={back} />
 
         <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40, gap: 12 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled"
             keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"} refreshControl={refreshControl}>

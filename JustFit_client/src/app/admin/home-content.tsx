@@ -131,7 +131,7 @@ export default function AdminHomeContent() {
           {error && <FormAlert message={error} />}
           {saved && <Text className="admin__success">Saved. Members see it on their next refresh.</Text>}
 
-          <Text className="setup__section">Section labels</Text>
+          <Text className="admin-section__title">Section labels</Text>
           <AdminField label="Macro heading" value={content.nutritionHeading} onChangeText={(nutritionHeading) => update({ nutritionHeading })} maxLength={40} />
           <AdminField label="Macro action" value={content.nutritionActionLabel} onChangeText={(nutritionActionLabel) => update({ nutritionActionLabel })} maxLength={30} />
           <AdminField label="Popular meals heading" value={content.popularHeading} onChangeText={(popularHeading) => update({ popularHeading })} maxLength={40} />
@@ -144,7 +144,7 @@ export default function AdminHomeContent() {
           </View>
 
           <View className="flex-row items-center justify-between">
-            <Text className="setup__section">Quick actions</Text>
+            <Text className="admin-section__title">Quick actions</Text>
             <AdminButton label="Add card" onPress={addQuickAction} disabled={content.quickActions.length >= MAX_QUICK_ACTIONS} />
           </View>
           {content.quickActions.map((action, index) => (
@@ -163,7 +163,7 @@ export default function AdminHomeContent() {
             </View>
           ))}
 
-          <Text className="setup__section">Popular meals</Text>
+          <Text className="admin-section__title">Popular meals</Text>
           <Text className="admin__hint">Shown in this order. Tap a meal on the menu below to add or remove it (up to {MAX_POPULAR}).</Text>
           {content.popularMealIds.map((mealId, index) => {
             const meal = mealById.get(mealId);
@@ -187,7 +187,7 @@ export default function AdminHomeContent() {
             );
           })}
 
-          <Text className="setup__section">Menu</Text>
+          <Text className="admin-section__title">Menu</Text>
           <View className="gap-2">
             {meals.map((meal) => {
               const listed = content.popularMealIds.includes(meal.id);

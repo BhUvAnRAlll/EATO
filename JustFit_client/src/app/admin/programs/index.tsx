@@ -15,6 +15,7 @@ import { LEVEL_TEXT, programMeta, type ProgramCardData } from "@/lib/fitnessApi"
 import { useSessionToken } from "@/lib/session";
 import { useAdminSections } from "@/lib/useAdminSections";
 import { useThemeColors } from "@/theme";
+import { AdminStackHeader } from "@/components/admin/AdminStackHeader";
 
 type Load = { state: "loading" } | { state: "failed"; error: string } | { state: "ready"; programs: ProgramCardData[] };
 
@@ -46,13 +47,7 @@ export default function AdminProgramsScreen() {
     <View className="flex-1 bg-cream">
       <StatusBar style="auto" />
       <SafeAreaView style={{ flex: 1 }}>
-        <View className="screen-bar">
-          <Pressable onPress={back} hitSlop={12} className="screen-bar__back" accessibilityRole="button" accessibilityLabel="Back">
-            <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={20} tintColor={colors.ink} />
-          </Pressable>
-          <Text className="screen-bar__title" accessibilityRole="header">Programs</Text>
-          <View className="screen-bar__spacer" />
-        </View>
+        <AdminStackHeader title="Programs" onBack={back} />
 
         <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40, gap: 12 }} showsVerticalScrollIndicator={false} refreshControl={refreshControl}>
           <Pressable onPress={() => router.push("/admin/programs/new")} className="btn-forest flex-row items-center justify-center" style={{ gap: 8 }} accessibilityRole="button" accessibilityLabel="New program, written with AI">
@@ -76,7 +71,7 @@ export default function AdminProgramsScreen() {
               if (items.length === 0) return null;
               return (
                 <View key={section.id} className="gap-2">
-                  <Text className="setup__section">{section.published ? section.title : `${section.title} · hidden`}</Text>
+                  <Text className="admin-section__title">{section.published ? section.title : `${section.title} · hidden`}</Text>
                   <View className="admin-list">
                     {items.map((p, i) => (
                       <Pressable

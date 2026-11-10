@@ -13,6 +13,7 @@ import { MODULE_ICON } from "@/data/appUsage";
 import { appUsage, changeText, rangeText, RANGE_LABEL, type FeatureDetail, type UsageRange } from "@/lib/appUsage";
 import { useSessionToken } from "@/lib/session";
 import { useThemeColors } from "@/theme";
+import { AdminStackHeader } from "@/components/admin/AdminStackHeader";
 
 type Load = { state: "loading" } | { state: "failed"; error: string } | { state: "ready"; data: FeatureDetail };
 
@@ -22,7 +23,6 @@ const ranges: UsageRange[] = ["7d", "30d", "90d"];
 // Super Admin › App Usage › one feature: its uses and members for a range against the range
 // before, a per-day chart, and the members who used it most (admins only).
 export default function FeatureDetailScreen() {
-  const colors = useThemeColors();
   const { id } = useLocalSearchParams<{ id: string }>();
   const getToken = useSessionToken();
   const [range, setRange] = useState<UsageRange>("30d");
@@ -54,13 +54,7 @@ export default function FeatureDetailScreen() {
     <View className="flex-1 bg-cream">
       <StatusBar style="auto" />
       <SafeAreaView style={{ flex: 1 }}>
-        <View className="screen-bar">
-          <Pressable onPress={back} hitSlop={12} className="screen-bar__back" accessibilityRole="button" accessibilityLabel="Back">
-            <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={20} tintColor={colors.ink} />
-          </Pressable>
-          <Text className="screen-bar__title" accessibilityRole="header" numberOfLines={1}>{title}</Text>
-          <View style={{ width: 44 }} />
-        </View>
+        <AdminStackHeader title={title} onBack={back} />
 
         <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40, gap: 16 }} showsVerticalScrollIndicator={false} refreshControl={refreshControl}>
           <View className="flex-row rounded-full bg-cream-tab p-1" accessibilityRole="tablist">
@@ -121,7 +115,7 @@ function Ready({ data }: { data: FeatureDetail }) {
         <BarChart points={series.map((p) => ({ key: p.key, value: p.uses }))} format={(v) => `${v} uses`} label={label} color={colors.accentBlue} />
       </View>
 
-      <Text className="setup__section">Used most by</Text>
+      <Text className="admin-section__title">Used most by</Text>
       <View className="admin-list">
         {(data.topMembers ?? []).length === 0 ? (
           <Text className="meta-text px-4 py-3">Nobody in this range.</Text>

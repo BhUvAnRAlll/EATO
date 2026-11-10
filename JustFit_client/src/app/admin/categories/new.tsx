@@ -5,11 +5,11 @@ import { StatusBar } from "expo-status-bar";
 import { router } from "expo-router";
 
 import { CategoryForm } from "@/components/admin/CategoryForm";
-import { SymbolView } from "@/components/SymbolView";
 import { adminPrograms, type SectionFields } from "@/lib/adminPrograms";
 import { useSessionToken } from "@/lib/session";
 import { useThemeColors } from "@/theme";
 import { KeyboardAvoider } from "@/components/KeyboardAvoider";
+import { AdminStackHeader } from "@/components/admin/AdminStackHeader";
 
 const back = () => (router.canGoBack() ? router.back() : router.replace("/admin/categories"));
 
@@ -47,13 +47,7 @@ export default function NewCategoryScreen() {
     <View className="flex-1 bg-cream">
       <StatusBar style="auto" />
       <SafeAreaView style={{ flex: 1 }}>
-        <View className="screen-bar">
-          <Pressable onPress={back} hitSlop={12} className="screen-bar__back" accessibilityRole="button" accessibilityLabel="Back">
-            <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={20} tintColor={colors.ink} />
-          </Pressable>
-          <Text className="screen-bar__title" accessibilityRole="header">New category</Text>
-          <View className="screen-bar__spacer" />
-        </View>
+        <AdminStackHeader title="New category" onBack={back} />
         {/* Keeps the lower fields and Save above the keyboard on Android too */}
         <KeyboardAvoider>
           <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 48, gap: 16 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}>

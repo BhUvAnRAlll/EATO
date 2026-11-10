@@ -14,6 +14,7 @@ import { useSessionToken } from "@/lib/session";
 import { useThemeColors, useSwitchColors } from "@/theme";
 import { haptic } from "@/lib/haptics";
 import { KeyboardAvoider } from "@/components/KeyboardAvoider";
+import { AdminStackHeader } from "@/components/admin/AdminStackHeader";
 
 type Load = { state: "loading" } | { state: "failed"; error: string } | { state: "ready"; data: BudgetView };
 
@@ -106,13 +107,7 @@ export default function AiBudgetScreen() {
     <View className="flex-1 bg-cream">
       <StatusBar style="auto" />
       <SafeAreaView style={{ flex: 1 }}>
-        <View className="screen-bar">
-          <Pressable onPress={back} hitSlop={12} className="screen-bar__back" accessibilityRole="button" accessibilityLabel="Back">
-            <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={20} tintColor={colors.ink} />
-          </Pressable>
-          <Text className="screen-bar__title" accessibilityRole="header">Budget & alerts</Text>
-          <View className="screen-bar__spacer" />
-        </View>
+        <AdminStackHeader title="Budget & alerts" onBack={back} />
 
         {/* Keeps the lower fields and Save above the keyboard on Android too */}
         <KeyboardAvoider>
@@ -126,7 +121,7 @@ export default function AiBudgetScreen() {
               <>
                 <Utilization data={load.data} />
 
-                <Text className="setup__section">Settings</Text>
+                <Text className="admin-section__title">Settings</Text>
                 <View className="admin-list px-4 py-3" style={{ gap: 12 }}>
                   <Text className="card__title">Monthly AI spending limit (₹)</Text>
                   <TextInput
@@ -170,7 +165,7 @@ export default function AiBudgetScreen() {
                   )}
                 </View>
 
-                <Text className="setup__section">Alerts</Text>
+                <Text className="admin-section__title">Alerts</Text>
                 {load.data.alerts.length === 0 ? (
                   <DashedBlock icon={{ ios: "checkmark.circle", android: "check_circle", web: "check_circle" }} title="No alerts" text="Threshold and spike alerts show up here when they fire." />
                 ) : (

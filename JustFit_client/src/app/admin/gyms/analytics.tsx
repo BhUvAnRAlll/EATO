@@ -3,7 +3,7 @@ import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 
-import { ScreenHeader } from "@/components/ScreenHeader";
+import { AdminStackHeader } from "@/components/admin/AdminStackHeader";
 import { ScreenSkeleton } from "@/components/Skeleton";
 import { BarChart } from "@/components/admin/BarChart";
 import { DashedBlock } from "@/components/macro/DashedBlock";
@@ -58,7 +58,7 @@ export default function GymAnalyticsScreen() {
     <View className="flex-1 bg-cream">
       <StatusBar style="dark" />
       <SafeAreaView edges={["top"]} style={{ flex: 1 }}>
-        <ScreenHeader title="Gym analytics" fallback="/admin/gyms" />
+        <AdminStackHeader title="Gym analytics" fallback="/admin/gyms" />
         <ScrollView
           contentContainerStyle={{ padding: 16, paddingBottom: 48, gap: 14 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.leaf} colors={[colors.leaf]} />}

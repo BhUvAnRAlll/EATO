@@ -101,7 +101,7 @@ export default function AdminIssue() {
             {!closed ? <Text className="meta-text">Resolve and Close need a note; the member reads it. Payments are in test mode, so a refund is recorded, not paid.</Text> : null}
           </View>
 
-          <Text className="setup__section">Trail</Text>
+          <Text className="admin-section__title">Trail</Text>
           {(issue.events ?? []).map((e, i) => (
             <View key={`${e.action}-${i}`} style={{ gap: 2 }}>
               <Text className="type-body text-forest-ink">{`${ACTION_WORD[e.action] ?? e.action}${e.by ? ` · ${e.by}` : ""}`}</Text>
