@@ -18,7 +18,8 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": true
+      "predictiveBackGestureEnabled": true,
+      "blockedPermissions": ["android.permission.WRITE_CONTACTS"]
     },
     "web": {
       "output": "server",
@@ -94,6 +95,12 @@
         {
           "microphonePermission": "justFit uses the microphone so you can speak your questions to your AI coach instead of typing. Your phone turns speech into text itself; only when it can't for your language is a short clip sent to justFit, and it is never stored.",
           "speechRecognitionPermission": "justFit uses speech recognition to turn what you say into text for your AI coach."
+        }
+      ],
+      [
+        "expo-contacts",
+        {
+          "contactsPermission": "justFit opens your contacts only when you tap From contacts, to fill in a delivery receiver's name and number. Nothing else is read or sent."
         }
       ],
       "./plugins/withPodsDeploymentTarget"

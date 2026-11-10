@@ -791,7 +791,12 @@ deliveries decided by a pincode list, the selected address kept on the server.
   form's Change), `form.tsx` Add / Edit (`?id=`): receiver name and +91 mobile (pre-filled from the
   account), house/flat, apartment/street/area, optional landmark, city, pincode (checked live),
   Home / Work / Other, optional instructions, "Deliver to this address"; Save pinned above the
-  keyboard. The picked place passes between them in `store/addressDraft.ts` (session only).
+  keyboard. The picked place passes between them in `store/addressDraft.ts` (session only). **From contacts (2026-11-10, `expo-contacts` approved, free):** the
+  form's Receiver heading has From contacts (`lib/contactPicker.ts`, phones only, hidden on the web
+  and on a build made before the library): the phone's own picker through `expo-contacts/legacy`
+  (an iPhone needs no permission; Android asks for READ_CONTACTS, WRITE_CONTACTS is blocked in
+  `app.json`), then the name and the contact's Indian mobiles (`addressRules.contactMobiles`, pure
+  and tested; several → `showActions`). Nothing is sent but what is saved.
 - **Server** `JustFit_server/addresses/` (`rules.js` pure, `service.js`, `routes.js`), mounted at
   `/api/addresses` behind `requireUser` and a per-user limit: `GET /` (`addresses`, `selectedId`,
   `max`), `POST /`, `PUT /:id` (every field), `DELETE /:id`, `POST /:id/default`,

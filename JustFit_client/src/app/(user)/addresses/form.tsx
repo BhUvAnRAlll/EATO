@@ -1,5 +1,5 @@
-import { useEffect, useState, type ReactNode } from "react";
-import { Keyboard, Platform, ScrollView, Switch, Text, View } from "react-native";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Keyboard, Linking, Platform, ScrollView, Switch, Text, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { Redirect, router, useLocalSearchParams } from "expo-router";
@@ -13,10 +13,12 @@ import { ScreenSkeleton } from "@/components/Skeleton";
 import { SymbolView } from "@/components/SymbolView";
 import { SetupField } from "@/components/setup/SetupField";
 import { KIND_ICON } from "@/data/addresses";
+import { canPickContact, pickContact } from "@/lib/contactPicker";
 import { addressApi, type DeliveryAddress, type Serviceable } from "@/lib/addressApi";
-import { KINDS, KIND_LABEL, PINCODE, formProblem, phoneDigits, type AddressForm, type AddressKind, type PickedPlace } from "@/lib/addressRules";
+import { KINDS, KIND_LABEL, PINCODE, formProblem, phoneDigits, phoneText, type AddressForm, type AddressKind, type PickedPlace } from "@/lib/addressRules";
 import { haptic } from "@/lib/haptics";
 import { hud } from "@/lib/hud";
+import { confirmChoice, showActions } from "@/lib/nativeSheets";
 import { useAddressBook } from "@/lib/useAddressBook";
 import { useAddressDraft } from "@/store/addressDraft";
 import { useAuthStore } from "@/store/auth";
@@ -150,6 +152,38 @@ function AddressFormBody({ editId, saved, initial, getToken }: { editId: number 
     router.dismissTo("/addresses");
   };
 
+  // Receiver from the phone's contacts: the name, and the number (asked when there are several)
+  const picking = useRef(false);
+  const fromContacts = async () => {
+    if (picking.current) return;
+    picking.current = true;
+    Keyboard.dismiss();
+    const pick = await pickContact();
+    picking.current = false;
+    if (pick.kind === "cancelled") return;
+    if (pick.kind === "failed") return hud.error("Couldn't open your contacts");
+    if (pick.kind === "denied") {
+      const open = await confirmChoice({ title: "Contacts are off", message: "Allow justFit to read your contacts in Settings to pick a receiver from them.", confirmLabel: "Open Settings", destructive: false });
+      if (open) Linking.openSettings().catch(() => {});
+      return;
+    }
+    const { name, mobiles } = pick.contact;
+    const fill = (digits: string | null) => {
+      haptic.select();
+      setForm((f) => ({ ...f, receiverName: name || f.receiverName, receiverPhone: digits ?? f.receiverPhone }));
+    };
+    if (mobiles.length === 0) {
+      fill(null);
+      return hud.error("No Indian mobile number on that contact");
+    }
+    if (mobiles.length === 1) return fill(mobiles[0].digits);
+    showActions({
+      title: name || "Pick a number",
+      message: "Which number takes the delivery?",
+      actions: mobiles.map((m) => ({ label: m.label ? `${phoneText(m.digits)} · ${m.label}` : phoneText(m.digits), onPress: () => fill(m.digits) })),
+    });
+  };
+
   const changePin = () => {
     // A new address came from the map: back to it. An edit opens the map on its own pin.
     if (!editId && router.canGoBack()) return router.back();
@@ -179,7 +213,15 @@ function AddressFormBody({ editId, saved, initial, getToken }: { editId: number 
           </View>
         )}
 
-        <Text className="setup__section mt-2">Receiver</Text>
+        <View className="mt-2 flex-row items-center justify-between" style={{ gap: 12 }}>
+          <Text className="setup__section">Receiver</Text>
+          {canPickContact && (
+            <PressableScale onPress={fromContacts} className="address-action" accessibilityRole="button" accessibilityLabel="Pick the receiver from your contacts">
+              <SymbolView name={{ ios: "person.crop.circle", android: "contacts", web: "contacts" }} size={16} tintColor={colors.primaryText} />
+              <Text className="address-action__label" style={{ color: colors.primaryText }}>From contacts</Text>
+            </PressableScale>
+          )}
+        </View>
         <SetupField label="Receiver's name" icon={{ ios: "person", android: "person", web: "person" }} value={form.receiverName} onChangeText={(t) => set("receiverName")(t.slice(0, 60))} placeholder="Who takes the delivery" autoCapitalize="words" textContentType="name" autoComplete="name" maxLength={60} />
         <SetupField label="Mobile number" icon={{ ios: "phone", android: "call", web: "call" }} prefix="+91" value={form.receiverPhone} onChangeText={(t) => set("receiverPhone")(phoneDigits(t))} placeholder="10-digit mobile number" keyboardType="phone-pad" textContentType="telephoneNumber" autoComplete="tel" maxLength={14} invalid={form.receiverPhone.length === 10 && !/^[6-9]/.test(form.receiverPhone)} />
 

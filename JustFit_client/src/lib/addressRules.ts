@@ -64,6 +64,23 @@ export function phoneDigits(text: string): string {
   return digits.slice(0, 10);
 }
 
+// A contact's numbers from the phone's address book, kept only when they are Indian mobiles
+// ("+91 98765 43210", "098765 43210", "98765-43210"), once each, in the contact's order. Stricter
+// than phoneDigits: a foreign or landline number is left out rather than cut to 10 digits.
+export function contactMobiles(numbers: readonly { number?: string | null; label?: string | null }[]): { digits: string; label: string }[] {
+  const seen = new Set<string>();
+  const found: { digits: string; label: string }[] = [];
+  for (const entry of numbers) {
+    let digits = (entry.number ?? "").replace(/\D/g, "");
+    if (digits.length === 12 && digits.startsWith("91")) digits = digits.slice(2);
+    else if (digits.length === 11 && digits.startsWith("0")) digits = digits.slice(1);
+    if (!MOBILE.test(digits) || seen.has(digits)) continue;
+    seen.add(digits);
+    found.push({ digits, label: (entry.label ?? "").trim() });
+  }
+  return found;
+}
+
 // "9876543210" → "+91 98765 43210"
 export const phoneText = (digits: string) => (MOBILE.test(digits) ? `+91 ${digits.slice(0, 5)} ${digits.slice(5)}` : digits);
 

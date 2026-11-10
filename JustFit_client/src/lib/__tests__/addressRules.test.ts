@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { addressLines, formProblem, phoneDigits, phoneText, placeFromGeocode, unnamedPlace, type AddressForm } from "../addressRules.ts";
+import { addressLines, contactMobiles, formProblem, phoneDigits, phoneText, placeFromGeocode, unnamedPlace, type AddressForm } from "../addressRules.ts";
 
 const at = { latitude: 13.3392, longitude: 77.1017 };
 const form = (over: Partial<AddressForm> = {}): AddressForm => ({
@@ -38,6 +38,22 @@ describe("delivery address rules", () => {
     assert.equal(phoneDigits("09876543210"), "9876543210");
     assert.equal(phoneDigits("98765-432"), "98765432");
     assert.equal(phoneText("9876543210"), "+91 98765 43210");
+  });
+
+  it("keeps only a contact's Indian mobile numbers, once each", () => {
+    const found = contactMobiles([
+      { number: "+91 98765 43210", label: "mobile" },
+      { number: "098765 43210", label: "home" },
+      { number: "+1 212 555 0100", label: "work" },
+      { number: "2345 6789", label: "office" },
+      { number: "70123-45678" },
+      { number: null },
+    ]);
+    assert.deepEqual(found, [
+      { digits: "9876543210", label: "mobile" },
+      { digits: "7012345678", label: "" },
+    ]);
+    assert.deepEqual(contactMobiles([]), []);
   });
 
   it("names the form's first problem, in field order", () => {
