@@ -28,9 +28,9 @@ type Load = { state: "loading" } | { state: "failed"; error: string } | { state:
 
 // One meal (the user's 2026-11-10 design): the photo, diet, name, price per meal, what's in it, the
 // calories and macros, then Subscription Plans (the Super Admin's lengths with their % off). Pinned at
-// the bottom: the quantity and Add Subscription (on to the start day, meal time, address and Pay), and
-// under them a small "order just once" link to the cart (the user asked for no One-time | Subscription
-// switch). Before the subscriptions migration only the cart is offered. The heart is red.
+// the bottom: the quantity with Add to cart (order once) beside it, and Add Subscription under them (on
+// to the start day, meal time, address and Pay). A member can do both (the user's choice; no One-time |
+// Subscription switch). Before the subscriptions migration only the cart is offered. The heart is red.
 export default function MealDetail() {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
@@ -108,9 +108,16 @@ export default function MealDetail() {
     hud.success("Added to cart");
   };
 
-  let action: { label: string; onPress: () => void } | null = null;
-  if (meal && subscribing && length) action = { label: `${narrow ? "Subscribe" : "Add Subscription"} · ${rupees(subscriptionPrice(meal.price, quantity, length.days, length.percentOff).total)}`, onPress: subscribe };
-  else if (meal && !subscribing) action = inCart > 0 ? { label: `View cart · ${rupees(meal.price * inCart)}`, onPress: () => router.push("/meals/cart") } : { label: `Add to cart · ${rupees(meal.price * quantity)}`, onPress: addToCart };
+  // Both ways stay open: once through the cart, and the subscription (a member may do both)
+  const cart = meal
+    ? inCart > 0
+      ? { label: `View cart (${inCart})`, onPress: () => router.push("/meals/cart") }
+      : { label: `Add to cart · ${rupees(meal.price * quantity)}`, onPress: addToCart }
+    : null;
+  const subscription =
+    meal && subscribing && length
+      ? { label: `${narrow ? "Subscribe" : "Add Subscription"} · ${rupees(subscriptionPrice(meal.price, quantity, length.days, length.percentOff).total)}`, onPress: subscribe }
+      : null;
 
   return (
     <View className="flex-1 meal-page">
@@ -182,27 +189,16 @@ export default function MealDetail() {
             <View className="meal-buybar meal-buybar--stack" style={{ paddingBottom: Math.max(insets.bottom, 12) }}>
               <View className="flex-row items-center" style={{ gap: 12 }}>
                 <QuantityPill quantity={shown} max={MAX_PER_MEAL} name={meal.name} onChange={changeQuantity} />
-                <View className="min-w-0 flex-1">
-                  {action ? (
-                    <PressableScale haptic="tap" scaleTo={0.98} onPress={action.onPress} className="sub-cta" accessibilityRole="button" accessibilityLabel={action.label}>
-                      <Text className="sub-cta__label" numberOfLines={1} style={{ fontSize: 15 }}>{action.label}</Text>
-                    </PressableScale>
-                  ) : null}
-                </View>
+                {cart ? (
+                  <PressableScale haptic="tap" scaleTo={0.98} onPress={cart.onPress} className={subscription ? "meal-btn-outline min-w-0 flex-1" : "sub-cta min-w-0 flex-1"} accessibilityRole="button" accessibilityLabel={cart.label}>
+                    <Text className={subscription ? "meal-btn-outline__label" : "sub-cta__label"} numberOfLines={1} style={{ fontSize: 15 }}>{cart.label}</Text>
+                  </PressableScale>
+                ) : null}
               </View>
-              {subscribing ? (
-                <PressableScale
-                  haptic="select"
-                  onPress={inCart > 0 ? () => router.push("/meals/cart") : addToCart}
-                  className="self-center"
-                  hitSlop={8}
-                  accessibilityRole="button"
-                  accessibilityLabel={inCart > 0 ? `${inCart} in your cart. View cart` : `Order just once: add ${quantity} to cart, ${rupees(meal.price * quantity)}`}
-                >
-                  <Text className="meal-once">
-                    {inCart > 0 ? `${inCart} in your cart · ` : "Or order just once · "}
-                    <Text className="meal-once__link">{inCart > 0 ? "View cart" : `Add to cart ${rupees(meal.price * quantity)}`}</Text>
-                  </Text>
+              {subscription ? (
+                <PressableScale haptic="tap" scaleTo={0.98} onPress={subscription.onPress} className="sub-cta" accessibilityRole="button" accessibilityLabel={subscription.label}>
+                  <SymbolView name={{ ios: "calendar", android: "calendar_month", web: "calendar_month" }} size={18} tintColor={colors.white} />
+                  <Text className="sub-cta__label" numberOfLines={1} style={{ fontSize: 15 }}>{subscription.label}</Text>
                 </PressableScale>
               ) : null}
             </View>

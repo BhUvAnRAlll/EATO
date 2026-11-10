@@ -451,9 +451,9 @@ The Meals module is green (`meal-*` tokens and utilities); the user chose green 
   **A meal's page** (`meals/[id].tsx`): photo, diet, name, "₹x per meal", macros, then Subscription
   Plans (`components/meals/SubscriptionChoice.tsx`: "Save up to x%", a card per length with meals,
   price and "x% off", "Daily meal delivery for N days"); no One-time | Subscription switch (the user's
-  choice, later the same day): the bar pins `QuantityPill` (1-3) and Add Subscription · ₹x, with "Or
-  order just once · Add to cart ₹x" (or "n in your cart · View cart") under it. Before the migration the
-  bar is Add to cart. The checkout, My subscriptions and a subscription's page follow the same look
+  choice, later the same day): the bar pins `QuantityPill` (1-3) with an outlined Add to cart · ₹x
+  (View cart (n) once it's in) beside it and the green Add Subscription · ₹x under them: a member can
+  order once and subscribe too. Before the migration the bar is a green Add to cart only. The checkout, My subscriptions and a subscription's page follow the same look
   (photo on top, name and price, the plan on a green-edged `meal-plan-card`, `meal-facts`).
   **Subscribing** (`meals/subscribe.tsx`): start day (tomorrow to 7 days), meal time (the ones on),
   address, the bill (price × how many × days, less the % off), Pay through the same test checkout →

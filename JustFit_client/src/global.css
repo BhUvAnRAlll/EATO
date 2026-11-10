@@ -1593,25 +1593,30 @@
   box-shadow: 0 -6px 18px rgba(17, 17, 17, 0.06);
 }
 
+/* Add to cart beside the quantity when Add Subscription is the green button under it */
+@utility meal-btn-outline {
+  min-height: 54px;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  padding-inline: 12px;
+  border-radius: var(--radius-pill);
+  border-width: 1.5px;
+  border-color: var(--color-meal-primary);
+  background-color: var(--color-surface);
+}
+
+@utility meal-btn-outline__label {
+  font-family: var(--font-sans-semibold);
+  font-size: 15px;
+  line-height: 20px;
+  color: var(--color-primary-text);
+}
+
 @utility meal-buybar--stack {
   flex-direction: column;
   align-items: stretch;
   gap: 10px;
-}
-
-/* "Or order just once · Add to cart ₹299" under the bar's button */
-@utility meal-once {
-  font-family: var(--font-sans);
-  font-size: 13px;
-  line-height: 18px;
-  color: var(--color-muted);
-  text-align: center;
-}
-
-@utility meal-once__link {
-  font-family: var(--font-sans-semibold);
-  color: var(--color-ink);
-  text-decoration-line: underline;
 }
 
 /* ---- The Meals tab's storefront (2026-11-09 redesign; BEM shop-*) ---- */

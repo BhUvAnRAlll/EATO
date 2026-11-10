@@ -147,12 +147,12 @@ describe("ui subscriptions: a meal's page, subscribing and My subscriptions", ()
     if (problems.length > 0) throw new Error(`cleanup incomplete: ${problems.join("; ")}`);
   });
 
-  it("1. a meal's page: the lengths, the quantity, Add Subscription and the order-once link (no switch)", run("meal-subscription", async () => {
+  it("1. a meal's page: the lengths, the quantity, Add to cart and Add Subscription side by side (no switch)", run("meal-subscription", async () => {
     await viewport(390, 844);
     await signInAs(page, h, identities.member);
     await page.waitFor(`location.pathname.startsWith("/home")`, 60000, "Home");
     await h.goto(`/meals/${mealIds[0]}`, "Subscription Plans");
-    for (const text of [`Grilled Chicken Bowl ${runId}`, "per meal", "Calories", "Or order just once", "Add to cart ₹259"]) await h.expectText(text);
+    for (const text of [`Grilled Chicken Bowl ${runId}`, "per meal", "Calories", "Add to cart · ₹259"]) await h.expectText(text);
     assert.equal(await page.evaluate(`(document.body.innerText || "").includes("One-time Order")`), false, "no One-time | Subscription switch");
     for (const text of ["Subscription Plans", "Save up to 10%", "3 Days", "7 Days", "15 Days", "1 Month", "26 meals", "₹6,061", "10% off", "Daily meal delivery for 26 days", "Add Subscription · ₹6,061"]) await h.expectText(text);
     await snapshotAllWidths("meal-subscription");
@@ -161,6 +161,10 @@ describe("ui subscriptions: a meal's page, subscribing and My subscriptions", ()
     await clickLabel(`One more Grilled Chicken Bowl ${runId}`);
     await h.expectText("Add Subscription · ₹3,445");
     await h.expectText("14 meals");
+    // Ordering once as well: the cart gets the meal and the subscription stays offered
+    await clickLabel("Add to cart · ₹518");
+    await h.expectText("View cart (2)");
+    await h.expectText("Add Subscription · ₹3,445");
   }));
 
   it("2. subscribe: start, meal time, address and bill, then pay in the test checkout", run("subscribe", async () => {
