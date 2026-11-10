@@ -100,6 +100,8 @@ async function startTestServer(env, { sms = "fake" } = {}) {
       ...(env.GYM_DOCUMENT_DIR ? { GYM_DOCUMENT_DIR: env.GYM_DOCUMENT_DIR } : {}),
       ...(env.EXPENSE_BILL_DIR ? { EXPENSE_BILL_DIR: env.EXPENSE_BILL_DIR } : {}),
       ...(env.MEAL_PHOTO_DIR ? { MEAL_PHOTO_DIR: env.MEAL_PHOTO_DIR } : {}),
+      // Body scan photos never go to the repo's uploads/: a test's folder, else one under the system temp
+      BODY_SCAN_DIR: env.BODY_SCAN_DIR || path.join(os.tmpdir(), "justfit-test-body-scans"),
       // The YouTube test points the video loader at a local fake API with a test key
       ...(env.YOUTUBE_API_URL ? { YOUTUBE_API_URL: env.YOUTUBE_API_URL, YOUTUBE_API_KEY: env.YOUTUBE_API_KEY } : {}),
     },

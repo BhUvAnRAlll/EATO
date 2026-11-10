@@ -12,7 +12,7 @@ import { useThemeColors } from "@/theme";
 
 const NOTES_MAX = 500;
 
-// Intake 9/9: anything else for the plan, the "not medical advice" tick, and the save.
+// Intake 10/10: anything else for the plan, the "not medical advice" tick, and the save.
 // Saving is the only write in the whole intake; it closes the flow back to the Coach tab.
 export default function IntakeNotes() {
   const colors = useThemeColors();

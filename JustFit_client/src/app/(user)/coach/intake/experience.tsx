@@ -8,7 +8,7 @@ import { useCoachIntakeStore } from "@/store/coachIntake";
 
 const bars = { ios: "cellularbars", android: "signal_cellular_alt", web: "signal_cellular_alt" } as const;
 
-// Intake 2/9: experience and whether they train now (sets the starting point)
+// Intake 2/10: experience and whether they train now (sets the starting point)
 export default function IntakeExperience() {
   const { draft, update } = useCoachIntakeStore();
 

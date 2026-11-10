@@ -8,8 +8,9 @@ import type {
   Option,
 } from "@/types/profile";
 
-// Every profile setup screen, in order (the progress counter, "2/7", follows this list)
-export const setupSteps = ["personal", "body-composition", "goal", "activity", "food", "lifestyle", "targets"] as const;
+// Every profile setup screen, in order (the progress counter, "2/6", follows this list). The body
+// scan is not a setup step (2026-11-10): it is in the AI Coach intake and on Profile.
+export const setupSteps = ["personal", "goal", "activity", "food", "lifestyle", "targets"] as const;
 export type SetupStep = (typeof setupSteps)[number];
 
 export const genderOptions: Option<Gender>[] = [
@@ -62,6 +63,15 @@ export const healthFlagOptions: Option<HealthFlag>[] = [
   { id: "medical_condition", label: "Medical condition affecting diet" },
   { id: "eating_disorder", label: "History of an eating disorder" },
 ];
+
+// Pregnancy and breastfeeding are not offered to a member who said they are male (2026-11-10)
+const pregnancyFlags: HealthFlag[] = ["pregnant", "breastfeeding"];
+export function healthFlagOptionsFor(gender: Gender | null): Option<HealthFlag>[] {
+  return gender === "male" ? healthFlagOptions.filter((flag) => !pregnancyFlags.includes(flag.id)) : healthFlagOptions;
+}
+export function healthFlagsFor(gender: Gender | null, flags: HealthFlag[]): HealthFlag[] {
+  return gender === "male" ? flags.filter((flag) => !pregnancyFlags.includes(flag)) : flags;
+}
 
 export const dietOptions: Option<DietId>[] = [
   { id: "vegetarian", label: "Vegetarian", icon: { ios: "leaf", android: "eco", web: "eco" } },

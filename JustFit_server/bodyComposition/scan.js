@@ -1,7 +1,8 @@
 // Estimates body fat % from a front and a side photo through the Forma scan server, a
 // separate process reached at FORMA_SCAN_URL (server config, never the request). The checks
 // are pure and unit-tested; the one network call takes an injectable fetch so a fake Forma
-// can stand in for it. Photos pass through in memory and are never stored or logged.
+// can stand in for it. Nothing about the photos is logged; since 2026-11-10 the route keeps them
+// with the report (scanStore.js).
 const { decodeBase64, sniffMediaType } = require("./upload");
 
 const scanLimits = {

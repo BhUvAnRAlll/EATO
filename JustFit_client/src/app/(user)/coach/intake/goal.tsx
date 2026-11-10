@@ -6,7 +6,7 @@ import { IntakeFrame } from "@/components/coach/IntakeFrame";
 import { coachGoals } from "@/data/coach";
 import { useCoachIntakeStore } from "@/store/coachIntake";
 
-// Intake 1/9: the one goal the coach builds around
+// Intake 1/10: the one goal the coach builds around
 export default function IntakeGoal() {
   const { draft, update } = useCoachIntakeStore();
 

@@ -7,7 +7,7 @@ import { IntakeFrame } from "@/components/coach/IntakeFrame";
 import { cookingTimes, foodBudgets, sleepRanges, stressLevels } from "@/data/coach";
 import { useCoachIntakeStore } from "@/store/coachIntake";
 
-// Intake 7/9: kitchen time and food budget (for meals and recipes), then stress and sleep
+// Intake 8/10: kitchen time and food budget (for meals and recipes), then stress and sleep
 // (optional, for recovery). Tapping a selected stress or sleep answer clears it.
 export default function IntakeLifestyle() {
   const { draft, update } = useCoachIntakeStore();

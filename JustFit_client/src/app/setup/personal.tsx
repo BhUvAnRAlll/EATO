@@ -49,7 +49,7 @@ export default function PersonalDetails() {
   const handleNext = () => {
     // The age the targets use comes from the date of birth
     if (age !== null) update({ age: String(age) });
-    router.push("/setup/body-composition");
+    router.push("/setup/goal");
   };
 
   return (

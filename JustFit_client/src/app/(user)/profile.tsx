@@ -99,7 +99,7 @@ export default function Profile() {
     if (!saved) return;
     useSetupStore.getState().update(scanFieldsFromSaved(saved));
     useSetupStore.getState().setScanDraft(null);
-    router.push("/setup/scan-guide?from=profile");
+    router.push({ pathname: "/setup/scan-guide", params: { from: "profile" } });
   };
 
   const name = user?.fullName || saved?.fullName || "Member";
@@ -121,10 +121,12 @@ export default function Profile() {
       if (ok) signOutEverywhere();
     });
   };
-  // The latest report gets its row once there is one
+  // The latest report gets its row once there is one this session
   const shortcuts: { label: string; icon: Icon; onPress: () => void; disabled?: boolean }[] = [
     { label: gym.label, icon: gym.icon, onPress: () => router.push(gym.href) },
     { label: "Body Composition Scan", icon: { ios: "figure.stand", android: "accessibility_new", web: "accessibility_new" }, onPress: startScan, disabled: !saved },
+    // Every kept scan, photos and report (2026-11-10); the latest report from this session still opens too
+    { label: "My body scans", icon: { ios: "photo", android: "image", web: "image" }, onPress: () => router.push("/body-scans") },
     ...(lastScan ? [{ label: "Latest body report", icon: { ios: "doc.text", android: "description", web: "description" } as Icon, onPress: () => router.push("/setup/scan-report?mode=view&from=profile") }] : []),
     // Gym owners apply here; the justFit team approves the gym (a trainer is already a team account)
     ...(user?.role === "user" ? [{ label: "Register your gym", icon: { ios: "building.2", android: "storefront", web: "storefront" } as Icon, onPress: () => router.push("/gym-register") }] : []),

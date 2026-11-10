@@ -19,7 +19,7 @@ export type CoachStyle = "supportive" | "motivational" | "direct" | "analytical"
 type Choice<T> = { id: T; label: string; note?: string; icon?: Icon };
 
 // The intake screens, in order (the step counter, "3/9", follows this list)
-export const intakeSteps = ["goal", "experience", "schedule", "spots", "equipment", "limits", "lifestyle", "coach", "notes"] as const;
+export const intakeSteps = ["goal", "experience", "schedule", "spots", "equipment", "limits", "body", "lifestyle", "coach", "notes"] as const;
 export type IntakeStep = (typeof intakeSteps)[number];
 
 export const coachGoals: Choice<CoachGoal>[] = [

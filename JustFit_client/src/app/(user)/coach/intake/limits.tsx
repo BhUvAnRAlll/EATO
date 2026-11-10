@@ -9,14 +9,14 @@ import { conditions, joints } from "@/data/coach";
 import { useCoachIntakeStore } from "@/store/coachIntake";
 import { useThemeColors } from "@/theme";
 
-// Intake 6/9: joints to protect, health conditions and notes. All optional; any condition
+// Intake 6/10: joints to protect, health conditions and notes. All optional; any condition
 // shows the "check with a doctor" note and makes the coach cautious later on.
 export default function IntakeLimits() {
   const colors = useThemeColors();
   const { draft, update, toggle } = useCoachIntakeStore();
 
   return (
-    <IntakeFrame step="limits" title="Anything to work around?" subtitle="Private to you. Skip anything that doesn't apply." onNext={() => router.push("/coach/intake/lifestyle")}>
+    <IntakeFrame step="limits" title="Anything to work around?" subtitle="Private to you. Skip anything that doesn't apply." onNext={() => router.push("/coach/intake/body")}>
       <View className="gap-3">
         <Text className="coach__section">Joints to protect</Text>
         <View className="flex-row flex-wrap gap-2.5">

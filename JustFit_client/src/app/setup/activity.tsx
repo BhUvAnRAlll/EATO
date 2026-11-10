@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Text, View } from "react-native";
 import { SymbolView } from "@/components/SymbolView";
 import { router } from "expo-router";
@@ -7,7 +7,7 @@ import { Chip } from "@/components/setup/Chip";
 import { SelectSheet } from "@/components/setup/SelectSheet";
 import { SetupField } from "@/components/setup/SetupField";
 import { SetupScreen } from "@/components/setup/SetupScreen";
-import { activityOptions, healthFlagOptions } from "@/data/setup";
+import { activityOptions, healthFlagOptionsFor, healthFlagsFor } from "@/data/setup";
 import { useSetupStore } from "@/store/setup";
 import { useThemeColors } from "@/theme";
 
@@ -17,6 +17,13 @@ export default function Activity() {
   const [isActivityOpen, setIsActivityOpen] = useState(false);
 
   const activity = activityOptions.find((a) => a.id === profile.activity);
+  // A member who said they are male isn't asked about pregnancy or breastfeeding, and a tick
+  // left from before they changed their gender is dropped
+  const flagOptions = healthFlagOptionsFor(profile.gender);
+  useEffect(() => {
+    const kept = healthFlagsFor(profile.gender, profile.healthFlags);
+    if (kept.length !== profile.healthFlags.length) update({ healthFlags: kept });
+  }, [profile.gender, profile.healthFlags, update]);
 
   return (
     <SetupScreen
@@ -57,7 +64,7 @@ export default function Activity() {
         {"If so, we'll ask you to use a target from your doctor or dietitian instead of calculating one."}
       </Text>
       <View className="mt-2.5 flex-row flex-wrap gap-2">
-        {healthFlagOptions.map((flag) => (
+        {flagOptions.map((flag) => (
           <Chip
             key={flag.id}
             label={flag.label}

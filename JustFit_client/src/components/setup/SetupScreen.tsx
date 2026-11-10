@@ -14,7 +14,8 @@ import { confirmChoice } from "@/lib/nativeSheets";
 import { KeyboardAvoider } from "@/components/KeyboardAvoider";
 
 type SetupScreenProps = {
-  step: SetupStep;
+  // Left out on the body scan screens, which run after setup (no progress shown)
+  step?: SetupStep;
   title: string;
   subtitle: string;
   children: ReactNode;
@@ -44,7 +45,7 @@ export function SetupScreen({
 }: SetupScreenProps) {
   const colors = useThemeColors();
   const steps = setupSteps;
-  const index = Math.max(0, steps.indexOf(step));
+  const index = step ? Math.max(0, steps.indexOf(step)) : -1;
   const isFirst = index === 0;
 
   // Previous step. On the first step there is nothing behind it (login was

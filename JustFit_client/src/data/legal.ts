@@ -209,7 +209,8 @@ const privacy: LegalDoc = {
     {
       heading: "2. Photos, voice and location",
       paragraphs: [
-        "Body Scan photos and Scan Food photos are sent for analysis, used once, and not stored. Only the result you accept (your body fat estimate, or the food you log) is saved.",
+        "Body Scan: your front and side photos and the report are stored on our servers. You can see them, and delete any scan, in Profile › My body scans. The justFit team (our administrators) can also see them, and each time they open a scan's photos it is recorded.",
+        "Scan Food photos are sent for analysis, used once, and not stored. Only the food you log is saved.",
         "Voice clips for the coach chat are transcribed and then deleted; only the words appear in your message box. When your phone's own speech recogniser is used, nothing is sent to us.",
         "Location is used only when you act: to find your delivery address, to sort gyms near you (rounded to about 100 metres and not stored), and to confirm you are at the gym when you check in (stored with that visit).",
         "Photos you choose to keep (a gym's logo or photos, a payment bill, a problem report) are stored on our servers and shown only to those who need them.",
@@ -235,6 +236,7 @@ const privacy: LegalDoc = {
       paragraphs: [
         "Gyms: a gym sees your membership, payments and attendance at that gym, and your name, number and message when you ask to join. Your reviews are shown with your first name and surname initial. Complaints about a gym go to justFit, not the gym.",
         "Kitchens and delivery: your name, phone number, address and order, to prepare and deliver it.",
+        "The justFit team: our administrators can see your account, everything in your profile (health details included), your AI Coach answers, your body scans and what you do in the app, to run and support justFit. Each time they open a member's full profile it is recorded.",
         "Service providers who work for us: hosting, OpenAI (AI features), Fast2SMS (text messages), Razorpay (payments), Google (maps and YouTube videos) and your phone's maker (location and speech). They may use the data only to provide their service.",
         "Authorities, when the law requires it, or to protect someone's safety.",
       ],

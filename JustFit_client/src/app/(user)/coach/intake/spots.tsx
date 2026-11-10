@@ -6,7 +6,7 @@ import { IntakeFrame } from "@/components/coach/IntakeFrame";
 import { equipmentBySpot, spots, type Spot } from "@/data/coach";
 import { useCoachIntakeStore } from "@/store/coachIntake";
 
-// Intake 4/9: the main spot, and a backup for busy days (or none)
+// Intake 4/10: the main spot, and a backup for busy days (or none)
 export default function IntakeSpots() {
   const { draft, update } = useCoachIntakeStore();
 

@@ -139,24 +139,24 @@ describe("ui flow: onboarding steps in Expo web (signed in, nothing saved)", () 
     // A signed-in account with no profile is sent to the first setup step by the start screen
     await signInAs(page, h, identities.a);
     await expectPath("/setup/personal");
-    await expectText("1/7");
+    await expectText("1/6");
   }));
 
-  it("2. personal: the number signed in with (and any email) is the account's and read-only; Next stays disabled until name, date of birth, height and weight are valid", run("personal-required", async () => {
+  it("2. personal: the number signed in with is the account's and read-only, the email is optional and pre-filled; Next stays disabled until name, date of birth, height and weight are valid", run("personal-required", async () => {
     await goto("/setup/personal", "Let's get to know you");
-    // The account's number and address are shown as text with a note, and no input offers to change them
+    // The account's number is shown as text with a note, and no input offers to change it
     await expectText(shownPhone());
     await expectText("The number you log in with. It can't be changed here.");
-    await expectText(identities.a.emailAddress);
-    const emailInputs = await page.evaluate(`[...document.querySelectorAll("input")].filter((e) => e.getClientRects().length > 0 && (e.placeholder === "you@email.com" || e.value === ${JSON.stringify(identities.a.emailAddress)} || e.type === "email")).length`);
-    assert.equal(emailInputs, 0, "the email must not be rendered as an input");
-    assert.equal(await page.evaluate(`[...document.querySelectorAll("input")].filter((e) => e.getClientRects().length > 0).length`), 3, "the personal step has exactly three inputs: name, height and weight");
+    // The contact email (optional since 2026-11-10) is an input, filled with the account's address
+    await expectText("Email (optional)");
+    assert.equal(await page.inputValue(input("you@example.com")), identities.a.emailAddress);
+    assert.equal(await page.evaluate(`[...document.querySelectorAll("input")].filter((e) => e.getClientRects().length > 0).length`), 4, "the personal step has four inputs: name, email, height and weight");
     if (SCREENSHOT_DIR) {
       fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
       for (const [width, height] of WIDTHS) {
         await client.send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: false }, page.sessionId);
         await new Promise((r) => setTimeout(r, 500));
-        await page.screenshot(path.join(SCREENSHOT_DIR, `setup-personal-email-read-only-${width}.png`));
+        await page.screenshot(path.join(SCREENSHOT_DIR, `setup-personal-${width}.png`));
       }
       await client.send("Emulation.clearDeviceMetricsOverride", {}, page.sessionId);
       await settle();
@@ -185,33 +185,15 @@ describe("ui flow: onboarding steps in Expo web (signed in, nothing saved)", () 
     await shoot("setup-personal-filled");
   }));
 
-  it("3. personal: valid inputs and the gender picker move on to the body composition step", run("personal-valid", async () => {
+  it("3. personal: valid inputs and the gender picker move on to the goal step (no body composition step since 2026-11-10)", run("personal-valid", async () => {
     await page.clickText("Select"); // the gender field (the only "Select" placeholder on this screen)
     await expectText("Prefer not to say");
     await page.clickText("Female");
     await page.waitFor(`!(document.body.innerText || "").includes("Prefer not to say")`, NAV_TIMEOUT, "gender sheet closed");
     await expectText("Female");
     await next();
-    await expectPath("/setup/body-composition");
-    await expectText("2/7");
-  }));
-
-  it("4. body composition: optional; there is no typed body fat field, Scan Body opens the photo instructions, and Skip moves on", run("body-composition", async () => {
-    await expectText("Scan Body");
-    await expectText("Two photos, front and side.");
-    assert.equal(await page.evaluate(`[...document.querySelectorAll("input")].filter((e) => e.getClientRects().length > 0).length`), 0, "the typed body fat field is gone");
-    await shoot("setup-body-composition");
-    await page.clickText("Scan Body");
-    await expectPath("/setup/scan-guide");
-    for (const text of ["How to take your photos", "Watch first", "Your photos stay private", "Start scan"]) await expectText(text);
-    // Only the video: the written tips and pose drawings were dropped for it
-    for (const gone of ["Before you start", "Photo 1", "Photo 2", "What to wear"]) assert.equal(await page.hasText(gone), false, `"${gone}" is gone`);
-    await shoot("setup-scan-guide");
-    await page.clickLabel("Back");
-    await expectPath("/setup/body-composition");
-    await next("Skip");
     await expectPath("/setup/goal");
-    await expectText("3/7");
+    await expectText("2/6");
   }));
 
   it("5. goal: a choice is required, then one option selects and continues", run("goal", async () => {
@@ -219,7 +201,7 @@ describe("ui flow: onboarding steps in Expo web (signed in, nothing saved)", () 
     await page.clickText("Lose fat");
     await next();
     await expectPath("/setup/activity");
-    await expectText("4/7");
+    await expectText("3/6");
   }));
 
   it("5b. activity: the activity picker is required and completes the step", run("activity", async () => {
@@ -232,7 +214,7 @@ describe("ui flow: onboarding steps in Expo web (signed in, nothing saved)", () 
     await shoot("setup-activity");
     await next();
     await expectPath("/setup/food");
-    await expectText("5/7");
+    await expectText("4/6");
   }));
 
   it("6. food: diet tile is required; a cuisine chip and free text are accepted", run("food", async () => {
@@ -242,7 +224,7 @@ describe("ui flow: onboarding steps in Expo web (signed in, nothing saved)", () 
     await page.setInput(input("e.g. mushrooms, brinjal"), "okra");
     await next();
     await expectPath("/setup/lifestyle");
-    await expectText("6/7");
+    await expectText("5/6");
   }));
 
   it("7. lifestyle: only meals per day, required before the targets step", run("lifestyle", async () => {
@@ -252,7 +234,7 @@ describe("ui flow: onboarding steps in Expo web (signed in, nothing saved)", () 
     await page.clickText("3");
     await next();
     await expectPath("/setup/targets");
-    await expectText("7/7");
+    await expectText("6/6");
   }));
 
   it("8. targets: the calculated daily target, macros and water render and match the calculator", run("targets", async () => {
@@ -270,18 +252,16 @@ describe("ui flow: onboarding steps in Expo web (signed in, nothing saved)", () 
     await page.clickLabel("Back"); await expectPath("/setup/activity");
     await expectText("Lightly active");
     await page.clickLabel("Back"); await expectPath("/setup/goal");
-    await page.clickLabel("Back"); await expectPath("/setup/body-composition");
     await page.clickLabel("Back"); await expectPath("/setup/personal");
     assert.equal(await page.inputValue(input("Your full name")), answers.fullName);
     assert.equal(await page.inputValue(input("170")), answers.heightCm);
     assert.equal(await page.inputValue(input("70")), answers.weightKg);
     await expectText(shownPhone());
-    await expectText(identities.a.emailAddress);
+    assert.equal(await page.inputValue(input("you@example.com")), identities.a.emailAddress);
     await expectText(dobShown);
     await expectText("Female");
     // Forward again: each step still satisfied, so Next proceeds every time
-    await next(); await expectPath("/setup/body-composition");
-    await next("Skip"); await expectPath("/setup/goal");
+    await next(); await expectPath("/setup/goal");
     for (const route of ["/setup/activity", "/setup/food", "/setup/lifestyle", "/setup/targets"]) { await next(); await expectPath(route); }
     await expectText(`${expectedCalories} kcal`);
   }));

@@ -10,6 +10,7 @@ import { ScreenSkeleton } from "@/components/Skeleton";
 import { Avatar } from "@/components/Avatar";
 import { DashedBlock } from "@/components/macro/DashedBlock";
 import { AccountGymsCard } from "@/components/admin/AccountGymsCard";
+import { MemberProfileCard } from "@/components/admin/MemberProfileCard";
 import { KIND_LABEL, adminPortal, type AdminUser } from "@/lib/adminPortal";
 import { useSessionToken } from "@/lib/session";
 import type { Icon } from "@/types/profile";
@@ -17,7 +18,8 @@ import { useThemeColors } from "@/theme";
 import { AdminStackHeader } from "@/components/admin/AdminStackHeader";
 
 // Super Admin › a user's page: when they joined, and how many meals they logged, workouts they
-// finished and orders they placed; their gyms (memberships and team roles), and suspending or
+// finished and orders they placed; every field they filled in, their body scans and recent
+// activity (MemberProfileCard); their gyms (memberships and team roles), and suspending or
 // reactivating the account.
 
 const back = () => (router.canGoBack() ? router.back() : router.replace("/admin/users"));
@@ -90,6 +92,8 @@ export default function AdminUserDetail() {
             <Pressable onPress={() => router.push({ pathname: "/admin/customers/[userId]", params: { userId: user.id } })} className="admin-chip self-start" accessibilityRole="button">
               <Text className="admin-segment__label admin-segment__label--on">Meal orders and plans</Text>
             </Pressable>
+            {/* Everything they filled in, their body scans and recent activity (2026-11-10) */}
+            <MemberProfileCard userId={user.id} />
             {/* Gym memberships and team roles, and suspending the account (the brief's section 7) */}
             <AccountGymsCard userId={user.id} isAdmin={user.kind === "admin"} />
           </ScrollView>

@@ -115,10 +115,7 @@ async function fillSetup(page, baseUrl, overrides = {}, age = 30) {
   await page.setInput(h.input("70"), a.weightKg);
   // The mobile number (the one signed in with) and any email are the account's, shown read-only
   await page.clickText("Next");
-  await h.expectPath("/setup/body-composition");
-
-  // Optional step: left empty, its button reads Skip
-  await page.clickText("Skip");
+  // No body composition step: the scan is in the AI Coach intake and on Profile (2026-11-10)
   await h.expectPath("/setup/goal");
 
   await page.clickText(a.goal);

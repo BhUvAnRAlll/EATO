@@ -6,6 +6,8 @@ const express = require("express");
 
 const { overview, attention } = require("./overview");
 const users = require("./users");
+const memberProfile = require("./memberProfile");
+const scanStore = require("../bodyComposition/scanStore");
 const gyms = require("./gyms");
 const smsRules = require("../gym/smsRules");
 const gymRules = require("../gym/rules");
@@ -62,6 +64,30 @@ router.get("/users", route(async (req, res) => {
 // One account: name, kind and when they joined
 router.get("/users/:userId", route(async (req, res) => {
   res.json({ user: await users.userDetail(pool(req), userId(req)) });
+}));
+
+// One member in full (admin/memberProfile.js, 2026-11-10): contact, personal details, goal, health
+// ticks, food, targets, the coach intake, body scans and recent activity. Logged once an hour per admin.
+router.get("/users/:userId/profile", route(async (req, res) => {
+  const id = userId(req);
+  const member = await memberProfile.memberProfile(pool(req), id);
+  await memberProfile.auditView(pool(req), req.userId, `profile:${id}`, id, "Viewed a member's full profile");
+  res.json({ member });
+}));
+
+// Body scans (bodyComposition/scanStore.js, 2026-11-10): every member's kept scans, newest first,
+// one with its report, and its photos (each admin's first look at a scan's photos in an hour is logged)
+router.get("/body-scans", route(async (req, res) => {
+  res.json(await scanStore.listAll(pool(req), scanStore.listQuery(req.query)));
+}));
+router.get("/body-scans/:id", route(async (req, res) => {
+  res.json({ scan: await scanStore.detail(pool(req), scanStore.scanId(req.params.id)) });
+}));
+router.get("/body-scans/:id/photo/:view", route(async (req, res) => {
+  const id = scanStore.scanId(req.params.id);
+  const { file, member } = await scanStore.photo(pool(req), id, scanStore.view(req.params.view));
+  await memberProfile.auditView(pool(req), req.userId, `scan:${id}`, member.id, "Viewed a member's body scan photos");
+  scanStore.send(res, file);
 }));
 
 // Gyms (admin/gyms.js): every gym with today's numbers, one gym in detail, creating and editing a

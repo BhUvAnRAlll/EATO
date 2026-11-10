@@ -8,7 +8,7 @@ import { IntakeFrame } from "@/components/coach/IntakeFrame";
 import { equipmentBySpot, labelOf, spots } from "@/data/coach";
 import { useCoachIntakeStore } from "@/store/coachIntake";
 
-// Intake 5/9: what's at each spot, picked from a short list (gyms have gym-sized choices). The
+// Intake 5/10: what's at each spot, picked from a short list (gyms have gym-sized choices). The
 // lists follow the spots picked on step 4; opened without one (a resumed or linked step), it says
 // so and goes back there instead of showing nothing.
 export default function IntakeEquipment() {

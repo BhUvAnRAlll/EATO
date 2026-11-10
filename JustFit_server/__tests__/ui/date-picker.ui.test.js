@@ -147,7 +147,7 @@ describe("ui date picker: real HTML date input with the app's limits", () => {
     await page.setInput(h.input("170"), "170");
     await page.setInput(h.input("70"), "60");
     await page.clickText("Next");
-    await h.expectPath("/setup/body-composition");
+    await h.expectPath("/setup/goal");
     await page.clickLabel("Back");
     await h.expectPath("/setup/personal");
     await h.expectText(valid.shown);

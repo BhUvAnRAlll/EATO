@@ -57,6 +57,7 @@ export const adminSections: AdminSection[] = [
   {
     title: "Platform",
     links: [
+      { label: "Body scans", line: "Every member's scan photos and reports", href: "/admin/body-scans", icon: { ios: "figure.stand", android: "accessibility_new", web: "accessibility_new" } },
       { label: "Notifications", line: "Gyms waiting for review and other alerts", href: "/admin/notifications", icon: { ios: "bell", android: "notifications", web: "notifications" } },
       { label: "Platform settings", line: "Registration, documents and defaults", href: "/admin/platform-settings", icon: { ios: "slider.horizontal.3", android: "tune", web: "tune" } },
       { label: "AI Usage", line: "Requests, cost and the monthly budget", href: "/admin/ai-usage", icon: { ios: "sparkles", android: "auto_awesome", web: "auto_awesome" } },

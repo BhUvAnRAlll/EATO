@@ -31,6 +31,7 @@ const { jsonBodyWithLimit } = require("./requestBody");
 const { checkUpload, uploadLimits } = require("./bodyComposition/upload");
 const { ExtractionError, extractReport } = require("./bodyComposition/extract");
 const { ScanError, checkScanRequest, requestScan, MAX_SCAN_BODY_BYTES } = require("./bodyComposition/scan");
+const scanStore = require("./bodyComposition/scanStore");
 const home = require("./home");
 const { macroRouter } = require("./macro/routes");
 const { coachRouter } = require("./coach/routes");
@@ -107,6 +108,7 @@ const MAX_UPLOAD_BODY_BYTES = Math.ceil(uploadLimits.maxPdfBytes * (4 / 3)) + 10
 const profileLimiter = createRateLimiter(rateLimits.standard);
 const uploadLimiter = createRateLimiter(rateLimits.upload); // each upload is an OpenAI vision call
 const scanLimiter = createRateLimiter(rateLimits.upload); // each photo scan runs the Forma model for a few seconds
+const scanListLimiter = createRateLimiter(rateLimits.standard); // the member reading or deleting their kept scans
 const homeLimiter = createRateLimiter(rateLimits.standard); // members reading the home screen content
 // admins editing it (also caps the role lookups); ADMIN_REQUESTS_PER_MINUTE overrides the standard budget (the test server raises it)
 const adminLimiter = createRateLimiter({ ...rateLimits.standard, limit: Number(process.env.ADMIN_REQUESTS_PER_MINUTE) || rateLimits.standard.limit });
@@ -199,12 +201,34 @@ app.post("/api/body-composition/scan", requireUser, limitPerUser(scanLimiter), j
   if (!checked.ok) return res.status(checked.status).json({ error: checked.error });
   try {
     await aiLimits.check(pool, { feature: "body_scan", userId: req.userId }); // the budget's pause and the member's daily AI limit cover scans too
-    res.json({ estimate: await requestScan(checked, { usage: aiUsage.tracker(pool, { feature: "body_scan", userId: req.userId }) }) });
+    const estimate = await requestScan(checked, { usage: aiUsage.tracker(pool, { feature: "body_scan", userId: req.userId }) });
+    // Both photos and the report are kept (2026-11-10, bodyComposition/scanStore.js); keeping
+    // them never fails the scan
+    const scanId = await scanStore.keep(pool, req.userId, checked, estimate);
+    res.json({ estimate, scanId });
   } catch (error) {
     if (error instanceof ScanError) return res.status(error.status).json({ error: error.message });
     next(error);
   }
 });
+
+// The member's own kept scans (Profile › My body scans): the list, one with its report, its
+// photos, and deleting one (photos and report). Scoped to req.userId; another member's is a 404.
+const scanRoute = (handler) => (req, res, next) => handler(req, res).catch(next);
+app.get("/api/body-composition/scans", requireUser, limitPerUser(scanListLimiter), scanRoute(async (req, res) => {
+  res.json({ scans: await scanStore.forUser(pool, req.userId) });
+}));
+app.get("/api/body-composition/scans/:id", requireUser, limitPerUser(scanListLimiter), scanRoute(async (req, res) => {
+  res.json({ scan: await scanStore.detail(pool, scanStore.scanId(req.params.id), req.userId) });
+}));
+app.get("/api/body-composition/scans/:id/photo/:view", requireUser, limitPerUser(scanListLimiter), scanRoute(async (req, res) => {
+  const { file } = await scanStore.photo(pool, scanStore.scanId(req.params.id), scanStore.view(req.params.view), req.userId);
+  scanStore.send(res, file);
+}));
+app.delete("/api/body-composition/scans/:id", requireUser, limitPerUser(scanListLimiter), scanRoute(async (req, res) => {
+  await scanStore.removeOwn(pool, scanStore.scanId(req.params.id), req.userId);
+  res.json({ ok: true });
+}));
 
 // There is no self-service role change: every new account is a member ('user'), and only an
 // admin (scripts/set-role.js) makes an account an admin. A gym's admin can make an account their
@@ -475,7 +499,7 @@ const clientErrorMessages = {
 
 app.use((error, req, res, next) => {
   // Our own errors carry a safe message and their status (400 validation, 403, 404, 409, 413, 415, 401 or 503 account checks)
-  if (error instanceof ValidationError || ["NotFoundError", "ForbiddenError", "ConflictError", "AccountUnavailableError"].includes(error?.name)) {
+  if (error instanceof ValidationError || ["NotFoundError", "ForbiddenError", "ConflictError", "AccountUnavailableError", "NotReadyError"].includes(error?.name)) {
     return res.status(Number.isInteger(error.status) ? error.status : 400).json({ error: error.message });
   }
   if (error?.code === "ER_CHECK_CONSTRAINT_VIOLATED") {

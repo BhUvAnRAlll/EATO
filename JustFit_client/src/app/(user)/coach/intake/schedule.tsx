@@ -5,7 +5,7 @@ import { IntakeFrame } from "@/components/coach/IntakeFrame";
 import { sessionLengths, weekdayChoices } from "@/data/coach";
 import { useCoachIntakeStore } from "@/store/coachIntake";
 
-// Intake 3/9: which days and how long. Days are stored 0 = Sunday, shown Monday first.
+// Intake 3/10: which days and how long. Days are stored 0 = Sunday, shown Monday first.
 export default function IntakeSchedule() {
   const { draft, update, toggle } = useCoachIntakeStore();
   const count = draft.weekdays.length;

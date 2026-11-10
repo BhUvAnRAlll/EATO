@@ -6,7 +6,7 @@ import { IntakeFrame } from "@/components/coach/IntakeFrame";
 import { coaches, coachStyles } from "@/data/coach";
 import { useCoachIntakeStore } from "@/store/coachIntake";
 
-// Intake 8/9: who coaches you and how they talk to you. Both can be changed later.
+// Intake 9/10: who coaches you and how they talk to you. Both can be changed later.
 export default function IntakeCoach() {
   const { draft, update } = useCoachIntakeStore();
   const firstName = coaches.find((c) => c.id === draft.coach)?.name.replace("Coach ", "");

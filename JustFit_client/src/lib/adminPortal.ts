@@ -1,4 +1,5 @@
 import { apiFetch, type ApiResult } from "@/lib/api";
+import type { MemberProfile } from "@/lib/memberProfileText";
 
 // The Super Admin portal's calls (JustFit_server/admin, mounted at /api/admin/portal). The server
 // checks the admin role on every request; nothing here decides who may see what.
@@ -44,6 +45,11 @@ export const adminPortal = {
   user(token: string | null, userId: string): Promise<ApiResult<{ user: AdminUser }>> {
     if (!token) return signedOut();
     return apiFetch(`/api/admin/portal/users/${encodeURIComponent(userId)}`, { token });
+  },
+  // Everything the member told justFit, their body scans and recent activity (logged once an hour)
+  memberProfile(token: string | null, userId: string): Promise<ApiResult<{ member: MemberProfile }>> {
+    if (!token) return signedOut();
+    return apiFetch(`/api/admin/portal/users/${encodeURIComponent(userId)}/profile`, { token });
   },
 };
 

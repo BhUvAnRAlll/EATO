@@ -29,6 +29,16 @@ export function scanFieldsFromSaved(saved: SavedProfile): Pick<Profile, "heightC
   };
 }
 
+// Where a body scan was started after setup: Profile, or the AI Coach intake's Body step. The
+// scan screens carry it as ?from= and return there; anything else counts as Profile.
+export type ScanOrigin = "profile" | "coach";
+export function scanOrigin(from: string | undefined): ScanOrigin {
+  return from === "coach" ? "coach" : "profile";
+}
+export function scanHome(origin: ScanOrigin): "/profile" | "/coach/intake/body" {
+  return origin === "coach" ? "/coach/intake/body" : "/profile";
+}
+
 export type MeasurementSave =
   | { ok: true; body: { profile: Profile; nutrition: TargetRecord }; changes: string[] }
   | { ok: false; error: string };

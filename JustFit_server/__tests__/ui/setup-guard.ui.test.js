@@ -24,7 +24,7 @@ const { fillSetup, helpers, signInAs } = require("./onboarding-steps.js");
 const EXPO_PORT = 8090;
 const EVIDENCE_DIR = path.join(os.tmpdir(), "justfit-ui-evidence");
 const SCREENSHOT_DIR = process.env.JUSTFIT_SCREENSHOT_DIR || null;
-const SETUP_ROUTES = ["/setup/personal", "/setup/body-composition", "/setup/goal", "/setup/activity", "/setup/food", "/setup/lifestyle", "/setup/targets"];
+const SETUP_ROUTES = ["/setup/personal", "/setup/goal", "/setup/activity", "/setup/food", "/setup/lifestyle", "/setup/targets"];
 const WIDTHS = [[320, 568], [390, 844], [430, 932]];
 
 describe("ui setup guard: setup needs a session, loading never redirects, a lost session leaves setup", () => {
@@ -134,8 +134,8 @@ describe("ui setup guard: setup needs a session, loading never redirects, a lost
   it("2. signed in, the start screen opens setup and a setup route opened directly stays open", run("signed-in", async () => {
     await signInAs(page, h, identities.a);
     assert.equal(await page.path(), "/setup/personal", "a new account is routed to the first setup step");
-    await h.expectText("1/7");
-    await h.goto("/setup/goal", "3/7");
+    await h.expectText("1/6");
+    await h.goto("/setup/goal", "2/6");
     assert.equal(await page.path(), "/setup/goal");
     assert.ok(!(await visited()).includes("/sign-in"), `opening a setup route while signed in must not pass through Log in (visited: ${JSON.stringify(await visited())})`);
   }));

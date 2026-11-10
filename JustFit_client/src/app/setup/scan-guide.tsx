@@ -7,6 +7,7 @@ import { router, useLocalSearchParams } from "expo-router";
 
 import { SetupScreen } from "@/components/setup/SetupScreen";
 import { videos } from "@/constants/videos";
+import { scanHome, scanOrigin } from "@/lib/profileScan";
 import { useThemeColors } from "@/theme";
 
 // The instruction video plays by itself on a loop, with no controls. On phones it plays with
@@ -52,19 +53,18 @@ function InstructionVideo() {
 // Shown after "Scan Body": the instruction video (how to stand and what to wear), then on to the scan
 export default function ScanGuide() {
   const colors = useThemeColors();
-  // ?from=profile: the same scan, opened from Profile after setup (no setup progress)
+  // ?from=profile|coach: opened from Profile or the AI Coach intake (never during setup)
   const { from } = useLocalSearchParams<{ from?: string }>();
-  const fromProfile = from === "profile";
+  const origin = scanOrigin(from);
 
   return (
     <SetupScreen
-      step="body-composition"
       title="How to take your photos"
       subtitle="Watch how to stand and what to wear, then take your two photos."
-      onNext={() => router.replace(fromProfile ? "/setup/body-scan?from=profile" : "/setup/body-scan")}
+      onNext={() => router.replace({ pathname: "/setup/body-scan", params: { from: origin } })}
       nextLabel="Start scan"
-      onBack={() => (router.canGoBack() ? router.back() : router.replace(fromProfile ? "/profile" : "/setup/body-composition"))}
-      showProgress={!fromProfile}
+      onBack={() => (router.canGoBack() ? router.back() : router.replace(scanHome(origin)))}
+      showProgress={false}
     >
       <View className="gap-3">
         <InstructionVideo />
@@ -72,9 +72,9 @@ export default function ScanGuide() {
         <View className="setup__note">
           <SymbolView name={{ ios: "lock.shield", android: "shield", web: "shield" }} size={22} tintColor={colors.leaf} />
           <View className="flex-1 gap-0.5">
-            <Text className="setup__note-title">Your photos stay private</Text>
+            <Text className="setup__note-title">Your photos are kept privately</Text>
             <Text className="setup__note-text">
-              They are analysed and discarded, never stored. The result is an estimate, not a medical measurement.
+              justFit keeps your photos and report. Only you and the justFit team can see them, and you can delete them in Profile › My body scans. The result is an estimate, not a medical measurement.
             </Text>
           </View>
         </View>

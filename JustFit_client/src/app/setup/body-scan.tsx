@@ -11,6 +11,7 @@ import { pickScanPhoto, requestBodyScan, type PhotoSource, type ScanPhoto, type 
 import { scanInputs, scanSexFromGender, type ScanSex } from "@/lib/bodyScanRules";
 import { SESSION_EXPIRED_MESSAGE, isSessionExpired, returnToSignIn, useSessionToken } from "@/lib/session";
 import { useSetupStore } from "@/store/setup";
+import { scanHome, scanOrigin } from "@/lib/profileScan";
 import { useThemeColors } from "@/theme";
 import type { Icon } from "@/types/profile";
 
@@ -59,15 +60,15 @@ function PhotoTile({ view, label, hint, photo, onPick, onClear }: { view: ScanVi
   );
 }
 
-// Optional: two photos → a body composition report (setup/scan-report) for the Body composition
-// step. The photos go to the justFit server, which asks the Forma scan server and never stores
-// them. Nothing is used until the user taps "Use this result" on the report.
+// Optional: two photos → a body composition report (setup/scan-report), from Profile or the coach
+// intake. The photos go to the justFit server, which asks the Forma scan server and keeps the
+// photos and report (Profile › My body scans). The body fat % reaches the profile only on "Save to my profile".
 export default function BodyScan() {
   const colors = useThemeColors();
   const { profile, setScanDraft } = useSetupStore();
-  // ?from=profile: opened from Profile; the store then holds the saved height, weight and age
+  // ?from=profile|coach: opened from Profile or the coach intake; the store holds the saved height, weight and age
   const { from } = useLocalSearchParams<{ from?: string }>();
-  const fromProfile = from === "profile";
+  const origin = scanOrigin(from);
   const getToken = useSessionToken();
   const [photos, setPhotos] = useState<Photos>({});
   // The scan reads male and female bodies differently; the profile gender decides when it can
@@ -116,7 +117,7 @@ export default function BodyScan() {
     }
     // The full report opens on its own screen, where the user accepts it
     setScanDraft(result.estimate);
-    router.push(fromProfile ? "/setup/scan-report?from=profile" : "/setup/scan-report");
+    router.push({ pathname: "/setup/scan-report", params: { from: origin } });
   };
 
   // Back to Body composition: the previous screen (the instructions replaced themselves with
@@ -124,22 +125,21 @@ export default function BodyScan() {
   const leave = () => {
     if (isScanning) return; // the answer would open the report over whatever Back went to
     if (router.canGoBack()) router.back();
-    else router.replace(fromProfile ? "/profile" : "/setup/body-composition");
+    else router.replace(scanHome(origin));
   };
 
   const bothPhotos = photos.front !== undefined && photos.side !== undefined;
 
   return (
     <SetupScreen
-      step="body-composition"
       title="Estimate from photos"
-      subtitle="Two photos give you a body composition report. We never store them."
+      subtitle="Two photos give you a body composition report. We keep them privately with your report."
       onNext={scan}
       nextLabel="Scan"
       canContinue={bothPhotos}
       loading={isScanning}
       onBack={leave}
-      showProgress={!fromProfile}
+      showProgress={false}
     >
       <View className="gap-3">
         {views.map((item) => (

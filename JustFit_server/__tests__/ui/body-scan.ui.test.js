@@ -20,7 +20,7 @@ const { startTestServer, portFree } = require("../e2e/server.js");
 const { identitiesFor, describeIdentityError } = require("../e2e/test-identities.js");
 const { startExpoWeb } = require("./expo-web.js");
 const { launchChrome, connect, openPage, CHROME } = require("./cdp.js");
-const { dateOfBirth, fillSetup, helpers, signInAs, NAV_TIMEOUT } = require("./onboarding-steps.js");
+const { fillSetup, helpers, signInAs, NAV_TIMEOUT } = require("./onboarding-steps.js");
 
 const EXPO_PORT = 8090;
 const EVIDENCE_DIR = path.join(os.tmpdir(), "justfit-ui-evidence");
@@ -130,13 +130,11 @@ describe("ui body scan: Scan Body, the photo instructions, the scan screen and t
     if (problems.length > 0) { console.error("CLEANUP INCOMPLETE; orphaned test identifiers:", Object.values(identities).map((i) => i.id).join(", ") || "none"); throw new Error("teardown problems: " + problems.join("; ")); }
   });
 
-  it("1. Body composition offers Scan Body, which shows the photo instructions, and Start scan opens the scan screen", run("link", async () => {
+  // Since 2026-11-10 the scan is not a setup step: it starts from Profile or the AI Coach intake
+  it("1. the photo instructions show the video, and Start scan opens the scan screen", run("link", async () => {
     await signInAs(page, h, identities.a);
-    await h.goto("/setup/body-composition", "Body composition");
-    await h.expectText(SCAN_BUTTON);
-    await page.clickText(SCAN_BUTTON);
-    await h.expectPath("/setup/scan-guide");
-    await h.expectText("How to take your photos");
+    await h.goto("/setup/scan-guide?from=profile", "How to take your photos");
+    assert.equal(await page.hasText("1/6"), false, "no setup step counter on the scan screens");
     // The instruction video comes first: a real <video> that loads, muted and looping
     await h.expectText("Watch first");
     await page.waitFor(`(() => { const v = document.querySelector("video"); return !!v && v.readyState >= 2; })()`, 20000, "the instruction video to load");
@@ -181,12 +179,10 @@ describe("ui body scan: Scan Body, the photo instructions, the scan screen and t
     }
   }));
 
-  it("3. Back returns to Body composition, still unscanned, with nothing saved", run("back", async () => {
-    await h.goto("/setup/body-scan", "Estimate from photos");
+  it("3. Back leaves the scan screen with nothing saved", run("back", async () => {
+    await h.goto("/setup/body-scan?from=profile", "Estimate from photos");
     await page.clickLabel("Back");
-    await h.expectPath("/setup/body-composition");
-    await h.expectText("Body composition");
-    await h.expectText(SCAN_BUTTON); // still unscanned: no estimate was kept
+    await page.waitFor(`location.pathname !== "/setup/body-scan"`, 15000, "left the scan screen");
     assert.deepEqual(await db.rowsForUser(connection, identities.a.id), { nutrition_targets: 0, body_composition_reports: 0, profiles: 0, users: 1 }, "nothing was saved");
   }));
 
@@ -205,94 +201,6 @@ describe("ui body scan: Scan Body, the photo instructions, the scan screen and t
     await client.send("Page.setInterceptFileChooserDialog", { enabled: false }, page.sessionId);
   };
 
-  it("4. a finished scan opens the full report: every section, no technical details, no download; Use this result returns to the step", run("report", async () => {
-    // The scan needs height, weight, age and sex, which the personal step collects (kept in memory)
-    const dob = dateOfBirth(30);
-    await h.goto("/setup/personal", "Let's get to know you");
-    await page.setInput(h.input("Your full name"), "Scan Tester");
-    await page.clickText("Select your birthday");
-    await h.expectText("Cancel");
-    await page.setInput("[aria-modal] input", dob.input);
-    await page.clickText("Done");
-    await h.expectText(dob.shown);
-    await page.setInput(h.input("170"), "168");
-    await page.clickText("Select");
-    await h.expectText("Prefer not to say");
-    await page.clickText("Female");
-    await h.expectNoText("Prefer not to say");
-    await page.setInput(h.input("70"), "60");
-    await page.clickText("Next");
-    await h.expectPath("/setup/body-composition");
-    await page.clickText(SCAN_BUTTON);
-    await h.expectPath("/setup/scan-guide");
-    await page.clickText("Start scan");
-    await h.expectPath("/setup/body-scan");
-
-    await pickFromGallery(); // front
-    await h.expectText("Retake");
-    await pickFromGallery(); // side
-    await page.waitFor(`(document.body.innerText.match(/Retake/g) || []).length === 2`, 15000, "both photos picked");
-    await page.clickText("Scan");
-    await page.waitFor(`location.pathname === "/setup/scan-report"`, 20000, "the report opens");
-    // Caught while the bars are still growing (they take about 1.7 s in all)
-    if (SCREENSHOT_DIR) { fs.mkdirSync(SCREENSHOT_DIR, { recursive: true }); await page.screenshot(path.join(SCREENSHOT_DIR, "setup-scan-report-animating-390.png")); }
-    await h.settle();
-
-    for (const text of ["Body Composition Report", "Female · 30 y", "168 cm", "60.0 kg", "ESTIMATED BODY FAT", "23.0%", "Healthy", "Low", "Elevated", "High",
-      "Fat mass", "13.8", "Lean mass", "46.2", "Skeletal muscle", "25.7", "BMI", "20.8", "Body score", "Out of 100.",
-      "What your 60.0 kg is made of", "Water", "33.8 kg", "Protein", "9.1 kg", "Minerals", "3.3 kg", "Lean body mass (everything except fat)",
-      "Muscle and fat", "healthy 52–70 kg", "healthy 18–23 kg", "healthy 11–17 kg", "healthy 18–28%",
-      "Healthy 18.5–24.9", "Waist-to-height", "0.44", "Est. waist 74 cm · healthy 0.40–0.50", "Visceral fat level", "5 / 20", "Lower is better", "Healthy 18–28% for females",
-      "Segmental lean mass", "Segmental fat", "Right Arm", "Left Leg", "Trunk", "Over", "Under", "Normal",
-      "Targets", "Toward the healthy range", "Target weight", "58.1 kg", "-1.9 kg", "0.0 kg",
-      "Daily energy", "Resting (BMR)", "1,389 kcal", "Total with activity (TDEE)", "1,909 kcal", "Suggested intake for fat loss", "Use this result"]) await h.expectText(text);
-    const shown = (await page.evaluate("document.body.innerText")).toLowerCase();
-    for (const word of ["forma", "model", "±", "uncertain", "dexa", "dxa", "inbody", "nhanes", "heuristic", "formula", "silhouette", "validated", "1.2.0"]) {
-      assert.ok(!shown.includes(word), `the report must not mention "${word}"`);
-    }
-    for (const word of ["download", "share", "export", "print", "save as"]) {
-      assert.ok(!(await page.evaluate(`[...document.querySelectorAll('[role="button"], button, a')].some((e) => e.innerText.toLowerCase().includes(${JSON.stringify(word)}))`)), `no "${word}" control`);
-    }
-    assert.ok(shown.includes("can't be downloaded or shared"));
-    assert.equal(await page.evaluate(`document.querySelectorAll("a[download]").length`), 0, "no download link");
-    assert.equal(fake.received, 1, "one scan reached the fake Forma");
-    if (SCREENSHOT_DIR) {
-      fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
-      for (const [width, height] of WIDTHS) {
-        await setWidth(width, height);
-        await new Promise((r) => setTimeout(r, 600));
-        await page.screenshot(path.join(SCREENSHOT_DIR, `setup-scan-report-${width}.png`));
-        await setWidth(width, 2600);
-        await new Promise((r) => setTimeout(r, 700));
-        await page.screenshot(path.join(SCREENSHOT_DIR, `setup-scan-report-full-${width}.png`));
-      }
-      await setWidth(390, 844);
-      await h.settle();
-    }
-
-    await page.clickText("Use this result");
-    await h.expectPath("/setup/body-composition");
-    await h.expectText("Estimated body fat");
-    await h.expectText("23%");
-    if (SCREENSHOT_DIR) {
-      for (const [width, height] of WIDTHS) {
-        await setWidth(width, height);
-        await new Promise((r) => setTimeout(r, 500));
-        await page.screenshot(path.join(SCREENSHOT_DIR, `setup-body-composition-scanned-${width}.png`));
-      }
-      await setWidth(390, 844);
-      await h.settle();
-    }
-    await page.clickText("View full report");
-    await h.expectPath("/setup/scan-report");
-    await h.expectText("What your 60.0 kg is made of");
-    await page.clickText("Done");
-    await h.expectPath("/setup/body-composition");
-    await page.clickText("Remove");
-    await h.expectText(SCAN_BUTTON);
-    assert.deepEqual(await db.rowsForUser(connection, identities.a.id), { nutrition_targets: 0, body_composition_reports: 0, profiles: 0, users: 1 }, "nothing was saved");
-  }));
-
   it("5. after setup, Profile offers Scan Body; the report saves to the profile after a confirmation and the targets are recalculated", run("profile-scan", async () => {
     // Finish setup without a scan, so the profile is saved with no body fat %
     await h.goto("/setup/personal", "Let's get to know you");
@@ -310,7 +218,7 @@ describe("ui body scan: Scan Body, the photo instructions, the scan screen and t
     await page.clickText("Body Composition Scan");
     await h.expectPath("/setup/scan-guide");
     await h.expectText("How to take your photos");
-    assert.equal(await page.hasText("2/7"), false, "no setup step counter outside setup");
+    assert.equal(await page.hasText("1/6"), false, "no setup step counter outside setup");
     await page.clickText("Start scan");
     await h.expectPath("/setup/body-scan");
     await pickFromGallery();
@@ -320,6 +228,18 @@ describe("ui body scan: Scan Body, the photo instructions, the scan screen and t
     await page.clickText("Scan");
     await h.expectPath("/setup/scan-report");
     await h.expectText("Save to my profile");
+    await h.settle();
+    // The full report: every section, no technical details, no download
+    for (const text of ["Body Composition Report", "ESTIMATED BODY FAT", "23.0%", "Fat mass", "Lean mass", "Skeletal muscle", "BMI", "Body score",
+      "What your 60.0 kg is made of", "Muscle and fat", "Waist-to-height", "Visceral fat level", "Segmental lean mass", "Segmental fat", "Targets", "Daily energy"]) await h.expectText(text);
+    const shown = (await page.evaluate("document.body.innerText")).toLowerCase();
+    for (const word of ["forma", "model", "±", "uncertain", "dexa", "dxa", "inbody", "nhanes", "heuristic", "formula", "silhouette", "validated", "1.2.0"]) {
+      assert.ok(!shown.includes(word), `the report must not mention "${word}"`);
+    }
+    for (const word of ["download", "share", "export", "print", "save as"]) {
+      assert.ok(!(await page.evaluate(`[...document.querySelectorAll('[role="button"], button, a')].some((e) => e.innerText.toLowerCase().includes(${JSON.stringify(word)}))`)), `no "${word}" control`);
+    }
+    assert.equal(await page.evaluate(`document.querySelectorAll("a[download]").length`), 0, "no download link");
 
     await page.clickText("Save to my profile");
     await h.expectText("Save this result?");
@@ -350,6 +270,21 @@ describe("ui body scan: Scan Body, the photo instructions, the scan screen and t
     await h.expectPath("/profile");
   }));
 
+  it("5b. the AI Coach intake's Body step shows the saved body fat, and a scan started there returns to it", run("coach-scan", async () => {
+    await h.goto("/coach/intake/body", "Scan your body");
+    await h.expectText("7/10");
+    await h.expectText("Estimated body fat");
+    await h.expectText("23%");
+    await h.expectText("Continue");
+    await page.clickText("Scan again");
+    await h.expectPath("/setup/scan-guide");
+    await h.expectText("How to take your photos");
+    await page.clickLabel("Back");
+    await h.expectPath("/coach/intake/body");
+    await page.clickText("Continue");
+    await h.expectPath("/coach/intake/lifestyle");
+  }));
+
   it("6. Profile's Weight tile changes height and weight after a confirmation; the targets are recalculated and the body fat % kept", run("measurements", async () => {
     await h.goto("/profile", "Body Composition Scan");
     await page.clickText("Scan Tester");
@@ -358,7 +293,7 @@ describe("ui body scan: Scan Body, the photo instructions, the scan screen and t
     await h.expectText("Height & weight");
     assert.equal(await page.inputValue(h.input("170")), "170", "the saved height fills the field");
     assert.equal(await page.inputValue(h.input("70")), "60", "the saved weight fills the field");
-    assert.equal(await page.hasText("2/7"), false, "no setup step counter");
+    assert.equal(await page.hasText("1/6"), false, "no setup step counter");
     // Out of range: Save stays disabled
     await page.setInput(h.input("70"), "20");
     await page.clickText("Save");

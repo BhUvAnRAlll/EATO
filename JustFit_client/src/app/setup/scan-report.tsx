@@ -22,7 +22,7 @@ import {
 import type { BodySegment, SegmentReading } from "@/lib/nutrition";
 import { hud } from "@/lib/hud";
 import { fetchProfile, saveProfile } from "@/lib/profile";
-import { bodyFatSave } from "@/lib/profileScan";
+import { bodyFatSave, scanHome, scanOrigin } from "@/lib/profileScan";
 import { SESSION_EXPIRED_MESSAGE, isSessionExpired, returnToSignIn, useSessionToken } from "@/lib/session";
 import { useSetupStore } from "@/store/setup";
 import { useThemeColors } from "@/theme";
@@ -110,9 +110,9 @@ const scanTime = new Intl.DateTimeFormat("en-IN", {
 });
 
 // The body composition report from a scan, laid out like the scan's own report in the light
-// theme. Opened right after scanning (accept or retake) or later from the Body composition step
-// (?mode=view), or from Profile (?from=profile), where "Save to my profile" first shows what
-// changes and then saves. It is shown in the app only: there is no download or share.
+// theme. Opened right after a scan started from Profile or the AI Coach intake (?from=profile|coach),
+// where "Save to my profile" first shows what changes and then saves, or later to look at the
+// latest report (?mode=view). It is shown in the app only: there is no download or share.
 // Screenshots and screen recordings are allowed (the user asked for this on 2026-10-25).
 export default function ScanReport() {
   const colors = useThemeColors();
@@ -121,8 +121,7 @@ export default function ScanReport() {
     from?: string;
   }>();
   const viewing = mode === "view";
-  const fromProfile = from === "profile";
-  const home = fromProfile ? "/profile" : "/setup/body-composition";
+  const home = scanHome(scanOrigin(from));
   const { scanDraft, scan, acceptScan } = useSetupStore();
   const result = viewing ? scan : scanDraft;
   const getToken = useSessionToken();
@@ -157,12 +156,7 @@ export default function ScanReport() {
     { label: "Minerals", kg: r.mineralsKg ?? 0, color: colors.faint },
   ].filter((part) => part.kg > 0);
 
-  const useResult = () => {
-    acceptScan();
-    router.dismissTo("/setup/body-composition");
-  };
-
-  // From Profile, first tap: read the latest saved profile and work out the save (the new body
+  // First tap: read the latest saved profile and work out the save (the new body
   // fat % and recalculated targets), shown above for the user to confirm
   const prepareSave = async () => {
     if (isSaving) return;
@@ -177,7 +171,7 @@ export default function ScanReport() {
     setPendingSave(save);
   };
 
-  // Second tap: save it, keep the report viewable this session, and return to Profile
+  // Second tap: save it, keep the report viewable this session, and return where the scan started
   const confirmSave = async () => {
     if (!pendingSave || isSaving) return;
     setSaveError(null);
@@ -190,15 +184,14 @@ export default function ScanReport() {
     hud.success("Profile updated");
     setPendingSave(null);
     allowLeaving();
-    router.dismissTo("/profile");
+    router.dismissTo(home);
   };
 
-  const onNext = viewing ? () => router.back() : fromProfile ? (pendingSave ? confirmSave : prepareSave) : useResult;
-  const nextLabel = viewing ? "Done" : fromProfile ? (pendingSave ? "Confirm and save" : "Save to my profile") : "Use this result";
+  const onNext = viewing ? () => router.back() : pendingSave ? confirmSave : prepareSave;
+  const nextLabel = viewing ? "Done" : pendingSave ? "Confirm and save" : "Save to my profile";
 
   return (
     <SetupScreen
-      step="body-composition"
       title="Body Composition Report"
       subtitle="From your body scan."
       onNext={onNext}
@@ -206,7 +199,7 @@ export default function ScanReport() {
       loading={isSaving}
       // While a save waits for confirmation, Back returns to the report instead
       onBack={() => (pendingSave ? setPendingSave(null) : router.canGoBack() ? router.back() : router.replace(home))}
-      showProgress={!fromProfile}
+      showProgress={false}
     >
       {saveError && (
         <View className="mb-3 gap-3">

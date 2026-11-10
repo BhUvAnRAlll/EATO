@@ -98,6 +98,26 @@ CREATE TABLE body_composition_reports (
   CONSTRAINT fk_bca_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 ) ENGINE = InnoDB;
 
+-- Every body scan's two photos and report (2026-11-10, migrations/2027-01-25-body-scans.sql);
+-- the files are in BODY_SCAN_DIR, a row keeps only their names
+CREATE TABLE body_scans (
+  id                CHAR(36)      NOT NULL,
+  user_id           VARCHAR(64)   NOT NULL,
+  front_key         VARCHAR(80)   NOT NULL,             -- the photo files' names (made by the server)
+  side_key          VARCHAR(80)   NOT NULL,
+  sex               ENUM('male', 'female') NOT NULL,      -- what the scan was given
+  age               TINYINT UNSIGNED NOT NULL,
+  height_cm         DECIMAL(5,1)  NOT NULL,
+  weight_kg         DECIMAL(5,1)  NOT NULL,
+  body_fat_percent  DECIMAL(4,1)  NOT NULL,             -- the estimate
+  report            JSON          NOT NULL,             -- the full report the member saw
+  created_at        TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_body_scans_user (user_id, created_at),
+  KEY idx_body_scans_created (created_at),
+  CONSTRAINT fk_body_scans_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+) ENGINE = InnoDB;
+
 -- The daily target in use for each member. The calculation is kept beside it.
 CREATE TABLE nutrition_targets (
   user_id             VARCHAR(64)  NOT NULL,

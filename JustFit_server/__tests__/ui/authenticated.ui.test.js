@@ -113,7 +113,7 @@ describe("ui authenticated: sign in → onboarding → save → reload → updat
   it("1. the real sign-in screen authenticates the test identity and routes a new user to setup", run("sign-in", async () => {
     await signInAs(identities.a);
     await h.expectPath("/setup/personal");
-    await h.expectText("1/7");
+    await h.expectText("1/6");
     assert.ok(page.requests.some((u) => u === `${apiUrl()}/api/auth/verify-otp`), "the code should have been checked by the test server");
     assert.deepEqual(page.requests.filter((u) => /\/\/(localhost|127\.0\.0\.1):4000\b/.test(u)), [], "no request to the development server");
     assert.equal(await hasSession(page), true, "the browser must hold a session after signing in");

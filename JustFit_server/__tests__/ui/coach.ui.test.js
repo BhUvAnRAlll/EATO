@@ -179,7 +179,15 @@ describe("ui coach: the AI Coach intake", () => {
     await h.expectText("Check with a doctor first");
     await page.setInput('textarea[aria-label="Injuries or notes"]', "Old knee injury from cricket");
     await snapshotAllWidths("coach-intake-limits");
-    await next("/coach/intake/lifestyle", "Your food and recovery");
+    await next("/coach/intake/body", "Scan your body");
+
+    // Optional body scan (moved here from setup on 2026-11-10): no body fat yet, so it reads Skip
+    await h.expectText("Scan Body");
+    await snapshotAllWidths("coach-intake-body");
+    await page.clickText("Skip");
+    await h.expectPath("/coach/intake/lifestyle");
+    await h.expectText("Your food and recovery");
+    await h.settle();
 
     await page.clickText("Under 15 min");
     await clickLabel("Moderate, ₹200–400 a day");
