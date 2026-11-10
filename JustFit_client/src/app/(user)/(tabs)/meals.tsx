@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FlatList, Platform, Pressable, Text, View, useWindowDimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
@@ -48,8 +48,6 @@ export default function Meals() {
   const read = useStorefront((state) => state.read);
   const markFavorite = useStorefront((state) => state.setFavorite);
   const items = useCartStore((state) => state.items);
-  const add = useCartStore((state) => state.add);
-  const setQuantity = useCartStore((state) => state.setQuantity);
   const couponCode = useCartStore((state) => state.couponCode);
   const setCoupon = useCartStore((state) => state.setCoupon);
   const nutrition = useHomeStore((state) => state.nutrition);
@@ -129,18 +127,21 @@ export default function Meals() {
     else if (b.target.kind === "category") browse({ category: b.target.ref });
     else browse({ tag: b.target.ref });
   };
+  // One function for every card that always calls this render's handler, so the memoised cards
+  // re-render only when their own meal or quantity changes, not on every tap elsewhere
+  const latest = useRef({ open, toggleFavorite });
+  useEffect(() => { latest.current = { open, toggleFavorite }; });
+  const onOpen = useCallback((meal: MenuMeal) => latest.current.open(meal), []);
+  const onFavorite = useCallback((meal: MenuMeal) => latest.current.toggleFavorite(meal), []);
   const card = (meal: MenuMeal, cardWidth: number, variant: "row" | "grid", note?: string | null) => (
     <MealCard
       key={meal.id}
       meal={meal}
       width={cardWidth}
       variant={variant}
-      quantity={items[meal.id] ?? 0}
       note={note}
-      onOpen={() => open(meal)}
-      onAdd={() => add(meal.id)}
-      onQuantity={(q) => setQuantity(meal.id, q)}
-      onFavorite={() => toggleFavorite(meal)}
+      onOpen={onOpen}
+      onFavorite={onFavorite}
     />
   );
 

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FlatList, ScrollView, Text, View, useWindowDimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
@@ -15,7 +15,6 @@ import { hud } from "@/lib/hud";
 import { MEAL_SORTS, QUICK_LIST_SUBTITLE, QUICK_LIST_TITLE, TAG_LIST_TITLE, isQuickList, isVeg, quickList, sortMeals, type MealSort, type Tag } from "@/lib/mealRules";
 import { mealsApi, type MenuMeal } from "@/lib/mealsApi";
 import { useSessionToken } from "@/lib/session";
-import { useCartStore } from "@/store/cart";
 import { useStorefront } from "@/store/storefront";
 
 // One list of meals, two cards a row: a category (?category=id), a tag (?tag=high_protein) or a
@@ -29,9 +28,6 @@ export default function BrowseMeals() {
   const load = useStorefront((state) => state.load);
   const read = useStorefront((state) => state.read);
   const markFavorite = useStorefront((state) => state.setFavorite);
-  const items = useCartStore((state) => state.items);
-  const add = useCartStore((state) => state.add);
-  const setQuantity = useCartStore((state) => state.setQuantity);
   const [sort, setSort] = useState<MealSort>("recommended");
   const [vegOnly, setVegOnly] = useState(false);
 
@@ -56,6 +52,10 @@ export default function BrowseMeals() {
   }, [meals, sort, vegOnly]);
 
   const cardWidth = Math.floor((width - 16 * 2 - 12) / 2);
+  const openMeal = useCallback((meal: MenuMeal) => router.push({ pathname: "/meals/[id]", params: { id: meal.id } }), []);
+  // Stable for the memoised cards; always calls this render's toggleFavorite
+  const favoriteRef = useRef<(meal: MenuMeal) => void>(() => {});
+  const onFavorite = useCallback((meal: MenuMeal) => favoriteRef.current(meal), []);
   const toggleFavorite = async (meal: MenuMeal) => {
     haptic.select();
     markFavorite(meal.id, !meal.favorite);
@@ -65,6 +65,7 @@ export default function BrowseMeals() {
       hud.error("Couldn't save your favourite");
     }
   };
+  useEffect(() => { favoriteRef.current = toggleFavorite; });
 
   const chips = (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, gap: 8, paddingBottom: 14 }}>
@@ -97,11 +98,8 @@ export default function BrowseMeals() {
             <MealCard
               meal={item}
               width={cardWidth}
-              quantity={items[item.id] ?? 0}
-              onOpen={() => router.push({ pathname: "/meals/[id]", params: { id: item.id } })}
-              onAdd={() => add(item.id)}
-              onQuantity={(q) => setQuantity(item.id, q)}
-              onFavorite={() => toggleFavorite(item)}
+              onOpen={openMeal}
+              onFavorite={onFavorite}
             />
           )}
           ListEmptyComponent={
