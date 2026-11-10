@@ -268,6 +268,15 @@ export function searchExamples(meals: { name: string; tags: Tag[] }[], categorie
   return picked.length > 0 ? picked : SEARCH_EXAMPLES;
 }
 
+export const MAX_RECENT_SEARCHES = 6;
+
+/** The recent searches with `query` on top: trimmed, 2+ characters, no repeats (any case), newest first */
+export function addRecentSearch(recent: string[], query: string, max = MAX_RECENT_SEARCHES): string[] {
+  const q = query.trim().replace(/\s+/g, " ");
+  if (q.length < 2) return recent;
+  return [q, ...recent.filter((r) => r.toLowerCase() !== q.toLowerCase())].slice(0, max);
+}
+
 /** Up to `max` suggestions for a search: meal and category names containing what's typed */
 export function suggestions(meals: { name: string }[], categories: { name: string }[], query: string, max = 5): string[] {
   const q = query.trim().toLowerCase();

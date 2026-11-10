@@ -88,6 +88,14 @@ describe("meal ordering rules: the storefront", () => {
     assert.deepEqual(veg.specials.map((m) => m.id), ["Paneer Tikka Bowl"], "no specials left, so bestsellers");
   });
 
+  it("keeps recent searches newest first without repeats", async () => {
+    const { addRecentSearch } = await import("../mealRules.ts");
+    assert.deepEqual(addRecentSearch([], "  paneer  bowl "), ["paneer bowl"]);
+    assert.deepEqual(addRecentSearch(["biryani", "Paneer"], "paneer"), ["paneer", "biryani"], "a repeat moves to the top");
+    assert.deepEqual(addRecentSearch(["biryani"], "a"), ["biryani"], "one letter isn't kept");
+    assert.deepEqual(addRecentSearch(["a1", "a2", "a3"], "new", 3), ["new", "a1", "a2"]);
+  });
+
   it("search box examples come from the menu, else the built-in list", async () => {
     const { searchExamples, SEARCH_EXAMPLES } = await import("../mealRules.ts");
     assert.deepEqual(searchExamples(meals, categories), ["biryani & rice", "non-veg only", "paneer tikka bowl", "chicken biryani", "egg bhurji", "dal rice"]);

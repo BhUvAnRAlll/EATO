@@ -25,6 +25,7 @@ import { useSessionToken } from "@/lib/session";
 import { useAddressDraft } from "@/store/addressDraft";
 import { cartCount, useCartStore } from "@/store/cart";
 import { useHomeStore } from "@/store/home";
+import { useMealSearchStore } from "@/store/mealSearch";
 import { useStorefront } from "@/store/storefront";
 import { useThemeColors } from "@/theme";
 
@@ -68,6 +69,14 @@ export default function Meals() {
   const query = search.trim();
   const found = useMemo(() => (store && sections && query ? searchWithFallback(sections.meals, store.categories, query) : null), [store, sections, query]);
   const results = found?.meals ?? null;
+  const recent = useMealSearchStore((s) => s.recent);
+  const rememberSearch = useMealSearchStore((s) => s.remember);
+  const forgetSearch = useMealSearchStore((s) => s.forget);
+  const clearRecent = useMealSearchStore((s) => s.clear);
+  const pickSearch = (term: string) => {
+    setSearch(term);
+    rememberSearch(term);
+  };
   const examples = useMemo(() => (store ? searchExamples(store.meals, store.categories) : []), [store]);
   const hints = useMemo(() => (store && focused ? suggestions(store.meals, store.categories, query) : []), [store, focused, query]);
   const count = cartCount(items);
@@ -78,7 +87,10 @@ export default function Meals() {
   const rowWidth = Math.round(Math.min(220, Math.max(148, (width - 44) / 2)));
   const gridWidth = Math.floor((Math.min(width, 760) - GUTTER * 2 - GAP) / 2);
 
-  const open = (meal: MenuMeal) => router.push({ pathname: "/meals/[id]", params: { id: meal.id } });
+  const open = (meal: MenuMeal) => {
+    if (query) rememberSearch(query); // a meal opened from the results keeps its search as a recent one
+    router.push({ pathname: "/meals/[id]", params: { id: meal.id } });
+  };
   const browse = (params: { category?: string; tag?: string; list?: QuickList }) => router.push({ pathname: "/meals/browse", params });
   const toggleFavorite = async (meal: MenuMeal) => {
     const next = !meal.favorite;
@@ -129,12 +141,12 @@ export default function Meals() {
   const header = (
     <View style={{ gap: 18, paddingBottom: 14 }}>
       <ShopHeader address={address} count={count} />
-          <MealSearch value={search} onChange={setSearch} focused={focused} onFocus={setFocused} hints={hints} filtered={filtered} onFilters={() => setShowFilters(true)} examples={examples} />
+          <MealSearch value={search} onChange={setSearch} focused={focused} onFocus={setFocused} hints={hints} filtered={filtered} onFilters={() => setShowFilters(true)} examples={examples} recent={recent} onPick={pickSearch} onForget={forgetSearch} onClearRecent={clearRecent} />
           {results ? (
             <View className="px-4" style={{ gap: 4 }}>
               {found?.kind !== "exact" && <Text className="shop-search__miss">{found?.kind === "popular" ? `No meals for “${query}”` : `No exact match for “${query}”`}</Text>}
               {found?.didYouMean && (
-                <Pressable onPress={() => setSearch(found.didYouMean ?? "")} accessibilityRole="button" hitSlop={8}>
+                <Pressable onPress={() => pickSearch(found.didYouMean ?? "")} accessibilityRole="button" hitSlop={8}>
                   <Text className="meta-text">Did you mean <Text className="shop-search__fix">{found.didYouMean}</Text>?</Text>
                 </Pressable>
               )}
