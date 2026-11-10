@@ -3,19 +3,52 @@
 // (or the table missing before migration 2027-01-04) is logged and ignored. Every read is the
 // caller's own rows (req.userId); nothing here returns another person's notification.
 const rules = require("./rules");
+const platformSettings = require("../platform/settings");
+
+// The member notices a branch doesn't send (none before migration 2027-01-26)
+async function branchTurnedOff(db, gymId) {
+  try {
+    const [[row]] = await db.query("SELECT member_notifications FROM gyms WHERE id = ?", [gymId]);
+    return rules.readMemberOff(row?.member_notifications ?? null);
+  } catch (error) {
+    if (error?.code === "ER_BAD_FIELD_ERROR") return [];
+    throw error;
+  }
+}
+
+/** A branch's member notices: each with whether it is sent */
+async function memberSettings(pool, gymId) {
+  const off = await branchTurnedOff(pool, gymId);
+  return { notices: rules.MEMBER_KINDS.map((k) => ({ ...k, on: !off.includes(k.kind) })) };
+}
+
+/** Saves which member notices the branch doesn't send (503 before the migration, like other gym settings) */
+async function saveMemberSettings(pool, gymId, { off }) {
+  await pool.query("UPDATE gyms SET member_notifications = ? WHERE id = ?", [JSON.stringify(off), gymId]);
+  return memberSettings(pool, gymId);
+}
 
 /**
- * Writes one notification for each person who hasn't muted its category; the same dedupe key for the
- * same person is written once (INSERT IGNORE on the unique key). → how many were written.
+ * Writes one notification for each person; the same dedupe key for the same person is written once
+ * (INSERT IGNORE on the unique key). → how many were written. Who decides (2026-11-10): a member's
+ * gym notices follow their branch's choice (`gymId`, gyms.member_notifications) and a member's
+ * complaint answer the Super Admin's (platform settings); members don't mute anything themselves.
+ * The gym team and admins still mute their own categories.
  */
-async function notify(db, userIds, notification) {
+async function notify(db, userIds, notification, { gymId = null } = {}) {
   const ids = [...new Set((userIds ?? []).filter(Boolean))];
   if (ids.length === 0) return 0;
   try {
     const n = rules.build(notification);
-    const [prefs] = await db.query("SELECT user_id, muted FROM notification_preferences WHERE user_id IN (?)", [ids]);
-    const mutedBy = new Map(prefs.map((p) => [p.user_id, rules.readMuted(p.muted)]));
-    const to = ids.filter((id) => !(mutedBy.get(id) ?? []).includes(n.category));
+    const forMembers = rules.MEMBER_KIND_IDS.includes(n.kind) || rules.PLATFORM_MEMBER_KINDS.includes(n.kind);
+    if (rules.MEMBER_KIND_IDS.includes(n.kind) && gymId && (await branchTurnedOff(db, gymId)).includes(n.kind)) return 0;
+    if (rules.PLATFORM_MEMBER_KINDS.includes(n.kind) && !(await platformSettings.get(db)).memberComplaintUpdates) return 0;
+    let to = ids;
+    if (!forMembers) {
+      const [prefs] = await db.query("SELECT user_id, muted FROM notification_preferences WHERE user_id IN (?)", [ids]);
+      const mutedBy = new Map(prefs.map((p) => [p.user_id, rules.readMuted(p.muted)]));
+      to = ids.filter((id) => !(mutedBy.get(id) ?? []).includes(n.category));
+    }
     if (to.length === 0) return 0;
     const [result] = await db.query(
       "INSERT IGNORE INTO notifications (user_id, category, kind, title, body, link, dedupe_key) VALUES ?",
@@ -68,4 +101,4 @@ async function savePreferences(pool, userId, { muted }) {
   return preferences(pool, userId);
 }
 
-module.exports = { notify, list, markRead, preferences, savePreferences };
+module.exports = { notify, list, markRead, preferences, savePreferences, memberSettings, saveMemberSettings };

@@ -11,6 +11,9 @@ const DEFAULTS = {
   requiredDocuments: ["address"],
   pausePolicy: { ...standingRules.POLICY_DEFAULT },
   crowdThresholds: { ...crowdRules.CROWD.defaultThresholds },
+  // Members are told when justFit answers their complaint about a gym (2026-11-10: members don't
+  // switch notifications; the Super Admin decides this one, gyms the membership ones)
+  memberComplaintUpdates: true,
 };
 const KEYS = Object.keys(DEFAULTS);
 
@@ -28,6 +31,7 @@ function read(rows) {
     if (r.setting_key === "requiredDocuments" && Array.isArray(value)) out.requiredDocuments = DOCUMENT_KINDS.filter((k) => value.includes(k));
     if (r.setting_key === "pausePolicy") out.pausePolicy = standingRules.readPolicy(value);
     if (r.setting_key === "crowdThresholds") out.crowdThresholds = crowdRules.settingsOf({ crowd_thresholds: value }).thresholds;
+    if (r.setting_key === "memberComplaintUpdates" && typeof value === "boolean") out.memberComplaintUpdates = value;
   }
   return out;
 }
@@ -51,6 +55,10 @@ function settingsBody(body) {
     if (out.pausePolicy.maxDaysPerYear !== null && out.pausePolicy.maxDaysEach > out.pausePolicy.maxDaysPerYear) throw new ValidationError("The longest pause can't be more than the days a year.");
   }
   if (body.crowdThresholds !== undefined) out.crowdThresholds = crowdRules.settingsBody({ thresholds: body.crowdThresholds }).thresholds;
+  if (body.memberComplaintUpdates !== undefined) {
+    if (typeof body.memberComplaintUpdates !== "boolean") throw new ValidationError("Turn complaint updates to members on or off.");
+    out.memberComplaintUpdates = body.memberComplaintUpdates;
+  }
   if (Object.keys(out).length === 0) throw new ValidationError("Change at least one setting.");
   return out;
 }

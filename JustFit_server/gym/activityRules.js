@@ -190,6 +190,7 @@ const ROUTES = [
   R(["DELETE"], /^\/templates\/([^/]+)$/, { type: "template", action: "edit", label: ({ id }) => TEMPLATE_KIND[id] ?? "A reminder", detail: () => "Reset to the default wording" }),
   // SMS and attendance settings
   R(["PATCH"], /^\/sms\/settings$/, { type: "sms", action: "edit", label: () => "Auto reminders", detail: () => "Changed the auto reminder switches" }),
+  R(["PUT"], /^\/sms\/member-notifications$/, { type: "settings", action: "edit", label: () => "Member notifications", detail: ({ body }) => (Array.isArray(body?.off) ? (body.off.length ? `${body.off.length} notices off` : "Every notice on") : null) }),
   R(["POST"], /^\/sms\/send$/, { type: "sms", action: "create", label: ({ body }) => `SMS to ${SMS_GROUP[body?.group] ?? "a group"}`, detail: ({ answer }) => (answer && Number.isInteger(answer.sent) ? `${answer.sent} sent` : null) }),
   R(["PUT"], /^\/attendance\/location$/, { type: "attendance", action: "edit", label: () => "Location & Attendance", detail: () => "Changed the gym location or check-in radius" }),
   R(["POST"], /^\/attendance\/visits$/, { type: "attendance", action: "create", label: () => "Missed visit", detail: ({ body }) => (body?.date ? `Added a visit on ${body.date}` : "Added a missed visit") }),

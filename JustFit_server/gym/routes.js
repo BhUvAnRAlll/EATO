@@ -2,6 +2,8 @@
 // the per-user rate limit. requireGymStaff reads the caller's role (users.role, every request) and
 // their gym (gym_staff) from the database; every handler works on that gym only (req.gym), never
 // on a gym or account named in the request. Bodies are small JSON, parsed per route.
+const notificationService = require("../notifications/service");
+const notificationRules = require("../notifications/rules");
 const express = require("express");
 
 const { getAccount } = require("../auth");
@@ -706,6 +708,21 @@ router.get("/sms", smsRoute(async (req, res) => {
 }));
 router.patch("/sms/settings", smallBody, smsRoute(async (req, res) => {
   res.json(await sms.updateSettings(pool(req), req.gym, req.userId, smsRules.settingsBody(req.body), sender(req), today()));
+}));
+// Member notifications (2026-11-10, the user's choice: members don't switch them; the gym decides):
+// which membership and pause notices this branch's members get. Before migration 2027-01-26 the
+// read shows everything on and saving answers 503 naming it.
+const NOTICE_MIGRATION = "Member notifications need the 2027-01-26-member-notification-settings migration on this server.";
+const noticeRoute = (handler) => (req, res, next) =>
+  handler(req, res, next).catch((error) => {
+    if (error?.code === "ER_BAD_FIELD_ERROR") return res.status(503).json({ error: NOTICE_MIGRATION });
+    next(error);
+  });
+router.get("/sms/member-notifications", noticeRoute(async (req, res) => {
+  res.json(await notificationService.memberSettings(pool(req), req.gym.id));
+}));
+router.put("/sms/member-notifications", smallBody, noticeRoute(async (req, res) => {
+  res.json(await notificationService.saveMemberSettings(pool(req), req.gym.id, notificationRules.memberSettingsBody(req.body)));
 }));
 router.post("/sms/send", smsSendLimit, smallBody, smsRoute(async (req, res) => {
   res.json(await sms.sendToGroup(pool(req), req.gym, req.userId, sender(req), smsRules.sendBody(req.body).group, today()));

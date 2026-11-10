@@ -312,8 +312,14 @@ gym. Gym team (only logins whose options cover it): new pause request (`members.
 join (`enquiries.view`), memberships ending in the next 3 days (`members.view`), crowd Busy / Very
 busy after a check-in (`attendance.view`, once an hour per level). Applicant and gym owners: every
 review step. justFit admins: a gym submitted for review. Each event reaches a person once
-(`notifications.dedupe_key`, unique per person); a person can switch categories off
-(`notification_preferences`). Screens: member Profile › Notifications, gym ☰ › Notifications, Super
+(`notifications.dedupe_key`, unique per person). Since 2026-11-10 (the user's choice) members don't
+switch notifications: each branch chooses its members' membership and pause notices (gym portal ›
+Settings › Messages › Member notifications, `app/gym/member-notifications.tsx`, option `sms.notifications`;
+`GET|PUT /api/gym/sms/member-notifications { off }`; `gyms.member_notifications`, migration
+`2027-01-26-member-notification-settings.sql`, before it everything is sent and saving answers 503),
+and the Super Admin chooses complaint updates (Platform settings `memberComplaintUpdates`). The gym
+team and admins still switch their own categories (`notification_preferences`; a member's
+`GET /preferences` answers `canChoose: false` and `PUT` is 403). Screens: member Profile › Notifications, gym ☰ › Notifications, Super
 Admin Profile › Notifications, all `components/NotificationInbox.tsx` (tap marks read and opens only
 an allowed screen, `lib/notificationRules.ts` `safeLink`, the same list as the server). Server
 `notifications/rules.js` (pure), `service.js` (writing never fails the action), `events.js` (who

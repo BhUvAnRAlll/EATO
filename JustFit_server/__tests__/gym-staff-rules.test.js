@@ -125,7 +125,7 @@ describe("gym staff rules: Role & Permission", () => {
 
   it("a list saved before options (whole areas) still means every option of those areas", () => {
     assert.deepEqual(rules.areasOf({ kind: "staff", permissions: '["sms", "members"]' }), ["members", "sms"]);
-    assert.deepEqual(rules.optionsOf({ kind: "staff", permissions: '["sms"]' }), ["sms.view", "sms.send", "sms.auto"]);
+    assert.deepEqual(rules.optionsOf({ kind: "staff", permissions: '["sms"]' }), ["sms.view", "sms.send", "sms.auto", "sms.notifications"]);
     assert.deepEqual(rules.areasOf({ kind: "staff", permissions: ["payments", "bogus"] }), ["payments"]);
   });
 

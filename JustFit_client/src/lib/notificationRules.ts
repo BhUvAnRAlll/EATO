@@ -5,7 +5,8 @@
 export type NotificationCategory = "membership" | "pauses" | "attendance" | "gym" | "registration" | "platform";
 export type AppNotification = { id: number; category: NotificationCategory; kind: string; title: string; body: string; link: string | null; read: boolean; at: string };
 export type NotificationPage = { page: number; nextPage: number | null; unread: number; notifications: AppNotification[] };
-export type NotificationPrefs = { muted: NotificationCategory[]; categories: { id: NotificationCategory; label: string }[] };
+// canChoose: false for members (their gym and justFit decide, 2026-11-10)
+export type NotificationPrefs = { canChoose?: boolean; muted: NotificationCategory[]; categories: { id: NotificationCategory; label: string }[] };
 
 const LINKS = [/^\/gym-hub(\/\d+)?$/, /^\/gym-register$/, /^\/gym\/pauses$/, /^\/gym\/members\/\d+$/, /^\/gym\/members$/, /^\/gym\/attendance$/, /^\/gym\/enquiries$/, /^\/admin\/gyms\/\d+$/, /^\/admin\/complaints\/\d+$/, /^\/gym$/];
 export const safeLink = (link: string | null | undefined): string | null => (typeof link === "string" && LINKS.some((re) => re.test(link)) ? link : null);

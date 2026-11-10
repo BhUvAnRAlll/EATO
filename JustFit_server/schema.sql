@@ -1760,6 +1760,7 @@ CREATE TABLE gyms (                               -- one branch of a gym brand
   avg_stay_min SMALLINT UNSIGNED NULL,             -- the usual workout, for visits that never checked out; NULL: from history
   crowd_thresholds JSON  NULL,                     -- { moderate, busy, veryBusy }: % of capacity where each level starts; NULL: 40/70/90
   pause_policy JSON      NULL,                     -- migration 2027-01-01: { maxPerYear, maxDaysPerYear, maxDaysEach } for members' requests; NULL: defaults
+  member_notifications JSON NULL,                  -- migration 2027-01-26: the member notices this branch does NOT send (notifications/rules.js); NULL: all
   qr_version  INT UNSIGNED NOT NULL DEFAULT 0,     -- the attendance QR code's version (0: none yet); a new one voids the old
   qr_made_at  TIMESTAMP    NULL,
   created_by  VARCHAR(64)  NULL,

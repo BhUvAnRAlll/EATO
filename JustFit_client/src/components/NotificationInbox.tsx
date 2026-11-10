@@ -113,7 +113,11 @@ export function NotificationInbox() {
           )}
           {load.data.nextPage ? <PrimaryButton label="Show more" onPress={() => more(load.data)} /> : null}
 
-          {prefs ? (
+          {/* Members don't choose (2026-11-10): their gym and justFit decide which notices they get */}
+          {prefs && prefs.canChoose === false ? (
+            <Text className="type-caption mt-2 text-center text-muted">Your gym and justFit choose which updates you get here.</Text>
+          ) : null}
+          {prefs && prefs.canChoose !== false ? (
             <View className="card mt-2" style={{ gap: 10 }}>
               <Text className="setup__section">Notify me about</Text>
               {prefs.categories.filter((c) => shown.includes(c.id)).map((c) => (

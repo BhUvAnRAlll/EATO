@@ -132,14 +132,29 @@ describe("notifications e2e: the right people hear about each event, once", () =
     assert.equal((await api("POST", "/api/notifications/read", tokens.member, { all: true })).json.unread, 0);
     assert.ok(mine.unread > 0);
 
-    assert.equal((await api("PUT", "/api/notifications/preferences", tokens.member, { muted: ["spam"] })).status, 400);
-    const muted = await api("PUT", "/api/notifications/preferences", tokens.member, { muted: ["pauses"] });
-    assert.deepEqual(muted.json.muted, ["pauses"]);
+    // Members don't choose (2026-11-10): their gym does; the gym team keeps its own switches
+    assert.deepEqual((await api("GET", "/api/notifications/preferences", tokens.member)).json, { canChoose: false, muted: [], categories: [] });
+    assert.equal((await api("PUT", "/api/notifications/preferences", tokens.member, { muted: ["pauses"] })).status, 403);
+    const team = await api("PUT", "/api/notifications/preferences", tokens.gymA, { muted: ["attendance"] });
+    assert.equal(team.status, 200);
+    assert.equal(team.json.canChoose, true);
+    assert.deepEqual(team.json.muted, ["attendance"]);
+    assert.equal((await api("PUT", "/api/notifications/preferences", tokens.gymA, { muted: [] })).status, 200);
+
+    // The gym turns "Pause request sent" off: the member isn't told; the team still is
+    assert.equal((await api("PUT", "/api/gym/sms/member-notifications", tokens.gymA, { off: ["pause.bogus"] })).status, 400);
+    assert.equal((await api("PUT", "/api/gym/sms/member-notifications", tokens.gymA, { off: [], extra: 1 })).status, 400);
+    assert.equal((await api("PUT", "/api/gym/sms/member-notifications", tokens.member, { off: [] })).status, 403, "a member can't change the gym's choice");
+    const off = await api("PUT", "/api/gym/sms/member-notifications", tokens.gymA, { off: ["pause.submitted"] });
+    assert.equal(off.status, 200, JSON.stringify(off.json));
+    assert.equal(off.json.notices.find((n) => n.kind === "pause.submitted").on, false);
     const before = (await inbox("member")).notifications.length;
     const asked = await api("POST", `/api/membership/${state.member}/pause`, tokens.member, { from: today, until: rules.addDays(today, 2), reason: "Travelling for work" });
     assert.equal(asked.status, 201);
-    assert.equal((await inbox("member")).notifications.length, before, "pauses are muted");
+    assert.equal((await inbox("member")).notifications.length, before, "the gym turned this notice off");
+    assert.ok((await kinds("gymA")).includes("pause.request"), "the team is still told");
     assert.equal((await api("DELETE", `/api/membership/${state.member}/pause/${asked.json.pause.id}`, tokens.member)).status, 200);
+    assert.equal((await api("PUT", "/api/gym/sms/member-notifications", tokens.gymA, { off: [] })).status, 200);
   }));
 
   it("4. suspending tells the member once; a gym submitted for review reaches the admins", run(async () => {

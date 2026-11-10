@@ -331,6 +331,8 @@ const signedOut = <T>(): Promise<ApiResult<T>> => Promise.resolve({ ok: false, e
 const call = <T>(token: string | null, path: string, method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE" = "GET", body?: unknown): Promise<ApiResult<T>> =>
   token ? apiFetch<T>(path, { token, method, body }) : signedOut();
 
+export type MemberNotice = { kind: string; label: string; on: boolean };
+
 export const gymApi = {
   dashboard: (token: string | null) => call<GymDashboard>(token, "/api/gym/dashboard"),
   // Home's jiggle mode: saves this login's order of the Today tiles at this branch
@@ -358,6 +360,9 @@ export const gymApi = {
   rejectPause: (token: string | null, id: number, note?: string) => call<{ pause: PauseRequest }>(token, `/api/gym/pauses/${id}/reject`, "POST", note ? { note } : {}),
   setStanding: (token: string | null, memberId: number, standing: MemberStanding, note: string) =>
     call<GymMemberDetail>(token, `/api/gym/members/${memberId}/standing`, "POST", { standing, ...(note.trim() ? { note: note.trim() } : {}) }),
+  // Member notifications (2026-11-10): which membership and pause notices this branch's members get
+  memberNotices: (token: string | null) => call<{ notices: MemberNotice[] }>(token, "/api/gym/sms/member-notifications"),
+  saveMemberNotices: (token: string | null, off: string[]) => call<{ notices: MemberNotice[] }>(token, "/api/gym/sms/member-notifications", "PUT", { off }),
   pausePolicy: (token: string | null) => call<{ policy: PausePolicy; defaults: PausePolicy }>(token, "/api/gym/pause-policy"),
   savePausePolicy: (token: string | null, policy: Partial<PausePolicy>) => call<{ policy: PausePolicy }>(token, "/api/gym/pause-policy", "PUT", policy),
   pauseMember: (token: string | null, id: number, fields: PauseFields) => call<GymMemberDetail>(token, `/api/gym/members/${id}/pause`, "POST", fields),

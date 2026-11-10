@@ -32,3 +32,22 @@ describe("Notification rules", () => {
     assert.deepEqual(rules.readMuted("not json"), []);
   });
 });
+
+describe("member notices set by the gym and justFit (2026-11-10)", () => {
+  const rules = require("../notifications/rules");
+  const settingsRules = require("../platform/settingsRules");
+  it("the gym turns notices off from its list only", () => {
+    assert.deepEqual(rules.memberSettingsBody({ off: ["pause.approved", "membership.expired", "pause.approved"] }), { off: ["membership.expired", "pause.approved"] });
+    for (const bad of [{ off: ["gym.capacity"] }, { off: "pause.approved" }, { off: [], muted: [] }, null, []]) assert.throws(() => rules.memberSettingsBody(bad), String(JSON.stringify(bad)));
+    assert.deepEqual(rules.readMemberOff('["pause.by_gym","spam"]'), ["pause.by_gym"]);
+    assert.deepEqual(rules.readMemberOff(null), []);
+    assert.deepEqual(rules.readMemberOff("not json"), []);
+    assert.ok(rules.MEMBER_KIND_IDS.every((k) => rules.KINDS[k]), "every member notice is a known kind");
+  });
+  it("complaint updates to members are on until the Super Admin turns them off", () => {
+    assert.equal(settingsRules.read([]).memberComplaintUpdates, true);
+    assert.equal(settingsRules.read([{ setting_key: "memberComplaintUpdates", value: "false" }]).memberComplaintUpdates, false);
+    assert.deepEqual(settingsRules.settingsBody({ memberComplaintUpdates: false }), { memberComplaintUpdates: false });
+    assert.throws(() => settingsRules.settingsBody({ memberComplaintUpdates: "no" }));
+  });
+});

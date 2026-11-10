@@ -19,6 +19,8 @@ type Settings = {
   requiredDocuments: DocKind[];
   pausePolicy: { maxPerYear: number | null; maxDaysPerYear: number | null; maxDaysEach: number };
   crowdThresholds: { moderate: number; busy: number; veryBusy: number };
+  // Members are told when justFit answers their complaint (2026-11-10; true until saved)
+  memberComplaintUpdates?: boolean;
 };
 type Answer = { settings: Settings };
 const DOCS: { id: DocKind; label: string }[] = [
@@ -51,6 +53,7 @@ export default function PlatformSettings() {
 function Form({ initial, onSaved }: { initial: Settings; onSaved: (s: Settings) => void }) {
   const switchColors = useSwitchColors();
   const [open, setOpen] = useState(initial.registrationOpen);
+  const [complaintUpdates, setComplaintUpdates] = useState(initial.memberComplaintUpdates !== false);
   const [docs, setDocs] = useState<DocKind[]>(initial.requiredDocuments);
   const [perYear, setPerYear] = useState(txt(initial.pausePolicy.maxPerYear));
   const [daysYear, setDaysYear] = useState(txt(initial.pausePolicy.maxDaysPerYear));
@@ -67,7 +70,7 @@ function Form({ initial, onSaved }: { initial: Settings; onSaved: (s: Settings) 
 
   const submit = () => {
     if (problem) return;
-    save.save((token) => (token ? apiFetch<Answer>("/api/admin/portal/platform-settings", { token, method: "PUT", body: { registrationOpen: open, requiredDocuments: docs, pausePolicy: p, crowdThresholds: t } }) : Promise.resolve({ ok: false as const, error: "Please sign in again." })));
+    save.save((token) => (token ? apiFetch<Answer>("/api/admin/portal/platform-settings", { token, method: "PUT", body: { registrationOpen: open, requiredDocuments: docs, pausePolicy: p, crowdThresholds: t, memberComplaintUpdates: complaintUpdates } }) : Promise.resolve({ ok: false as const, error: "Please sign in again." })));
   };
 
   return (
@@ -78,6 +81,14 @@ function Form({ initial, onSaved }: { initial: Settings; onSaved: (s: Settings) 
           <Text className="meta-text">{"Off: members can't start new gym applications. Drafts already started go on."}</Text>
         </View>
         <Switch value={open} onValueChange={setOpen} {...switchColors} accessibilityLabel="Gym registration open" />
+      </View>
+      {/* Members don't switch notifications (2026-11-10): justFit decides this one, each gym its membership notices */}
+      <View className="card flex-row items-center" style={{ gap: 12 }}>
+        <View className="flex-1" style={{ gap: 2 }}>
+          <Text className="card__title">Tell members when their complaint is answered</Text>
+          <Text className="meta-text">{"In their app's inbox. Each gym chooses its own membership and pause notices (gym portal › Settings › Member notifications)."}</Text>
+        </View>
+        <Switch value={complaintUpdates} onValueChange={setComplaintUpdates} {...switchColors} accessibilityLabel="Tell members when their complaint is answered" />
       </View>
       <View className="card" style={{ gap: 8 }}>
         <Text className="card__title">Documents an application needs</Text>

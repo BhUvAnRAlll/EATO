@@ -35,6 +35,42 @@ const KINDS = {
   "platform.complaint": "platform",
   "gym.complaint_update": "gym",
 };
+// What a member is told about their gym membership (2026-11-10, the user's choice: members don't
+// switch notifications; each branch's gym admin, or Staff with the option, decides which of these
+// its members get, gyms.member_notifications). Everything is on until the gym turns one off.
+const MEMBER_KINDS = [
+  { kind: "membership.activated", label: "Membership activated" },
+  { kind: "membership.expiring", label: "Membership ends in 3 days" },
+  { kind: "membership.expired", label: "Membership ended" },
+  { kind: "membership.suspended", label: "Membership suspended" },
+  { kind: "membership.cancelled", label: "Membership cancelled" },
+  { kind: "membership.reactivated", label: "Membership reactivated" },
+  { kind: "pause.submitted", label: "Pause request sent" },
+  { kind: "pause.approved", label: "Pause approved" },
+  { kind: "pause.rejected", label: "Pause not approved" },
+  { kind: "pause.by_gym", label: "Paused by the gym" },
+];
+const MEMBER_KIND_IDS = MEMBER_KINDS.map((k) => k.kind);
+// The member's own complaint answered by justFit: the Super Admin's choice (platform settings)
+const PLATFORM_MEMBER_KINDS = ["gym.complaint_update"];
+
+/** PUT /api/gym/member-notifications { off: [kind] }: the member notices this branch doesn't send */
+function memberSettingsBody(body) {
+  if (!body || typeof body !== "object" || Array.isArray(body) || Object.keys(body).some((k) => k !== "off")) throw new ValidationError("Send the notices to turn off as { off }.");
+  if (!Array.isArray(body.off) || body.off.some((k) => !MEMBER_KIND_IDS.includes(k))) throw new ValidationError("Pick notices from the list.");
+  return { off: MEMBER_KIND_IDS.filter((k) => body.off.includes(k)) };
+}
+/** A branch's stored choice (gyms.member_notifications) → the kinds it doesn't send */
+function readMemberOff(value) {
+  let list = value;
+  try {
+    if (typeof value === "string") list = JSON.parse(value);
+  } catch {
+    return [];
+  }
+  return Array.isArray(list) ? MEMBER_KIND_IDS.filter((k) => list.includes(k)) : [];
+}
+
 // Screens a notification may open (the app routes them only after checking the same list)
 const LINKS = [/^\/gym-hub(\/\d+)?$/, /^\/gym-register$/, /^\/gym\/pauses$/, /^\/gym\/members\/\d+$/, /^\/gym\/members$/, /^\/gym\/attendance$/, /^\/gym\/enquiries$/, /^\/admin\/gyms\/\d+$/, /^\/admin\/complaints\/\d+$/, /^\/gym$/];
 const safeLink = (link) => (typeof link === "string" && LINKS.some((re) => re.test(link)) ? link : null);
@@ -84,4 +120,4 @@ function readMuted(stored) {
   }
 }
 
-module.exports = { CATEGORIES, CATEGORY_LABEL, KINDS, PAGE, safeLink, build, preferencesBody, readBody, listQuery, readMuted };
+module.exports = { CATEGORIES, CATEGORY_LABEL, KINDS, PAGE, MEMBER_KINDS, MEMBER_KIND_IDS, PLATFORM_MEMBER_KINDS, safeLink, build, preferencesBody, readBody, listQuery, readMuted, memberSettingsBody, readMemberOff };

@@ -23,11 +23,19 @@ router.get("/", route(async (req, res) => {
 router.post("/read", smallBody, route(async (req, res) => {
   res.json(await service.markRead(pool(req), req.userId, rules.readBody(req.body)));
 }));
+// Members don't choose their notifications (2026-11-10, the user's choice): their gym decides the
+// membership ones and the Super Admin the rest. The gym team and admins still switch theirs.
+const isMember = async (req) => {
+  const [[row]] = await pool(req).query("SELECT role FROM users WHERE id = ?", [req.userId]);
+  return !row || row.role === "user";
+};
 router.get("/preferences", route(async (req, res) => {
-  res.json(await service.preferences(pool(req), req.userId));
+  if (await isMember(req)) return res.json({ canChoose: false, muted: [], categories: [] });
+  res.json({ canChoose: true, ...(await service.preferences(pool(req), req.userId)) });
 }));
 router.put("/preferences", smallBody, route(async (req, res) => {
-  res.json(await service.savePreferences(pool(req), req.userId, rules.preferencesBody(req.body)));
+  if (await isMember(req)) return res.status(403).json({ error: "Your gym and justFit choose which notifications members get." });
+  res.json({ canChoose: true, ...(await service.savePreferences(pool(req), req.userId, rules.preferencesBody(req.body))) });
 }));
 
 module.exports = { notificationsRouter: router };

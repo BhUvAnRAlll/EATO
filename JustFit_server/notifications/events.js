@@ -42,7 +42,7 @@ const memberAdmitted = safely(async (db, memberId) => {
   await service.notify(db, await accountsByPhone(db, m.phone), {
     kind: "membership.activated", key: `${m.id}`, title: `Welcome to ${m.brand}`,
     body: `Your membership at ${m.brand} ${m.branch} is active. Check in with the gym's QR code from Gym Hub.`, link: `/gym-hub/${m.id}`,
-  });
+  }, { gymId: m.gym_id });
 });
 
 /** A member asked for a pause: the member (submitted) and the team that answers pause requests */
@@ -51,7 +51,7 @@ const pauseRequested = safely(async (db, memberId, pauseId) => {
   if (!m) return;
   await service.notify(db, await accountsByPhone(db, m.phone), {
     kind: "pause.submitted", key: `${pauseId}`, title: "Pause request sent", body: `${m.brand} will approve or reject it. You'll see the answer here.`, link: `/gym-hub/${m.id}`,
-  });
+  }, { gymId: m.gym_id });
   await service.notify(db, await teamWith(db, m.gym_id, "members.pause"), {
     kind: "pause.request", key: `${pauseId}`, title: "New pause request", body: `${m.full_name} (${m.member_code}) asked to pause their membership.`, link: "/gym/pauses",
   });
@@ -65,11 +65,11 @@ const pauseDecided = safely(async (db, pauseId) => {
   if (!m) return;
   const to = await accountsByPhone(db, m.phone);
   if (p.status === "approved" && p.requested_by === "staff") {
-    await service.notify(db, to, { kind: "pause.by_gym", key: `${p.id}`, title: "Membership paused", body: `${m.brand} paused your membership from ${p.f} to ${p.u}. Those days are added to your plan.`, link: `/gym-hub/${m.id}` });
+    await service.notify(db, to, { kind: "pause.by_gym", key: `${p.id}`, title: "Membership paused", body: `${m.brand} paused your membership from ${p.f} to ${p.u}. Those days are added to your plan.`, link: `/gym-hub/${m.id}` }, { gymId: m.gym_id });
   } else if (p.status === "approved") {
-    await service.notify(db, to, { kind: "pause.approved", key: `${p.id}`, title: "Pause approved", body: `Your pause from ${p.f} to ${p.u} is approved. Those days are added to your plan.`, link: `/gym-hub/${m.id}` });
+    await service.notify(db, to, { kind: "pause.approved", key: `${p.id}`, title: "Pause approved", body: `Your pause from ${p.f} to ${p.u} is approved. Those days are added to your plan.`, link: `/gym-hub/${m.id}` }, { gymId: m.gym_id });
   } else if (p.status === "rejected") {
-    await service.notify(db, to, { kind: "pause.rejected", key: `${p.id}`, title: "Pause not approved", body: `${m.brand} didn't approve your pause${p.decision_note ? `: “${p.decision_note}”` : "."}`, link: `/gym-hub/${m.id}` });
+    await service.notify(db, to, { kind: "pause.rejected", key: `${p.id}`, title: "Pause not approved", body: `${m.brand} didn't approve your pause${p.decision_note ? `: “${p.decision_note}”` : "."}`, link: `/gym-hub/${m.id}` }, { gymId: m.gym_id });
   }
 });
 
@@ -85,7 +85,7 @@ const standingChanged = safely(async (db, memberId, standing, note, changedAt) =
   if (!words) return;
   await service.notify(db, await accountsByPhone(db, m.phone), {
     kind: standing === "active" ? "membership.reactivated" : `membership.${standing}`, key: `${m.id}:${changedAt}`, title: words[0], body: words[1], link: `/gym-hub/${m.id}`,
-  });
+  }, { gymId: m.gym_id });
 });
 
 /** Someone asked to join from the app: the team that sees enquiries */
@@ -143,7 +143,7 @@ const daily = safely(async (db, today, addDays) => {
   const soon = addDays(today, 3);
   const yesterday = addDays(today, -1);
   const [members] = await db.query(
-    `SELECT m.id, m.phone, DATE_FORMAT(m.expires_on, '%Y-%m-%d') AS ends, b.name AS brand FROM gym_members m JOIN gyms g ON g.id = m.gym_id JOIN gym_brands b ON b.id = g.brand_id
+    `SELECT m.id, m.gym_id, m.phone, DATE_FORMAT(m.expires_on, '%Y-%m-%d') AS ends, b.name AS brand FROM gym_members m JOIN gyms g ON g.id = m.gym_id JOIN gym_brands b ON b.id = g.brand_id
      WHERE m.expires_on IN (?, ?)`,
     [soon, yesterday],
   );
@@ -153,7 +153,7 @@ const daily = safely(async (db, today, addDays) => {
       kind: ending ? "membership.expiring" : "membership.expired", key: `${m.id}:${m.ends}`,
       title: ending ? "Membership ends in 3 days" : "Membership ended",
       body: ending ? `Your ${m.brand} plan ends on ${m.ends}. Renew at the front desk to keep training.` : `Your ${m.brand} plan ended on ${m.ends}. Renew at the front desk.`, link: `/gym-hub/${m.id}`,
-    });
+    }, { gymId: m.gym_id });
   }
   const [gyms] = await db.query("SELECT gym_id, COUNT(*) AS n FROM gym_members WHERE expires_on BETWEEN ? AND ? GROUP BY gym_id", [today, soon]);
   for (const g of gyms) {
