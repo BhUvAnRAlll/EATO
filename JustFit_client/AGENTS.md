@@ -338,7 +338,12 @@ audited transaction with the reason. Server `admin/platformRules.js` (pure), `ad
 `GET /api/admin/portal/gym-analytics?days=`, `GET /gym-staff?role=&search=&page=`,
 `GET /users/:id/gyms`, `POST /users/:id/suspend|reactivate`, `POST /gyms/:id/transfer`; audited
 `user.suspend`, `user.reactivate`, `gym.owner_transfer`. Migration `2027-01-07-account-suspensions.sql`
-(one table); before it suspending answers 503 naming it and sign-in is unchanged. Tests:
+(one table); before it suspending answers 503 naming it and sign-in is unchanged. **Reports
+(2026-11-10):** Analytics' Reports card exports every branch (status, on Discover, featured,
+memberships, active, visits in 30 days, team) or every gym team (role, masked number, suspended) as
+Excel (`GET /api/admin/portal/gym-report?kind=gyms|staff&format=xlsx|csv`, 30 an hour, at most 5,000
+rows, CSV cells that start like a formula get an apostrophe; `platform.report`, `exportGymReport`).
+Tests:
 `__tests__/admin-platform-rules.test.js`, `e2e/gym-platform.e2e.test.js` (including a refused sign-in).
 
 **Phase 8: complaints and platform settings (2026-11-10, the brief's section 7):** a member reports a

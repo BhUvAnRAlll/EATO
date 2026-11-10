@@ -121,6 +121,14 @@ const platformLimit = limitPerUser(createRateLimiter({ limit: 60, windowMs: 60 *
 router.get("/gym-analytics", platformRoute(async (req, res) => {
   res.json(await platform.analytics(pool(req), platformRules.analyticsQuery(req.query)));
 }));
+// Report exports: every branch, or every gym team, as Excel or CSV; 30 an hour per admin
+const reportLimit = limitPerUser(createRateLimiter({ limit: 30, windowMs: 60 * 60 * 1000 }));
+router.get("/gym-report", reportLimit, platformRoute(async (req, res) => {
+  const file = await platform.report(pool(req), platformRules.reportQuery(req.query));
+  res.setHeader("Content-Type", file.type);
+  res.setHeader("Content-Disposition", `attachment; filename="${file.name}"`);
+  res.send(file.body);
+}));
 router.get("/gym-staff", platformRoute(async (req, res) => {
   res.json(await platform.staffDirectory(pool(req), platformRules.staffQuery(req.query)));
 }));

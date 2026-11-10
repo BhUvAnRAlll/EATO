@@ -119,6 +119,36 @@ describe("super admin platform e2e: analytics, all staff, suspension and ownersh
     assert.equal(page.json.memberships.length, 1);
   }));
 
+  it("3b. reports: every branch and every team as Excel or CSV, admins only", run(async () => {
+    const file = async (route, token) => {
+      const response = await fetch(`${server.baseUrl}${route}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+      return { status: response.status, type: response.headers.get("content-type") ?? "", name: response.headers.get("content-disposition") ?? "", body: Buffer.from(await response.arrayBuffer()) };
+    };
+    assert.equal((await file("/api/admin/portal/gym-report", null)).status, 401);
+    for (const tag of ["gymA", "staffA", "member"]) assert.equal((await file("/api/admin/portal/gym-report", tokens[tag])).status, 403, tag);
+    assert.equal((await file("/api/admin/portal/gym-report?kind=users", tokens.admin)).status, 400);
+    assert.equal((await file("/api/admin/portal/gym-report?kind=gyms&format=html", tokens.admin)).status, 400);
+    assert.equal((await file("/api/admin/portal/gym-report?kind=gyms%27%20OR%201%3D1", tokens.admin)).status, 400, "an injection attempt is only a bad kind");
+
+    const excel = await file("/api/admin/portal/gym-report", tokens.admin);
+    assert.equal(excel.status, 200);
+    assert.match(excel.type, /spreadsheetml/);
+    assert.match(excel.name, /justfit-gyms-\d{4}-\d{2}-\d{2}\.xlsx/);
+    assert.equal(excel.body.subarray(0, 2).toString(), "PK", "an .xlsx is a zip");
+
+    const gymsCsv = await file("/api/admin/portal/gym-report?kind=gyms&format=csv", tokens.admin);
+    assert.equal(gymsCsv.status, 200);
+    const lines = gymsCsv.body.toString("utf8").replace(/^\uFEFF/, "").trim().split("\n");
+    assert.equal(lines[0], "Gym,Branch,Area,City,State,Status,On Discover,Featured,Added on,Memberships,Active memberships,Visits (30 days),Team");
+    const forma = lines.find((l) => l.startsWith("Forma,Tumkur,"));
+    assert.ok(forma, "the branch is listed");
+    assert.match(forma, /,1,1,0,2$/, "one membership, active, no visits, a team of two");
+
+    const staffCsv = (await file("/api/admin/portal/gym-report?kind=staff&format=csv", tokens.admin)).body.toString("utf8");
+    assert.ok(staffCsv.includes(",Receptionist,Forma,Tumkur,"), "the Staff login with its role");
+    assert.ok(!staffCsv.includes(identities.staffA.phone), "phone numbers are masked");
+  }));
+
   it("4. suspending ends the account's sessions until it is reactivated", run(async () => {
     const route = `/api/admin/portal/users/${identities.staffA.id}/suspend`;
     assert.equal((await api("POST", route, tokens.gymA, { reason: "Shared their login with others." })).status, 403);

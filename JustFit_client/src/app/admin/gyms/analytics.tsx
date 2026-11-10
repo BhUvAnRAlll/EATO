@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
@@ -7,8 +7,10 @@ import { ScreenHeader } from "@/components/ScreenHeader";
 import { ScreenSkeleton } from "@/components/Skeleton";
 import { BarChart } from "@/components/admin/BarChart";
 import { DashedBlock } from "@/components/macro/DashedBlock";
-import { adminPlatform, dayLabel, type GymAnalytics, type Point } from "@/lib/adminPlatform";
+import { adminPlatform, dayLabel, exportGymReport, type GymAnalytics, type GymReportKind, type Point } from "@/lib/adminPlatform";
 import { haptic } from "@/lib/haptics";
+import { hud } from "@/lib/hud";
+import { useSessionToken } from "@/lib/session";
 import { useGymData } from "@/lib/useGymData";
 import { useThemeColors } from "@/theme";
 
@@ -23,6 +25,18 @@ export default function GymAnalyticsScreen() {
   const [days, setDays] = useState<(typeof PERIODS)[number]>(30);
   const load = useCallback((token: string | null) => adminPlatform.analytics(token, days), [days]);
   const { result, retry, refreshing, refresh } = useGymData(load);
+  const getToken = useSessionToken();
+  const [exporting, setExporting] = useState<GymReportKind | null>(null);
+  const running = useRef(false);
+  const exportReport = async (kind: GymReportKind) => {
+    if (running.current) return;
+    running.current = true;
+    setExporting(kind);
+    const done = await exportGymReport(await getToken(), kind);
+    running.current = false;
+    setExporting(null);
+    if (!done.ok) hud.error(done.error);
+  };
 
   const chart = (title: string, points: Point[], color: string) => (
     <View className="card" style={{ gap: 8 }}>
@@ -82,6 +96,17 @@ export default function GymAnalyticsScreen() {
                     <Text className="meta-text">{`${c.gyms} ${c.gyms === 1 ? "branch" : "branches"} · ${count(c.memberships)} memberships`}</Text>
                   </View>
                 ))}
+              </View>
+              <View className="card" style={{ gap: 8 }}>
+                <Text className="card__title">Reports</Text>
+                <Text className="meta-text">Excel files of every branch (status, members, visits in the last 30 days, team) or every gym team with its role. Phone numbers stay masked.</Text>
+                <View className="flex-row flex-wrap" style={{ gap: 8 }}>
+                  {([["gyms", "Export gyms"], ["staff", "Export staff"]] as const).map(([kind, label]) => (
+                    <Pressable key={kind} onPress={() => exportReport(kind)} disabled={exporting !== null} className="admin-chip" style={{ opacity: exporting !== null && exporting !== kind ? 0.6 : 1 }} accessibilityRole="button" accessibilityLabel={`${label} as Excel`}>
+                      <Text className="type-caption text-ink">{exporting === kind ? "Exporting…" : label}</Text>
+                    </Pressable>
+                  ))}
+                </View>
               </View>
             </>
           ) : null}

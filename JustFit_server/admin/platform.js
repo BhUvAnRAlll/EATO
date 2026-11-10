@@ -11,6 +11,7 @@ const rolePresets = require("../gym/rolePresets");
 const staffRules = require("../gym/staffRules");
 const sessions = require("../auth/sessions");
 const gymStatus = require("../gym/gymStatus");
+const xlsx = require("../gym/xlsx");
 
 const DAY = (column) => `DATE_FORMAT(${column}, '%Y-%m-%d')`;
 
@@ -76,8 +77,10 @@ async function analytics(pool, { days }, today = gymRules.todayInIndia()) {
 }
 
 const PAGE = 50;
+// The most rows a report holds
+const REPORT_MAX = 5000;
 /** GET /api/admin/portal/gym-staff: every gym's team, with each person's role there */
-async function staffDirectory(pool, { role, search, page }) {
+async function staffDirectory(pool, { role, search, page }, { all = false } = {}) {
   const where = [];
   const params = [];
   if (role !== "all") { where.push("s.kind = ?"); params.push(role); }
@@ -92,7 +95,7 @@ async function staffDirectory(pool, { role, search, page }) {
      FROM gym_staff s JOIN users u ON u.id = s.user_id JOIN gyms g ON g.id = s.gym_id JOIN gym_brands b ON b.id = g.brand_id
      ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
      ORDER BY b.name, g.name, FIELD(s.kind, 'owner', 'staff', 'trainer'), u.full_name LIMIT ? OFFSET ?`,
-    [...params, PAGE + 1, (page - 1) * PAGE],
+    [...params, all ? REPORT_MAX + 1 : PAGE + 1, all ? 0 : (page - 1) * PAGE],
   );
   const suspended = new Set();
   if (rows.length && (await sessions.hasSuspensions(pool))) {
@@ -101,8 +104,8 @@ async function staffDirectory(pool, { role, search, page }) {
   }
   return {
     page,
-    nextPage: rows.length > PAGE ? page + 1 : null,
-    staff: rows.slice(0, PAGE).map((r) => {
+    nextPage: !all && rows.length > PAGE ? page + 1 : null,
+    staff: rows.slice(0, all ? REPORT_MAX : PAGE).map((r) => {
       const options = r.kind === "staff" ? (r.permissions === null ? null : staffRules.optionsOf(r)) : null;
       const roleId = rolePresets.roleOf(r.kind, options);
       return {
@@ -221,4 +224,49 @@ async function featuredOf(pool, gymId) {
   }
 }
 
-module.exports = { feature, featuredOf, analytics, staffDirectory, suspend, reactivate, suspensionOf, gymLinksOf, transferOwner };
+// Which optional gyms columns this server has (registration 2026-12-27, publishing 2026-12-21,
+// featured 2027-01-21), so the report works before each migration
+async function gymColumns(pool) {
+  const [rows] = await pool.query(
+    "SELECT COLUMN_NAME AS c FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'gyms' AND COLUMN_NAME IN ('status', 'state', 'published_profile', 'featured_at')",
+  );
+  return new Set(rows.map((r) => r.c));
+}
+
+/** GET /api/admin/portal/gym-report?kind=gyms|staff&format=xlsx|csv: a file for the admin to keep */
+async function report(pool, { kind, format }, today = gymRules.todayInIndia()) {
+  let header, data, widths, sheetName;
+  if (kind === "staff") {
+    const { staff } = await staffDirectory(pool, { role: "all", search: "", page: 1 }, { all: true });
+    header = rules.STAFF_HEADER;
+    data = staff.map(rules.staffRow);
+    widths = [24, 14, 18, 24, 18, 16, 12, 10];
+    sheetName = "Gym staff";
+  } else {
+    const has = await gymColumns(pool);
+    const since = gymRules.addDays(today, -29);
+    const [rows] = await pool.query(
+      `SELECT b.name AS brand, g.name AS branch, g.area, g.city, ${DAY("g.created_at")} AS added_on,
+         ${has.has("state") ? "g.state" : "NULL"} AS state,
+         ${has.has("status") ? "g.status" : "'approved'"} AS status,
+         ${has.has("published_profile") ? "g.published_profile IS NOT NULL" : "1"} AS published,
+         ${has.has("featured_at") ? "g.featured_at IS NOT NULL" : "0"} AS featured,
+         (SELECT COUNT(*) FROM gym_members m WHERE m.gym_id = g.id) AS memberships,
+         (SELECT COUNT(*) FROM gym_members m WHERE m.gym_id = g.id AND m.expires_on >= ?) AS active,
+         (SELECT COUNT(*) FROM gym_attendance a WHERE a.gym_id = g.id AND a.on_date >= ?) AS visits,
+         (SELECT COUNT(*) FROM gym_staff s WHERE s.gym_id = g.id) AS team
+       FROM gyms g JOIN gym_brands b ON b.id = g.brand_id
+       ORDER BY b.name, g.name LIMIT ?`,
+      [today, since, REPORT_MAX],
+    );
+    header = rules.GYM_HEADER;
+    data = rows.map(rules.gymRow);
+    widths = [24, 18, 18, 16, 14, 12, 11, 9, 12, 12, 17, 15, 8];
+    sheetName = "Gyms";
+  }
+  const name = `justfit-${kind}-${today}`;
+  if (format === "csv") return { name: `${name}.csv`, type: "text/csv; charset=utf-8", body: Buffer.from(rules.toCsv(header, data)) };
+  return { name: `${name}.xlsx`, type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", body: xlsx.workbook({ sheetName, header, rows: data, widths }) };
+}
+
+module.exports = { report, feature, featuredOf, analytics, staffDirectory, suspend, reactivate, suspensionOf, gymLinksOf, transferOwner };

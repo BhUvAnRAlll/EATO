@@ -42,3 +42,39 @@ describe("Admin platform rules", () => {
     assert.deepEqual(s, [{ date: "2026-11-08", value: 0 }, { date: "2026-11-09", value: 3 }, { date: "2026-11-10", value: 0 }]);
   });
 });
+
+describe("gym report exports", () => {
+  it("defaults to the gyms report as Excel and refuses anything else", () => {
+    assert.deepEqual(rules.reportQuery({}), { kind: "gyms", format: "xlsx" });
+    assert.deepEqual(rules.reportQuery({ kind: "staff", format: "csv" }), { kind: "staff", format: "csv" });
+    assert.throws(() => rules.reportQuery({ kind: "members" }), /gyms or the staff/);
+    assert.throws(() => rules.reportQuery({ format: "pdf" }), /Excel or CSV/);
+    assert.throws(() => rules.reportQuery({ kind: "gyms", table: "users" }), /fields we don't use/);
+    assert.throws(() => rules.reportQuery({ kind: ["gyms"] }), /gyms or the staff/);
+  });
+
+  it("neutralises formulas and quotes commas and quotes in CSV", () => {
+    assert.equal(rules.csvCell("=HYPERLINK(1)"), "'=HYPERLINK(1)");
+    assert.equal(rules.csvCell("+91"), "'+91");
+    assert.equal(rules.csvCell('Forma, "Gold"'), '"Forma, ""Gold"""');
+    assert.equal(rules.csvCell(null), "");
+    assert.equal(rules.csvCell(12), "12");
+    const csv = rules.toCsv(["A", "B"], [["x", 1]]);
+    assert.ok(csv.startsWith("﻿A,B\nx,1"));
+  });
+
+  it("turns a branch into a row: live only when approved and published", () => {
+    const base = { brand: "Forma", branch: "Tumkur", area: "BH Road", city: "Tumakuru", state: "Karnataka", added_on: "2026-11-01", memberships: "4", active: "3", visits: "20", team: "2" };
+    assert.deepEqual(rules.gymRow({ ...base, status: "approved", published: 1, featured: 1 }), ["Forma", "Tumkur", "BH Road", "Tumakuru", "Karnataka", "Approved", "Yes", "Yes", "2026-11-01", 4, 3, 20, 2]);
+    assert.equal(rules.gymRow({ ...base, status: "approved", published: 0, featured: 0 })[6], "No");
+    assert.equal(rules.gymRow({ ...base, status: "suspended", published: 1 })[6], "No");
+    assert.equal(rules.gymRow({ ...base, status: "pending_review", published: 1 })[5], "In review");
+    assert.equal(rules.gymRow(base).length, rules.GYM_HEADER.length);
+  });
+
+  it("turns a team member into a row", () => {
+    const row = rules.staffRow({ name: null, phone: "******3210", roleLabel: "Trainer", gym: { name: "Forma", branch: "Tumkur", city: "Tumakuru" }, addedOn: "2026-11-02", suspended: true });
+    assert.deepEqual(row, ["No name yet", "******3210", "Trainer", "Forma", "Tumkur", "Tumakuru", "2026-11-02", "Yes"]);
+    assert.equal(row.length, rules.STAFF_HEADER.length);
+  });
+});

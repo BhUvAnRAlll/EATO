@@ -81,4 +81,44 @@ function featureBody(body) {
   return { featured: body.featured };
 }
 
-module.exports = { featureBody, PERIODS, STAFF_ROLES, analyticsQuery, staffQuery, suspendBody, suspendProblem, transferBody, transferProblem, series };
+// Report exports (GET /api/admin/portal/gym-report?kind=&format=): every branch, or every gym team
+const REPORT_KINDS = ["gyms", "staff"];
+const REPORT_FORMATS = ["xlsx", "csv"];
+function reportQuery(query = {}) {
+  if (Object.keys(query).some((k) => !["kind", "format"].includes(k))) throw new ValidationError("That request has fields we don't use.");
+  const kind = query.kind ?? "gyms";
+  const format = query.format ?? "xlsx";
+  if (!REPORT_KINDS.includes(kind)) throw new ValidationError("Pick the gyms or the staff report.");
+  if (!REPORT_FORMATS.includes(format)) throw new ValidationError("Pick Excel or CSV.");
+  return { kind, format };
+}
+
+// A CSV cell: quoted when needed, and a leading = + - @ (a spreadsheet formula) neutralised
+function csvCell(value) {
+  if (value === null || value === undefined) return "";
+  let text = String(value);
+  if (/^[=+\-@\t\r]/.test(text)) text = `'${text}`;
+  return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+/** The whole CSV, with a byte-order mark so Excel reads ₹ and Indian names right */
+function toCsv(header, rows) {
+  return `\uFEFF${[header, ...rows].map((r) => r.map(csvCell).join(",")).join("\n")}\n`;
+}
+
+const STATUS_LABEL = { draft: "Draft", submitted: "Submitted", pending_review: "In review", approved: "Approved", rejected: "Rejected", suspended: "Suspended" };
+const GYM_HEADER = ["Gym", "Branch", "Area", "City", "State", "Status", "On Discover", "Featured", "Added on", "Memberships", "Active memberships", "Visits (30 days)", "Team"];
+/** One branch as the report's row; numbers stay numbers */
+function gymRow(r) {
+  const status = r.status ?? "approved";
+  return [
+    r.brand, r.branch, r.area, r.city, r.state ?? null, STATUS_LABEL[status] ?? status,
+    status === "approved" && r.published ? "Yes" : "No", r.featured ? "Yes" : "No", r.added_on ?? null,
+    Number(r.memberships ?? 0), Number(r.active ?? 0), Number(r.visits ?? 0), Number(r.team ?? 0),
+  ];
+}
+const STAFF_HEADER = ["Name", "Phone", "Role", "Gym", "Branch", "City", "Added on", "Suspended"];
+function staffRow(s) {
+  return [s.name ?? "No name yet", s.phone ?? null, s.roleLabel, s.gym.name, s.gym.branch, s.gym.city, s.addedOn ?? null, s.suspended ? "Yes" : "No"];
+}
+
+module.exports = { reportQuery, toCsv, csvCell, gymRow, staffRow, GYM_HEADER, STAFF_HEADER, featureBody, PERIODS, STAFF_ROLES, analyticsQuery, staffQuery, suspendBody, suspendProblem, transferBody, transferProblem, series };
