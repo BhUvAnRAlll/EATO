@@ -5,6 +5,8 @@ import { StatusBar } from "expo-status-bar";
 import { router, useFocusEffect } from "expo-router";
 
 import { EmptyState } from "@/components/EmptyState";
+import { PressableScale } from "@/components/PressableScale";
+import { SymbolView } from "@/components/SymbolView";
 import { LoadError } from "@/components/macro/LoadError";
 import { AccessLocation } from "@/components/meals/AccessLocation";
 import { MealCard } from "@/components/meals/cards/MealCard";
@@ -12,13 +14,13 @@ import { CartBar } from "@/components/meals/home/CartBar";
 import { MealSearch } from "@/components/meals/home/MealSearch";
 import { ShopHeader } from "@/components/meals/home/ShopHeader";
 import { ShopSections } from "@/components/meals/home/ShopSections";
-import { MealFilterSheet, NO_MEAL_FILTERS, type MealFilters } from "@/components/meals/MealFilterSheet";
+import { MealFilterSheet, NO_MEAL_FILTERS, hasMealFilters, type MealFilters } from "@/components/meals/MealFilterSheet";
 import { usePullToRefresh } from "@/components/PullToRefresh";
 import { ScreenSkeleton } from "@/components/Skeleton";
 import { haptic } from "@/lib/haptics";
 import { hud } from "@/lib/hud";
 import { listPerf } from "@/lib/listPerf";
-import { byDiet, popularMeals, searchExamples, searchWithFallback, shopSections, sortMeals, suggestions, type QuickList } from "@/lib/mealRules";
+import { DIET_FILTERS, MEAL_SORTS, byDiet, popularMeals, searchExamples, searchWithFallback, shopSections, sortMeals, suggestions, type QuickList } from "@/lib/mealRules";
 import { mealsApi, type MealBanner, type MenuMeal } from "@/lib/mealsApi";
 import { useAddressBook } from "@/lib/useAddressBook";
 import { useSessionToken } from "@/lib/session";
@@ -65,7 +67,12 @@ export default function Meals() {
   const store = load.state === "ready" ? load.data : null;
   const sections = useMemo(() => (store ? shopSections(sortMeals(byDiet(store.meals, filters.diet), filters.sort), store.categories, false) : null), [store, filters]);
   const popular = useMemo(() => (sections ? popularMeals(sections.meals) : []), [sections]);
-  const filtered = filters.diet !== null || filters.sort !== "recommended";
+  const filtered = hasMealFilters(filters);
+  // The filters on, as chips under the search: each removes itself, Clear all removes both
+  const activeFilters = [
+    ...(filters.diet ? [{ key: "diet", label: DIET_FILTERS.find((d) => d.value === filters.diet)?.label ?? filters.diet, clear: { ...filters, diet: null } }] : []),
+    ...(filters.sort !== "recommended" ? [{ key: "sort", label: MEAL_SORTS.find((m) => m.value === filters.sort)?.label ?? filters.sort, clear: { ...filters, sort: NO_MEAL_FILTERS.sort } }] : []),
+  ];
   const query = search.trim();
   const found = useMemo(() => (store && sections && query ? searchWithFallback(sections.meals, store.categories, query) : null), [store, sections, query]);
   const results = found?.meals ?? null;
@@ -142,6 +149,19 @@ export default function Meals() {
     <View style={{ gap: 18, paddingBottom: 14 }}>
       <ShopHeader address={address} count={count} />
           <MealSearch value={search} onChange={setSearch} focused={focused} onFocus={setFocused} hints={hints} filtered={filtered} onFilters={() => setShowFilters(true)} examples={examples} recent={recent} onPick={pickSearch} onForget={forgetSearch} onClearRecent={clearRecent} />
+          {activeFilters.length > 0 && (
+            <View className="flex-row flex-wrap items-center px-4" style={{ gap: 8 }}>
+              {activeFilters.map((f) => (
+                <PressableScale key={f.key} haptic="select" onPress={() => setFilters(f.clear)} className="shop-active-filter" accessibilityRole="button" accessibilityLabel={`Remove filter ${f.label}`}>
+                  <Text className="shop-active-filter__text">{f.label}</Text>
+                  <SymbolView name={{ ios: "xmark", android: "close", web: "close" }} size={11} tintColor={colors.ink} />
+                </PressableScale>
+              ))}
+              <Pressable onPress={() => setFilters(NO_MEAL_FILTERS)} hitSlop={10} accessibilityRole="button" accessibilityLabel="Clear all filters">
+                <Text className="shop-suggest__clear">Clear all</Text>
+              </Pressable>
+            </View>
+          )}
           {results ? (
             <View className="px-4" style={{ gap: 4 }}>
               {found?.kind !== "exact" && <Text className="shop-search__miss">{found?.kind === "popular" ? `No meals for “${query}”` : `No exact match for “${query}”`}</Text>}
@@ -209,7 +229,7 @@ export default function Meals() {
           }
         />
         {showCart && <CartBar items={items} meals={store?.meals ?? []} />}
-        {showFilters && <MealFilterSheet value={filters} onApply={setFilters} onClose={() => setShowFilters(false)} />}
+        {showFilters && <MealFilterSheet value={filters} onApply={setFilters} onClose={() => setShowFilters(false)} countFor={(f) => (store ? byDiet(store.meals, f.diet).length : 0)} />}
       </SafeAreaView>
     </View>
   );

@@ -8,6 +8,7 @@ import { DIET_FILTERS, MEAL_SORTS, type Diet, type MealSort } from "@/lib/mealRu
 
 export type MealFilters = { diet: Diet | null; sort: MealSort };
 export const NO_MEAL_FILTERS: MealFilters = { diet: null, sort: "recommended" };
+export const hasMealFilters = (f: MealFilters) => f.diet !== NO_MEAL_FILTERS.diet || f.sort !== NO_MEAL_FILTERS.sort;
 
 function Chip({ label, group, on, onPress }: { label: string; group: string; on: boolean; onPress: () => void }) {
   return (
@@ -17,10 +18,20 @@ function Chip({ label, group, on, onPress }: { label: string; group: string; on:
   );
 }
 
+type MealFilterSheetProps = {
+  value: MealFilters;
+  onApply: (filters: MealFilters) => void;
+  onClose: () => void;
+  /** How many meals the filters would show, for the button ("Show 12 meals") */
+  countFor: (filters: MealFilters) => number;
+};
+
 // The Meals tab's filter button: one diet and the order of the meals. Applied to the whole tab
-// when Show meals is tapped; Clear filters goes back to every meal, recommended first.
-export function MealFilterSheet({ value, onApply, onClose }: { value: MealFilters; onApply: (filters: MealFilters) => void; onClose: () => void }) {
+// when Show meals is tapped; Clear filters goes back to every meal, recommended first, at once.
+export function MealFilterSheet({ value, onApply, onClose, countFor }: MealFilterSheetProps) {
   const [draft, setDraft] = useState(value);
+  const count = countFor(draft);
+  const canClear = hasMealFilters(draft) || hasMealFilters(value);
   return (
     <BottomSheet onClose={onClose}>
       {(dismiss) => (
@@ -38,10 +49,16 @@ export function MealFilterSheet({ value, onApply, onClose }: { value: MealFilter
               {MEAL_SORTS.map((s) => <Chip key={s.value} group="Sort" label={s.label} on={draft.sort === s.value} onPress={() => setDraft((f) => ({ ...f, sort: s.value }))} />)}
             </View>
           </View>
-          <PrimaryButton label="Show meals" onPress={() => { onApply(draft); dismiss(); }} />
-          <Pressable onPress={() => setDraft(NO_MEAL_FILTERS)} className="self-center" hitSlop={10} accessibilityRole="button">
-            <Text className="meal-link">Clear filters</Text>
-          </Pressable>
+          <PrimaryButton
+            label={count === 0 ? "No meals match" : `Show ${count} ${count === 1 ? "meal" : "meals"}`}
+            disabled={count === 0}
+            onPress={() => { onApply(draft); dismiss(); }}
+          />
+          {canClear && (
+            <Pressable onPress={() => { onApply(NO_MEAL_FILTERS); dismiss(); }} className="self-center" hitSlop={10} accessibilityRole="button" accessibilityLabel="Clear filters and show every meal">
+              <Text className="meal-link">Clear filters</Text>
+            </Pressable>
+          )}
         </ScrollView>
       )}
     </BottomSheet>
