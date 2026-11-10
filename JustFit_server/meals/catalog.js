@@ -51,6 +51,7 @@ const couponOf = (r) => ({
   minOrderPaise: num(r.min_order_paise),
   perMemberLimit: num(r.per_member_limit),
   firstOrderOnly: num(r.first_order_only ?? 0) === 1, // read as false before the 2027-01-28 migration
+  ownerId: r.owner_user_id ?? null, // a personal referral coupon (migration 2027-02-04): only this member
   startsOn: day(r.starts_on),
   endsOn: day(r.ends_on),
   active: num(r.active) === 1,
@@ -131,6 +132,7 @@ async function storefront(pool, userId, { mealToApi }, now = Date.now()) {
     .map(({ active: _, sortOrder: __, startsOn: ___, ...b }) => b);
   const coupons = couponRows
     .map((r) => ({ c: couponOf(r), used: num(r.used) }))
+    .filter(({ c }) => c.ownerId === null || c.ownerId === userId)
     .filter(({ c, used }) => catalogRules.couponState(c, today) === "live" && used < c.perMemberLimit && !(c.firstOrderOnly && ordered))
     .map(({ c, used }) => couponToApi(c, today, { usesLeft: c.perMemberLimit - used }));
   return { today, meals: menu.map((m) => m.api), categories, banners, coupons };
@@ -170,7 +172,9 @@ class ServiceUnavailableError extends Error {
 
 async function couponFor(db, userId, code, subtotalPaise, { lock = false, now = Date.now() } = {}) {
   const [[row]] = await db.query(`SELECT * FROM meal_coupons WHERE code = ?${lock ? " FOR UPDATE" : ""}`, [code]);
-  const coupon = row ? couponOf(row) : null;
+  // Another member's personal coupon reads as no coupon at all
+  const found = row ? couponOf(row) : null;
+  const coupon = found && (found.ownerId === null || found.ownerId === userId) ? found : null;
   const [[{ used }]] = coupon
     ? await db.query("SELECT COUNT(*) AS used FROM orders WHERE coupon_id = ? AND user_id = ? AND status <> 'cancelled'", [coupon.id, userId])
     : [[{ used: 0 }]];
@@ -284,7 +288,8 @@ async function adminCoupons(pool, now = Date.now()) {
     `SELECT c.*, (SELECT COUNT(*) FROM orders o WHERE o.coupon_id = c.id AND o.status <> 'cancelled') AS uses
      FROM meal_coupons c ORDER BY c.created_at DESC, c.id DESC`,
   );
-  return { coupons: rows.map((r) => couponToApi(couponOf(r), today, { uses: num(r.uses) })) };
+  // Members' personal referral coupons aren't the admin's to edit
+  return { coupons: rows.filter((r) => !r.owner_user_id).map((r) => couponToApi(couponOf(r), today, { uses: num(r.uses) })) };
 }
 
 const COUPON_FIELDS = (f) => [f.code, f.title, f.kind, f.percentOff, f.flatOffPaise, f.maxDiscountPaise, f.minOrderPaise, f.perMemberLimit, f.startsOn, f.endsOn, f.active ? 1 : 0];

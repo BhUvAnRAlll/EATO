@@ -103,8 +103,10 @@ describe("meal ordering e2e: the admin's meals and times, a member's order, deli
       try {
         const all = Object.values(identities).map((i) => i.id);
         if (all.length) {
+          await connection.query("DELETE FROM meal_referrals WHERE referrer_id IN (?) OR referred_id IN (?)", [all, all]);
           await connection.query("DELETE FROM order_items WHERE order_id IN (SELECT id FROM orders WHERE user_id IN (?))", [all]);
           await connection.query("DELETE FROM orders WHERE user_id IN (?)", [all]);
+          await connection.query("DELETE FROM meal_coupons WHERE owner_user_id IN (?)", [all]);
           await connection.query("DELETE FROM user_addresses WHERE user_id IN (?)", [all]);
           await connection.query("DELETE FROM macro_meal_logs WHERE user_id IN (?)", [all]);
           await connection.query("UPDATE meal_delivery_slots SET updated_by = NULL WHERE updated_by IN (?)", [all]);
@@ -449,6 +451,43 @@ describe("meal ordering e2e: the admin's meals and times, a member's order, deli
     assert.equal((await api("POST", `/api/admin/kitchen/coupons/${id}/announce`, tokens.admin)).status, 409, "a switched-off coupon can't be announced");
     assert.equal((await api("DELETE", `/api/admin/kitchen/coupons/${id}`, tokens.admin)).status, 200);
     assert.equal((await api("POST", `/api/admin/kitchen/coupons/${id}/announce`, tokens.admin)).status, 404);
+  }));
+
+  it("12d. referrals: a friend's code gives a personal first-order coupon, the sharer is rewarded once", run(async () => {
+    assert.equal((await api("GET", "/api/referrals", null)).status, 401);
+    const b = await api("GET", "/api/referrals", tokens.memberB);
+    assert.equal(b.status, 200, JSON.stringify(b.json));
+    assert.match(b.json.code, /^JF[A-Z0-9]{6}$/);
+    assert.equal((await api("GET", "/api/referrals", tokens.memberB)).json.code, b.json.code, "the same code every time");
+    const claim = (tag, code) => api("POST", "/api/referrals/claim", tokens[tag], { code });
+    assert.equal((await claim("memberB", b.json.code)).status, 409, "not your own code");
+    assert.equal((await claim("memberC", "JF' OR 1")).status, 400);
+    assert.equal((await api("POST", "/api/referrals/claim", tokens.memberC, { code: b.json.code, userId: identities.memberA.id })).status, 400, "no extra fields");
+    assert.equal((await claim("memberC", "JFZZZZZZ")).status, 404);
+    assert.equal((await claim("memberA", b.json.code)).status, 409, "a member who has ordered can't");
+    const got = await claim("memberC", b.json.code);
+    assert.equal(got.status, 201, JSON.stringify(got.json));
+    const code = got.json.coupon.code;
+    assert.equal((await claim("memberC", b.json.code)).status, 409, "once");
+    const sees = async (tag) => (await api("GET", "/api/meals/storefront", tokens[tag])).json.coupons.some((c) => c.code === code);
+    assert.equal(await sees("memberC"), true, "the friend sees their coupon");
+    assert.equal(await sees("memberA"), false, "nobody else does");
+    const quote = (tag) => api("POST", "/api/orders/quote", tokens[tag], { items: [{ mealId: state.dalId, quantity: 3 }], couponCode: code });
+    assert.equal((await quote("memberC")).json.coupon.ok, true);
+    assert.equal((await quote("memberA")).json.coupon.problem, "That coupon code isn't valid.", "another member's coupon is no coupon");
+    assert.equal((await api("GET", "/api/admin/kitchen/coupons", tokens.admin)).json.coupons.some((c) => c.code === code), false, "not in the admin's list");
+    // The friend's first order delivered → the sharer gets one reward coupon and a notice
+    const pool = { query: (...a) => connection.query(...a), getConnection: async () => Object.assign(connection, { release() {} }) };
+    const referrals = require("../../referrals/service");
+    await referrals.onDelivered(pool, identities.memberC.id);
+    await referrals.onDelivered(pool, identities.memberC.id);
+    const after = await api("GET", "/api/referrals", tokens.memberB);
+    assert.equal(after.json.joined, 1);
+    assert.equal(after.json.rewarded, 1);
+    const notes = (await api("GET", "/api/notifications", tokens.memberB)).json.notifications.filter((n) => n.kind === "meal.referral");
+    assert.equal(notes.length, 1, "rewarded once");
+    const reward = notes[0].body.match(/code (R[A-Z0-9]{7})/)[1];
+    assert.equal((await api("POST", "/api/orders/quote", tokens.memberB, { items: [{ mealId: state.dalId, quantity: 3 }], couponCode: reward })).json.coupon.ok, true);
   }));
 
   it("8b. payments the Razorpay way: only a checked signature places the order", run(async () => {

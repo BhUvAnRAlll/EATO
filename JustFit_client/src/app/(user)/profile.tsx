@@ -31,6 +31,7 @@ const menu: { label: string; icon: Icon; href: Href }[] = [
   { label: "Food preferences", icon: { ios: "fork.knife", android: "restaurant", web: "restaurant" }, href: "/food-preferences" },
   { label: "My plans", icon: { ios: "calendar", android: "calendar_month", web: "calendar_month" }, href: "/plans" },
   { label: "Orders", icon: { ios: "shippingbox", android: "inventory_2", web: "inventory_2" }, href: "/orders" },
+  { label: "Invite friends", icon: { ios: "gift", android: "redeem", web: "redeem" }, href: "/referrals" },
   { label: "My subscriptions", icon: { ios: "arrow.triangle.2.circlepath", android: "autorenew", web: "autorenew" }, href: "/meals/subscriptions" },
   { label: "Delivery addresses", icon: { ios: "mappin.and.ellipse", android: "location_on", web: "location_on" }, href: "/addresses" },
   { label: "Notifications", icon: { ios: "bell", android: "notifications", web: "notifications" }, href: "/notifications" },

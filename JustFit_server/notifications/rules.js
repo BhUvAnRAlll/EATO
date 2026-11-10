@@ -37,6 +37,7 @@ const KINDS = {
   "registration.decided": "registration",
   "platform.complaint": "platform",
   "gym.complaint_update": "gym",
+  "meal.referral": "offers", // a friend's first order was delivered: a reward coupon (referrals/service.js)
   "meal.offer": "offers", // the Super Admin announced a meal coupon (meals/offers.js, migration 2027-02-03)
   "diet.plan": "gym", // a trainer shared or updated a member's diet plan (gym/dietPlans.js)
 };

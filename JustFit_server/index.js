@@ -467,6 +467,7 @@ const { subscriptionsRouter, startSubscriptionOrders } = require("./subscription
 app.use("/api/subscriptions", requireUser, limitPerUser(mealsLimiter), subscriptionsRouter);
 // Members' meal problems (Meal Operations phase 6)
 app.use("/api/meal-issues", requireUser, limitPerUser(mealsLimiter), require("./issues/routes").mealIssuesRouter);
+app.use("/api/referrals", requireUser, limitPerUser(mealsLimiter), require("./referrals/routes").referralsRouter);
 app.use("/api/admin/kitchen", ...adminOnly, kitchenRouter);
 
 // A gym trainer's PT clients (gym/trainerRoutes.js): trainers only, their own clients only

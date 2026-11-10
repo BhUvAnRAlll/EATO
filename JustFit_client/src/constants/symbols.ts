@@ -107,6 +107,7 @@ export const materialSymbols: Record<string, AndroidSymbol> = {
   flame: "local_fire_department",
   "flame.fill": "local_fire_department",
   "fork.knife": "restaurant",
+  gift: "redeem",
   "fork.knife.circle": "restaurant",
   "forward.end.fill": "skip_next",
   gearshape: "settings",

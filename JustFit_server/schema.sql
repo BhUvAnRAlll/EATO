@@ -246,8 +246,9 @@ CREATE TABLE meal_coupons (
   max_discount_paise  INT UNSIGNED  NULL,
   min_order_paise     INT UNSIGNED  NOT NULL DEFAULT 0,
   per_member_limit    TINYINT UNSIGNED NOT NULL DEFAULT 1,
-  starts_on           DATE          NULL,
   first_order_only    TINYINT(1)    NOT NULL DEFAULT 0,  -- only for a member who has never ordered (migration 2027-01-28)
+  owner_user_id       VARCHAR(64)   NULL,                -- a personal referral coupon: only this member (migration 2027-02-04)
+  starts_on           DATE          NULL,
   ends_on             DATE          NULL,
   active              TINYINT(1)    NOT NULL DEFAULT 1,
   created_at          TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -255,7 +256,8 @@ CREATE TABLE meal_coupons (
   PRIMARY KEY (id),
   UNIQUE KEY uq_meal_coupons_code (code),
   CONSTRAINT chk_meal_coupons_kind CHECK ((kind = 'percent' AND percent_off BETWEEN 1 AND 90) OR (kind = 'flat' AND flat_off_paise > 0)),
-  CONSTRAINT chk_meal_coupons_days CHECK (starts_on IS NULL OR ends_on IS NULL OR starts_on <= ends_on)
+  CONSTRAINT chk_meal_coupons_days CHECK (starts_on IS NULL OR ends_on IS NULL OR starts_on <= ends_on),
+  CONSTRAINT fk_meal_coupons_owner FOREIGN KEY (owner_user_id) REFERENCES users (id) ON DELETE CASCADE
 ) ENGINE = InnoDB;
 
 -- The three delivery times the Super Admin sets (2026-11-09). Orders for a meal time close 2 hours
@@ -633,6 +635,31 @@ CREATE TABLE orders (
   CONSTRAINT fk_orders_kitchen FOREIGN KEY (kitchen_id) REFERENCES kitchens (id) ON DELETE SET NULL,
   CONSTRAINT fk_orders_subscription FOREIGN KEY (subscription_id) REFERENCES meal_subscriptions (id) ON DELETE SET NULL,
   CONSTRAINT chk_orders_pincode CHECK (delivery_pincode REGEXP '^[1-9][0-9]{5}$')
+) ENGINE = InnoDB;
+
+-- Referrals (meal marketing phase 5, migration 2027-02-04)
+CREATE TABLE referral_codes (
+  user_id     VARCHAR(64) NOT NULL,
+  code        VARCHAR(12) NOT NULL,
+  created_at  TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (user_id),
+  UNIQUE KEY uq_referral_codes_code (code),
+  CONSTRAINT fk_referral_codes_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+) ENGINE = InnoDB;
+
+CREATE TABLE meal_referrals (
+  id                  INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  referrer_id         VARCHAR(64)  NOT NULL,
+  referred_id         VARCHAR(64)  NOT NULL,
+  rewarded_at         TIMESTAMP    NULL,      -- the friend's first order was delivered
+  referrer_coupon_id  INT UNSIGNED NULL,      -- the reward (NULL once the 20 rewards are used up)
+  created_at          TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_meal_referrals_referred (referred_id),
+  KEY idx_meal_referrals_referrer (referrer_id),
+  CONSTRAINT fk_meal_referrals_referrer FOREIGN KEY (referrer_id) REFERENCES users (id) ON DELETE CASCADE,
+  CONSTRAINT fk_meal_referrals_referred FOREIGN KEY (referred_id) REFERENCES users (id) ON DELETE CASCADE,
+  CONSTRAINT fk_meal_referrals_coupon FOREIGN KEY (referrer_coupon_id) REFERENCES meal_coupons (id) ON DELETE SET NULL
 ) ENGINE = InnoDB;
 
 -- Meals in an order. Name, price and nutrition are copied at order time so later

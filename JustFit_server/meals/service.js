@@ -13,6 +13,7 @@ const diary = require("../macro/diary");
 const { logRequestError } = require("../logging");
 const rules = require("./rules");
 const catalog = require("./catalog");
+const referrals = require("../referrals/service");
 const payments = require("../payments/service");
 const kitchenOrders = require("../kitchens/assign");
 const assignRules = require("../kitchens/assignRules");
@@ -500,6 +501,7 @@ async function adminOrder(db, id) {
  * the delivery.
  */
 async function logDelivered(pool, order, userId, req) {
+  await referrals.onDelivered(pool, userId); // a friend's code: reward the member who shared (never throws)
   const [first, ...rest] = order.items;
   if (!first) return false;
   try {

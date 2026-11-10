@@ -172,6 +172,7 @@ import {
   X,
   Zap,
   Star,
+  Gift,
 } from "lucide-react-native";
 
 // Android and the web draw the app's icons from Lucide, the thin rounded line set closest to
@@ -293,6 +294,7 @@ export const lucideSymbols: Record<string, LucideIcon> = {
   "flame": Flame,
   "flame.fill": Flame,
   "fork.knife": Utensils,
+  gift: Gift,
   "fork.knife.circle": UtensilsCrossed,
   "forward.end.fill": SkipForward,
   "gearshape": Settings,

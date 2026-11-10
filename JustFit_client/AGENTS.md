@@ -755,7 +755,21 @@ The Meals module is green (`meal-*` tokens and utilities); the user chose green 
   link; justFit sends nothing); the **cart reminder** (`lib/orderReminders.ts` watches the cart: with
   Order reminders on and permission granted, one local notification 45 minutes after the cart last
   changed, "Your Paneer Bowl is waiting", cancelled by an empty cart, the switch or sign-out; a tap
-  opens only `/meals/cart`, `TAP_ROUTES`). Next phases: offer notices, referrals.
+  opens only `/meals/cart`, `TAP_ROUTES`). **Phase 4, offer notices (migration
+  `2027-02-03-offer-notifications.sql`, notifications category `offers`):** a live coupon's edit
+  screen has "Tell members about this offer" (`POST /api/admin/kitchen/coupons/:id/announce`, admins,
+  10 an hour, audited `meal.coupon_announce`; `meals/offers.js`): one `meal.offer` notification per
+  member per coupon (dedupe key), a first-order coupon only to members who never ordered, linking to
+  `/meals`; before the migration 503 naming it. **Phase 5, referrals (migration
+  `2027-02-04-meal-referrals.sql`: `referral_codes`, `meal_referrals`, `meal_coupons.owner_user_id`;
+  `SCHEMA_TABLE_COUNT` 113):** Profile › Invite friends (`app/(user)/referrals.tsx`): my code (JF + 6)
+  with Share, friends joined / ordered, and for an account under 30 days old with no orders a box for
+  a friend's code. `GET /api/referrals`, `POST /api/referrals/claim { code }` (10 an hour;
+  `referrals/rules.js` pure, `service.js`): not your own, once, the friend gets a personal ₹50-off
+  first-order coupon (above ₹149, 30 days); when their order is delivered (`logDelivered`) the sharer
+  gets a personal ₹50-off coupon (60 days, at most 20) and a `meal.referral` notification. A personal
+  coupon is seen and usable only by its owner (another member's code reads as invalid) and is left
+  out of the admin's coupon list. Tests: `referral-rules.test.js`, `e2e/meals.e2e.test.js` (12c, 12d).
 - **Not built:** Razorpay itself (keys, the native checkout, refunds, webhook), push notifications for a step, delivery fees,
   subscriptions, gym-specific menus (the user chose one justFit menu run by the Super Admin). Tests:
   `__tests__/meal-rules.test.js`, `meal-catalog-rules.test.js`, `e2e/meals.e2e.test.js`, the client's
