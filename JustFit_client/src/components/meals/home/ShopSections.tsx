@@ -29,9 +29,10 @@ type ShopSectionsProps = {
 };
 
 // The Meals tab under the search, Zomato-style (the user's 2026-11-10 ask), top to bottom: the
+// today's offers first (the user's 2026-11-10 ask: coupons on top), the
 // promotional section (the Super Admin's live banners, else justFit's own two promos), quick tiles,
 // What's on your mind? (every category as a circle), Popular, For your goal (high protein, with
-// what's left of today's protein), the admin's featured rows, Today's specials, Offers; All meals
+// what's left of today's protein), the admin's featured rows, Today's specials; All meals
 // follows as the screen's grid. Each section shows only when it has something.
 export function ShopSections({ store, sections, popular, again, proteinLeft, couponCode, onCoupon, card, browse, onBanner }: ShopSectionsProps) {
   const { width } = useWindowDimensions();
@@ -51,6 +52,22 @@ export function ShopSections({ store, sections, popular, again, proteinLeft, cou
 
   return (
     <View style={{ gap: 24 }}>
+      {store.coupons.length > 0 && (
+        <View style={{ gap: 10 }}>
+          <SectionTitle title="Offers for you" />
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }}>
+            {store.coupons.map((c) => (
+              <CouponCard
+                key={c.id}
+                coupon={c}
+                width={store.coupons.length === 1 ? width - 32 : Math.min(320, width - 64)}
+                applied={couponCode === c.code}
+                onApply={() => { onCoupon(c.code); hud.success(`${c.code} applied`); }}
+              />
+            ))}
+          </ScrollView>
+        </View>
+      )}
       <BannerCarousel banners={slides} width={width} />
       <QuickTiles width={width} onPick={(list) => browse({ list })} />
       {explore.length > 0 && (
@@ -93,22 +110,6 @@ export function ShopSections({ store, sections, popular, again, proteinLeft, cou
         <View style={{ gap: 10 }}>
           <SectionTitle title="Today's specials" subtitle="Popular picks and deals" onSeeAll={seeAll(sections.specials.length, { list: "specials" })} />
           {row(sections.specials)}
-        </View>
-      )}
-      {store.coupons.length > 0 && (
-        <View style={{ gap: 10 }}>
-          <SectionTitle title="Offers for you" />
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }}>
-            {store.coupons.map((c) => (
-              <CouponCard
-                key={c.id}
-                coupon={c}
-                width={store.coupons.length === 1 ? width - 32 : Math.min(320, width - 64)}
-                applied={couponCode === c.code}
-                onApply={() => { onCoupon(c.code); hud.success(`${c.code} applied`); }}
-              />
-            ))}
-          </ScrollView>
         </View>
       )}
       {sections.meals.length > 0 && <SectionTitle title="All meals" subtitle={`${sections.meals.length} ${sections.meals.length === 1 ? "meal" : "meals"} on the menu`} />}
