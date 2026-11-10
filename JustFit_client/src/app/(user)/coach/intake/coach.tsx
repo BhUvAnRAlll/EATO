@@ -7,6 +7,7 @@ import { ChoiceCard } from "@/components/coach/ChoiceCard";
 import { IntakeFrame } from "@/components/coach/IntakeFrame";
 import { coaches, coachStyles } from "@/data/coach";
 import { coachApi, type IntakeTargets } from "@/lib/coach";
+import { openTargets } from "@/lib/profileEdit";
 import { hud } from "@/lib/hud";
 import { useSessionToken } from "@/lib/session";
 import { useHomeStore } from "@/store/home";
@@ -17,8 +18,8 @@ import { useThemeColors } from "@/theme";
 const TARGETS_LINE: Record<Exclude<IntakeTargets, null>, string> = {
   set: "Saved. Your daily targets are set",
   kept: "Saved. Your own target stays",
-  needs_choice: "Saved. Pick your estimate in Goal & activity",
-  needs_professional: "Saved. Add your doctor's target in Goal & activity",
+  needs_choice: "Saved. Pick your estimate to finish",
+  needs_professional: "Saved. Add your doctor's target to finish",
   needs_details: "Saved. Add your height and weight in Profile",
 };
 
@@ -46,7 +47,15 @@ export default function IntakeCoach() {
     if (!result.ok) return setError(result.status ? result.error : "Could not reach justFit. Check your connection and try again.");
     // Home reads the new targets next time it shows
     useHomeStore.setState({ loadedAt: null });
-    if (result.data.targets) hud.success(TARGETS_LINE[result.data.targets]);
+    const targets = result.data.targets;
+    if (targets) hud.success(TARGETS_LINE[targets]);
+    // The intake is the only place the goal and activity are set: when the targets still need the
+    // member (an estimate to pick, a doctor's target), the targets screen opens here and returns
+    // to the Coach tab
+    if (targets === "needs_choice" || targets === "needs_professional") {
+      const problem = await openTargets(await getToken().catch(() => null), "coach", { replace: true });
+      if (!problem) return;
+    }
     router.dismissTo("/coach");
   };
 

@@ -1,6 +1,6 @@
 import { FinishProfileCard } from "@/components/FinishProfileCard";
-import { useCallback, useEffect, useState } from "react";
-import { AppState, ScrollView, Text, View } from "react-native";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { AppState, ScrollView, View } from "react-native";
 import { useResponsive } from "@/lib/responsive";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
@@ -11,7 +11,7 @@ import { PopularMealCard } from "@/components/home/PopularMealCard";
 import { PromotionCarousel } from "@/components/home/PromotionCarousel";
 import { QuickActionCard } from "@/components/home/QuickActionCard";
 import { SectionHeader } from "@/components/home/SectionHeader";
-import { TodayMealCard } from "@/components/home/TodayMealCard";
+import { TodayDelivery } from "@/components/home/TodayDelivery";
 import { TodayRingsCard } from "@/components/home/TodayRingsCard";
 import { WeeklyActivityCard } from "@/components/home/WeeklyActivityCard";
 import { WorkoutHeroCard } from "@/components/home/WorkoutHeroCard";
@@ -25,8 +25,7 @@ import { firstNameOf } from "@/lib/me";
 import { useSessionToken } from "@/lib/session";
 import { useAuthStore } from "@/store/auth";
 import { useCartStore } from "@/store/cart";
-import { PressableScale } from "@/components/PressableScale";
-import { STATUS_LABEL, SLOT_LABEL, isOpen } from "@/lib/mealRules";
+import { isOpen } from "@/lib/mealRules";
 import { mealsApi, type Order } from "@/lib/mealsApi";
 import { useAddressBook } from "@/lib/useAddressBook";
 import { useHomeStore } from "@/store/home";
@@ -35,9 +34,9 @@ import { useHomeStore } from "@/store/home";
 const PAGE_PADDING = 16;
 const GAP = 8;
 
-// Home for members (2026-10-31 look): the greeting, then today's rings (calories, protein,
-// water), today's workout as a dark hero, the week's training minutes, hero promotions, quick
-// actions, popular meals and today's delivery. Promotions and labels come from the server
+// Home for members (restructured 2026-11-10): the greeting, then sections in one rhythm:
+// Shortcuts, Today (rings for calories, protein and water, today's workout, today's delivery),
+// This week (training minutes), then promotions and popular meals to order. Promotions and labels come from the server
 // (admins edit them); the numbers and today's delivery are the member's own.
 export default function Home() {
   const { width, compact } = useResponsive();
@@ -133,7 +132,7 @@ export default function Home() {
     <View className="flex-1 bg-cream">
       <StatusBar style="auto" />
       <SafeAreaView style={{ flex: 1 }} edges={["top", "left", "right"]}>
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 16 }} refreshControl={refreshControl}>
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }} refreshControl={refreshControl}>
           <HomeHeader
             name={firstName}
             // The selected delivery address's pincode (hidden until one is saved); no unread dot
@@ -145,9 +144,21 @@ export default function Home() {
             onProfilePress={() => router.push("/profile")}
           />
 
-          {/* Today: calories, protein and water against their targets. Until the first read answers
-              the card is a skeleton: the bundled sample said "couldn't be loaded" on every cold start */}
-          <View className="mt-4 px-4">
+          {/* 1. Shortcuts the admin picked, first so they're one tap from opening the app */}
+          {quickActions.length > 0 && (
+            <HomeSection title="Shortcuts">
+              <View className="flex-row flex-wrap" style={{ gap: GAP }}>
+                {quickActions.map((action) => (
+                  <QuickActionCard key={action.id} action={action} width={quickWidth} onPress={() => open(action.destination)} />
+                ))}
+              </View>
+            </HomeSection>
+          )}
+
+          {/* 2. Today: what the member eats, trains and gets delivered today */}
+          <HomeSection title={content.todayHeading} action={formatShortDate()}>
+            {/* Until the first read answers the rings are a skeleton: the bundled sample said
+                "couldn't be loaded" on every cold start */}
             {hasTargets === false ? (
               // No targets yet (setup asks only the personal details): never the bundled sample numbers
               <FinishProfileCard origin="home" />
@@ -157,45 +168,41 @@ export default function Home() {
               <TodayRingsCard heading={content.nutritionHeading} nutrition={nutrition ?? sampleNutrition} water={water} width={contentWidth} onOpen={() => router.navigate("/macro")} />
             )}
             {error && !loading && <LoadError title="Home couldn't load" message={error} onRetry={reload} />}
-          </View>
+            {workout && <WorkoutHeroCard workout={workout} onOpen={openWorkout} />}
+            {content.showTodaySection && todayOrders !== null && (
+              <TodayDelivery
+                order={todayDelivery}
+                actionLabel={content.todayActionLabel}
+                onOpenOrder={(id) => router.push({ pathname: "/orders/[id]", params: { id } })}
+                onOrder={() => router.navigate("/meals")}
+              />
+            )}
+          </HomeSection>
 
-          {/* Today's workout (only with a plan) */}
-          {workout && (
-            <View className="mt-3 px-4">
-              <WorkoutHeroCard workout={workout} onOpen={openWorkout} />
-            </View>
-          )}
-
-          {/* Minutes trained this week */}
+          {/* 3. Minutes trained this week (only with a plan) */}
           {activity && (
-            <View className="mt-3 px-4">
+            <HomeSection title="This week">
               <WeeklyActivityCard activity={activity} onOpen={() => router.push("/workout")} />
-            </View>
+            </HomeSection>
           )}
 
-          <View className="mt-5">
-            <PromotionCarousel promotions={promotions} width={width} onOpen={open} />
-          </View>
-
-          {/* Quick actions */}
-          {quickActions.length > 0 && (
-            <View className="mt-5 flex-row flex-wrap px-4" style={{ gap: GAP }}>
-              {quickActions.map((action) => (
-                <QuickActionCard key={action.id} action={action} width={quickWidth} onPress={() => open(action.destination)} />
-              ))}
+          {/* 4. Offers and meals to order */}
+          {promotions.length > 0 && (
+            <View className="mt-6">
+              <PromotionCarousel promotions={promotions} width={width} onOpen={open} />
             </View>
           )}
 
           {/* Popular meals (only when the admin has picked some) */}
           {popularMeals.length > 0 && (
-            <>
-              <View className="mt-5 px-4">
+            <View className="mt-6">
+              <View className="px-4">
                 <SectionHeader title={content.popularHeading} actionLabel={content.popularActionLabel} onAction={() => router.navigate("/meals")} />
               </View>
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
-                contentContainerStyle={{ paddingHorizontal: PAGE_PADDING, paddingVertical: 12, gap: 12 }}
+                contentContainerStyle={{ paddingHorizontal: PAGE_PADDING, paddingTop: 12, paddingBottom: 4, gap: 12 }}
               >
                 {popularMeals.map((meal) => (
                   <PopularMealCard
@@ -209,47 +216,23 @@ export default function Home() {
                   />
                 ))}
               </ScrollView>
-            </>
-          )}
-
-          {/* Today's delivery: the next one still on its way, else the last delivered; a nudge to order when there's none */}
-          {content.showTodaySection && todayOrders !== null && (
-            <View className="mt-3 px-4">
-              <SectionHeader title={content.todayHeading} actionLabel={formatShortDate()} />
-              <View className="mt-3">
-                {todayDelivery ? (
-                  <TodayMealCard
-                    order={{
-                      slot: SLOT_LABEL[todayDelivery.slot].toUpperCase(),
-                      meal: {
-                        id: todayDelivery.id,
-                        name: todayDelivery.items.length > 1 ? `${todayDelivery.items[0].name} + ${todayDelivery.items.length - 1} more` : todayDelivery.items[0]?.name ?? "Your meal",
-                        imageUrl: todayDelivery.items[0]?.imageUrl ?? null,
-                        calories: todayDelivery.totals.calories,
-                        proteinG: todayDelivery.totals.proteinG,
-                        carbsG: todayDelivery.totals.carbsG,
-                        fatG: todayDelivery.totals.fatG,
-                      },
-                      status: STATUS_LABEL[todayDelivery.status],
-                    }}
-                    isSample={false}
-                    actionLabel={content.todayActionLabel}
-                    onViewAll={() => router.push({ pathname: "/orders/[id]", params: { id: todayDelivery.id } })}
-                  />
-                ) : (
-                  <PressableScale scaleTo={0.98} onPress={() => router.navigate("/meals")} className="today__card flex-row items-center" style={{ gap: 12 }} accessibilityRole="button">
-                    <View className="flex-1">
-                      <Text className="today__name">No meal delivery today</Text>
-                      <Text className="meta-text">Order breakfast, lunch or dinner from Meals.</Text>
-                    </View>
-                    <Text className="home__link">Order</Text>
-                  </PressableScale>
-                )}
-              </View>
             </View>
           )}
         </ScrollView>
       </SafeAreaView>
+    </View>
+  );
+}
+
+// One Home section: a heading, then its cards with the same gap between them, so every
+// section sits the same distance apart
+function HomeSection({ title, action, children }: { title: string; action?: string; children: ReactNode }) {
+  return (
+    <View className="mt-6 px-4">
+      <SectionHeader title={title} actionLabel={action} />
+      <View className="mt-3" style={{ gap: 12 }}>
+        {children}
+      </View>
     </View>
   );
 }

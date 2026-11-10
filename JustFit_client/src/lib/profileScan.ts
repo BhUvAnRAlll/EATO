@@ -67,14 +67,14 @@ export function profileFromSaved(saved: SavedProfile): Profile {
   };
 }
 
-// Where an edit of the goal and activity (or a body scan) was started after setup, and where it
-// returns: Profile, the AI Coach intake's Body step, Home or Macro (their "Finish your profile" card)
+// Where the targets screen was opened after setup, and where it returns: Profile, the AI Coach
+// tab (the end of the intake), Home or Macro (their "Finish your profile" card)
 export type EditOrigin = "profile" | "coach" | "home" | "macro";
 export function editOrigin(from: string | undefined): EditOrigin {
   return from === "coach" || from === "home" || from === "macro" ? from : "profile";
 }
-export function editHome(origin: EditOrigin): "/profile" | "/coach/intake/body" | "/home" | "/macro" {
-  return origin === "coach" ? "/coach/intake/body" : origin === "home" ? "/home" : origin === "macro" ? "/macro" : "/profile";
+export function editHome(origin: EditOrigin): "/profile" | "/coach" | "/home" | "/macro" {
+  return origin === "coach" ? "/coach" : origin === "home" ? "/home" : origin === "macro" ? "/macro" : "/profile";
 }
 
 export type MeasurementSave =

@@ -92,7 +92,7 @@ export default function NutritionTargets() {
   const [sessionExpired, setSessionExpired] = useState(false);
   const [finished, setFinished] = useState(false);
   const { profile, calorieOverride, setCalorieOverride, reset } = useSetupStore();
-  // Profile › Goal & activity, step 3 of 3: saves and returns where the edit started
+  // The targets (2026-11-10: opened after the AI Coach intake, or its Finish your profile card): saves and returns where it was opened
   const { from } = useLocalSearchParams<{ from?: string }>();
   const origin = editOrigin(from);
 

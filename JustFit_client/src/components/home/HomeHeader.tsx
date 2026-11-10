@@ -1,7 +1,7 @@
 import { Pressable, Text, View } from "react-native";
 import { SymbolView } from "@/components/SymbolView";
 
-import { formatLongDate, greetingFor } from "@/lib/date";
+import { greetingFor } from "@/lib/date";
 import { useThemeColors } from "@/theme";
 
 type HomeHeaderProps = {
@@ -15,7 +15,7 @@ type HomeHeaderProps = {
   onProfilePress: () => void;
 };
 
-// Greeting, name and date on the left; notifications and the profile avatar on the right; the
+// Greeting and name on the left (the date sits on Home's Today section); notifications and the profile avatar on the right; the
 // delivery location pill underneath
 export function HomeHeader({ name, pincode, hasUnread, onLocationPress, onNotificationsPress, onProfilePress }: HomeHeaderProps) {
   const colors = useThemeColors();
@@ -28,7 +28,6 @@ export function HomeHeader({ name, pincode, hasUnread, onLocationPress, onNotifi
           <Text className="type-title text-ink" numberOfLines={1}>
             {name || "Welcome"}
           </Text>
-          <Text className="type-caption mt-0.5 text-muted">{formatLongDate()}</Text>
         </View>
 
         <View className="flex-row items-center gap-2.5 pt-1">
