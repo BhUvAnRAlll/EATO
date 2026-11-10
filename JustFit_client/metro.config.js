@@ -20,13 +20,19 @@ const capFile = path.join(__dirname, "src", "lib", "reactNative.js");
 // The same for "react-native-safe-area-context": src/lib/safeArea.js pads SafeAreaView with the
 // insets in the app's proportional scale (lib/reactNative.js)
 const safeAreaFile = path.join(__dirname, "src", "lib", "safeArea.js");
-const shims = [capFile, safeAreaFile];
+// The shims reach the real modules under names of their own ("justfit-real:react-native"). Metro
+// may reuse one file's answer for another file in the same folder, so asking for "react-native"
+// from lib/reactNative.js could get lib/reactNative.js back and loop forever (Android, 2026-11-10).
+const REAL = "justfit-real:";
 
 nativewindConfig.resolver.resolveRequest = (context, moduleName, platform) => {
-  if (moduleName === "react-native" && context.originModulePath.startsWith(appFolder) && context.originModulePath !== capFile) {
+  if (moduleName.startsWith(REAL)) {
+    return nativewindResolveRequest(context, moduleName.slice(REAL.length), platform);
+  }
+  if (moduleName === "react-native" && context.originModulePath.startsWith(appFolder)) {
     return { type: "sourceFile", filePath: capFile };
   }
-  if (moduleName === "react-native-safe-area-context" && context.originModulePath.startsWith(appFolder) && !shims.includes(context.originModulePath)) {
+  if (moduleName === "react-native-safe-area-context" && context.originModulePath.startsWith(appFolder)) {
     return { type: "sourceFile", filePath: safeAreaFile };
   }
   if (moduleName === "react-native" && context.originModulePath.includes(expoAssetFolder)) {

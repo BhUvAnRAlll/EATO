@@ -67,7 +67,7 @@ describe("text ignores the phone's text-size setting (the owner's choice, 2026-1
     // A removed React Native export throws when read (InteractionManager in 0.88): it must never be read
     Object.defineProperty(fake, "InteractionManager", { enumerable: true, get() { throw new Error("read too early"); } });
     Module._load = function load(request: string, ...rest: unknown[]) {
-      if (request === "react-native") return fake;
+      if (request === "justfit-real:react-native") return fake;
       if (request === "react") return { createElement: (type: unknown, props: Record<string, unknown>) => ({ type, props }) };
       if (request === "../constants/textScale") return { maxTextScaleFor: () => 1 };
       if (request === "../constants/uiScale") return { uiScaleFor: (w: number) => Math.min(1, Math.max(0.8, w / 430)) };
@@ -91,5 +91,16 @@ describe("text ignores the phone's text-size setting (the owner's choice, 2026-1
     const metro = readFileSync(join(SRC, "..", "metro.config.js"), "utf8");
     assert.match(metro, /"src", "lib", "reactNative\.js"/);
     assert.match(metro, /moduleName === "react-native" && context\.originModulePath\.startsWith\(appFolder\)/);
+  });
+
+  it("the shims reach the real modules by their own names, never by a name Metro sends back to them", () => {
+    // Asking for "react-native" from lib/reactNative.js once got lib/reactNative.js back on Android
+    // (Metro reused another file's answer in the same folder) and every screen hit a call-stack loop
+    for (const file of ["reactNative.js", "safeArea.js"]) {
+      const source = readFileSync(join(SRC, "lib", file), "utf8");
+      assert.doesNotMatch(source, /require\("react-native-safe-area-context"\)/, file);
+    }
+    assert.doesNotMatch(readFileSync(join(SRC, "lib", "reactNative.js"), "utf8"), /require\("react-native"\)/);
+    assert.match(readFileSync(join(SRC, "..", "metro.config.js"), "utf8"), /moduleName\.startsWith\(REAL\)/);
   });
 });

@@ -14,7 +14,7 @@
 const React = require("react");
 // React Native itself, required on first use (see the export below)
 let RN = null;
-const rn = () => (RN ??= require("react-native"));
+const rn = () => (RN ??= require("justfit-real:react-native"));
 const { maxTextScaleFor } = require("../constants/textScale");
 const { uiScaleFor } = require("../constants/uiScale");
 
@@ -34,7 +34,7 @@ function useWindowDimensions() {
 
 // Safe-area insets in layout points inside a scaled view (the real insets would shrink with it)
 let SafeArea = null;
-const safeArea = () => (SafeArea ??= require("react-native-safe-area-context"));
+const safeArea = () => (SafeArea ??= require("justfit-real:react-native-safe-area-context"));
 function ScaledInsets({ scale, children }) {
   const { SafeAreaInsetsContext, SafeAreaFrameContext, useSafeAreaInsets, useSafeAreaFrame } = safeArea();
   const insets = useSafeAreaInsets();

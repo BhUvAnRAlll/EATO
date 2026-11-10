@@ -6,7 +6,7 @@
 // ("padding", the default, or "margin"), as in the library.
 const React = require("react");
 const { View, StyleSheet } = require("react-native");
-const SafeArea = require("react-native-safe-area-context");
+const SafeArea = require("justfit-real:react-native-safe-area-context");
 
 const ALL = ["top", "right", "bottom", "left"];
 const KEY = { top: "Top", right: "Right", bottom: "Bottom", left: "Left" };
