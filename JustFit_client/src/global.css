@@ -5093,7 +5093,7 @@
   width: 44px;
   height: 44px;
   border-radius: var(--radius-pill);
-  background-color: var(--color-accent-soft);
+  background-color: var(--color-primary-bright);
 }
 
 /* The line above the ask box while listening: a red dot, "Listening in …", the language chips */
@@ -5102,20 +5102,25 @@
   align-items: center;
   flex-wrap: wrap;
   gap: 8px;
-  padding-inline: 8px;
-  padding-bottom: 8px;
+  padding-inline: 12px;
+  padding-block: 8px;
+  margin-bottom: 8px;
+  border-radius: var(--radius-md);
+  background-color: var(--color-accent-soft);
+  border-width: 1px;
+  border-color: var(--color-primary);
 }
 
 @utility coach__listen-dot {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
   border-radius: var(--radius-pill);
   background-color: var(--color-primary);
 }
 
 @utility coach__listen-text {
-  font-family: var(--font-sans-medium);
-  font-size: 13px;
+  font-family: var(--font-sans-semibold);
+  font-size: 14px;
   line-height: 18px;
   color: var(--color-forest-ink);
 }

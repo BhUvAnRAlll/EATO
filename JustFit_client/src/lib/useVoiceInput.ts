@@ -28,6 +28,7 @@ import { useVoiceInputStore } from "@/store/voiceInput";
 //   const voice = useVoiceInput();
 //   voice.supported    false where there is no recogniser and no recorder (then show no mic)
 //   voice.listening    true from start until the session ends
+//   voice.starting     true from the tap until the mic has opened (shown straight away)
 //   voice.transcribing true while the server works on a clip (the mic shows a spinner)
 //   voice.transcript   the words heard so far in this session (interim, then final; empty again
 //                      when the member cancels it, so nothing half heard is kept)
@@ -47,6 +48,8 @@ const recognitionAvailable = () => {
 export function useVoiceInput() {
   const [phoneEngine] = useState(recognitionAvailable);
   const [listening, setListening] = useState(false);
+  // Tapped, but the mic hasn't opened yet (permission, the recogniser warming up): shown at once
+  const [starting, setStarting] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [error, setError] = useState<VoiceError | null>(null);
@@ -94,10 +97,12 @@ export function useVoiceInput() {
   // ---- the phone's recogniser ----
   useSpeechRecognitionEvent("start", () => {
     active.current = "phone";
+    setStarting(false);
     setListening(true);
   });
   useSpeechRecognitionEvent("end", () => {
     if (active.current === "phone") active.current = null;
+    setStarting(false);
     setListening(false);
   });
   useSpeechRecognitionEvent("result", (event) => {
@@ -105,6 +110,7 @@ export function useVoiceInput() {
   });
   useSpeechRecognitionEvent("error", (event) => {
     if (active.current === "phone") active.current = null;
+    setStarting(false);
     setListening(false);
     // The member stopped it themselves (Cancel, a language switch): what was half heard is dropped
     if (event.error === "aborted") setTranscript("");
@@ -170,11 +176,13 @@ export function useVoiceInput() {
   }, [clip, fail, getToken, language]);
 
   const start = useCallback(async () => {
-    if (!supported || active.current || transcribing) return;
+    if (!supported || active.current || transcribing || starting) return;
     setError(null);
     setTranscript("");
+    setStarting(true);
     if (engine === "server") {
       const started = await clip.start();
+      setStarting(false);
       if (!started.ok) return fail(started.code);
       active.current = "server";
       haptic.select();
@@ -191,7 +199,10 @@ export function useVoiceInput() {
     } catch {
       granted = false;
     }
-    if (!granted) return fail("not-allowed");
+    if (!granted) {
+      setStarting(false);
+      return fail("not-allowed");
+    }
     haptic.select();
     try {
       ExpoSpeechRecognitionModule.start({
@@ -203,9 +214,10 @@ export function useVoiceInput() {
         iosTaskHint: "dictation",
       });
     } catch {
+      setStarting(false);
       fail("audio-capture");
     }
-  }, [supported, transcribing, engine, clip, fail, language, stopClip]);
+  }, [supported, transcribing, starting, engine, clip, fail, language, stopClip]);
 
   const stop = useCallback(() => {
     if (active.current === "server") {
@@ -240,6 +252,7 @@ export function useVoiceInput() {
   return {
     supported,
     listening,
+    starting,
     transcribing,
     transcript,
     error,

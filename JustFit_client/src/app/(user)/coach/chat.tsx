@@ -1,6 +1,6 @@
 import { Fragment, memo, useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Keyboard, Platform, Pressable, ScrollView, Text, TextInput, View, type ScrollViewInstance } from "react-native";
-import Animated, { FadeIn, FadeInDown, ReduceMotion } from "react-native-reanimated";
+import Animated, { FadeIn, FadeInDown, ReduceMotion, useAnimatedStyle, useReducedMotion, useSharedValue, withRepeat, withSequence, withTiming } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
@@ -28,6 +28,17 @@ const SENT_IN = FadeInDown.duration(320).reduceMotion(ReduceMotion.System);
 const REPLY_IN = FadeInDown.duration(260).reduceMotion(ReduceMotion.System);
 const TYPING_IN = FadeIn.duration(200).reduceMotion(ReduceMotion.System);
 const CARDS_IN = FadeInDown.duration(320).reduceMotion(ReduceMotion.System);
+
+// The dot on the listening line: it pulses while the mic hears (it holds still with Reduce Motion on)
+function ListenDot({ live }: { live: boolean }) {
+  const reduceMotion = useReducedMotion();
+  const pulse = useSharedValue(1);
+  useEffect(() => {
+    pulse.set(live && !reduceMotion ? withRepeat(withSequence(withTiming(0.3, { duration: 600 }), withTiming(1, { duration: 600 })), -1) : withTiming(1, { duration: 150 }));
+  }, [live, reduceMotion, pulse]);
+  const style = useAnimatedStyle(() => ({ opacity: pulse.get() }));
+  return <Animated.View className="coach__listen-dot" style={style} />;
+}
 
 // A turn's identity on screen: a sent message keeps its clientId once it comes back saved
 const keyOf = (turn: { id: string; role: string; clientId?: string }) => (turn.role === "member" && turn.clientId ? turn.clientId : turn.id);
@@ -267,11 +278,11 @@ export default function CoachChat() {
           </ScrollView>
 
           <View className="px-4 pb-2 pt-2">
-            {(voice.listening || voice.transcribing) && (
+            {(voice.listening || voice.starting || voice.transcribing) && (
               <Animated.View entering={TYPING_IN} className="coach__listen" accessibilityLiveRegion="polite">
-                <View className="coach__listen-dot" />
+                <ListenDot live={voice.listening} />
                 <Text className="coach__listen-text">
-                  {voice.transcribing ? "Working out what you said…" : voice.engine === "server" ? `Listening in ${chosenLanguage?.native ?? ""} · sent to justFit to transcribe` : "Listening… tap the mic to stop"}
+                  {voice.starting ? "Starting the mic…" : voice.transcribing ? "Working out what you said…" : voice.engine === "server" ? `Listening in ${chosenLanguage?.native ?? ""} · sent to justFit to transcribe` : "Listening… tap the mic to stop"}
                 </Text>
                 {voice.listening && voice.languages.length > 1 && (
                   <View className="flex-row flex-wrap" style={{ gap: 6 }}>
@@ -311,7 +322,7 @@ export default function CoachChat() {
                 className="outline-none"
                 style={{ flex: 1, maxHeight: 110, paddingVertical: 10, color: colors.forestInk, fontFamily: fonts.regular, fontSize: 15, lineHeight: 20 }}
               />
-              {voice.supported && <MicButton listening={voice.listening} busy={voice.transcribing} disabled={!micAvailable || sending} onPress={toggleMic} />}
+              {voice.supported && <MicButton listening={voice.listening || voice.starting} busy={voice.transcribing} disabled={!micAvailable || sending} onPress={toggleMic} />}
               <Pressable
                 onPress={() => submit(text)}
                 disabled={!canSend}
