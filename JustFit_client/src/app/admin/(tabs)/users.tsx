@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, Text, TextInput, View, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
+import { AdminTabHeader } from "@/components/admin/AdminTabHeader";
 import { SymbolView } from "@/components/SymbolView";
 import { router, useFocusEffect } from "expo-router";
 
@@ -63,10 +64,7 @@ export default function AdminUsers() {
       <SafeAreaView style={{ flex: 1 }} edges={["top", "left", "right"]}>
         <ScrollView contentContainerStyle={{ paddingBottom: 110, gap: 14 }} keyboardShouldPersistTaps="handled"
             keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"} showsVerticalScrollIndicator={false} refreshControl={refreshControl}>
-          <View className="px-4 pt-2">
-            <Text className="type-overline text-muted">justFit admin</Text>
-            <Text className="type-title text-forest-ink">Users</Text>
-          </View>
+          <AdminTabHeader title="Users" />
           <View className="search search--pill search--on-page mx-4">
             <SymbolView name={{ ios: "magnifyingglass", android: "search", web: "search" }} size={18} tintColor={colors.muted} />
             <TextInput className="search__input" value={search} onChangeText={setSearch} placeholder="Name or phone" placeholderTextColor={colors.faint} autoCorrect={false} autoCapitalize="none" maxLength={80} accessibilityLabel="Search users" />

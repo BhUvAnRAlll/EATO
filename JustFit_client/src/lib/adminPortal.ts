@@ -7,7 +7,13 @@ export type AdminOverview = {
   // users: every account; the rest are the last seven days
   counts: { users: number; newUsers: number; workouts: number; meals: number };
   // Gyms on justFit and their takings today (null before the gym portal migration)
-  gyms?: { gyms: number | null; gymRevenueToday: number | null };
+  gyms?: { gyms: number | null; gymRevenueToday: number | null; gymsToReview?: number | null };
+  // Needs attention and today's meal orders (each part null before its migration)
+  attention?: {
+    openComplaints: number | null;
+    openIssues: number | null;
+    meals: { orders: number; open: number; delayed: number; revenue: number } | null;
+  };
   activity: { id: string; action: string; targetType: string; targetId: string | null; summary: string; by: string; at: string | null }[];
 };
 

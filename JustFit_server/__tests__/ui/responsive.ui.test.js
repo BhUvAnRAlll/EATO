@@ -294,7 +294,8 @@ describe("ui responsive: every main screen fits at 320–430 px without sideways
     for (const [route, text] of [
       ["/admin", "Overview"],
       ["/admin/users", "Users"],
-      ["/admin/content", "Content"],
+      ["/admin/more", "Meals and kitchens"],
+      ["/admin/orders", "Orders"],
       ["/admin/gyms", "Forma Fitness Studio"],
       [`/admin/gyms/${state.gym}`, "Forma Fitness Studio"],
       ["/admin/gyms/new", "gym"],

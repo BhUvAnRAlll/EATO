@@ -1,5 +1,8 @@
 import type { LucideIcon } from "lucide-react-native";
 import {
+  ClockAlert,
+  Layers,
+  CircleEllipsis,
   CalendarDays,
   Weight,
   Activity,
@@ -242,6 +245,7 @@ export const lucideSymbols: Record<string, LucideIcon> = {
   "chevron.up": ChevronUp,
   "circle": Circle,
   "clock": Clock,
+  "clock.badge.exclamationmark": ClockAlert,
   "clock.arrow.circlepath": RotateCcwClock,
   "cloud.bolt": CloudLightning,
   "cloud.sun": CloudSun,
@@ -256,6 +260,7 @@ export const lucideSymbols: Record<string, LucideIcon> = {
   "dumbbell": Dumbbell,
   "dumbbell.fill": Dumbbell,
   "ellipsis": Ellipsis,
+  "ellipsis.circle": CircleEllipsis,
   "envelope": Mail,
   "envelope.badge": MailExclamationPoint,
   "envelope.open": MailOpen,
@@ -383,6 +388,7 @@ export const lucideSymbols: Record<string, LucideIcon> = {
   "square.and.arrow.up": Share,
   "square.and.pencil": SquarePen,
   "square.grid.2x2": LayoutGrid,
+  "square.stack": Layers,
   "square.grid.2x2.fill": LayoutGrid,
   "sun.max": Sun,
   "sun.max.fill": Sun,

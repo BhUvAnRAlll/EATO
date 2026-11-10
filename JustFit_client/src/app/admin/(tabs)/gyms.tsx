@@ -5,6 +5,7 @@ import { StatusBar } from "expo-status-bar";
 import { router } from "expo-router";
 
 import { ScreenSkeleton } from "@/components/Skeleton";
+import { AdminTabHeader } from "@/components/admin/AdminTabHeader";
 import { SymbolView } from "@/components/SymbolView";
 import { DashedBlock } from "@/components/macro/DashedBlock";
 import { rupees } from "@/data/gymDashboard";
@@ -33,24 +34,23 @@ export default function AdminGyms() {
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.leaf} colors={[colors.leaf]} progressBackgroundColor={colors.surface} />}
         >
-          <View className="flex-row items-end px-4 pt-2">
-            <View className="flex-1">
-              <Text className="type-overline text-muted">justFit admin</Text>
-              <Text className="type-title text-forest-ink">Gyms</Text>
-            </View>
-            <Pressable onPress={() => router.push("/admin/gyms/new")} className="btn-forest" style={{ minHeight: 40, paddingHorizontal: 16 }} accessibilityRole="button" accessibilityLabel="New gym">
-              <SymbolView name={{ ios: "plus", android: "add", web: "add" }} size={14} tintColor={colors.onPrimary} />
-              <Text className="btn-forest__label">New gym</Text>
-            </Pressable>
-          </View>
-          <View className="flex-row px-4" style={{ gap: 8 }}>
-            <Pressable onPress={() => router.push("/admin/gyms/analytics")} className="admin-chip flex-1" accessibilityRole="button" accessibilityLabel="Gym analytics">
-              <Text className="type-caption text-ink">Analytics</Text>
-            </Pressable>
-            <Pressable onPress={() => router.push("/admin/gyms/staff")} className="admin-chip flex-1" accessibilityRole="button" accessibilityLabel="All gym staff">
-              <Text className="type-caption text-ink">All staff</Text>
-            </Pressable>
-          </View>
+          <AdminTabHeader
+            title="Gyms"
+            actions={
+              <>
+                <Pressable onPress={() => router.push("/admin/gyms/new")} className="btn-forest" style={{ minHeight: 40, paddingHorizontal: 16 }} accessibilityRole="button" accessibilityLabel="New gym">
+                  <SymbolView name={{ ios: "plus", android: "add", web: "add" }} size={14} tintColor={colors.onPrimary} />
+                  <Text className="btn-forest__label">New gym</Text>
+                </Pressable>
+                <Pressable onPress={() => router.push("/admin/gyms/analytics")} className="admin-chip flex-1" style={{ minHeight: 40 }} accessibilityRole="button" accessibilityLabel="Gym analytics">
+                  <Text className="type-caption text-ink">Analytics</Text>
+                </Pressable>
+                <Pressable onPress={() => router.push("/admin/gyms/staff")} className="admin-chip flex-1" style={{ minHeight: 40 }} accessibilityRole="button" accessibilityLabel="All gym staff">
+                  <Text className="type-caption text-ink">All staff</Text>
+                </Pressable>
+              </>
+            }
+          />
           {counts ? (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}>
               {LIST_FILTERS.map((f) => (

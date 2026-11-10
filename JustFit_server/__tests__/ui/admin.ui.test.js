@@ -1,6 +1,6 @@
 // The Super Admin portal in the real Expo web build against the isolated test server and the
 // justfit_test database: an justFit admin signs in onto the Overview (counts and recent admin
-// activity), with only Overview, Users and Content as tabs; Users filters and opens an account's
+// activity), with Overview, Orders, Gyms, Users and More as tabs; Users filters and opens an account's
 // page; and a member can't reach /admin. Screenshots at three widths.
 //
 //   yarn test:ui      (needs JustFit_server/.env.test and Google Chrome; otherwise skipped)
@@ -145,7 +145,7 @@ describe("ui admin: the Super Admin Overview and its tabs", () => {
     if (problems.length > 0) throw new Error(`cleanup incomplete: ${problems.join("; ")}`);
   });
 
-  it("1. an admin lands on the Overview: counts, recent activity, and only Overview, Orders, Users, Gyms and Content as tabs", run("overview", async () => {
+  it("1. an admin lands on the Overview: counts, recent activity, Needs attention, and Overview, Orders, Gyms, Users and More as tabs", run("overview", async () => {
     await viewport(390, 844);
     await signIn(identities.admin, "/admin");
     await h.expectPath("/admin");
@@ -154,9 +154,20 @@ describe("ui admin: the Super Admin Overview and its tabs", () => {
     await page.waitFor(`!!document.querySelector('[aria-label="Workouts this week: 1"]')`, NAV_TIMEOUT, "the workouts tile");
     await h.expectText("Created promotion “Train at home”", "the promotion is in the activity log");
     const tabs = await page.evaluate(`[...document.querySelectorAll('[role="tab"]')].filter((e) => e.getClientRects().length > 0).map((e) => e.getAttribute("aria-label"))`);
-    assert.deepEqual(tabs, ["Overview", "Orders", "Users", "Gyms", "Content"], "no Reports tab");
+    assert.deepEqual(tabs, ["Overview", "Orders", "Gyms", "Users", "More"], "no Reports or Content tab");
+    await h.expectText("Needs attention");
+    await h.expectText("Recent admin activity");
     for (const gone of ["Open reports", "Gym members", "Suspended", "To do"]) assert.equal(await page.hasText(gone), false, `${gone} is gone`);
     await snapshotAllWidths("admin-overview");
+  }));
+
+  it("1b. More lists every admin area in groups", run("more", async () => {
+    await clickTab("More");
+    await h.expectPath("/admin/more");
+    for (const text of ["Meals and kitchens", "Kitchens", "Delivery", "Subscriptions", "Issues", "Reports", "Meals tab", "Coupons", "Gyms", "Complaints", "Fitness content", "Programs", "Exercises", "Home promotions", "Platform", "Platform settings", "AI Usage", "App Usage"]) await h.expectText(text);
+    await snapshotAllWidths("admin-more");
+    await clickTab("Overview");
+    await h.expectPath("/admin");
   }));
 
   it("2. Users: filter to admins, then open a member's page", run("users", async () => {

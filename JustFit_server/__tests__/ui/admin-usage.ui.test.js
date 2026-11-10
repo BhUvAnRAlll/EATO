@@ -121,12 +121,12 @@ describe("ui app usage: the admin's App Usage screen", () => {
     if (problems.length > 0) throw new Error(`cleanup incomplete: ${problems.join("; ")}`);
   });
 
-  it("1. Profile leads to App Usage, beside AI Usage", run("profile", async () => {
+  it("1. More leads to App Usage, beside AI Usage", run("profile", async () => {
     await signInAs(page, h, identities.admin);
     await page.waitFor(`location.pathname.startsWith("/admin")`, 60000, "landing on /admin");
     await h.settle();
-    await clickLabel("Profile");
-    await h.expectPath("/admin/profile");
+    await clickLabel("More");
+    await h.expectPath("/admin/more");
     await h.expectText("AI Usage");
     await h.expectText("App Usage");
     await clickLabel("App Usage");

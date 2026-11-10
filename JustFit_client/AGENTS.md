@@ -1486,9 +1486,18 @@ Groups, Challenges and Trainers had already gone. Do not rebuild any of it unles
 (The user asked on 2026-11-05 for gym PT trainers, added by a gym's admin: role `trainer`, see
 Staff / Admin Login. The old trainer portal and coaching stay removed.)
 
-- The Super Admin portal's tabs are Overview · Users · Content. The Overview counts users, new users
-  and the last seven days' finished workouts and logged meals; Users filters All / Members / Admins
-  and an account's page shows when they joined and how many meals, workouts and orders they have.
+- The Super Admin portal's tabs are Overview · Orders · Gyms · Users · More (restructured 2026-11-10,
+  the user's request: the main things were hidden and the layouts not uniform). Every tab opens with
+  `components/admin/AdminTabHeader.tsx` ("justFit admin", the title, the bell with the unread count,
+  the admin's initial for Profile, then the tab's own actions); `AdminScreen hideBack` uses it. The
+  Overview: the dark Today card (meal revenue, orders to deliver, late, gym takings), Needs attention
+  tiles (gyms to review, open complaints, open meal issues, late orders; `attention` on
+  `GET /api/admin/portal/overview`, `admin/overview.js`, read only, each part null before its
+  migration), Quick actions, Platform counts and recent admin activity. More lists every area as
+  tiles in groups (`adminSections` in `data/admin.ts`, `TileGrid`): Meals and kitchens, Meals tab,
+  Gyms, Fitness content, Platform. Profile keeps only the account, Notifications, All admin tools and
+  Sign out. Users filters All / Members / Admins and an account's page shows when they joined and
+  how many meals, workouts and orders they have.
 - Kept as history: `admin_audit_log` rows about gyms, posts and reports; `ai_usage` rows of the
   `gym_assistant` feature (still in the ENUM, labelled "removed" on AI Usage, no section); old
   `analytics_events` of the community events (the server no longer accepts new ones).

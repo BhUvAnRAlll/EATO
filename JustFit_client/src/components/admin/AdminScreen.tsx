@@ -8,11 +8,12 @@ import { router } from "expo-router";
 import { usePullToRefresh } from "@/components/PullToRefresh";
 import { useThemeColors } from "@/theme";
 import { KeyboardAvoider } from "@/components/KeyboardAvoider";
+import { AdminTabHeader } from "@/components/admin/AdminTabHeader";
 
 type AdminScreenProps = {
   title: string;
   subtitle?: string;
-  // Small control on the right of the header (e.g. a "New" button)
+  // Small control on the right of the header (e.g. a "New" button); on a tab root, the row of actions under the title
   headerRight?: ReactNode;
   // Reads the screen's data again when it is pulled down (screens that only show a form leave it out)
   onRefresh?: () => Promise<unknown>;
@@ -33,14 +34,8 @@ export function AdminScreen({ title, subtitle, headerRight, onRefresh, hideBack 
       <StatusBar style="auto" />
       <SafeAreaView style={{ flex: 1 }} edges={hideBack ? ["top", "left", "right"] : undefined}>
         {hideBack ? (
-          // A tab root: the eyebrow and a large title, like Overview, Users and Gyms
-          <View className="flex-row items-end px-4 pb-2 pt-2" style={{ gap: 12 }}>
-            <View className="min-w-0 flex-1">
-              <Text className="type-overline text-muted">justFit admin</Text>
-              <Text className="type-title text-forest-ink" numberOfLines={2} accessibilityRole="header">{title}</Text>
-            </View>
-            {headerRight}
-          </View>
+          // A tab root: the shared tab header (title, bell, profile), headerRight as its actions row
+          <AdminTabHeader title={title} actions={headerRight} />
         ) : (
           // A stack screen: the circled back button and a centred title
           <View className="screen-bar">

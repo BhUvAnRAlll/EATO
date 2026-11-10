@@ -48,4 +48,36 @@ async function overview(pool) {
   };
 }
 
-module.exports = { audit, recordAdminAction, overview };
+// A count from a table a later migration adds: null until that migration has run
+async function countOrNull(pool, sql) {
+  try {
+    const [[row]] = await pool.query(sql);
+    return Number(row.n);
+  } catch (error) {
+    if (error?.code === "ER_NO_SUCH_TABLE") return null;
+    throw error;
+  }
+}
+
+/**
+ * The Overview's "Needs attention" and "Today": open member complaints about gyms, open meal
+ * issues, and today's meal orders (open, delayed, revenue) from the meal-operations dashboard.
+ * Each part is null before its migration. Read only.
+ */
+async function attention(pool, today) {
+  const kitchens = require("../kitchens/service");
+  const [complaints, issues, meals] = await Promise.all([
+    countOrNull(pool, "SELECT COUNT(*) AS n FROM complaints WHERE status IN ('open', 'investigating')"),
+    countOrNull(pool, "SELECT COUNT(*) AS n FROM meal_issues WHERE status IN ('open', 'in_progress')"),
+    kitchens.dashboard(pool, { day: today, today }).then(
+      (d) => ({ orders: d.orders.total - d.orders.steps.cancelled, open: d.orders.open, delayed: d.orders.delayed, revenue: d.revenue.amount }),
+      (error) => {
+        if (error?.code === "ER_NO_SUCH_TABLE" || error?.code === "ER_BAD_FIELD_ERROR") return null;
+        throw error;
+      },
+    ),
+  ]);
+  return { openComplaints: complaints, openIssues: issues, meals };
+}
+
+module.exports = { audit, recordAdminAction, overview, attention };

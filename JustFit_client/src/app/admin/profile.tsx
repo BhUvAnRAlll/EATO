@@ -1,114 +1,46 @@
-import { Pressable, ScrollView, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { StatusBar } from "expo-status-bar";
+import { Pressable, Text, View } from "react-native";
 import { router } from "expo-router";
 
+import { AdminLinkRow } from "@/components/admin/AdminLinkRow";
+import { AdminScreen } from "@/components/admin/AdminScreen";
 import { SymbolView } from "@/components/SymbolView";
 import { useAuthStore } from "@/store/auth";
 import { useThemeColors } from "@/theme";
 
-const back = () => (router.canGoBack() ? router.back() : router.replace("/admin"));
-
-// Super Admin › Profile: who is signed in, the admin-only tools (AI Usage, App Usage, Exercises, Programs) and Sign out
+// Super Admin › Profile: who is signed in, their own inbox, and Sign out. Every admin tool lives on
+// the More tab.
 export default function AdminProfile() {
   const colors = useThemeColors();
   const user = useAuthStore((state) => state.user);
   const name = user?.fullName?.trim() || "justFit admin";
 
   return (
-    <View className="flex-1 bg-cream">
-      <StatusBar style="auto" />
-      <SafeAreaView style={{ flex: 1 }}>
-        <View className="screen-bar">
-          <Pressable onPress={back} hitSlop={12} className="screen-bar__back" accessibilityRole="button" accessibilityLabel="Back">
-            <SymbolView name={{ ios: "chevron.left", android: "arrow_back", web: "arrow_back" }} size={20} tintColor={colors.ink} />
-          </Pressable>
-          <Text className="screen-bar__title" accessibilityRole="header">Profile</Text>
-          <View className="screen-bar__spacer" />
-        </View>
-
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40, gap: 16 }} showsVerticalScrollIndicator={false}>
-          <View className="admin-list">
-            <View className="admin-row">
-              <View className="admin-initials">
-                <Text className="admin-initials__label">{name.charAt(0).toUpperCase()}</Text>
-              </View>
-              <View className="min-w-0 flex-1">
-                <Text className="card__title" numberOfLines={1}>{name}</Text>
-                <Text className="meta-text" numberOfLines={1}>{user?.phone ? `Admin · ${user.phone}` : "Admin"}</Text>
-              </View>
+    <AdminScreen title="Profile">
+      <View style={{ gap: 20 }}>
+        <View className="admin-list">
+          <View className="admin-row">
+            <View className="admin-initials">
+              <Text className="admin-initials__label">{name.charAt(0).toUpperCase()}</Text>
+            </View>
+            <View className="min-w-0 flex-1">
+              <Text className="card__title" numberOfLines={1}>{name}</Text>
+              <Text className="meta-text" numberOfLines={1}>{user?.phone ? `Super Admin · ${user.phone}` : "Super Admin"}</Text>
             </View>
           </View>
+        </View>
 
-          <Text className="setup__section">Tools</Text>
-          <View className="admin-list">
-            <Pressable onPress={() => router.push("/admin/notifications")} className="admin-row" accessibilityRole="button" accessibilityLabel="Notifications. Gyms waiting for review">
-              <View className="admin-row__icon"><SymbolView name={{ ios: "bell", android: "notifications", web: "notifications" }} size={18} tintColor={colors.forestInk} /></View>
-              <View className="min-w-0 flex-1">
-                <Text className="card__title">Notifications</Text>
-                <Text className="meta-text">Gyms waiting for review and other alerts</Text>
-              </View>
-              <SymbolView name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }} size={14} tintColor={colors.faint} />
-            </Pressable>
-            <Pressable onPress={() => router.push("/admin/complaints")} className="admin-row admin-row--divided" accessibilityRole="button" accessibilityLabel="Complaints. Reports members sent about gyms">
-              <View className="admin-row__icon"><SymbolView name={{ ios: "flag", android: "flag", web: "flag" }} size={18} tintColor={colors.forestInk} /></View>
-              <View className="min-w-0 flex-1">
-                <Text className="card__title">Complaints</Text>
-                <Text className="meta-text">Reports members sent about gyms</Text>
-              </View>
-              <SymbolView name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }} size={14} tintColor={colors.faint} />
-            </Pressable>
-            <Pressable onPress={() => router.push("/admin/platform-settings")} className="admin-row admin-row--divided" accessibilityRole="button" accessibilityLabel="Platform settings. Registration, documents and defaults">
-              <View className="admin-row__icon"><SymbolView name={{ ios: "slider.horizontal.3", android: "tune", web: "tune" }} size={18} tintColor={colors.forestInk} /></View>
-              <View className="min-w-0 flex-1">
-                <Text className="card__title">Platform settings</Text>
-                <Text className="meta-text">Registration, documents and defaults</Text>
-              </View>
-              <SymbolView name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }} size={14} tintColor={colors.faint} />
-            </Pressable>
-            <Pressable onPress={() => router.push("/admin/ai-usage")} className="admin-row admin-row--divided" accessibilityRole="button" accessibilityLabel="AI Usage. What the AI features cost">
-              <View className="admin-row__icon"><SymbolView name={{ ios: "chart.bar.xaxis", android: "monitoring", web: "monitoring" }} size={18} tintColor={colors.forestInk} /></View>
-              <View className="min-w-0 flex-1">
-                <Text className="card__title">AI Usage</Text>
-                <Text className="meta-text">Requests, tokens, cost and the monthly budget</Text>
-              </View>
-              <SymbolView name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }} size={14} tintColor={colors.faint} />
-            </Pressable>
-            <Pressable onPress={() => router.push("/admin/app-usage")} className="admin-row admin-row--divided" accessibilityRole="button" accessibilityLabel="App Usage. Which features members use">
-              <View className="admin-row__icon"><SymbolView name={{ ios: "chart.line.uptrend.xyaxis", android: "trending_up", web: "trending_up" }} size={18} tintColor={colors.forestInk} /></View>
-              <View className="min-w-0 flex-1">
-                <Text className="card__title">App Usage</Text>
-                <Text className="meta-text">Which features members use, and how many of them</Text>
-              </View>
-              <SymbolView name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }} size={14} tintColor={colors.faint} />
-            </Pressable>
-            <Pressable onPress={() => router.push("/admin/exercises")} className="admin-row admin-row--divided" accessibilityRole="button" accessibilityLabel="Exercises. Every workout exercise and its video">
-              <View className="admin-row__icon"><SymbolView name={{ ios: "figure.strengthtraining.traditional", android: "fitness_center", web: "fitness_center" }} size={18} tintColor={colors.forestInk} /></View>
-              <View className="min-w-0 flex-1">
-                <Text className="card__title">Exercises</Text>
-                <Text className="meta-text">Every workout exercise, its demo video, and adding more with AI</Text>
-              </View>
-              <SymbolView name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }} size={14} tintColor={colors.faint} />
-            </Pressable>
-            <Pressable onPress={() => router.push("/admin/programs")} className="admin-row admin-row--divided" accessibilityRole="button" accessibilityLabel="Programs. The Fitness tab's free programs">
-              <View className="admin-row__icon"><SymbolView name={{ ios: "square.grid.2x2", android: "grid_view", web: "grid_view" }} size={18} tintColor={colors.forestInk} /></View>
-              <View className="min-w-0 flex-1">
-                <Text className="card__title">Programs</Text>
-                <Text className="meta-text">{"The Fitness tab's free programs: edit, hide, or write new ones with AI"}</Text>
-              </View>
-              <SymbolView name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }} size={14} tintColor={colors.faint} />
-            </Pressable>
-          </View>
+        <View className="admin-list">
+          <AdminLinkRow icon={{ ios: "bell", android: "notifications", web: "notifications" }} label="Notifications" line="Gyms waiting for review and other alerts" onPress={() => router.push("/admin/notifications")} />
+          <AdminLinkRow icon={{ ios: "ellipsis.circle", android: "more_horiz", web: "more_horiz" }} label="All admin tools" line="Meals, kitchens, gyms, content and platform" divided onPress={() => router.navigate("/admin/more")} />
+        </View>
 
-
-          <View className="admin-list">
-            <Pressable onPress={() => useAuthStore.getState().signOut()} className="admin-row" accessibilityRole="button" accessibilityLabel="Sign out">
-              <View className="admin-row__icon"><SymbolView name={{ ios: "rectangle.portrait.and.arrow.right", android: "logout", web: "logout" }} size={18} tintColor={colors.danger} /></View>
-              <Text className="card__title flex-1" style={{ color: colors.danger }}>Sign out</Text>
-            </Pressable>
-          </View>
-        </ScrollView>
-      </SafeAreaView>
-    </View>
+        <View className="admin-list">
+          <Pressable onPress={() => useAuthStore.getState().signOut()} className="admin-row" accessibilityRole="button" accessibilityLabel="Sign out">
+            <View className="admin-row__icon admin-row__icon--danger"><SymbolView name={{ ios: "rectangle.portrait.and.arrow.right", android: "logout", web: "logout" }} size={18} tintColor={colors.danger} /></View>
+            <Text className="card__title flex-1" style={{ color: colors.danger }}>Sign out</Text>
+          </Pressable>
+        </View>
+      </View>
+    </AdminScreen>
   );
 }

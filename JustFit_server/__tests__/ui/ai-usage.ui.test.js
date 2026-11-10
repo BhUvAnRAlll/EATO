@@ -123,16 +123,17 @@ describe("ui ai usage: the admin's AI Usage screens", () => {
     if (problems.length > 0) throw new Error(`cleanup incomplete: ${problems.join("; ")}`);
   });
 
-  it("1. Profile opens from the Overview and leads to AI Usage", run("profile", async () => {
+  it("1. Profile opens from the Overview; its All admin tools leads to AI Usage", run("profile", async () => {
     await signInAs(page, h, identities.admin);
     await page.waitFor(`location.pathname.startsWith("/admin")`, 60000, "landing on /admin");
     await h.settle();
     await clickLabel("Profile");
     await h.expectPath("/admin/profile");
     await h.expectText("Maya Ortiz");
-    await h.expectText("AI Usage");
     await h.expectText("Sign out");
     await snapshotAllWidths("admin-profile");
+    await clickLabel("All admin tools");
+    await h.expectPath("/admin/more");
     await clickLabel("AI Usage");
     await h.expectPath("/admin/ai-usage");
   }));

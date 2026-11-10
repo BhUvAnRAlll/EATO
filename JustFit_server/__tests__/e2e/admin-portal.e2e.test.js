@@ -115,6 +115,19 @@ describe("admin portal e2e: the Overview, users and the admin audit log", () => 
     assert.equal(r.json.counts.meals, before.counts.meals + 1, "a meal from 20 days ago is outside the week");
   }));
 
+  it("2b. the overview carries the to-do counts: open complaints, open meal issues and today's meal orders", run(async () => {
+    const r = await overview(tokens.admin);
+    assert.equal(r.status, 200, JSON.stringify(r.json));
+    const a = r.json.attention;
+    assert.deepEqual(Object.keys(a).sort(), ["meals", "openComplaints", "openIssues"]);
+    for (const key of ["openComplaints", "openIssues"]) assert.ok(a[key] === null || Number.isInteger(a[key]), key);
+    if (a.meals !== null) {
+      assert.deepEqual(Object.keys(a.meals).sort(), ["delayed", "open", "orders", "revenue"]);
+      for (const v of Object.values(a.meals)) assert.ok(Number.isInteger(v) && v >= 0);
+    }
+    assert.equal(r.json.gyms.gymsToReview === null || Number.isInteger(r.json.gyms.gymsToReview), true);
+  }));
+
   it("3. admin actions write the audit log, newest first, with who did them", run(async () => {
     const logBefore = await count("admin_audit_log", "admin_id = ?", [ids.admin]);
     const promo = await api("POST", "/api/admin/promotions", tokens.admin, {

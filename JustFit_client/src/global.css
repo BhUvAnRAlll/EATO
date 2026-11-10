@@ -3665,6 +3665,251 @@
   background-color: var(--color-cream-deep);
 }
 
+@utility admin-row__icon--warning {
+  background-color: var(--color-warning-soft);
+}
+
+@utility admin-row__icon--danger {
+  background-color: var(--color-danger-soft);
+}
+
+/* A count at the end of an admin row (Needs attention): grey when nothing waits, dark when it does */
+@utility admin-count {
+  min-width: 28px;
+  padding-inline: 8px;
+  padding-block: 2px;
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+  text-align: center;
+  font-family: var(--font-sans-semibold);
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--color-muted);
+  background-color: var(--color-cream-deep);
+}
+
+@utility admin-count--alert {
+  color: var(--color-on-inverse);
+  background-color: var(--color-ink-fill);
+}
+
+/* The top of every Super Admin tab (AdminTabHeader): title row, then the tab's actions */
+@utility admin-header {
+  gap: 12px;
+  padding-inline: var(--spacing-lg);
+  padding-top: var(--spacing-sm);
+  padding-bottom: 4px;
+}
+
+@utility admin-header__button {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-pill);
+  align-items: center;
+  justify-content: center;
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-card);
+}
+
+@utility admin-header__badge {
+  position: absolute;
+  top: 4px;
+  right: 2px;
+  min-width: 18px;
+  padding-inline: 4px;
+  border-radius: var(--radius-pill);
+  align-items: center;
+  background-color: var(--color-danger);
+  border-width: 2px;
+  border-color: var(--color-surface);
+}
+
+@utility admin-header__badge-label {
+  font-family: var(--font-sans-semibold);
+  font-size: 10px;
+  line-height: 14px;
+  color: var(--color-on-inverse);
+}
+
+@utility admin-header__avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-pill);
+  align-items: center;
+  justify-content: center;
+  background-color: var(--color-ink-fill);
+}
+
+@utility admin-header__avatar-label {
+  font-family: var(--font-sans-semibold);
+  font-size: 16px;
+  line-height: 22px;
+  color: var(--color-on-inverse);
+}
+
+/* The Overview's dark Today card: the day's money large, its counts in pills under it */
+@utility admin-hero {
+  gap: 14px;
+  padding: var(--spacing-xl);
+  border-radius: var(--radius-xl);
+  background-color: var(--color-inverse);
+  box-shadow: var(--shadow-card);
+}
+
+@utility admin-hero__overline {
+  font-family: var(--font-sans-medium);
+  font-size: 12px;
+  line-height: 16px;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--color-on-inverse-muted);
+}
+
+@utility admin-hero__value {
+  font-family: var(--font-sans-semibold);
+  font-size: 32px;
+  line-height: 40px;
+  color: var(--color-on-inverse);
+}
+
+@utility admin-hero__caption {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--color-on-inverse-muted);
+}
+
+/* A count on the hero card: label over value on a lighter ground */
+@utility admin-hero__stat {
+  flex-basis: 28%;
+  flex-grow: 1;
+  justify-content: space-between;
+  gap: 2px;
+  padding: 10px;
+  border-radius: var(--radius-md);
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+@utility admin-hero__stat-label {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--color-on-inverse-muted);
+}
+
+@utility admin-hero__stat-value {
+  font-family: var(--font-sans-semibold);
+  font-size: 18px;
+  line-height: 24px;
+  color: var(--color-on-inverse);
+}
+
+@utility admin-hero__stat-value--alert {
+  color: var(--color-primary-bright);
+}
+
+/* Needs attention: a tile per to-do, two to a row; tinted when something waits */
+@utility admin-alert {
+  flex-basis: 40%;
+  flex-grow: 1;
+  gap: 8px;
+  padding: var(--spacing-md);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-card);
+}
+
+@utility admin-alert--warning {
+  background-color: var(--color-warning-soft);
+}
+
+@utility admin-alert--danger {
+  background-color: var(--color-danger-soft);
+}
+
+@utility admin-alert__value {
+  font-family: var(--font-sans-semibold);
+  font-size: 26px;
+  line-height: 32px;
+  color: var(--color-ink);
+}
+
+@utility admin-alert__label {
+  font-family: var(--font-sans-medium);
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--color-ink);
+}
+
+/* A section heading with an optional link on the right (Needs attention · See all) */
+@utility admin-section {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+@utility admin-section__title {
+  font-family: var(--font-sans-semibold);
+  font-size: 16px;
+  line-height: 22px;
+  color: var(--color-forest-ink);
+}
+
+@utility admin-section__link {
+  font-family: var(--font-sans-semibold);
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--color-primary-text);
+}
+
+/* The More tab: each area a tile with its icon, three to a row (two on compact phones) */
+@utility admin-tile {
+  flex-basis: 28%;
+  flex-grow: 1;
+  min-height: 104px;
+  gap: 10px;
+  padding: 12px 10px;
+  border-radius: var(--radius-lg);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-card);
+}
+
+/* Quick actions: four to a row, the icon and label centred */
+@utility admin-tile--quarter {
+  flex-basis: 20%;
+  min-height: 92px;
+  padding-inline: 6px;
+  align-items: center;
+  justify-content: center;
+}
+
+@utility admin-tile--half {
+  flex-basis: 40%;
+}
+
+/* Fills the last row of a tile grid so every tile keeps the same width */
+@utility admin-tile--ghost {
+  opacity: 0;
+  box-shadow: none;
+}
+
+@utility admin-tile__icon {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  align-items: center;
+  justify-content: center;
+  background-color: var(--color-accent-soft);
+}
+
+@utility admin-tile__label {
+  font-family: var(--font-sans-medium);
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--color-ink);
+}
+
 /* A feature's rank: a small dark circle on the corner of its icon (App Usage › Most used) */
 @utility admin-rank {
   position: absolute;

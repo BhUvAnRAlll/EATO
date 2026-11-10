@@ -9,6 +9,7 @@ import { DashedBlock } from "@/components/macro/DashedBlock";
 import { StatusPill } from "@/components/meals/OrderParts";
 import { PressableScale } from "@/components/PressableScale";
 import { ScreenSkeleton } from "@/components/Skeleton";
+import { AdminTabHeader } from "@/components/admin/AdminTabHeader";
 import { SymbolView } from "@/components/SymbolView";
 import { hud } from "@/lib/hud";
 import { todayIso } from "@/lib/macro";
@@ -307,20 +308,21 @@ export default function AdminOrders() {
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.leaf} colors={[colors.leaf]} progressBackgroundColor={colors.surface} />}
         >
-          <View className="flex-row items-end px-4 pt-2" style={{ gap: 8 }}>
-            <View className="flex-1">
-              <Text className="type-overline text-muted">justFit kitchen</Text>
-              <Text className="type-title text-forest-ink">Orders</Text>
-            </View>
-            <Pressable onPress={() => router.push("/admin/meal-ops")} className="admin-chip flex-row" style={{ minHeight: 40, gap: 6 }} accessibilityRole="button" accessibilityLabel="Meal operations dashboard">
-              <SymbolView name={{ ios: "chart.bar", android: "bar_chart", web: "bar_chart" }} size={14} tintColor={colors.primaryText} />
-              <Text className="admin-segment__label admin-segment__label--on">Dashboard</Text>
-            </Pressable>
-            <Pressable onPress={() => router.push("/admin/meals")} className="btn-forest" style={{ minHeight: 40, paddingHorizontal: 16 }} accessibilityRole="button" accessibilityLabel="Meals and delivery times">
-              <SymbolView name={{ ios: "fork.knife", android: "restaurant", web: "restaurant" }} size={14} tintColor={colors.onPrimary} />
-              <Text className="btn-forest__label">Meals</Text>
-            </Pressable>
-          </View>
+          <AdminTabHeader
+            title="Orders"
+            actions={
+              <>
+                <Pressable onPress={() => router.push("/admin/meal-ops")} className="admin-chip flex-1 flex-row" style={{ minHeight: 40, gap: 6 }} accessibilityRole="button" accessibilityLabel="Meal operations dashboard">
+                  <SymbolView name={{ ios: "chart.bar", android: "bar_chart", web: "bar_chart" }} size={14} tintColor={colors.primaryText} />
+                  <Text className="admin-segment__label admin-segment__label--on">Dashboard</Text>
+                </Pressable>
+                <Pressable onPress={() => router.push("/admin/meals")} className="btn-forest flex-1" style={{ minHeight: 40, paddingHorizontal: 16 }} accessibilityRole="button" accessibilityLabel="Meals and delivery times">
+                  <SymbolView name={{ ios: "fork.knife", android: "restaurant", web: "restaurant" }} size={14} tintColor={colors.onPrimary} />
+                  <Text className="btn-forest__label">Meals</Text>
+                </Pressable>
+              </>
+            }
+          />
 
           {/* The day */}
           <View className="mx-4 flex-row items-center card" style={{ paddingVertical: 8, paddingHorizontal: 8 }}>

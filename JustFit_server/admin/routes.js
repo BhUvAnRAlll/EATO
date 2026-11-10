@@ -4,7 +4,7 @@
 // shared handler.
 const express = require("express");
 
-const { overview } = require("./overview");
+const { overview, attention } = require("./overview");
 const users = require("./users");
 const gyms = require("./gyms");
 const smsRules = require("../gym/smsRules");
@@ -40,8 +40,9 @@ const pool = (req) => req.app.locals.pool;
 
 // Overview: platform counts, the to-do list and recent admin activity
 router.get("/overview", route(async (req, res) => {
-  const summary = await overview(pool(req));
-  res.json({ ...summary, gyms: await gyms.overviewCounts(pool(req), gymRules.todayInIndia()) });
+  const today = gymRules.todayInIndia();
+  const [summary, gymCounts, needs] = await Promise.all([overview(pool(req)), gyms.overviewCounts(pool(req), today), attention(pool(req), today)]);
+  res.json({ ...summary, gyms: gymCounts, attention: needs });
 }));
 
 // An account id from the path: ids are letters, digits and underscores. Anything else
