@@ -12,6 +12,7 @@ import { PrimaryButton } from "@/components/PrimaryButton";
 import { usePullToRefresh } from "@/components/PullToRefresh";
 import { SkeletonCard } from "@/components/Skeleton";
 import { SymbolView } from "@/components/SymbolView";
+import { RefuelMeals } from "@/components/meals/RefuelMeals";
 import { attendanceApi, looksLikeGymQr, type MyVisit, type ScanDone, type ScanPreview } from "@/lib/attendanceApi";
 import { STATUS_TEXT, clockTime, dayOf, durationText } from "@/lib/attendanceText";
 import { readGps } from "@/lib/gpsReading";
@@ -237,6 +238,8 @@ function DoneCard({ result, onDone }: { result: ScanDone; onDone: () => void }) 
           ? checkingIn ? "Have a good shift! Scan the same code when you leave." : "Thanks for today. See you next time!"
           : checkingIn ? "Have a great workout! Scan the same code when you leave." : "Great work today. See you next time!"}
       </Text>
+      {/* A member leaving after a workout: meals to refuel with (never for a day at work) */}
+      {!checkingIn && !work ? <RefuelMeals /> : null}
       <View className="self-stretch">
         <PrimaryButton label="Done" onPress={onDone} />
       </View>

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { foodWords, matchMeals, mealConflict, mealTimesLeft, planReason, remainingReason, safeMeals, targetFromRemaining, type MatchMeal } from "../mealMatch.ts";
+import { foodWords, matchMeals, refuelMeals, refuelReason, mealConflict, mealTimesLeft, planReason, remainingReason, safeMeals, targetFromRemaining, type MatchMeal } from "../mealMatch.ts";
 
 const meal = (id: string, over: Partial<MatchMeal> = {}): MatchMeal => ({ id, name: id, description: null, ingredients: null, diet: "vegetarian", calories: 450, proteinG: 20, ...over });
 const menu = [
@@ -58,5 +58,15 @@ describe("meal recommendations", () => {
     assert.equal(targetFromRemaining({ kcal: 120, proteinG: 30 }, 1), null, "too little left");
     assert.deepEqual(targetFromRemaining({ kcal: 600, proteinG: 20 }, 0), { kcal: 600, proteinG: 20 }, "never divides by zero");
     assert.deepEqual([7, 12, 18, 23].map(mealTimesLeft), [3, 2, 1, 0]);
+  });
+
+  it("refuels after a workout with protein, safely", () => {
+    const veg = { diet: "vegetarian" as const, allergies: null, dislikes: null };
+    assert.deepEqual(refuelMeals(menu, veg).map((m) => m.meal.id), ["Paneer Tikka Bowl"], "only the 20 g+ veg meal");
+    assert.ok(refuelMeals(menu, { diet: "non-vegetarian", allergies: null, dislikes: null }).some((m) => m.meal.id === "Chicken Biryani"));
+    const lowProtein = [meal("Upma", { calories: 350, proteinG: 8 })];
+    assert.deepEqual(refuelMeals(lowProtein, veg).map((m) => m.meal.id), ["Upma"], "no protein-rich meal: any safe one");
+    assert.equal(refuelReason(menu[0]), "32 g protein to help your muscles recover");
+    assert.equal(refuelReason(lowProtein[0]), "350 kcal to refuel after your workout");
   });
 });

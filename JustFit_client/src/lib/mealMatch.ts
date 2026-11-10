@@ -122,3 +122,19 @@ export function indiaHour(now: Date): number {
   const minutes = ((Math.floor(now.getTime() / 60000 + 330) % 1440) + 1440) % 1440;
   return Math.floor(minutes / 60);
 }
+
+// After a workout (the gym check-out): a meal of about 500 kcal with plenty of protein
+export const REFUEL_TARGET: MatchTarget = { kcal: 500, proteinG: 30 };
+export const REFUEL_MIN_PROTEIN_G = 20;
+
+/** Up to `max` meals to refuel with: protein-rich ones (20 g+) when the menu has them, else any safe ones */
+export function refuelMeals<M extends MatchMeal>(meals: M[], food: MemberFood | null, max = 2): Match<M>[] {
+  const rich = meals.filter((m) => m.proteinG >= REFUEL_MIN_PROTEIN_G);
+  const picks = matchMeals(rich, food, REFUEL_TARGET, { max });
+  return picks.length > 0 ? picks : matchMeals(meals, food, REFUEL_TARGET, { max });
+}
+
+/** "32 g protein to help your muscles recover" */
+export function refuelReason(meal: MatchMeal): string {
+  return meal.proteinG >= REFUEL_MIN_PROTEIN_G ? `${Math.round(meal.proteinG)} g protein to help your muscles recover` : `${meal.calories} kcal to refuel after your workout`;
+}
