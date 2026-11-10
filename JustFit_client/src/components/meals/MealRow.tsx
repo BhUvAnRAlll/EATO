@@ -1,25 +1,15 @@
 import { Text, View } from "react-native";
 import { Image } from "expo-image";
 
+import { DietMark } from "@/components/meals/DietMark";
 import { QuantityStepper } from "@/components/meals/QuantityStepper";
 import { PressableScale } from "@/components/PressableScale";
 import { SymbolView } from "@/components/SymbolView";
-import { DIET_LABEL, macroLine, rupees, type Diet } from "@/lib/mealRules";
+import { DIET_LABEL, macroLine, rupees } from "@/lib/mealRules";
 import { mealImage, type MenuMeal } from "@/lib/mealsApi";
 import { useAuthStore } from "@/store/auth";
 import { MAX_PER_MEAL } from "@/store/cart";
 import { useThemeColors } from "@/theme";
-
-// The square with a dot that Indian menus print: green for veg and vegan, brown for non-veg, amber for egg
-export function DietMark({ diet }: { diet: Diet }) {
-  const colors = useThemeColors();
-  const color = diet === "non-vegetarian" ? colors.mealNonveg : diet === "eggetarian" ? colors.warning : colors.mealPrimary;
-  return (
-    <View className="meal-diet" style={{ borderColor: color }} accessibilityLabel={DIET_LABEL[diet]}>
-      <View className="meal-diet__dot" style={{ backgroundColor: color }} />
-    </View>
-  );
-}
 
 type MealRowProps = {
   meal: MenuMeal;
@@ -45,7 +35,7 @@ export function MealRow({ meal, quantity, onOpen, onAdd, onQuantity }: MealRowPr
           <View className="flex-row items-center" style={{ gap: 6 }}>
             <DietMark diet={meal.diet} />
             <Text className="meta-text" numberOfLines={1}>{DIET_LABEL[meal.diet]}</Text>
-            {meal.favorite ? <SymbolView name={{ ios: "heart.fill", android: "favorite", web: "favorite" }} size={12} tintColor={colors.mealPrimary} /> : null}
+            {meal.favorite ? <SymbolView name={{ ios: "heart.fill", android: "favorite", web: "favorite" }} size={12} tintColor={colors.danger} /> : null}
           </View>
           <Text className="meal__name" numberOfLines={2}>{meal.name}</Text>
           <Text className="meal-row__macros" numberOfLines={1}>{macroLine(meal)}</Text>

@@ -432,6 +432,45 @@ The Meals module is green (`meal-*` tokens and utilities); the user chose green 
   (`components/meals/AccessLocation.tsx`, the user's reference in green: a drawn map with the pin,
   Access location → `findMe` → Select Delivery Location at that spot, or Enter address manually;
   shown once a session, `addressDraft.locationAsked`). A meal is capped at 3 in the cart.
+- **Calm pass, Zomato-style home and per-meal subscriptions (2026-11-10, the user's "the UI is full
+  of green", "remove order and subscription", "like Zomato, location top and a promotional section"
+  and the meal page design; migration approved):** green is only for the main action (Add, the
+  stepper's plus, Pay, Add Subscription, the floating cart bar) and what's selected. Everything else is
+  white cards on the cream page (`meal-page` = `background`), ink and grey: card chips are white with
+  the diet mark (a deal or Bestseller on a dark chip), banners fade from ink, coupons are white with a
+  dashed grey edge, quick tiles use five tints, order pills are blue / green / grey, savings read in
+  `success`, the heart is red (`danger`). **The tab** (`(tabs)/meals.tsx`, pieces in
+  `components/meals/home/`: `ShopHeader`, `MealSearch`, `ShopSections`, `ShopTiles`, `BannerCarousel`,
+  `QuickTiles`, `CartBar`; cards in `components/meals/cards/MealCard.tsx`, `variant` row or grid;
+  `DietMark` has its own file): the location on top ("Home ▾" and the address, tap to pick another;
+  bell and cart on the right), the search, the promotional section (the Super Admin's live banners,
+  else `data/mealPromos.ts`), quick tiles, What's on your mind? (every category as a circle), Popular
+  Meals, For your goal (high protein), the admin's featured rows, Today's specials, Offers for you, All
+  meals as a two-column grid, and the floating cart bar while the cart has meals. There is no Order |
+  Subscription switch (the Meal Subscription tab, Plan Details and the whole meal plans are gone).
+  **A meal's page** (`meals/[id].tsx`): photo, diet, name, "₹x per meal", macros, then Choose How You
+  Want It: One-time Order (the cart) | Meal Subscription (`components/meals/SubscriptionChoice.tsx`:
+  "Save up to x%", a card per length with meals, price and "x% off", "Daily meal delivery for N days");
+  the bar pins `QuantityPill` (1-3) and Add to cart / View cart / Add Subscription · ₹x.
+  **Subscribing** (`meals/subscribe.tsx`): start day (tomorrow to 7 days), meal time (the ones on),
+  address, the bill (price × how many × days, less the % off), Pay through the same test checkout →
+  **Profile › My subscriptions** (`meals/subscriptions/index.tsx`: running ones as cards, then ended;
+  `[id].tsx`: the dark card, pause 1 / 3 / 7 days or resume, the next 7 days with Skip day, Cancel).
+  Prices in `lib/subscriptionRules.ts` (pure, unit-tested). **Super Admin › Subscriptions › Prices**
+  (`admin/subscriptions/prices.tsx`): 1-6 lengths (name, delivery days 1-90, 0-50% off, shown), one
+  table for every meal (the user's choice). Server: `GET /api/subscriptions/lengths`, `POST
+  /api/subscriptions { clientId, mealId, lengthId, quantity 1-3, slot, startsOn, addressId }` (the meal on
+  the menu, a length that's on, a meal time that's on, the member's deliverable address; at most 5
+  running, never the same meal at the same meal time twice; priced from the database), `GET /mine` →
+  `{ active, past }`, `GET|PUT /api/admin/kitchen/subscription-lengths` (audited
+  `meal.subscription_prices`); the generator makes each day's order with the meal and its quantity at
+  its meal time. The plan routes are gone; plan subscriptions already running keep their orders until
+  they end. Migration `2027-01-10-meal-item-subscriptions.sql` (`subscription_lengths` seeded 3 / 7 /
+  15 / 26 days at 3 / 5 / 7 / 10% off; `meal_subscriptions.meal_id`, `slot`, `quantity`,
+  `unit_price_paise`, `percent_off`, `plan_name` 120); before it these answer 503 naming it and a
+  meal's page shows One-time Order only. Tests: `__tests__/subscription-rules.test.js`,
+  `e2e/subscriptions.e2e.test.js`, `e2e/meal-operations.e2e.test.js` (4), `ui/subscriptions.ui.test.js`,
+  `ui/meals.ui.test.js`, the client's `lib/__tests__/subscriptions.test.ts`.
 - **Super Admin:** the Orders tab (`admin/(tabs)/orders.tsx`: one day at a time, To do / Delivered /
   Cancelled / All, by meal time; Call, Directions, items, and one button Start preparing → Out for
   delivery → Mark delivered; Cancel with a reason). Meals (`admin/meals/index.tsx`): links to
@@ -598,7 +637,8 @@ The Meals module is green (`meal-*` tokens and utilities); the user chose green 
   status `failed`); before it these answer 503 naming it. Not built: rider logins and app, live
   location, delivery proof photos, ETAs. Tests: `__tests__/delivery-rules.test.js`,
   `e2e/delivery.e2e.test.js`.
-- **Meal subscriptions (2026-11-10, Meal Operations phase 5, the user's design phones 2 and 3):** the
+- **Meal subscriptions (2026-11-10, Meal Operations phase 5, the user's design phones 2 and 3; replaced the same day by
+  per-meal subscriptions, see "Calm pass, Zomato-style home and per-meal subscriptions" above, which wins where they differ):** the
   Meals tab's Meal Subscription side (`components/meals/SubscriptionTab.tsx`): the running plan on a
   green card (Active / Paused, meals a day, kcal, "x of y meals used", "z meals left"), Pause /
   Change Plan / Delivery / Manage (open `(user)/meals/subscription.tsx`), Explore Meal Subscription

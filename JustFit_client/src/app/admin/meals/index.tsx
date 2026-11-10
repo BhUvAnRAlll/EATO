@@ -5,7 +5,7 @@ import { router } from "expo-router";
 
 import { AdminScreen } from "@/components/admin/AdminScreen";
 import { DashedBlock } from "@/components/macro/DashedBlock";
-import { DietMark } from "@/components/meals/MealRow";
+import { DietMark } from "@/components/meals/DietMark";
 import { ScreenSkeleton } from "@/components/Skeleton";
 import { SymbolView } from "@/components/SymbolView";
 import { hud } from "@/lib/hud";

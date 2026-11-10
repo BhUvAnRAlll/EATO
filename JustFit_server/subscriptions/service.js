@@ -1,8 +1,11 @@
-// Meal plans and subscriptions (Meal Operations phase 5, 2026-11-10). A member subscribes to a plan
-// for 7 / 28 / 90 days (paid the Razorpay way, like an order), and each delivery day the generator
-// makes one order per meal time (through the kitchens and delivery like any order, paid by the
-// subscription). Meals used = the subscription's delivered orders; failed or cancelled ones never
-// count. Pausing or skipping a day moves the end on. Before migration 2027-01-08 nothing here runs.
+// Meal subscriptions (Meal Operations phase 5, 2026-11-10; per meal since migration 2027-01-10, the
+// user's meal page design). A member subscribes to one meal from its page: how many a day, a meal
+// time, for one of the Super Admin's lengths at its % off (paid the Razorpay way, like an order).
+// Each delivery day the generator makes the order (through the kitchens and delivery like any
+// order, paid by the subscription). Meals used = the subscription's delivered orders; failed or
+// cancelled ones never count. Pausing or skipping a day moves the end on. Whole-plan subscriptions
+// already running keep going until they end; new ones are per meal. Before migration 2027-01-08
+// nothing here runs; before 2027-01-10 subscribing answers 503 (mealReady).
 const { ConflictError, NotFoundError } = require("../errors");
 const { inTransaction } = require("../gym/service");
 const addresses = require("../addresses/service");
@@ -14,7 +17,6 @@ const rules = require("./rules");
 const num = (v) => Number(v);
 const iso = (v) => (v instanceof Date ? v.toISOString() : v ?? null);
 const day = (v) => (v instanceof Date ? `${v.getFullYear()}-${String(v.getMonth() + 1).padStart(2, "0")}-${String(v.getDate()).padStart(2, "0")}` : v ? String(v).slice(0, 10) : null);
-const jsonOf = (v) => (typeof v === "string" ? JSON.parse(v) : v ?? []);
 
 let readyCache = { at: 0, value: false };
 async function ready(db) {
@@ -24,71 +26,35 @@ async function ready(db) {
   return readyCache.value;
 }
 
-// ---- Plans ----
-
-function planOf(r, lengths, mealIds) {
-  return {
-    id: num(r.id), slug: r.slug, name: r.name, tagline: r.tagline, description: r.description, goal: r.goal,
-    mealsPerDay: num(r.meals_per_day), slots: rules.slotsFor(num(r.meals_per_day)), calories: num(r.calories), proteinG: num(r.protein_g),
-    carbsG: num(r.carbs_g), fatG: num(r.fat_g), waterL: num(r.water_l), included: jsonOf(r.included), active: num(r.active) === 1, sortOrder: num(r.sort_order),
-    lengths: rules.lengthsWithSavings(lengths.map((l) => ({ days: num(l.days), price: Math.round(num(l.price_paise) / 100) }))),
-    mealIds,
-  };
+// Per-meal subscriptions (migration 2027-01-10): the lengths table and meal_subscriptions.meal_id
+let mealReadyCache = { at: 0, value: false };
+async function mealReady(db) {
+  if (Date.now() - mealReadyCache.at < 60_000) return mealReadyCache.value;
+  const [[row]] = await db.query(
+    `SELECT (SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'subscription_lengths')
+          + (SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'meal_subscriptions' AND column_name = 'meal_id') AS n`,
+  );
+  mealReadyCache = { at: Date.now(), value: Number(row.n) === 2 };
+  return mealReadyCache.value;
 }
 
-/** Plans with their lengths (savings worked out) and meals; members get active plans that have a price */
-async function plans(db, { all = false } = {}) {
-  const [rows] = await db.query(`SELECT * FROM meal_plans ${all ? "" : "WHERE active = 1"} ORDER BY sort_order, name`);
-  if (rows.length === 0) return { plans: [] };
-  const ids = rows.map((r) => r.id);
-  const [[lengths], [meals]] = await Promise.all([
-    db.query("SELECT plan_id, days, price_paise FROM meal_plan_lengths WHERE plan_id IN (?) ORDER BY days", [ids]),
-    db.query("SELECT pm.plan_id, pm.meal_id FROM meal_plan_meals pm JOIN meals m ON m.id = pm.meal_id WHERE pm.plan_id IN (?) ORDER BY m.name", [ids]),
-  ]);
-  const list = rows.map((r) => planOf(r, lengths.filter((l) => num(l.plan_id) === num(r.id)), meals.filter((m) => num(m.plan_id) === num(r.id)).map((m) => m.meal_id)));
-  return { plans: all ? list : list.filter((p) => p.lengths.length > 0) };
+// ---- Lengths (the same for every meal) ----
+
+const lengthOf = (r) => ({ id: num(r.id), label: r.label, days: num(r.days), percentOff: num(r.percent_off), active: num(r.active) === 1 });
+
+/** The lengths and their % off; members get the ones switched on */
+async function lengths(db, { all = false } = {}) {
+  const [rows] = await db.query(`SELECT * FROM subscription_lengths ${all ? "" : "WHERE active = 1"} ORDER BY days`);
+  return { lengths: rows.map(lengthOf) };
 }
 
-async function plan(db, idOrSlug, { all = false } = {}) {
-  const { plans: list } = await plans(db, { all });
-  const found = list.find((p) => (typeof idOrSlug === "number" ? p.id === idOrSlug : p.slug === idOrSlug));
-  if (!found) throw new NotFoundError("That meal plan isn't available.");
-  return { plan: found };
-}
-
-async function savePlan(pool, id, f) {
-  const savedId = await inTransaction(pool, async (db) => {
-    let planId = id;
-    const values = [f.name, f.tagline, f.description, f.goal, f.mealsPerDay, f.calories, f.proteinG, f.carbsG, f.fatG, f.waterL, JSON.stringify(f.included), f.active ? 1 : 0, f.sortOrder];
-    if (id === null) {
-      let slug = rules.slugFor(f.name);
-      const [[taken]] = await db.query("SELECT id FROM meal_plans WHERE slug = ?", [slug]);
-      if (taken) slug = rules.slugFor(f.name, `-${Date.now().toString(36).slice(-4)}`);
-      const [result] = await db.query(
-        `INSERT INTO meal_plans (name, tagline, description, goal, meals_per_day, calories, protein_g, carbs_g, fat_g, water_l, included, active, sort_order, slug)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [...values, slug],
-      );
-      planId = result.insertId;
-    } else {
-      const [result] = await db.query(
-        `UPDATE meal_plans SET name = ?, tagline = ?, description = ?, goal = ?, meals_per_day = ?, calories = ?, protein_g = ?, carbs_g = ?, fat_g = ?, water_l = ?,
-           included = ?, active = ?, sort_order = ? WHERE id = ?`,
-        [...values, id],
-      );
-      if (result.affectedRows === 0) throw new NotFoundError("That meal plan doesn't exist.");
-      await db.query("DELETE FROM meal_plan_lengths WHERE plan_id = ?", [id]);
-      await db.query("DELETE FROM meal_plan_meals WHERE plan_id = ?", [id]);
-    }
-    await db.query("INSERT INTO meal_plan_lengths (plan_id, days, price_paise) VALUES ?", [f.lengths.map((l) => [planId, l.days, l.pricePaise])]);
-    if (f.mealIds.length > 0) {
-      const [found] = await db.query("SELECT id FROM meals WHERE id IN (?)", [f.mealIds]);
-      if (found.length !== f.mealIds.length) throw new ConflictError("One of the meals picked was deleted. Pick again.");
-      await db.query("INSERT INTO meal_plan_meals (plan_id, meal_id) VALUES ?", [f.mealIds.map((m) => [planId, m])]);
-    }
-    return planId;
+/** Replaces the lengths (subscriptions keep the days and % off they were bought at) */
+async function saveLengths(pool, list) {
+  await inTransaction(pool, async (db) => {
+    await db.query("DELETE FROM subscription_lengths");
+    await db.query("INSERT INTO subscription_lengths (label, days, percent_off, active, sort_order) VALUES ?", [list.map((l, i) => [l.label, l.days, l.percentOff, l.active ? 1 : 0, i + 1])]);
   });
-  return plan(pool, savedId, { all: true });
+  return lengths(pool, { all: true });
 }
 
 // ---- Subscriptions ----
@@ -101,11 +67,16 @@ async function subscriptionOf(db, r, today, { withDays = false } = {}) {
     [r.id],
   );
   const mealsTotal = num(r.days) * num(r.meals_per_day);
+  const forMeal = r.slot !== undefined && r.slot !== null;
   const pausedFrom = day(r.paused_from);
   const pausedUntil = day(r.paused_until);
   const sub = {
     id: r.id, code: r.id.slice(0, 8).toUpperCase(), planId: r.plan_id === null ? null : num(r.plan_id), planName: r.plan_name, days: num(r.days),
-    mealsPerDay: num(r.meals_per_day), slots: rules.slotsFor(num(r.meals_per_day)), calories: num(r.calories), price: Math.round(num(r.price_paise) / 100),
+    mealsPerDay: num(r.meals_per_day), slots: rules.slotsOf({ slot: r.slot ?? null, mealsPerDay: num(r.meals_per_day) }), calories: num(r.calories), price: Math.round(num(r.price_paise) / 100),
+    meal: forMeal
+      ? { id: r.meal_id ?? null, name: r.plan_name, slot: r.slot, quantity: num(r.quantity), unitPrice: Math.round(num(r.unit_price_paise ?? 0) / 100), percentOff: num(r.percent_off),
+          imageUrl: r.m_id ? mealRules.mealImageUrl({ id: r.m_id, image_url: r.m_image_url, image_key: r.m_image_key }) : null }
+      : null,
     status: r.status, startsOn: day(r.starts_on), endsOn: day(r.ends_on), pausedFrom, pausedUntil,
     pausedNow: !!pausedFrom && today >= pausedFrom && today <= pausedUntil,
     mealsTotal, mealsUsed: num(used.delivered ?? 0), mealsComing: num(used.coming ?? 0), mealsLeft: Math.max(0, mealsTotal - num(used.delivered ?? 0)),
@@ -150,11 +121,16 @@ async function findMine(db, userId, id, lock = false) {
   return row;
 }
 
-/** The member's current subscription (active, or the last one) with the next 7 days */
+// A subscription row with its meal's photo fields (m_*), when it is for a meal still on the menu
+const MEMBER_SELECT = "SELECT s.*, m.id AS m_id, m.image_url AS m_image_url, m.image_key AS m_image_key FROM meal_subscriptions s LEFT JOIN meals m ON m.id = s.meal_id";
+
+/** The member's running subscriptions (each with its next 7 days) and the last few that ended */
 async function mine(pool, userId, today) {
   await payments.expireUnpaidSubscriptions(pool);
+  const meal = await mealReady(pool);
   const [rows] = await pool.query(
-    "SELECT * FROM meal_subscriptions WHERE user_id = ? AND status <> 'awaiting_payment' ORDER BY FIELD(status, 'active', 'paused', 'completed', 'cancelled'), created_at DESC LIMIT 5",
+    `${meal ? MEMBER_SELECT : "SELECT s.* FROM meal_subscriptions s"} WHERE s.user_id = ? AND s.status <> 'awaiting_payment'
+     ORDER BY FIELD(s.status, 'active', 'paused', 'completed', 'cancelled'), s.created_at DESC LIMIT 20`,
     [userId],
   );
   // An active subscription past its last day is completed
@@ -164,41 +140,51 @@ async function mine(pool, userId, today) {
       r.status = "completed";
     }
   }
-  const current = rows.find((r) => r.status === "active") ?? null;
+  const running = rows.filter((r) => r.status === "active");
   return {
-    current: current ? await subscriptionOf(pool, current, today, { withDays: true }) : null,
-    past: await Promise.all(rows.filter((r) => r !== current).slice(0, 3).map((r) => subscriptionOf(pool, r, today))),
+    active: await Promise.all(running.map((r) => subscriptionOf(pool, r, today, { withDays: true }))),
+    past: await Promise.all(rows.filter((r) => r.status !== "active").slice(0, 5).map((r) => subscriptionOf(pool, r, today))),
   };
 }
 
 /**
- * Subscribes: the plan's price for that length (never the app's), the member's own deliverable
- * address, a start from tomorrow; waits for payment (awaiting_payment) with the checkout's options.
- * The same clientId again returns the same subscription and checkout. One running plan at a time.
+ * Subscribes to one meal: its menu price (never the app's) × how many × the length's days, less the
+ * length's % off; a meal time that is on; the member's own deliverable address; a start from
+ * tomorrow. Waits for payment (awaiting_payment) with the checkout's options; the same clientId
+ * again returns the same subscription and checkout. At most MAX_RUNNING running, never the same meal
+ * at the same meal time twice.
  */
-async function subscribe(pool, userId, body, today) {
+async function subscribeMeal(pool, userId, body, today, loadSlots) {
+  if (!(await mealReady(pool))) throw Object.assign(new Error("migration"), { code: "ER_NO_SUCH_TABLE" });
   const [[existing]] = await pool.query("SELECT id FROM meal_subscriptions WHERE user_id = ? AND client_id = ?", [userId, body.clientId]);
   if (existing) return withCheckout(pool, userId, existing.id, today, true);
   await payments.expireUnpaidSubscriptions(pool);
-  const { plan: chosen } = await plan(pool, body.planId);
-  const length = chosen.lengths.find((l) => l.days === body.days);
-  if (!length) throw new ConflictError("That length isn't offered for this plan. Pick another.");
+  const [[length]] = await pool.query("SELECT * FROM subscription_lengths WHERE id = ? AND active = 1", [body.lengthId]);
+  if (!length) throw new ConflictError("That length isn't offered any more. Pick another.");
+  const slots = await loadSlots(pool);
+  if (!slots[body.slot]?.active) throw new ConflictError("That meal time isn't delivered right now. Pick another.");
   const address = await addresses.deliverableAddress(pool, userId, body.addressId);
   let id;
   try {
     id = await inTransaction(pool, async (db) => {
       await db.query("SELECT id FROM users WHERE id = ? FOR UPDATE", [userId]);
-      const [[running]] = await db.query("SELECT id FROM meal_subscriptions WHERE user_id = ? AND status = 'active' AND ends_on >= ?", [userId, today]);
-      if (running) throw new ConflictError("You already have a running meal plan. Cancel it first, or wait for it to end.");
+      const [[meal]] = await db.query("SELECT * FROM meals WHERE id = ? AND is_available = TRUE", [body.mealId]);
+      if (!meal) throw new NotFoundError("That meal isn't on the menu now.");
+      const [running] = await db.query("SELECT meal_id, slot FROM meal_subscriptions WHERE user_id = ? AND status = 'active' AND ends_on >= ?", [userId, today]);
+      if (running.some((r) => r.meal_id === body.mealId && r.slot === body.slot)) throw new ConflictError("You already get this meal at that meal time. Manage it in Profile › My subscriptions.");
+      if (running.length >= rules.MAX_RUNNING) throw new ConflictError(`You have ${rules.MAX_RUNNING} subscriptions running. Cancel one first, or wait for one to end.`);
       // Another unpaid checkout of the member's is replaced by this one
       await db.query("UPDATE meal_subscriptions SET status = 'cancelled', cancel_reason = 'Payment not completed' WHERE user_id = ? AND status = 'awaiting_payment'", [userId]);
+      const days = num(length.days);
+      const off = num(length.percent_off);
+      const { totalPaise } = rules.mealSubscriptionPrice(num(meal.price_paise), body.quantity, days, off);
       const [[{ uuid }]] = await db.query("SELECT UUID() AS uuid");
       await db.query(
-        `INSERT INTO meal_subscriptions (id, user_id, client_id, plan_id, plan_name, days, meals_per_day, calories, price_paise, starts_on, ends_on,
-           receiver_name, receiver_phone, delivery_address, delivery_pincode, latitude, longitude)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [uuid, userId, body.clientId, chosen.id, chosen.name, body.days, chosen.mealsPerDay, chosen.calories, length.price * 100, body.startsOn,
-          rules.addDays(body.startsOn, body.days - 1), address.receiverName, address.receiverPhone, mealRules.addressLine(address), address.pincode,
+        `INSERT INTO meal_subscriptions (id, user_id, client_id, plan_id, plan_name, meal_id, slot, quantity, unit_price_paise, percent_off, days, meals_per_day, calories,
+           price_paise, starts_on, ends_on, receiver_name, receiver_phone, delivery_address, delivery_pincode, latitude, longitude)
+         VALUES (?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [uuid, userId, body.clientId, meal.name, meal.id, body.slot, body.quantity, num(meal.price_paise), off, days, Math.min(65535, num(meal.calories) * body.quantity),
+          totalPaise, body.startsOn, rules.addDays(body.startsOn, days - 1), address.receiverName, address.receiverPhone, mealRules.addressLine(address), address.pincode,
           address.latitude, address.longitude],
       );
       return uuid;
@@ -283,7 +269,7 @@ async function skip(pool, userId, id, body, today, undo = false) {
     }
     if (existing.some((e) => e.status === "skipped")) throw new ConflictError("That day is already skipped.");
     if (existing.some((e) => e.status === "ordered")) throw new ConflictError("That day's meals are already with the kitchen, so it can't be skipped now.");
-    await db.query("INSERT INTO subscription_days (subscription_id, day, slot, status) VALUES ?", [rules.slotsFor(num(row.meals_per_day)).map((slot) => [id, d, slot, "skipped"])]);
+    await db.query("INSERT INTO subscription_days (subscription_id, day, slot, status) VALUES ?", [rules.slotsOf({ slot: row.slot ?? null, mealsPerDay: num(row.meals_per_day) }).map((slot) => [id, d, slot, "skipped"])]);
     await db.query("UPDATE meal_subscriptions SET ends_on = DATE_ADD(ends_on, INTERVAL 1 DAY) WHERE id = ?", [id]);
   });
 }
@@ -346,17 +332,6 @@ async function extend(pool, id, days) {
   if (result.affectedRows === 0) throw new ConflictError("Only a running plan can be extended.");
 }
 
-/** Moves a running subscription to another plan from the next order made (price unchanged) */
-async function changePlan(pool, id, planId) {
-  const { plan: next } = await plan(pool, planId, { all: true });
-  const [result] = await pool.query(
-    "UPDATE meal_subscriptions SET plan_id = ?, plan_name = ?, meals_per_day = ?, calories = ? WHERE id = ? AND status = 'active'",
-    [next.id, next.name, next.mealsPerDay, next.calories, id],
-  );
-  if (result.affectedRows === 0) throw new ConflictError("Only a running plan can be changed.");
-  return next;
-}
-
 /**
  * Makes a day's orders for every subscription delivering then: one order per meal time with the
  * plan's next meal, given a kitchen like any order. Already made, skipped or paused meal times are
@@ -373,17 +348,19 @@ async function generate(pool, date, loadSlots) {
   for (const r of subs) {
     const sub = { status: r.status, startsOn: day(r.starts_on), endsOn: day(r.ends_on), pausedFrom: day(r.paused_from), pausedUntil: day(r.paused_until) };
     if (!rules.deliversOn(sub, date)) continue;
-    const [mealRows] = await pool.query(
-      "SELECT m.* FROM meal_plan_meals pm JOIN meals m ON m.id = pm.meal_id WHERE pm.plan_id = ? AND m.is_available = TRUE ORDER BY m.name",
-      [r.plan_id],
-    );
-    const plannedSlots = rules.slotsFor(num(r.meals_per_day));
+    // A meal subscription: its one meal (while on the menu), at its meal time, its quantity; a plan: its meals in turn
+    const forMeal = !!r.slot;
+    const [mealRows] = forMeal
+      ? await pool.query("SELECT * FROM meals WHERE id = ? AND is_available = TRUE", [r.meal_id])
+      : await pool.query("SELECT m.* FROM meal_plan_meals pm JOIN meals m ON m.id = pm.meal_id WHERE pm.plan_id = ? AND m.is_available = TRUE ORDER BY m.name", [r.plan_id]);
+    const quantity = forMeal ? num(r.quantity) : 1;
+    const plannedSlots = rules.slotsOf({ slot: r.slot ?? null, mealsPerDay: num(r.meals_per_day) });
     for (const [slotIndex, slot] of plannedSlots.entries()) {
       try {
         await inTransaction(pool, async (db) => {
           const [[taken]] = await db.query("SELECT status FROM subscription_days WHERE subscription_id = ? AND day = ? AND slot = ? FOR UPDATE", [r.id, date, slot]);
           if (taken) return;
-          const why = holiday ? `Holiday: ${holiday.note}` : !slots[slot].active ? "Meal time off" : mealRows.length === 0 ? "No meals in the plan" : null;
+          const why = holiday ? `Holiday: ${holiday.note}` : !slots[slot].active ? "Meal time off" : mealRows.length === 0 ? (forMeal ? "Meal off the menu" : "No meals in the plan") : null;
           if (why) {
             await db.query("INSERT INTO subscription_days (subscription_id, day, slot, status, note) VALUES (?, ?, ?, 'unfilled', ?)", [r.id, date, slot, why]);
             unfilled += 1;
@@ -395,7 +372,7 @@ async function generate(pool, date, loadSlots) {
           if (viaKitchens) {
             try {
               ({ kitchenId } = await kitchenOrders.assign(db, {
-                pincode: r.delivery_pincode, date, slot, startsAt: slots[slot].startsAt, items: [{ mealId, quantity: 1 }],
+                pincode: r.delivery_pincode, date, slot, startsAt: slots[slot].startsAt, items: [{ mealId, quantity }],
                 lat: r.latitude === null ? null : num(r.latitude), lng: r.longitude === null ? null : num(r.longitude),
               }));
             } catch (error) {
@@ -415,8 +392,8 @@ async function generate(pool, date, loadSlots) {
           );
           if (viaKitchens) await db.query("UPDATE orders SET kitchen_id = ? WHERE id = ?", [kitchenId, uuid]);
           await db.query(
-            "INSERT INTO order_items (order_id, meal_id, meal_name, quantity, unit_price_paise, calories, protein_g, carbs_g, fat_g) VALUES (?, ?, ?, 1, 0, ?, ?, ?, ?)",
-            [uuid, meal.id, meal.name, meal.calories, meal.protein_g, meal.carbs_g, meal.fat_g],
+            "INSERT INTO order_items (order_id, meal_id, meal_name, quantity, unit_price_paise, calories, protein_g, carbs_g, fat_g) VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?)",
+            [uuid, meal.id, meal.name, quantity, meal.calories, meal.protein_g, meal.carbs_g, meal.fat_g],
           );
           await db.query("INSERT INTO subscription_days (subscription_id, day, slot, status, order_id) VALUES (?, ?, ?, 'ordered', ?)", [r.id, date, slot, uuid]);
           if (viaKitchens) await kitchenOrders.addEvent(db, uuid, "placed", `${r.plan_name} subscription`, null);
@@ -447,5 +424,5 @@ async function stats(pool, today, dayStart) {
 }
 
 module.exports = {
-  ready, plans, plan, savePlan, mine, subscribe, confirm, pause, resume, skip, cancel, adminList, adminOne, activate, extend, changePlan, generate, stats,
+  ready, mealReady, lengths, saveLengths, mine, subscribeMeal, confirm, pause, resume, skip, cancel, adminList, adminOne, activate, extend, generate, stats,
 };

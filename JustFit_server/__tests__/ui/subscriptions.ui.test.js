@@ -1,7 +1,8 @@
-// Meal subscriptions in the web build against the test server (Meal Operations phase 5, the user's
-// design phones 2 and 3): Meal Subscription lists the plans, Subscribe Now opens Plan Details (stats,
-// 7 / 28 / 90 days with savings, What's Included), Subscribe for ₹x → the checkout → the test payment
-// → My meal plan, and the tab then shows the running plan's card. Widths 320/390/430 never overflow.
+// Meal subscriptions in the web build against the test server (per meal since 2027-01-10, the user's
+// meal page design): a meal's page has One-time Order | Meal Subscription, the lengths with their
+// % off and the quantity, Add Subscription → the checkout (start, meal time, address, bill) → the
+// test payment → Profile › My subscriptions, and a subscription's own page. Widths 320/390/430 never
+// overflow.
 //
 //   yarn test:ui      (needs JustFit_server/.env.test and Google Chrome; otherwise skipped)
 const assert = require("node:assert/strict");
@@ -25,10 +26,11 @@ const SCREENSHOT_DIR = process.env.JUSTFIT_SCREENSHOT_DIR || null;
 const WIDTHS = [[320, 568], [390, 844], [430, 932]];
 const DELIVERS = "599211";
 
-describe("ui subscriptions: plans, plan details, subscribing and the running plan", () => {
+describe("ui subscriptions: a meal's page, subscribing and My subscriptions", () => {
   const runId = crypto.randomBytes(4).toString("hex");
   let skipReason = null;
   let env, connection, server, expo, chrome, client, page, testAccounts, h, photoDir;
+  const mealIds = [];
   const identities = {};
   const sessions = {};
   const tokens = {};
@@ -105,7 +107,6 @@ describe("ui subscriptions: plans, plan details, subscribing and the running pla
     });
     assert.equal(address.status, 201, JSON.stringify(address.json));
     const photo = { data: png(640, 480).toString("base64"), mediaType: "image/png" };
-    const mealIds = [];
     for (const m of [
       { name: `Grilled Chicken Bowl ${runId}`, diet: "non-vegetarian", calories: 430, proteinG: 38, carbsG: 42, fatG: 12, price: 259 },
       { name: `Paneer Tikka Bowl ${runId}`, diet: "vegetarian", calories: 420, proteinG: 32, carbsG: 48, fatG: 10, price: 229 },
@@ -113,13 +114,6 @@ describe("ui subscriptions: plans, plan details, subscribing and the running pla
       const made = await apiAs("admin", "POST", "/api/admin/kitchen/meals", { ...m, photo });
       mealIds.push(made.json.meal.id);
     }
-    const plans = await apiAs("admin", "GET", "/api/admin/kitchen/subscription-plans");
-    const fat = plans.json.plans.find((p) => p.slug === "fat-loss");
-    const saved = await apiAs("admin", "PUT", `/api/admin/kitchen/subscription-plans/${fat.id}`, {
-      name: fat.name, tagline: fat.tagline, description: fat.description, goal: fat.goal, mealsPerDay: 3, calories: fat.calories, proteinG: fat.proteinG, carbsG: fat.carbsG,
-      fatG: fat.fatG, waterL: fat.waterL, included: fat.included, lengths: fat.lengths.map((l) => ({ days: l.days, price: l.price })), mealIds, active: true,
-    });
-    assert.equal(saved.status, 200, JSON.stringify(saved.json));
   });
 
   after(async () => {
@@ -153,42 +147,43 @@ describe("ui subscriptions: plans, plan details, subscribing and the running pla
     if (problems.length > 0) throw new Error(`cleanup incomplete: ${problems.join("; ")}`);
   });
 
-  it("1. Meal Subscription lists the plans", run("subscription-tab", async () => {
+  it("1. a meal's page: One-time Order | Meal Subscription, the lengths, the quantity", run("meal-subscription", async () => {
     await viewport(390, 844);
     await signInAs(page, h, identities.member);
     await page.waitFor(`location.pathname.startsWith("/home")`, 60000, "Home");
-    await h.goto("/meals", "Popular Meals");
+    await h.goto(`/meals/${mealIds[0]}`, "Choose How You Want It");
+    for (const text of [`Grilled Chicken Bowl ${runId}`, "per meal", "Calories", "One-time Order", "Meal Subscription", "Add to cart · ₹259"]) await h.expectText(text);
     await page.clickText("Meal Subscription");
-    for (const text of ["Explore Meal Subscription Plans", "Fat Loss Plan", "Calorie deficit, high protein", "₹6,999", "/month", "Muscle Gain Plan", "Weight Maintain Plan", "Subscribe Now"]) await h.expectText(text);
-    await snapshotAllWidths("subscription-plans");
+    for (const text of ["Subscription Plans", "Save up to 10%", "3 Days", "7 Days", "15 Days", "1 Month", "26 meals", "₹6,061", "10% off", "Daily meal delivery for 26 days", "Add Subscription · ₹6,061"]) await h.expectText(text);
+    await snapshotAllWidths("meal-subscription");
+    await clickLabel("7 Days, 7 meals, ₹1,722, 5% off");
+    await h.expectText("Add Subscription · ₹1,722");
+    await clickLabel(`One more Grilled Chicken Bowl ${runId}`);
+    await h.expectText("Add Subscription · ₹3,445");
+    await h.expectText("14 meals");
   }));
 
-  it("2. Plan Details: stats, durations with savings, what's included", run("plan-details", async () => {
-    await page.clickText("Subscribe Now");
-    await page.waitFor(`location.pathname === "/meals/plans/fat-loss"`, NAV_TIMEOUT, "Plan Details");
-    for (const text of ["Plan Details", "Fat Loss Plan", "Meals / Day", "kcal / Day", "Protein", "Water", "Plan Duration", "7 Days", "28 Days", "90 Days", "What's Included", "Fresh & hygienic preparation", "Subscribe for ₹6,999"]) await h.expectText(text);
-    await snapshotAllWidths("plan-details");
-    await clickLabel("7 days, ₹1,899");
-    await h.expectText("Subscribe for ₹1,899");
-  }));
-
-  it("3. subscribe, pay in the test checkout, and the tab shows the running plan", run("subscribe", async () => {
-    await page.clickText("Subscribe for ₹1,899");
+  it("2. subscribe: start, meal time, address and bill, then pay in the test checkout", run("subscribe", async () => {
+    await page.clickText("Add Subscription · ₹3,445");
     await page.waitFor(`location.pathname === "/meals/subscribe"`, NAV_TIMEOUT, "the checkout");
-    await h.expectText("Starts on");
-    await h.expectText("21 meals in all");
-    await page.clickText("Pay ₹1,899");
+    for (const text of ["Starts on", "Meal time", "Breakfast", "Lunch", "Dinner", "2 a day · 7 Days · 14 meals", "7 Days · 5% off", "Delivered to", "Pay ₹3,445"]) await h.expectText(text);
+    await snapshotAllWidths("subscribe-checkout");
+    await clickLabel("Pay ₹3,445");
     await h.expectText("Test mode: no money is taken");
     await h.settle();
-    await page.clickText("Pay ₹1,899", 1); // the sheet's button (the screen's own is under it)
-    await page.waitFor(`location.pathname === "/meals/subscription"`, NAV_TIMEOUT, "My meal plan");
-    for (const text of ["My meal plan", "Fat Loss Plan", "0 of 21 meals delivered", "Next deliveries", "Cancel plan"]) await h.expectText(text);
-    await snapshotAllWidths("my-plan");
-    await h.goto("/meals", "Popular Meals");
-    await page.clickText("Meal Subscription");
-    for (const text of ["Active", "0 of 21 meals used", "21 meals left", "Pause", "Change Plan", "Delivery", "Manage"]) await h.expectText(text);
-    await snapshotAllWidths("subscription-active");
-    const [[row]] = await connection.query("SELECT status, payment_method FROM meal_subscriptions WHERE user_id = ?", [identities.member.id]);
-    assert.deepEqual({ ...row }, { status: "active", payment_method: "dummy" });
+    await page.clickText("Pay ₹3,445", 1); // the sheet's button (the screen's own is under it)
+    await page.waitFor(`location.pathname === "/meals/subscriptions"`, NAV_TIMEOUT, "My subscriptions");
+    for (const text of ["My subscriptions", `Grilled Chicken Bowl ${runId}`, "Lunch · 2 a day", "0 of 7 delivered", "Active"]) await h.expectText(text);
+    await snapshotAllWidths("my-subscriptions");
+    const [[row]] = await connection.query("SELECT status, payment_method, slot, quantity, percent_off, price_paise FROM meal_subscriptions WHERE user_id = ?", [identities.member.id]);
+    assert.deepEqual({ ...row, price_paise: Number(row.price_paise) }, { status: "active", payment_method: "dummy", slot: "lunch", quantity: 2, percent_off: 5, price_paise: 344500 });
+  }));
+
+  it("3. a subscription's own page: pause, the next days, cancel; Profile links to it", run("manage", async () => {
+    await clickLabel(`Grilled Chicken Bowl ${runId}, Lunch · 2 a day. Manage`);
+    await page.waitFor(`location.pathname.startsWith("/meals/subscriptions/")`, NAV_TIMEOUT, "the subscription");
+    for (const text of ["Pause deliveries", "Tomorrow", "Next deliveries", "Skip day", "Cancel subscription"]) await h.expectText(text);
+    await snapshotAllWidths("manage-subscription");
+    await h.goto("/profile", "My subscriptions");
   }));
 });

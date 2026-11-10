@@ -1,8 +1,8 @@
-// Meal plans and subscriptions (pure, unit-tested in __tests__/subscription-rules.test.js; Meal
-// Operations phase 5, 2026-11-10). Days are India's (YYYY-MM-DD).
+// Meal subscriptions (pure, unit-tested in __tests__/subscription-rules.test.js; Meal Operations phase
+// 5, 2026-11-10; per meal since 2027-01-10). Days are India's (YYYY-MM-DD). The plan rules (slotsFor,
+// mealFor) stay for whole-plan subscriptions still running.
 const { ValidationError } = require("../profile");
 
-const GOALS = ["fat_loss", "muscle_gain", "maintain", "custom"];
 const SLOTS_BY_MEALS = { 1: ["lunch"], 2: ["lunch", "dinner"], 3: ["breakfast", "lunch", "dinner"] };
 const START_WITHIN_DAYS = 14; // a subscription starts from tomorrow to two weeks ahead
 const MAX_PAUSE_DAYS = 30;
@@ -47,31 +47,54 @@ const daysBetween = (a, b) => Math.round((Date.parse(`${b}T00:00:00Z`) - Date.pa
 /** The meal times a plan delivers */
 const slotsFor = (mealsPerDay) => SLOTS_BY_MEALS[mealsPerDay] ?? SLOTS_BY_MEALS[3];
 
-/** What a length costs a day, and how much a longer one saves against the shortest: "Save 12%" */
-function lengthsWithSavings(lengths) {
-  const sorted = [...lengths].sort((a, b) => a.days - b.days);
-  const base = sorted[0] ? sorted[0].price / sorted[0].days : null;
-  return sorted.map((l) => {
-    const perDay = l.price / l.days;
-    const save = base && l !== sorted[0] ? Math.round((1 - perDay / base) * 100) : 0;
-    return { ...l, perDay: Math.round(perDay), savePercent: save > 0 ? save : 0 };
-  });
-}
+const MEAL_SLOTS = ["breakfast", "lunch", "dinner"];
+const MAX_MEAL_QUANTITY = 3; // like the cart's limit for one meal
+const MAX_RUNNING = 5; // meal subscriptions running at once per member
 
-/** POST /api/subscriptions { clientId, planId, days, startsOn, addressId } */
-function subscribeBody(body, today) {
-  onlyFields(body, ["clientId", "planId", "days", "startsOn", "addressId"]);
+/** POST /api/subscriptions { clientId, mealId, lengthId, quantity, slot, startsOn, addressId }: one meal every day */
+function subscribeMealBody(body, today) {
+  onlyFields(body, ["clientId", "mealId", "lengthId", "quantity", "slot", "startsOn", "addressId"]);
   if (typeof body.clientId !== "string" || !UUID.test(body.clientId)) throw new ValidationError("Missing the request id.");
+  if (typeof body.mealId !== "string" || !/^[a-z0-9-]{1,64}$/.test(body.mealId)) throw new ValidationError("Pick a meal from the menu.");
+  if (!MEAL_SLOTS.includes(body.slot)) throw new ValidationError("Pick breakfast, lunch or dinner.");
   const startsOn = day(body.startsOn, "start day");
   if (startsOn <= today || startsOn > addDays(today, START_WITHIN_DAYS)) throw new ValidationError(`Start from tomorrow to ${START_WITHIN_DAYS} days ahead.`);
   return {
     clientId: body.clientId.toLowerCase(),
-    planId: whole(body.planId, "The plan", 1, 1e9),
-    days: whole(body.days, "The length", 1, 365),
+    mealId: body.mealId,
+    lengthId: whole(body.lengthId, "The length", 1, 1e9),
+    quantity: whole(body.quantity, "How many a day", 1, MAX_MEAL_QUANTITY),
+    slot: body.slot,
     startsOn,
     addressId: whole(body.addressId, "The address", 1, 1e9),
   };
 }
+
+/** What a meal subscription costs, in paise rounded to the rupee: the meal's price × how many × days, less the length's % off */
+function mealSubscriptionPrice(unitPaise, quantity, days, percentOff) {
+  const full = unitPaise * quantity * days;
+  return { fullPaise: full, totalPaise: Math.round((full * (100 - percentOff)) / 100 / 100) * 100 };
+}
+
+/** PUT /admin/kitchen/subscription-lengths { lengths: [{ label, days, percentOff, active }] }: 1 to 6, each length once */
+function lengthsBody(body) {
+  onlyFields(body, ["lengths"]);
+  if (!Array.isArray(body.lengths) || body.lengths.length === 0 || body.lengths.length > 6) throw new ValidationError("Give 1 to 6 lengths.");
+  const seen = new Set();
+  const lengths = body.lengths.map((l) => {
+    onlyFields(l, ["label", "days", "percentOff", "active"]);
+    const d = whole(l.days, "Delivery days", 1, 90);
+    if (seen.has(d)) throw new ValidationError("Each number of days once.");
+    seen.add(d);
+    if (typeof l.active !== "boolean") throw new ValidationError("Say whether members see each length.");
+    return { label: text(l.label, "length's name", 20, { min: 2 }), days: d, percentOff: whole(l.percentOff, "The % off", 0, 50), active: l.active };
+  });
+  if (!lengths.some((l) => l.active)) throw new ValidationError("Keep at least one length on.");
+  return { lengths: lengths.sort((a, b) => a.days - b.days) };
+}
+
+/** The meal times a subscription delivers: a meal subscription its one meal time, a plan its meals a day */
+const slotsOf = (sub) => (sub.slot ? [sub.slot] : slotsFor(sub.mealsPerDay));
 
 /** POST …/pause { from, until }: tomorrow onwards, at most 30 days, inside the subscription */
 function pauseBody(body, today, sub) {
@@ -109,46 +132,7 @@ function deliversOn(sub, date) {
   return true;
 }
 
-/** POST/PUT /admin/kitchen/subscription-plans … */
-function planBody(body) {
-  onlyFields(body, ["name", "tagline", "description", "goal", "mealsPerDay", "calories", "proteinG", "carbsG", "fatG", "waterL", "included", "lengths", "mealIds", "active", "sortOrder"]);
-  if (!GOALS.includes(body.goal)) throw new ValidationError("Pick the plan's goal.");
-  if (!Array.isArray(body.included) || body.included.length > 8) throw new ValidationError("List up to 8 things the plan includes.");
-  if (!Array.isArray(body.lengths) || body.lengths.length === 0 || body.lengths.length > 4) throw new ValidationError("Give 1 to 4 lengths with prices.");
-  const seen = new Set();
-  const lengths = body.lengths.map((l) => {
-    onlyFields(l, ["days", "price"]);
-    const d = whole(l.days, "A length", 1, 365);
-    if (seen.has(d)) throw new ValidationError("Each length once.");
-    seen.add(d);
-    return { days: d, pricePaise: whole(l.price, "A price", 1, 1_000_000) * 100 };
-  });
-  if (!Array.isArray(body.mealIds) || body.mealIds.length > 60 || body.mealIds.some((m) => typeof m !== "string" || !/^[a-z0-9-]{1,64}$/.test(m))) throw new ValidationError("Pick the plan's meals from the menu.");
-  if (typeof body.active !== "boolean") throw new ValidationError("Say whether members see the plan.");
-  if (typeof body.waterL !== "number" || !Number.isFinite(body.waterL) || body.waterL < 0 || body.waterL > 10) throw new ValidationError("Water must be from 0 to 10 litres.");
-  return {
-    name: text(body.name, "plan's name", 40, { min: 3 }),
-    tagline: text(body.tagline, "short line", 60, { min: 3 }),
-    description: text(body.description, "description", 200, { min: 10 }),
-    goal: body.goal,
-    mealsPerDay: whole(body.mealsPerDay, "Meals a day", 1, 3),
-    calories: whole(body.calories, "Calories a day", 800, 6000),
-    proteinG: whole(body.proteinG, "Protein", 0, 500),
-    carbsG: whole(body.carbsG, "Carbs", 0, 1000),
-    fatG: whole(body.fatG, "Fat", 0, 400),
-    waterL: Math.round(body.waterL * 10) / 10,
-    included: body.included.map((i) => text(i, "included item", 60, { min: 3 })),
-    lengths: lengths.sort((a, b) => a.days - b.days),
-    mealIds: [...new Set(body.mealIds)],
-    active: body.active,
-    sortOrder: body.sortOrder === undefined ? 0 : whole(body.sortOrder, "The order", 0, 1000),
-  };
-}
-
-/** A plan's slug from its name: "Fat Loss Plan" → "fat-loss-plan" (a short tail when taken) */
-const slugFor = (name, tail = "") => `${name.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 32) || "plan"}${tail}`;
-
 module.exports = {
-  GOALS, SLOTS_BY_MEALS, START_WITHIN_DAYS, MAX_PAUSE_DAYS, slotsFor, lengthsWithSavings, subscribeBody, pauseBody, skipBody, mealFor, deliversOn,
-  planBody, slugFor, addDays, daysBetween, day, onlyFields,
+  SLOTS_BY_MEALS, START_WITHIN_DAYS, MAX_PAUSE_DAYS, MAX_MEAL_QUANTITY, MAX_RUNNING, slotsFor, slotsOf, subscribeMealBody, mealSubscriptionPrice, lengthsBody,
+  pauseBody, skipBody, mealFor, deliversOn, addDays, daysBetween, day, onlyFields,
 };

@@ -309,7 +309,7 @@ export default function Cart() {
                   <LoadError tone="meal" title="Addresses couldn't load" message={addressLoad.error} onRetry={retryAddresses} />
                 ) : address ? (
                   <PressableScale scaleTo={0.99} onPress={() => router.push({ pathname: "/addresses", params: { pick: "1" } })} className="card flex-row items-center" style={{ gap: 12 }} accessibilityRole="button" accessibilityLabel={`Deliver to ${KIND_LABEL[address.kind]}. Change`}>
-                    <View className="meal-icon"><SymbolView name={KIND_ICON[address.kind]} size={18} tintColor={colors.mealDark} /></View>
+                    <View className="meal-icon"><SymbolView name={KIND_ICON[address.kind]} size={18} tintColor={colors.ink} /></View>
                     <View className="min-w-0 flex-1">
                       <Text className="card__title">{`${KIND_LABEL[address.kind]} · ${address.receiverName}`}</Text>
                       <Text className="meta-text" numberOfLines={2}>{`${addressLines(address).first}, ${addressLines(address).second}`}</Text>
@@ -319,7 +319,7 @@ export default function Cart() {
                   </PressableScale>
                 ) : (
                   <PressableScale onPress={() => router.push("/addresses/location")} className="card flex-row items-center" style={{ gap: 12 }} accessibilityRole="button">
-                    <View className="meal-icon"><SymbolView name={{ ios: "plus", android: "add", web: "add" }} size={18} tintColor={colors.mealDark} /></View>
+                    <View className="meal-icon"><SymbolView name={{ ios: "plus", android: "add", web: "add" }} size={18} tintColor={colors.ink} /></View>
                     <Text className="card__title flex-1">Add a delivery address</Text>
                     <SymbolView name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }} size={14} tintColor={colors.faint} />
                   </PressableScale>
@@ -331,7 +331,7 @@ export default function Cart() {
                 <Text className="card__title">Coupon</Text>
                 {couponCode ? (
                   <View className="flex-row items-center" style={{ gap: 10 }}>
-                    <View className="meal-icon"><SymbolView name={{ ios: "tag.fill", android: "sell", web: "sell" }} size={17} tintColor={couponProblem ? colors.danger : colors.mealDark} /></View>
+                    <View className="meal-icon"><SymbolView name={{ ios: "tag.fill", android: "sell", web: "sell" }} size={17} tintColor={couponProblem ? colors.danger : colors.ink} /></View>
                     <View className="min-w-0 flex-1">
                       <Text className="card__title">{couponCode}</Text>
                       {couponOk && priced ? <Text className="shop-macros">{`You save ${rupees(priced.discount)}`}</Text> : null}
@@ -370,9 +370,9 @@ export default function Cart() {
               <View className="card" style={{ gap: 8 }}>
                 <View className="flex-row justify-between"><Text className="type-body text-muted">{`Meals (${totals.count})`}</Text><Text className="type-body text-forest-ink">{rupees(totals.total)}</Text></View>
                 {couponOk && priced ? (
-                  <View className="flex-row justify-between"><Text className="type-body text-muted">{`Coupon ${couponCode}`}</Text><Text className="type-body" style={{ color: colors.mealDark }}>{`− ${rupees(priced.discount)}`}</Text></View>
+                  <View className="flex-row justify-between"><Text className="type-body text-muted">{`Coupon ${couponCode}`}</Text><Text className="type-body" style={{ color: colors.success }}>{`− ${rupees(priced.discount)}`}</Text></View>
                 ) : null}
-                <View className="flex-row justify-between"><Text className="type-body text-muted">Delivery</Text><Text className="type-body" style={{ color: colors.mealDark }}>Free</Text></View>
+                <View className="flex-row justify-between"><Text className="type-body text-muted">Delivery</Text><Text className="type-body" style={{ color: colors.success }}>Free</Text></View>
                 <View className="flex-row justify-between pt-2" style={{ borderTopWidth: 1, borderColor: colors.mealLine }}>
                   <Text className="card__title">To pay</Text>
                   <Text className="card__title">{rupees(toPay)}</Text>
@@ -380,7 +380,7 @@ export default function Cart() {
                 <Text className="meta-text">{`${totals.calories} kcal · ${Math.round(totals.proteinG)}g protein in this order`}</Text>
               </View>
               <View className="card flex-row" style={{ gap: 12 }}>
-                <View className="meal-icon"><SymbolView name={{ ios: "creditcard", android: "credit_card", web: "credit_card" }} size={18} tintColor={colors.mealDark} /></View>
+                <View className="meal-icon"><SymbolView name={{ ios: "creditcard", android: "credit_card", web: "credit_card" }} size={18} tintColor={colors.ink} /></View>
                 <View className="flex-1">
                   <Text className="card__title">UPI, card, netbanking or wallet</Text>
                   <Text className="meta-text">Payments are in test mode: Pay opens a test checkout and no money is taken.</Text>
@@ -388,7 +388,7 @@ export default function Cart() {
               </View>
               {error ? <FormAlert message={error} /> : null}
             </ScrollView>
-            <View className="px-4 pt-3" style={{ paddingBottom: Math.max(insets.bottom, 12), backgroundColor: colors.mealSurface }}>
+            <View className="px-4 pt-3" style={{ paddingBottom: Math.max(insets.bottom, 12), backgroundColor: colors.background }}>
               {paying ? (
                 <View className="meal-btn" accessibilityLiveRegion="polite">
                   <ActivityIndicator size="small" color={colors.onPrimary} />

@@ -143,12 +143,12 @@ describe("ui meals: the Meals tab from the design, and paying the Razorpay way",
     if (problems.length > 0) throw new Error(`cleanup incomplete: ${problems.join("; ")}`);
   });
 
-  it("1. the Meals tab: header, the switch, Deliver to, quick tiles, Popular Meals", run("meals-tab", async () => {
+  it("1. the Meals tab, Zomato-style: the location on top, the search, the promotions, quick tiles, Popular Meals", run("meals-tab", async () => {
     await viewport(390, 844);
     await signInAs(page, h, identities.member);
     await page.waitFor(`location.pathname.startsWith("/home")`, 60000, "Home");
     await h.goto("/meals", "Popular Meals");
-    for (const text of ["Nutritious meals for your fitness goals", "Order Meals", "Meal Subscription", "Deliver to", "Home · Koramangala, Bengaluru", "High Protein", "Low Calorie", "Non-Veg", "Combos", "Popular Meals", `Grilled Chicken Bowl ${runId}`, "430 kcal | P 38g C 42g F 12g", "₹259", "Bestseller"]) {
+    for (const text of ["Home", "Flat 2A, Koramangala, Bengaluru", "Your meal, every day", "Subscribe to any meal and save up to 10%", "High Protein", "Low Calorie", "Non-Veg", "Combos", "Popular Meals", `Grilled Chicken Bowl ${runId}`, "430 kcal | P 38g C 42g F 12g", "₹259", "Bestseller"]) {
       await h.expectText(text);
     }
     await snapshotAllWidths("meals-tab");
@@ -161,7 +161,7 @@ describe("ui meals: the Meals tab from the design, and paying the Razorpay way",
     await page.waitFor(`[...document.querySelectorAll('[aria-label]')].some((e) => e.getAttribute("aria-label") === "Cart, 2 meals")`, NAV_TIMEOUT, "two in the cart");
   }));
 
-  it("3. the filter sheet narrows the tab to one diet; Meal Subscription lists the plans", run("meals-filter", async () => {
+  it("3. the filter sheet narrows the tab to one diet", run("meals-filter", async () => {
     await clickLabel("Filters");
     await h.expectText("Sort by");
     await h.settle(); // the sheet has finished sliding up
@@ -177,11 +177,7 @@ describe("ui meals: the Meals tab from the design, and paying the Razorpay way",
     await page.clickText("Show meals");
     await page.waitFor(`!(document.body.innerText || "").includes("Sort by")`, NAV_TIMEOUT, "the sheet closed");
     await h.expectText(`Grilled Chicken Bowl ${runId}`);
-    await page.clickText("Meal Subscription");
-    await h.expectText("Explore Meal Subscription Plans");
-    await snapshotAllWidths("meals-subscription");
-    await page.clickText("Order Meals");
-    await h.expectText("Popular Meals");
+    assert.equal(await page.evaluate(`(document.body.innerText || "").includes("Order Meals")`), false, "no Order | Subscription switch on the tab");
   }));
 
   it("4. Pay opens the test checkout; paying places the order", run("meals-pay", async () => {

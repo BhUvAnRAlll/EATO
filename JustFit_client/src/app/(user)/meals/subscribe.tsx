@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from "react";
 import { ActivityIndicator, ScrollView, Text, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
+import { Image } from "expo-image";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 
 import { FormAlert } from "@/components/FormAlert";
@@ -15,28 +16,37 @@ import { KIND_LABEL, addressLines } from "@/lib/addressRules";
 import { newId } from "@/lib/analytics";
 import { haptic } from "@/lib/haptics";
 import { hud } from "@/lib/hud";
-import { SLOT_LABEL, addDays, dayLabel, rupees } from "@/lib/mealRules";
-import type { CheckoutOptions } from "@/lib/mealsApi";
+import { MEAL_SLOTS, SLOT_LABEL, addDays, dayLabel, rupees, timeRange, type MealSlot } from "@/lib/mealRules";
+import { mealImage, mealsApi, type CheckoutOptions, type MenuMeal, type Slots } from "@/lib/mealsApi";
 import { todayIso } from "@/lib/macro";
 import { useAddressBook } from "@/lib/useAddressBook";
 import { useSessionToken } from "@/lib/session";
-import { subscriptionsApi, type MealPlan } from "@/lib/subscriptionsApi";
+import { subscriptionPrice } from "@/lib/subscriptionRules";
+import { subscriptionsApi, type SubscriptionLength } from "@/lib/subscriptionsApi";
+import { useAuthStore } from "@/store/auth";
 import { useThemeColors } from "@/theme";
 
 const START_DAYS = 7; // starts offered: tomorrow and the six days after (the server allows two weeks)
+const date = (d: string) => new Date(`${d}T00:00:00Z`).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });
 
-// Meals › a plan › Subscribe (Meal Operations phase 5): when it starts, where it's delivered, what
-// it is (meals a day, how many meals in all, the meal times) and Pay, which opens the same test
-// checkout as an order; the server checks the payment's signature before the plan starts.
+type Load = { state: "loading" } | { state: "failed"; error: string } | { state: "ready"; meal: MenuMeal; length: SubscriptionLength | null; slots: Slots };
+
+// A meal › Add Subscription (2026-11-10): the meal, how many a day and for how long (from its page),
+// then when it starts, the meal time, where it's delivered, the bill and Pay, which opens the same
+// test checkout as an order; the server prices it again and checks the payment's signature before
+// it starts. Then Profile › My subscriptions.
 export default function Subscribe() {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
   const getToken = useSessionToken();
-  const params = useLocalSearchParams<{ plan: string; days: string }>();
+  const token = useAuthStore((state) => state.token);
+  const params = useLocalSearchParams<{ meal: string; length: string; quantity: string }>();
+  const quantity = Math.max(1, Math.min(3, Number(params.quantity) || 1));
   const { load: addressLoad } = useAddressBook();
-  const [plan, setPlan] = useState<{ state: "loading" } | { state: "failed"; error: string } | { state: "ready"; plan: MealPlan }>({ state: "loading" });
+  const [load, setLoad] = useState<Load>({ state: "loading" });
   const today = todayIso();
   const [startsOn, setStartsOn] = useState(addDays(today, 1));
+  const [slot, setSlot] = useState<MealSlot | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [checkout, setCheckout] = useState<{ subId: string; options: CheckoutOptions } | null>(null);
@@ -45,29 +55,38 @@ export default function Subscribe() {
   const running = useRef(false);
 
   const read = useCallback(async () => {
-    const answer = await subscriptionsApi.plan(await getToken(), String(params.plan));
-    setPlan(answer.ok ? { state: "ready", plan: answer.data.plan } : { state: "failed", error: answer.error });
-  }, [getToken, params.plan]);
+    const t = await getToken();
+    const [meal, lengths, options] = await Promise.all([mealsApi.meal(t, String(params.meal)), subscriptionsApi.lengths(t), mealsApi.options(t)]);
+    if (!meal.ok) return setLoad({ state: "failed", error: meal.error });
+    if (!lengths.ok) return setLoad({ state: "failed", error: lengths.error });
+    if (!options.ok) return setLoad({ state: "failed", error: options.error });
+    const slots = options.data.slots;
+    setLoad({ state: "ready", meal: meal.data.meal, length: lengths.data.lengths.find((l) => String(l.id) === params.length) ?? null, slots });
+    // Lunch first when it's delivered, else the first meal time that is
+    setSlot((current) => current ?? (slots.lunch.active ? "lunch" : MEAL_SLOTS.find((s) => slots[s].active) ?? null));
+  }, [getToken, params.meal, params.length]);
   useFocusEffect(useCallback(() => { read(); }, [read]));
 
-  const p = plan.state === "ready" ? plan.plan : null;
-  const length = p?.lengths.find((l) => String(l.days) === params.days) ?? null;
+  const ready = load.state === "ready" ? load : null;
+  const meal = ready?.meal ?? null;
+  const length = ready?.length ?? null;
   const address = addressLoad.state === "ready" ? addressLoad.book.addresses.find((a) => a.isDefault) ?? null : null;
-  const ready = !!p && !!length && !!address?.deliverable;
+  const price = meal && length ? subscriptionPrice(meal.price, quantity, length.days, length.percentOff) : null;
+  const canPay = !!meal && !!length && !!slot && !!address?.deliverable;
 
   const started = () => {
     clientId.current = newId();
-    hud.success("Plan started");
-    router.replace("/meals/subscription");
+    hud.success("Subscription started");
+    router.replace("/meals/subscriptions");
   };
 
   const pay = async () => {
-    if (!ready || running.current || !p || !length || !address) return;
+    if (!canPay || running.current || !meal || !length || !slot || !address) return;
     running.current = true;
     setBusy(true);
     setError("");
     haptic.tap();
-    const answer = await subscriptionsApi.subscribe(await getToken(), { clientId: clientId.current, planId: p.id, days: length.days, startsOn, addressId: address.id });
+    const answer = await subscriptionsApi.subscribe(await getToken(), { clientId: clientId.current, mealId: meal.id, lengthId: length.id, quantity, slot, startsOn, addressId: address.id });
     running.current = false;
     setBusy(false);
     if (!answer.ok) {
@@ -99,28 +118,32 @@ export default function Subscribe() {
       return;
     }
     started();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [checkout, getToken]);
 
   return (
     <View className="flex-1 meal-page">
       <StatusBar style="dark" />
       <SafeAreaView style={{ flex: 1 }} edges={["top", "left", "right"]}>
-        <ScreenHeader title="Subscribe" subtitle={p?.name} fallback="/meals" />
-        {plan.state === "loading" && <View className="px-4"><ScreenSkeleton label="Loading the plan" /></View>}
-        {plan.state === "failed" && <View className="px-4"><LoadError tone="meal" title="This plan couldn't load" message={plan.error} onRetry={read} /></View>}
-        {p && !length && <View className="px-4"><LoadError tone="meal" title="That length isn't offered" message="Go back and pick 7, 28 or 90 days." onRetry={() => router.back()} /></View>}
-        {p && length && (
+        <ScreenHeader title="Meal Subscription" subtitle={meal?.name} fallback="/meals" />
+        {load.state === "loading" && <View className="px-4"><ScreenSkeleton label="Loading the subscription" /></View>}
+        {load.state === "failed" && <View className="px-4"><LoadError tone="meal" title="This subscription couldn't load" message={load.error} onRetry={read} /></View>}
+        {meal && !length && <View className="px-4"><LoadError tone="meal" title="That length isn't offered now" message="Go back and pick another length." onRetry={() => router.back()} /></View>}
+        {meal && length && price && ready && (
           <>
-            <ScrollView contentContainerStyle={{ padding: 16, gap: 16 }} showsVerticalScrollIndicator={false}>
-              <View className="card" style={{ gap: 6 }}>
-                <Text className="card__title">{`${p.name} · ${length.days} days`}</Text>
-                <Text className="meta-text">{`${p.mealsPerDay} meals a day (${p.slots.map((s) => SLOT_LABEL[s].toLowerCase()).join(", ")}) · ${length.days * p.mealsPerDay} meals in all · ${p.calories.toLocaleString("en-IN")} kcal a day`}</Text>
-                <Text className="meta-text">{"A meal counts as used only when it's delivered. Pausing or skipping a day moves your end date on."}</Text>
+            <ScrollView contentContainerStyle={{ padding: 16, gap: 20 }} showsVerticalScrollIndicator={false}>
+              <View className="card flex-row items-center" style={{ gap: 12 }}>
+                <View className="meal-row__photo" style={{ width: 64, height: 64 }}>
+                  <Image source={mealImage(meal.imageUrl, token)} contentFit="cover" style={{ width: "100%", height: "100%" }} />
+                </View>
+                <View className="min-w-0 flex-1" style={{ gap: 2 }}>
+                  <Text className="card__title" numberOfLines={1}>{meal.name}</Text>
+                  <Text className="meta-text">{`${quantity} a day · ${length.label} · ${length.days * quantity} meals`}</Text>
+                  <Text className="meta-text">A meal counts as used only when it&apos;s delivered.</Text>
+                </View>
               </View>
 
               <View style={{ gap: 10 }}>
-                <Text className="type-headline text-forest-ink">Starts on</Text>
+                <Text className="meal-section__title">Starts on</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
                   {Array.from({ length: START_DAYS }, (_, i) => addDays(today, i + 1)).map((d) => {
                     const on = d === startsOn;
@@ -132,13 +155,29 @@ export default function Subscribe() {
                     );
                   })}
                 </ScrollView>
-                <Text className="meta-text">{`Ends ${new Date(`${addDays(startsOn, length.days - 1)}T00:00:00Z`).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" })} (later if you pause or skip)`}</Text>
+                <Text className="meta-text">{`Last delivery ${date(addDays(startsOn, length.days - 1))} (later if you pause or skip a day)`}</Text>
               </View>
 
               <View style={{ gap: 10 }}>
-                <Text className="type-headline text-forest-ink">Delivered to</Text>
+                <Text className="meal-section__title">Meal time</Text>
+                <View className="flex-row" style={{ gap: 8 }}>
+                  {MEAL_SLOTS.map((s) => {
+                    const times = ready.slots[s];
+                    const on = s === slot;
+                    return (
+                      <PressableScale key={s} haptic="select" disabled={!times.active} onPress={() => setSlot(s)} className={!times.active ? "meal-choice meal-choice--off flex-1" : on ? "meal-choice meal-choice--on flex-1" : "meal-choice flex-1"} accessibilityRole="button" accessibilityState={{ selected: on, disabled: !times.active }}>
+                        <Text className="meal-choice__label">{SLOT_LABEL[s]}</Text>
+                        <Text className="meal-choice__meta" style={{ textAlign: "center" }}>{times.active ? timeRange(times.startsAt, times.endsAt) : "Off"}</Text>
+                      </PressableScale>
+                    );
+                  })}
+                </View>
+              </View>
+
+              <View style={{ gap: 10 }}>
+                <Text className="meal-section__title">Delivered to</Text>
                 <PressableScale onPress={() => router.push({ pathname: "/addresses", params: { pick: "1" } })} className="card flex-row items-center" style={{ gap: 12 }} accessibilityRole="button" accessibilityLabel="Change the delivery address">
-                  <View className="meal-icon"><SymbolView name={{ ios: "mappin.circle.fill", android: "location_on", web: "location_on" }} size={18} tintColor={colors.mealDark} /></View>
+                  <View className="meal-icon"><SymbolView name={{ ios: "mappin.and.ellipse", android: "location_on", web: "location_on" }} size={18} tintColor={colors.ink} /></View>
                   <View className="min-w-0 flex-1">
                     {address ? (
                       <>
@@ -155,20 +194,23 @@ export default function Subscribe() {
               </View>
 
               <View className="card" style={{ gap: 8 }}>
-                <View className="flex-row justify-between"><Text className="type-body text-muted">{`${length.days} days`}</Text><Text className="type-body text-forest-ink">{rupees(length.price)}</Text></View>
-                {length.savePercent > 0 ? <View className="flex-row justify-between"><Text className="type-body text-muted">You save</Text><Text className="type-body" style={{ color: colors.mealDark }}>{`${length.savePercent}%`}</Text></View> : null}
-                <View className="flex-row justify-between pt-2" style={{ borderTopWidth: 1, borderColor: colors.mealLine }}>
+                <View className="flex-row justify-between"><Text className="type-body text-muted">{`${rupees(meal.price)} × ${quantity} × ${length.days} days`}</Text><Text className="type-body text-forest-ink">{rupees(price.full)}</Text></View>
+                {length.percentOff > 0 ? (
+                  <View className="flex-row justify-between"><Text className="type-body text-muted">{`${length.label} · ${length.percentOff}% off`}</Text><Text className="type-body" style={{ color: colors.success }}>{`− ${rupees(price.full - price.total)}`}</Text></View>
+                ) : null}
+                <View className="flex-row justify-between"><Text className="type-body text-muted">Delivery</Text><Text className="type-body" style={{ color: colors.success }}>Free</Text></View>
+                <View className="flex-row justify-between pt-2" style={{ borderTopWidth: 1, borderColor: colors.creamLine }}>
                   <Text className="card__title">To pay</Text>
-                  <Text className="card__title">{rupees(length.price)}</Text>
+                  <Text className="card__title">{rupees(price.total)}</Text>
                 </View>
                 <Text className="meta-text">Payments are in test mode: Pay opens a test checkout and no money is taken.</Text>
               </View>
               {error ? <FormAlert message={error} /> : null}
             </ScrollView>
-            <View className="px-4 pt-3" style={{ paddingBottom: Math.max(insets.bottom, 12) }}>
-              <PressableScale haptic="tap" scaleTo={0.98} onPress={pay} disabled={!ready || busy} className="sub-cta" style={!ready ? { opacity: 0.5 } : undefined} accessibilityRole="button" accessibilityLabel={`Pay ${rupees(length.price)}`}>
+            <View className="meal-buybar" style={{ paddingBottom: Math.max(insets.bottom, 14) }}>
+              <PressableScale haptic="tap" scaleTo={0.98} onPress={pay} disabled={!canPay || busy} className="sub-cta flex-1" style={!canPay ? { opacity: 0.5 } : undefined} accessibilityRole="button" accessibilityLabel={`Pay ${rupees(price.total)}`}>
                 {busy ? <ActivityIndicator color={colors.white} /> : null}
-                <Text className="sub-cta__label">{busy ? "Processing…" : `Pay ${rupees(length.price)}`}</Text>
+                <Text className="sub-cta__label">{busy ? "Processing…" : `Pay ${rupees(price.total)}`}</Text>
               </PressableScale>
             </View>
           </>

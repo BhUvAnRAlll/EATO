@@ -32,7 +32,7 @@ export default function Orders() {
     setLoad((current) => (answer.ok ? { state: "ready", orders: answer.data.orders } : current.state === "ready" ? current : { state: "failed", error: answer.error }));
   }, [getToken]);
   useFocusEffect(useCallback(() => { read(); }, [read]));
-  const { refreshControl } = usePullToRefresh(read, colors.mealPrimary);
+  const { refreshControl } = usePullToRefresh(read, colors.ink);
 
   const today = todayIso();
   const orders = load.state === "ready" ? load.orders : [];

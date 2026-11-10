@@ -45,3 +45,22 @@ export function QuantityStepper({ quantity, max, name, onChange, size = "md" }: 
     </View>
   );
 }
+
+// − 1 + on a meal's page (the user's design): an outlined pill with soft green circles. Stays from 1
+// to `max` (the bar's button says what happens with the number).
+export function QuantityPill({ quantity, max, name, onChange }: { quantity: number; max: number; name: string; onChange: (quantity: number) => void }) {
+  const colors = useThemeColors();
+  const least = quantity <= 1;
+  const full = quantity >= max;
+  return (
+    <View className="meal-qty" accessibilityLabel={`${quantity} ${name}`}>
+      <PressableScale haptic="select" onPress={() => !least && onChange(quantity - 1)} disabled={least} className="meal-qty__button" style={{ opacity: least ? 0.5 : 1 }} accessibilityRole="button" accessibilityLabel={`One less ${name}`} accessibilityState={{ disabled: least }}>
+        <SymbolView name={{ ios: "minus", android: "remove", web: "remove" }} size={18} tintColor={colors.success} />
+      </PressableScale>
+      <Text className="meal-qty__count">{quantity}</Text>
+      <PressableScale haptic="select" onPress={() => !full && onChange(quantity + 1)} disabled={full} className="meal-qty__button" style={{ opacity: full ? 0.5 : 1 }} accessibilityRole="button" accessibilityLabel={full ? `At most ${max} of ${name}` : `One more ${name}`} accessibilityState={{ disabled: full }}>
+        <SymbolView name={{ ios: "plus", android: "add", web: "add" }} size={18} tintColor={colors.success} />
+      </PressableScale>
+    </View>
+  );
+}

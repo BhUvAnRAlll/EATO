@@ -18,7 +18,7 @@ const date = (d: string) => new Date(`${d}T00:00:00Z`).toLocaleDateString("en-IN
 const CANCEL_REASONS = ["The member asked to cancel", "Can't deliver to this address", "Payment problem"];
 
 // Super Admin › Subscriptions › one (Meal Operations phase 5): the member and plan, days and meals,
-// the next 7 days, and Activate (paid in person), Pause 3 days / Resume, Extend 7 days, Change plan
+// the next 7 days, and Activate (paid in person), Pause 3 days / Resume, Extend 7 days
 // and Cancel (with a reason). Every action is in the admin log.
 export default function AdminSubscription() {
   const colors = useThemeColors();
@@ -38,15 +38,6 @@ export default function AdminSubscription() {
     if (!answer.ok) return hud.error(answer.error);
     update(() => ({ subscription: answer.data.subscription as Subscription }));
     hud.success(success);
-  };
-  const changePlan = async () => {
-    const answer = await subscriptionsApi.adminPlans(await getToken());
-    if (!answer.ok) return hud.error(answer.error);
-    showActions({
-      title: "Move to which plan?",
-      message: "From the next orders made; the price paid doesn't change.",
-      actions: answer.data.plans.filter((p) => p.id !== sub?.planId).map((p) => ({ label: p.name, onPress: () => void act("plan", { planId: p.id }, `Moved to ${p.name}`) })),
-    });
   };
   const paused = !!sub?.pausedFrom && !!sub.pausedUntil && sub.pausedUntil >= today;
 
@@ -83,7 +74,6 @@ export default function AdminSubscription() {
                   <Pressable onPress={() => act("pause", { from: addDays(today, 1), until: addDays(today, 3) }, "Paused 3 days")} className="admin-chip" accessibilityRole="button"><Text className="admin-segment__label admin-segment__label--on">Pause 3 days</Text></Pressable>
                 )}
                 <Pressable onPress={() => act("extend", { days: 7 }, "Extended 7 days")} className="admin-chip" accessibilityRole="button"><Text className="admin-segment__label admin-segment__label--on">Extend 7 days</Text></Pressable>
-                <Pressable onPress={changePlan} className="admin-chip" accessibilityRole="button"><Text className="admin-segment__label admin-segment__label--on">Change plan</Text></Pressable>
                 <Pressable
                   onPress={() => showActions({ title: "Cancel this subscription?", actions: CANCEL_REASONS.map((reason) => ({ label: reason, destructive: true, onPress: () => void act("cancel", { reason }, "Cancelled") })) })}
                   className="admin-chip"

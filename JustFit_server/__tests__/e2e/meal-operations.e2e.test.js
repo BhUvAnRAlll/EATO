@@ -223,14 +223,9 @@ describe("meal operations e2e: the whole workflow and its failure cases", () => 
   }));
 
   it("4. a subscription: meals used only when delivered; pause and resume; a renewal after it ends", run(async () => {
-    const plans = await api("GET", `${base}/subscription-plans`, tokens.admin);
-    const fat = plans.json.plans.find((p) => p.slug === "fat-loss");
-    const saved = await api("PUT", `${base}/subscription-plans/${fat.id}`, tokens.admin, {
-      name: fat.name, tagline: fat.tagline, description: fat.description, goal: fat.goal, mealsPerDay: 1, calories: fat.calories, proteinG: fat.proteinG,
-      carbsG: fat.carbsG, fatG: fat.fatG, waterL: fat.waterL, included: fat.included, lengths: [{ days: 7, price: 1899 }], mealIds: [state.mealId], active: true,
-    });
-    assert.equal(saved.status, 200, JSON.stringify(saved.json));
-    const made = await api("POST", "/api/subscriptions", tokens.memberA, { clientId: crypto.randomUUID(), planId: fat.id, days: 7, startsOn: tomorrow, addressId: state.addressA });
+    const week = (await api("GET", "/api/subscriptions/lengths", tokens.memberA)).json.lengths.find((l) => l.days === 7);
+    const subscribe = () => ({ clientId: crypto.randomUUID(), mealId: state.mealId, lengthId: week.id, quantity: 1, slot: "lunch", startsOn: tomorrow, addressId: state.addressA });
+    const made = await api("POST", "/api/subscriptions", tokens.memberA, subscribe());
     assert.equal(made.status, 201, JSON.stringify(made.json));
     const paid = await api("POST", "/api/orders/gateway/dummy/checkout", tokens.memberA, { razorpay_order_id: made.json.checkout.order_id, method: "upi", outcome: "success" });
     const { status: _s, ...answer } = paid.json;
@@ -238,10 +233,10 @@ describe("meal operations e2e: the whole workflow and its failure cases", () => 
     assert.equal(active.json.subscription.status, "active");
     const subId = made.json.subscription.id;
     const generated = await api("POST", `${base}/subscriptions/generate`, tokens.admin, { day: tomorrow });
-    assert.equal(generated.json.made, 1, "one lunch for the 1-meal plan, through a kitchen");
+    assert.equal(generated.json.made, 1, "one lunch for the meal subscription, through a kitchen");
     const [[subOrder]] = await connection.query("SELECT id, kitchen_id FROM orders WHERE subscription_id = ?", [subId]);
     assert.ok(subOrder.kitchen_id, "given a kitchen like any order");
-    const used = async () => (await api("GET", "/api/subscriptions/mine", tokens.memberA)).json.current.mealsUsed;
+    const used = async () => (await api("GET", "/api/subscriptions/mine", tokens.memberA)).json.active.find((x) => x.id === subId).mealsUsed;
     assert.equal(await used(), 0);
     for (const from of ["placed", "accepted", "preparing", "quality_check"]) await step(subOrder.id, from);
     await api("POST", `${base}/orders/${subOrder.id}/delivery/assign`, tokens.admin, {});
@@ -252,11 +247,11 @@ describe("meal operations e2e: the whole workflow and its failure cases", () => 
     assert.equal(paused.status, 200);
     assert.equal((await api("POST", `${base}/subscriptions/generate`, tokens.admin, { day: day4 })).json.made, 0, "nothing while paused");
     assert.equal((await api("POST", `/api/subscriptions/${subId}/resume`, tokens.memberA, {})).status, 200);
-    // Renewal: once a plan has ended (moved into the past here), a new one can start
-    assert.equal((await api("POST", "/api/subscriptions", tokens.memberA, { clientId: crypto.randomUUID(), planId: fat.id, days: 7, startsOn: tomorrow, addressId: state.addressA })).status, 409, "one running plan");
+    // Renewal: once a subscription has ended (moved into the past here), the same meal can start again
+    assert.equal((await api("POST", "/api/subscriptions", tokens.memberA, subscribe())).status, 409, "the same meal at the same meal time once");
     await connection.query("UPDATE meal_subscriptions SET starts_on = DATE_SUB(starts_on, INTERVAL 30 DAY), ends_on = DATE_SUB(ends_on, INTERVAL 30 DAY) WHERE id = ?", [subId]);
-    assert.equal((await api("GET", "/api/subscriptions/mine", tokens.memberA)).json.current, null, "the old plan completed");
-    const renewed = await api("POST", "/api/subscriptions", tokens.memberA, { clientId: crypto.randomUUID(), planId: fat.id, days: 7, startsOn: tomorrow, addressId: state.addressA });
+    assert.equal((await api("GET", "/api/subscriptions/mine", tokens.memberA)).json.active.length, 0, "the old subscription completed");
+    const renewed = await api("POST", "/api/subscriptions", tokens.memberA, subscribe());
     assert.equal(renewed.status, 201, "renewed");
   }));
 

@@ -1182,14 +1182,15 @@
 }
 
 /* ---- Meal ordering (Meals tab, a meal, the cart, orders; BEM meal-*) ---- */
-/* The Meals module is green (meal-* tokens, 2026-11-09), never the app's red */
+/* The Meals module (2026-11-10 calm pass, the user's "too much green"): white cards on the cream
+   page, ink for structure; green only for the main action (Add, Pay, the cart bar) and what's selected */
 @utility meal-page {
-  background-color: var(--color-meal-surface);
+  background-color: var(--color-background);
 }
 
 /* The Meals tab's page: white, as the 2026-11-10 design */
 @utility meal-page--white {
-  background-color: var(--color-surface);
+  background-color: var(--color-background);
 }
 
 /* A meal in the menu: photo on the left, words in the middle, price and add on the right */
@@ -1198,23 +1199,21 @@
   gap: var(--spacing-md);
   padding: var(--spacing-md);
   border-radius: var(--radius-lg);
-  border-width: 1px;
-  border-color: var(--color-meal-line);
   background-color: var(--color-surface);
   box-shadow: var(--shadow-card);
 }
 
-/* The macros under a meal's name, on a light green pill */
+/* The macros under a meal's name, on a soft grey pill */
 @utility meal-row__macros {
   align-self: flex-start;
   padding-inline: 8px;
   padding-block: 2px;
   border-radius: var(--radius-pill);
-  background-color: var(--color-meal-light);
+  background-color: var(--color-cream-deep);
   font-family: var(--font-sans-medium);
   font-size: 12px;
   line-height: 17px;
-  color: var(--color-meal-dark);
+  color: var(--color-muted);
 }
 
 /* The Meals module's filled button (Add, Add to cart, Pay): green with a white label */
@@ -1237,12 +1236,12 @@
   color: var(--color-meal-dark);
 }
 
-/* A round icon on a light green ground (the address and payment cards, the empty state) */
+/* A round icon on a soft grey ground (the address and payment cards, the empty state) */
 @utility meal-icon {
   width: 44px;
   height: 44px;
   border-radius: var(--radius-pill);
-  background-color: var(--color-meal-light);
+  background-color: var(--color-cream-deep);
   align-items: center;
   justify-content: center;
 }
@@ -1271,15 +1270,14 @@
   background-color: var(--color-meal-light);
 }
 
-/* A meal's calories and macros on a meal's page: a light green card */
+/* A meal's calories and macros on a meal's page: a white card */
 @utility meal-facts {
   flex-direction: row;
   padding-block: var(--spacing-lg);
   padding-inline: 8px;
   border-radius: var(--radius-lg);
-  border-width: 1px;
-  border-color: var(--color-meal-line);
-  background-color: var(--color-meal-light);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-card);
 }
 
 @utility meal-row__photo {
@@ -1388,17 +1386,17 @@
   color: var(--color-muted);
 }
 
-/* An order's status pill: light green on its way, dark green delivered, grey cancelled */
+/* An order's status pill: blue on its way, green delivered, grey cancelled */
 @utility order-pill {
   align-self: flex-start;
   padding-inline: 10px;
   padding-block: 3px;
   border-radius: var(--radius-pill);
-  background-color: var(--color-meal-light);
+  background-color: var(--color-tint-blue);
 }
 
 @utility order-pill--done {
-  background-color: var(--color-meal-dark);
+  background-color: var(--color-success-soft);
 }
 
 @utility order-pill--cancelled {
@@ -1409,11 +1407,11 @@
   font-family: var(--font-sans-semibold);
   font-size: 12px;
   line-height: 16px;
-  color: var(--color-meal-dark);
+  color: var(--color-icon-blue);
 }
 
 @utility order-pill__label--done {
-  color: var(--color-white);
+  color: var(--color-success);
 }
 
 @utility order-pill__label--cancelled {
@@ -1449,6 +1447,175 @@
   background-color: var(--color-meal-primary);
 }
 
+/* ---- A meal's page (2026-11-10, the user's design): One-time Order | Meal Subscription, the
+   lengths, the quantity pill and the bar at the bottom ---- */
+@utility meal-mode {
+  flex-direction: row;
+  padding: 4px;
+  gap: 4px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-card);
+}
+
+@utility meal-mode__option {
+  flex: 1;
+  min-height: 48px;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding-inline: 8px;
+  border-radius: var(--radius-pill);
+}
+
+@utility meal-mode__option--on {
+  background-color: var(--color-meal-primary);
+}
+
+@utility meal-mode__label {
+  font-family: var(--font-sans-semibold);
+  font-size: 15px;
+  line-height: 20px;
+  color: var(--color-ink);
+}
+
+@utility meal-mode__label--on {
+  color: var(--color-white);
+}
+
+@utility meal-section__title {
+  font-family: var(--font-sans-semibold);
+  font-size: 18px;
+  line-height: 24px;
+  color: var(--color-ink);
+}
+
+/* "Save up to 10%": a soft green pill */
+@utility meal-save {
+  padding-inline: 10px;
+  padding-block: 4px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-success-soft);
+}
+
+@utility meal-save__label {
+  font-family: var(--font-sans-semibold);
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--color-success);
+}
+
+/* A length card: the length, the meals, the price, "x% off" on a rose pill; selected has the green edge */
+@utility meal-length {
+  min-height: 118px;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding-inline: 4px;
+  padding-block: 10px;
+  border-radius: 16px;
+  border-width: 1.5px;
+  border-color: transparent;
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-card);
+}
+
+@utility meal-length--on {
+  border-color: var(--color-meal-primary);
+  background-color: var(--color-meal-surface);
+}
+
+@utility meal-length__label {
+  font-family: var(--font-sans-semibold);
+  font-size: 16px;
+  line-height: 21px;
+  color: var(--color-ink);
+  text-align: center;
+}
+
+@utility meal-length__meals {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+@utility meal-length__price {
+  margin-top: 8px;
+  font-family: var(--font-sans-semibold);
+  font-size: 17px;
+  line-height: 22px;
+  color: var(--color-ink);
+}
+
+@utility meal-off {
+  margin-top: 4px;
+  padding-inline: 10px;
+  padding-block: 2px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-tint-rose);
+}
+
+@utility meal-off__label {
+  font-family: var(--font-sans-semibold);
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--color-danger);
+}
+
+/* "Daily meal delivery for 26 days": a grey row with a calendar and a chevron */
+@utility meal-info-row {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  min-height: 52px;
+  padding-inline: 16px;
+  border-radius: 14px;
+  background-color: var(--color-cream-deep);
+}
+
+/* − 1 + on a meal's page: an outlined pill with soft green circles */
+@utility meal-qty {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  padding: 4px;
+  border-radius: var(--radius-pill);
+  border-width: 1px;
+  border-color: var(--color-cream-line);
+  background-color: var(--color-surface);
+}
+
+@utility meal-qty__button {
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-pill);
+  background-color: var(--color-success-soft);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility meal-qty__count {
+  min-width: 22px;
+  text-align: center;
+  font-family: var(--font-sans-semibold);
+  font-size: 17px;
+  line-height: 22px;
+  color: var(--color-ink);
+}
+
+/* The bar pinned under a meal's page: white with a soft shadow above */
+@utility meal-buybar {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  padding-inline: 16px;
+  padding-top: 14px;
+  background-color: var(--color-surface);
+  box-shadow: 0 -6px 18px rgba(17, 17, 17, 0.06);
+}
+
 /* ---- The Meals tab's storefront (2026-11-09 redesign; BEM shop-*) ---- */
 @utility shop-section__title {
   font-family: var(--font-sans-semibold);
@@ -1459,9 +1626,7 @@
 
 /* A product card in a horizontal row */
 @utility shop-card {
-  border-radius: 16px;
-  border-width: 1px;
-  border-color: var(--color-cream-line);
+  border-radius: var(--radius-lg);
   background-color: var(--color-surface);
   box-shadow: var(--shadow-card);
   overflow: hidden;
@@ -1473,22 +1638,30 @@
   left: 8px;
   flex-direction: row;
   align-items: center;
-  gap: 3px;
-  padding-inline: 8px;
+  gap: 4px;
+  padding-inline: 7px;
   padding-block: 3px;
   border-radius: var(--radius-pill);
-  background-color: var(--color-meal-primary);
+  background-color: var(--color-surface);
 }
 
 @utility shop-badge--nonveg {
-  background-color: var(--color-meal-nonveg);
+  background-color: var(--color-inverse);
+}
+
+@utility shop-badge--deal {
+  background-color: var(--color-inverse);
+}
+
+@utility shop-badge__label--deal {
+  color: var(--color-white);
 }
 
 @utility shop-badge__label {
   font-family: var(--font-sans-semibold);
   font-size: 10px;
   line-height: 14px;
-  color: var(--color-white);
+  color: var(--color-ink);
 }
 
 
@@ -1514,7 +1687,6 @@
   text-decoration-line: line-through;
 }
 
-/* ADD: white with a green outline and green capitals, as food apps print it */
 /* Add +: a green pill with a white label (the 2026-11-10 design) */
 @utility shop-add {
   min-height: 32px;
@@ -1534,7 +1706,7 @@
   color: var(--color-white);
 }
 
-/* − 1 + on a card: an outlined pill, the plus a green circle */
+/* − 1 + on a card: a grey-outlined pill, the plus a green circle */
 @utility shop-stepper {
   min-height: 32px;
   flex-direction: row;
@@ -1542,7 +1714,7 @@
   padding: 2px;
   border-radius: var(--radius-pill);
   border-width: 1px;
-  border-color: var(--color-meal-primary);
+  border-color: var(--color-line-strong);
   background-color: var(--color-surface);
 }
 
@@ -1571,7 +1743,7 @@
 @utility shop-tile {
   border-radius: var(--radius-lg);
   overflow: hidden;
-  background-color: var(--color-meal-light);
+  background-color: var(--color-cream-deep);
 }
 
 @utility shop-tile__badge {
@@ -1582,7 +1754,7 @@
   padding-inline: 6px;
   padding-block: 2px;
   border-radius: 6px;
-  background-color: var(--color-meal-primary);
+  background-color: var(--color-inverse);
 }
 
 @utility shop-tile__badge-label {
@@ -1603,7 +1775,7 @@
 @utility shop-circle {
   border-radius: var(--radius-pill);
   overflow: hidden;
-  background-color: var(--color-meal-light);
+  background-color: var(--color-cream-deep);
   align-items: center;
   justify-content: center;
 }
@@ -1612,7 +1784,7 @@
 @utility shop-banner {
   border-radius: var(--radius-lg);
   overflow: hidden;
-  background-color: var(--color-meal-dark);
+  background-color: var(--color-inverse);
 }
 
 
@@ -1671,7 +1843,7 @@
   font-family: var(--font-sans-semibold);
   font-size: 13px;
   line-height: 18px;
-  color: var(--color-meal-dark);
+  color: var(--color-ink);
 }
 
 @utility shop-dot {
@@ -1683,10 +1855,10 @@
 
 @utility shop-dot--on {
   width: 18px;
-  background-color: var(--color-meal-primary);
+  background-color: var(--color-ink);
 }
 
-/* A coupon: a dashed green edge, the offer, Apply */
+/* A coupon: a white card with a dashed grey edge, a peach tag, the offer, Apply */
 @utility shop-coupon {
   flex-direction: row;
   align-items: center;
@@ -1695,15 +1867,15 @@
   border-radius: var(--radius-lg);
   border-width: 1.5px;
   border-style: dashed;
-  border-color: var(--color-meal-primary);
-  background-color: var(--color-meal-surface);
+  border-color: var(--color-line-strong);
+  background-color: var(--color-surface);
 }
 
 @utility shop-coupon__icon {
   width: 38px;
   height: 38px;
   border-radius: var(--radius-pill);
-  background-color: var(--color-meal-light);
+  background-color: var(--color-tint-peach);
   align-items: center;
   justify-content: center;
 }
@@ -1711,24 +1883,42 @@
 @utility shop-coupon__apply {
   min-height: 34px;
   padding-inline: 14px;
-  border-radius: 10px;
-  background-color: var(--color-meal-primary);
+  border-radius: var(--radius-pill);
+  border-width: 1px;
+  border-color: var(--color-ink);
   align-items: center;
   justify-content: center;
 }
 
 @utility shop-coupon__apply--on {
-  background-color: var(--color-meal-light);
+  border-color: var(--color-success-soft);
+  background-color: var(--color-success-soft);
 }
 
 @utility shop-coupon__apply-label {
   font-family: var(--font-sans-semibold);
   font-size: 13px;
-  color: var(--color-white);
+  color: var(--color-ink);
 }
 
 @utility shop-coupon__apply-label--on {
-  color: var(--color-meal-dark);
+  color: var(--color-success);
+}
+
+/* The Meals tab's location, Zomato-style: "Home ▾" bold, the address under it */
+@utility shop-location__kind {
+  flex-shrink: 1;
+  font-family: var(--font-sans-semibold);
+  font-size: 18px;
+  line-height: 24px;
+  color: var(--color-ink);
+}
+
+@utility shop-location__line {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--color-muted);
 }
 
 /* The header's location pill and cart button */
@@ -1772,8 +1962,6 @@
 /* The search's suggestions under the field */
 @utility shop-suggest {
   border-radius: var(--radius-md);
-  border-width: 1px;
-  border-color: var(--color-meal-line);
   background-color: var(--color-surface);
   box-shadow: var(--shadow-card);
   overflow: hidden;
@@ -1800,10 +1988,7 @@
   padding: 4px;
   gap: 4px;
   border-radius: var(--radius-pill);
-  background-color: var(--color-surface);
-  border-width: 1px;
-  border-color: var(--color-cream-line);
-  box-shadow: var(--shadow-card);
+  background-color: var(--color-cream-tab);
 }
 
 @utility shop-switch__option {
@@ -1818,18 +2003,20 @@
 }
 
 @utility shop-switch__option--on {
-  background-color: var(--color-meal-primary);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-card);
 }
 
 @utility shop-switch__label {
-  font-family: var(--font-sans-semibold);
+  font-family: var(--font-sans-medium);
   font-size: 14px;
   line-height: 20px;
-  color: var(--color-ink);
+  color: var(--color-muted);
 }
 
 @utility shop-switch__label--on {
-  color: var(--color-white);
+  font-family: var(--font-sans-semibold);
+  color: var(--color-ink);
 }
 
 /* Deliver to: the pin, the address, the edit button */
@@ -1837,13 +2024,12 @@
   flex-direction: row;
   align-items: center;
   gap: 12px;
-  min-height: 56px;
+  min-height: 60px;
   padding-inline: 14px;
-  padding-block: 8px;
+  padding-block: 10px;
   border-radius: var(--radius-lg);
   background-color: var(--color-surface);
-  border-width: 1px;
-  border-color: var(--color-cream-line);
+  box-shadow: var(--shadow-card);
 }
 
 @utility shop-deliver__label {
@@ -1882,18 +2068,16 @@
   gap: 10px;
   padding-inline: 14px;
   border-radius: 14px;
-  border-width: 1px;
-  border-color: var(--color-cream-line);
   background-color: var(--color-surface);
+  box-shadow: var(--shadow-card);
 }
 
 @utility shop-filter {
   width: 50px;
   height: 50px;
   border-radius: 14px;
-  border-width: 1px;
-  border-color: var(--color-cream-line);
   background-color: var(--color-surface);
+  box-shadow: var(--shadow-card);
   align-items: center;
   justify-content: center;
 }
@@ -1933,7 +2117,39 @@
 @utility shop-see-all {
   flex-direction: row;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
+}
+
+@utility shop-see-all__label {
+  font-family: var(--font-sans-medium);
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--color-muted);
+}
+
+/* The floating cart bar: count and total on the left, View cart on the right */
+@utility shop-cartbar__count {
+  min-width: 28px;
+  height: 28px;
+  padding-inline: 6px;
+  border-radius: var(--radius-pill);
+  background-color: rgba(255, 255, 255, 0.22);
+  align-items: center;
+  justify-content: center;
+}
+
+@utility shop-cartbar__label {
+  font-family: var(--font-sans-semibold);
+  font-size: 15px;
+  line-height: 20px;
+  color: var(--color-white);
+}
+
+@utility shop-cartbar__meta {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 16px;
+  color: rgba(255, 255, 255, 0.88);
 }
 
 /* ---- The payment checkout (2026-11-10, the dummy standing in for Razorpay's; BEM pay-*) ---- */
@@ -2046,9 +2262,9 @@
 
 /* ---- Meal subscriptions (phase 5, the user's design: Meal Subscription tab, Plan Details; BEM sub-*) ---- */
 @utility sub-active {
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-xl);
   overflow: hidden;
-  background-color: var(--color-meal-dark);
+  background-color: var(--color-inverse);
 }
 
 @utility sub-active__pill {
@@ -2066,7 +2282,7 @@
   font-family: var(--font-sans-semibold);
   font-size: 11px;
   line-height: 15px;
-  color: var(--color-meal-dark);
+  color: var(--color-ink);
 }
 
 @utility sub-active__name {
@@ -2088,7 +2304,7 @@
   padding: 12px;
   gap: 8px;
   border-radius: var(--radius-md);
-  background-color: rgba(0, 0, 0, 0.18);
+  background-color: rgba(255, 255, 255, 0.08);
 }
 
 @utility sub-active__track {
@@ -2101,7 +2317,7 @@
 @utility sub-active__fill {
   height: 6px;
   border-radius: var(--radius-pill);
-  background-color: var(--color-meal-secondary);
+  background-color: var(--color-primary-bright);
 }
 
 @utility sub-tile {
@@ -2112,8 +2328,6 @@
   gap: 6px;
   border-radius: 14px;
   background-color: var(--color-surface);
-  border-width: 1px;
-  border-color: var(--color-cream-line);
   box-shadow: var(--shadow-card);
 }
 
@@ -2141,7 +2355,6 @@
 @utility sub-plan--on {
   border-width: 1.5px;
   border-color: var(--color-meal-primary);
-  background-color: var(--color-meal-surface);
 }
 
 @utility sub-plan__icon {
@@ -2208,8 +2421,6 @@
   padding-inline: 4px;
   border-radius: 14px;
   background-color: var(--color-surface);
-  border-width: 1px;
-  border-color: var(--color-cream-line);
   box-shadow: var(--shadow-card);
 }
 
@@ -2245,7 +2456,6 @@
 @utility sub-length--on {
   border-width: 1.5px;
   border-color: var(--color-meal-primary);
-  background-color: var(--color-meal-surface);
 }
 
 @utility sub-length__days {
@@ -2266,7 +2476,7 @@
   padding-inline: 8px;
   padding-block: 2px;
   border-radius: var(--radius-pill);
-  background-color: var(--color-meal-light);
+  background-color: var(--color-success-soft);
 }
 
 @utility sub-save--on {
@@ -2277,7 +2487,7 @@
   font-family: var(--font-sans-semibold);
   font-size: 11px;
   line-height: 15px;
-  color: var(--color-meal-dark);
+  color: var(--color-success);
 }
 
 @utility sub-save__label--on {

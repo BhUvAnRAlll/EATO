@@ -494,7 +494,12 @@ CREATE TABLE meal_subscriptions (
   user_id          VARCHAR(64)  NOT NULL,
   client_id        CHAR(36)     NULL,
   plan_id          INT UNSIGNED NULL,
-  plan_name        VARCHAR(40)  NOT NULL,                   -- copied, like an order's meals
+  plan_name        VARCHAR(120) NOT NULL,                   -- copied, like an order's meals (a meal subscription: the meal's name)
+  meal_id          VARCHAR(64)  NULL,                       -- a meal subscription (2027-01-10); NULL for a whole-plan one
+  slot             ENUM('breakfast', 'lunch', 'dinner') NULL,
+  quantity         TINYINT UNSIGNED NOT NULL DEFAULT 1,
+  unit_price_paise INT UNSIGNED NULL,
+  percent_off      TINYINT UNSIGNED NOT NULL DEFAULT 0,
   days             SMALLINT UNSIGNED NOT NULL,
   meals_per_day    TINYINT UNSIGNED NOT NULL,
   calories         SMALLINT UNSIGNED NOT NULL,
@@ -518,9 +523,30 @@ CREATE TABLE meal_subscriptions (
   PRIMARY KEY (id),
   UNIQUE KEY uq_meal_subscriptions_client (user_id, client_id),
   KEY idx_meal_subscriptions_status (status, starts_on, ends_on),
+  KEY idx_meal_subscriptions_meal (meal_id),
   CONSTRAINT fk_meal_subscriptions_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
-  CONSTRAINT fk_meal_subscriptions_plan FOREIGN KEY (plan_id) REFERENCES meal_plans (id) ON DELETE SET NULL
+  CONSTRAINT fk_meal_subscriptions_plan FOREIGN KEY (plan_id) REFERENCES meal_plans (id) ON DELETE SET NULL,
+  CONSTRAINT fk_meal_subscriptions_meal FOREIGN KEY (meal_id) REFERENCES meals (id) ON DELETE SET NULL
 ) ENGINE = InnoDB;
+
+-- The lengths a meal can be subscribed for and their % off, the same for every meal (2027-01-10)
+CREATE TABLE subscription_lengths (
+  id           INT UNSIGNED      NOT NULL AUTO_INCREMENT,
+  label        VARCHAR(20)       NOT NULL,
+  days         SMALLINT UNSIGNED NOT NULL,
+  percent_off  TINYINT UNSIGNED  NOT NULL DEFAULT 0,
+  active       TINYINT(1)        NOT NULL DEFAULT 1,
+  sort_order   SMALLINT          NOT NULL DEFAULT 0,
+  created_at   TIMESTAMP         NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at   TIMESTAMP         NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_subscription_lengths_days (days),
+  CONSTRAINT chk_subscription_lengths_days CHECK (days BETWEEN 1 AND 90),
+  CONSTRAINT chk_subscription_lengths_off CHECK (percent_off <= 50)
+) ENGINE = InnoDB;
+
+INSERT INTO subscription_lengths (label, days, percent_off, sort_order) VALUES
+  ('3 Days', 3, 3, 1), ('7 Days', 7, 5, 2), ('15 Days', 15, 7, 3), ('1 Month', 26, 10, 4);
 
 -- The three plans from the design (the Super Admin can change them)
 INSERT IGNORE INTO meal_plans (slug, name, tagline, description, goal, meals_per_day, calories, protein_g, carbs_g, fat_g, water_l, included, sort_order) VALUES

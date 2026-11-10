@@ -55,8 +55,8 @@ export default function AdminSubscriptions() {
       title="Subscriptions"
       onRefresh={refresh}
       headerRight={
-        <Pressable onPress={() => router.push("/admin/subscriptions/plans")} hitSlop={8} className="admin-chip admin-chip--on" accessibilityRole="button">
-          <Text className="admin-segment__label admin-segment__label--on">Plans</Text>
+        <Pressable onPress={() => router.push("/admin/subscriptions/prices")} hitSlop={8} className="admin-chip admin-chip--on" accessibilityRole="button">
+          <Text className="admin-segment__label admin-segment__label--on">Prices</Text>
         </Pressable>
       }
     >

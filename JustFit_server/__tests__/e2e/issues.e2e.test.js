@@ -45,7 +45,6 @@ describe("meal issues e2e: reports, working them, customers and the reports scre
     kind: "home", receiverName: "Asha Rao", receiverPhone: "9876543210", house: "Flat 2A", street: "80 Feet Road", landmark: null, city: "Bengaluru",
     pincode, formattedAddress: "80 Feet Road, Bengaluru", latitude: 12.9352, longitude: 77.6245, instructions: null, makeDefault: false,
   });
-  const subscribeBody = (over = {}) => ({ clientId: crypto.randomUUID(), planId: state.planId, days: 7, startsOn: tomorrow, addressId: state.addressA, ...over });
   const pay = async (token, made) => {
     const paid = await api("POST", "/api/orders/gateway/dummy/checkout", token, { razorpay_order_id: made.checkout.order_id, method: "upi", outcome: "success" });
     const { status: _s, ...answer } = paid.json;

@@ -64,7 +64,7 @@ export function PaymentCheckout({ options, onDone }: { options: CheckoutOptions;
       {(dismiss) => (
         <View style={{ gap: 16 }}>
           <View className="flex-row items-start" style={{ gap: 12 }}>
-            <View className="meal-icon"><SymbolView name={{ ios: "fork.knife", android: "restaurant", web: "restaurant" }} size={18} tintColor={colors.mealDark} /></View>
+            <View className="meal-icon"><SymbolView name={{ ios: "fork.knife", android: "restaurant", web: "restaurant" }} size={18} tintColor={colors.ink} /></View>
             <View className="min-w-0 flex-1">
               <Text className="type-headline text-forest-ink">{options.name}</Text>
               <Text className="meta-text" numberOfLines={1}>{options.description}</Text>

@@ -6,7 +6,7 @@ import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 
 import { EmptyState } from "@/components/EmptyState";
 import { LoadError } from "@/components/macro/LoadError";
-import { MealCard } from "@/components/meals/ShopParts";
+import { MealCard } from "@/components/meals/cards/MealCard";
 import { PressableScale } from "@/components/PressableScale";
 import { ScreenHeader } from "@/components/ScreenHeader";
 import { ScreenSkeleton } from "@/components/Skeleton";

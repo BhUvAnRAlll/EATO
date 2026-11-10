@@ -51,7 +51,7 @@ export default function OrderDetail() {
       return () => sub.remove();
     }, [read]),
   );
-  const { refreshControl } = usePullToRefresh(read, colors.mealPrimary);
+  const { refreshControl } = usePullToRefresh(read, colors.ink);
 
   const cancel = async (order: Order) => {
     if (cancelling) return;
@@ -113,7 +113,7 @@ export default function OrderDetail() {
                 {order.discount > 0 && (
                   <View className="admin-row admin-row--divided">
                     <Text className="type-body text-muted flex-1">{`Coupon ${order.couponCode ?? ""}`.trim()}</Text>
-                    <Text className="type-body" style={{ color: colors.mealDark }}>{`− ${rupees(order.discount)}`}</Text>
+                    <Text className="type-body" style={{ color: colors.success }}>{`− ${rupees(order.discount)}`}</Text>
                   </View>
                 )}
                 <View className="admin-row admin-row--divided">

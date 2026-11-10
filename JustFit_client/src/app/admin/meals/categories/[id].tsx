@@ -7,7 +7,7 @@ import { OnOffRow, PhotoBox, photoPayload, type PhotoChoice } from "@/components
 import { AdminScreen } from "@/components/admin/AdminScreen";
 import { FormAlert } from "@/components/FormAlert";
 import { DashedBlock } from "@/components/macro/DashedBlock";
-import { DietMark } from "@/components/meals/MealRow";
+import { DietMark } from "@/components/meals/DietMark";
 import { ScreenSkeleton } from "@/components/Skeleton";
 import { SymbolView } from "@/components/SymbolView";
 import { useGymSave } from "@/lib/gymForm";

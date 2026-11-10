@@ -1,12 +1,14 @@
-// Meal plans and subscriptions (Meal Operations phase 5, 2026-11-10).
-// Members, /api/subscriptions (requireUser in index.js): GET /plans, GET /plans/:slug, GET /mine,
-//   POST / { clientId, planId, days, startsOn, addressId } (waits for payment, with the checkout),
-//   POST /:id/verify-payment, POST /:id/payment-failed, POST /:id/pause { from, until },
+// Meal subscriptions (Meal Operations phase 5, 2026-11-10; per meal since 2027-01-10, the user's design).
+// Members, /api/subscriptions (requireUser in index.js): GET /lengths, GET /mine (running and past),
+//   POST / { clientId, mealId, lengthId, quantity, slot, startsOn, addressId } (waits for payment, with
+//   the checkout), POST /:id/verify-payment, POST /:id/payment-failed, POST /:id/pause { from, until },
 //   POST /:id/resume, POST /:id/skip { day }, POST /:id/unskip { day }, POST /:id/cancel { reason? }.
-// Admin, inside /api/admin/kitchen (adminOnly): GET|POST /subscription-plans, PUT /subscription-plans/:id,
+// Admin, inside /api/admin/kitchen (adminOnly): GET|PUT /subscription-lengths,
 //   GET /subscriptions?status=&search=, GET /subscriptions/:id, POST /subscriptions/:id/activate|pause|
-//   resume|cancel|extend|plan, POST /subscriptions/generate { day }.
-// Who is asking always comes from the session. Before migration 2027-01-08 these answer 503 naming it.
+//   resume|cancel|extend, POST /subscriptions/generate { day }. The whole meal plans are gone for new
+//   subscriptions (the user's choice); running plan subscriptions keep their orders until they end.
+// Who is asking always comes from the session. Before migration 2027-01-08 these answer 503 naming it;
+// the lengths and subscribing need 2027-01-10 too.
 const express = require("express");
 
 const { createRateLimiter, limitPerUser } = require("../rateLimit");
@@ -32,6 +34,11 @@ const route = (handler) => async (req, res, next) => {
   }
 };
 const subscriptionId = (value) => mealRules.orderId(value); // a UUID, like an order's id
+const MEAL_MIGRATION = "Meal subscriptions need the 2027-01-10-meal-item-subscriptions migration on this server.";
+const mealRoute = (handler) => route(async (req, res, next) => {
+  if (!(await subscriptions.mealReady(pool(req)))) return res.status(503).json({ error: MEAL_MIGRATION });
+  await handler(req, res, next);
+});
 
 // ---- Members ----
 
@@ -40,18 +47,15 @@ const memberRouter = express.Router({ caseSensitive: true, strict: true });
 const changeLimit = limitPerUser(createRateLimiter({ limit: Number(process.env.SUBSCRIPTION_CHANGES_PER_HOUR) || 30, windowMs: 60 * 60 * 1000 }));
 const payLimit = limitPerUser(createRateLimiter({ limit: Number(process.env.MEAL_PAYMENTS_PER_HOUR) || 60, windowMs: 60 * 60 * 1000 }));
 
-memberRouter.get("/plans", route(async (req, res) => {
-  res.json(await subscriptions.plans(pool(req)));
-}));
-memberRouter.get("/plans/:slug", route(async (req, res) => {
-  if (!/^[a-z0-9-]{1,40}$/.test(req.params.slug)) throw new ValidationError("That isn't a plan.");
-  res.json(await subscriptions.plan(pool(req), req.params.slug));
+memberRouter.get("/lengths", mealRoute(async (req, res) => {
+  rules.onlyFields(req.query, []);
+  res.json(await subscriptions.lengths(pool(req)));
 }));
 memberRouter.get("/mine", route(async (req, res) => {
   res.json(await subscriptions.mine(pool(req), req.userId, today()));
 }));
-memberRouter.post("/", changeLimit, smallBody, route(async (req, res) => {
-  const made = await subscriptions.subscribe(pool(req), req.userId, rules.subscribeBody(req.body, today()), today());
+memberRouter.post("/", changeLimit, smallBody, mealRoute(async (req, res) => {
+  const made = await subscriptions.subscribeMeal(pool(req), req.userId, rules.subscribeMealBody(req.body, today()), today(), meals.loadSlots);
   res.status(made.repeated ? 200 : 201).json(made);
 }));
 memberRouter.post("/:id/verify-payment", payLimit, smallBody, route(async (req, res) => {
@@ -88,19 +92,13 @@ memberRouter.post("/:id/cancel", changeLimit, smallBody, route(async (req, res) 
 const adminRouter = express.Router({ caseSensitive: true, strict: true });
 const adminLimit = limitPerUser(createRateLimiter({ limit: 120, windowMs: 60 * 60 * 1000 }));
 
-adminRouter.get("/subscription-plans", route(async (req, res) => {
-  res.json(await subscriptions.plans(pool(req), { all: true }));
+adminRouter.get("/subscription-lengths", mealRoute(async (req, res) => {
+  res.json(await subscriptions.lengths(pool(req), { all: true }));
 }));
-adminRouter.post("/subscription-plans", adminLimit, smallBody, route(async (req, res) => {
-  const saved = await subscriptions.savePlan(pool(req), null, rules.planBody(req.body));
-  await recordAdminAction(pool(req), req, "meal.plan_add", "meal", null, `Added meal plan “${saved.plan.name}”`);
-  res.status(201).json(saved);
-}));
-adminRouter.put("/subscription-plans/:id", adminLimit, smallBody, route(async (req, res) => {
-  const id = Number(req.params.id);
-  if (!/^[1-9][0-9]{0,9}$/.test(req.params.id)) throw new ValidationError("That isn't a plan.");
-  const saved = await subscriptions.savePlan(pool(req), id, rules.planBody(req.body));
-  await recordAdminAction(pool(req), req, "meal.plan_edit", "meal", null, `Edited meal plan “${saved.plan.name}”`);
+adminRouter.put("/subscription-lengths", adminLimit, smallBody, mealRoute(async (req, res) => {
+  const { lengths } = rules.lengthsBody(req.body);
+  const saved = await subscriptions.saveLengths(pool(req), lengths);
+  await recordAdminAction(pool(req), req, "meal.subscription_prices", "meal", null, `Subscription prices: ${lengths.map((l) => `${l.label} ${l.percentOff}% off${l.active ? "" : " (off)"}`).join(", ")}`);
   res.json(saved);
 }));
 adminRouter.get("/subscriptions", route(async (req, res) => {
@@ -130,11 +128,6 @@ const ACTIONS = {
     rules.onlyFields(req.body, ["days"]);
     if (!Number.isInteger(req.body.days) || req.body.days < 1 || req.body.days > 90) throw new ValidationError("Extend by 1 to 90 days.");
     return subscriptions.extend(pool(req), id, req.body.days);
-  },
-  plan: async (req, id) => {
-    rules.onlyFields(req.body, ["planId"]);
-    if (!Number.isInteger(req.body.planId) || req.body.planId < 1) throw new ValidationError("Pick a plan.");
-    return subscriptions.changePlan(pool(req), id, req.body.planId);
   },
 };
 for (const [action, run] of Object.entries(ACTIONS)) {
