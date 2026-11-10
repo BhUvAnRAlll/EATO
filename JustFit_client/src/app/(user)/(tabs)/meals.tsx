@@ -18,7 +18,7 @@ import { ScreenSkeleton } from "@/components/Skeleton";
 import { haptic } from "@/lib/haptics";
 import { hud } from "@/lib/hud";
 import { listPerf } from "@/lib/listPerf";
-import { byDiet, popularMeals, searchWithFallback, shopSections, sortMeals, suggestions, type QuickList } from "@/lib/mealRules";
+import { byDiet, popularMeals, searchExamples, searchWithFallback, shopSections, sortMeals, suggestions, type QuickList } from "@/lib/mealRules";
 import { mealsApi, type MealBanner, type MenuMeal } from "@/lib/mealsApi";
 import { useAddressBook } from "@/lib/useAddressBook";
 import { useSessionToken } from "@/lib/session";
@@ -68,6 +68,7 @@ export default function Meals() {
   const query = search.trim();
   const found = useMemo(() => (store && sections && query ? searchWithFallback(sections.meals, store.categories, query) : null), [store, sections, query]);
   const results = found?.meals ?? null;
+  const examples = useMemo(() => (store ? searchExamples(store.meals, store.categories) : []), [store]);
   const hints = useMemo(() => (store && focused ? suggestions(store.meals, store.categories, query) : []), [store, focused, query]);
   const count = cartCount(items);
   const address = addressLoad.state === "ready" ? addressLoad.book.addresses.find((a) => a.isDefault) ?? null : null;
@@ -128,7 +129,7 @@ export default function Meals() {
   const header = (
     <View style={{ gap: 18, paddingBottom: 14 }}>
       <ShopHeader address={address} count={count} />
-          <MealSearch value={search} onChange={setSearch} focused={focused} onFocus={setFocused} hints={hints} filtered={filtered} onFilters={() => setShowFilters(true)} />
+          <MealSearch value={search} onChange={setSearch} focused={focused} onFocus={setFocused} hints={hints} filtered={filtered} onFilters={() => setShowFilters(true)} examples={examples} />
           {results ? (
             <View className="px-4" style={{ gap: 4 }}>
               {found?.kind !== "exact" && <Text className="shop-search__miss">{found?.kind === "popular" ? `No meals for “${query}”` : `No exact match for “${query}”`}</Text>}

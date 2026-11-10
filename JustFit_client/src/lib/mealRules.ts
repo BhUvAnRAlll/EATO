@@ -251,6 +251,23 @@ export function searchWithFallback<M extends ShopMeal>(meals: M[], categories: S
   return { meals: popularMeals(meals), kind: "popular", didYouMean: null };
 }
 
+/** Examples the search box cycles through ("Search “smoothie”") when the menu has none of its own */
+export const SEARCH_EXAMPLES = ["paneer bowl", "smoothie", "chicken biryani", "protein shake", "masala dosa", "salad"];
+
+/**
+ * What the search box suggests trying: the menu's food categories, then its meals (bestsellers
+ * first), lowercased and de-duplicated, up to `max`; the built-in examples when the menu is empty.
+ */
+export function searchExamples(meals: { name: string; tags: Tag[] }[], categories: { kind: "tile" | "food"; name: string }[], max = 8): string[] {
+  const names = [
+    ...categories.filter((c) => c.kind === "food").map((c) => c.name),
+    ...meals.filter((m) => m.tags.includes("bestseller")).map((m) => m.name),
+    ...meals.map((m) => m.name),
+  ].map((n) => n.trim().toLowerCase()).filter((n) => n.length > 2 && n.length <= 24);
+  const picked = [...new Set(names)].slice(0, max);
+  return picked.length > 0 ? picked : SEARCH_EXAMPLES;
+}
+
 /** Up to `max` suggestions for a search: meal and category names containing what's typed */
 export function suggestions(meals: { name: string }[], categories: { name: string }[], query: string, max = 5): string[] {
   const q = query.trim().toLowerCase();

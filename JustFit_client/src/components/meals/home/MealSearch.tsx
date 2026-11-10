@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Text, View } from "react-native";
 
 import { FieldInput } from "@/components/FieldInput";
@@ -13,12 +14,25 @@ type MealSearchProps = {
   hints: string[];
   filtered: boolean;
   onFilters: () => void;
+  /** Dishes the placeholder cycles through: Search “smoothie”, Search “paneer bowl”… */
+  examples: string[];
 };
+
+const EXAMPLE_EVERY_MS = 2500;
 
 // The search (meal, cuisine or ingredient) with its suggestions under it, and the filter button
 // (a dot when a filter is on)
-export function MealSearch({ value, onChange, focused, onFocus, hints, filtered, onFilters }: MealSearchProps) {
+export function MealSearch({ value, onChange, focused, onFocus, hints, filtered, onFilters, examples }: MealSearchProps) {
   const colors = useThemeColors();
+  // The placeholder moves to the next example every few seconds, only while it is showing
+  const [shown, setShown] = useState(0);
+  const cycling = !focused && !value && examples.length > 1;
+  useEffect(() => {
+    if (!cycling) return;
+    const timer = setInterval(() => setShown((i) => i + 1), EXAMPLE_EVERY_MS);
+    return () => clearInterval(timer);
+  }, [cycling]);
+  const example = examples.length > 0 ? examples[shown % examples.length] : null;
   return (
     <View className="px-4" style={{ gap: 8 }}>
       <View className="flex-row items-center" style={{ gap: 10 }}>
@@ -30,7 +44,7 @@ export function MealSearch({ value, onChange, focused, onFocus, hints, filtered,
             onChangeText={onChange}
             onFocus={() => onFocus(true)}
             onBlur={() => setTimeout(() => onFocus(false), 150)}
-            placeholder="Search meals, cuisine or ingredients"
+            placeholder={example ? `Search “${example}”` : "Search meals, cuisine or ingredients"}
             placeholderTextColor={colors.faint}
             returnKeyType="search"
             autoCorrect={false}
