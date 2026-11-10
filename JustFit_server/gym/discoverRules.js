@@ -139,6 +139,7 @@ function comparePlans(items) {
     .map((i) => ({
       id: i.id, name: i.name, months: i.duration_unit === "months" ? i.duration : null, days: i.duration_unit === "days" ? i.duration : null,
       price: i.price, perMonth: perMonth(i), details: i.details ?? null, benefits: readBenefits(i.benefits), bestValue: Number(i.best_value ?? 0) === 1, order: Number(i.sort_order ?? 0),
+      eligibility: i.eligibility ?? null, terms: i.terms ?? null,
     }))
     .sort((a, b) => byGymOrder(a.order, b.order) || (a.months ?? a.days / 30) - (b.months ?? b.days / 30) || a.price - b.price);
   const shortest = [...plans].sort((a, b) => (a.months ?? a.days / 30) - (b.months ?? b.days / 30) || a.price - b.price)[0];

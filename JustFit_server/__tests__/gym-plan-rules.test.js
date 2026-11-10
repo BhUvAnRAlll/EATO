@@ -55,3 +55,29 @@ describe("Plan options: benefits, best value, status and order", () => {
     assert.deepEqual(discover.readBenefits("not json"), []);
   });
 });
+
+describe("Plan terms and eligibility (G17)", () => {
+  it("takes who may buy it and its rules, tidied; empty clears", () => {
+    const body = rules.catalogBody({ kind: "plan", name: "Ladies", duration: 1, price: 1200, eligibility: "  Women only ", terms: "No refunds.\r\n\n\n\nOne freeze a year." }, { creating: true });
+    assert.equal(body.eligibility, "Women only");
+    assert.equal(body.terms, "No refunds.\n\nOne freeze a year.");
+    assert.equal(rules.catalogBody({ terms: "" }, { creating: false }).terms, null);
+    assert.equal(rules.catalogBody({ eligibility: null }, { creating: false }).eligibility, null);
+  });
+
+  it("refuses long text, control characters, non-text and other kinds", () => {
+    assert.throws(() => rules.catalogBody({ eligibility: "x".repeat(121) }, { creating: false }), /120 characters/);
+    assert.throws(() => rules.catalogBody({ terms: "x".repeat(601) }, { creating: false }), /600 characters/);
+    assert.throws(() => rules.catalogBody({ terms: "bad\u0007bell" }, { creating: false }), /can't show/);
+    assert.throws(() => rules.catalogBody({ eligibility: ["Women"] }, { creating: false }), /as text/);
+    assert.throws(() => rules.catalogBody({ kind: "service", name: "Steam", price: 200, terms: "Book ahead" }, { creating: true }), /Only plans and PT/);
+  });
+
+  it("shows members each plan's eligibility and terms", () => {
+    const [plan] = discover.comparePlans([{ id: 1, kind: "plan", name: "Student", duration: 1, duration_unit: "months", price: 900, eligibility: "College ID", terms: "Weekdays only" }]);
+    assert.equal(plan.eligibility, "College ID");
+    assert.equal(plan.terms, "Weekdays only");
+    const [bare] = discover.comparePlans([{ id: 2, kind: "plan", name: "Basic", duration: 1, duration_unit: "months", price: 1000 }]);
+    assert.equal(bare.eligibility, null);
+  });
+});

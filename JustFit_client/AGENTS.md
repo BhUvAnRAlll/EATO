@@ -375,7 +375,12 @@ Trainers section is on). Plans / Catalogue has Duplicate on every item (`POST
 /api/gym/catalog/:id/duplicate`, `gym/catalogCopy.js` through `service.addItem`: "<name> (copy)", same
 price, length, stock, What's included and benefits, Inactive, never Best value; option
 `catalog.edit`, on Activity). Migration `2027-01-21-featured-gyms.sql` (one column); before it the
-switch is hidden and featuring answers 503. Not built: plan terms and eligibility fields, facility
+switch is hidden and featuring answers 503. **Plan terms and eligibility (2026-11-10, G17):** plans
+and PT packages take an optional "Who can join" (120) and "Terms" (600) in `CatalogSheet`
+(`rules.catalogBody` `eligibility` / `terms`, sent only when changed, copied by Duplicate); a gym's
+page shows "Who can join: …" and Terms behind a tap (`PlanTerms` in `GymPageView`). Migration
+`2027-01-22-plan-terms.sql` (two columns); before it the catalogue reads as before and saving either
+answers 503 naming it (`service.hasPlanTerms`). Not built: facility
 images, a rating filter (needs the uncommitted reviews work). Tests:
 `__tests__/gym-discover-extras-rules.test.js`, `e2e/gym-extras.e2e.test.js`.
 

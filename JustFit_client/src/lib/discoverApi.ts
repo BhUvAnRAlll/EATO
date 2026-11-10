@@ -39,8 +39,8 @@ export type DiscoverQuery = {
 
 // savesPerMonth: how much a month less than the shortest plan
 // benefits and bestValue (the gym's own pick) since Gym Profile phase 2; absent from an older server
-export type ComparePlan = { id: number; name: string; months: number | null; days: number | null; price: number; perMonth: number | null; savesPerMonth: number; details: string | null; benefits?: string[]; bestValue?: boolean };
-export type PtPackage = { id: number; name: string; months: number | null; price: number; details: string | null; benefits?: string[] };
+export type ComparePlan = { id: number; name: string; months: number | null; days: number | null; price: number; perMonth: number | null; savesPerMonth: number; details: string | null; benefits?: string[]; bestValue?: boolean; eligibility?: string | null; terms?: string | null };
+export type PtPackage = { id: number; name: string; months: number | null; price: number; details: string | null; benefits?: string[]; eligibility?: string | null; terms?: string | null };
 // A join request (phase 4): asking a gym to call about a plan; it lands in the gym's Enquiries.
 // state: sent (waiting), in_touch (the gym is following up), joined, closed
 export type JoinState = "sent" | "in_touch" | "joined" | "closed";

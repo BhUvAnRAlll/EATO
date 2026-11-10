@@ -108,6 +108,8 @@ function catalogExtras(body) {
   if (body?.bestValue === true) parts.push("Marked it best value");
   if (body?.bestValue === false) parts.push("Unmarked best value");
   if (body?.benefits !== undefined) parts.push("Changed the benefits");
+  if (body?.eligibility !== undefined) parts.push("Changed who can join");
+  if (body?.terms !== undefined) parts.push("Changed the terms");
   return parts.join(" · ") || null;
 }
 const ROUTES = [

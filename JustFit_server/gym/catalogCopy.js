@@ -1,5 +1,5 @@
 // Duplicate a plan, PT package, service or product (Gym Hub ecosystem, the brief's plan management,
-// 2026-11-10): the copy keeps the price, length, stock, "What's included" and benefits, is named
+// 2026-11-10): the copy keeps the price, length, stock, "What's included", benefits, eligibility and terms, is named
 // "<name> (copy)", starts Inactive (members don't see it until it's switched on) and is never the
 // Best value. It goes through service.addItem, so the branch's item limit and order still hold. Only
 // this branch's items can be copied.
@@ -15,6 +15,8 @@ async function duplicate(pool, gymId, userId, itemId) {
   const item = {
     kind: row.kind, name, duration: row.duration ?? undefined, unit: row.duration_unit ?? undefined, price: row.price, stock: row.stock ?? undefined,
     ...(row.details !== undefined && row.details !== null ? { details: row.details } : {}),
+    ...(row.eligibility ? { eligibility: row.eligibility } : {}),
+    ...(row.terms ? { terms: row.terms } : {}),
     ...(withOptions ? { benefits: discoverRules.readBenefits(row.benefits), bestValue: false, status: "inactive" } : {}),
   };
   return service.addItem(pool, gymId, userId, item);

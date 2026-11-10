@@ -792,6 +792,7 @@ async function wallet(pool, gymId, today) {
 const itemOf = (r) => ({
   id: r.id, kind: r.kind, name: r.name, duration: r.duration ?? null, unit: r.duration_unit ?? null, price: r.price, stock: r.stock ?? null, details: r.details ?? null,
   benefits: readBenefits(r.benefits), bestValue: Number(r.best_value ?? 0) === 1, status: r.status ?? "active", sortOrder: Number(r.sort_order ?? 0),
+  eligibility: r.eligibility ?? null, terms: r.terms ?? null,
   imageUrl: r.image_key ? `/api/gym/catalog/${r.id}/image?v=${r.image_key.slice(0, 8)}` : null,
 });
 function readBenefits(stored) {
@@ -822,13 +823,24 @@ async function hasPlanOptions(db) {
   optionsColumn = { has: Number(row.n) > 0, at: Date.now() };
   return optionsColumn.has;
 }
+// Whether it has eligibility and terms yet (migration 2027-01-22), the same way
+let termsColumn = { has: false, at: 0 };
+async function hasPlanTerms(db) {
+  if (termsColumn.has || Date.now() - termsColumn.at < 60000) return termsColumn.has;
+  const [[row]] = await db.query("SELECT COUNT(*) AS n FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'gym_catalog_items' AND COLUMN_NAME = 'terms'");
+  termsColumn = { has: Number(row.n) > 0, at: Date.now() };
+  return termsColumn.has;
+}
+const TERM_FIELDS = ["eligibility", "terms"];
+const needsTerms = (item) => TERM_FIELDS.some((k) => item[k] !== undefined);
+const termsMissing = () => Object.assign(new Error("plan terms missing"), { code: "ER_BAD_FIELD_ERROR", sqlMessage: "Unknown column 'terms'" });
 // " AND status = 'active'" once the column exists: what new sales, members and join requests may use
 const activeOnly = async (db, alias = "") => ((await hasPlanOptions(db)) ? ` AND ${alias}status = 'active'` : "");
 
 async function catalog(pool, gymId) {
-  const [details, options] = await Promise.all([hasCatalogDetails(pool), hasPlanOptions(pool)]);
+  const [details, options, terms] = await Promise.all([hasCatalogDetails(pool), hasPlanOptions(pool), hasPlanTerms(pool)]);
   const [rows] = await pool.query(
-    `SELECT id, kind, name, duration, duration_unit, price, stock, image_key${details ? ", details" : ""}${options ? ", benefits, best_value, sort_order, status" : ""}
+    `SELECT id, kind, name, duration, duration_unit, price, stock, image_key${details ? ", details" : ""}${options ? ", benefits, best_value, sort_order, status" : ""}${terms ? ", eligibility, terms" : ""}
      FROM gym_catalog_items WHERE gym_id = ? ORDER BY ${options ? ORDERED : KIND_ORDER}`,
     [gymId],
   );
@@ -845,6 +857,7 @@ async function settleBestValue(db, gymId, itemId, fields) {
 
 async function addItem(pool, gymId, userId, item) {
   if (needsOptions(item) && !(await hasPlanOptions(pool))) throw Object.assign(new Error("plan options missing"), { code: "ER_BAD_FIELD_ERROR", sqlMessage: "Unknown column 'status'" });
+  if (needsTerms(item) && !(await hasPlanTerms(pool))) throw termsMissing();
   const withDetails = item.details !== undefined;
   const withOptions = await hasPlanOptions(pool);
   await inTransaction(pool, async (db) => {
@@ -856,6 +869,7 @@ async function addItem(pool, gymId, userId, item) {
     const columns = ["gym_id", "kind", "name", "duration", "duration_unit", "price", "stock", "created_by"];
     const values = [gymId, item.kind, item.name, item.duration ?? null, item.unit ?? null, item.price, item.stock ?? null, userId];
     if (withDetails) columns.push("details"), values.push(item.details);
+    for (const k of TERM_FIELDS) if (item[k] !== undefined) columns.push(k), values.push(item[k]);
     if (withOptions) {
       const [[{ last }]] = await db.query("SELECT COALESCE(MAX(sort_order), 0) AS last FROM gym_catalog_items WHERE gym_id = ? AND kind = ?", [gymId, item.kind]);
       columns.push("benefits", "best_value", "sort_order", "status");
@@ -869,6 +883,7 @@ async function addItem(pool, gymId, userId, item) {
 
 async function editItem(pool, gymId, itemId, fields) {
   if (needsOptions(fields) && !(await hasPlanOptions(pool))) throw Object.assign(new Error("plan options missing"), { code: "ER_BAD_FIELD_ERROR", sqlMessage: "Unknown column 'status'" });
+  if (needsTerms(fields) && !(await hasPlanTerms(pool))) throw termsMissing();
   await inTransaction(pool, async (db) => {
     const [[row]] = await db.query(`SELECT kind${(await hasPlanOptions(db)) ? ", status" : ""} FROM gym_catalog_items WHERE id = ? AND gym_id = ? FOR UPDATE`, [itemId, gymId]);
     if (!row) throw new NotFoundError("That item isn't in your catalogue.");
@@ -876,10 +891,11 @@ async function editItem(pool, gymId, itemId, fields) {
     if (fields.stock !== undefined && row.kind !== "product") throw new ValidationError("Only products have stock.");
     if (fields.details !== undefined && !["plan", "pt"].includes(row.kind)) throw new ValidationError("Only plans and PT packages have details.");
     if (fields.benefits !== undefined && !["plan", "pt"].includes(row.kind)) throw new ValidationError("Only plans and PT packages have benefits.");
+    if (needsTerms(fields) && !["plan", "pt"].includes(row.kind)) throw new ValidationError("Only plans and PT packages have terms.");
     if (fields.bestValue !== undefined && row.kind !== "plan") throw new ValidationError("Only a membership plan can be the best value.");
     if (fields.bestValue === true && (fields.status ?? row.status ?? "active") !== "active") throw new ValidationError("Only an active plan can be the best value.");
     // Column names only from this list
-    const columns = { name: "name", duration: "duration", unit: "duration_unit", price: "price", stock: "stock", details: "details", benefits: "benefits", bestValue: "best_value", status: "status" };
+    const columns = { name: "name", duration: "duration", unit: "duration_unit", price: "price", stock: "stock", details: "details", benefits: "benefits", bestValue: "best_value", status: "status", eligibility: "eligibility", terms: "terms" };
     const value = (k) => (k === "benefits" ? JSON.stringify(fields[k]) : k === "bestValue" ? (fields[k] ? 1 : 0) : fields[k]);
     const keys = Object.keys(fields);
     await db.query(`UPDATE gym_catalog_items SET ${keys.map((k) => `${columns[k]} = ?`).join(", ")} WHERE id = ? AND gym_id = ?`, [...keys.map(value), itemId, gymId]);
@@ -920,6 +936,7 @@ module.exports = {
   orderItems,
   deleteItem,
   hasPlanOptions,
+  hasPlanTerms,
   activeOnly,
   staffGym,
   gymInfo,

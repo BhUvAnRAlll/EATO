@@ -18,6 +18,10 @@ import { DETAILS_MAX } from "@/lib/gymProfile";
 import { notice } from "@/lib/gymPortal";
 import { useSwitchColors, useThemeColors } from "@/theme";
 
+// The server's limits for a plan's eligibility and terms (gym/rules.js)
+const ELIGIBILITY_MAX = 120;
+const TERMS_MAX = 600;
+
 const TITLE: Record<CatalogKind, string> = { plan: "Plan", pt: "PT Package", service: "Service", product: "Product" };
 
 // Plans / Catalogue › Add Plan (the user's design): a bottom sheet with the name, for a plan or a
@@ -44,6 +48,8 @@ export function CatalogSheet({ kind, item, onClose, onSaved }: { kind: CatalogKi
   const [stock, setStock] = useState(item?.stock !== null && item?.stock !== undefined ? String(item.stock) : "");
   const [details, setDetails] = useState(item?.details ?? "");
   const [benefits, setBenefits] = useState<string[]>(item?.benefits ?? []);
+  const [eligibility, setEligibility] = useState(item?.eligibility ?? "");
+  const [terms, setTerms] = useState(item?.terms ?? "");
   const [benefit, setBenefit] = useState("");
   const [bestValue, setBestValue] = useState(item?.bestValue ?? false);
   const [status, setStatus] = useState<CatalogStatus>(item?.status ?? "active");
@@ -89,6 +95,9 @@ export function CatalogSheet({ kind, item, onClose, onSaved }: { kind: CatalogKi
         ...(isPlan && details.trim() !== (item?.details ?? "") ? { details: details.trim() } : {}),
         // Gym Profile phase 2: only what changed, so the catalogue keeps saving before its migration
         ...(isPlan && benefits.join("\n") !== (item?.benefits ?? []).join("\n") ? { benefits } : {}),
+        // Who may buy it and its rules (G17): only when changed, so saving works before the migration
+        ...(isPlan && eligibility.trim() !== (item?.eligibility ?? "") ? { eligibility: eligibility.trim() } : {}),
+        ...(isPlan && terms.trim() !== (item?.terms ?? "") ? { terms: terms.trim() } : {}),
         ...(kind === "plan" && bestValue !== (item?.bestValue ?? false) ? { bestValue: bestValue && status === "active" } : {}),
         ...(item && status !== (item.status ?? "active") ? { status } : {}),
       } satisfies CatalogFields;
@@ -109,6 +118,8 @@ export function CatalogSheet({ kind, item, onClose, onSaved }: { kind: CatalogKi
     ["Amount", rupees(amount)],
     ...(isPlan && details.trim() ? [["Included", details.trim()] as [string, string]] : []),
     ...(isPlan && benefits.length ? [["Benefits", benefits.join(", ")] as [string, string]] : []),
+    ...(isPlan && eligibility.trim() ? [["Who can join", eligibility.trim()] as [string, string]] : []),
+    ...(isPlan && terms.trim() ? [["Terms", terms.trim()] as [string, string]] : []),
     ...(kind === "plan" && bestValue && status === "active" ? [["Best value", "Yes"] as [string, string]] : []),
     ...(item && status !== (item.status ?? "active") ? [["Status", CATALOG_STATUS.find((c) => c.id === status)!.label] as [string, string]] : []),
     ...(isProduct ? [["Stock", stockValue === null ? "Not counted" : `${stockValue} in stock`] as [string, string]] : []),
@@ -183,6 +194,30 @@ export function CatalogSheet({ kind, item, onClose, onSaved }: { kind: CatalogKi
             </>
           )}
         </View>
+      )}
+      {isPlan && (
+        <GymField
+          label="Who can join (optional)"
+          icon="user-check"
+          value={eligibility}
+          onChangeText={(t) => setEligibility(t.slice(0, ELIGIBILITY_MAX))}
+          maxLength={ELIGIBILITY_MAX}
+          placeholder="Eg. Women only, Students with a college ID"
+          hint="One line members read before they ask about it."
+        />
+      )}
+      {isPlan && (
+        <GymField
+          label="Terms (optional)"
+          icon="file-text"
+          value={terms}
+          onChangeText={(t) => setTerms(t.slice(0, TERMS_MAX))}
+          maxLength={TERMS_MAX}
+          placeholder="Eg. Weekdays 10 am to 4 pm. One freeze a year. No refunds."
+          multiline
+          style={{ minHeight: 72, textAlignVertical: "top" }}
+          hint="Access hours, freezes, transfers, refunds. Members can open these on your page."
+        />
       )}
       {kind === "plan" && (
         <View className="flex-row items-center" style={{ gap: 10 }}>

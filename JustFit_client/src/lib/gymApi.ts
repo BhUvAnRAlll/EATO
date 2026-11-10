@@ -28,8 +28,10 @@ export type CatalogStatus = "active" | "inactive" | "archived";
 export type CatalogItem = {
   id: number; kind: CatalogKind; name: string; duration: number | null; unit: PlanUnit | null; price: number; stock: number | null; imageUrl: string | null; details?: string | null;
   benefits?: string[]; bestValue?: boolean; status?: CatalogStatus; sortOrder?: number;
+  // Who may buy it and its rules (plans and PT; migration 2027-01-22, absent before it)
+  eligibility?: string | null; terms?: string | null;
 };
-export type CatalogFields = { name?: string; duration?: number; price?: number; stock?: number | ""; details?: string; benefits?: string[]; bestValue?: boolean; status?: CatalogStatus };
+export type CatalogFields = { name?: string; duration?: number; price?: number; stock?: number | ""; details?: string; benefits?: string[]; bestValue?: boolean; status?: CatalogStatus; eligibility?: string; terms?: string };
 // The branch's Gym Profile (Gym Hub phase 2, Gym Profile Management phase 1): the draft the gym
 // edits; members see only what was last published (publishing.state). contact.address and phone
 // come from Invoice details, hasLocation from Location & Attendance, hasLogo from the logo; photos

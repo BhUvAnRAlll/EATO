@@ -13,7 +13,7 @@ const logos = require("./logos");
 const profileRules = require("./profileRules");
 const rules = require("./discoverRules");
 const { todayInIndia } = require("./rules");
-const { activeOnly, hasPlanOptions } = require("./service");
+const { activeOnly, hasPlanOptions, hasPlanTerms } = require("./service");
 const trainerProfiles = require("./trainerProfiles");
 const gymStatus = require("./gymStatus");
 
@@ -176,7 +176,7 @@ function pageOf(g, seen, gallery, items, urls) {
     pt: seen.showPt
       ? items
         .filter((i) => i.kind === "pt")
-        .map((i) => ({ id: i.id, name: i.name, months: i.duration_unit === "months" ? i.duration : null, price: i.price, details: i.details ?? null, benefits: rules.readBenefits(i.benefits), order: Number(i.sort_order ?? 0) }))
+        .map((i) => ({ id: i.id, name: i.name, months: i.duration_unit === "months" ? i.duration : null, price: i.price, details: i.details ?? null, benefits: rules.readBenefits(i.benefits), eligibility: i.eligibility ?? null, terms: i.terms ?? null, order: Number(i.sort_order ?? 0) }))
         .sort((a, b) => rules.byGymOrder(a.order, b.order) || (a.months ?? 0) - (b.months ?? 0) || a.price - b.price)
         .map(({ order, ...p }) => p)
       : [],
@@ -187,9 +187,9 @@ const PAGE_GYM = (columns) => `SELECT g.id, b.name AS brand, g.name AS branch, g
 // The branch's plans and PT packages members may see: active ones only, with benefits, the gym's
 // Best value and its order once migration 2026-12-24 has run
 const pageItems = async (pool, gymId) => {
-  const options = await hasPlanOptions(pool);
+  const [options, terms] = await Promise.all([hasPlanOptions(pool), hasPlanTerms(pool)]);
   return pool.query(
-    `SELECT id, kind, name, duration, duration_unit, price, details${options ? ", benefits, best_value, sort_order" : ""}
+    `SELECT id, kind, name, duration, duration_unit, price, details${options ? ", benefits, best_value, sort_order" : ""}${terms ? ", eligibility, terms" : ""}
      FROM gym_catalog_items WHERE gym_id = ? AND kind IN ('plan', 'pt')${options ? " AND status = 'active'" : ""}`,
     [gymId],
   );

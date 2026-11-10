@@ -236,6 +236,7 @@ function Plans({ gym, onAsk }: { gym: GymPage; onAsk?: (pick: JoinPick) => void 
             )}
             {p.details ? <Text className="type-caption text-ink">{p.details}</Text> : null}
             <Benefits list={p.benefits} />
+            <PlanTerms eligibility={p.eligibility} terms={p.terms} />
             {canAskPlan && (
               <PressableScale onPress={() => onAsk!({ itemId: p.id, label: `${p.name} · ${planLengthText(p.months, p.days)} · ${priceText(p.price)}` })} className="self-start" hitSlop={8} accessibilityRole="button" accessibilityLabel={`Ask about ${p.name}`}>
                 <Text className="auth__note-link">Ask about this plan</Text>
@@ -256,6 +257,7 @@ function Plans({ gym, onAsk }: { gym: GymPage; onAsk?: (pick: JoinPick) => void 
               {p.months ? <Text className="type-caption text-muted">{planLengthText(p.months)}</Text> : null}
               {p.details ? <Text className="type-caption text-ink">{p.details}</Text> : null}
               <Benefits list={p.benefits} />
+              <PlanTerms eligibility={p.eligibility} terms={p.terms} />
               {canAskPt && (
                 <PressableScale onPress={() => onAsk!({ itemId: p.id, label: `PT · ${p.name} · ${priceText(p.price)}` })} className="self-start" hitSlop={8} accessibilityRole="button" accessibilityLabel={`Ask about ${p.name}`}>
                   <Text className="auth__note-link">Ask about this package</Text>
@@ -332,6 +334,25 @@ function TrainerCard({ trainer: t }: { trainer: NonNullable<GymPage["trainers"]>
 }
 
 // What a plan includes, a tick a line (Gym Profile phase 2)
+// Who may buy a plan, always shown, and its terms behind a tap (G17)
+function PlanTerms({ eligibility, terms }: { eligibility?: string | null; terms?: string | null }) {
+  const [open, setOpen] = useState(false);
+  if (!eligibility && !terms) return null;
+  return (
+    <View style={{ gap: 4 }}>
+      {eligibility ? <Text className="type-caption text-ink">{`Who can join: ${eligibility}`}</Text> : null}
+      {terms ? (
+        <>
+          <PressableScale onPress={() => setOpen((o) => !o)} className="self-start" hitSlop={8} accessibilityRole="button" accessibilityState={{ expanded: open }} accessibilityLabel={open ? "Hide the terms" : "Show the terms"}>
+            <Text className="auth__note-link">{open ? "Hide terms" : "Terms"}</Text>
+          </PressableScale>
+          {open ? <Text className="type-caption text-muted">{terms}</Text> : null}
+        </>
+      ) : null}
+    </View>
+  );
+}
+
 function Benefits({ list }: { list?: string[] }) {
   const colors = useThemeColors();
   if (!list || list.length === 0) return null;

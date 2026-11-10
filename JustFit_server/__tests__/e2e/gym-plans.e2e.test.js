@@ -192,12 +192,43 @@ describe("gym plans e2e: benefits, best value, order and status; members see onl
     assert.deepEqual((await api("GET", `/api/gyms/${state.gymA}`, tokens.member)).json.plans.map((p) => p.name), ["Monthly", "Quarterly"], "back, in its place");
   }));
 
+  it("4b. a plan's eligibility and terms reach members, are copied, and only on plans and PT", run(async () => {
+    const add = await api("POST", "/api/gym/catalog", tokens.gymA, { kind: "plan", name: "Student", duration: 1, price: 900, eligibility: "College ID needed", terms: "Weekdays 10 am to 4 pm.\nNo refunds." });
+    assert.equal(add.status, 201, JSON.stringify(add.json));
+    const student = add.json.items.find((i) => i.name === "Student");
+    assert.equal(student.eligibility, "College ID needed");
+    assert.equal(student.terms, "Weekdays 10 am to 4 pm.\nNo refunds.");
+    state.plans.Student = student.id;
+
+    const page = await api("GET", `/api/gyms/${state.gymA}`, tokens.member);
+    const shown = page.json.plans.find((p) => p.name === "Student");
+    assert.equal(shown.eligibility, "College ID needed");
+    assert.match(shown.terms, /No refunds/);
+
+    assert.equal((await api("POST", "/api/gym/catalog", tokens.gymA, { kind: "product", name: "Shaker", price: 300, terms: "No returns" })).status, 400);
+    assert.equal((await api("PATCH", `/api/gym/catalog/${student.id}`, tokens.gymA, { eligibility: "x".repeat(121) })).status, 400);
+    assert.equal((await api("PATCH", `/api/gym/catalog/${student.id}`, tokens.staffA, { terms: "Changed by staff" })).status, 403, "Staff with only the list can't change it");
+    assert.equal((await api("PATCH", `/api/gym/catalog/${student.id}`, tokens.gymB, { terms: "Another gym" })).status, 404, "another gym's plan");
+
+    const copy = await api("POST", `/api/gym/catalog/${student.id}/duplicate`, tokens.gymA);
+    assert.equal(copy.status, 201, JSON.stringify(copy.json));
+    const copied = copy.json.items.find((i) => i.name === "Student (copy)");
+    assert.equal(copied.eligibility, "College ID needed");
+    assert.equal(copied.terms, student.terms);
+
+    const cleared = await api("PATCH", `/api/gym/catalog/${student.id}`, tokens.gymA, { terms: "" });
+    assert.equal(cleared.status, 200);
+    assert.equal(cleared.json.items.find((i) => i.id === student.id).terms, null);
+    for (const id of [student.id, copied.id]) assert.equal((await api("DELETE", `/api/gym/catalog/${id}`, tokens.gymA)).status, 200);
+  }));
+
   it("5. plan changes are on the branch's Activity", run(async () => {
     const [rows] = await connection.query("SELECT target_label, detail FROM gym_activity_log WHERE gym_id = ? AND target_type = 'catalog' ORDER BY id", [state.gymA]);
     const details = rows.map((r) => r.detail ?? "");
     assert.ok(details.some((d) => d.includes("Archived it")), JSON.stringify(details));
     assert.ok(details.some((d) => d.includes("Made it inactive")));
     assert.ok(details.some((d) => d.includes("Marked it best value")));
+    assert.ok(details.some((d) => d.includes("Changed the terms")));
     assert.ok(rows.some((r) => r.target_label === "Membership plans order"));
   }));
 });

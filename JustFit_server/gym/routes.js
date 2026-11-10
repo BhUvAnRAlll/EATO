@@ -67,6 +67,8 @@ const REFERRER_MIGRATION = "Referrals need the 2026-12-09-enquiry-referrer migra
 const DETAILS_MIGRATION = "Plan details need the 2026-12-17-gym-public-profile migration on this server.";
 // Plan benefits, Best value, order and status (Gym Profile phase 2) before their migration
 const PLAN_OPTIONS_MIGRATION = "Plan benefits, order and status need the 2026-12-24-catalog-plan-options migration on this server.";
+// A plan's terms and eligibility (G17) before their migration
+const TERMS_MIGRATION = "Plan terms and eligibility need the 2027-01-22-plan-terms migration on this server.";
 // Saving what an enquiry said before its migration names it (contacts are read without notes)
 const CONTACT_NOTE_MIGRATION = "Notes on a contact need the 2026-12-18-enquiry-contact-notes migration on this server.";
 const route = (handler) => (req, res, next) =>
@@ -74,6 +76,7 @@ const route = (handler) => (req, res, next) =>
     if (error?.code === "ER_BAD_FIELD_ERROR" && String(error.sqlMessage ?? "").includes("referred_by_phone")) return res.status(503).json({ error: REFERRER_MIGRATION });
     if (error?.code === "ER_BAD_FIELD_ERROR" && String(error.sqlMessage ?? "").includes("'details'")) return res.status(503).json({ error: DETAILS_MIGRATION });
     if (error?.code === "ER_BAD_FIELD_ERROR" && /'(status|sort_order|best_value|benefits)'/.test(String(error.sqlMessage ?? ""))) return res.status(503).json({ error: PLAN_OPTIONS_MIGRATION });
+    if (error?.code === "ER_BAD_FIELD_ERROR" && /'(terms|eligibility)'/.test(String(error.sqlMessage ?? ""))) return res.status(503).json({ error: TERMS_MIGRATION });
     if (error?.code === "ER_BAD_FIELD_ERROR" && String(error.sqlMessage ?? "").includes("'note'")) return res.status(503).json({ error: CONTACT_NOTE_MIGRATION });
     if (["ER_NO_SUCH_TABLE", "ER_BAD_FIELD_ERROR"].includes(error?.code)) return res.status(503).json({ error: MIGRATION });
     next(error);

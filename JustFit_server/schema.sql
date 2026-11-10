@@ -2089,6 +2089,8 @@ CREATE TABLE gym_catalog_items (
   stock       INT UNSIGNED NULL,                    -- products only: how many are left (NULL = not counted)
   details     VARCHAR(300) NULL,                    -- plans and PT: what's included and any limits, shown to members (migration 2026-12-17)
   benefits    JSON         NULL,                    -- plans and PT: what's included as a list, ["Steam bath", "1 diet consult"] (migration 2026-12-24)
+  eligibility VARCHAR(120) NULL,                    -- plans and PT: who may buy it, one line ("Women only"; migration 2027-01-22)
+  terms       VARCHAR(600) NULL,                    -- plans and PT: the plan's rules (freeze, transfer, refund), shown to members
   best_value  TINYINT(1)   NOT NULL DEFAULT 0,      -- plans: the gym's own "Best value" (one a branch)
   sort_order  INT UNSIGNED NOT NULL DEFAULT 0,      -- the order the gym shows its items in
   status      ENUM('active', 'inactive', 'archived') NOT NULL DEFAULT 'active', -- inactive and archived: hidden from members and new sales

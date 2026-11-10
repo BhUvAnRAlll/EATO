@@ -493,7 +493,7 @@ const CATALOG_KINDS = ["plan", "pt", "service", "product"];
 const MAX_STOCK = 100_000;
 const HAS_LENGTH = ["plan", "pt"];
 function catalogBody(body, { creating }) {
-  const extra = ["details", "benefits", "bestValue", "status"];
+  const extra = ["details", "benefits", "bestValue", "status", "terms", "eligibility"];
   onlyKeys(body, creating ? ["kind", "name", "unit", "duration", "price", "stock", ...extra] : ["name", "unit", "duration", "price", "stock", ...extra]);
   const out = {};
   if (creating) {
@@ -512,6 +512,10 @@ function catalogBody(body, { creating }) {
   // What a plan or PT package includes and any limits (Gym Hub, migration 2026-12-17); "" clears it
   if (body.details !== undefined) out.details = profileRules.optionalText(body.details, profileRules.DETAILS_MAX, "details");
   if (creating && body.details !== undefined && !HAS_LENGTH.includes(out.kind)) throw new ValidationError("Only plans and PT packages have details.");
+  // Who may buy it and its rules (G17, migration 2027-01-22); "" clears either
+  if (body.eligibility !== undefined) out.eligibility = profileRules.optionalText(body.eligibility, ELIGIBILITY_MAX, "eligibility");
+  if (body.terms !== undefined) out.terms = profileRules.optionalText(body.terms, TERMS_MAX, "terms");
+  if (creating && (body.terms !== undefined || body.eligibility !== undefined) && !HAS_LENGTH.includes(out.kind)) throw new ValidationError("Only plans and PT packages have terms.");
   // Gym Profile phase 2 (migration 2026-12-24): what's included as a list, the gym's own Best value
   // plan, and whether members and the forms see it (active), it's hidden for now (inactive) or put
   // away (archived)
@@ -535,6 +539,8 @@ function catalogBody(body, { creating }) {
 }
 
 const CATALOG_STATUSES = ["active", "inactive", "archived"];
+const ELIGIBILITY_MAX = 120;
+const TERMS_MAX = 600;
 const BENEFITS_MAX = 8;
 const BENEFIT_MAX = 60;
 // [] clears; each benefit 2-60 characters, once each (any case), in the order given
