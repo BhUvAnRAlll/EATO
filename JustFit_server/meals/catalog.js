@@ -50,6 +50,7 @@ const couponOf = (r) => ({
   maxDiscountPaise: r.max_discount_paise === null ? null : num(r.max_discount_paise),
   minOrderPaise: num(r.min_order_paise),
   perMemberLimit: num(r.per_member_limit),
+  firstOrderOnly: num(r.first_order_only ?? 0) === 1, // read as false before the 2027-01-28 migration
   startsOn: day(r.starts_on),
   endsOn: day(r.ends_on),
   active: num(r.active) === 1,
@@ -65,6 +66,7 @@ const couponToApi = (c, today, extra = {}) => ({
   maxDiscount: c.maxDiscountPaise === null ? null : c.maxDiscountPaise / 100,
   minOrder: c.minOrderPaise / 100,
   perMemberLimit: c.perMemberLimit,
+  firstOrderOnly: c.firstOrderOnly,
   startsOn: c.startsOn,
   endsOn: c.endsOn,
   active: c.active,
@@ -109,6 +111,8 @@ async function storefront(pool, userId, { mealToApi }, now = Date.now()) {
     ),
     pickedByCategory(pool),
   ]);
+  // A first-order coupon is shown only to a member who has never ordered
+  const ordered = couponRows.some((r) => num(r.first_order_only ?? 0) === 1) ? (await ordersPlaced(pool, userId)) > 0 : false;
   const menu = meals.map((r) => ({ api: mealToApi(r, num(r.fav) === 1), id: r.id, tags: tagsOf(r.tags), pricePaise: num(r.price_paise) }));
   const onMenu = new Set(menu.map((m) => m.id));
   const categories = categoryRows
@@ -127,7 +131,7 @@ async function storefront(pool, userId, { mealToApi }, now = Date.now()) {
     .map(({ active: _, sortOrder: __, startsOn: ___, ...b }) => b);
   const coupons = couponRows
     .map((r) => ({ c: couponOf(r), used: num(r.used) }))
-    .filter(({ c, used }) => catalogRules.couponState(c, today) === "live" && used < c.perMemberLimit)
+    .filter(({ c, used }) => catalogRules.couponState(c, today) === "live" && used < c.perMemberLimit && !(c.firstOrderOnly && ordered))
     .map(({ c, used }) => couponToApi(c, today, { usesLeft: c.perMemberLimit - used }));
   return { today, meals: menu.map((m) => m.api), categories, banners, coupons };
 }
@@ -137,13 +141,41 @@ async function storefront(pool, userId, { mealToApi }, now = Date.now()) {
  * it can't be used. `lock` (inside the order's transaction) locks the coupon row so two orders at
  * once can't both take its last use.
  */
+// The orders a member has placed: every one but those cancelled or still waiting for payment (a new
+// Pay cancels the member's unpaid order, so an abandoned checkout never spends a first order)
+// `lock` (inside the order's transaction): a locking read, which sees orders committed a moment ago
+// rather than the transaction's first snapshot, so two first orders at once can't both pass
+async function ordersPlaced(db, userId, { lock = false } = {}) {
+  const [[row]] = await db.query(`SELECT COUNT(*) AS n FROM orders WHERE user_id = ? AND status NOT IN ('cancelled', 'awaiting_payment')${lock ? " FOR SHARE" : ""}`, [userId]);
+  return num(row.n);
+}
+
+// Whether meal_coupons.first_order_only exists (migration 2027-01-28), checked once a minute until it does
+let firstOrderColumn = { has: false, at: 0 };
+async function hasFirstOrderColumn(db) {
+  if (firstOrderColumn.has || Date.now() - firstOrderColumn.at < 60000) return firstOrderColumn.has;
+  const [[row]] = await db.query("SELECT COUNT(*) AS n FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'meal_coupons' AND COLUMN_NAME = 'first_order_only'");
+  firstOrderColumn = { has: num(row.n) > 0, at: Date.now() };
+  return firstOrderColumn.has;
+}
+const FIRST_ORDER_MIGRATION = "First-order coupons need the 2027-01-28-first-order-coupons migration on this server.";
+// A 503 the shared error handler answers with its message (it knows the name "NotReadyError")
+class ServiceUnavailableError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "NotReadyError";
+    this.status = 503;
+  }
+}
+
 async function couponFor(db, userId, code, subtotalPaise, { lock = false, now = Date.now() } = {}) {
   const [[row]] = await db.query(`SELECT * FROM meal_coupons WHERE code = ?${lock ? " FOR UPDATE" : ""}`, [code]);
   const coupon = row ? couponOf(row) : null;
   const [[{ used }]] = coupon
     ? await db.query("SELECT COUNT(*) AS used FROM orders WHERE coupon_id = ? AND user_id = ? AND status <> 'cancelled'", [coupon.id, userId])
     : [[{ used: 0 }]];
-  const problem = catalogRules.couponProblem(coupon, { today: rules.indiaNow(now).date, subtotalPaise, used: num(used) });
+  const orders = coupon?.firstOrderOnly ? await ordersPlaced(db, userId, { lock }) : 0;
+  const problem = catalogRules.couponProblem(coupon, { today: rules.indiaNow(now).date, subtotalPaise, used: num(used), orders });
   if (problem) return { problem };
   return { id: coupon.id, code: coupon.code, title: coupon.title, discountPaise: catalogRules.discountFor(coupon, subtotalPaise) };
 }
@@ -259,19 +291,24 @@ const COUPON_FIELDS = (f) => [f.code, f.title, f.kind, f.percentOff, f.flatOffPa
 
 async function saveCoupon(pool, id, fields) {
   let couponId = id;
+  // Before the 2027-01-28 migration coupons save as before; only "first order only" needs it
+  const firstOrder = await hasFirstOrderColumn(pool);
+  if (!firstOrder && fields.firstOrderOnly) throw new ServiceUnavailableError(FIRST_ORDER_MIGRATION);
+  const extraColumn = firstOrder ? ", first_order_only" : "";
+  const extraValue = firstOrder ? [fields.firstOrderOnly ? 1 : 0] : [];
   try {
     if (id === null) {
       const [result] = await pool.query(
-        `INSERT INTO meal_coupons (code, title, kind, percent_off, flat_off_paise, max_discount_paise, min_order_paise, per_member_limit, starts_on, ends_on, active)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        COUPON_FIELDS(fields),
+        `INSERT INTO meal_coupons (code, title, kind, percent_off, flat_off_paise, max_discount_paise, min_order_paise, per_member_limit, starts_on, ends_on, active${extraColumn})
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?${firstOrder ? ", ?" : ""})`,
+        [...COUPON_FIELDS(fields), ...extraValue],
       );
       couponId = result.insertId;
     } else {
       const [result] = await pool.query(
         `UPDATE meal_coupons SET code = ?, title = ?, kind = ?, percent_off = ?, flat_off_paise = ?, max_discount_paise = ?, min_order_paise = ?,
-           per_member_limit = ?, starts_on = ?, ends_on = ?, active = ? WHERE id = ?`,
-        [...COUPON_FIELDS(fields), id],
+           per_member_limit = ?, starts_on = ?, ends_on = ?, active = ?${firstOrder ? ", first_order_only = ?" : ""} WHERE id = ?`,
+        [...COUPON_FIELDS(fields), ...extraValue, id],
       );
       if (result.affectedRows === 0) throw new NotFoundError("That coupon was deleted.");
     }

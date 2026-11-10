@@ -104,7 +104,7 @@ const showsOn = (item, today) => item.active && (!item.startsOn || item.startsOn
 
 /** POST/PUT …/coupons: amounts in whole rupees */
 function couponBody(body) {
-  onlyFields(body, ["code", "title", "kind", "percentOff", "flatOff", "maxDiscount", "minOrder", "perMemberLimit", "startsOn", "endsOn", "active"]);
+  onlyFields(body, ["code", "title", "kind", "percentOff", "flatOff", "maxDiscount", "minOrder", "perMemberLimit", "firstOrderOnly", "startsOn", "endsOn", "active"]);
   if (typeof body.code !== "string" || !/^[A-Za-z0-9]{3,16}$/.test(body.code.trim())) throw new ValidationError("The code is 3 to 16 letters and digits.");
   if (!COUPON_KINDS.includes(body.kind)) throw new ValidationError("Pick % off or ₹ off.");
   const percent = body.kind === "percent";
@@ -117,6 +117,8 @@ function couponBody(body) {
     maxDiscountPaise: percent && body.maxDiscount !== undefined && body.maxDiscount !== null ? number(body.maxDiscount, "Most off", 1, 2000, { whole: true }) * 100 : null,
     minOrderPaise: body.minOrder === undefined || body.minOrder === null ? 0 : number(body.minOrder, "Minimum order", 0, 10000, { whole: true }) * 100,
     perMemberLimit: body.perMemberLimit === undefined ? 1 : number(body.perMemberLimit, "Uses per member", 1, 20, { whole: true }),
+    // Only a member who has never ordered (marketing phase 2b, migration 2027-01-28)
+    firstOrderOnly: flag(body.firstOrderOnly, "it is for a first order only", false),
     ...days(body),
     active: flag(body.active, "members can use it", true),
   };
@@ -137,13 +139,17 @@ function discountFor(coupon, subtotalPaise) {
   return Math.max(0, Math.min(capped, subtotalPaise));
 }
 
-/** Why a coupon can't be used now, or null: `used` is how many of the member's orders already have it */
-function couponProblem(coupon, { today, subtotalPaise, used }) {
+/**
+ * Why a coupon can't be used now, or null: `used` is how many of the member's orders already have
+ * it, `orders` how many orders they have placed at all (not cancelled, not waiting for payment)
+ */
+function couponProblem(coupon, { today, subtotalPaise, used, orders = 0 }) {
   if (!coupon) return "That coupon code isn't valid.";
   const state = couponState(coupon, today);
   if (state === "off") return "That coupon isn't available.";
   if (state === "expired") return "That coupon has expired.";
   if (state === "scheduled") return `That coupon starts on ${coupon.startsOn}.`;
+  if (coupon.firstOrderOnly && orders > 0) return "That coupon is for your first order.";
   if (used >= coupon.perMemberLimit) return coupon.perMemberLimit === 1 ? "You've already used that coupon." : `You've used that coupon ${coupon.perMemberLimit} times already.`;
   if (subtotalPaise < coupon.minOrderPaise) return `Add ₹${Math.ceil((coupon.minOrderPaise - subtotalPaise) / 100)} more to use this coupon.`;
   return null;

@@ -137,6 +137,9 @@ async function seed(db) {
     );
     record.coupons.push(r.insertId);
   }
+  // FIRST50 is a welcome offer: only for members who have never ordered (once migration 2027-01-28 has run)
+  const [[firstOrder]] = await db.query("SELECT COUNT(*) AS n FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'meal_coupons' AND COLUMN_NAME = 'first_order_only'");
+  if (Number(firstOrder.n) > 0 && record.coupons.length) await db.query("UPDATE meal_coupons SET first_order_only = 1 WHERE code = 'FIRST50' AND id IN (?)", [record.coupons]);
 
   // Delivery pincodes around Tumakuru (572103 is usually there already)
   for (const [pincode, area] of [["572101", "Tumakuru Town"], ["572102", "Batawadi"], ["572103", "Tumakuru"], ["572104", "Siddaganga"], ["572106", "Kyathasandra"]]) {

@@ -721,8 +721,17 @@ The Meals module is green (`meal-*` tokens and utilities); the user chose green 
   (`TAP_ROUTES` in `lib/mealReminders.ts`). Coach › Meal Plan: under each breakfast, lunch and
   dinner not yet logged, "Or order your lunch from justFit" with the closest menu meal (a different
   one each; `PlanTimeline` `below`, `planReason`). Rows are `MealRow` with a `note`
-  (`components/meals/RecommendedMeals.tsx`). Next phases (in the plan given to the user): refuel
-  after a gym check-out, offer notices, a first-order coupon, cart reminders, referrals.
+  (`components/meals/RecommendedMeals.tsx`). **Phase 2a, Refuel:** a member's gym check-out card
+  (`QrAttendance` `DoneCard`, never a Staff or Trainer's day at work) shows two protein-rich meals
+  (`refuelMeals`, `components/meals/RefuelMeals.tsx`). **Phase 2b, first-order coupons (migration
+  `2027-01-28-first-order-coupons.sql`, `meal_coupons.first_order_only`):** the coupon form's
+  "First order only"; such a coupon is offered on the storefront only to a member with no orders
+  (cancelled and unpaid ones don't count, `catalog.ordersPlaced`) and refused in the quote and in
+  the order's transaction ("That coupon is for your first order."; a locking read when the coupon
+  row is locked); the card says "Welcome offer · first order". Before the migration coupons save and
+  work as before and only turning it on answers 503 naming it. The demo seed marks FIRST50.
+  Tests: `meal-catalog-rules.test.js`, `e2e/meals.e2e.test.js` (12b). Next phases: order again,
+  share a meal, cart reminders, offer notices, referrals.
 - **Not built:** Razorpay itself (keys, the native checkout, refunds, webhook), push notifications for a step, delivery fees,
   subscriptions, gym-specific menus (the user chose one justFit menu run by the Super Admin). Tests:
   `__tests__/meal-rules.test.js`, `meal-catalog-rules.test.js`, `e2e/meals.e2e.test.js`, the client's

@@ -1987,6 +1987,14 @@
   overflow: hidden;
 }
 
+/* "Welcome offer · first order" above a first-order coupon */
+@utility shop-coupon__tag {
+  font-family: var(--font-sans-semibold);
+  font-size: 11px;
+  line-height: 15px;
+  color: var(--color-success);
+}
+
 /* A filter that is on, under the Meals search: tap to remove it */
 @utility shop-active-filter {
   flex-direction: row;

@@ -56,6 +56,7 @@ function CouponForm({ coupon }: { coupon: Coupon | null }) {
   const [startsOn, setStartsOn] = useState<string | null>(coupon?.startsOn ?? null);
   const [endsOn, setEndsOn] = useState<string | null>(coupon?.endsOn ?? null);
   const [active, setActive] = useState(coupon?.active ?? true);
+  const [firstOrderOnly, setFirstOrderOnly] = useState(coupon?.firstOrderOnly ?? false);
   const [deleting, setDeleting] = useState(false);
   const { busy, error, save } = useGymSave(() => back(), coupon ? "Coupon saved" : "Coupon added");
 
@@ -78,6 +79,8 @@ function CouponForm({ coupon }: { coupon: Coupon | null }) {
         maxDiscount: kind === "percent" && maxDiscount ? Number(maxDiscount) : null,
         minOrder: Number(minOrder) || 0,
         perMemberLimit: uses,
+        // Sent only when on or changed, so a server before the 2027-01-28 migration still saves other coupons
+        ...(firstOrderOnly || coupon?.firstOrderOnly ? { firstOrderOnly } : {}),
         startsOn, endsOn, active,
       }),
     );
@@ -119,6 +122,7 @@ function CouponForm({ coupon }: { coupon: Coupon | null }) {
       <DateField label="Works from" value={startsOn} onChange={setStartsOn} emptyText="Now" min={isoToday(-365)} max={isoToday(365)} />
       <DateField label="Works until" value={endsOn} onChange={setEndsOn} emptyText="No end" min={startsOn ?? isoToday(-365)} max={isoToday(730)} />
       {daysWrong ? <Text className="admin__hint" style={{ color: colors.danger }}>The end day must be on or after the start day.</Text> : null}
+      <OnOffRow title="First order only" line={firstOrderOnly ? "Offered only to members who have never ordered: a welcome offer." : "Any member can use it."} value={firstOrderOnly} onChange={setFirstOrderOnly} />
       <OnOffRow title="Members can use it" line={active ? "Offered on the Meals tab on its days." : "Off: no one can use it."} value={active} onChange={setActive} />
       {error ? <FormAlert message={error} /> : null}
       <Pressable onPress={submit} disabled={!ready || busy} className={ready ? "btn-forest" : "btn-forest btn--disabled"} style={{ opacity: busy ? 0.7 : 1 }} accessibilityRole="button">

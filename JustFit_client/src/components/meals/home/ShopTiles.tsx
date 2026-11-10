@@ -87,6 +87,7 @@ export function CouponCard({ coupon, applied, width, onApply }: { coupon: Coupon
     <View className="shop-coupon" style={{ width }}>
       <View className="shop-coupon__icon"><SymbolView name={{ ios: "tag.fill", android: "sell", web: "sell" }} size={18} tintColor={colors.iconPeach} /></View>
       <View className="min-w-0 flex-1" style={{ gap: 1 }}>
+        {coupon.firstOrderOnly ? <Text className="shop-coupon__tag">Welcome offer · first order</Text> : null}
         <Text className="card__title" numberOfLines={1}>{coupon.off}</Text>
         <Text className="meta-text" numberOfLines={1}>{[`Code ${coupon.code}`, coupon.above].filter(Boolean).join(" | ")}</Text>
         {coupon.endsOn ? <Text className="meta-text" style={{ fontSize: 11 }} numberOfLines={1}>{`Valid till ${new Date(`${coupon.endsOn}T00:00:00Z`).toLocaleDateString("en-IN", { day: "numeric", month: "short", timeZone: "UTC" })}`}</Text> : null}

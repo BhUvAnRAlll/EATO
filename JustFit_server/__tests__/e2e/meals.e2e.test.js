@@ -80,7 +80,7 @@ describe("meal ordering e2e: the admin's meals and times, a member's order, deli
     authSecret = env.AUTH_SECRET || crypto.randomBytes(32).toString("base64url");
     server = await startTestServer({ ...env, AUTH_SECRET: authSecret, MEAL_PHOTO_DIR: photoDir });
     try {
-      for (const [tag, role] of [["admin", "admin"], ["memberA", "user"], ["memberB", "user"]]) {
+      for (const [tag, role] of [["admin", "admin"], ["memberA", "user"], ["memberB", "user"], ["memberC", "user"]]) {
         identities[tag] = await testAccounts.createIdentity(runId, tag, { role });
         const minted = await testAccounts.mintToken(identities[tag].id);
         identities[tag].sessionId = minted.sessionId;
@@ -404,6 +404,27 @@ describe("meal ordering e2e: the admin's meals and times, a member's order, deli
     assert.equal((await api("DELETE", `/api/admin/kitchen/coupons/${added.json.coupon.id}`, tokens.admin)).status, 200);
     const kept = await api("GET", `/api/orders/${placed.json.order.id}`, tokens.memberA);
     assert.equal(kept.json.order.couponCode, code, "a deleted coupon's code stays on the order");
+  }));
+
+  it("12b. a first-order coupon: offered and accepted only before a member's first order", run(async () => {
+    const [[column]] = await connection.query("SELECT COUNT(*) AS n FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'meal_coupons' AND COLUMN_NAME = 'first_order_only'");
+    assert.equal(Number(column.n), 1, "schema.sql has meal_coupons.first_order_only");
+    const added = await api("POST", "/api/admin/kitchen/coupons", tokens.admin, { code: `W${runId}`.slice(0, 16), title: `Welcome ${runId}`, kind: "flat", flatOff: 40, firstOrderOnly: true });
+    assert.equal(added.status, 201, JSON.stringify(added.json));
+    assert.equal(added.json.coupon.firstOrderOnly, true);
+    const code = added.json.coupon.code;
+    const offered = async (tag) => (await api("GET", "/api/meals/storefront", tokens[tag])).json.coupons.some((x) => x.code === code);
+    assert.equal(await offered("memberC"), true, "a member who never ordered sees it");
+    assert.equal(await offered("memberA"), false, "a member who has ordered doesn't");
+    const quote = (tag) => api("POST", "/api/orders/quote", tokens[tag], { items: [{ mealId: state.dalId, quantity: 3 }], couponCode: code });
+    assert.equal((await quote("memberC")).json.coupon.ok, true);
+    assert.equal((await quote("memberA")).json.coupon.problem, "That coupon is for your first order.");
+    const refused = await api("POST", "/api/orders", tokens.memberA, order({ items: [{ mealId: state.dalId, quantity: 3 }], couponCode: code }));
+    assert.equal(refused.status, 409, "the order's own check refuses it too");
+    assert.match(refused.json.error, /first order/);
+    assert.equal((await api("POST", "/api/admin/kitchen/coupons", tokens.admin, { code: `V${runId}`.slice(0, 16), title: `Bad ${runId}`, kind: "flat", flatOff: 40, firstOrderOnly: 1 })).status, 400, "a boolean only");
+    assert.equal((await api("POST", "/api/admin/kitchen/coupons", tokens.memberC, { code: `U${runId}`.slice(0, 16), title: `Mine ${runId}`, kind: "flat", flatOff: 40, firstOrderOnly: true })).status, 403, "members can't make coupons");
+    assert.equal((await api("DELETE", `/api/admin/kitchen/coupons/${added.json.coupon.id}`, tokens.admin)).status, 200);
   }));
 
   it("8b. payments the Razorpay way: only a checked signature places the order", run(async () => {

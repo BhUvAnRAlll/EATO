@@ -104,6 +104,17 @@ describe("meal catalogue rules: coupons", () => {
     assert.match(c.couponProblem(null, { today, subtotalPaise: 20000, used: 0 }), /isn't valid/);
     assert.deepEqual(c.couponLine(save100), { off: "50% off up to ₹100", above: "Above ₹149" });
   });
+
+  it("keeps a first-order coupon for members who have never ordered", () => {
+    const today = "2026-11-09";
+    const welcome = c.couponBody({ code: "welcome75", title: "₹75 off your first order", kind: "flat", flatOff: 75, firstOrderOnly: true });
+    assert.equal(welcome.firstOrderOnly, true);
+    assert.equal(c.couponBody({ code: "FLAT50", title: "₹50 off", kind: "flat", flatOff: 50 }).firstOrderOnly, false, "off unless asked");
+    assert.throws(() => c.couponBody({ code: "BAD1", title: "Bad one", kind: "flat", flatOff: 50, firstOrderOnly: "yes" }), ValidationError);
+    assert.equal(c.couponProblem(welcome, { today, subtotalPaise: 20000, used: 0, orders: 0 }), null);
+    assert.equal(c.couponProblem(welcome, { today, subtotalPaise: 20000, used: 0, orders: 1 }), "That coupon is for your first order.");
+    assert.equal(c.couponProblem(save100, { today, subtotalPaise: 20000, used: 0, orders: 5 }), null, "other coupons don't care");
+  });
 });
 
 describe("meal rules: the extended meal and order", () => {

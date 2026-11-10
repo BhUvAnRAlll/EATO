@@ -54,6 +54,8 @@ export type Coupon = {
   maxDiscount: number | null;
   minOrder: number;
   perMemberLimit: number;
+  // Only for a member who has never ordered (false before the 2027-01-28 migration)
+  firstOrderOnly?: boolean;
   startsOn: string | null;
   endsOn: string | null;
   active: boolean;
@@ -84,7 +86,7 @@ export type BannerInput = {
 export type AdminBanner = MealBanner & { startsOn: string | null; active: boolean; sortOrder: number; live: boolean };
 export type CouponInput = {
   code: string; title: string; kind: "percent" | "flat"; percentOff: number | null; flatOff: number | null; maxDiscount: number | null;
-  minOrder: number; perMemberLimit: number; startsOn: string | null; endsOn: string | null; active: boolean;
+  minOrder: number; perMemberLimit: number; firstOrderOnly?: boolean; startsOn: string | null; endsOn: string | null; active: boolean;
 };
 
 // capacity: orders a day across justFit (phase 3; null = no limit)

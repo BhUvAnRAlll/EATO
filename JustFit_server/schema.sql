@@ -246,6 +246,7 @@ CREATE TABLE meal_coupons (
   min_order_paise     INT UNSIGNED  NOT NULL DEFAULT 0,
   per_member_limit    TINYINT UNSIGNED NOT NULL DEFAULT 1,
   starts_on           DATE          NULL,
+  first_order_only    TINYINT(1)    NOT NULL DEFAULT 0,  -- only for a member who has never ordered (migration 2027-01-28)
   ends_on             DATE          NULL,
   active              TINYINT(1)    NOT NULL DEFAULT 1,
   created_at          TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
