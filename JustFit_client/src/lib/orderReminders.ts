@@ -5,7 +5,9 @@ import * as SecureStore from "expo-secure-store";
 
 import { onAccountCleared } from "@/lib/accountScope";
 import { mealsApi } from "@/lib/mealsApi";
-import { ORDER_REMINDER_PREFIX, ORDER_REMINDER_ROUTE, orderReminders } from "@/lib/orderReminderRules";
+import { CART_REMINDER_DELAY_MIN, CART_REMINDER_ID, CART_ROUTE, ORDER_REMINDER_PREFIX, ORDER_REMINDER_ROUTE, cartReminderText, orderReminders } from "@/lib/orderReminderRules";
+import { useCartStore } from "@/store/cart";
+import { useStorefront } from "@/store/storefront";
 
 // Order reminders (2026-11-10): local notifications half an hour before a meal time stops taking
 // orders ("Lunch orders close at 10:30 AM"), for today and tomorrow, skipping meal times already
@@ -32,7 +34,8 @@ async function ensureChannel() {
 async function cancelOrderReminders(): Promise<void> {
   if (!supported) return;
   const scheduled = await Notifications.getAllScheduledNotificationsAsync().catch(() => []);
-  await Promise.all(scheduled.filter((r) => r.identifier.startsWith(ORDER_REMINDER_PREFIX)).map((r) => Notifications.cancelScheduledNotificationAsync(r.identifier).catch(() => {})));
+  // The cart reminder has its own timing (below): a reschedule of the meal times leaves it alone
+  await Promise.all(scheduled.filter((r) => r.identifier.startsWith(ORDER_REMINDER_PREFIX) && r.identifier !== CART_REMINDER_ID).map((r) => Notifications.cancelScheduledNotificationAsync(r.identifier).catch(() => {})));
 }
 
 /**
@@ -63,6 +66,7 @@ export async function setOrderRemindersOn(on: boolean, token: string | null, pic
   if (!on) {
     await SecureStore.deleteItemAsync(KEY).catch(() => {});
     await cancelOrderReminders();
+    await Notifications.cancelScheduledNotificationAsync(CART_REMINDER_ID).catch(() => {});
     return "off";
   }
   try {
@@ -78,9 +82,39 @@ export async function setOrderRemindersOn(on: boolean, token: string | null, pic
   }
 }
 
+// Cart reminder (marketing phase 3c): with order reminders on, meals left in the cart get one nudge
+// 45 minutes after the cart last changed; an empty cart (the order placed, or cleared) cancels it.
+// The cart is watched for the app's lifetime; changes within 2 s are taken together.
+let cartTimer: ReturnType<typeof setTimeout> | null = null;
+async function syncCartReminder(): Promise<void> {
+  if (!supported) return;
+  await Notifications.cancelScheduledNotificationAsync(CART_REMINDER_ID).catch(() => {});
+  if (!(await orderRemindersOn())) return;
+  const permission = await Notifications.getPermissionsAsync().catch(() => null);
+  if (!permission?.granted) return;
+  const menu = useStorefront.getState().load;
+  const names = Object.keys(useCartStore.getState().items).map((id) => (menu.state === "ready" ? menu.data.meals.find((m) => m.id === id)?.name : null) ?? "meal");
+  const text = cartReminderText(names);
+  if (!text) return;
+  await ensureChannel();
+  await Notifications.scheduleNotificationAsync({
+    identifier: CART_REMINDER_ID,
+    content: { title: text.title, body: text.body, data: { url: CART_ROUTE } },
+    trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: new Date(Date.now() + CART_REMINDER_DELAY_MIN * 60000), channelId: CHANNEL },
+  }).catch(() => {});
+}
+if (supported) {
+  useCartStore.subscribe((state, before) => {
+    if (state.items === before.items) return;
+    if (cartTimer) clearTimeout(cartTimer);
+    cartTimer = setTimeout(() => { syncCartReminder().catch(() => {}); }, 2000);
+  });
+}
+
 // Signing out clears them and the setting: the next person on this phone gets none
 onAccountCleared(() => {
   if (!supported) return;
   SecureStore.deleteItemAsync(KEY).catch(() => {});
   cancelOrderReminders().catch(() => {});
+  Notifications.cancelScheduledNotificationAsync(CART_REMINDER_ID).catch(() => {});
 });

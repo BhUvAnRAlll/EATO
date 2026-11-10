@@ -43,3 +43,16 @@ export function orderReminders({ days, ordered, pick, now, max = 3 }: { days: Or
     .slice(0, max)
     .map((r, i) => ({ ...r, body: i === 0 && pick ? `${pick.name} fits your day · ₹${pick.price}. Order now on justFit.` : "Order a meal that fits your goal on justFit." }));
 }
+
+// Cart reminder (marketing phase 3c): meals left in the cart get one nudge this long after the
+// cart last changed; placing the order (an empty cart) cancels it
+export const CART_REMINDER_ID = "justfit-order-cart";
+export const CART_ROUTE = "/meals/cart";
+export const CART_REMINDER_DELAY_MIN = 45;
+
+/** "Your Paneer Tikka Bowl is waiting" / "Your Paneer Tikka Bowl and 2 more are waiting", or null for an empty cart */
+export function cartReminderText(names: string[]): { title: string; body: string } | null {
+  if (names.length === 0) return null;
+  const title = names.length === 1 ? `Your ${names[0]} is waiting` : `Your ${names[0]} and ${names.length - 1} more are waiting`;
+  return { title, body: "Finish your order on justFit before the meal time closes." };
+}

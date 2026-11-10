@@ -730,8 +730,14 @@ The Meals module is green (`meal-*` tokens and utilities); the user chose green 
   the order's transaction ("That coupon is for your first order."; a locking read when the coupon
   row is locked); the card says "Welcome offer · first order". Before the migration coupons save and
   work as before and only turning it on answers 503 naming it. The demo seed marks FIRST50.
-  Tests: `meal-catalog-rules.test.js`, `e2e/meals.e2e.test.js` (12b). Next phases: order again,
-  share a meal, cart reminders, offer notices, referrals.
+  Tests: `meal-catalog-rules.test.js`, `e2e/meals.e2e.test.js` (12b). **Phase 3 (no server change):**
+  the Meals tab's **Order again** row above Popular (`orderAgain` over `GET /api/orders`: meals of
+  past orders still on the menu, newest first, "Ordered 3 times"; cancelled and failed don't count);
+  **Share** on a meal's page (React Native's `Share`, `shareMealText` with a `justfit://meals/<id>`
+  link; justFit sends nothing); the **cart reminder** (`lib/orderReminders.ts` watches the cart: with
+  Order reminders on and permission granted, one local notification 45 minutes after the cart last
+  changed, "Your Paneer Bowl is waiting", cancelled by an empty cart, the switch or sign-out; a tap
+  opens only `/meals/cart`, `TAP_ROUTES`). Next phases: offer notices, referrals.
 - **Not built:** Razorpay itself (keys, the native checkout, refunds, webhook), push notifications for a step, delivery fees,
   subscriptions, gym-specific menus (the user chose one justFit menu run by the Super Admin). Tests:
   `__tests__/meal-rules.test.js`, `meal-catalog-rules.test.js`, `e2e/meals.e2e.test.js`, the client's

@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { ScrollView, Text, View, useWindowDimensions } from "react-native";
+import { ScrollView, Share, Text, View, useWindowDimensions } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { Image } from "expo-image";
@@ -15,7 +15,7 @@ import { ScreenSkeleton } from "@/components/Skeleton";
 import { SymbolView } from "@/components/SymbolView";
 import { haptic } from "@/lib/haptics";
 import { hud } from "@/lib/hud";
-import { DIET_LABEL, TAG_LABEL, discountText, rupees } from "@/lib/mealRules";
+import { DIET_LABEL, TAG_LABEL, discountText, rupees, shareMealText } from "@/lib/mealRules";
 import { mealImage, mealsApi, type MenuMeal } from "@/lib/mealsApi";
 import { useSessionToken } from "@/lib/session";
 import { subscriptionPrice } from "@/lib/subscriptionRules";
@@ -128,9 +128,15 @@ export default function MealDetail() {
           fallback="/meals"
           right={
             meal ? (
+              <View className="flex-row" style={{ gap: 8 }}>
+              {/* Share a meal (marketing phase 3): the phone's own share sheet, nothing sent by justFit */}
+              <PressableScale haptic="select" onPress={() => Share.share({ message: shareMealText(meal) }).catch(() => hud.error("Couldn't open sharing"))} className="meal__heart" style={{ position: "relative", top: 0, right: 0, width: 44, height: 44, backgroundColor: colors.surface }} accessibilityRole="button" accessibilityLabel={`Share ${meal.name}`}>
+                <SymbolView name={{ ios: "square.and.arrow.up", android: "ios_share", web: "ios_share" }} size={20} tintColor={colors.ink} />
+              </PressableScale>
               <PressableScale haptic="select" onPress={toggleFavorite} className="meal__heart" style={{ position: "relative", top: 0, right: 0, width: 44, height: 44, backgroundColor: colors.surface }} accessibilityRole="button" accessibilityLabel={meal.favorite ? "Remove from favourites" : "Add to favourites"} accessibilityState={{ selected: !!meal.favorite }}>
                 <SymbolView name={meal.favorite ? { ios: "heart.fill", android: "favorite", web: "favorite" } : { ios: "heart", android: "favorite", web: "favorite" }} size={21} tintColor={meal.favorite ? colors.danger : colors.ink} />
               </PressableScale>
+              </View>
             ) : undefined
           }
         />

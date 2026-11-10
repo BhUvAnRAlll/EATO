@@ -8,7 +8,7 @@ import * as SecureStore from "expo-secure-store";
 import { onAccountCleared } from "@/lib/accountScope";
 import type { CoachPlan } from "@/lib/coach";
 import { REMINDER_PREFIX, mealReminders } from "@/lib/mealReminderRules";
-import { ORDER_REMINDER_ROUTE } from "@/lib/orderReminderRules";
+import { CART_ROUTE, ORDER_REMINDER_ROUTE } from "@/lib/orderReminderRules";
 import { CHECK_IN_ROUTE } from "@/lib/coachCheckInRules";
 
 // Meal reminders: local notifications on the phone at each of today's planned meal times ("Lunch
@@ -103,8 +103,8 @@ if (supported) {
 }
 
 // The screens a tapped reminder may open: the Meal Plan (meal reminders), the Meals tab (order
-// reminders, lib/orderReminders.ts) and the coach chat (the daily check-in, lib/coachCheckIns.ts). A notification's data is checked against these, never routed as given
-const TAP_ROUTES: string[] = [REMINDER_ROUTE, ORDER_REMINDER_ROUTE, CHECK_IN_ROUTE];
+// reminders, lib/orderReminders.ts), the cart (the cart reminder) and the coach chat (the daily check-in, lib/coachCheckIns.ts). A notification's data is checked against these, never routed as given
+const TAP_ROUTES: string[] = [REMINDER_ROUTE, ORDER_REMINDER_ROUTE, CART_ROUTE, CHECK_IN_ROUTE];
 
 // Opens the Meal Plan or the Meals tab when a reminder is tapped, including the tap that launched the app.
 // `ready`: a member is signed in (a tap before that waits; it's kept until then).
@@ -115,6 +115,7 @@ export function useMealReminderTaps(ready: boolean) {
       const url = notification.request.content.data?.url;
       if (typeof url !== "string" || !TAP_ROUTES.includes(url)) return;
       if (url === ORDER_REMINDER_ROUTE) router.navigate(ORDER_REMINDER_ROUTE);
+      else if (url === CART_ROUTE) router.push(CART_ROUTE);
       else if (url === CHECK_IN_ROUTE) router.push({ pathname: "/coach/chat", params: { followup: "1" } });
       else router.push(REMINDER_ROUTE);
       Notifications.clearLastNotificationResponse();

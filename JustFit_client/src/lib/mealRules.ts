@@ -370,3 +370,34 @@ export function sortMeals<M extends { price: number; proteinG: number; calories:
 export function byDiet<M extends { diet: Diet }>(meals: M[], diet: Diet | null): M[] {
   return diet ? meals.filter((m) => m.diet === diet) : meals;
 }
+
+/**
+ * Order again (marketing phase 3): the meals of the member's past orders that are still on the menu,
+ * most recently ordered first, once each, with how many times they were ordered. Cancelled and
+ * failed orders don't count.
+ */
+export function orderAgain<M extends { id: string }>(orders: { date: string; status: string; items: { mealId: string | null; quantity: number }[] }[], menu: M[], max = 10): { meal: M; times: number }[] {
+  const onMenu = new Map(menu.map((m) => [m.id, m]));
+  const times = new Map<string, number>();
+  const order: string[] = [];
+  const sorted = [...orders].filter((o) => o.status !== "cancelled" && o.status !== "failed").sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+  for (const o of sorted) {
+    for (const item of o.items) {
+      if (!item.mealId || !onMenu.has(item.mealId)) continue;
+      if (!times.has(item.mealId)) order.push(item.mealId);
+      times.set(item.mealId, (times.get(item.mealId) ?? 0) + 1);
+    }
+  }
+  return order.slice(0, max).map((id) => ({ meal: onMenu.get(id) as M, times: times.get(id) ?? 1 }));
+}
+
+/** "Ordered 3 times" / "Ordered before" */
+export const orderedText = (times: number) => (times > 1 ? `Ordered ${times} times` : "Ordered before");
+
+/**
+ * Share a meal (marketing phase 3): the words the phone's share sheet sends, with a link that opens
+ * the meal in justFit ("justfit://meals/<id>").
+ */
+export function shareMealText(meal: { id: string; name: string; calories: number; proteinG: number; price: number }): string {
+  return `Try ${meal.name} on justFit: ${meal.calories} kcal, ${Math.round(meal.proteinG)} g protein, ${rupees(meal.price)}. justfit://meals/${encodeURIComponent(meal.id)}`;
+}

@@ -47,7 +47,7 @@ export function OrderRemindersRow({ pick }: { pick: { name: string; price: numbe
       </View>
       <View className="flex-1">
         <Text className="card__title">Order reminders</Text>
-        <Text className="meta-text">A nudge 30 minutes before breakfast, lunch or dinner orders close</Text>
+        <Text className="meta-text">A nudge 30 minutes before breakfast, lunch or dinner orders close, and when meals wait in your cart</Text>
         {denied && (
           <Pressable onPress={() => Linking.openSettings().catch(() => {})} hitSlop={6} accessibilityRole="link">
             <Text className="home__note mt-0.5" style={{ color: colors.danger }}>Notifications are off for justFit. Turn them on in Settings.</Text>

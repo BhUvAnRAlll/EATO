@@ -20,8 +20,8 @@ import { ScreenSkeleton } from "@/components/Skeleton";
 import { haptic } from "@/lib/haptics";
 import { hud } from "@/lib/hud";
 import { listPerf } from "@/lib/listPerf";
-import { DIET_FILTERS, MEAL_SORTS, byDiet, popularMeals, searchExamples, searchWithFallback, shopSections, sortMeals, suggestions, type QuickList } from "@/lib/mealRules";
-import { mealsApi, type MealBanner, type MenuMeal } from "@/lib/mealsApi";
+import { DIET_FILTERS, MEAL_SORTS, byDiet, orderAgain, orderedText, popularMeals, searchExamples, searchWithFallback, shopSections, sortMeals, suggestions, type QuickList } from "@/lib/mealRules";
+import { mealsApi, type MealBanner, type MenuMeal, type Order } from "@/lib/mealsApi";
 import { useAddressBook } from "@/lib/useAddressBook";
 import { useSessionToken } from "@/lib/session";
 import { useAddressDraft } from "@/store/addressDraft";
@@ -67,6 +67,21 @@ export default function Meals() {
   const store = load.state === "ready" ? load.data : null;
   const sections = useMemo(() => (store ? shopSections(sortMeals(byDiet(store.meals, filters.diet), filters.sort), store.categories, false) : null), [store, filters]);
   const popular = useMemo(() => (sections ? popularMeals(sections.meals) : []), [sections]);
+  // Order again (marketing phase 3): the member's past orders, read whenever the tab shows
+  const [pastOrders, setPastOrders] = useState<Order[]>([]);
+  useFocusEffect(
+    useCallback(() => {
+      let live = true;
+      (async () => {
+        const answer = await mealsApi.orders(await getToken().catch(() => null));
+        if (live && answer.ok) setPastOrders(answer.data.orders);
+      })();
+      return () => {
+        live = false;
+      };
+    }, [getToken]),
+  );
+  const again = useMemo(() => (sections ? orderAgain(pastOrders, sections.meals).map((a) => ({ meal: a.meal, note: orderedText(a.times) })) : []), [pastOrders, sections]);
   const filtered = hasMealFilters(filters);
   // The filters on, as chips under the search: each removes itself, Clear all removes both
   const activeFilters = [
@@ -182,6 +197,7 @@ export default function Meals() {
                 store={store}
                 sections={sections}
                 popular={popular}
+                again={again}
                 proteinLeft={proteinLeft}
                 couponCode={couponCode}
                 onCoupon={setCoupon}

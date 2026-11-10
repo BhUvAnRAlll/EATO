@@ -17,6 +17,8 @@ type ShopSectionsProps = {
   store: Storefront;
   sections: Sections;
   popular: MenuMeal[];
+  // Meals from the member's past orders still on the menu (Order again), with a note each
+  again: { meal: MenuMeal; note: string }[];
   proteinLeft: number;
   couponCode: string | null;
   onCoupon: (code: string) => void;
@@ -31,7 +33,7 @@ type ShopSectionsProps = {
 // What's on your mind? (every category as a circle), Popular, For your goal (high protein, with
 // what's left of today's protein), the admin's featured rows, Today's specials, Offers; All meals
 // follows as the screen's grid. Each section shows only when it has something.
-export function ShopSections({ store, sections, popular, proteinLeft, couponCode, onCoupon, card, browse, onBanner }: ShopSectionsProps) {
+export function ShopSections({ store, sections, popular, again, proteinLeft, couponCode, onCoupon, card, browse, onBanner }: ShopSectionsProps) {
   const { width } = useWindowDimensions();
   const token = useAuthStore((state) => state.token);
   const circleSize = Math.round(Math.min(76, Math.max(58, (width - 62) / 4.6)));
@@ -57,6 +59,12 @@ export function ShopSections({ store, sections, popular, proteinLeft, couponCode
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}>
             {explore.map((c) => <FoodCircle key={c.id} category={c} size={circleSize} onPress={() => browse({ category: String(c.id) })} />)}
           </ScrollView>
+        </View>
+      )}
+      {again.length > 0 && (
+        <View style={{ gap: 10 }}>
+          <SectionTitle title="Order again" />
+          {row(again.map((a) => a.meal), (m) => again.find((a) => a.meal.id === m.id)?.note ?? null)}
         </View>
       )}
       {popular.length > 0 && (

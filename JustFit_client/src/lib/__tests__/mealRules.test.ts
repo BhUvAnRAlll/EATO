@@ -88,6 +88,29 @@ describe("meal ordering rules: the storefront", () => {
     assert.deepEqual(veg.specials.map((m) => m.id), ["Paneer Tikka Bowl"], "no specials left, so bestsellers");
   });
 
+  it("orders again from past orders still on the menu", async () => {
+    const { orderAgain, orderedText } = await import("../mealRules.ts");
+    const item = (mealId: string | null) => ({ mealId, quantity: 1 });
+    const orders = [
+      { date: "2026-11-01", status: "delivered", items: [item("Dal Rice"), item("Paneer Tikka Bowl")] },
+      { date: "2026-11-08", status: "delivered", items: [item("Paneer Tikka Bowl"), item(null)] },
+      { date: "2026-11-09", status: "cancelled", items: [item("Egg Bhurji")] },
+      { date: "2026-11-05", status: "placed", items: [item("Gone Meal")] },
+    ];
+    const again = orderAgain(orders, meals);
+    assert.deepEqual(again.map((a) => [a.meal.id, a.times]), [["Paneer Tikka Bowl", 2], ["Dal Rice", 1]], "newest first, cancelled and off-menu left out");
+    assert.equal(orderAgain(orders, meals, 1).length, 1);
+    assert.deepEqual(orderAgain([], meals), []);
+    assert.equal(orderedText(2), "Ordered 2 times");
+    assert.equal(orderedText(1), "Ordered before");
+  });
+
+  it("writes a meal to share with a link that opens it", async () => {
+    const { shareMealText } = await import("../mealRules.ts");
+    assert.equal(shareMealText({ id: "paneer-bowl", name: "Paneer Bowl", calories: 520, proteinG: 32.4, price: 249 }), "Try Paneer Bowl on justFit: 520 kcal, 32 g protein, ₹249. justfit://meals/paneer-bowl");
+    assert.match(shareMealText({ id: "a b", name: "X", calories: 1, proteinG: 1, price: 1 }), /justfit:\/\/meals\/a%20b$/);
+  });
+
   it("keeps recent searches newest first without repeats", async () => {
     const { addRecentSearch } = await import("../mealRules.ts");
     assert.deepEqual(addRecentSearch([], "  paneer  bowl "), ["paneer bowl"]);

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { indiaClock, orderReminders } from "../orderReminderRules.ts";
+import { CART_REMINDER_ID, ORDER_REMINDER_PREFIX, cartReminderText, indiaClock, orderReminders } from "../orderReminderRules.ts";
 
 // Today 10 Nov: breakfast closes 5:00 AM, lunch 10:30 AM, dinner 5:00 PM India time (UTC+5:30)
 type Slot = { slot: "breakfast" | "lunch" | "dinner"; open: boolean; closesAt: string; full?: boolean };
@@ -44,5 +44,12 @@ describe("order reminders", () => {
     const closed = day("2026-11-10");
     closed.slots = closed.slots.map((s) => ({ ...s, open: false }));
     assert.deepEqual(orderReminders({ days: [closed], ordered: new Set(), pick: null, now: new Date("2026-11-10T00:00:00Z") }), []);
+  });
+
+  it("nudges about a cart left waiting", () => {
+    assert.deepEqual(cartReminderText(["Paneer Tikka Bowl"]), { title: "Your Paneer Tikka Bowl is waiting", body: "Finish your order on justFit before the meal time closes." });
+    assert.equal(cartReminderText(["Dal Rice", "Egg Bhurji", "Poha"])?.title, "Your Dal Rice and 2 more are waiting");
+    assert.equal(cartReminderText([]), null);
+    assert.ok(CART_REMINDER_ID.startsWith(ORDER_REMINDER_PREFIX), "cleared with the order reminders (switch off, sign-out)");
   });
 });
