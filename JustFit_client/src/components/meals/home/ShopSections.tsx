@@ -10,6 +10,12 @@ import { MEAL_PROMOS } from "@/data/mealPromos";
 import { mealImage, type MealBanner, type MealCategory, type MenuMeal, type Storefront } from "@/lib/mealsApi";
 import { useAuthStore } from "@/store/auth";
 
+// Each horizontal row draws this many cards when the tab opens (See all has the rest), and at most
+// this many of the admin's featured categories get a row (every category is still a circle). The
+// rows aren't virtualised, so these keep the tab's first draw small.
+const ROW_CARDS = 6;
+const FEATURED_ROWS = 2;
+
 type Sections = ReturnType<typeof shopSections<MenuMeal, MealCategory>>;
 type Browse = (params: { category?: string; tag?: string; list?: QuickList }) => void;
 
@@ -32,7 +38,7 @@ type ShopSectionsProps = {
 // today's offers first (the user's 2026-11-10 ask: coupons on top), the
 // promotional section (the Super Admin's live banners, else justFit's own two promos), quick tiles,
 // What's on your mind? (every category as a circle), Popular, For your goal (high protein, with
-// what's left of today's protein), the admin's featured rows, Today's specials; All meals
+// what's left of today's protein), the admin's first two featured rows (Today's specials are already in Popular); All meals
 // follows as the screen's grid. Each section shows only when it has something.
 export function ShopSections({ store, sections, popular, again, proteinLeft, couponCode, onCoupon, card, browse, onBanner }: ShopSectionsProps) {
   const { width } = useWindowDimensions();
@@ -45,7 +51,7 @@ export function ShopSections({ store, sections, popular, again, proteinLeft, cou
       : MEAL_PROMOS.map((p) => ({ key: p.id, title: p.title, text: p.text, badge: p.badge, cta: p.cta, image: p.image, onPress: () => browse({ list: p.list }) }));
   const row = (meals: MenuMeal[], note?: (m: MenuMeal) => string | null) => (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 4, gap: 12 }}>
-      {meals.slice(0, 12).map((m) => card(m, note?.(m)))}
+      {meals.slice(0, ROW_CARDS).map((m) => card(m, note?.(m)))}
     </ScrollView>
   );
   const seeAll = (count: number, params: Parameters<Browse>[0]) => (count > 2 ? () => browse(params) : undefined);
@@ -100,18 +106,12 @@ export function ShopSections({ store, sections, popular, again, proteinLeft, cou
           {row(sections.highProtein, (m) => (proteinLeft > 0 ? `${Math.min(100, Math.round((m.proteinG / proteinLeft) * 100))}% of your protein left today` : null))}
         </View>
       )}
-      {sections.rows.map(({ category, meals }) => (
+      {sections.rows.slice(0, FEATURED_ROWS).map(({ category, meals }) => (
         <View key={category.id} style={{ gap: 10 }}>
           <SectionTitle title={category.name} subtitle={category.subtitle} onSeeAll={seeAll(meals.length, { category: String(category.id) })} />
           {row(meals)}
         </View>
       ))}
-      {sections.specials.length > 0 && (
-        <View style={{ gap: 10 }}>
-          <SectionTitle title="Today's specials" subtitle="Popular picks and deals" onSeeAll={seeAll(sections.specials.length, { list: "specials" })} />
-          {row(sections.specials)}
-        </View>
-      )}
       {sections.meals.length > 0 && <SectionTitle title="All meals" subtitle={`${sections.meals.length} ${sections.meals.length === 1 ? "meal" : "meals"} on the menu`} />}
     </View>
   );
