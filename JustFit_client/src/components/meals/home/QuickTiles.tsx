@@ -9,11 +9,11 @@ type Tile = { list: QuickList; label: string; icon: SymbolViewProps["name"]; gro
 
 // Five soft tints, one per tile, so the row reads as a set and none of it competes with Add
 const TILES: Tile[] = [
-  { list: "high_protein", label: "High Protein", icon: { ios: "flame.fill", android: "local_fire_department", web: "local_fire_department" }, ground: "tintPeach", tint: "iconPeach" },
-  { list: "low_calorie", label: "Low Calorie", icon: { ios: "drop.fill", android: "water_drop", web: "water_drop" }, ground: "tintBlue", tint: "iconBlue" },
-  { list: "veg", label: "Veg", icon: { ios: "leaf.fill", android: "eco", web: "eco" }, ground: "tintGreen", tint: "iconGreen" },
+  { list: "high_protein", label: "High Protein", icon: { ios: "dumbbell.fill", android: "fitness_center", web: "fitness_center" }, ground: "tintPeach", tint: "iconPeach" },
+  { list: "low_calorie", label: "Low Calorie", icon: { ios: "scalemass.fill", android: "monitor_weight", web: "monitor_weight" }, ground: "tintBlue", tint: "iconBlue" },
+  { list: "veg", label: "Veg", icon: { ios: "carrot.fill", android: "nutrition", web: "nutrition" }, ground: "tintGreen", tint: "iconGreen" },
   { list: "non_veg", label: "Non-Veg", icon: { ios: "fish.fill", android: "set_meal", web: "set_meal" }, ground: "tintRose", tint: "iconRose" },
-  { list: "combos", label: "Combos", icon: { ios: "square.stack.3d.up.fill", android: "layers", web: "layers" }, ground: "tintLavender", tint: "iconLavender" },
+  { list: "combos", label: "Combos", icon: { ios: "fork.knife", android: "restaurant", web: "restaurant" }, ground: "tintLavender", tint: "iconLavender" },
 ];
 
 export function QuickTiles({ width, onPick }: { width: number; onPick: (list: QuickList) => void }) {
