@@ -11,7 +11,7 @@ type Tile = { list: QuickList; label: string; icon: SymbolViewProps["name"]; gro
 const TILES: Tile[] = [
   { list: "high_protein", label: "High Protein", icon: { ios: "dumbbell.fill", android: "fitness_center", web: "fitness_center" }, ground: "tintPeach", tint: "iconPeach" },
   { list: "low_calorie", label: "Low Calorie", icon: { ios: "scalemass.fill", android: "monitor_weight", web: "monitor_weight" }, ground: "tintBlue", tint: "iconBlue" },
-  { list: "veg", label: "Veg", icon: { ios: "carrot.fill", android: "nutrition", web: "nutrition" }, ground: "tintGreen", tint: "iconGreen" },
+  { list: "veg", label: "Veg", icon: { ios: "leaf.fill", android: "eco", web: "eco" }, ground: "tintGreen", tint: "iconGreen" },
   { list: "non_veg", label: "Non-Veg", icon: { ios: "fish.fill", android: "set_meal", web: "set_meal" }, ground: "tintRose", tint: "iconRose" },
   { list: "combos", label: "Combos", icon: { ios: "fork.knife", android: "restaurant", web: "restaurant" }, ground: "tintLavender", tint: "iconLavender" },
 ];
