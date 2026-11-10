@@ -135,6 +135,7 @@ const OPTION_OF_ROUTE = [
   [["PATCH"], /^\/profile$/, ["profile.edit"]],
   [["POST"], /^\/profile\/photos$/, ["profile.edit"]],
   [["PUT"], /^\/profile\/photos\/order$/, ["profile.edit"]],
+  [["PUT"], /^\/profile\/photos\/[^/]+\/facility$/, ["profile.edit"]],
   [["DELETE"], /^\/profile\/photos\/[^/]+$/, ["profile.edit"]],
   [["POST"], /^\/profile\/publish$/, ["profile.publish"]],
   [["GET"], /^\/attendance(\/visits)?$/, ["attendance.view"]],

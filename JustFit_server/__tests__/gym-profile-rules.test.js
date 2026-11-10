@@ -181,3 +181,17 @@ describe("Kind of gym (G16)", () => {
     assert.deepEqual(seen.types, ["gym", "women"], "always shown");
   });
 });
+
+describe("Facility photos (G18)", () => {
+  it("tags a photo with one facility from the list, or none", () => {
+    assert.equal(rules.photoFacilityBody({ facility: "steam" }), "steam");
+    assert.equal(rules.photoFacilityBody({ facility: null }), null);
+    assert.equal(rules.photoFacilityBody({ facility: "" }), null);
+    assert.throws(() => rules.photoFacilityBody({ facility: "pool" }), /from the list/);
+    assert.throws(() => rules.photoFacilityBody({ facility: ["steam"] }), /from the list/);
+    assert.throws(() => rules.photoFacilityBody({ facility: "steam", caption: "x" }), /Unexpected field/);
+    assert.equal(rules.readPhotoFacility("parking"), "parking");
+    assert.equal(rules.readPhotoFacility("<b>"), null);
+    assert.equal(rules.readPhotoFacility(undefined), null);
+  });
+});

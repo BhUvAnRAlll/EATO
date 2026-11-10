@@ -50,7 +50,8 @@ function memberProfile(row, photoIds, withPublishing, today) {
 // Every branch's gallery ids in order (and keys, for the cover's URL)
 async function galleries(pool, ids, withPublishing) {
   if (ids.length === 0) return new Map();
-  const [rows] = await pool.query(`SELECT gym_id, id, image_key FROM gym_photos WHERE gym_id IN (?) ORDER BY ${withPublishing ? "sort_order, id" : "id"}`, [ids]);
+  // Every column, so a photo's facility (migration 2027-01-24) comes along once it exists
+  const [rows] = await pool.query(`SELECT * FROM gym_photos WHERE gym_id IN (?) ORDER BY ${withPublishing ? "sort_order, id" : "id"}`, [ids]);
   const out = new Map();
   for (const r of rows) out.set(r.gym_id, [...(out.get(r.gym_id) ?? []), r]);
   return out;
@@ -173,7 +174,7 @@ function pageOf(g, seen, gallery, items, urls) {
     contact: seen.contact,
     location: g.latitude === null || !seen.showLocation ? null : { latitude: Number(g.latitude), longitude: Number(g.longitude) },
     logoUrl: urls.logo,
-    photos: seen.photos.filter((id) => byId.has(id)).map((id) => ({ id, url: urls.photo(byId.get(id)) })),
+    photos: seen.photos.filter((id) => byId.has(id)).map((id) => ({ id, url: urls.photo(byId.get(id)), facility: profileRules.readPhotoFacility(byId.get(id).facility) })),
     plans: seen.showPlans ? rules.comparePlans(items) : [],
     pt: seen.showPt
       ? items

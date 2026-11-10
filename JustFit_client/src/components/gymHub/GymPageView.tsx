@@ -59,8 +59,11 @@ function Photos({ gym }: { gym: GymPage }) {
         accessibilityLabel={`${gym.photos.length} photos of ${gym.name}`}
       >
         {gym.photos.map((p, i) => (
-          <View key={p.id} className="hub-gym-photo" style={{ width: tile }} accessible accessibilityLabel={`Photo ${i + 1} of ${gym.photos.length}`}>
-            <MemberPhotoImage url={p.url} />
+          <View key={p.id} style={{ width: tile, gap: 4 }} accessible accessibilityLabel={`Photo ${i + 1} of ${gym.photos.length}${p.facility ? `: ${facilityLabel(p.facility)}` : ""}`}>
+            <View className="hub-gym-photo" style={{ width: tile }}>
+              <MemberPhotoImage url={p.url} />
+            </View>
+            {p.facility ? <Text className="type-caption text-ink">{facilityLabel(p.facility)}</Text> : null}
           </View>
         ))}
       </ScrollView>

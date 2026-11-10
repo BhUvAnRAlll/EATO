@@ -2190,6 +2190,7 @@ CREATE TABLE gym_photos (
   id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
   gym_id      INT UNSIGNED NOT NULL,
   image_key   VARCHAR(64)  NOT NULL,
+  facility    VARCHAR(30)  NULL,                   -- the facility it shows, an id from gym/profileRules.js FACILITIES (migration 2027-01-24)
   sort_order  INT UNSIGNED NOT NULL DEFAULT 0,     -- the gallery's order, the first is the cover (migration 2026-12-21)
   created_by  VARCHAR(64)  NULL,
   created_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,

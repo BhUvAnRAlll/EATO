@@ -541,11 +541,13 @@ router.get("/logo", logoRoute(async (req, res) => {
 // it at once), GET reads one. Before the migrations the routes say which one is missing.
 const PROFILE_MIGRATION = "The public profile needs the 2026-12-17-gym-public-profile migration on this server.";
 const PUBLISHING_MIGRATION = "Gym Profile needs the 2026-12-21-gym-profile-publishing migration on this server.";
+const PHOTO_FACILITY_MIGRATION = "Tagging photos needs the 2027-01-24-gym-photo-facilities migration on this server.";
 const NEW_PROFILE_COLUMNS = /published_profile|published_at|published_by|profile_edited_at|profile_show|custom_facilities|closures|whatsapp|email|website|instagram|facebook|sort_order/;
 const TYPES_MIGRATION = "The kind of gym needs the 2027-01-23-gym-types migration on this server.";
 const profileRoute = (handler) => (req, res, next) =>
   handler(req, res, next).catch((error) => {
     if (error?.code === "ER_BAD_FIELD_ERROR" && String(error.message).includes("gym_types")) return res.status(503).json({ error: TYPES_MIGRATION });
+    if (error?.code === "ER_BAD_FIELD_ERROR" && String(error.message).includes("'facility'")) return res.status(503).json({ error: PHOTO_FACILITY_MIGRATION });
     if (error?.code === "ER_BAD_FIELD_ERROR" && NEW_PROFILE_COLUMNS.test(String(error.message))) return res.status(503).json({ error: PUBLISHING_MIGRATION });
     if (["ER_NO_SUCH_TABLE", "ER_BAD_FIELD_ERROR"].includes(error?.code)) return res.status(503).json({ error: PROFILE_MIGRATION });
     next(error);
@@ -571,6 +573,10 @@ router.post("/profile/photos", photoLimit, galleryBody, profileRoute(async (req,
 }));
 router.put("/profile/photos/order", smallBody, profileRoute(async (req, res) => {
   res.json(await gymProfile.reorderPhotos(pool(req), req.gym, req.userId, req.body, today()));
+}));
+router.put("/profile/photos/:photoId/facility", smallBody, profileRoute(async (req, res) => {
+  const photoId = rules.id(req.params.photoId, "photo");
+  res.json(await gymProfile.tagPhoto(pool(req), req.gym, req.userId, photoId, profileRules.photoFacilityBody(req.body), today()));
 }));
 router.delete("/profile/photos/:photoId", profileRoute(async (req, res) => {
   res.json(await gymProfile.removePhoto(pool(req), req.gym, req.userId, rules.id(req.params.photoId, "photo"), today()));

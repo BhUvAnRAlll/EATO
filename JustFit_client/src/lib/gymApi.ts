@@ -49,7 +49,8 @@ export type GymProfile = {
   hours: OpeningHours | null;
   closures: Closure[];
   show: ShowSections;
-  photos: { id: number; url: string }[];
+  // facility: the one the photo shows (G18; absent from an older server)
+  photos: { id: number; url: string; facility?: FacilityId | null }[];
   maxPhotos: number;
   contact: ProfileContact;
   hasLocation: boolean;
@@ -420,6 +421,8 @@ export const gymApi = {
   setTrainerPhoto: (token: string | null, userId: string, image: { data: string; mediaType: string }) => call<{ trainers: TrainerProfile[] }>(token, `/api/gym/profile/trainers/${encodeURIComponent(userId)}/photo`, "PUT", { data: image.data, mediaType: image.mediaType }),
   removeTrainerPhoto: (token: string | null, userId: string) => call<{ trainers: TrainerProfile[] }>(token, `/api/gym/profile/trainers/${encodeURIComponent(userId)}/photo`, "DELETE"),
   orderGymPhotos: (token: string | null, ids: number[]) => call<GymProfile>(token, "/api/gym/profile/photos/order", "PUT", { ids }),
+  // The facility a photo shows, or null for none: members see it at once (G18)
+  tagGymPhoto: (token: string | null, id: number, facility: FacilityId | null) => call<GymProfile>(token, `/api/gym/profile/photos/${id}/facility`, "PUT", { facility }),
   publishProfile: (token: string | null) => call<GymProfile>(token, "/api/gym/profile/publish", "POST"),
   // The gym's page as members would see it once the draft is published
   profilePreview: (token: string | null) => call<GymPage>(token, "/api/gym/profile/preview"),

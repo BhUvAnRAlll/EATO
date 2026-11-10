@@ -226,6 +226,16 @@ function profileBody(body, today) {
   return out;
 }
 
+// PUT /profile/photos/:id/facility { facility }: one facility from the list, or null for none (G18)
+function photoFacilityBody(body) {
+  onlyKeys(body, ["facility"]);
+  if (body.facility === null || body.facility === "") return null;
+  if (!FACILITY_IDS.includes(body.facility)) throw new ValidationError("Pick the facility from the list.");
+  return body.facility;
+}
+/** A stored tag read back: a facility id from the list, else null */
+const readPhotoFacility = (value) => (FACILITY_IDS.includes(value) ? value : null);
+
 // PUT /profile/photos/order { ids }: the branch's photo ids, each once, in the new order
 function photoOrder(body, existing) {
   onlyKeys(body, ["ids"]);
@@ -390,7 +400,7 @@ const publishProblem = (list) => {
 };
 
 module.exports = {
-  GYM_TYPES, GYM_TYPE_IDS, TYPES_MAX, gymTypes, readTypes,
+  GYM_TYPES, GYM_TYPE_IDS, TYPES_MAX, gymTypes, readTypes, photoFacilityBody, readPhotoFacility,
   ABOUT_MAX, DETAILS_MAX, MAX_PHOTOS, FACILITIES, FACILITY_IDS, DAYS, SECTIONS, CUSTOM_MAX, CLOSURES_MAX,
   optionalText, facilities, openingHours, customFacilities, closures, showBody, link, email, profileBody, photoOrder,
   readFacilities, readHours, readCustom, readClosures, readShow, snapshot, readPublished, forMembers, publishState, checklist, publishProblem,

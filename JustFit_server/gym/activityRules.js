@@ -171,6 +171,7 @@ const ROUTES = [
   R(["PATCH"], /^\/profile$/, { type: "settings", action: "edit", label: () => "Gym Profile", detail: ({ body }) => `Changed the draft's ${Object.keys(PROFILE_FIELD).filter((k) => body?.[k] !== undefined).map((k) => PROFILE_FIELD[k]).join(", ") || "profile"}` }),
   R(["POST"], /^\/profile\/photos$/, { type: "settings", action: "create", label: () => "Gym Profile", detail: () => "Added a photo" }),
   R(["PUT"], /^\/profile\/photos\/order$/, { type: "settings", action: "edit", label: () => "Gym Profile", detail: () => "Changed the order of the photos" }),
+  R(["PUT"], /^\/profile\/photos\/([^/]+)\/facility$/, { type: "settings", action: "edit", label: () => "Gym Profile", detail: ({ body }) => (body?.facility ? "Tagged a photo with a facility" : "Took a photo's facility tag off") }),
   R(["PUT"], /^\/profile\/trainers\/([^/]+)$/, { type: "settings", action: "edit", label: () => "Trainer profile", detail: ({ body }) => (body?.active === true ? "Showed a trainer to members" : body?.active === false ? "Hid a trainer from members" : "Edited a trainer's profile") }),
   R(["PUT"], /^\/profile\/trainers\/([^/]+)\/photo$/, { type: "settings", action: "edit", label: () => "Trainer profile", detail: () => "Changed a trainer's photo" }),
   R(["DELETE"], /^\/profile\/trainers\/([^/]+)\/photo$/, { type: "settings", action: "delete", label: () => "Trainer profile", detail: () => "Removed a trainer's photo" }),

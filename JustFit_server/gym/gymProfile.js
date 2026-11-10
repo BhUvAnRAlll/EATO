@@ -26,7 +26,8 @@ const files = covers.fileStore(photoDir);
 const checkGymPhoto = (body) => covers.checkPhoto(body, photoLimits);
 
 // photoUrl: read with the session; the key's start changes when the file does
-const photoOf = (r) => ({ id: r.id, url: `/api/gym/profile/photos/${r.id}?v=${r.image_key.slice(0, 8)}` });
+// facility: the one it shows (G18; null: none; left out before migration 2027-01-24, so the app hides tagging)
+const photoOf = (r) => ({ id: r.id, url: `/api/gym/profile/photos/${r.id}?v=${r.image_key.slice(0, 8)}`, ...(r.facility === undefined ? {} : { facility: rules.readPhotoFacility(r.facility) }) });
 
 // The draft's columns (Gym Profile, migration 2026-12-21): what the gym edits; members read the
 // published copy (published_profile) instead
@@ -41,7 +42,8 @@ async function hasGymTypes(db) {
   return typesColumn.has;
 }
 const photosOf = (db, gymId) =>
-  db.query("SELECT id, image_key FROM gym_photos WHERE gym_id = ? ORDER BY sort_order, id LIMIT ?", [gymId, rules.MAX_PHOTOS]);
+  // Every column, so the facility tag comes along once its migration has run
+  db.query("SELECT * FROM gym_photos WHERE gym_id = ? ORDER BY sort_order, id LIMIT ?", [gymId, rules.MAX_PHOTOS]);
 
 /** The draft row and its gallery, in order; db may be a transaction (lock: FOR UPDATE on the branch) */
 async function draftOf(db, gymId, lock = false) {
@@ -136,6 +138,17 @@ async function reorderPhotos(pool, gym, userId, body, today) {
   return profile(pool, gym, today);
 }
 
+/** PUT /profile/photos/:id/facility: the facility a photo shows; members see it at once */
+async function tagPhoto(pool, gym, userId, photoId, facility, today) {
+  await inTransaction(pool, async (db) => {
+    const [[row]] = await db.query("SELECT id FROM gym_photos WHERE id = ? AND gym_id = ? FOR UPDATE", [photoId, gym.id]);
+    if (!row) throw new NotFoundError("That photo isn't in your gallery.");
+    await db.query("UPDATE gym_photos SET facility = ? WHERE id = ? AND gym_id = ?", [facility, photoId, gym.id]);
+    await audit(db, userId, "gym.edit", "gym", gym.id, `Tagged a photo of ${gym.brand}’s ${gym.branch} branch`);
+  });
+  return profile(pool, gym, today);
+}
+
 /**
  * Adds a checked photo to the branch's gallery: the file is written first, then the row (with the
  * branch's photos locked, so two uploads can't pass the limit together); a refusal leaves no file.
@@ -181,4 +194,4 @@ async function photoFile(pool, gymId, photoId, env = process.env) {
   return file;
 }
 
-module.exports = { hasGymTypes, photoLimits, photoDir, checkGymPhoto, draftOf, profile, updateProfile, publish, reorderPhotos, addPhoto, removePhoto, photoFile, send: covers.send };
+module.exports = { tagPhoto, hasGymTypes, photoLimits, photoDir, checkGymPhoto, draftOf, profile, updateProfile, publish, reorderPhotos, addPhoto, removePhoto, photoFile, send: covers.send };

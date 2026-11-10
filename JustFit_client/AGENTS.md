@@ -385,9 +385,13 @@ Basic info picks up to three of `GYM_TYPES` (Gym, Women only, CrossFit / functio
 Martial arts & boxing, Dance & Zumba, Personal training studio; `profileRules.gymTypes`), saved to the
 draft as `gyms.gym_types` and published with the profile (always shown, no switch); Discover's
 Filters take one kind (`?type=`), cards and a gym's page name them (`gymTypesText`). Migration
-`2027-01-23-gym-types.sql`; before it the picker is hidden (`typesReady`) and saving answers 503. Not
-built: facility
-images, a rating filter (needs the uncommitted reviews work). Tests:
+`2027-01-23-gym-types.sql`; before it the picker is hidden (`typesReady`) and saving answers 503.
+**Facility photos (2026-11-10, G18):** Gym Profile › Photos has a tag button per photo: the facility it
+shows, or None (`PUT /api/gym/profile/photos/:id/facility { facility }`, option `profile.edit`,
+`profileRules.photoFacilityBody`, `gymProfile.tagPhoto`); live like removing a photo (no Publish),
+named under the photo on a gym's page. Migration `2027-01-24-gym-photo-facilities.sql`
+(`gym_photos.facility`); before it the tag button is hidden and tagging answers 503. Not built: the
+facilities' own order, a rating filter (needs the uncommitted reviews work). Tests:
 `__tests__/gym-discover-extras-rules.test.js`, `e2e/gym-extras.e2e.test.js`.
 
 ### Meal ordering (2026-11-09, the user's plan; migration approved)

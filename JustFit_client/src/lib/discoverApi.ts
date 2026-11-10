@@ -69,7 +69,7 @@ export type GymPage = {
   contact: { address: string | null; phone: string | null; whatsapp: string | null; email: string | null; website: string | null; instagram: string | null; facebook: string | null };
   location: { latitude: number; longitude: number } | null;
   logoUrl: string | null;
-  photos: { id: number; url: string }[];
+  photos: { id: number; url: string; facility?: FacilityId | null }[];
   plans: ComparePlan[];
   pt: PtPackage[];
   // The gym's trainers members may see (Gym Profile phase 3; absent from an older server)

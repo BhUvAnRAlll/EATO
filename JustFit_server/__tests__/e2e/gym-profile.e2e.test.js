@@ -314,6 +314,19 @@ describe("gym public profile e2e: the gym admin writes it, Staff read it, and it
     assert.equal((await api("POST", "/api/gym/profile/publish", tokens.staffA)).status, 200);
     assert.equal((await api("GET", `/api/gyms/${state.gymA}`, tokens.member)).json.about, "Now with a boxing ring.");
 
+    // A photo tagged with a facility (G18) shows it to members at once, no publish needed
+    const tagged = page.json.photos[0].id;
+    assert.equal((await api("PUT", `/api/gym/profile/photos/${tagged}/facility`, tokens.staffA, { facility: "steam" })).status, 403, "Publish alone can't tag");
+    assert.equal((await api("PUT", `/api/gym/profile/photos/${tagged}/facility`, tokens.gymB, { facility: "steam" })).status, 404, "another gym's photo");
+    assert.equal((await api("PUT", `/api/gym/profile/photos/${tagged}/facility`, tokens.gymA, { facility: "pool" })).status, 400);
+    assert.equal((await api("PUT", `/api/gym/profile/photos/${tagged}/facility`, tokens.gymA, { facility: "steam", gymId: state.gymB })).status, 400);
+    const tag = await api("PUT", `/api/gym/profile/photos/${tagged}/facility`, tokens.gymA, { facility: "steam" });
+    assert.equal(tag.status, 200, JSON.stringify(tag.json));
+    assert.equal(tag.json.photos.find((p) => p.id === tagged).facility, "steam");
+    assert.equal(tag.json.publishing.state, "published", "tagging needs no new publish");
+    assert.equal((await api("GET", `/api/gyms/${state.gymA}`, tokens.member)).json.photos.find((p) => p.id === tagged).facility, "steam");
+    assert.equal((await api("PUT", `/api/gym/profile/photos/${tagged}/facility`, tokens.gymA, { facility: null })).json.photos.find((p) => p.id === tagged).facility, null);
+
     // Removing a photo takes it away from members at once
     const gone = page.json.photos[1].id;
     assert.equal((await api("DELETE", `/api/gym/profile/photos/${gone}`, tokens.gymA)).status, 200);
