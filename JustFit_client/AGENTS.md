@@ -940,6 +940,26 @@ A portal for gym staff, separate from the removed gym owner portal and from the 
   Attendance's QR / settings / Check out / Export, Bulk SMS's Auto Reminders and Manual Send, and
   "Add New Plan / Product / Service". Staff whose list was saved before keep it as it was, so they
   get the new tiles only when ticked (as with Expenses).
+- **Trainer diet plans (2026-11-10, the user's request; migration `2027-01-27-trainer-diet-plans.sql`,
+  table `trainer_diet_plans`, `profiles.food_shared_with_trainer`):** My Clients › a client › Diet
+  plan (`app/(user)/clients/diet/[id].tsx`, `components/trainer/DietMealPicker.tsx`): one day of up to
+  8 meals (meal time Breakfast / Mid-morning / Lunch / Evening snack / Dinner, HH:MM, what to eat,
+  optional kcal and protein; it repeats until changed), a note, and for breakfast, lunch and dinner up
+  to 3 justFit menu meals to recommend. Only the client's own trainer (`trainer.clientRow`), one plan
+  per membership, `PUT` upserts with `version` + 1 and notifies the member (`diet.plan`, link
+  `/coach/meal-plan`, once per version). The member decides whether their trainers see their diet,
+  allergies and dislikes (Meal Plan's "Share my food answers", `PUT /api/membership/food-sharing`,
+  off by default); when shared the picker greys out meals that break them and the server refuses
+  such a pick (409). Whatever the switch, the member never sees a pick that breaks their own answers
+  (`GET /api/membership/diet-plans` leaves it out and counts it as `hidden`). The check is the app's
+  `lib/mealMatch.ts`, loaded by `gym/dietPlanRules.js` like the nutrition calculator. Coach › Meal
+  Plan has the tabs From your trainer (`components/coach/TrainerDietPlans.tsx`, first when there is a
+  plan) and AI Coach. Routes `GET|PUT|DELETE /api/trainer/clients/:id/diet-plan` (saves 60 an hour,
+  `TRAINER_DIET_SAVES_PER_HOUR`, 16 kb), `GET /api/membership/diet-plans`, `PUT
+  /api/membership/food-sharing` (30 an hour); before the migration they answer 503 naming it. Nothing
+  cascades: the gym demo seed's `--remove` deletes a demo member's plan first. Tests:
+  `__tests__/gym-diet-plan-rules.test.js`, `e2e/gym-diet-plans.e2e.test.js`, the client's
+  `lib/__tests__/dietPlanText.test.ts`.
 - **Trainers and My Clients (2026-11-05, phase 2):** a member's PT is with one of the branch's
   trainers (`gym_members.pt_trainer_id`), picked on the PT form (`TrainerChips`; left out, the
   member keeps their trainer) or in the member's ⋯ › Sales › Change Trainer (`ChangeTrainerSheet`);

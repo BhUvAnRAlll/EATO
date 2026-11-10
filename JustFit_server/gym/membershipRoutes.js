@@ -9,6 +9,8 @@ const { createRateLimiter, limitPerUser } = require("../rateLimit");
 const pauses = require("./pauses");
 const memberHub = require("./memberHub");
 const crowd = require("./crowd");
+const dietPlans = require("./dietPlans");
+const dietRules = require("./dietPlanRules");
 const notices = require("../notifications/events");
 const pauseRules = require("./pauseRules");
 const rules = require("./rules");
@@ -30,6 +32,21 @@ const requestLimit = limitPerUser(createRateLimiter({ limit: Number(process.env.
 
 router.get("/", route(async (req, res) => {
   res.json(await pauses.myMemberships(pool(req), req.userId, today()));
+}));
+// Diet plans from the member's gym trainers (Coach › Meal Plan), and whether those trainers may see
+// the member's diet, allergies and dislikes (2026-11-10, migration 2027-01-27). Before /:memberId.
+const DIET_MIGRATION = "Diet plans need the 2027-01-27-trainer-diet-plans migration on this server.";
+const dietRoute = (handler) => (req, res, next) =>
+  handler(req, res, next).catch((error) => {
+    if (["ER_NO_SUCH_TABLE", "ER_BAD_FIELD_ERROR"].includes(error?.code)) return res.status(503).json({ error: DIET_MIGRATION });
+    next(error);
+  });
+const sharingLimit = limitPerUser(createRateLimiter({ limit: 30, windowMs: 60 * 60 * 1000 }));
+router.get("/diet-plans", dietRoute(async (req, res) => {
+  res.json(await dietPlans.forMember(pool(req), req.userId));
+}));
+router.put("/food-sharing", sharingLimit, smallBody, dietRoute(async (req, res) => {
+  res.json(await dietPlans.setSharing(pool(req), req.userId, dietRules.sharingBody(req.body)));
 }));
 // Gym Hub's membership page (2026-11-09): one membership with its payments, pauses and a month of
 // attendance (?month=YYYY-MM). Read only.

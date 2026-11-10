@@ -9,6 +9,9 @@ import { CoachButton } from "@/components/coach/CoachButton";
 import { MealRemindersRow } from "@/components/coach/MealRemindersRow";
 import { PlanTimeline } from "@/components/coach/PlanTimeline";
 import { RecommendedMeals } from "@/components/meals/RecommendedMeals";
+import { TrainerDietPlans } from "@/components/coach/TrainerDietPlans";
+import { PressableScale } from "@/components/PressableScale";
+import { dietPlanApi, type MemberDietPlans } from "@/lib/dietPlanApi";
 import { usePullToRefresh } from "@/components/PullToRefresh";
 import { ScreenSkeleton } from "@/components/Skeleton";
 import { coaches } from "@/data/coach";
@@ -46,6 +49,12 @@ export default function MealPlanScreen() {
   const start = useCoachIntakeStore((state) => state.start);
   const [loaded, setLoaded] = useState<{ intake: Intake | null; prefill: IntakePrefill; profile?: Partial<IntakeProfile>; gender?: Gender | null } | null>(null);
   const [plan, setPlan] = useState<PlanState | null>(null);
+  // Diet plans from the member's gym trainers (2026-11-10): a "From your trainer" tab, first when
+  // there is one. null until read, or when the server can't give them (before the migration)
+  const [trainerPlans, setTrainerPlans] = useState<MemberDietPlans | null>(null);
+  const [pickedTab, setPickedTab] = useState<"trainer" | "coach" | null>(null);
+  const hasTrainerPlans = (trainerPlans?.plans.length ?? 0) > 0;
+  const tab = hasTrainerPlans ? pickedTab ?? "trainer" : "coach";
   // The plan as it is now, for a save that lands after a reload (updaters stay pure)
   const planRef = useRef<PlanState | null>(null);
   useEffect(() => {
@@ -90,6 +99,9 @@ export default function MealPlanScreen() {
     const token = await getToken().catch(() => null);
     readMenu(token);
     loadFood(token);
+    dietPlanApi.mine(token).then((answer) => {
+      if (request === latest.current && answer.ok) setTrainerPlans(answer.data);
+    });
     const [intake, planResult] = await Promise.all([coachApi.intake(token), coachApi.plan(token, todayIso())]);
     if (request !== latest.current) return;
     if (!intake.ok) return setError(intake.status ? intake.error : OFFLINE);
@@ -190,6 +202,20 @@ export default function MealPlanScreen() {
         </View>
 
         <ScrollView ref={scroll} contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 32 + insets.bottom, gap: 16 }} showsVerticalScrollIndicator={false} refreshControl={refreshControl}>
+          {hasTrainerPlans && (
+            <View className="macro__segmented" accessibilityRole="tablist">
+              {(["trainer", "coach"] as const).map((t) => (
+                <PressableScale key={t} onPress={() => setPickedTab(t)} haptic="select" className={tab === t ? "macro__segment macro__segment--selected" : "macro__segment"} accessibilityRole="tab" accessibilityState={{ selected: tab === t }}>
+                  <Text className={tab === t ? "macro__segment-label macro__segment-label--selected" : "macro__segment-label"}>{t === "trainer" ? "From your trainer" : "AI Coach"}</Text>
+                </PressableScale>
+              ))}
+            </View>
+          )}
+
+          {tab === "trainer" && trainerPlans && <TrainerDietPlans data={trainerPlans} onShared={(shared) => setTrainerPlans((d) => (d ? { ...d, shared } : d))} />}
+
+          {tab === "coach" && (
+          <>
           {!plan && !error && <ScreenSkeleton cards={3} label="Loading your meal plan" />}
 
           {error && (
@@ -268,6 +294,8 @@ export default function MealPlanScreen() {
                 </View>
               )}
             </>
+          )}
+          </>
           )}
 
           {actionError && <Text className="macro__error" accessibilityRole="alert">{actionError}</Text>}

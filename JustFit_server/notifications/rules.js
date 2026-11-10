@@ -34,6 +34,7 @@ const KINDS = {
   "registration.decided": "registration",
   "platform.complaint": "platform",
   "gym.complaint_update": "gym",
+  "diet.plan": "gym", // a trainer shared or updated a member's diet plan (gym/dietPlans.js)
 };
 // What a member is told about their gym membership (2026-11-10, the user's choice: members don't
 // switch notifications; each branch's gym admin, or Staff with the option, decides which of these
@@ -72,7 +73,7 @@ function readMemberOff(value) {
 }
 
 // Screens a notification may open (the app routes them only after checking the same list)
-const LINKS = [/^\/gym-hub(\/\d+)?$/, /^\/gym-register$/, /^\/gym\/pauses$/, /^\/gym\/members\/\d+$/, /^\/gym\/members$/, /^\/gym\/attendance$/, /^\/gym\/enquiries$/, /^\/admin\/gyms\/\d+$/, /^\/admin\/complaints\/\d+$/, /^\/gym$/];
+const LINKS = [/^\/gym-hub(\/\d+)?$/, /^\/gym-register$/, /^\/gym\/pauses$/, /^\/gym\/members\/\d+$/, /^\/gym\/members$/, /^\/gym\/attendance$/, /^\/gym\/enquiries$/, /^\/admin\/gyms\/\d+$/, /^\/admin\/complaints\/\d+$/, /^\/gym$/, /^\/coach\/meal-plan$/];
 const safeLink = (link) => (typeof link === "string" && LINKS.some((re) => re.test(link)) ? link : null);
 const PAGE = 30;
 

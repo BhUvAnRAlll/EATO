@@ -76,6 +76,8 @@ async function removeDemo(db, gym) {
     counts.contacts = (await db.query("DELETE FROM gym_enquiry_contacts WHERE gym_id = ? AND enquiry_id IN (?)", [gym.id, eids]))[0].affectedRows;
     counts.enquiries = (await db.query("DELETE FROM gym_enquiries WHERE gym_id = ? AND id IN (?)", [gym.id, eids]))[0].affectedRows;
   }
+  // A trainer's diet plan for a demo member goes first (no cascade; the table exists from migration 2027-01-27)
+  if (ids.length) counts.dietPlans = (await db.query("DELETE FROM trainer_diet_plans WHERE gym_id = ? AND member_id IN (?)", [gym.id, ids]).catch((e) => (e?.code === "ER_NO_SUCH_TABLE" ? [{ affectedRows: 0 }] : Promise.reject(e))))[0].affectedRows;
   if (ids.length) counts.members = (await db.query("DELETE FROM gym_members WHERE gym_id = ? AND id IN (?)", [gym.id, ids]))[0].affectedRows;
   counts.catalogue = (await db.query("DELETE FROM gym_catalog_items WHERE gym_id = ? AND name LIKE '%(demo)'", [gym.id]))[0].affectedRows;
   console.log("Removed", counts);

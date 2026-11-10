@@ -91,4 +91,4 @@ async function setTrainer(pool, gymId, memberId, trainerId) {
   if (result.affectedRows === 0) throw new NotFoundError("That member doesn't exist.");
 }
 
-module.exports = { clients, client, clientGymId, branchTrainers, checkTrainer, setTrainer };
+module.exports = { clients, client, clientRow, clientGymId, branchTrainers, checkTrainer, setTrainer };

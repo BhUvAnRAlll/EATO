@@ -92,6 +92,18 @@ function ClientPage() {
                   {contact("WhatsApp", { ios: "message", android: "chat", web: "chat" }, () => whatsappPhone(client.phone, `Hi ${client.name.split(" ")[0]}, `))}
                 </View>
 
+                {/* Their day of meals, with justFit meals to order (2026-11-10) */}
+                <Pressable onPress={() => router.push({ pathname: "/clients/diet/[id]", params: { id: String(client.id) } })} className="card flex-row items-center" style={{ gap: 12 }} accessibilityRole="button" accessibilityLabel={`Diet plan for ${client.name}`}>
+                  <View className="macro__thumb" style={{ backgroundColor: colors.accentSoft }}>
+                    <SymbolView name={{ ios: "fork.knife", android: "restaurant", web: "restaurant" }} size={20} tintColor={colors.leaf} />
+                  </View>
+                  <View className="min-w-0 flex-1">
+                    <Text className="card__title">Diet plan</Text>
+                    <Text className="meta-text">Their meals for the day, with justFit meals they can order</Text>
+                  </View>
+                  <SymbolView name={{ ios: "chevron.right", android: "chevron_right", web: "chevron_right" }} size={16} tintColor={colors.faint} />
+                </Pressable>
+
                 <View className="card" style={{ gap: 12 }}>
                   <Text className="type-overline text-muted">Recent visits</Text>
                   {visits.length === 0 ? (

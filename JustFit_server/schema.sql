@@ -56,6 +56,7 @@ CREATE TABLE profiles (
   cuisines           JSON         NULL,  -- e.g. ["North Indian", "South Indian"]
   dislikes           VARCHAR(500) NULL,
   allergies          VARCHAR(500) NULL,
+  food_shared_with_trainer BOOLEAN NOT NULL DEFAULT FALSE,  -- the member lets their gym trainer see diet, allergies and dislikes (2027-01-27)
   workout_frequency  ENUM('1-2', '3-4', '5-6', '7') NULL,
   workout_type       ENUM('gym', 'home', 'cardio', 'other') NULL,
   workout_time       ENUM('morning', 'afternoon', 'evening') NULL,
@@ -2459,4 +2460,24 @@ CREATE TABLE delivery_pincodes (
   updated_at  TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (pincode),
   CONSTRAINT chk_delivery_pincodes_pincode CHECK (pincode REGEXP '^[1-9][0-9]{5}$')
+) ENGINE = InnoDB;
+
+-- Trainer diet plans (migration 2027-01-27): a trainer's day of meals for a PT client, with justFit
+-- menu meals recommended to order
+CREATE TABLE trainer_diet_plans (
+  id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  member_id   INT UNSIGNED NOT NULL,               -- the PT client (gym_members)
+  gym_id      INT UNSIGNED NOT NULL,               -- the member's branch
+  trainer_id  VARCHAR(64)  NULL,                   -- who wrote it (NULL once that account is deleted)
+  note        VARCHAR(300) NULL,
+  meals       JSON         NOT NULL,               -- [{ slot, time, food, kcal, proteinG, picks: [meal id] }]
+  version     INT UNSIGNED NOT NULL DEFAULT 1,     -- +1 on every save (the member's notice is once per version)
+  created_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_trainer_diet_plans_member (member_id),
+  KEY idx_trainer_diet_plans_gym (gym_id),
+  CONSTRAINT fk_trainer_diet_plans_member FOREIGN KEY (member_id) REFERENCES gym_members (id),
+  CONSTRAINT fk_trainer_diet_plans_gym FOREIGN KEY (gym_id) REFERENCES gyms (id),
+  CONSTRAINT fk_trainer_diet_plans_trainer FOREIGN KEY (trainer_id) REFERENCES users (id) ON DELETE SET NULL
 ) ENGINE = InnoDB;
