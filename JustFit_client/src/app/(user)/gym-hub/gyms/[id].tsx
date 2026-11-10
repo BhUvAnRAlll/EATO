@@ -12,6 +12,9 @@ import { ScreenSkeleton } from "@/components/Skeleton";
 import { SymbolView } from "@/components/SymbolView";
 import { GymPageView } from "@/components/gymHub/GymPageView";
 import { JoinSheet, type JoinPick } from "@/components/gymHub/JoinSheet";
+import { TrialSheet } from "@/components/gymHub/TrialSheet";
+import { confirmChoice } from "@/lib/nativeSheets";
+import { hud } from "@/lib/hud";
 import { ReportGymSheet } from "@/components/gymHub/ReportGymSheet";
 import { ReviewSheet } from "@/components/gymHub/ReviewSheet";
 import { discoverApi, type GymPage, type JoinRequest } from "@/lib/discoverApi";
@@ -36,6 +39,7 @@ export default function GymDetails() {
   // Report a problem (the brief's section 7): to the justFit team, never the gym
   const [reporting, setReporting] = useState(false);
   const [reviewing, setReviewing] = useState(false);
+  const [trialing, setTrialing] = useState(false);
 
   const load = useCallback(async () => {
     const answer = await discoverApi.gym(await getToken().catch(() => null), Number(id));
@@ -43,6 +47,18 @@ export default function GymDetails() {
   }, [getToken, id]);
   useFocusEffect(useCallback(() => { load(); }, [load]));
   const { refreshControl } = usePullToRefresh(load);
+
+  const keepRequest = (request: JoinRequest) => setResult((current) => (current.state === "ready" ? { ...current, gym: { ...current.gym, you: { memberId: current.gym.you?.memberId ?? null, request } } } : current));
+  // Calls off the member's own open trial (asked once more), then reads the page again
+  const cancelTrial = async () => {
+    if (result.state !== "ready" || !result.gym.you?.request) return;
+    const sure = await confirmChoice({ title: "Cancel your free trial?", message: `${result.gym.name} won't call you about it. You can ask for another later.`, confirmLabel: "Cancel trial", cancelLabel: "Keep it", destructive: true });
+    if (!sure) return;
+    const answer = await discoverApi.cancelTrial(await getToken().catch(() => null), result.gym.id, result.gym.you.request.id);
+    if (!answer.ok) return hud.error(answer.error);
+    hud.success("Trial cancelled");
+    load();
+  };
 
   const back = () => (router.canGoBack() ? router.back() : router.replace("/gym-hub"));
 
@@ -70,7 +86,7 @@ export default function GymDetails() {
             </View>
           </View>
         ) : (
-          <GymPageView gym={result.gym} at={result.at} onAsk={setPick} onReview={() => setReviewing(true)} refreshControl={refreshControl} />
+          <GymPageView gym={result.gym} at={result.at} onAsk={setPick} onTrial={() => setTrialing(true)} onCancelTrial={cancelTrial} onReview={() => setReviewing(true)} refreshControl={refreshControl} />
         )}
         {pick && result.state === "ready" && (
           <JoinSheet
@@ -80,6 +96,9 @@ export default function GymDetails() {
             onClose={() => setPick(null)}
             onSent={(request: JoinRequest) => setResult((current) => (current.state === "ready" ? { ...current, gym: { ...current.gym, you: { memberId: current.gym.you?.memberId ?? null, request } } } : current))}
           />
+        )}
+        {trialing && result.state === "ready" && (
+          <TrialSheet gymId={result.gym.id} gymName={result.gym.name} onClose={() => setTrialing(false)} onSent={keepRequest} />
         )}
         {reviewing && result.state === "ready" && (
           <ReviewSheet

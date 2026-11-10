@@ -13,14 +13,21 @@ const { todayInIndia } = require("./rules");
 
 const DAY = (column) => `DATE_FORMAT(${column}, '%Y-%m-%d')`;
 
+const trialRules = require("./trialRules");
+
 const requestOf = (r) => ({
   id: r.id,
   gym: { id: r.gym_id, name: r.brand, branch: r.branch },
   planLabel: r.plan_label ?? null,
   state: rules.requestState(r.status),
   sentOn: r.enquired_on,
+  // A free trial (Book a free trial): where it stands and when it's booked; null for a join request
+  trial: r.trial_status ? trialRules.trialOf(r) : null,
 });
-const REQUEST_SELECT = `SELECT e.id, e.gym_id, e.status, e.plan_label, ${DAY("e.enquired_on")} AS enquired_on, b.name AS brand, g.name AS branch
+// The trial columns come from trials.js (none before migration 2027-02-02): required lazily, since
+// trials.js needs this file's neighbours loaded first
+const requestSelect = async (db) =>
+  `SELECT e.id, e.gym_id, e.status, e.plan_label, ${DAY("e.enquired_on")} AS enquired_on, b.name AS brand, g.name AS branch${await require("./trials").trialColumns(db)}
   FROM gym_enquiries e JOIN gyms g ON g.id = e.gym_id JOIN gym_brands b ON b.id = g.brand_id`;
 
 /** POST /api/gyms/:id/requests: one open request per gym, none while a member there already */
@@ -56,13 +63,13 @@ async function ask(pool, userId, gymId, body, today = todayInIndia()) {
     );
     return inserted.insertId;
   });
-  const [[row]] = await pool.query(`${REQUEST_SELECT} WHERE e.id = ? AND e.user_id = ?`, [id, userId]);
+  const [[row]] = await pool.query(`${await requestSelect(pool)} WHERE e.id = ? AND e.user_id = ?`, [id, userId]);
   return { request: requestOf(row) };
 }
 
 /** GET /api/gyms/requests: the member's own requests, newest first */
 async function mine(pool, userId) {
-  const [rows] = await pool.query(`${REQUEST_SELECT} WHERE e.user_id = ? ORDER BY e.id DESC LIMIT 50`, [userId]);
+  const [rows] = await pool.query(`${await requestSelect(pool)} WHERE e.user_id = ? ORDER BY e.id DESC LIMIT 50`, [userId]);
   return { requests: rows.map(requestOf) };
 }
 
@@ -77,7 +84,7 @@ async function standing(pool, userId, gymId, today = todayInIndia()) {
     : [[null]];
   let request = null;
   try {
-    const [[row]] = await pool.query(`${REQUEST_SELECT} WHERE e.user_id = ? AND e.gym_id = ? ORDER BY e.id DESC LIMIT 1`, [userId, gymId]);
+    const [[row]] = await pool.query(`${await requestSelect(pool)} WHERE e.user_id = ? AND e.gym_id = ? ORDER BY e.id DESC LIMIT 1`, [userId, gymId]);
     request = row ? requestOf(row) : null;
   } catch (error) {
     if (error?.code !== "ER_BAD_FIELD_ERROR") throw error;
@@ -85,4 +92,10 @@ async function standing(pool, userId, gymId, today = todayInIndia()) {
   return { memberId: member?.id ?? null, request };
 }
 
-module.exports = { ask, mine, standing };
+/** One of the member's own requests by id (a trial just sent), as `mine` lists it */
+async function one(pool, userId, enquiryId) {
+  const [[row]] = await pool.query(`${await requestSelect(pool)} WHERE e.id = ? AND e.user_id = ?`, [enquiryId, userId]);
+  return row ? requestOf(row) : null;
+}
+
+module.exports = { ask, mine, standing, one };

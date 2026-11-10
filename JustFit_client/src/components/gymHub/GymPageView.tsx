@@ -8,6 +8,7 @@ import { PrimaryButton } from "@/components/PrimaryButton";
 import { SymbolView } from "@/components/SymbolView";
 import { MemberPhotoImage } from "@/components/gym/MemberPhotoImage";
 import type { JoinPick } from "@/components/gymHub/JoinSheet";
+import { openTrial, trialStateText } from "@/lib/gymTrial";
 import { ReviewCard, ReviewSummaryCard, Stars } from "@/components/gymHub/ReviewParts";
 import type { GymPage } from "@/lib/discoverApi";
 import { directionsUrl, facilityLabel, indiaNow, joinStateText, openNow, perMonthText, planLengthText, priceText } from "@/lib/gymDiscover";
@@ -22,7 +23,7 @@ import { useThemeColors } from "@/theme";
 // the address, contacts and links. Sections the gym switched off arrive empty and are left out.
 // Members get Ask buttons (onAsk), their standing (gym.you) and their review (onReview); the gym's
 // own preview gets none of them. at: when the page was read (open now and today follow it).
-export function GymPageView({ gym, at, onAsk, onReview, refreshControl }: { gym: GymPage; at: number; onAsk?: (pick: JoinPick) => void; onReview?: () => void; refreshControl?: ReactElement<RefreshControlProps> }) {
+export function GymPageView({ gym, at, onAsk, onTrial, onCancelTrial, onReview, refreshControl }: { gym: GymPage; at: number; onAsk?: (pick: JoinPick) => void; onTrial?: () => void; onCancelTrial?: () => void; onReview?: () => void; refreshControl?: ReactElement<RefreshControlProps> }) {
   const insets = useSafeAreaInsets();
   return (
     <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 48 + insets.bottom, gap: 16 }} refreshControl={refreshControl} showsVerticalScrollIndicator={false}>
@@ -32,8 +33,8 @@ export function GymPageView({ gym, at, onAsk, onReview, refreshControl }: { gym:
       {gym.about ? <Text className="type-body text-ink">{gym.about}</Text> : null}
       <Facilities gym={gym} />
       <Hours gym={gym} at={at} />
-      <Standing gym={gym} />
-      <Plans gym={gym} onAsk={onAsk} />
+      <Standing gym={gym} onCancelTrial={onCancelTrial} />
+      <Plans gym={gym} onAsk={onAsk} onTrial={onTrial} />
       <Trainers gym={gym} />
       <Reviews gym={gym} onReview={onReview} />
       <Place gym={gym} />
@@ -176,7 +177,7 @@ function Hours({ gym, at }: { gym: GymPage; at: number }) {
 export const asking = (gym: GymPage) => gym.you?.request != null && (gym.you.request.state === "sent" || gym.you.request.state === "in_touch");
 
 // Already a member here (a link to the membership), or the request waiting with the gym
-function Standing({ gym }: { gym: GymPage }) {
+function Standing({ gym, onCancelTrial }: { gym: GymPage; onCancelTrial?: () => void }) {
   const colors = useThemeColors();
   if (!gym.you) return null;
   if (gym.you.memberId !== null) {
@@ -193,6 +194,30 @@ function Standing({ gym }: { gym: GymPage }) {
   }
   const request = gym.you.request;
   if (!request || !asking(gym)) return null;
+  // A free trial: where it stands and when it's booked, with Cancel while it's open
+  if (request.trial) {
+    const t = trialStateText(request.trial, gym.name);
+    return (
+      <View className="card" style={{ gap: 8 }}>
+        <View className="flex-row items-center justify-between" style={{ gap: 8 }} accessible accessibilityLabel={`Your free trial: ${t.label}. ${t.line}`}>
+          <Text className="card__title">Your free trial</Text>
+          <View className={`badge badge--${t.tone}`}><Text className={`badge__label badge__label--${t.tone}`}>{t.label}</Text></View>
+        </View>
+        {request.trial.at ? (
+          <View className="flex-row items-center" style={{ gap: 8 }}>
+            <SymbolView name={{ ios: "calendar", android: "calendar_today", web: "calendar_today" }} size={16} tintColor={colors.leaf} />
+            <Text className="type-subhead text-ink">{request.trial.at.text}</Text>
+          </View>
+        ) : null}
+        <Text className="type-body text-ink">{t.line}</Text>
+        {onCancelTrial && openTrial(request.trial) && (
+          <PressableScale onPress={onCancelTrial} className="self-start" hitSlop={8} accessibilityRole="button">
+            <Text className="auth__note-link">Cancel trial</Text>
+          </PressableScale>
+        )}
+      </View>
+    );
+  }
   const words = joinStateText(request.state, gym.name);
   return (
     <View className="card" style={{ gap: 8 }} accessible accessibilityLabel={`Your request: ${words.label}. ${words.line}`}>
@@ -207,7 +232,7 @@ function Standing({ gym }: { gym: GymPage }) {
 }
 
 // The plans side by side in words: the best value a month outlined, each with its saving and what it includes
-function Plans({ gym, onAsk }: { gym: GymPage; onAsk?: (pick: JoinPick) => void }) {
+function Plans({ gym, onAsk, onTrial }: { gym: GymPage; onAsk?: (pick: JoinPick) => void; onTrial?: () => void }) {
   const colors = useThemeColors();
   // Plans can be asked about by anyone not a member here; PT by members too. The preview asks nothing.
   const canAskPlan = Boolean(onAsk && gym.you) && gym.you!.memberId === null && !asking(gym);
@@ -275,6 +300,11 @@ function Plans({ gym, onAsk }: { gym: GymPage; onAsk?: (pick: JoinPick) => void 
         </View>
       )}
       {canAskPlan && <PrimaryButton label="Ask to join" onPress={() => onAsk!({ itemId: null, label: null })} />}
+      {canAskPlan && onTrial && (
+        <PressableScale onPress={onTrial} className="coach__ghost" haptic="tap" accessibilityRole="button" accessibilityLabel="Book a free trial">
+          <Text className="coach__ghost-label">Book a free trial</Text>
+        </PressableScale>
+      )}
       {(gym.plans.length > 0 || gym.pt.length > 0 || canAskPlan) && (
         <Text className="type-caption text-muted">{canAskPlan ? "The gym calls you to help you join. You pay the gym, not the app." : "Prices are set by the gym. You pay the gym, not the app."}</Text>
       )}

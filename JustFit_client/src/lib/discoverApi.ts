@@ -1,3 +1,4 @@
+import type { TrialExperience, TrialGender, TrialGoal, TrialInfo, TrialTime } from "@/lib/gymTrial";
 import { apiFetch, type ApiResult } from "@/lib/api";
 import type { Closure, FacilityId, GymType, OpeningHours } from "@/lib/gymProfile";
 
@@ -50,7 +51,8 @@ export type PtPackage = { id: number; name: string; months: number | null; price
 // A join request (phase 4): asking a gym to call about a plan; it lands in the gym's Enquiries.
 // state: sent (waiting), in_touch (the gym is following up), joined, closed
 export type JoinState = "sent" | "in_touch" | "joined" | "closed";
-export type JoinRequest = { id: number; gym: { id: number; name: string; branch: string }; planLabel: string | null; state: JoinState; sentOn: string };
+export type JoinRequest = { id: number; gym: { id: number; name: string; branch: string }; planLabel: string | null; state: JoinState; sentOn: string; trial?: TrialInfo | null };
+export type TrialRequestBody = { name: string; age: number | null; gender: TrialGender | null; goal: TrialGoal | null; experience: TrialExperience | null; day: string; time: TrialTime; note: string | null };
 // A trainer as members see them; id is the profile's own; photoUrl read with the session
 export type PublicTrainer = { id: number; name: string; photoUrl: string | null; specializations: string[]; years: number | null; certifications: string[]; bio: string | null; availability: OpeningHours | null };
 // Reviews (Gym Profile phase 4): members of the branch, now or before, rate it once each. The
@@ -121,5 +123,10 @@ export const discoverApi = {
   saveReview: (token: string | null, gymId: number, body: { rating: number; comment: string }) =>
     token ? apiFetch<GymReviews>(`/api/gyms/${gymId}/review`, { token, method: "PUT", body: { rating: body.rating, comment: body.comment.trim() || null } }) : signedOut<GymReviews>(),
   deleteReview: (token: string | null, gymId: number) => (token ? apiFetch<GymReviews>(`/api/gyms/${gymId}/review`, { token, method: "DELETE" }) : signedOut<GymReviews>()),
+  // Book a free trial: the member's details and a preferred day and time; the gym books the time
+  trial: (token: string | null, gymId: number, body: TrialRequestBody) =>
+    token ? apiFetch<{ request: JoinRequest }>(`/api/gyms/${gymId}/trials`, { token, method: "POST", body }) : signedOut<{ request: JoinRequest }>(),
+  cancelTrial: (token: string | null, gymId: number, requestId: number) =>
+    token ? apiFetch<{ ok: true }>(`/api/gyms/${gymId}/trials/${requestId}`, { token, method: "DELETE" }) : signedOut<{ ok: true }>(),
   requests: (token: string | null) => (token ? apiFetch<{ requests: JoinRequest[] }>("/api/gyms/requests", { token }) : signedOut<{ requests: JoinRequest[] }>()),
 };

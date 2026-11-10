@@ -155,6 +155,8 @@ const ROUTES = [
   // Enquiries
   R(["POST"], /^\/enquiries$/, { type: "enquiry", action: "create", label: ({ body, answer }) => answer?.enquiry?.name ?? body?.name ?? null, detail: () => "New enquiry" }),
   R(["PATCH"], /^\/enquiries\/([^/]+)$/, { type: "enquiry", action: "edit", target: "enquiry", detail: ({ before, after }) => changes("enquiry", before, after) }),
+  R(["PUT"], /^\/enquiries\/([^/]+)\/trial$/, { type: "enquiry", action: "edit", target: "enquiry", detail: ({ body }) => (typeof body?.day === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.day) && typeof body?.time === "string" && /^\d{2}:\d{2}$/.test(body.time) ? `Booked the free trial for ${body.day} ${body.time}` : "Booked the free trial") }),
+  R(["POST"], /^\/enquiries\/([^/]+)\/trial\/outcome$/, { type: "enquiry", action: "edit", target: "enquiry", detail: ({ body }) => (body?.outcome === "no_show" ? "Marked the free trial as no-show" : "Marked the free trial as done") }),
   R(["POST"], /^\/enquiries\/([^/]+)\/contacts$/, { type: "enquiry", action: "create", target: "enquiry", detail: ({ body }) => `${body?.kind === "visit" ? "Logged a visit" : `Logged a ${body?.kind === "whatsapp" ? "WhatsApp message" : "call"}: ${body?.outcome === "no_answer" ? "no answer" : "reached"}`}${typeof body?.followUpOn === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.followUpOn) ? `, next follow-up ${body.followUpOn}` : ""}` }),
   // Plans / Catalogue
   R(["POST"], /^\/catalog$/, { type: "catalog", action: "create", label: ({ body }) => labelOf("catalog", { kind: body?.kind, name: body?.name }), detail: ({ body }) => (body?.price !== undefined ? `Price ${rupees(body.price)}` : null) }),

@@ -126,7 +126,7 @@ describe("gym join requests e2e: a member asks, the gym follows up, nobody else 
   it("3. the member asks about Gold: it lands in gym A's Enquiries only, with their account's name and number", run(async () => {
     const r = await api("POST", `/api/gyms/${state.gymA}/requests`, tokens.member, { itemId: state.gold, note: "Evenings after 6" });
     assert.equal(r.status, 201, JSON.stringify(r.json));
-    assert.deepEqual(r.json.request, { id: r.json.request.id, gym: { id: state.gymA, name: "Forma", branch: "Tumkur" }, planLabel: "Gold · 3 Months · ₹4,500", state: "sent", sentOn: today });
+    assert.deepEqual(r.json.request, { id: r.json.request.id, gym: { id: state.gymA, name: "Forma", branch: "Tumkur" }, planLabel: "Gold · 3 Months · ₹4,500", state: "sent", sentOn: today, trial: null });
     state.request = r.json.request.id;
 
     const [[row]] = await connection.query("SELECT full_name, phone, note, status, source, interest, user_id, catalog_item_id, DATE_FORMAT(follow_up_on, '%Y-%m-%d') AS follow FROM gym_enquiries WHERE id = ?", [state.request]);
@@ -146,7 +146,7 @@ describe("gym join requests e2e: a member asks, the gym follows up, nobody else 
     assert.equal(twice.status, 409);
     assert.match(twice.json.error, /already asked Forma/);
     const page = await api("GET", `/api/gyms/${state.gymA}`, tokens.member);
-    assert.deepEqual(page.json.you, { memberId: null, request: { id: state.request, gym: { id: state.gymA, name: "Forma", branch: "Tumkur" }, planLabel: "Gold · 3 Months · ₹4,500", state: "sent", sentOn: today } });
+    assert.deepEqual(page.json.you, { memberId: null, request: { id: state.request, gym: { id: state.gymA, name: "Forma", branch: "Tumkur" }, planLabel: "Gold · 3 Months · ₹4,500", state: "sent", sentOn: today, trial: null } });
     assert.deepEqual((await api("GET", `/api/gyms/${state.gymB}`, tokens.member)).json.you, { memberId: null, request: null });
     const mine = await api("GET", "/api/gyms/requests", tokens.member);
     assert.equal(mine.status, 200);

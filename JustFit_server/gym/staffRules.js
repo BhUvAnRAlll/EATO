@@ -128,6 +128,8 @@ const OPTION_OF_ROUTE = [
   [["POST"], /^\/enquiries$/, ["enquiries.edit"]],
   [["PATCH"], /^\/enquiries\/[^/]+$/, ["enquiries.edit"]],
   [["POST"], /^\/enquiries\/[^/]+\/contacts$/, ["enquiries.contacts"]],
+  [["PUT"], /^\/enquiries\/[^/]+\/trial$/, ["enquiries.edit"]],
+  [["POST"], /^\/enquiries\/[^/]+\/trial\/outcome$/, ["enquiries.edit"]],
   // The price list is read by the forms that pick a plan or an item (Add Member, Renew, PT,
   // Add Service / Sell Product), so those options may read it too: the one shared read (CROSS_AREA)
   [["GET"], /^\/catalog$/, ["catalog.view", ...CATALOG_PICKERS]],

@@ -1945,6 +1945,12 @@ CREATE TABLE gym_enquiries (
   user_id      VARCHAR(64)  NULL,
   catalog_item_id INT UNSIGNED NULL,
   plan_label   VARCHAR(120) NULL,
+  -- A free trial booked from Gym Hub (migration 2027-02-02-gym-trials.sql): the member's details and
+  -- preferred day and time ({ age, gender, goal, experience, day, time }), where it stands, and the
+  -- date and time the gym booked it for (India's time, as the gym picked it)
+  trial_details JSON        NULL,
+  trial_status ENUM('requested', 'scheduled', 'done', 'no_show', 'cancelled') NULL,
+  trial_at     DATETIME     NULL,
   enquired_on  DATE         NOT NULL,
   created_by   VARCHAR(64)  NULL,
   created_at   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,

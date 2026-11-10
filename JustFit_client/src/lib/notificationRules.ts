@@ -8,7 +8,7 @@ export type NotificationPage = { page: number; nextPage: number | null; unread: 
 // canChoose: false for members (their gym and justFit decide, 2026-11-10)
 export type NotificationPrefs = { canChoose?: boolean; muted: NotificationCategory[]; categories: { id: NotificationCategory; label: string }[] };
 
-const LINKS = [/^\/gym-hub(\/\d+)?$/, /^\/gym-register$/, /^\/gym\/pauses$/, /^\/gym\/members\/\d+$/, /^\/gym\/members$/, /^\/gym\/attendance$/, /^\/gym\/enquiries$/, /^\/admin\/gyms\/\d+$/, /^\/admin\/complaints\/\d+$/, /^\/gym$/, /^\/coach\/meal-plan$/];
+const LINKS = [/^\/gym-hub(\/\d+)?$/, /^\/gym-hub\/gyms\/\d+$/, /^\/gym-register$/, /^\/gym\/pauses$/, /^\/gym\/members\/\d+$/, /^\/gym\/members$/, /^\/gym\/attendance$/, /^\/gym\/enquiries$/, /^\/admin\/gyms\/\d+$/, /^\/admin\/complaints\/\d+$/, /^\/gym$/, /^\/coach\/meal-plan$/];
 export const safeLink = (link: string | null | undefined): string | null => (typeof link === "string" && LINKS.some((re) => re.test(link)) ? link : null);
 
 // "just now", "5 min ago", "3 h ago", "yesterday", "12 Nov"

@@ -1,3 +1,4 @@
+import type { TrialInfo } from "@/lib/gymTrial";
 import { apiFetch, type ApiResult } from "@/lib/api";
 import type { GymPage, HideReason, ReviewReply, ReviewSummary } from "@/lib/discoverApi";
 import type { Closure, CustomFacility, FacilityId, GymType, OpeningHours, PublishState, ShowSections } from "@/lib/gymProfile";
@@ -272,6 +273,8 @@ export type GymEnquiry = {
   source: EnquirySource | null;
   // A Gym Hub join request's plan as it read when sent ("Gold · 3 Months · ₹4,500"), else null
   planLabel?: string | null;
+  // A free trial asked for from Gym Hub (2026-11-10): the member's details, preferred time, the booked slot
+  trial?: TrialInfo | null;
   // A referral: who referred them (their number) and, when that number is one of the branch's
   // members, that member (2026-11-08)
   referredBy: { phone: string; member: { id: number; name: string; code: string } | null } | null;
@@ -401,6 +404,11 @@ export const gymApi = {
   addEnquiry: (token: string | null, fields: EnquiryFields) => call<{ enquiry: GymEnquiry }>(token, "/api/gym/enquiries", "POST", fields),
   editEnquiry: (token: string | null, id: number, fields: Partial<EnquiryFields> & { status?: EnquiryStatus; memberId?: number }) =>
     call<{ enquiry: GymEnquiry }>(token, `/api/gym/enquiries/${id}`, "PATCH", fields),
+  // A free trial: book or move its day and time (the member is told), then done or no-show
+  scheduleTrial: (token: string | null, id: number, slot: { day: string; time: string }) =>
+    call<{ enquiry: GymEnquiry }>(token, `/api/gym/enquiries/${id}/trial`, "PUT", slot),
+  trialOutcome: (token: string | null, id: number, outcome: "done" | "no_show") =>
+    call<{ enquiry: GymEnquiry }>(token, `/api/gym/enquiries/${id}/trial/outcome`, "POST", { outcome }),
   addContact: (token: string | null, id: number, contact: { kind: ContactKind; outcome?: ContactOutcome; note?: string; followUpOn?: string }) =>
     call<{ enquiry: GymEnquiry }>(token, `/api/gym/enquiries/${id}/contacts`, "POST", contact),
   wallet: (token: string | null) => call<GymWallet>(token, "/api/gym/wallet"),

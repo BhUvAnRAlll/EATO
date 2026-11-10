@@ -5,6 +5,8 @@ import { router } from "expo-router";
 import { PressableScale } from "@/components/PressableScale";
 import { AddMemberSheet } from "@/components/gym/AddMemberSheet";
 import { EnquiryContactSheet } from "@/components/gym/EnquiryContactSheet";
+import { TrialScheduleSheet } from "@/components/gym/TrialScheduleSheet";
+import { trialCardText, trialDetailsText } from "@/lib/gymTrial";
 import { EnquirySheet } from "@/components/gym/EnquirySheet";
 import { GradientFill } from "@/components/gym/GradientFill";
 import { FAB_CLEARANCE, FloatingSlot, useFabOnScroll } from "@/components/FloatingSlot";
@@ -66,6 +68,7 @@ export function EnquiryList({ initialView = "open" }: { initialView?: EnquiryVie
   const [editing, setEditing] = useState<GymEnquiry | "new" | null>(null);
   const [converting, setConverting] = useState<GymEnquiry | null>(null);
   // Logging a contact: from the card's button, or asked after a call
+  const [trial, setTrial] = useState<GymEnquiry | null>(null);
   const [logging, setLogging] = useState<{ enquiry: GymEnquiry; afterCall: boolean } | null>(null);
   const pendingCall = useRef<GymEnquiry | null>(null);
 
@@ -243,7 +246,13 @@ export function EnquiryList({ initialView = "open" }: { initialView?: EnquiryVie
                   {item.member ? <Text className="gym-member-card__line" numberOfLines={1} style={{ color: colors.gymSuccess }}>{`Joined as ${item.member.code}`}</Text> : null}
                   {about ? <Text className="gym-tx__meta" numberOfLines={1}>{about}</Text> : null}
                   {referrer ? <Text className="gym-tx__meta" numberOfLines={2}>{referrer}</Text> : null}
-                  {item.planLabel ? <Text className="gym-member-card__line" numberOfLines={2}>{`Asked about ${item.planLabel}`}</Text> : null}
+                  {item.trial ? (
+                    <View className="flex-row items-center" style={{ gap: 6 }}>
+                      <GymIcon name="calendar" size={15} color={colors.gymPrimary} />
+                      <Text className="gym-member-card__line flex-shrink" numberOfLines={2} style={{ color: colors.gymPrimary }}>{trialCardText(item.trial)}</Text>
+                    </View>
+                  ) : item.planLabel ? <Text className="gym-member-card__line" numberOfLines={2}>{`Asked about ${item.planLabel}`}</Text> : null}
+                  {item.trial && trialDetailsText(item.trial) ? <Text className="gym-tx__meta" numberOfLines={1}>{trialDetailsText(item.trial)}</Text> : null}
                   {item.note ? <Text className="gym-tx__meta" numberOfLines={2}>{item.note}</Text> : null}
                   <Text className="gym-tx__meta" numberOfLines={1}>{`Asked on ${shortDate(item.enquiredOn)}`}</Text>
                   {lastContact ? <Text className="gym-tx__meta" numberOfLines={2}>{`Last contact: ${contactText(lastContact)}`}</Text> : null}
@@ -260,6 +269,11 @@ export function EnquiryList({ initialView = "open" }: { initialView?: EnquiryVie
                   {item.phone && (
                     <PressableScale onPress={() => data && whatsappPhone(item.phone, enquiryFollowUp(item.name, data.gym, templates?.templates))} hitSlop={6} className="gym-member-card__action" accessibilityRole="button" accessibilityLabel={`WhatsApp ${item.name}`}>
                       <WhatsAppMark size={22} />
+                    </PressableScale>
+                  )}
+                  {item.trial && canEdit && (item.trial.status === "requested" || item.trial.status === "scheduled") && (
+                    <PressableScale onPress={() => setTrial(item)} hitSlop={6} className="gym-member-card__action" accessibilityRole="button" accessibilityLabel={item.trial.status === "scheduled" ? `Free trial for ${item.name}: move it or mark it` : `Book the free trial for ${item.name}`}>
+                      <GymIcon name="calendar" size={20} color={colors.gymPrimary} />
                     </PressableScale>
                   )}
                   {open && canLog && (
@@ -295,6 +309,7 @@ export function EnquiryList({ initialView = "open" }: { initialView?: EnquiryVie
           onSaved={(detail) => joined(converting, detail.member.id)}
         />
       )}
+      {trial && <TrialScheduleSheet enquiry={trial} onClose={() => setTrial(null)} onSaved={() => { setTrial(null); reload(); }} />}
       {logging && (
         <EnquiryContactSheet
           enquiry={logging.enquiry}

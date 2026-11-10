@@ -258,6 +258,21 @@ async function seed(db, gym) {
     }
   }
 
+  // ---- Free trials from Gym Hub (once migration 2027-02-02 has run): one waiting to be booked, one booked ----
+  const [[trialCols]] = await db.query("SELECT COUNT(*) AS n FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'gym_enquiries' AND COLUMN_NAME = 'trial_status'");
+  if (Number(trialCols.n) > 0) {
+    const trials = [
+      { name: "Harsha Gowda", status: "new", details: { age: 24, gender: "male", goal: "build_muscle", experience: "new", day: d(1), time: "evening" }, trial: "requested", at: null, label: "Free trial · tomorrow, evening" },
+      { name: "Deepa Shenoy", status: "follow_up", details: { age: 31, gender: "female", goal: "lose_weight", experience: "some", day: d(2), time: "morning" }, trial: "scheduled", at: `${d(2)} 07:00:00`, label: "Free trial · booked 7:00 AM" },
+    ];
+    for (const t of trials) {
+      await db.query(
+        "INSERT INTO gym_enquiries (gym_id, full_name, phone, note, status, follow_up_on, interest, source, plan_label, trial_details, trial_status, trial_at, enquired_on, created_by) VALUES (?, ?, ?, ?, ?, ?, 'trial', 'app', ?, ?, ?, ?, ?, ?)",
+        [gym.id, t.name, String(ephone++), `${TAG}: free trial from the app`, t.status, t.at ? d(2) : d(0), t.label, JSON.stringify(t.details), t.trial, t.at, d(0), by],
+      );
+    }
+  }
+
   // ---- SMS logs: a few sent and failed rows for Message Logs ----
   const smsRows = [
     ["Divya Nair", "due", "manual", "sent", 1, null],

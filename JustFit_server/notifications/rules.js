@@ -28,6 +28,8 @@ const KINDS = {
   "pause.request": "pauses",
   "gym.new_member": "gym",
   "gym.join_request": "gym",
+  "gym.trial_request": "gym",
+  "trial.scheduled": "gym",
   "gym.expiring": "gym",
   "gym.capacity": "attendance",
   "registration.submitted": "registration",
@@ -73,7 +75,7 @@ function readMemberOff(value) {
 }
 
 // Screens a notification may open (the app routes them only after checking the same list)
-const LINKS = [/^\/gym-hub(\/\d+)?$/, /^\/gym-register$/, /^\/gym\/pauses$/, /^\/gym\/members\/\d+$/, /^\/gym\/members$/, /^\/gym\/attendance$/, /^\/gym\/enquiries$/, /^\/admin\/gyms\/\d+$/, /^\/admin\/complaints\/\d+$/, /^\/gym$/, /^\/coach\/meal-plan$/];
+const LINKS = [/^\/gym-hub(\/\d+)?$/, /^\/gym-hub\/gyms\/\d+$/, /^\/gym-register$/, /^\/gym\/pauses$/, /^\/gym\/members\/\d+$/, /^\/gym\/members$/, /^\/gym\/attendance$/, /^\/gym\/enquiries$/, /^\/admin\/gyms\/\d+$/, /^\/admin\/complaints\/\d+$/, /^\/gym$/, /^\/coach\/meal-plan$/];
 const safeLink = (link) => (typeof link === "string" && LINKS.some((re) => re.test(link)) ? link : null);
 const PAGE = 30;
 

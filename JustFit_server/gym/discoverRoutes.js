@@ -11,6 +11,8 @@ const discover = require("./discover");
 const trainerProfiles = require("./trainerProfiles");
 const joinRequests = require("./joinRequests");
 const joinRules = require("./joinRules");
+const trials = require("./trials");
+const trialRules = require("./trialRules");
 const reviews = require("./reviews");
 const reviewRules = require("./reviewRules");
 const rules = require("./discoverRules");
@@ -70,6 +72,20 @@ router.post("/:gymId/requests", joinLimit, smallBody, route(async (req, res) => 
   const answer = await joinRequests.ask(pool(req), req.userId, id, joinRules.joinBody(req.body));
   await notices.joinRequested(pool(req), id, answer.request.id, null);
   res.status(201).json(answer);
+}));
+// Book a free trial: the member's details (filled in by the app, editable) and a preferred day and
+// time; it lands in the gym's Enquiries, which books the time. The join requests' hourly budget.
+router.post("/:gymId/trials", joinLimit, smallBody, route(async (req, res) => {
+  const id = gymId(req);
+  const body = trialRules.trialBody(req.body, gymRules.todayInIndia());
+  const sent = await trials.request(pool(req), req.userId, id, body);
+  const request = await joinRequests.one(pool(req), req.userId, sent.id);
+  await notices.trialRequested(pool(req), id, sent.id, body.name, request?.trial?.preferred ?? null);
+  res.status(201).json({ request });
+}));
+router.delete("/:gymId/trials/:enquiryId", joinLimit, route(async (req, res) => {
+  await trials.cancel(pool(req), req.userId, gymId(req), gymRules.id(req.params.enquiryId, "trial"));
+  res.json({ ok: true });
 }));
 // Reviews (Gym Profile phase 4): a page of them, and the member's own to write, change or delete
 router.get("/:gymId/reviews", reviewRoute(async (req, res) => {

@@ -38,6 +38,8 @@ const corrections = require("./corrections");
 const correctionRules = require("./correctionRules");
 const notices = require("../notifications/events");
 const catalogCopy = require("./catalogCopy");
+const trials = require("./trials");
+const trialRules = require("./trialRules");
 const { ForbiddenError } = require("../errors");
 const rules = require("./rules");
 const discover = require("./discover");
@@ -405,6 +407,19 @@ router.post("/enquiries/:enquiryId/contacts", contactLimit, smallBody, route(asy
 }));
 router.patch("/enquiries/:enquiryId", smallBody, route(async (req, res) => {
   res.json(await service.editEnquiry(pool(req), req.gym.id, rules.id(req.params.enquiryId, "enquiry"), rules.enquiryEditBody(req.body, today())));
+}));
+// A free trial asked for from Gym Hub: book (or move) its day and time, which tells the member, then
+// mark it done or no-show. The enquiry stays open to follow up and convert. Option enquiries.edit.
+router.put("/enquiries/:enquiryId/trial", contactLimit, smallBody, route(async (req, res) => {
+  const enquiryId = rules.id(req.params.enquiryId, "enquiry");
+  const booked = await trials.schedule(pool(req), req.gym.id, enquiryId, trialRules.scheduleBody(req.body, today()));
+  await notices.trialScheduled(pool(req), req.gym.id, enquiryId, booked);
+  res.json(await service.enquiryAnswer(pool(req), req.gym.id, enquiryId, today()));
+}));
+router.post("/enquiries/:enquiryId/trial/outcome", contactLimit, smallBody, route(async (req, res) => {
+  const enquiryId = rules.id(req.params.enquiryId, "enquiry");
+  await trials.outcome(pool(req), req.gym.id, enquiryId, trialRules.outcomeBody(req.body));
+  res.json(await service.enquiryAnswer(pool(req), req.gym.id, enquiryId, today()));
 }));
 
 // Plans / Catalogue: the branch's membership plans, PT packages and products with their prices

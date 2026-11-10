@@ -95,6 +95,23 @@ const joinRequested = safely(async (db, gymId, enquiryId, name) => {
   });
 });
 
+/** A free trial asked for from the app: the team that sees enquiries */
+const trialRequested = safely(async (db, gymId, enquiryId, name, preferred) => {
+  await service.notify(db, await teamWith(db, gymId, "enquiries.view"), {
+    kind: "gym.trial_request", key: `${enquiryId}`, title: "New free trial request", body: `${name ?? "A justFit member"} would like a trial${preferred ? `, ${preferred}` : ""}. Call to book a time.`, link: "/gym/enquiries",
+  });
+});
+
+/** The gym booked (or moved) a member's free trial: the member who asked */
+const trialScheduled = safely(async (db, gymId, enquiryId, { userId, text, moved }) => {
+  if (!userId) return;
+  const [[g]] = await db.query("SELECT g.name AS branch, b.name AS brand FROM gyms g JOIN gym_brands b ON b.id = g.brand_id WHERE g.id = ?", [gymId]);
+  await service.notify(db, [userId], {
+    kind: "trial.scheduled", key: `${enquiryId}:${text}`, title: moved ? "Your free trial moved" : "Your free trial is booked",
+    body: `${g ? `${g.brand} ${g.branch}` : "The gym"}: ${text}. See you there!`, link: `/gym-hub/gyms/${gymId}`,
+  });
+});
+
 /** A gym was submitted for review: every justFit admin */
 const gymSubmitted = safely(async (db, gymId) => {
   const [[g]] = await db.query("SELECT g.id, g.name AS branch, g.city, b.name AS brand, g.submitted_at FROM gyms g JOIN gym_brands b ON b.id = g.brand_id WHERE g.id = ?", [gymId]);
@@ -182,4 +199,4 @@ function startDaily(pool, { everyMs = 60 * 60 * 1000, env = process.env } = {}) 
   };
 }
 
-module.exports = { memberAdmitted, pauseRequested, pauseDecided, standingChanged, joinRequested, gymSubmitted, gymDecided, capacityCheck, daily, startDaily };
+module.exports = { memberAdmitted, pauseRequested, pauseDecided, standingChanged, joinRequested, trialRequested, trialScheduled, gymSubmitted, gymDecided, capacityCheck, daily, startDaily };

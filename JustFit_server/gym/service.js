@@ -7,6 +7,7 @@ const { ValidationError } = require("../profile");
 const { toE164 } = require("../auth/phone");
 const gymStatus = require("./gymStatus");
 const rules = require("./rules");
+const trialRules = require("./trialRules");
 const staffRules = require("./staffRules");
 const predictionRules = require("./predictionRules");
 const pauseRules = require("./pauseRules");
@@ -560,8 +561,18 @@ async function hasEnquiryPlan(db) {
   planLabelColumn = { has: Number(row.n) > 0, at: Date.now() };
   return planLabelColumn.has;
 }
+// The free trial's columns (migration 2027-02-02-gym-trials.sql), checked once a minute like plan_label
+let trialColumns = { has: false, at: 0 };
+async function hasEnquiryTrials(db) {
+  if (trialColumns.has || Date.now() - trialColumns.at < 60000) return trialColumns.has;
+  const [[row]] = await db.query("SELECT COUNT(*) AS n FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'gym_enquiries' AND COLUMN_NAME = 'trial_status'");
+  trialColumns = { has: Number(row.n) > 0, at: Date.now() };
+  return trialColumns.has;
+}
+const TRIAL_COLUMNS = "e.trial_status, e.trial_details, DATE_FORMAT(e.trial_at, '%Y-%m-%d') AS trial_day, DATE_FORMAT(e.trial_at, '%H:%i') AS trial_time";
 async function selectEnquiries(db, tail, params) {
-  const columns = (await hasEnquiryPlan(db)) ? `${ENQUIRY_COLUMNS}, e.plan_label` : ENQUIRY_COLUMNS;
+  let columns = (await hasEnquiryPlan(db)) ? `${ENQUIRY_COLUMNS}, e.plan_label` : ENQUIRY_COLUMNS;
+  if (await hasEnquiryTrials(db)) columns += `, ${TRIAL_COLUMNS}`;
   try {
     const [rows] = await db.query(`SELECT ${columns}, ${REFERRER_COLUMNS} FROM gym_enquiries e LEFT JOIN gym_members m ON m.id = e.member_id ${REFERRER_JOIN} ${tail}`, params);
     return rows;
@@ -586,6 +597,8 @@ const enquiryOf = (r, contacts = [], today = rules.todayInIndia()) => ({
   source: r.source,
   // A Gym Hub join request's plan ("Gold · 3 Months · ₹4,500"), null otherwise
   planLabel: r.plan_label ?? null,
+  // A free trial booked from Gym Hub: the member's details, preferred time and the booked slot (null otherwise)
+  trial: r.trial_status ? trialRules.trialOf(r) : null,
   referredBy: referrerOf(r),
   member: r.member_id ? { id: r.member_id, code: r.member_code } : null,
   enquiredOn: r.enquired_on,
@@ -926,7 +939,11 @@ async function deleteItem(pool, gymId, itemId) {
   return { ...(await catalog(pool, gymId)), removedImage };
 }
 
+/** One enquiry as the lists show it, wrapped as { enquiry } (the trial routes answer with it) */
+const enquiryAnswer = async (db, gymId, enquiryId, today) => ({ enquiry: await enquiry(db, gymId, enquiryId, today) });
+
 module.exports = {
+  enquiryAnswer,
   homeTiles,
   saveHomeTiles,
   catalog,

@@ -173,6 +173,24 @@ asking answers 503 naming it and pages show no request. Not built: a push or SMS
 on Enquiries › Today), withdrawing a request. Tests: `__tests__/gym-join-rules.test.js`,
 `e2e/gym-join.e2e.test.js`, `ui/gym-discover.ui.test.js` (5-6).
 
+**Book a free trial (2026-11-10, the user's request; migration approved with the feature):** a gym's
+page has Book a free trial under Ask to join (`components/gymHub/TrialSheet.tsx`): name, age, gender
+and goal filled in from the profile and editable (`lib/gymTrial.ts` `trialPrefill`, pure and tested),
+experience, a day from today to 14 days ahead, morning / afternoon / evening, an optional note; the
+number is always the account's. `POST /api/gyms/:id/trials` (join requests' hourly budget) writes a
+`gym_enquiries` row (interest trial, source app, `trial_status` requested, `trial_details`) with the
+branch locked: not for a member there, one open request per gym, 10 open in all; the team with
+`enquiries.view` is notified (`gym.trial_request`). The gym's Enquiries card shows the trial and its
+details with a calendar button (`components/gym/TrialScheduleSheet.tsx`): book or move a day (to 60
+days) and time (`PUT /api/gym/enquiries/:id/trial`, option `enquiries.edit`; the member is notified,
+`trial.scheduled`, linking to the gym's page), then They came / No-show (`POST …/trial/outcome`); the
+enquiry stays open to convert. The member sees Your free trial (Requested / Booked with the time /
+Done / Missed) and can cancel an open one (`DELETE /api/gyms/:id/trials/:id`). Server `gym/trialRules.js`
+(pure), `gym/trials.js`; audited on Activity. Migration `2027-02-02-gym-trials.sql` (`trial_details`,
+`trial_status`, `trial_at`); before it booking answers 503 naming it. Not built: a trial-morning
+reminder on the phone. Tests: `__tests__/gym-trial-rules.test.js`, `e2e/gym-trials.e2e.test.js`,
+the client's `lib/__tests__/gymTrial.test.ts`.
+
 **Gym Profile Management, phase 1 of 4 (2026-11-09, the user's brief; migration approved):** the
 public profile became a draft → publish module. The user's choices: photos stay on the server's disk
 (no cloud storage), reviews only by members of that gym (phase 4), trainer profiles only for trainer
