@@ -33,6 +33,9 @@ class ValidationError extends Error {
   }
 }
 
+// The same rule as the app (lib/email.ts) and the gym forms
+const EMAIL = /^[^\s@]{1,64}@[^\s@]{1,100}\.[A-Za-z]{2,}$/;
+
 const isPlainObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
 
 // "" or null → null; otherwise must be one of the allowed values
@@ -106,6 +109,13 @@ function validateProfileSubmission(body, userId) {
   if (Math.abs(ageFromBirth - record.inputs.age) > 1) throw new ValidationError("Age doesn't match the date of birth.");
   const phone = text(profile.phone, "Phone", 10);
   if (phone !== "" && !/^[0-9]{10}$/.test(phone)) throw new ValidationError("Phone number must be 10 digits.");
+  // Optional contact email (2026-11-10): never verified, never used to sign in. Left out of the
+  // body (older app builds) = unchanged; "" = removed.
+  let email;
+  if (profile.email !== undefined && profile.email !== null) {
+    email = text(profile.email, "Email", 120).toLowerCase();
+    if (email !== "" && !EMAIL.test(email)) throw new ValidationError("Enter a valid email address.");
+  }
 
   // Body: the profile's numbers must be the ones the targets were calculated from
   const heightCm = numberFrom(profile.heightCm, "Height");
@@ -173,7 +183,7 @@ function validateProfileSubmission(body, userId) {
   const reportId = report && usedReportId && usedReportId.toLowerCase() === report.id ? report.id : null;
 
   return {
-    user: { fullName, phone: phone || null },
+    user: { fullName, phone: phone || null, email },
     profile: {
       dob: toYmd(dobDate),
       gender,
@@ -216,8 +226,9 @@ function validateProfileSubmission(body, userId) {
 // Writes everything in one transaction. Re-running with the same data is safe: every
 // table is keyed by the user (or the report id), so rows are updated, not duplicated.
 // The users row exists from sign-in: only the name and an unverified phone are updated here.
-// A phone proved by a sign-in code is the login and never changes from the form; email and
-// role are never written by a profile save.
+// A phone proved by a sign-in code is the login and never changes from the form; the role is
+// never written by a profile save. The optional contact email is written when the app sends it
+// (an email another account has answers 409).
 async function persistProfile(pool, userId, data) {
   const connection = await pool.getConnection();
   try {
@@ -232,6 +243,17 @@ async function persistProfile(pool, userId, data) {
       error.name = "AccountUnavailableError";
       error.status = 401;
       throw error;
+    }
+    if (data.user.email !== undefined) {
+      try {
+        await connection.query("UPDATE users SET email = ? WHERE id = ?", [data.user.email || null, userId]);
+      } catch (error) {
+        if (error?.code !== "ER_DUP_ENTRY") throw error;
+        const conflict = new Error("That email is already used by another account.");
+        conflict.name = "ConflictError";
+        conflict.status = 409;
+        throw conflict;
+      }
     }
 
     const p = data.profile;

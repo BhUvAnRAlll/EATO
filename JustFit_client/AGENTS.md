@@ -2462,7 +2462,10 @@ and `AUTH-MIGRATION-AUDIT.md` at the repo root). Keep these rules:
   phone can join a gym without an SMS provider. Still hashed, 5 tries, once, inside the limits.
 - The app keeps only the token, never the role or setup state: at launch it asks `GET /api/auth/me`;
   a 401 forgets the token, any other failure keeps it and offers Try again.
-- Phone accounts have no email (no email is ever verified).
+- Phone accounts have no verified email. Since 2026-11-10 setup step 1 has an optional contact email
+  (`lib/email.ts`, the same rule in `JustFit_server/profile.js`): saved lowercased to `users.email`
+  by `POST /api/profile`, never verified or used to sign in; left out of the body = unchanged, `""` =
+  removed, an email another account has = 409 "That email is already used by another account."
 - Behind a reverse proxy set `TRUST_PROXY` (a hop count or proxy addresses, never `true`), or every
   request shares one IP budget.
 

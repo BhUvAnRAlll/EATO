@@ -8,6 +8,7 @@ import { SetupField } from "@/components/setup/SetupField";
 import { SetupScreen } from "@/components/setup/SetupScreen";
 import { genderOptions } from "@/data/setup";
 import { ageFromDob, dobLimits, formatDob, parseDob, toDobString } from "@/lib/date";
+import { EMAIL_MAX, isValidEmail } from "@/lib/email";
 import { inRange, toNumberText } from "@/lib/numberInput";
 import { formatIndianMobile } from "@/lib/phone";
 import { useAuthStore } from "@/store/auth";
@@ -20,18 +21,21 @@ export default function PersonalDetails() {
   const [isDobOpen, setIsDobOpen] = useState(false);
   const { minimumDate, maximumDate } = dobLimits();
 
-  // The mobile number is the one this account signs in with, and the email (most accounts have
-  // none) is the account's: neither can be changed here, and the server keeps its own copies
-  // whatever the app sends
+  // The mobile number is the one this account signs in with and can't be changed here (the
+  // server keeps its own copy whatever the app sends). The email is optional: a contact address,
+  // never checked and never used to sign in
   const accountPhone = (user?.phone ?? "").replace(/^\+91/, "");
   const accountEmail = user?.email ?? "";
 
-  // Start with the name from the account; the number and email always mirror the account
+  // Start with the name and email from the account; the number always mirrors the account
   useEffect(() => {
     if (!user) return;
-    const { fullName } = useSetupStore.getState().profile;
-    update({ fullName: fullName || user.fullName || "", phone: accountPhone, email: accountEmail });
+    const { fullName, email } = useSetupStore.getState().profile;
+    update({ fullName: fullName || user.fullName || "", phone: accountPhone, email: email || accountEmail });
   }, [user, accountPhone, accountEmail, update]);
+
+  const email = profile.email.trim();
+  const emailOk = email === "" || isValidEmail(email);
 
   const age = ageFromDob(profile.dob);
   const canContinue =
@@ -39,7 +43,8 @@ export default function PersonalDetails() {
     age !== null &&
     inRange(profile.heightCm, 100, 250) &&
     inRange(profile.weightKg, 30, 300) &&
-    profile.phone.length === 10;
+    profile.phone.length === 10 &&
+    emailOk;
 
   const handleNext = () => {
     // The age the targets use comes from the date of birth
@@ -113,15 +118,25 @@ export default function PersonalDetails() {
           />
           <Text className="setup__card-text px-1">The number you log in with. It can&apos;t be changed here.</Text>
         </View>
-        {accountEmail !== "" && (
+        <View className="gap-1.5">
           <SetupField
-            label="Email address"
+            label="Email (optional)"
             icon={{ ios: "envelope", android: "mail", web: "mail" }}
-            value={accountEmail}
-            readOnly
-            trailingIcon={{ ios: "lock.fill", android: "lock", web: "lock" }}
+            placeholder="you@example.com"
+            value={profile.email}
+            onChangeText={(text) => update({ email: text.replace(/\s/g, "").slice(0, EMAIL_MAX) })}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+            autoComplete="email"
+            textContentType="emailAddress"
+            maxLength={EMAIL_MAX}
+            invalid={!emailOk}
           />
-        )}
+          <Text className="setup__card-text px-1">
+            {emailOk ? "For receipts and updates. You still log in with your number." : "Enter a valid email address, or leave it empty."}
+          </Text>
+        </View>
       </View>
 
       <DatePickerSheet

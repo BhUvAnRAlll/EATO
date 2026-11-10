@@ -158,7 +158,8 @@ app.get("/api/profile", requireUser, limitPerUser(profileLimiter), async (req, r
 });
 
 // Saves the setup answers and the calculated targets for the caller. Safe to repeat:
-// a second save updates the same rows. Email and role are never taken from the app.
+// a second save updates the same rows. The role is never taken from the app; the optional
+// contact email is (validated, unverified, one account per email).
 app.post("/api/profile", requireUser, limitPerUser(profileLimiter), profileBody, async (req, res, next) => {
   try {
     const data = validateProfileSubmission(req.body, req.userId);

@@ -66,6 +66,16 @@ describe("profile validation (no database)", () => {
     assert.throws(() => validateProfileSubmission({ profile: { ...profile, weightKg: "80" }, nutrition: record }, userId), /don't match/);
   });
 
+  it("the contact email is optional, checked, trimmed and lowercased", () => {
+    const save = (email) => validateProfileSubmission({ profile: { ...profile, email }, nutrition: record }, userId).user.email;
+    assert.equal(save("  Ravi@Example.COM "), "ravi@example.com");
+    assert.equal(save(""), "");
+    assert.equal(save(undefined), undefined, "left out: the saved email stays as it is");
+    for (const bad of ["ravi", "ravi@example", "ravi kumar@x.com", 42, `${"a".repeat(60)}@${"b".repeat(60)}.com`]) {
+      assert.throws(() => save(bad), (e) => e.status === 400, String(bad));
+    }
+  });
+
   it("bad phone / dob / enum are rejected", () => {
     assert.throws(() => validateProfileSubmission({ profile: { ...profile, phone: "12345" }, nutrition: record }, userId), /10 digits/);
     assert.throws(() => validateProfileSubmission({ profile: { ...profile, dob: dobIso }, nutrition: record }, userId), /DD\/MM\/YYYY/);
@@ -169,9 +179,10 @@ describe("profile persistence (justfit_test, failed saves rolled back)", () => {
     for (const table of ["profiles", "nutrition_targets"]) assert.equal(await rowsForThrowawayId(table), 0, `${table} should have no row for the throwaway id`);
   });
 
-  it("a save keeps the verified phone and never writes email or role", async (t) => {
+  it("a save keeps the verified phone and never writes the role", async (t) => {
     if (skipReason) return t.skip(skipReason);
-    const data = validateProfileSubmission({ profile: { ...profile, phone: "9000000001" }, nutrition: record }, userId);
+    const { email: _omit, ...withoutEmail } = profile; // an older build sends no email: it stays as it was
+    const data = validateProfileSubmission({ profile: { ...withoutEmail, phone: "9000000001" }, nutrition: record }, userId);
     await persistProfile(pool, userId, data);
     const row = await accountRow();
     assert.equal(row.phone, PHONE, "the phone proved at sign-in can't be changed from the form");
@@ -181,6 +192,30 @@ describe("profile persistence (justfit_test, failed saves rolled back)", () => {
     assert.equal(row.email, null);
     assert.equal(row.role, "user");
     assert.equal(row.full_name, data.user.fullName);
+  });
+
+  it("the optional contact email is saved lowercased, cleared with \"\", and refused (409) when another account has it", async (t) => {
+    if (skipReason) return t.skip(skipReason);
+    const mine = `Setup.${PHONE}@Example.invalid`;
+    await persistProfile(pool, userId, validateProfileSubmission({ profile: { ...profile, email: mine }, nutrition: record }, userId));
+    assert.equal((await accountRow()).email, mine.toLowerCase());
+
+    // Another account already holding an address: this save is refused and changes nothing
+    const otherId = "user_emailtaken" + Math.random().toString(36).slice(2, 12);
+    const taken = `taken.${PHONE}@example.invalid`;
+    await pool.query("INSERT INTO users (id, email, full_name, role) VALUES (?, ?, NULL, 'user')", [otherId, taken]);
+    try {
+      const data = validateProfileSubmission({ profile: { ...profile, fullName: "Changed Name", email: taken }, nutrition: record }, userId);
+      await assert.rejects(persistProfile(pool, userId, data), (e) => e.status === 409 && e.name === "ConflictError" && /already used/.test(e.message));
+      const row = await accountRow();
+      assert.equal(row.email, mine.toLowerCase(), "the email must not change");
+      assert.notEqual(row.full_name, "Changed Name", "the whole save must roll back");
+    } finally {
+      await pool.query("DELETE FROM users WHERE id = ?", [otherId]);
+    }
+
+    await persistProfile(pool, userId, validateProfileSubmission({ profile: { ...profile, email: "" }, nutrition: record }, userId));
+    assert.equal((await accountRow()).email, null, "an empty email removes it");
   });
 
   it("a save for an account that doesn't exist is refused (401) and writes nothing", async (t) => {

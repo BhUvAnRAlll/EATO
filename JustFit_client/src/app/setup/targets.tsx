@@ -187,7 +187,7 @@ export default function NutritionTargets() {
       return;
     }
     // The server has saved it: the account is now complete, under the name just given
-    useAuthStore.getState().updateUser({ profileComplete: true, fullName: profile.fullName.trim() });
+    useAuthStore.getState().updateUser({ profileComplete: true, fullName: profile.fullName.trim(), email: profile.email.trim().toLowerCase() || null });
     // `finished` hides the calculator's alerts: the cleared answers would otherwise read as missing
     // (and buzz an error) in the frame between leaving and the reset
     setFinished(true);
