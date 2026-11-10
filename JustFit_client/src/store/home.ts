@@ -29,6 +29,9 @@ type HomeState = {
   content: HomeContent;
   // The member's targets with today's intake (null until the first load finishes)
   nutrition: NutritionToday | null;
+  // false once the server says the member has no targets yet (setup asks only the personal
+  // details; Home then shows "Finish your profile"), null until known
+  hasTargets: boolean | null;
   // Today's water against its target (null until loaded, or when Macro has no water target)
   water: { consumedMl: number; targetMl: number } | null;
   // Today's workout and the week's minutes (null without a workout plan, or until loaded)
@@ -50,9 +53,10 @@ type HomeState = {
 
 // Today's targets and what was eaten, from the same /api/macro/day call the Macro tab uses,
 // so both screens always show the same numbers (null when the day or its targets can't be read)
-async function nutritionToday(token: string | null): Promise<NutritionToday | null> {
+async function nutritionToday(token: string | null): Promise<NutritionToday | "no_targets" | null> {
   const day = await macro.day(token, todayIso());
-  if (!day.ok || !day.data.targets) return null;
+  if (!day.ok) return null;
+  if (!day.data.targets) return "no_targets";
   const amounts = ({ kcal, proteinG, carbsG, fatG }: Totals) => ({
     calories: Math.round(kcal),
     proteinG: Math.round(proteinG),
@@ -86,6 +90,7 @@ export const useHomeStore = create<HomeState>((set, get) => ({
   promotions: defaultPromotions,
   content: defaultHomeContent,
   nutrition: null,
+  hasTargets: null,
   water: null,
   workout: null,
   activity: null,
@@ -100,9 +105,10 @@ export const useHomeStore = create<HomeState>((set, get) => ({
     if (!force && loadedAt !== null && Date.now() - loadedAt < FRESH_FOR_MS) return false;
     set({ loading: true });
     const stillCurrent = sameAccount();
-    const [promotions, content, today, extras] = await Promise.all([fetchActivePromotions(token), fetchHomeContent(token), nutritionToday(token), extrasToday(token)]);
+    const [promotions, content, answer, extras] = await Promise.all([fetchActivePromotions(token), fetchHomeContent(token), nutritionToday(token), extrasToday(token)]);
     if (!stillCurrent()) return true; // signed out meanwhile: these numbers were the previous account's
-    set(extras);
+    const today = answer === "no_targets" ? null : answer;
+    set({ ...extras, ...(answer === null ? {} : { hasTargets: answer !== "no_targets" }) });
     // A failed refresh keeps the last real numbers; the bundled sample only until the first real load
     const nutrition = today ?? get().nutrition ?? sampleNutrition;
 
@@ -126,12 +132,12 @@ export const useHomeStore = create<HomeState>((set, get) => ({
 
   refreshIntake: async (token) => {
     const stillCurrent = sameAccount();
-    const [today, extras] = await Promise.all([nutritionToday(token), extrasToday(token)]);
+    const [answer, extras] = await Promise.all([nutritionToday(token), extrasToday(token)]);
     if (!stillCurrent()) return;
-    set({ ...extras, ...(today ? { nutrition: today } : {}) });
+    set({ ...extras, ...(answer && answer !== "no_targets" ? { nutrition: answer, hasTargets: true } : {}), ...(answer === "no_targets" ? { hasTargets: false } : {}) });
   },
 }));
 
 // The member's own numbers go with the account, and the next account loads afresh. The
 // promotions and labels are the same for everyone, so they stay.
-onAccountCleared(() => useHomeStore.setState({ nutrition: null, water: null, workout: null, activity: null, source: "default", loading: false, error: null, loadedAt: null }));
+onAccountCleared(() => useHomeStore.setState({ nutrition: null, hasTargets: null, water: null, workout: null, activity: null, source: "default", loading: false, error: null, loadedAt: null }));

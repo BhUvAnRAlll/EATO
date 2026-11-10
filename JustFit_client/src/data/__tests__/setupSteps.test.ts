@@ -6,10 +6,9 @@ import { healthFlagOptionsFor, healthFlagsFor, setupSteps } from "../setup.ts";
 import { intakeSteps } from "../coach.ts";
 
 describe("setup steps", () => {
-  it("has no body composition step; the scan is the coach intake's Body step", () => {
-    assert.deepEqual([...setupSteps], ["personal", "goal", "activity", "food", "lifestyle", "targets"]);
-    assert.equal(intakeSteps.indexOf("body"), intakeSteps.indexOf("limits") + 1);
-    assert.equal(intakeSteps.length, 10);
+  it("is the personal details only; activity, the body scan and food are coach intake steps", () => {
+    assert.deepEqual([...setupSteps], ["personal"]);
+    assert.deepEqual([...intakeSteps], ["goal", "experience", "activity", "schedule", "spots", "equipment", "limits", "body", "food", "coach"]);
   });
 });
 

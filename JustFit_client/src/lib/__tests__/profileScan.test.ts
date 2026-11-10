@@ -38,8 +38,8 @@ describe("body scan from Profile", () => {
     assert.ok(save.ok);
     assert.equal(save.body.profile.bodyFatPercent, "23");
     assert.equal(save.body.profile.dob, "12/04/1996");
-    assert.equal(save.body.nutrition.calculated?.rmrFormula, "katch_mcardle");
-    assert.equal(save.body.nutrition.active.source, "calculated");
+    assert.equal(save.body.nutrition!.calculated?.rmrFormula, "katch_mcardle");
+    assert.equal(save.body.nutrition!.active.source, "calculated");
     assert.equal(save.changes[0], "Your body fat becomes 23%.");
     assert.match(save.changes[1], /Your daily target (moves from \d+ to \d+|stays at \d+) kcal\./);
   });
@@ -49,7 +49,7 @@ describe("body scan from Profile", () => {
     assert.ok(adjusted.ok);
     const save = bodyFatSave(saved, adjusted.record, 20, now);
     assert.ok(save.ok);
-    assert.equal(save.body.nutrition.active.source, "calculated");
+    assert.equal(save.body.nutrition!.active.source, "calculated");
     assert.ok(save.changes.includes("Your own adjustment is replaced by the new calculation."));
   });
 
@@ -58,14 +58,22 @@ describe("body scan from Profile", () => {
     assert.ok(manual.ok);
     const save = bodyFatSave(saved, manual.record, 20, now);
     assert.ok(save.ok);
-    assert.equal(save.body.nutrition.active.calories, 1900);
+    assert.equal(save.body.nutrition!.active.calories, 1900);
     assert.ok(save.changes.includes("Your own target of 1900 kcal stays as it is."));
   });
 
 
+  it("without targets yet (setup asks only the personal details) saves the profile alone", () => {
+    const save = bodyFatSave(saved, null, 20, now);
+    assert.ok(save.ok);
+    if (!save.ok) return;
+    assert.equal(save.body.nutrition, undefined);
+    assert.equal(save.body.profile.bodyFatPercent, "20");
+    assert.ok(save.changes.includes("Your daily targets are worked out once you add your goal and activity level."));
+  });
+
   it("refuses without a finished profile, height and weight, a date of birth, or a plausible value", () => {
     assert.equal(bodyFatSave(null, calculatedRecord(), 20, now).ok, false);
-    assert.equal(bodyFatSave(saved, null, 20, now).ok, false);
     assert.equal(bodyFatSave({ ...saved, weightKg: null }, calculatedRecord(), 20, now).ok, false);
     assert.equal(bodyFatSave({ ...saved, dob: "" }, calculatedRecord(), 20, now).ok, false);
     for (const bad of [2, 71, NaN]) assert.equal(bodyFatSave(saved, calculatedRecord(), bad, now).ok, false);
@@ -78,8 +86,8 @@ describe("editing height and weight from Profile", () => {
     assert.ok(save.ok);
     assert.equal(save.body.profile.heightCm, "175");
     assert.equal(save.body.profile.weightKg, "72.5");
-    assert.equal(save.body.nutrition.inputs.heightCm, 175);
-    assert.equal(save.body.nutrition.inputs.weightKg, 72.5);
+    assert.equal(save.body.nutrition!.inputs.heightCm, 175);
+    assert.equal(save.body.nutrition!.inputs.weightKg, 72.5);
     assert.deepEqual(save.changes.slice(0, 2), ["Your height becomes 175 cm.", "Your weight becomes 72.5 kg."]);
     assert.match(save.changes[2], /Your daily target (moves from \d+ to \d+|stays at \d+) kcal\./);
   });
@@ -95,8 +103,8 @@ describe("editing height and weight from Profile", () => {
     const save = measurementSave({ ...saved, bodyFatPercent: 20 }, calculatedRecord(), { weightKg: 80 }, now);
     assert.ok(save.ok);
     assert.equal(save.body.profile.bodyFatPercent, "20");
-    assert.equal(save.body.nutrition.inputs.bodyComposition?.weightKg, 80);
-    assert.equal(save.body.nutrition.calculated?.rmrFormula, "katch_mcardle");
+    assert.equal(save.body.nutrition!.inputs.bodyComposition?.weightKg, 80);
+    assert.equal(save.body.nutrition!.calculated?.rmrFormula, "katch_mcardle");
   });
 
   it("keeps a target the user entered themselves", () => {
@@ -104,7 +112,7 @@ describe("editing height and weight from Profile", () => {
     assert.ok(manual.ok);
     const save = measurementSave(saved, manual.record, { weightKg: 70 }, now);
     assert.ok(save.ok);
-    assert.equal(save.body.nutrition.active.calories, 1900);
+    assert.equal(save.body.nutrition!.active.calories, 1900);
   });
 
   it("refuses no change and values out of range", () => {

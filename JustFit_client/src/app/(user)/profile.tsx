@@ -14,6 +14,7 @@ import { SkeletonCard } from "@/components/Skeleton";
 import { accountContact } from "@/lib/me";
 import { fetchProfile, type SavedProfile } from "@/lib/profile";
 import { scanFieldsFromSaved } from "@/lib/profileScan";
+import { startGoalEdit } from "@/lib/profileEdit";
 import { useSessionToken } from "@/lib/session";
 import { useAuthStore } from "@/store/auth";
 import { useSetupStore } from "@/store/setup";
@@ -28,7 +29,7 @@ const gymHub = { label: "Gym Hub", icon: { ios: "dumbbell", android: "fitness_ce
 const gymCheckIn = { label: "Gym check-in", icon: { ios: "qrcode.viewfinder", android: "qr_code_scanner", web: "qr_code_scanner" } as Icon, href: "/attendance" as Href };
 
 const menu: { label: string; icon: Icon; href: Href }[] = [
-  { label: "My goals", icon: { ios: "target", android: "track_changes", web: "track_changes" }, href: "/goals" },
+  { label: "Food preferences", icon: { ios: "fork.knife", android: "restaurant", web: "restaurant" }, href: "/food-preferences" },
   { label: "My plans", icon: { ios: "calendar", android: "calendar_month", web: "calendar_month" }, href: "/plans" },
   { label: "Orders", icon: { ios: "shippingbox", android: "inventory_2", web: "inventory_2" }, href: "/orders" },
   { label: "My subscriptions", icon: { ios: "arrow.triangle.2.circlepath", android: "autorenew", web: "autorenew" }, href: "/meals/subscriptions" },
@@ -124,6 +125,8 @@ export default function Profile() {
   // The latest report gets its row once there is one this session
   const shortcuts: { label: string; icon: Icon; onPress: () => void; disabled?: boolean }[] = [
     { label: gym.label, icon: gym.icon, onPress: () => router.push(gym.href) },
+    // The goal, activity level and health check, and the targets worked out from them (2026-11-10)
+    { label: "Goal & activity", icon: { ios: "target", android: "track_changes", web: "track_changes" }, onPress: () => saved && startGoalEdit(saved, "profile"), disabled: !saved },
     { label: "Body Composition Scan", icon: { ios: "figure.stand", android: "accessibility_new", web: "accessibility_new" }, onPress: startScan, disabled: !saved },
     // Every kept scan, photos and report (2026-11-10); the latest report from this session still opens too
     ...(lastScan ? [{ label: "Latest body report", icon: { ios: "doc.text", android: "description", web: "description" } as Icon, onPress: () => router.push("/setup/scan-report?mode=view&from=profile") }] : []),

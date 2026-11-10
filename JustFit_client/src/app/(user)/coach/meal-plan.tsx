@@ -14,7 +14,8 @@ import { coaches } from "@/data/coach";
 import { track } from "@/lib/analytics";
 import { haptic } from "@/lib/haptics";
 import { syncMealReminders } from "@/lib/mealReminders";
-import { coachApi, type Intake, type IntakePrefill, type PlanState } from "@/lib/coach";
+import { coachApi, type Intake, type IntakePrefill, type IntakeProfile, type PlanState } from "@/lib/coach";
+import type { Gender } from "@/types/profile";
 import { todayIso } from "@/lib/macro";
 import { useSessionToken } from "@/lib/session";
 import { useCoachIntakeStore } from "@/store/coachIntake";
@@ -36,7 +37,7 @@ export default function MealPlanScreen() {
   const insets = useSafeAreaInsets();
   const getToken = useSessionToken();
   const start = useCoachIntakeStore((state) => state.start);
-  const [loaded, setLoaded] = useState<{ intake: Intake | null; prefill: IntakePrefill } | null>(null);
+  const [loaded, setLoaded] = useState<{ intake: Intake | null; prefill: IntakePrefill; profile?: Partial<IntakeProfile>; gender?: Gender | null } | null>(null);
   const [plan, setPlan] = useState<PlanState | null>(null);
   // The plan as it is now, for a save that lands after a reload (updaters stay pure)
   const planRef = useRef<PlanState | null>(null);
@@ -125,7 +126,7 @@ export default function MealPlanScreen() {
 
   const editAnswers = () => {
     if (!loaded) return;
-    start(loaded.intake, loaded.prefill);
+    start(loaded.intake, loaded.prefill, loaded.profile, loaded.gender);
     router.push("/coach/intake/goal");
   };
 

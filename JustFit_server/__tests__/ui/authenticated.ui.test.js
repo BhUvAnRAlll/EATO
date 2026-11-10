@@ -113,7 +113,8 @@ describe("ui authenticated: sign in → onboarding → save → reload → updat
   it("1. the real sign-in screen authenticates the test identity and routes a new user to setup", run("sign-in", async () => {
     await signInAs(identities.a);
     await h.expectPath("/setup/personal");
-    await h.expectText("1/6");
+    await h.expectText("Let's get to know you");
+    assert.equal(await page.hasText("1/6"), false, "setup is one screen: no step counter");
     assert.ok(page.requests.some((u) => u === `${apiUrl()}/api/auth/verify-otp`), "the code should have been checked by the test server");
     assert.deepEqual(page.requests.filter((u) => /\/\/(localhost|127\.0\.0\.1):4000\b/.test(u)), [], "no request to the development server");
     assert.equal(await hasSession(page), true, "the browser must hold a session after signing in");
@@ -140,7 +141,8 @@ describe("ui authenticated: sign in → onboarding → save → reload → updat
     assert.equal(user.email, identities.a.emailAddress);
     assert.equal(user.full_name, "E2E Tester");
     const [[profile]] = await connection.query("SELECT diet, goal, profile_complete FROM profiles WHERE user_id = ?", [identities.a.id]);
-    assert.deepEqual({ diet: profile.diet, goal: profile.goal, complete: profile.profile_complete }, { diet: "vegan", goal: "fat_loss", complete: 1 });
+    // Setup asks no food since 2026-11-10 (the AI Coach intake and Profile › Food preferences do)
+    assert.deepEqual({ diet: profile.diet, goal: profile.goal, complete: profile.profile_complete }, { diet: null, goal: "fat_loss", complete: 1 });
   }));
 
   it("3. after a reload the saved profile is retrieved and the user lands on home again", run("reload", async () => {
@@ -171,7 +173,7 @@ describe("ui authenticated: sign in → onboarding → save → reload → updat
 
   it("5. running setup again updates the profile in place with no duplicate rows", run("update", async () => {
     await h.goto("/setup/personal", "Let's get to know you");
-    await fillSetup(page, expo.baseUrl, { fullName: "E2E Updated", diet: "Vegetarian", goal: "Maintain weight" });
+    await fillSetup(page, expo.baseUrl, { fullName: "E2E Updated", goal: "Maintain weight" });
     await page.clickText("Finish");
     await h.expectPath("/home");
     await h.expectText("Today's Macros");
@@ -179,7 +181,7 @@ describe("ui authenticated: sign in → onboarding → save → reload → updat
     const [[user]] = await connection.query("SELECT full_name FROM users WHERE id = ?", [identities.a.id]);
     assert.equal(user.full_name, "E2E Updated");
     const [[profile]] = await connection.query("SELECT diet, goal FROM profiles WHERE user_id = ?", [identities.a.id]);
-    assert.deepEqual({ diet: profile.diet, goal: profile.goal }, { diet: "vegetarian", goal: "maintenance" });
+    assert.deepEqual({ diet: profile.diet, goal: profile.goal }, { diet: null, goal: "maintenance" });
     assert.deepEqual(await db.rowCounts(connection), { ...countsBefore, nutrition_targets: countsBefore.nutrition_targets + 1, profiles: countsBefore.profiles + 1, users: countsBefore.users + 1 });
   }));
 

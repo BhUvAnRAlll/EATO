@@ -151,6 +151,12 @@ describe("ui coach: the AI Coach intake", () => {
     assert.equal(await buttonDisabled("Continue"), true, "still needs: working out now?");
     await clickLabel("No");
     await snapshotAllWidths("coach-intake-experience");
+    await next("/coach/intake/activity", "How active is your day?");
+
+    // Moved here from setup (2026-11-10): the activity level sets the calorie target
+    assert.equal(await buttonDisabled("Continue"), true, "an activity level is required");
+    await clickLabel("Moderately active, Exercise 3–5 days per week");
+    await snapshotAllWidths("coach-intake-activity");
     await next("/coach/intake/schedule", "How often can you train?");
 
     await h.expectText("3 days a week"); // Tue, Thu, Sat from the workout profile
@@ -162,21 +168,21 @@ describe("ui coach: the AI Coach intake", () => {
     await next("/coach/intake/spots", "Where do you train most?");
 
     assert.equal(await checked("Gym"), "true", "main spot prefilled (gym)");
-    assert.equal(await buttonDisabled("Continue"), true, "still needs a backup answer");
-    await clickLabel("Home");
+    assert.equal(await page.hasText("Backup spot"), false, "the backup spot was removed");
     await snapshotAllWidths("coach-intake-spots");
     await next("/coach/intake/equipment", "What can you use?");
 
-    await h.expectText("Gym · main spot");
+    assert.equal(await buttonDisabled("Continue"), true, "the main spot's equipment is required");
     await clickLabel("Full gym, Machines, racks, everything");
-    assert.equal(await buttonDisabled("Continue"), true, "still needs the backup's equipment");
-    await clickLabel("A few things, Bands, dumbbells");
     await snapshotAllWidths("coach-intake-equipment");
     await next("/coach/intake/limits", "Anything to work around?");
 
     await page.clickText("Knees");
     await page.clickText("Diabetes");
     await h.expectText("Check with a doctor first");
+    // The setup health check is part of this one health question; she is female, so pregnancy is offered
+    await h.expectText("Pregnant");
+    await h.expectText("History of an eating disorder");
     await page.setInput('textarea[aria-label="Injuries or notes"]', "Old knee injury from cricket");
     await snapshotAllWidths("coach-intake-limits");
     await next("/coach/intake/body", "Scan your body");
@@ -185,29 +191,31 @@ describe("ui coach: the AI Coach intake", () => {
     await h.expectText("Scan Body");
     await snapshotAllWidths("coach-intake-body");
     await page.clickText("Skip");
-    await h.expectPath("/coach/intake/lifestyle");
-    await h.expectText("Your food and recovery");
+    await h.expectPath("/coach/intake/food");
+    await h.expectText("Your food");
     await h.settle();
 
+    // Food moved here from setup: the diet comes from her profile; meals per day is still needed
+    assert.equal(await buttonDisabled("Continue"), true, "meals per day, cooking time and budget are required");
+    assert.equal(await page.hasText("Stress lately"), false, "stress and sleep were removed");
+    await clickLabel("South Indian");
+    assert.equal(await checked("South Indian"), "true", "Food you usually eat is a checkbox");
+    await page.setInput('input[placeholder="e.g. nuts, gluten, dairy"]', "peanuts");
+    await page.clickText("4");
     await page.clickText("Under 15 min");
     await clickLabel("Moderate, ₹200–400 a day");
-    await page.clickText("7–8 h");
-    await snapshotAllWidths("coach-intake-lifestyle");
+    await snapshotAllWidths("coach-intake-food");
     await next("/coach/intake/coach", "Who's coaching you?");
 
     await clickLabel("Coach Priya, Food first. Warm and patient.");
     await h.expectText("How should Priya coach you?");
     await clickLabel("Supportive, Celebrates every win");
-    await snapshotAllWidths("coach-intake-coach");
-    await next("/coach/intake/notes", "Guide your plan");
-
-    await h.expectText("Guide your plan");
+    // The last step: the "not medical advice" tick and the save (the notes step was folded in)
     assert.equal(await buttonDisabled("Meet my coach"), true, "the disclaimer must be ticked");
-    await page.setInput('textarea[aria-label="Plan notes"]', "I walk 6k steps daily");
     await clickLabel("Fitness guidance, not medical advice");
     assert.equal(await buttonDisabled("Meet my coach"), false);
     assert.equal((await connection.query("SELECT COUNT(*) AS n FROM coach_profiles"))[0][0].n, 0, "nothing saved before the last step");
-    await snapshotAllWidths("coach-intake-notes");
+    await snapshotAllWidths("coach-intake-coach");
   }));
 
   it("3. saving stores the answers and the Coach tab shows the coach and a summary", run("saved", async () => {
@@ -222,8 +230,16 @@ describe("ui coach: the AI Coach intake", () => {
     const [[row]] = await connection.query("SELECT * FROM coach_profiles WHERE user_id = ?", [identities.a.id]);
     assert.deepEqual(
       { goal: row.goal, experience: row.experience, training: !!row.currently_training, days: row.weekdays, minutes: row.session_minutes, main: row.main_spot, backup: row.backup_spot, mainEq: row.main_equipment, backupEq: row.backup_equipment, joints: row.joints, conditions: row.conditions, notes: row.limitation_notes, cooking: row.cooking_time, budget: row.food_budget, stress: row.stress, sleep: row.sleep, coach: row.coach, style: row.coach_style, plan: row.plan_notes },
-      { goal: "build_muscle", experience: "intermediate", training: false, days: [1, 2, 4], minutes: 45, main: "gym", backup: "home", mainEq: "full_gym", backupEq: "some", joints: ["knees"], conditions: ["diabetes"], notes: "Old knee injury from cricket", cooking: "quick", budget: "medium", stress: null, sleep: "7_8", coach: "priya", style: "supportive", plan: "I walk 6k steps daily" },
+      { goal: "build_muscle", experience: "intermediate", training: false, days: [1, 2, 4], minutes: 45, main: "gym", backup: null, mainEq: "full_gym", backupEq: null, joints: ["knees"], conditions: ["diabetes"], notes: "Old knee injury from cricket", cooking: "quick", budget: "medium", stress: null, sleep: null, coach: "priya", style: "supportive", plan: null },
     );
+    // The profile answers went to her profile in the same save; her own target (no calculation) stays
+    const [[profile]] = await connection.query("SELECT goal, activity, diet, cuisines, allergies, meals_per_day FROM profiles WHERE user_id = ?", [identities.a.id]);
+    const json = (v) => (typeof v === "string" ? JSON.parse(v) : v);
+    assert.deepEqual(
+      { goal: profile.goal, activity: profile.activity, diet: profile.diet, cuisines: json(profile.cuisines), allergies: profile.allergies, meals: profile.meals_per_day },
+      { goal: "muscle_gain", activity: "moderately_active", diet: "vegetarian", cuisines: ["South Indian"], allergies: "peanuts", meals: "4" },
+    );
+    assert.equal((await connection.query("SELECT calories FROM nutrition_targets WHERE user_id = ?", [identities.a.id]))[0][0].calories, 1800);
     await snapshotAllWidths("coach-summary");
   }));
 

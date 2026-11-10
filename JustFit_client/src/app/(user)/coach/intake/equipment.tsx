@@ -8,12 +8,11 @@ import { IntakeFrame } from "@/components/coach/IntakeFrame";
 import { equipmentBySpot, labelOf, spots } from "@/data/coach";
 import { useCoachIntakeStore } from "@/store/coachIntake";
 
-// Intake 5/10: what's at each spot, picked from a short list (gyms have gym-sized choices). The
-// lists follow the spots picked on step 4; opened without one (a resumed or linked step), it says
-// so and goes back there instead of showing nothing.
+// Intake 6/10: what's at the main spot, picked from a short list (gyms have gym-sized choices).
+// The list follows the spot picked on step 5; opened without one (a resumed or linked step), it
+// says so and goes back there instead of showing nothing.
 export default function IntakeEquipment() {
   const { draft, update } = useCoachIntakeStore();
-  const backup = draft.backupSpot === "none" ? null : draft.backupSpot;
 
   return (
     <IntakeFrame
@@ -21,7 +20,7 @@ export default function IntakeEquipment() {
       title="What can you use?"
       subtitle="So every exercise fits what's actually there."
       onNext={() => router.push("/coach/intake/limits")}
-      canContinue={draft.mainEquipment !== null && (backup === null || draft.backupEquipment !== null)}
+      canContinue={draft.mainEquipment !== null}
     >
       {!draft.mainSpot && (
         <EmptyState icon={{ ios: "mappin.and.ellipse", android: "location_on", web: "location_on" }} title="Pick where you train first" message="The equipment list follows your main spot.">
@@ -31,7 +30,7 @@ export default function IntakeEquipment() {
 
       {draft.mainSpot && (
         <>
-          <Text className="coach__section">{`${labelOf(spots, draft.mainSpot)} · main spot`}</Text>
+          <Text className="coach__section">{labelOf(spots, draft.mainSpot)}</Text>
           <View className="gap-3" accessibilityRole="radiogroup">
             {equipmentBySpot[draft.mainSpot].map((item) => (
               <ChoiceCard key={item.id} label={item.label} note={item.note} selected={draft.mainEquipment === item.id} onPress={() => update({ mainEquipment: item.id })} />
@@ -40,16 +39,6 @@ export default function IntakeEquipment() {
         </>
       )}
 
-      {backup && (
-        <>
-          <Text className="coach__section mt-2">{`${labelOf(spots, backup)} · backup spot`}</Text>
-          <View className="gap-3" accessibilityRole="radiogroup">
-            {equipmentBySpot[backup].map((item) => (
-              <ChoiceCard key={item.id} label={item.label} note={item.note} selected={draft.backupEquipment === item.id} onPress={() => update({ backupEquipment: item.id })} />
-            ))}
-          </View>
-        </>
-      )}
     </IntakeFrame>
   );
 }

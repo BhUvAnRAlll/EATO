@@ -157,7 +157,7 @@ export default function SelectLocation() {
     if (!place || naming) return;
     setDraft(place);
     if (handBack && router.canGoBack()) return router.back();
-    router.push("/addresses/form");
+    router.push({ pathname: "/addresses/form", params: { from: "map" } });
   };
 
   // A saved address: deliver there, and back to where the member came from

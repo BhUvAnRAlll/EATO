@@ -16,7 +16,7 @@ export default function IntakeExperience() {
     <IntakeFrame
       step="experience"
       title="How experienced are you?"
-      onNext={() => router.push("/coach/intake/schedule")}
+      onNext={() => router.push("/coach/intake/activity")}
       canContinue={draft.experience !== null && draft.currentlyTraining !== null}
     >
       <View className="gap-3" accessibilityRole="radiogroup">

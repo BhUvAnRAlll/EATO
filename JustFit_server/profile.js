@@ -71,12 +71,149 @@ function numberFrom(value, label) {
 const toYmd = (date) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 
+// The food answers (setup, the AI Coach intake's Food step and Profile › Food preferences)
+function validateFood(food) {
+  return {
+    diet: enumOrNull(food.diet, DIETS, "Diet"),
+    cuisines: stringList(food.cuisines, "Cuisines", 20, 40),
+    dislikes: text(food.dislikes, "Dislikes", 500) || null,
+    allergies: text(food.allergies, "Allergies", 500) || null,
+    mealsPerDay: enumOrNull(food.mealsPerDay, MEALS_PER_DAY, "Meals per day"),
+  };
+}
+
+// The health check: any of these sends the targets to professional guidance. Pregnancy and
+// breastfeeding are never kept for a member who said they are male.
+function validateHealthFlags(value, gender) {
+  const flags = stringList(value, "Health considerations", HEALTH_FLAGS.length, 40);
+  if (flags.some((flag) => !HEALTH_FLAGS.includes(flag))) throw new ValidationError("Unknown health consideration.");
+  const unique = [...new Set(flags)];
+  return gender === "male" ? unique.filter((flag) => flag !== "pregnant" && flag !== "breastfeeding") : unique;
+}
+
+// A checked target record → the nutrition_targets row. setBy: the verified caller, never the client's claim
+function targetsRow(record, userId) {
+  return {
+    formula: record.formula,
+    configVersion: record.configVersion,
+    rmrFormula: record.calculated?.rmrFormula ?? null,
+    reportId: null,
+    inputs: record.inputs,
+    calculated: record.calculated,
+    calculatedAt: new Date(record.calculatedAt),
+    calories: record.active.calories,
+    proteinG: record.active.macros.proteinG,
+    carbsG: record.active.macros.carbsG,
+    fatG: record.active.macros.fatG,
+    source: record.active.source,
+    reason: typeof record.active.reason === "string" ? record.active.reason.slice(0, 300) : null,
+    setBy: record.active.source === "calculated" ? null : userId,
+  };
+}
+
+// The profile without targets: personal details, plus any goal, activity, health and food
+// answers already given (a weight change from Profile before the targets exist)
+function validatePersonalOnly(profile) {
+  const fullName = text(profile.fullName, "Name", 120);
+  if (fullName.length < 2) throw new ValidationError("Please enter your name.");
+  const dobDate = typeof profile.dob === "string" ? parseDob(profile.dob) : null;
+  if (!dobDate) throw new ValidationError("Date of birth must be DD/MM/YYYY.");
+  const age = ageFromDob(profile.dob);
+  if (age === null || age < 13 || age > 120) throw new ValidationError("Date of birth is out of range.");
+  const phone = text(profile.phone, "Phone", 10);
+  if (phone !== "" && !/^[0-9]{10}$/.test(phone)) throw new ValidationError("Phone number must be 10 digits.");
+  let email;
+  if (profile.email !== undefined && profile.email !== null) {
+    email = text(profile.email, "Email", 120).toLowerCase();
+    if (email !== "" && !EMAIL.test(email)) throw new ValidationError("Enter a valid email address.");
+  }
+  const heightCm = numberFrom(profile.heightCm, "Height");
+  const weightKg = numberFrom(profile.weightKg, "Weight");
+  if (heightCm < 100 || heightCm > 250) throw new ValidationError("Height must be between 100 and 250 cm.");
+  if (weightKg < 30 || weightKg > 300) throw new ValidationError("Weight must be between 30 and 300 kg.");
+  const gender = enumOrNull(profile.gender, GENDERS, "Gender");
+  let bodyFatPercent = null;
+  if (profile.bodyFatPercent !== undefined && profile.bodyFatPercent !== null && profile.bodyFatPercent !== "") {
+    bodyFatPercent = numberFrom(profile.bodyFatPercent, "Body fat");
+    if (bodyFatPercent < 2 || bodyFatPercent > 75) throw new ValidationError("Body fat % must be between 2 and 75.");
+  }
+  const food = validateFood(profile);
+  return {
+    user: { fullName, phone: phone || null, email },
+    profile: {
+      dob: toYmd(dobDate),
+      gender,
+      goal: enumOrNull(profile.goal, GOALS, "Goal"),
+      heightCm: Math.round(heightCm * 10) / 10,
+      weightKg: Math.round(weightKg * 10) / 10,
+      bodyFatPercent,
+      activity: enumOrNull(profile.activity, ACTIVITIES, "Activity level"),
+      healthFlags: validateHealthFlags(profile.healthFlags, gender),
+      ...food,
+      workoutFrequency: enumOrNull(profile.workoutFrequency, WORKOUT_FREQUENCIES, "Workout frequency"),
+      workoutType: enumOrNull(profile.workoutType, WORKOUT_TYPES, "Workout type"),
+      workoutTime: enumOrNull(profile.workoutTime, WORKOUT_TIMES, "Workout time"),
+    },
+    report: null,
+    targets: null,
+    // Answers this save doesn't carry keep their saved values (persistProfile)
+    personalOnly: true,
+  };
+}
+
+// The saved targets worked out again from a personal-only save: the new birthday, gender,
+// height, weight and body fat, with the goal, activity and health check already saved (kept from
+// the old inputs when the save has none), and the equation the member picked. Null when the
+// calculator can't (it needs a choice or a professional).
+function recalculatedTargets(oldInputs, p, now = new Date()) {
+  const goal = p.goal ?? oldInputs?.fitnessGoal;
+  const activity = p.activity ?? oldInputs?.activityLevel;
+  const age = ageFromDob(`${p.dob.slice(8, 10)}/${p.dob.slice(5, 7)}/${p.dob.slice(0, 4)}`);
+  if (!goal || !activity || age === null) return null;
+  const inputs = {
+    age,
+    gender: p.gender ?? "unspecified",
+    ...(oldInputs?.equationGender ? { equationGender: oldInputs.equationGender } : {}),
+    heightCm: p.heightCm,
+    weightKg: p.weightKg,
+    activityLevel: activity,
+    fitnessGoal: goal,
+    healthFlags: p.healthFlags.length ? p.healthFlags : oldInputs?.healthFlags ?? [],
+    ...(p.bodyFatPercent !== null ? { bodyComposition: nutrition.manualBodyFatReport(p.weightKg, p.bodyFatPercent, now) } : {}),
+  };
+  const result = nutrition.calculateTargets(inputs, nutrition.calculatorConfig, now);
+  return result.status === "ok" ? nutrition.createTargetRecord(inputs, result, now) : null;
+}
+
+// Writes (or replaces) the member's target row inside the caller's transaction
+async function writeTargets(connection, userId, t) {
+  await connection.query(
+    `INSERT INTO nutrition_targets (user_id, formula, config_version, rmr_formula, report_id, inputs, calculated, calculated_at,
+                                    calories, protein_g, carbs_g, fat_g, source, reason, set_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON DUPLICATE KEY UPDATE formula = VALUES(formula), config_version = VALUES(config_version), rmr_formula = VALUES(rmr_formula),
+       report_id = VALUES(report_id), inputs = VALUES(inputs), calculated = VALUES(calculated), calculated_at = VALUES(calculated_at),
+       calories = VALUES(calories), protein_g = VALUES(protein_g), carbs_g = VALUES(carbs_g), fat_g = VALUES(fat_g),
+       source = VALUES(source), reason = VALUES(reason), set_by = VALUES(set_by)`,
+    [
+      userId, t.formula, t.configVersion, t.rmrFormula, t.reportId, JSON.stringify(t.inputs),
+      t.calculated === null ? null : JSON.stringify(t.calculated), t.calculatedAt,
+      t.calories, t.proteinG, t.carbsG, t.fatG, t.source, t.reason, t.setBy,
+    ],
+  );
+}
+
 // Checks the setup answers and the nutrition record together. Returns clean rows for
 // each table, or throws a ValidationError with one friendly line.
+// Since 2026-11-10 setup asks only the personal details, so `nutrition` may be left out: the
+// profile is then saved without targets (allowed only while the member has none; see
+// persistProfile). Goal, activity and food come later from the AI Coach intake or Profile.
 function validateProfileSubmission(body, userId) {
-  if (!isPlainObject(body) || !isPlainObject(body.profile) || !isPlainObject(body.nutrition)) {
+  if (!isPlainObject(body) || !isPlainObject(body.profile)) {
     throw new ValidationError("Send the profile as { profile, nutrition }.");
   }
+  if (body.nutrition === undefined || body.nutrition === null) return validatePersonalOnly(body.profile);
+  if (!isPlainObject(body.nutrition)) throw new ValidationError("Send the profile as { profile, nutrition }.");
   const { profile } = body;
 
   // The nutrition record: inputs, calculation and active target must agree, as the app's
@@ -257,16 +394,20 @@ async function persistProfile(pool, userId, data) {
     }
 
     const p = data.profile;
+    // A personal-only save (setup since 2026-11-10) keeps the goal, activity, health and food
+    // answers already saved whenever it has none of its own
+    const keep = (column, emptyTest = `VALUES(${column}) IS NULL`) => (data.personalOnly ? `IF(${emptyTest}, ${column}, VALUES(${column}))` : `VALUES(${column})`);
+    const keepList = (column) => keep(column, `JSON_LENGTH(VALUES(${column})) = 0`);
     await connection.query(
       `INSERT INTO profiles (user_id, dob, gender, goal, height_cm, weight_kg, body_fat_percent, activity, health_flags,
                              diet, cuisines, dislikes, allergies, workout_frequency, workout_type, workout_time, meals_per_day,
                              profile_complete)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE)
-       ON DUPLICATE KEY UPDATE dob = VALUES(dob), gender = VALUES(gender), goal = VALUES(goal), height_cm = VALUES(height_cm),
-         weight_kg = VALUES(weight_kg), body_fat_percent = VALUES(body_fat_percent), activity = VALUES(activity),
-         health_flags = VALUES(health_flags), diet = VALUES(diet), cuisines = VALUES(cuisines), dislikes = VALUES(dislikes),
-         allergies = VALUES(allergies), workout_frequency = VALUES(workout_frequency), workout_type = VALUES(workout_type),
-         workout_time = VALUES(workout_time), meals_per_day = VALUES(meals_per_day), profile_complete = TRUE`,
+       ON DUPLICATE KEY UPDATE dob = VALUES(dob), gender = VALUES(gender), goal = ${keep("goal")}, height_cm = VALUES(height_cm),
+         weight_kg = VALUES(weight_kg), body_fat_percent = ${keep("body_fat_percent")}, activity = ${keep("activity")},
+         health_flags = ${keepList("health_flags")}, diet = ${keep("diet")}, cuisines = ${keepList("cuisines")}, dislikes = ${keep("dislikes")},
+         allergies = ${keep("allergies")}, workout_frequency = ${keep("workout_frequency")}, workout_type = ${keep("workout_type")},
+         workout_time = ${keep("workout_time")}, meals_per_day = ${keep("meals_per_day")}, profile_complete = TRUE`,
       [
         userId, p.dob, p.gender, p.goal, p.heightCm, p.weightKg, p.bodyFatPercent, p.activity, JSON.stringify(p.healthFlags),
         p.diet, JSON.stringify(p.cuisines), p.dislikes, p.allergies, p.workoutFrequency, p.workoutType, p.workoutTime, p.mealsPerDay,
@@ -311,21 +452,24 @@ async function persistProfile(pool, userId, data) {
       );
     }
 
-    const t = data.targets;
-    await connection.query(
-      `INSERT INTO nutrition_targets (user_id, formula, config_version, rmr_formula, report_id, inputs, calculated, calculated_at,
-                                      calories, protein_g, carbs_g, fat_g, source, reason, set_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-       ON DUPLICATE KEY UPDATE formula = VALUES(formula), config_version = VALUES(config_version), rmr_formula = VALUES(rmr_formula),
-         report_id = VALUES(report_id), inputs = VALUES(inputs), calculated = VALUES(calculated), calculated_at = VALUES(calculated_at),
-         calories = VALUES(calories), protein_g = VALUES(protein_g), carbs_g = VALUES(carbs_g), fat_g = VALUES(fat_g),
-         source = VALUES(source), reason = VALUES(reason), set_by = VALUES(set_by)`,
-      [
-        userId, t.formula, t.configVersion, t.rmrFormula, t.reportId, JSON.stringify(t.inputs),
-        t.calculated === null ? null : JSON.stringify(t.calculated), t.calculatedAt,
-        t.calories, t.proteinG, t.carbsG, t.fatG, t.source, t.reason, t.setBy,
-      ],
-    );
+    if (data.targets) {
+      await writeTargets(connection, userId, data.targets);
+    } else {
+      // A save without targets (setup's personal details) never leaves old targets behind worked
+      // out from other numbers: calculated ones are recalculated here, in code, from the new
+      // numbers; a target the member entered themselves stays; anything else is refused
+      const [[existing]] = await connection.query("SELECT inputs, calculated FROM nutrition_targets WHERE user_id = ? FOR UPDATE", [userId]);
+      if (existing && existing.calculated !== null) {
+        const record = recalculatedTargets(parseJson(existing.inputs), data.profile);
+        if (!record) {
+          const conflict = new Error("Your targets need updating with this change. Open Goal & activity in Profile.");
+          conflict.name = "ConflictError";
+          conflict.status = 409;
+          throw conflict;
+        }
+        await writeTargets(connection, userId, targetsRow(record, userId));
+      }
+    }
 
     await connection.commit();
   } catch (error) {
@@ -407,4 +551,23 @@ async function loadProfile(pool, userId) {
   return { profile, nutrition };
 }
 
-module.exports = { ValidationError, validateProfileSubmission, persistProfile, loadProfile };
+// Profile › Food preferences (2026-11-10): only the food answers change; nothing else is read
+// from the body. Needs a saved profile (setup's personal details).
+async function saveFood(pool, userId, body) {
+  if (!isPlainObject(body)) throw new ValidationError("Send the food answers as an object.");
+  for (const key of Object.keys(body)) if (!FOOD_FIELDS.includes(key)) throw new ValidationError("The request has a field we don't expect.");
+  const f = validateFood(body);
+  const [result] = await pool.query(
+    "UPDATE profiles SET diet = ?, cuisines = ?, dislikes = ?, allergies = ?, meals_per_day = ? WHERE user_id = ?",
+    [f.diet, JSON.stringify(f.cuisines), f.dislikes, f.allergies, f.mealsPerDay, userId],
+  );
+  if (result.affectedRows === 0) throw new ValidationError("Finish your personal details first.");
+  return f;
+}
+const FOOD_FIELDS = ["diet", "cuisines", "dislikes", "allergies", "mealsPerDay"];
+
+module.exports = {
+  ValidationError, validateProfileSubmission, persistProfile, loadProfile,
+  validateFood, validateHealthFlags, targetsRow, writeTargets, saveFood,
+  GOALS, ACTIVITIES, enumOrNull,
+};

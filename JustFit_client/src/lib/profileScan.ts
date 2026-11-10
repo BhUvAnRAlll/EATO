@@ -39,8 +39,47 @@ export function scanHome(origin: ScanOrigin): "/profile" | "/coach/intake/body" 
   return origin === "coach" ? "/coach/intake/body" : "/profile";
 }
 
+/** The saved profile as the setup answers (the setup store's shape), for an edit or a save */
+export function profileFromSaved(saved: SavedProfile): Profile {
+  const dob = dobFromSaved(saved.dob);
+  const age = ageFromDob(dob);
+  return {
+    fullName: saved.fullName,
+    dob,
+    gender: saved.gender,
+    phone: saved.phone ?? "",
+    email: saved.email,
+    goal: saved.goal,
+    heightCm: saved.heightCm == null ? "" : String(saved.heightCm),
+    weightKg: saved.weightKg == null ? "" : String(saved.weightKg),
+    bodyFatPercent: saved.bodyFatPercent == null ? "" : String(saved.bodyFatPercent),
+    age: age == null ? "" : String(age),
+    activity: saved.activity,
+    healthFlags: saved.healthFlags,
+    diet: saved.diet,
+    cuisines: saved.cuisines,
+    dislikes: saved.dislikes ?? "",
+    allergies: saved.allergies ?? "",
+    workoutFrequency: saved.workoutFrequency,
+    workoutType: saved.workoutType,
+    workoutTime: saved.workoutTime,
+    mealsPerDay: saved.mealsPerDay,
+  };
+}
+
+// Where an edit of the goal and activity (or a body scan) was started after setup, and where it
+// returns: Profile, the AI Coach intake's Body step, Home or Macro (their "Finish your profile" card)
+export type EditOrigin = "profile" | "coach" | "home" | "macro";
+export function editOrigin(from: string | undefined): EditOrigin {
+  return from === "coach" || from === "home" || from === "macro" ? from : "profile";
+}
+export function editHome(origin: EditOrigin): "/profile" | "/coach/intake/body" | "/home" | "/macro" {
+  return origin === "coach" ? "/coach/intake/body" : origin === "home" ? "/home" : origin === "macro" ? "/macro" : "/profile";
+}
+
 export type MeasurementSave =
-  | { ok: true; body: { profile: Profile; nutrition: TargetRecord }; changes: string[] }
+  // nutrition is left out while the member has no targets yet (setup asks only the personal details)
+  | { ok: true; body: { profile: Profile; nutrition?: TargetRecord }; changes: string[] }
   | { ok: false; error: string };
 export type BodyFatSave = MeasurementSave;
 
@@ -55,7 +94,7 @@ const within = (n: number, [min, max]: readonly [number, number]) => Number.isFi
 // calculation, so a calculated target is recalculated; a target the user entered themselves
 // stays as it is.
 export function measurementSave(saved: SavedProfile | null, record: TargetRecord | null, change: MeasurementChange, now: Date = new Date()): MeasurementSave {
-  if (!saved || !record) return { ok: false, error: "Finish setting up your profile first." };
+  if (!saved) return { ok: false, error: "Finish setting up your profile first." };
   const dob = dobFromSaved(saved.dob);
   const age = ageFromDob(dob);
   if (age == null) return { ok: false, error: "Your date of birth is missing from your profile." };
@@ -76,6 +115,13 @@ export function measurementSave(saved: SavedProfile | null, record: TargetRecord
   if (weight !== saved.weightKg) changes.push(`Your weight becomes ${weight} kg.`);
   if (change.bodyFatPercent !== undefined) changes.push(`Your body fat becomes ${bodyFat}%.`);
   if (changes.length === 0) return { ok: false, error: "Nothing has changed." };
+
+  const profile: Profile = { ...profileFromSaved(saved), heightCm: String(height), weightKg: String(weight), bodyFatPercent: bodyFat == null ? "" : String(bodyFat), age: String(age) };
+  // No targets yet: the new numbers are saved, and the targets come with the goal and activity
+  if (!record) {
+    changes.push("Your daily targets are worked out once you add your goal and activity level.");
+    return { ok: true, body: { profile }, changes };
+  }
 
   // A body fat % is re-read against the new weight; without one, any earlier report stays as it was
   const bodyComposition = bodyFat != null ? manualBodyFatReport(weight, bodyFat, now) : record.inputs.bodyComposition;
@@ -98,28 +144,6 @@ export function measurementSave(saved: SavedProfile | null, record: TargetRecord
     if (record.active.source === "user_adjusted") changes.push("Your own adjustment is replaced by the new calculation.");
   }
 
-  const profile: Profile = {
-    fullName: saved.fullName,
-    dob,
-    gender: saved.gender,
-    phone: saved.phone ?? "",
-    email: saved.email,
-    goal: saved.goal,
-    heightCm: String(height),
-    weightKg: String(weight),
-    bodyFatPercent: bodyFat == null ? "" : String(bodyFat),
-    age: String(age),
-    activity: saved.activity,
-    healthFlags: saved.healthFlags,
-    diet: saved.diet,
-    cuisines: saved.cuisines,
-    dislikes: saved.dislikes ?? "",
-    allergies: saved.allergies ?? "",
-    workoutFrequency: saved.workoutFrequency,
-    workoutType: saved.workoutType,
-    workoutTime: saved.workoutTime,
-    mealsPerDay: saved.mealsPerDay,
-  };
   return { ok: true, body: { profile, nutrition }, changes };
 }
 

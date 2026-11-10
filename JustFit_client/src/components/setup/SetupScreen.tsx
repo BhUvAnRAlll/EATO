@@ -77,15 +77,16 @@ export function SetupScreen({
           {/* Outside the setup flow (Profile › Height & weight) the bar carries the title, like every
               other pushed screen, and the lead stays under it */}
           {showProgress ? (
+            // One setup screen since 2026-11-10: no dashes or counter for a single step
             <View className="flex-1 flex-row items-center justify-center gap-1.5">
-              {steps.map((name, stepIndex) => (
+              {steps.length > 1 && steps.map((name, stepIndex) => (
                 <View key={name} className={stepIndex <= index ? "setup__dash setup__dash--done" : "setup__dash"} />
               ))}
             </View>
           ) : (
             <Text className="screen-bar__title" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} accessibilityRole="header">{title}</Text>
           )}
-          <View className="h-11 w-11 items-end justify-center">{showProgress && <Text className="setup__step">{`${index + 1}/${steps.length}`}</Text>}</View>
+          <View className="h-11 w-11 items-end justify-center">{showProgress && steps.length > 1 && <Text className="setup__step">{`${index + 1}/${steps.length}`}</Text>}</View>
         </View>
 
         <KeyboardAvoider>

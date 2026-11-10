@@ -1,3 +1,4 @@
+import { FinishProfileCard } from "@/components/FinishProfileCard";
 import { useCallback, useEffect, useState } from "react";
 import { AppState, ScrollView, Text, View } from "react-native";
 import { useResponsive } from "@/lib/responsive";
@@ -41,7 +42,7 @@ const GAP = 8;
 export default function Home() {
   const { width, compact } = useResponsive();
   const getToken = useSessionToken();
-  const { promotions, content, nutrition, water, workout, activity, load, refreshIntake, loading, error, source } = useHomeStore();
+  const { promotions, content, nutrition, hasTargets, water, workout, activity, load, refreshIntake, loading, error, source } = useHomeStore();
   const cart = useCartStore();
   // Read again whenever Home shows, so an address picked a moment ago is in the pill
   const { load: addressLoad } = useAddressBook();
@@ -147,7 +148,10 @@ export default function Home() {
           {/* Today: calories, protein and water against their targets. Until the first read answers
               the card is a skeleton: the bundled sample said "couldn't be loaded" on every cold start */}
           <View className="mt-4 px-4">
-            {nutrition === null && source === "default" && (loading || error === null) ? (
+            {hasTargets === false ? (
+              // No targets yet (setup asks only the personal details): never the bundled sample numbers
+              <FinishProfileCard origin="home" />
+            ) : nutrition === null && source === "default" && (loading || error === null) ? (
               <SkeletonCard tall />
             ) : (
               <TodayRingsCard heading={content.nutritionHeading} nutrition={nutrition ?? sampleNutrition} water={water} width={contentWidth} onOpen={() => router.navigate("/macro")} />

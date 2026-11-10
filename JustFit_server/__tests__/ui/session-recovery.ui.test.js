@@ -129,7 +129,8 @@ describe("ui session recovery: 401 offers sign-in, other failures keep the sessi
     await page.clickText("Sign in again");
     await h.expectPath("/sign-in");
     await page.waitFor(`!localStorage.getItem("justfit.session")`, 15000, "session ended");
-    assert.deepEqual(await db.rowsForUser(connection, identities.a.id), { nutrition_targets: 0, body_composition_reports: 0, profiles: 0, users: 1 }, "nothing was saved (only the account row sign-in made)");
+    // Setup's personal details were saved on the way (setup is that one screen since 2026-11-10); the targets were not
+    assert.deepEqual(await db.rowsForUser(connection, identities.a.id), { nutrition_targets: 0, body_composition_reports: 0, profiles: 1, users: 1 }, "no targets were saved");
   }));
 
   it("2. a 500 on Finish shows the generic error, keeps the session and offers no sign-out", run("targets-500", async () => {

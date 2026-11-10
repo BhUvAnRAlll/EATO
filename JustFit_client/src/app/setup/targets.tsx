@@ -1,13 +1,15 @@
 import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
+import { router, useLocalSearchParams } from "expo-router";
 import { FieldInput } from "@/components/FieldInput";
 import { SymbolView } from "@/components/SymbolView";
 
 import { FormAlert } from "@/components/FormAlert";
 import { OptionCard } from "@/components/setup/OptionCard";
 import { SetupScreen } from "@/components/setup/SetupScreen";
-import { goHome } from "@/lib/auth";
+import { hud } from "@/lib/hud";
 import { saveProfile } from "@/lib/profile";
+import { editHome, editOrigin } from "@/lib/profileScan";
 import { SESSION_EXPIRED_MESSAGE, isSessionExpired, returnToSignIn, useSessionToken } from "@/lib/session";
 import {
   applyUserAdjustment,
@@ -90,6 +92,9 @@ export default function NutritionTargets() {
   const [sessionExpired, setSessionExpired] = useState(false);
   const [finished, setFinished] = useState(false);
   const { profile, calorieOverride, setCalorieOverride, reset } = useSetupStore();
+  // Profile › Goal & activity, step 3 of 3: saves and returns where the edit started
+  const { from } = useLocalSearchParams<{ from?: string }>();
+  const origin = editOrigin(from);
 
   // Only for gender "other"/"unspecified": the estimate the user picks (never chosen for them)
   const [equationGender, setEquationGender] = useState<EquationGender | null>(null);
@@ -156,8 +161,8 @@ export default function NutritionTargets() {
     return applyUserAdjustment(record, calorieOverride, "Adjusted during setup", actor);
   };
 
-  // Saves the profile and target record to the justFit server (MySQL), which marks setup
-  // complete on the account; the session's copy is updated so the start screen opens home.
+  // Saves the profile and target record to the justFit server (MySQL), then returns where the
+  // edit started (Profile, Home or Macro).
   // `isSaving` disables the button, so a double tap can't send two requests.
   const handleFinish = async () => {
     if (isSaving) return;
@@ -186,18 +191,17 @@ export default function NutritionTargets() {
       setIsSaving(false);
       return;
     }
-    // The server has saved it: the account is now complete, under the name just given
-    useAuthStore.getState().updateUser({ profileComplete: true, fullName: profile.fullName.trim(), email: profile.email.trim().toLowerCase() || null });
     // `finished` hides the calculator's alerts: the cleared answers would otherwise read as missing
     // (and buzz an error) in the frame between leaving and the reset
     setFinished(true);
-    goHome();
+    hud.success("Targets saved");
+    router.dismissTo(editHome(origin));
     reset();
   };
 
   return (
     <SetupScreen
-      step="targets"
+      showProgress={false}
       title="Your nutrition targets"
       subtitle="Estimated from your profile. These are starting points, not measurements, and you can adjust them later."
       onNext={handleFinish}

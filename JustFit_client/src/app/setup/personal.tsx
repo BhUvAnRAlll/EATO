@@ -1,22 +1,32 @@
 import { useEffect, useState } from "react";
-import { Text, View } from "react-native";
-import { router } from "expo-router";
+import { Pressable, Text, View } from "react-native";
 
+import { FormAlert } from "@/components/FormAlert";
 import { DatePickerSheet } from "@/components/setup/DatePickerSheet";
 import { SelectSheet } from "@/components/setup/SelectSheet";
 import { SetupField } from "@/components/setup/SetupField";
 import { SetupScreen } from "@/components/setup/SetupScreen";
 import { genderOptions } from "@/data/setup";
+import { goHome } from "@/lib/auth";
 import { ageFromDob, dobLimits, formatDob, parseDob, toDobString } from "@/lib/date";
 import { EMAIL_MAX, isValidEmail } from "@/lib/email";
 import { inRange, toNumberText } from "@/lib/numberInput";
 import { formatIndianMobile } from "@/lib/phone";
+import { saveProfile } from "@/lib/profile";
+import { SESSION_EXPIRED_MESSAGE, isSessionExpired, returnToSignIn, useSessionToken } from "@/lib/session";
 import { useAuthStore } from "@/store/auth";
 import { useSetupStore } from "@/store/setup";
 
+// Setup's one screen (since 2026-11-10, the user's choice): the personal details, saved with
+// Finish. Goal, activity, the health check and food come later, in the AI Coach intake or
+// Profile; Home and Macro show "Finish your profile" until the targets exist.
 export default function PersonalDetails() {
   const user = useAuthStore((state) => state.user);
-  const { profile, update } = useSetupStore();
+  const getToken = useSessionToken();
+  const { profile, update, reset } = useSetupStore();
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [sessionExpired, setSessionExpired] = useState(false);
   const [isGenderOpen, setIsGenderOpen] = useState(false);
   const [isDobOpen, setIsDobOpen] = useState(false);
   const { minimumDate, maximumDate } = dobLimits();
@@ -46,10 +56,26 @@ export default function PersonalDetails() {
     profile.phone.length === 10 &&
     emailOk;
 
-  const handleNext = () => {
-    // The age the targets use comes from the date of birth
-    if (age !== null) update({ age: String(age) });
-    router.push("/setup/goal");
+  // Saves the personal details (no targets yet); the account is then set up and opens Home.
+  // `isSaving` disables the button, so a double tap can't send two requests
+  const handleFinish = async () => {
+    if (isSaving || age === null) return;
+    if (!user) {
+      setSessionExpired(true);
+      return setError(SESSION_EXPIRED_MESSAGE);
+    }
+    setError(null);
+    setSessionExpired(false);
+    setIsSaving(true);
+    const saved = await saveProfile(await getToken(), { profile: { ...profile, age: String(age) } });
+    setIsSaving(false);
+    if (!saved.ok) {
+      setSessionExpired(isSessionExpired(saved));
+      return setError(isSessionExpired(saved) ? SESSION_EXPIRED_MESSAGE : saved.error);
+    }
+    useAuthStore.getState().updateUser({ profileComplete: true, fullName: profile.fullName.trim(), email: email.toLowerCase() || null });
+    goHome();
+    reset();
   };
 
   return (
@@ -57,9 +83,21 @@ export default function PersonalDetails() {
       step="personal"
       title="Let's get to know you"
       subtitle="Tell us a few details to personalize your experience."
-      onNext={handleNext}
+      onNext={handleFinish}
+      nextLabel="Finish"
       canContinue={canContinue}
+      loading={isSaving}
     >
+      {error && (
+        <View className="mb-3">
+          <FormAlert message={error} />
+          {sessionExpired && (
+            <Pressable onPress={() => returnToSignIn()} className="btn-outline mt-3" accessibilityRole="button">
+              <Text className="btn-outline__label">Sign in again</Text>
+            </Pressable>
+          )}
+        </View>
+      )}
       <View className="gap-3">
         <SetupField
           label="Full name"

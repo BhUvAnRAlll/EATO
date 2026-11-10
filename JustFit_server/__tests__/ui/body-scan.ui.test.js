@@ -272,7 +272,7 @@ describe("ui body scan: Scan Body, the photo instructions, the scan screen and t
 
   it("5b. the AI Coach intake's Body step shows the saved body fat, and a scan started there returns to it", run("coach-scan", async () => {
     await h.goto("/coach/intake/body", "Scan your body");
-    await h.expectText("7/10");
+    await h.expectText("8/10");
     await h.expectText("Estimated body fat");
     await h.expectText("23%");
     await h.expectText("Continue");
@@ -282,7 +282,7 @@ describe("ui body scan: Scan Body, the photo instructions, the scan screen and t
     await page.clickLabel("Back");
     await h.expectPath("/coach/intake/body");
     await page.clickText("Continue");
-    await h.expectPath("/coach/intake/lifestyle");
+    await h.expectPath("/coach/intake/food");
   }));
 
   it("6. Profile's Weight tile changes height and weight after a confirmation; the targets are recalculated and the body fat % kept", run("measurements", async () => {

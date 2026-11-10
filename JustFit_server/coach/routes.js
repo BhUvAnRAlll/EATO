@@ -9,6 +9,7 @@ const { createRateLimiter, limitPerUser } = require("../rateLimit");
 const { validateIntake, prefillFrom, planBody, planQuery, logBody, optionsBody, replaceBody, workoutChangeBody, mealId, coachChoice } = require("./validate");
 const { toIntake, makePlan, swapMeal, mealOptions, replaceMeal, changeWorkout, getPlan, logMeal } = require("./plan");
 const { CoachPlanError } = require("./planRules");
+const intakeProfile = require("./intakeProfile");
 const { chat, history } = require("./chat");
 const { chatBody } = require("./chatRules");
 const insights = require("./insights");
@@ -53,22 +54,29 @@ const route = (handler) => (req, res, next) =>
 router.get("/intake", route(async (req, res) => {
   const [rows] = await pool(req).query("SELECT * FROM coach_profiles WHERE user_id = ?", [req.userId]);
   const [[profile], [workout]] = await Promise.all([
-    pool(req).query("SELECT goal, workout_type FROM profiles WHERE user_id = ?", [req.userId]).then(([r]) => r),
+    pool(req).query("SELECT goal, workout_type, gender, activity, health_flags, diet, cuisines, dislikes, allergies, meals_per_day FROM profiles WHERE user_id = ?", [req.userId]).then(([r]) => r),
     pool(req).query("SELECT experience, weekdays FROM workout_profiles WHERE user_id = ?", [req.userId]).then(([r]) => r),
   ]);
-  res.json({ intake: rows[0] ? toIntake(rows[0]) : null, prefill: prefillFrom(profile, workout) });
+  // `profile`: the activity, health and food answers already saved (the intake's own steps edit them)
+  res.json({ intake: rows[0] ? toIntake(rows[0]) : null, prefill: prefillFrom(profile, workout), profile: intakeProfile.prefillProfile(profile), gender: profile?.gender ?? null });
 }));
 
 // PUT /intake: every answer at once; a second save replaces the first
 router.put("/intake", smallBody, route(async (req, res) => {
   const a = validateIntake(req.body);
+  const answers = intakeProfile.validateIntakeProfile(req.body.profile);
   await ensureUser(pool(req), req.userId);
   const values = [
     a.goal, a.experience, a.currentlyTraining, JSON.stringify(a.weekdays), a.sessionMinutes, a.mainSpot, a.backupSpot,
     a.mainEquipment, a.backupEquipment, JSON.stringify(a.joints), JSON.stringify(a.conditions), a.limitationNotes,
     a.cookingTime, a.foodBudget, a.stress, a.sleep, a.coach, a.coachStyle, a.planNotes,
   ];
-  await pool(req).query(
+  // One transaction: the coach answers, the profile answers and the targets worked out from them
+  const connection = await pool(req).getConnection();
+  let targets = null;
+  try {
+    await connection.beginTransaction();
+    await connection.query(
       `INSERT INTO coach_profiles (user_id, goal, experience, currently_training, weekdays, session_minutes, main_spot, backup_spot,
          main_equipment, backup_equipment, joints, conditions, limitation_notes, cooking_time, food_budget, stress, sleep, coach,
          coach_style, plan_notes, disclaimer_accepted_at)
@@ -81,8 +89,17 @@ router.put("/intake", smallBody, route(async (req, res) => {
          coach_style = VALUES(coach_style), plan_notes = VALUES(plan_notes), disclaimer_accepted_at = NOW()`,
       [req.userId, ...values],
     );
+    if (answers) targets = await intakeProfile.applyIntakeProfile(connection, req.userId, a.goal, answers);
+    await connection.commit();
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
   const [[row]] = await pool(req).query("SELECT * FROM coach_profiles WHERE user_id = ?", [req.userId]);
-  res.json({ intake: toIntake(row) });
+  // targets: set | kept | needs_choice | needs_professional | needs_details, or null (no profile answers sent)
+  res.json({ intake: toIntake(row), targets });
 }));
 
 // PUT /intake/coach { coach, coachStyle }: changes only who coaches the member and how, keeping

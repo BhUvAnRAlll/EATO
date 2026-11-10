@@ -8,9 +8,10 @@ import type {
   Option,
 } from "@/types/profile";
 
-// Every profile setup screen, in order (the progress counter, "2/6", follows this list). The body
-// scan is not a setup step (2026-11-10): it is in the AI Coach intake and on Profile.
-export const setupSteps = ["personal", "goal", "activity", "food", "lifestyle", "targets"] as const;
+// Every profile setup screen, in order (the progress counter follows this list). Since
+// 2026-11-10 setup is the personal details only; goal, activity and targets open from Profile
+// (and Home's "Finish your profile") without a counter, and food is its own Profile screen.
+export const setupSteps = ["personal"] as const;
 export type SetupStep = (typeof setupSteps)[number];
 
 export const genderOptions: Option<Gender>[] = [

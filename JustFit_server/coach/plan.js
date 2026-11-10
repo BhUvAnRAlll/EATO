@@ -63,7 +63,7 @@ async function memberFacts(pool, userId) {
   if (!intakeRow) throw new ValidationError("Answer your coach's questions first.");
   const [[profile]] = await pool.query("SELECT diet, cuisines, dislikes, allergies FROM profiles WHERE user_id = ?", [userId]);
   const [[targets]] = await pool.query("SELECT calories, protein_g, carbs_g, fat_g FROM nutrition_targets WHERE user_id = ?", [userId]);
-  if (!profile || !targets) throw new ValidationError("Finish your profile first, so your coach knows your targets.");
+  if (!profile || !targets) throw new ValidationError("Set your daily targets first (Profile › Goal & activity), so your coach can plan your meals.");
   return {
     intake: toIntake(intakeRow),
     profile: { diet: profile.diet, cuisines: json(profile.cuisines) ?? [], dislikes: profile.dislikes, allergies: profile.allergies },
@@ -143,7 +143,7 @@ async function draftWorkout(pool, userId, today, intake, env) {
     return { facts, prepared: await workoutPlans.draftFromCoach(pool, userId, { ...facts, today, shape }, env) };
   } catch (error) {
     // The engine needs the body facts from setup (gender, age, height, weight)
-    if (error?.name === "PlanInputError") throw new ValidationError("Finish your profile first, so your coach knows your targets.");
+    if (error?.name === "PlanInputError") throw new ValidationError("Set your daily targets first (Profile › Goal & activity), so your coach can plan your meals.");
     throw error;
   }
 }

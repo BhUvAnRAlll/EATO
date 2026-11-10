@@ -113,10 +113,11 @@ describe("coach e2e: the intake, its prefill, and who may see it", () => {
   it("2. before the intake: no answers, and a prefill from what setup and the workout profile know", run(async () => {
     const a = await api("GET", "/api/coach/intake", tokens.a);
     assert.equal(a.status, 200, JSON.stringify(a.json));
-    assert.deepEqual(a.json, { intake: null, prefill: { goal: "build_muscle", mainSpot: "gym", experience: "intermediate", weekdays: [2, 4, 6] } });
+    // profile: the activity, health and food answers already saved (2026-11-10); gender decides the health ticks
+    assert.deepEqual(a.json, { intake: null, prefill: { goal: "build_muscle", mainSpot: "gym", experience: "intermediate", weekdays: [2, 4, 6] }, profile: { diet: "vegetarian", allergies: "peanuts" }, gender: "male" });
     // B has no users row, no setup and no workout profile yet
     const b = await api("GET", "/api/coach/intake", tokens.b);
-    assert.deepEqual(b.json, { intake: null, prefill: {} });
+    assert.deepEqual(b.json, { intake: null, prefill: {}, profile: {}, gender: null });
   }));
 
   it("3. saving stores the caller's answers once; a second save replaces them", run(async () => {

@@ -19,7 +19,7 @@ const birth = new Date(); birth.setFullYear(birth.getFullYear() - inputs.age);
 const pad = (n) => String(n).padStart(2, "0");
 const dob = `${pad(birth.getDate())}/${pad(birth.getMonth() + 1)}/${birth.getFullYear()}`;
 const profileFor = (fullName, overrides = {}) => ({
-  fullName, dob, gender: "female", phone: "9000000001", email: "typed-and-ignored@example.com", goal: "maintenance",
+  fullName, dob, gender: "female", phone: "9000000001", goal: "maintenance",
   heightCm: "165", weightKg: "60", bodyFatPercent: "", age: "30", activity: "lightly_active", healthFlags: [], diet: "vegan",
   cuisines: ["South Indian"], dislikes: "", allergies: "", workoutFrequency: "3-4", workoutType: "home", workoutTime: "evening", mealsPerDay: "3",
   ...overrides,

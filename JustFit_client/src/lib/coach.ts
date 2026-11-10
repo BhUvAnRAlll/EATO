@@ -2,6 +2,7 @@ import { apiFetch, type ApiResult } from "@/lib/api";
 import type {
   CoachGoal, CoachId, CoachStyle, Condition, CookingTime, Equipment, Experience, FoodBudget, Joint, Sleep, Spot, Stress,
 } from "@/data/coach";
+import type { ActivityLevel, DietId, Gender, HealthFlag, MealsPerDay } from "@/types/profile";
 
 // The member's saved AI Coach intake (GET/PUT /api/coach/intake)
 export type Intake = {
@@ -28,6 +29,20 @@ export type Intake = {
 
 // Answers justFit already has from setup and the workout plan, to start the intake with
 export type IntakePrefill = Partial<Pick<Intake, "goal" | "experience" | "weekdays" | "mainSpot">>;
+
+// The intake's profile answers (2026-11-10), saved to the member's profile with the targets
+// worked out from them: the activity level, the health check and the food answers
+export type IntakeProfile = {
+  activity: ActivityLevel;
+  healthFlags: HealthFlag[];
+  diet: DietId;
+  cuisines: string[];
+  dislikes: string;
+  allergies: string;
+  mealsPerDay: MealsPerDay;
+};
+// What the server answers about the targets after a save
+export type IntakeTargets = "set" | "kept" | "needs_choice" | "needs_professional" | "needs_details" | null;
 
 // The coach's plan (GET/POST /api/coach/plan)
 export type PlanSlot = "breakfast" | "morning_snack" | "lunch" | "evening_snack" | "dinner";
@@ -77,12 +92,14 @@ export const coachApi = {
     if (!token) return signedOut();
     return apiFetch("/api/coach/voice", { method: "POST", body: clip, token });
   },
-  intake(token: string | null): Promise<ApiResult<{ intake: Intake | null; prefill: IntakePrefill }>> {
+  // profile: the activity, health and food answers already saved (any may be missing); gender
+  // decides whether pregnancy and breastfeeding are asked
+  intake(token: string | null): Promise<ApiResult<{ intake: Intake | null; prefill: IntakePrefill; profile: Partial<IntakeProfile>; gender: Gender | null }>> {
     if (!token) return signedOut();
     return apiFetch("/api/coach/intake", { token });
   },
   // `acceptedDisclaimer`: the member ticked "Fitness guidance, not medical advice" (the server requires it)
-  saveIntake(token: string | null, intake: Intake & { acceptedDisclaimer: boolean }): Promise<ApiResult<{ intake: Intake }>> {
+  saveIntake(token: string | null, intake: Intake & { acceptedDisclaimer: boolean; profile: IntakeProfile }): Promise<ApiResult<{ intake: Intake; targets: IntakeTargets }>> {
     if (!token) return signedOut();
     return apiFetch("/api/coach/intake", { method: "PUT", body: intake, token });
   },

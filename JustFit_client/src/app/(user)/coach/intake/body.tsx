@@ -12,7 +12,7 @@ import { useSessionToken } from "@/lib/session";
 import { useSetupStore } from "@/store/setup";
 import { useThemeColors } from "@/theme";
 
-// Intake 7/10: an optional body scan (two photos → body fat %), moved here from setup on
+// Intake 8/10: an optional body scan (two photos → body fat %), moved here from setup on
 // 2026-11-10. The scan runs the same screens as Profile's (?from=coach) and saves to the profile
 // with the targets recalculated; the report returns here. Skip goes on without one.
 export default function IntakeBody() {
@@ -56,7 +56,7 @@ export default function IntakeBody() {
       step="body"
       title="Scan your body"
       subtitle="Optional. Your body fat % makes your calorie and protein targets more accurate."
-      onNext={() => router.push("/coach/intake/lifestyle")}
+      onNext={() => router.push("/coach/intake/food")}
       nextLabel={bodyFat != null ? "Continue" : "Skip"}
     >
       {error && <FormAlert message={error} />}

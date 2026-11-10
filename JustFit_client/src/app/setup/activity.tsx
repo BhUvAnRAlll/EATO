@@ -1,18 +1,21 @@
 import { useEffect, useState } from "react";
 import { Text, View } from "react-native";
 import { SymbolView } from "@/components/SymbolView";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 
 import { Chip } from "@/components/setup/Chip";
 import { SelectSheet } from "@/components/setup/SelectSheet";
 import { SetupField } from "@/components/setup/SetupField";
 import { SetupScreen } from "@/components/setup/SetupScreen";
 import { activityOptions, healthFlagOptionsFor, healthFlagsFor } from "@/data/setup";
+import { editOrigin } from "@/lib/profileScan";
 import { useSetupStore } from "@/store/setup";
 import { useThemeColors } from "@/theme";
 
 export default function Activity() {
   const colors = useThemeColors();
+  const { from } = useLocalSearchParams<{ from?: string }>();
+  const origin = editOrigin(from);
   const { profile, update, toggleHealthFlag } = useSetupStore();
   const [isActivityOpen, setIsActivityOpen] = useState(false);
 
@@ -27,10 +30,10 @@ export default function Activity() {
 
   return (
     <SetupScreen
-      step="activity"
       title="How active are you?"
       subtitle="This helps us calculate your nutrition needs accurately."
-      onNext={() => router.push("/setup/food")}
+      onNext={() => router.push({ pathname: "/setup/targets", params: { from: origin } })}
+      showProgress={false}
       canContinue={profile.activity !== null}
     >
       <View className="gap-3">

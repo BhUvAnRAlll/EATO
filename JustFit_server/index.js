@@ -23,7 +23,7 @@ const { analyticsRouter } = require("./analytics/routes");
 const { deriveOtpKey, otpConfig } = require("./auth/otp");
 const { createSmsProvider } = require("./auth/sms");
 const { devLoginConfig } = require("./auth/devLogin");
-const { ValidationError, validateProfileSubmission, persistProfile, loadProfile } = require("./profile");
+const { ValidationError, validateProfileSubmission, persistProfile, loadProfile, saveFood } = require("./profile");
 const { logRequestError } = require("./logging");
 const { securityHeaders, corsOptions } = require("./httpSecurity");
 const { limitPerUser, createRateLimiter, rateLimits } = require("./rateLimit");
@@ -166,6 +166,16 @@ app.post("/api/profile", requireUser, limitPerUser(profileLimiter), profileBody,
     const data = validateProfileSubmission(req.body, req.userId);
     await persistProfile(pool, req.userId, data);
     res.json({ saved: true });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Profile › Food preferences (2026-11-10): diet, food usually eaten, allergies, dislikes and meals
+// per day for the caller only; nothing else in the profile changes
+app.put("/api/profile/food", requireUser, limitPerUser(profileLimiter), express.json({ limit: "4kb" }), async (req, res, next) => {
+  try {
+    res.json({ food: await saveFood(pool, req.userId, req.body) });
   } catch (error) {
     next(error);
   }

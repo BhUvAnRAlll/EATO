@@ -1,3 +1,4 @@
+import { FinishProfileCard } from "@/components/FinishProfileCard";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Animated, Pressable, ScrollView, Text, View } from "react-native";
 import { useResponsive } from "@/lib/responsive";
@@ -162,12 +163,7 @@ export default function MacroHub() {
               {targets ? (
                 <CaloriesCard totals={showing.totals} targets={targets} onPress={() => router.push("/macro/daily")} />
               ) : (
-                <DashedBlock
-                  icon={{ ios: "flame", android: "local_fire_department", web: "local_fire_department" }}
-                  title="Calorie target not set up yet"
-                  text="Finish your profile (weight, height, birthday, workout days and goal) to see your daily calorie target here."
-                  onPress={() => router.push("/profile")}
-                />
+                <FinishProfileCard origin="macro" />
               )}
 
               {/* The coach's tip on today, worked out on the phone (no AI call); slides in when it appears */}

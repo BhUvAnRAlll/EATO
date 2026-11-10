@@ -19,12 +19,12 @@ const { startTestServer, portFree } = require("../e2e/server.js");
 const { identitiesFor, describeIdentityError } = require("../e2e/test-identities.js");
 const { startExpoWeb } = require("./expo-web.js");
 const { launchChrome, connect, openPage, CHROME } = require("./cdp.js");
-const { fillSetup, helpers, signInAs } = require("./onboarding-steps.js");
+const { dateOfBirth, fillSetup, helpers, signInAs } = require("./onboarding-steps.js");
 
 const EXPO_PORT = 8090;
 const EVIDENCE_DIR = path.join(os.tmpdir(), "justfit-ui-evidence");
 const SCREENSHOT_DIR = process.env.JUSTFIT_SCREENSHOT_DIR || null;
-const SETUP_ROUTES = ["/setup/personal", "/setup/goal", "/setup/activity", "/setup/food", "/setup/lifestyle", "/setup/targets"];
+const SETUP_ROUTES = ["/setup/personal", "/setup/goal", "/setup/activity", "/setup/targets"];
 const WIDTHS = [[320, 568], [390, 844], [430, 932]];
 
 describe("ui setup guard: setup needs a session, loading never redirects, a lost session leaves setup", () => {
@@ -134,8 +134,8 @@ describe("ui setup guard: setup needs a session, loading never redirects, a lost
   it("2. signed in, the start screen opens setup and a setup route opened directly stays open", run("signed-in", async () => {
     await signInAs(page, h, identities.a);
     assert.equal(await page.path(), "/setup/personal", "a new account is routed to the first setup step");
-    await h.expectText("1/6");
-    await h.goto("/setup/goal", "2/6");
+    await h.expectText("Let's get to know you");
+    await h.goto("/setup/goal", "What's your goal?");
     assert.equal(await page.path(), "/setup/goal");
     assert.ok(!(await visited()).includes("/sign-in"), `opening a setup route while signed in must not pass through Log in (visited: ${JSON.stringify(await visited())})`);
   }));
@@ -150,10 +150,18 @@ describe("ui setup guard: setup needs a session, loading never redirects, a lost
     assert.equal(await hasSession(), true, "the restored session must still be there");
   }));
 
-  it("4. a session revoked on the server while the targets step is open is refused on Finish, offers Log in and clears the answers", run("revoked", async () => {
+  it("4. a session revoked on the server while setup is open is refused on Finish, offers Log in and clears the answers", run("revoked", async () => {
     await h.goto("/setup/personal", "Let's get to know you");
-    await fillSetup(page, expo.baseUrl, { fullName: "Guard Tester" });
-    assert.equal(await page.path(), "/setup/targets");
+    const dob = dateOfBirth(30);
+    await page.setInput(h.input("Your full name"), "Guard Tester");
+    await page.clickText("Select your birthday");
+    await h.expectText("Cancel");
+    await page.setInput("[aria-modal] input", dob.input);
+    await page.clickText("Done");
+    await h.expectText(dob.shown);
+    await h.expectNoText("Done");
+    await page.setInput(h.input("170"), "170");
+    await page.setInput(h.input("70"), "60");
 
     // A real revocation in justfit_test, as "Sign out of all devices" on another phone would do it.
     // The app isn't told; its next request is refused (401) and it offers Log in.

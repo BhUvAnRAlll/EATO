@@ -31,7 +31,8 @@ const EMPTY: AddressForm = { receiverName: "", receiverPhone: "", house: "", str
 // delivers), the type and optional instructions. The map's pin is shown at the top and is only a
 // starting point: the address is what is typed here. Save stays pinned above the keyboard.
 export default function AddressFormScreen() {
-  const { id } = useLocalSearchParams<{ id?: string }>();
+  // from=map: a new address picked on the map, which sits under this form
+  const { id, from } = useLocalSearchParams<{ id?: string; from?: string }>();
   const editId = id && /^[1-9][0-9]*$/.test(id) ? Number(id) : null;
   const user = useAuthStore((state) => state.user);
   const draft = useAddressDraft((state) => state.place);
@@ -74,12 +75,12 @@ export default function AddressFormScreen() {
         kind: "home",
         makeDefault: true,
       };
-  return frame(<AddressFormBody editId={editId} saved={saved} initial={initial} getToken={getToken} />);
+  return frame(<AddressFormBody editId={editId} saved={saved} initial={initial} getToken={getToken} fromMap={from === "map"} />);
 }
 
 type Initial = { form: AddressForm; kind: AddressKind; makeDefault: boolean };
 
-function AddressFormBody({ editId, saved, initial, getToken }: { editId: number | null; saved: DeliveryAddress | null; initial: Initial; getToken: () => Promise<string | null> }) {
+function AddressFormBody({ editId, saved, initial, getToken, fromMap }: { editId: number | null; saved: DeliveryAddress | null; initial: Initial; getToken: () => Promise<string | null>; fromMap: boolean }) {
   const colors = useThemeColors();
   const switchColors = useSwitchColors();
   const insets = useSafeAreaInsets();
@@ -149,7 +150,17 @@ function AddressFormBody({ editId, saved, initial, getToken }: { editId: number 
     // The draft stays until the next add or edit starts (clearing it here would send this screen
     // back to the map before it closes)
     hud.success(editId ? "Address updated" : "Address saved");
-    router.dismissTo("/addresses");
+    leaveAfterSave();
+  };
+
+  // Back to where the member started: a new address closes the form and the map under it (the
+  // saved list, the Meals tab or the cart, which read the book again when they show), so Back
+  // never lands on the map again; an edit closes the form. Opened with nothing behind it (a
+  // link or a reload), the saved list replaces it.
+  const leaveAfterSave = () => {
+    if (!router.canGoBack()) return router.replace("/addresses");
+    if (!editId && fromMap) return router.dismiss(2);
+    router.back();
   };
 
   // Receiver from the phone's contacts: the name, and the number (asked when there are several)

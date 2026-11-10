@@ -141,15 +141,14 @@ describe("ui date picker: real HTML date input with the app's limits", () => {
     }
   }));
 
-  it("4. the date is kept when leaving the step and coming back, and the other fields still gate Next", run("navigation", async () => {
+  it("4. the date is kept while the other fields are filled in, and they still gate Finish (never pressed)", run("navigation", async () => {
+    // Setup is one screen since 2026-11-10: Finish saves, so this test never presses it
+    const finishDisabled = () => page.evaluate(`(() => { const t = [...document.querySelectorAll("body *")].filter((e) => e.childElementCount === 0 && (e.textContent || "").trim() === "Finish" && e.getClientRects().length > 0).pop(); let el = t; for (let i = 0; i < 5 && el; i++) { if (el.getAttribute("aria-disabled") !== null) return el.getAttribute("aria-disabled"); el = el.parentElement; } return null; })()`);
     await page.setInput(h.input("Your full name"), "Date Tester");
-    assert.equal(await page.evaluate(`(() => { const t = [...document.querySelectorAll("body *")].filter((e) => e.childElementCount === 0 && (e.textContent || "").trim() === "Next" && e.getClientRects().length > 0).pop(); let el = t; for (let i = 0; i < 5 && el; i++) { if (el.getAttribute("aria-disabled") !== null) return el.getAttribute("aria-disabled"); el = el.parentElement; } return null; })()`), "true");
+    assert.equal(await finishDisabled(), "true");
     await page.setInput(h.input("170"), "170");
     await page.setInput(h.input("70"), "60");
-    await page.clickText("Next");
-    await h.expectPath("/setup/goal");
-    await page.clickLabel("Back");
-    await h.expectPath("/setup/personal");
+    await page.waitFor(`(() => { const t = [...document.querySelectorAll("body *")].filter((e) => e.childElementCount === 0 && (e.textContent || "").trim() === "Finish" && e.getClientRects().length > 0).pop(); let el = t; for (let i = 0; i < 5 && el; i++) { const v = el.getAttribute("aria-disabled"); if (v !== null) return v !== "true"; el = el.parentElement; } return true; })()`, 20000, "Finish enabled");
     await h.expectText(valid.shown);
     assert.equal(await page.inputValue(h.input("Your full name")), "Date Tester");
     await openSheet();

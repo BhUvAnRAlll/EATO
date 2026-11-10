@@ -16,14 +16,14 @@ import type { TodayWorkout } from "@/components/coach/PlanTimeline";
 import { WeekPlan } from "@/components/coach/WeekPlan";
 import { usePullToRefresh } from "@/components/PullToRefresh";
 import { coachPrompts, coaches, coachStyles, labelOf, type CoachId, type CoachStyle } from "@/data/coach";
-import { coachApi, type Intake, type IntakePrefill, type PlanState } from "@/lib/coach";
+import { coachApi, type Intake, type IntakePrefill, type IntakeProfile, type PlanState } from "@/lib/coach";
 import type { Insights, InsightsWeek } from "@/lib/coachInsights";
 import { todayIso } from "@/lib/macro";
 import { useSessionToken } from "@/lib/session";
 import { LEVEL_LABEL, weekOf, workoutApi } from "@/lib/workoutApi";
 import { useCoachChatStore } from "@/store/coachChat";
 import { useCoachIntakeStore } from "@/store/coachIntake";
-import type { Icon } from "@/types/profile";
+import type { Icon, Gender } from "@/types/profile";
 import { useThemeColors } from "@/theme";
 import { track } from "@/lib/analytics";
 import { useResponsive } from "@/lib/responsive";
@@ -75,7 +75,7 @@ function CoachScreen() {
   const getToken = useSessionToken();
   const start = useCoachIntakeStore((state) => state.start);
   const clearChat = useCoachChatStore((state) => state.clear);
-  const [loaded, setLoaded] = useState<{ intake: Intake | null; prefill: IntakePrefill } | null>(null);
+  const [loaded, setLoaded] = useState<{ intake: Intake | null; prefill: IntakePrefill; profile?: Partial<IntakeProfile>; gender?: Gender | null } | null>(null);
   const [plan, setPlan] = useState<PlanState | null>(null);
   const [workout, setWorkout] = useState<TodayWorkout | null>(null);
   const [tab, setTab] = useState<PlanTab>("today");
@@ -135,7 +135,7 @@ function CoachScreen() {
 
   const begin = () => {
     if (!loaded) return;
-    start(loaded.intake, loaded.prefill);
+    start(loaded.intake, loaded.prefill, loaded.profile, loaded.gender);
     router.push("/coach/intake/goal");
   };
 

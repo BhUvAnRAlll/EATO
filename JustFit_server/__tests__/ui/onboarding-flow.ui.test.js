@@ -1,8 +1,8 @@
-// Phase 9, step 2: onboarding step validation. Drives the real Expo web build in headless
-// Chrome through every setup step using only the screens' visible labels and placeholders.
-// The setup routes need a session, so one test account signs in through the real phone
-// sign-in first (and is deleted afterwards). Finish is never pressed: no profile request is
-// sent and nothing is written beyond the account row sign-in makes.
+// Onboarding validation. Drives the real Expo web build in headless Chrome using only the
+// screens' visible labels and placeholders: setup's one screen (the personal details, since
+// 2026-11-10), Home's Finish your profile card, Goal & activity and Profile › Food preferences.
+// One test account signs in through the real phone sign-in first; it and everything it saved
+// are deleted afterwards (the row counts are checked).
 //
 //   yarn test:ui      (needs JustFit_server/.env.test and Google Chrome; otherwise skipped)
 const assert = require("node:assert/strict");
@@ -37,7 +37,7 @@ const expected = nutrition.calculateTargets({ age: AGE, gender: "female", height
 assert.equal(expected.status, "ok");
 const expectedCalories = expected.displayCalories.toLocaleString("en-IN");
 
-describe("ui flow: onboarding steps in Expo web (signed in, nothing saved)", () => {
+describe("ui flow: onboarding (the personal details) and Goal & activity in Expo web", () => {
   const runId = crypto.randomBytes(4).toString("hex");
   let skipReason = null;
   let env, connection, countsBefore, server, expo, chrome, client, page, testAccounts, h;
@@ -117,7 +117,7 @@ describe("ui flow: onboarding steps in Expo web (signed in, nothing saved)", () 
     }
     await step("row counts unchanged", async () => {
       if (!connection) return;
-      try { assert.deepEqual(await db.rowCounts(connection), countsBefore, "test database rows changed during a UI test that never saves"); }
+      try { assert.deepEqual(await db.rowCounts(connection), countsBefore, "the test account's rows were not all removed"); }
       finally { await connection.end(); }
     });
     await step("ports released", async () => {
@@ -139,10 +139,11 @@ describe("ui flow: onboarding steps in Expo web (signed in, nothing saved)", () 
     // A signed-in account with no profile is sent to the first setup step by the start screen
     await signInAs(page, h, identities.a);
     await expectPath("/setup/personal");
-    await expectText("1/6");
+    await expectText("Let's get to know you");
+    assert.equal(await page.hasText("1/6"), false, "setup is one screen: no step counter");
   }));
 
-  it("2. personal: the number signed in with is the account's and read-only, the email is optional and pre-filled; Next stays disabled until name, date of birth, height and weight are valid", run("personal-required", async () => {
+  it("2. personal: the number signed in with is the account's and read-only, the email is optional and pre-filled; Finish stays disabled until name, date of birth, height and weight are valid", run("personal-required", async () => {
     await goto("/setup/personal", "Let's get to know you");
     // The account's number is shown as text with a note, and no input offers to change it
     await expectText(shownPhone());
@@ -161,9 +162,9 @@ describe("ui flow: onboarding steps in Expo web (signed in, nothing saved)", () 
       await client.send("Emulation.clearDeviceMetricsOverride", {}, page.sessionId);
       await settle();
     }
-    await assertStuck("/setup/personal");
+    await assertStuck("/setup/personal", "Finish");
     await page.setInput(input("Your full name"), answers.fullName);
-    await assertStuck("/setup/personal");
+    await assertStuck("/setup/personal", "Finish");
     // Date of birth: a sheet whose field takes YYYY-MM-DD (react-native-web renders it as a text input)
     await page.clickText("Select your birthday");
     await expectText("Cancel");
@@ -172,12 +173,12 @@ describe("ui flow: onboarding steps in Expo web (signed in, nothing saved)", () 
     await expectText(dobShown);
     await page.waitFor(`!(document.body.innerText || "").includes("Done")`, NAV_TIMEOUT, "date sheet closed");
     await expectText(`Age ${AGE}`); // the age the targets use, from the date of birth
-    await assertStuck("/setup/personal");
+    await assertStuck("/setup/personal", "Finish");
     await page.setInput(input("170"), "1a7b0c"); // non-digits dropped
     assert.equal(await page.inputValue(input("170")), "170");
-    await assertStuck("/setup/personal"); // weight still missing
+    await assertStuck("/setup/personal", "Finish"); // weight still missing
     await page.setInput(input("70"), "20"); // below the 30 kg minimum
-    await assertStuck("/setup/personal");
+    await assertStuck("/setup/personal", "Finish");
     await page.setInput(input("70"), answers.weightKg);
     // The mobile number is the one signed in with: shown as text, never an input
     await expectText(shownPhone());
@@ -185,91 +186,86 @@ describe("ui flow: onboarding steps in Expo web (signed in, nothing saved)", () 
     await shoot("setup-personal-filled");
   }));
 
-  it("3. personal: valid inputs and the gender picker move on to the goal step (no body composition step since 2026-11-10)", run("personal-valid", async () => {
+  it("3. personal: the gender picker, then Finish saves the personal details alone and opens Home's Finish your profile card", run("personal-finish", async () => {
     await page.clickText("Select"); // the gender field (the only "Select" placeholder on this screen)
     await expectText("Prefer not to say");
     await page.clickText("Female");
     await page.waitFor(`!(document.body.innerText || "").includes("Prefer not to say")`, NAV_TIMEOUT, "gender sheet closed");
     await expectText("Female");
-    await next();
-    await expectPath("/setup/goal");
-    await expectText("2/6");
+    // Setup is this one screen since 2026-11-10: no Next, no goal, activity or food here
+    assert.equal(await page.hasText("Next"), false);
+    await next("Finish");
+    await expectPath("/home");
+    await expectText("Finish your profile");
+    await expectText("Add goal & activity");
+    assert.equal(await page.hasText("Today's Macros"), false, "no sample numbers without targets");
+    await shoot("home-finish-profile");
+    assert.deepEqual(await db.rowsForUser(connection, identities.a.id), { nutrition_targets: 0, body_composition_reports: 0, profiles: 1, users: 1 }, "the personal details, no targets yet");
+    const [[profile]] = await connection.query("SELECT goal, activity, diet, profile_complete, height_cm FROM profiles WHERE user_id = ?", [identities.a.id]);
+    assert.deepEqual({ goal: profile.goal, activity: profile.activity, diet: profile.diet, complete: profile.profile_complete, height: Number(profile.height_cm) }, { goal: null, activity: null, diet: null, complete: 1, height: 170 });
   }));
 
-  it("5. goal: a choice is required, then one option selects and continues", run("goal", async () => {
+  it("4. Goal & activity from Home: goal and activity are required, the targets match the calculator, Finish saves them and Home shows them", run("goal-activity", async () => {
+    await page.clickText("Add goal & activity");
+    await expectPath("/setup/goal");
+    assert.equal(await page.hasText("1/6"), false, "no setup step counter in the edit");
     await assertStuck("/setup/goal");
     await page.clickText("Lose fat");
     await next();
     await expectPath("/setup/activity");
-    await expectText("3/6");
-  }));
-
-  it("5b. activity: the activity picker is required and completes the step", run("activity", async () => {
     await assertStuck("/setup/activity");
     await page.clickText("Select");
     await expectText("Extra active");
     await page.clickText("Lightly active");
     await page.waitFor(`!(document.body.innerText || "").includes("Extra active")`, NAV_TIMEOUT, "activity sheet closed");
     await expectText("exercise 1–3 days per week");
-    await shoot("setup-activity");
-    await next();
-    await expectPath("/setup/food");
-    await expectText("4/6");
-  }));
-
-  it("6. food: diet tile is required; a cuisine chip and free text are accepted", run("food", async () => {
-    await assertStuck("/setup/food");
-    await page.clickText("Vegan");
-    await page.clickText("South Indian");
-    await page.setInput(input("e.g. mushrooms, brinjal"), "okra");
-    await next();
-    await expectPath("/setup/lifestyle");
-    await expectText("5/6");
-  }));
-
-  it("7. lifestyle: only meals per day, required before the targets step", run("lifestyle", async () => {
-    await assertStuck("/setup/lifestyle"); // meals per day missing
-    // The workout questions moved to the AI Coach intake (2026-11-09)
-    for (const gone of ["Workout frequency", "Workout type", "Workout time"]) assert.ok(!(await page.hasText(gone)), `${gone} is no longer asked`);
-    await page.clickText("3");
+    // The member said female: pregnancy and breastfeeding are offered
+    await expectText("Pregnant");
     await next();
     await expectPath("/setup/targets");
-    await expectText("6/6");
-  }));
-
-  it("8. targets: the calculated daily target, macros and water render and match the calculator", run("targets", async () => {
     await expectText("Estimated daily target");
     await expectText(`${expectedCalories} kcal`);
     for (const label of ["Protein", "Carbs", "Fats", "Drinking water"]) await expectText(label);
     await expectText(`${expected.macros.proteinG} g`);
-    assert.ok(await page.hasText("Finish"));
-  }));
-
-  it("9. back navigation keeps every entered value", run("back", async () => {
-    await page.clickLabel("Back"); await expectPath("/setup/lifestyle");
-    await page.clickLabel("Back"); await expectPath("/setup/food");
-    assert.equal(await page.inputValue(input("e.g. mushrooms, brinjal")), "okra");
+    await shoot("setup-targets");
+    // Back keeps the answers
     await page.clickLabel("Back"); await expectPath("/setup/activity");
     await expectText("Lightly active");
     await page.clickLabel("Back"); await expectPath("/setup/goal");
-    await page.clickLabel("Back"); await expectPath("/setup/personal");
-    assert.equal(await page.inputValue(input("Your full name")), answers.fullName);
-    assert.equal(await page.inputValue(input("170")), answers.heightCm);
-    assert.equal(await page.inputValue(input("70")), answers.weightKg);
-    await expectText(shownPhone());
-    assert.equal(await page.inputValue(input("you@example.com")), identities.a.emailAddress);
-    await expectText(dobShown);
-    await expectText("Female");
-    // Forward again: each step still satisfied, so Next proceeds every time
-    await next(); await expectPath("/setup/goal");
-    for (const route of ["/setup/activity", "/setup/food", "/setup/lifestyle", "/setup/targets"]) { await next(); await expectPath(route); }
-    await expectText(`${expectedCalories} kcal`);
+    await next(); await expectPath("/setup/activity");
+    await next(); await expectPath("/setup/targets");
+    await next("Finish");
+    await expectPath("/home");
+    await expectText("Today's Macros");
+    assert.equal(await page.hasText("Finish your profile"), false);
+    assert.deepEqual(await db.rowsForUser(connection, identities.a.id), { nutrition_targets: 1, body_composition_reports: 0, profiles: 1, users: 1 });
+    const [[t]] = await connection.query("SELECT calories FROM nutrition_targets WHERE user_id = ?", [identities.a.id]);
+    assert.equal(Number(t.calories), expected.displayCalories);
+    const [[profile]] = await connection.query("SELECT goal, activity FROM profiles WHERE user_id = ?", [identities.a.id]);
+    assert.deepEqual({ goal: profile.goal, activity: profile.activity }, { goal: "fat_loss", activity: "lightly_active" });
   }));
 
-  it("10. nothing was saved: only the start screen's profile read was sent, and no row was written", run("no-save", async () => {
+  it("5. Profile › Food preferences: diet and meals per day are required; Food you usually eat is checkboxes; Save keeps the rest of the profile", run("food", async () => {
+    await goto("/food-preferences", "Food you usually eat");
+    await assertStuck("/food-preferences", "Save");
+    await page.clickText("Vegan");
+    const southIndian = 'div[role="checkbox"][aria-label="South Indian"], [role="checkbox"][aria-label="South Indian"]';
+    assert.equal(await page.evaluate(`document.querySelector(${JSON.stringify(southIndian)})?.getAttribute("aria-checked")`), "false");
+    await page.clickLabel("South Indian");
+    await page.waitFor(`document.querySelector(${JSON.stringify(southIndian)})?.getAttribute("aria-checked") === "true"`, NAV_TIMEOUT, "the checkbox ticked");
+    await page.setInput(input("e.g. nuts, gluten, dairy"), "peanuts");
+    await assertStuck("/food-preferences", "Save"); // meals per day still missing
+    await page.clickText("3");
+    await shoot("profile-food-preferences");
+    await next("Save");
+    await page.waitFor(`location.pathname !== "/food-preferences"`, NAV_TIMEOUT, "left after saving");
+    const [[profile]] = await connection.query("SELECT diet, cuisines, allergies, meals_per_day, goal FROM profiles WHERE user_id = ?", [identities.a.id]);
+    const cuisines = typeof profile.cuisines === "string" ? JSON.parse(profile.cuisines) : profile.cuisines;
+    assert.deepEqual({ diet: profile.diet, cuisines, allergies: profile.allergies, meals: profile.meals_per_day, goal: profile.goal }, { diet: "vegan", cuisines: ["South Indian"], allergies: "peanuts", meals: "3", goal: "fat_loss" });
+  }));
+
+  it("6. every profile request went to the test server, never the development server", run("requests", async () => {
     assert.deepEqual(page.requests.filter((u) => u.includes("/api/profile") && !u.startsWith(`http://localhost:${env.PORT}/api/profile`)), [], "profile requests may only go to the test server");
     assert.deepEqual(page.requests.filter((u) => /\/\/(localhost|127\.0\.0\.1):4000\b/.test(u)), [], "no request to the development server");
-    assert.deepEqual(await db.rowsForUser(connection, identities.a.id), { nutrition_targets: 0, body_composition_reports: 0, profiles: 0, users: 1 });
-    assert.deepEqual(await db.rowCounts(connection), { ...countsBefore, users: countsBefore.users + 1 }, "only the account row sign-in made");
   }));
 });

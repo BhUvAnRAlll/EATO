@@ -35,6 +35,8 @@ const FIELDS = [
   "goal", "experience", "currentlyTraining", "weekdays", "sessionMinutes", "mainSpot", "backupSpot", "mainEquipment",
   "backupEquipment", "joints", "conditions", "limitationNotes", "cookingTime", "foodBudget", "stress", "sleep", "coach",
   "coachStyle", "planNotes", "acceptedDisclaimer",
+  // The member's activity level, health check and food answers (2026-11-10), checked in intakeProfile.js
+  "profile",
 ];
 
 function oneOf(value, allowed, message) {
