@@ -13,6 +13,7 @@ import { SymbolView } from "@/components/SymbolView";
 import { GymPageView } from "@/components/gymHub/GymPageView";
 import { JoinSheet, type JoinPick } from "@/components/gymHub/JoinSheet";
 import { ReportGymSheet } from "@/components/gymHub/ReportGymSheet";
+import { ReviewSheet } from "@/components/gymHub/ReviewSheet";
 import { discoverApi, type GymPage, type JoinRequest } from "@/lib/discoverApi";
 import { useSessionToken } from "@/lib/session";
 import { useThemeColors } from "@/theme";
@@ -24,7 +25,8 @@ type Load = { state: "loading" } | { state: "failed"; error: string; missing: bo
 // Directions, about, facilities, hours and closures, the plans to compare, PT packages, the address,
 // contacts and links. No buying: since phase 4 the
 // member asks the gym to call them about a plan (Ask about this plan, or Ask to join), which lands
-// in the gym's Enquiries; the page then shows the request, or that they are a member here.
+// in the gym's Enquiries; the page then shows the request, or that they are a member here. Since
+// Gym Profile phase 4 the member reviews the gym here too (ReviewSheet), if they are or were one.
 export default function GymDetails() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const getToken = useSessionToken();
@@ -33,6 +35,7 @@ export default function GymDetails() {
   const [pick, setPick] = useState<JoinPick | null>(null);
   // Report a problem (the brief's section 7): to the justFit team, never the gym
   const [reporting, setReporting] = useState(false);
+  const [reviewing, setReviewing] = useState(false);
 
   const load = useCallback(async () => {
     const answer = await discoverApi.gym(await getToken().catch(() => null), Number(id));
@@ -67,7 +70,7 @@ export default function GymDetails() {
             </View>
           </View>
         ) : (
-          <GymPageView gym={result.gym} at={result.at} onAsk={setPick} refreshControl={refreshControl} />
+          <GymPageView gym={result.gym} at={result.at} onAsk={setPick} onReview={() => setReviewing(true)} refreshControl={refreshControl} />
         )}
         {pick && result.state === "ready" && (
           <JoinSheet
@@ -76,6 +79,15 @@ export default function GymDetails() {
             pick={pick}
             onClose={() => setPick(null)}
             onSent={(request: JoinRequest) => setResult((current) => (current.state === "ready" ? { ...current, gym: { ...current.gym, you: { memberId: current.gym.you?.memberId ?? null, request } } } : current))}
+          />
+        )}
+        {reviewing && result.state === "ready" && (
+          <ReviewSheet
+            gymId={result.gym.id}
+            gymName={result.gym.name}
+            mine={result.gym.reviews?.mine ?? null}
+            onClose={() => setReviewing(false)}
+            onSaved={(reviews) => setResult((current) => (current.state === "ready" ? { ...current, gym: { ...current.gym, reviews } } : current))}
           />
         )}
         {reporting && result.state === "ready" && <ReportGymSheet gymId={result.gym.id} gymName={result.gym.name} onClose={() => setReporting(false)} />}

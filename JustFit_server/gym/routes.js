@@ -41,6 +41,8 @@ const rules = require("./rules");
 const discover = require("./discover");
 const trainerProfiles = require("./trainerProfiles");
 const trainerProfileRules = require("./trainerProfileRules");
+const reviews = require("./reviews");
+const reviewRules = require("./reviewRules");
 const sms = require("./sms");
 const templates = require("./templates");
 const templateRules = require("./templateRules");
@@ -614,6 +616,35 @@ router.delete("/profile/trainers/:userId/photo", trainerRoute(async (req, res) =
 }));
 router.get("/profile/trainers/:userId/photo", trainerRoute(async (req, res) => {
   trainerProfiles.send(res, await trainerProfiles.photoFile(pool(req), req.gym, staffRules.userIdParam(req.params.userId)));
+}));
+
+// Reviews (gym/reviews.js, Gym Profile phase 4, 2026-11-09): members' reviews of this branch. Area
+// "profile": reading with Gym Profile › See, replying and hiding the words with Gym Profile ›
+// Reviews. Nothing here can change a rating. Before migration 2026-12-26 the routes say so.
+const REVIEW_MIGRATION = "Reviews need the 2026-12-26-gym-reviews migration on this server.";
+const reviewRoute = (handler) => (req, res, next) =>
+  handler(req, res, next).catch((error) => {
+    if (["ER_NO_SUCH_TABLE", "ER_BAD_FIELD_ERROR"].includes(error?.code)) return res.status(503).json({ error: REVIEW_MIGRATION });
+    next(error);
+  });
+const reviewLimit = limitPerUser(createRateLimiter({ limit: 60, windowMs: 60 * 60 * 1000 }));
+const reviewId = (req) => rules.id(req.params.reviewId, "review");
+router.get("/reviews", reviewRoute(async (req, res) => {
+  res.json(await reviews.list(pool(req), req.gym, reviewRules.reviewsQuery(req.query)));
+}));
+router.put("/reviews/:reviewId/reply", reviewLimit, smallBody, reviewRoute(async (req, res) => {
+  const id = reviewId(req);
+  res.json(await reviews.reply(pool(req), req.gym, req.userId, id, reviewRules.replyBody(req.body)));
+}));
+router.delete("/reviews/:reviewId/reply", reviewLimit, reviewRoute(async (req, res) => {
+  res.json(await reviews.removeReply(pool(req), req.gym, req.userId, reviewId(req)));
+}));
+router.post("/reviews/:reviewId/hide", reviewLimit, smallBody, reviewRoute(async (req, res) => {
+  const id = reviewId(req);
+  res.json(await reviews.hide(pool(req), req.gym, req.userId, id, reviewRules.hideBody(req.body)));
+}));
+router.post("/reviews/:reviewId/show", reviewLimit, reviewRoute(async (req, res) => {
+  res.json(await reviews.show(pool(req), req.gym, req.userId, reviewId(req)));
 }));
 
 // Reminder Templates (gym/templates.js, 2026-11-08): the branch's own wording for Send Reminder

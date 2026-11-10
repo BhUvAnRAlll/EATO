@@ -25,6 +25,8 @@ export type GymCard = {
   logoUrl: string | null;
   // Only when the member shared their location and the gym is on the map
   distanceKm: number | null;
+  // Members' reviews (Gym Profile phase 4): null when none, absent from an older server
+  rating?: { average: number; count: number } | null;
 };
 export type GymList = { total: number; page: number; nextPage: number | null; priceCaps: number[]; gyms: GymCard[] };
 export type DiscoverSort = "relevance" | "distance";
@@ -51,6 +53,15 @@ export type JoinState = "sent" | "in_touch" | "joined" | "closed";
 export type JoinRequest = { id: number; gym: { id: number; name: string; branch: string }; planLabel: string | null; state: JoinState; sentOn: string };
 // A trainer as members see them; id is the profile's own; photoUrl read with the session
 export type PublicTrainer = { id: number; name: string; photoUrl: string | null; specializations: string[]; years: number | null; certifications: string[]; bio: string | null; availability: OpeningHours | null };
+// Reviews (Gym Profile phase 4): members of the branch, now or before, rate it once each. The
+// average and count include reviews whose words the gym hid; comment is null for those.
+export type ReviewSummary = { average: number | null; count: number; counts: Record<"1" | "2" | "3" | "4" | "5", number> };
+export type ReviewReply = { text: string; date: string | null };
+export type PublicReview = { id: number; name: string; rating: number; comment: string | null; date: string | null; edited: boolean; reply: ReviewReply | null; isYou: boolean };
+// The member's own review: hiddenReason set when the gym hid its words
+export type HideReason = "abusive" | "spam" | "personal" | "not_member" | "other";
+export type MyReview = { id: number; rating: number; comment: string | null; hiddenReason: HideReason | null; reply: ReviewReply | null; date: string | null };
+export type GymReviews = { summary: ReviewSummary; reviews: PublicReview[]; nextPage: number | null; mine: MyReview | null; canReview: boolean };
 export type GymPage = {
   id: number;
   name: string;
@@ -74,6 +85,8 @@ export type GymPage = {
   pt: PtPackage[];
   // The gym's trainers members may see (Gym Profile phase 3; absent from an older server)
   trainers?: PublicTrainer[];
+  // The newest reviews and the summary; null before the server's reviews migration
+  reviews?: GymReviews | null;
   // When the gym last published its profile (null: never, or the gym's own preview)
   updatedAt: string | null;
   // The member here: their membership's id when they are one now, and their latest request.
@@ -103,5 +116,10 @@ export const discoverApi = {
   // Ask the gym to call about a plan or PT package (or neither); the name and number are the account's
   ask: (token: string | null, gymId: number, body: { itemId: number | null; note: string }) =>
     token ? apiFetch<{ request: JoinRequest }>(`/api/gyms/${gymId}/requests`, { token, method: "POST", body: { itemId: body.itemId, note: body.note.trim() || null } }) : signedOut<{ request: JoinRequest }>(),
+  // Reviews: a page of them; the member's own written, changed or deleted (answers the newest few)
+  reviews: (token: string | null, gymId: number, page = 1) => (token ? apiFetch<GymReviews>(`/api/gyms/${gymId}/reviews${page > 1 ? `?page=${page}` : ""}`, { token }) : signedOut<GymReviews>()),
+  saveReview: (token: string | null, gymId: number, body: { rating: number; comment: string }) =>
+    token ? apiFetch<GymReviews>(`/api/gyms/${gymId}/review`, { token, method: "PUT", body: { rating: body.rating, comment: body.comment.trim() || null } }) : signedOut<GymReviews>(),
+  deleteReview: (token: string | null, gymId: number) => (token ? apiFetch<GymReviews>(`/api/gyms/${gymId}/review`, { token, method: "DELETE" }) : signedOut<GymReviews>()),
   requests: (token: string | null) => (token ? apiFetch<{ requests: JoinRequest[] }>("/api/gyms/requests", { token }) : signedOut<{ requests: JoinRequest[] }>()),
 };

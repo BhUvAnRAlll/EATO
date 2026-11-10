@@ -8,8 +8,10 @@ import { PrimaryButton } from "@/components/PrimaryButton";
 import { SymbolView } from "@/components/SymbolView";
 import { MemberPhotoImage } from "@/components/gym/MemberPhotoImage";
 import type { JoinPick } from "@/components/gymHub/JoinSheet";
+import { ReviewCard, ReviewSummaryCard, Stars } from "@/components/gymHub/ReviewParts";
 import type { GymPage } from "@/lib/discoverApi";
 import { directionsUrl, facilityLabel, indiaNow, joinStateText, openNow, perMonthText, planLengthText, priceText } from "@/lib/gymDiscover";
+import { countText, hideReasonText } from "@/lib/gymReviews";
 import { closureDateText, DAYS, dayText, gymTypesText, stampText, timeLabel, yearsText } from "@/lib/gymProfile";
 import { hud } from "@/lib/hud";
 import { useThemeColors } from "@/theme";
@@ -18,9 +20,9 @@ import { useThemeColors } from "@/theme";
 // name and logo, open now, Call / WhatsApp / Directions (the phone's own apps), about, facilities
 // (the list's and the gym's own), the week's hours and closures, the plans to compare, PT packages,
 // the address, contacts and links. Sections the gym switched off arrive empty and are left out.
-// Members get Ask buttons (onAsk) and their standing (gym.you); the gym's own preview gets neither.
-// at: when the page was read (open now and today follow it).
-export function GymPageView({ gym, at, onAsk, refreshControl }: { gym: GymPage; at: number; onAsk?: (pick: JoinPick) => void; refreshControl?: ReactElement<RefreshControlProps> }) {
+// Members get Ask buttons (onAsk), their standing (gym.you) and their review (onReview); the gym's
+// own preview gets none of them. at: when the page was read (open now and today follow it).
+export function GymPageView({ gym, at, onAsk, onReview, refreshControl }: { gym: GymPage; at: number; onAsk?: (pick: JoinPick) => void; onReview?: () => void; refreshControl?: ReactElement<RefreshControlProps> }) {
   const insets = useSafeAreaInsets();
   return (
     <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 48 + insets.bottom, gap: 16 }} refreshControl={refreshControl} showsVerticalScrollIndicator={false}>
@@ -33,6 +35,7 @@ export function GymPageView({ gym, at, onAsk, refreshControl }: { gym: GymPage; 
       <Standing gym={gym} />
       <Plans gym={gym} onAsk={onAsk} />
       <Trainers gym={gym} />
+      <Reviews gym={gym} onReview={onReview} />
       <Place gym={gym} />
       {gym.updatedAt ? <Text className="type-caption text-muted text-center">{`Updated by the gym · ${stampText(gym.updatedAt, at)}`}</Text> : null}
     </ScrollView>
@@ -331,6 +334,40 @@ function TrainerCard({ trainer: t }: { trainer: NonNullable<GymPage["trainers"]>
       {more && (
         <PressableScale onPress={() => setOpen((o) => !o)} className="self-start" hitSlop={8} accessibilityRole="button" accessibilityState={{ expanded: open }} accessibilityLabel={open ? `Less about ${t.name}` : `More about ${t.name}`}>
           <Text className="auth__note-link">{open ? "Less" : "More about them"}</Text>
+        </PressableScale>
+      )}
+    </View>
+  );
+}
+
+// Members' reviews (Gym Profile phase 4): the summary, the member's own (or Write a review when
+// they are or were a member here), the newest few and See all. Absent before the server's migration.
+function Reviews({ gym, onReview }: { gym: GymPage; onReview?: () => void }) {
+  const colors = useThemeColors();
+  const r = gym.reviews;
+  if (!r) return null;
+  const mine = onReview ? r.mine : null;
+  return (
+    <View style={{ gap: 10 }}>
+      <Text className="type-headline text-ink" accessibilityRole="header">Reviews</Text>
+      <ReviewSummaryCard summary={r.summary} />
+      {mine ? (
+        <PressableScale onPress={onReview} className="card" style={{ gap: 6 }} accessibilityRole="button" accessibilityLabel={`Your review: ${mine.rating} stars. Edit`}>
+          <View className="flex-row items-center justify-between" style={{ gap: 8 }}>
+            <Text className="card__title">Your review</Text>
+            <Text className="auth__note-link">Edit</Text>
+          </View>
+          <Stars rating={mine.rating} />
+          {mine.comment ? <Text className="type-body text-ink" numberOfLines={3}>{mine.comment}</Text> : null}
+          {mine.hiddenReason ? <Text className="type-caption" style={{ color: colors.warning }}>{`The gym hid your words: ${hideReasonText(mine.hiddenReason).toLowerCase()}. Your stars still count.`}</Text> : null}
+        </PressableScale>
+      ) : onReview && r.canReview ? (
+        <PrimaryButton label="Write a review" onPress={onReview} />
+      ) : null}
+      {r.reviews.filter((x) => !(onReview && x.isYou)).map((x) => <ReviewCard key={x.id} review={x} />)}
+      {onReview && r.summary.count > r.reviews.length && (
+        <PressableScale onPress={() => router.push({ pathname: "/gym-hub/reviews/[id]", params: { id: String(gym.id) } })} className="self-start" hitSlop={8} accessibilityRole="button" accessibilityLabel={`See all ${countText(r.summary.count)}`}>
+          <Text className="auth__note-link">{`See all ${countText(r.summary.count)}`}</Text>
         </PressableScale>
       )}
     </View>

@@ -22,6 +22,7 @@ const RELAXED_OTP = {
   GYM_STAFF_CHANGES_PER_HOUR: "1000",
   GYM_PAUSE_REQUESTS_PER_HOUR: "1000",
   GYM_JOIN_REQUESTS_PER_HOUR: "1000",
+  GYM_REVIEW_CHANGES_PER_HOUR: "1000",
   // Delivery addresses (60 an hour in production): the addresses suite saves more than that
   ADDRESS_CHANGES_PER_HOUR: "1000",
   // Reminder templates (30 in production): the templates suite adds 21 of its own in one test

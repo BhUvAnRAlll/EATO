@@ -572,8 +572,8 @@ CREATE TABLE orders (
   id                CHAR(36)    NOT NULL DEFAULT (UUID()),
   user_id           VARCHAR(64) NOT NULL,
   kitchen_id        INT UNSIGNED NULL,                -- the kitchen cooking it (phase 3); NULL before kitchens or when its kitchen is gone
-  stock_taken       TINYINT(1)  NOT NULL DEFAULT 0,   -- the recipes' stock was taken when cooking started
-  subscription_id   CHAR(36)    NULL,                 -- made for a member's meal subscription (phase 5)
+  stock_taken       TINYINT(1)  NOT NULL DEFAULT 0,
+  subscription_id   CHAR(36)    NULL,                 -- made for a member's meal subscription (phase 5)   -- the recipes' stock was taken when cooking started
   client_id         CHAR(36)    NULL,               -- the app's id for the request: a retried Pay places one order
   delivery_date     DATE        NOT NULL,
   meal_slot         ENUM('breakfast', 'lunch', 'snack', 'dinner') NOT NULL,
@@ -2249,6 +2249,33 @@ CREATE TABLE gym_trainer_profiles (
   CONSTRAINT fk_gym_trainer_profiles_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
   CONSTRAINT fk_gym_trainer_profiles_updated_by FOREIGN KEY (updated_by) REFERENCES users (id) ON DELETE SET NULL,
   CONSTRAINT chk_gym_trainer_years CHECK (years_experience IS NULL OR years_experience <= 60)
+) ENGINE = InnoDB;
+
+-- Gym reviews (migration 2026-12-26-gym-reviews.sql, Gym Profile phase 4): one per member account per
+-- branch, only by someone who is or was a member there. The gym replies or hides the words; never the rating.
+CREATE TABLE gym_reviews (
+  id             INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  gym_id         INT UNSIGNED NOT NULL,                  -- the branch reviewed
+  user_id        VARCHAR(64)  NOT NULL,                  -- the member's justFit account (never shown)
+  rating         TINYINT UNSIGNED NOT NULL,              -- 1 to 5 stars; only the member changes it
+  comment        VARCHAR(500) NULL,
+  hidden_reason  ENUM('abusive', 'spam', 'personal', 'not_member', 'other') NULL, -- set: the words are hidden from members
+  hidden_at      TIMESTAMP    NULL,
+  hidden_by      VARCHAR(64)  NULL,
+  reply          VARCHAR(500) NULL,                      -- the gym's answer, shown under the review
+  replied_at     TIMESTAMP    NULL,
+  replied_by     VARCHAR(64)  NULL,
+  created_at     TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at     TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP, -- when the member last changed it
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_gym_reviews_member (gym_id, user_id),
+  KEY idx_gym_reviews_gym_time (gym_id, updated_at),
+  KEY idx_gym_reviews_user (user_id),
+  CONSTRAINT fk_gym_reviews_gym FOREIGN KEY (gym_id) REFERENCES gyms (id),
+  CONSTRAINT fk_gym_reviews_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+  CONSTRAINT fk_gym_reviews_hidden_by FOREIGN KEY (hidden_by) REFERENCES users (id) ON DELETE SET NULL,
+  CONSTRAINT fk_gym_reviews_replied_by FOREIGN KEY (replied_by) REFERENCES users (id) ON DELETE SET NULL,
+  CONSTRAINT chk_gym_reviews_rating CHECK (rating BETWEEN 1 AND 5)
 ) ENGINE = InnoDB;
 
 -- Gym expenses (migration 2026-12-10-gym-expenses.sql): each branch's spending (Manage › Expense),

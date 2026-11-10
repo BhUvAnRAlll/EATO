@@ -115,6 +115,8 @@ export const materialSymbols: Record<string, AndroidSymbol> = {
   "hand.thumbsdown": "thumb_down",
   heart: "favorite",
   "heart.fill": "favorite",
+  star: "star",
+  "star.fill": "star",
   house: "home",
   info: "info",
   "info.circle": "info",

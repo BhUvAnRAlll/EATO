@@ -12,7 +12,7 @@ You should think like a senior mobile developer, but explain and implement like 
 
 The app was EATO, became JustFit on 2026-10-26, and is spelled **justFit** (lowercase j) since
 2026-10-30, everywhere; JUSTFIT in capitals stays (the logo word, the `JUSTFIT-OUT-` code).
-Logo: the JF mark with the JUSTFIT word, red and black. What changed and what deliberately did not:
+Logo (replaced 2026-11-10): the green-and-black runner with JUST FIT and ATHLETIC CLUB (primary), the runner alone (submark: app icon, adaptive icon, favicon, notification icon) and `justfit-wordmark.png` (JUST FIT only), cut from the user's brand sheet. What changed and what deliberately did not:
 
 - Everything users see says justFit: screen text, server messages, share texts, the app name, icon,
   adaptive icon, splash, favicon and the in-app logo (`assets/images/justfit-logo.png`, shown by
@@ -746,6 +746,30 @@ at that branch). Option `profile.trainers` (Gym Profile › Trainer profiles) fo
 `profile.view` to read; audited `gym.edit`, on Activity. Migration `2026-12-25-trainer-profiles.sql`
 (one table; `SCHEMA_TABLE_COUNT` 76); before it the routes answer 503 naming it and gym pages show no
 trainers. Tests: `__tests__/gym-trainer-profile-rules.test.js`, `e2e/gym-trainer-profiles.e2e.test.js`.
+
+**Gym Profile Management, phase 4 of 4: reviews (2026-11-09, migration approved):** only someone
+who is or was a member of that branch can review it (a `gym_members` row there with the account's
+verified phone; the user's choice), one review per account per branch: 1-5 stars and optional words
+(500), changed or deleted by its writer (`components/gymHub/ReviewSheet.tsx`, from the gym's page).
+Others see the reviewer as "Arjun M." (`reviewRules.reviewerName`), never the account, number or
+surname. A gym's page has Reviews (`GymPageView`: the average, a bar per number of stars, the member's
+own with Edit or "Write a review", the newest 3, See all → `(user)/gym-hub/reviews/[id].tsx`, 20 a
+page); Discover's cards show "★ 4.3 · 12 reviews". The gym: Gym Profile › Reviews
+(`app/gym/profile/reviews.tsx`: the summary, All / Not replied / Hidden, a reply per review in a
+`GymSheet`, ⋯ to hide the words with a reason (abusive, spam, personal details, not about this gym,
+other) or show them again). Never a rating: no route takes one from the gym, and a hidden review's
+stars still count in the average and count (its words reach members as null, "Rating only"; the
+writer is told, and new words show again). No "What members see" switch for reviews, on purpose.
+Server `gym/reviewRules.js` (pure), `gym/reviews.js`; member routes `GET /api/gyms/:id/reviews?page=`,
+`PUT|DELETE /api/gyms/:id/review` (20 an hour, `GYM_REVIEW_CHANGES_PER_HOUR`); `GET /api/gyms/:id`
+carries `reviews` (null before the migration), `GET /api/gyms` each card's `rating`; portal
+`GET /api/gym/reviews?view=&page=` (`profile.view`), `PUT|DELETE /reviews/:id/reply`,
+`POST /reviews/:id/hide { reason }`, `POST /reviews/:id/show` (option `profile.reviews`, "Reply to and
+hide reviews"; 60 an hour; audited `gym.edit`, on Activity). Migration `2026-12-26-gym-reviews.sql`
+(one table, `SCHEMA_TABLE_COUNT` 77); before it the routes answer 503 naming it and pages show no
+reviews. Not built: a Super Admin queue for hidden reviews, notifying the gym of a new review.
+Tests: `__tests__/gym-review-rules.test.js`, `e2e/gym-reviews.e2e.test.js`, the client's
+`lib/__tests__/gymReviews.test.ts`.
 
 ### Delivery addresses (2026-11-09)
 
@@ -1652,7 +1676,7 @@ an overlay label and a round play button, and a flat white tab bar. This replace
 system of 2026-10-27 and the coach-only pink wash of 2026-10-29; their token names stay.
 **Green since 2026-11-09 (the user's choice, after the Swish app):** the one accent is now green
 `#20BF65` across the member app, the trainer's app and the Super Admin; the gym portal keeps its
-indigo, its invoice keeps the template's red (`gym-invoice-red`), the logo image stays red and
+indigo, its invoice keeps the template's red (`gym-invoice-red`), and
 `danger` stays red for errors. Wherever this section or older notes say "red" for the accent, read
 green. Small accent-coloured text uses `primary-text` (`#087A43`), never `leaf`/`primary`.
 The palette lives in `src/theme/tokens.css` with a JS copy in `src/theme/index.ts`; keep the two

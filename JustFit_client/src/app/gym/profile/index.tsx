@@ -59,6 +59,7 @@ function Hub({ profile, canEdit, canPublish, onPublished }: { profile: GymProfil
     { label: "Opening hours and closures", text: profile.hours ? `Hours added${profile.closures.length ? ` · ${profile.closures.length} closure${profile.closures.length === 1 ? "" : "s"}` : ""}` : "Add when you're open", icon: "clock", href: "/gym/profile/hours" },
     { label: "What members see", text: shown === SECTIONS.length ? "Every section is on" : `${shown} of ${SECTIONS.length} sections on`, icon: "eye", href: "/gym/profile/visibility" },
     { label: "Trainers", text: "Profiles members see: photo, skills, experience", icon: "users", href: "/gym/profile/trainers" },
+    { label: "Reviews", text: "Members' ratings: reply, or hide words that break the rules", icon: "star", href: "/gym/profile/reviews" },
     { label: "Membership plans and PT", text: "Add, edit or delete plans and prices", icon: "clipboard-list", href: "/gym/catalog", hidden: !can("catalog.view") },
     { label: "Staff and trainers", text: "Add or remove staff and trainers", icon: "user-cog", href: "/gym/staff", hidden: !owner },
   ];

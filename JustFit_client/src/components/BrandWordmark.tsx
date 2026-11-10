@@ -3,8 +3,8 @@ import { Image } from "expo-image";
 
 import { images } from "@/constants/images";
 
-// Width ÷ height of the justFit logo image (the JF mark above the JUSTFIT word)
-export const WORDMARK_RATIO = 600 / 481;
+// Width ÷ height of the justFit logo image (the runner beside JUST FIT, ATHLETIC CLUB under)
+export const WORDMARK_RATIO = 1200 / 394;
 
 type BrandWordmarkProps = {
   // Width of the logo in pt
@@ -16,7 +16,7 @@ type BrandWordmarkProps = {
 };
 
 // The justFit logo with the "BALANCED MEALS • STRONGER YOU" tagline
-export function BrandWordmark({ width = 96, large = false, tagline = true }: BrandWordmarkProps) {
+export function BrandWordmark({ width = 180, large = false, tagline = true }: BrandWordmarkProps) {
   return (
     <View>
       <Image

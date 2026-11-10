@@ -87,7 +87,7 @@ export default function Onboarding() {
       <SafeAreaView style={{ flex: 1 }}>
         {/* Wordmark */}
         <View className="mt-2.5 px-9">
-          <BrandWordmark width={194} large />
+          <BrandWordmark width={260} large />
         </View>
 
         {/* Slides: title, subtitle and food art swipe together */}

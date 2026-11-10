@@ -24,7 +24,7 @@ const PLACES: { id: Place; label: string; icon: Icon }[] = [
 ];
 
 // Width ÷ height of the JUSTFIT word (images.justfitWordmark)
-const WORDMARK_RATIO = 600 / 93;
+const WORDMARK_RATIO = 1200 / 213;
 
 // The Fitness tab's fixed header: the justFit word over the title, the location and search
 // buttons, and the AT HOME / AT CENTER switch (red when on), which picks the programs shown and

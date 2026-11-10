@@ -1,5 +1,5 @@
 import { apiFetch, type ApiResult } from "@/lib/api";
-import type { GymPage } from "@/lib/discoverApi";
+import type { GymPage, HideReason, ReviewReply, ReviewSummary } from "@/lib/discoverApi";
 import type { Closure, CustomFacility, FacilityId, GymType, OpeningHours, PublishState, ShowSections } from "@/lib/gymProfile";
 import type { AddedTemplate, CustomTemplates, TemplateKind } from "@/lib/reminderTemplates";
 
@@ -60,6 +60,10 @@ export type GymProfile = {
 // Trainer profiles (Gym Profile phase 3): every trainer login at the branch, with what members see.
 // name is null until the trainer adds it in the app (they can't be shown before); photoUrl is read
 // with the session.
+// Gym Profile › Reviews (phase 4): the words even when hidden, why, and the gym's reply
+export type ReviewView = "all" | "unreplied" | "hidden";
+export type GymReview = { id: number; name: string; rating: number; comment: string | null; hiddenReason: HideReason | null; date: string | null; reply: ReviewReply | null };
+export type GymReviewList = { summary: ReviewSummary; counts: Record<ReviewView, number>; reviews: GymReview[]; page: number; nextPage: number | null };
 export type TrainerProfile = {
   userId: string;
   name: string | null;
@@ -416,6 +420,12 @@ export const gymApi = {
   updateProfile: (token: string | null, fields: GymProfileFields) => call<GymProfile>(token, "/api/gym/profile", "PATCH", fields),
   addGymPhoto: (token: string | null, image: { data: string; mediaType: string }) => call<GymProfile>(token, "/api/gym/profile/photos", "POST", { data: image.data, mediaType: image.mediaType }),
   removeGymPhoto: (token: string | null, id: number) => call<GymProfile>(token, `/api/gym/profile/photos/${id}`, "DELETE"),
+  // Reviews (Gym Profile phase 4): reply and hide the words; nothing changes a rating
+  reviews: (token: string | null, view: ReviewView = "all", page = 1) => call<GymReviewList>(token, `/api/gym/reviews?view=${view}${page > 1 ? `&page=${page}` : ""}`),
+  replyReview: (token: string | null, id: number, text: string) => call<{ review: GymReview }>(token, `/api/gym/reviews/${id}/reply`, "PUT", { text: text.trim() }),
+  removeReviewReply: (token: string | null, id: number) => call<{ review: GymReview }>(token, `/api/gym/reviews/${id}/reply`, "DELETE"),
+  hideReview: (token: string | null, id: number, reason: HideReason) => call<{ review: GymReview }>(token, `/api/gym/reviews/${id}/hide`, "POST", { reason }),
+  showReview: (token: string | null, id: number) => call<{ review: GymReview }>(token, `/api/gym/reviews/${id}/show`, "POST"),
   trainerProfiles: (token: string | null) => call<{ trainers: TrainerProfile[] }>(token, "/api/gym/profile/trainers"),
   saveTrainerProfile: (token: string | null, userId: string, fields: TrainerProfileFields) => call<{ trainers: TrainerProfile[] }>(token, `/api/gym/profile/trainers/${encodeURIComponent(userId)}`, "PUT", fields),
   setTrainerPhoto: (token: string | null, userId: string, image: { data: string; mediaType: string }) => call<{ trainers: TrainerProfile[] }>(token, `/api/gym/profile/trainers/${encodeURIComponent(userId)}/photo`, "PUT", { data: image.data, mediaType: image.mediaType }),

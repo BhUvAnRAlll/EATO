@@ -14,6 +14,8 @@ const profileRules = require("./profileRules");
 const rules = require("./discoverRules");
 const { todayInIndia } = require("./rules");
 const { activeOnly, hasPlanOptions, hasPlanTerms } = require("./service");
+const reviews = require("./reviews");
+const reviewRules = require("./reviewRules");
 const trainerProfiles = require("./trainerProfiles");
 const gymStatus = require("./gymStatus");
 
@@ -110,9 +112,10 @@ async function discover(pool, query, today = todayInIndia()) {
     [CANDIDATE_LIMIT],
   );
   const ids = gyms.map((g) => g.id);
-  const [[plans], photosOf] = await Promise.all([
+  const [[plans], photosOf, ratings] = await Promise.all([
     ids.length ? pool.query(`SELECT gym_id, duration, duration_unit, price FROM gym_catalog_items WHERE kind = 'plan' AND gym_id IN (?)${await activeOnly(pool)}`, [ids]) : [[]],
     galleries(pool, ids, withPublishing),
+    reviews.ratingsOf(pool, ids),
   ]);
   const trainersOf = await trainerCounts(pool, ids);
   const plansOf = new Map();
@@ -149,6 +152,7 @@ async function discover(pool, query, today = todayInIndia()) {
       id: gym.id, name: gym.brand, branch: gym.branch, area: gym.area, city: gym.city, types: gym.types,
       facilities: gym.facilities, fromPrice: gym.fromPrice, planCount: gym.planCount, photoCount: gym.photoCount,
       coverUrl: gym.coverUrl, logoUrl: gym.logoUrl, distanceKm: km, featured: gym.featured, trainerCount: gym.trainerCount,
+      rating: ratings.get(gym.id) ?? null,
     })),
   };
 }
@@ -209,6 +213,19 @@ async function trainersAt(pool, gymId, shown) {
   }
 }
 
+/**
+ * A branch's reviews for its page (Gym Profile phase 4): the summary, the newest few, and for a
+ * member their own and whether they may write one. null before migration 2026-12-26.
+ */
+async function reviewsAt(pool, gymId, userId) {
+  try {
+    return await reviews.forMember(pool, gymId, userId, { size: reviewRules.RECENT });
+  } catch (error) {
+    if (error?.code === "ER_NO_SUCH_TABLE") return null;
+    throw error;
+  }
+}
+
 /** GET /api/gyms/:id: one branch's page, as published */
 async function gymPage(pool, gymId, today = todayInIndia()) {
   const withPublishing = await hasPublishing(pool);
@@ -240,9 +257,10 @@ async function previewPage(pool, gym, today = todayInIndia()) {
   const seen = profileRules.forMembers(profileRules.snapshot(row, photos.map((p) => p.id), today));
   // Trainers as members see them (live: they don't wait for Publish); their photos through the
   // member route, which any signed-in account may read for a trainer shown there
-  const trainers = await trainersAt(pool, gym.id, seen.showTrainers);
+  const [trainers, rated] = await Promise.all([trainersAt(pool, gym.id, seen.showTrainers), reviewsAt(pool, gym.id, null)]);
   return {
     trainers,
+    reviews: rated && { summary: rated.summary, reviews: rated.reviews, nextPage: rated.nextPage, mine: null, canReview: false },
     ...pageOf(g, seen, photos, items, {
       logo: g.logo_key ? `/api/gym/logo?v=${g.logo_key.slice(0, 8)}` : null,
       photo: (p) => `/api/gym/profile/photos/${p.id}?v=${p.image_key.slice(0, 8)}`,
@@ -273,4 +291,4 @@ async function logo(pool, gymId) {
   return file;
 }
 
-module.exports = { discover, assertVisible, gymPage, previewPage, photo, logo, hasPublishing, send: covers.send };
+module.exports = { discover, assertVisible, gymPage, previewPage, reviewsAt, photo, logo, hasPublishing, send: covers.send };

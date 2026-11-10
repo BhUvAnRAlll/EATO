@@ -13,7 +13,7 @@ const SOLID = new Set([
   "bag.fill", "bell.fill", "bolt.fill", "bubble.left.fill", "bubble.right.fill", "bubble.left.and.bubble.right.fill", "camera.fill",
   "carrot.fill", "drop.fill", "dumbbell.fill", "flame.fill", "heart.fill", "house.fill", "leaf.fill", "lightbulb.fill",
   "lock.fill", "mic.fill", "moon.fill", "pause.fill", "person.fill", "person.2.fill", "play.fill", "scalemass.fill",
-  "square.grid.2x2.fill", "sun.max.fill", "sunrise.fill",
+  "square.grid.2x2.fill", "star.fill", "sun.max.fill", "sunrise.fill",
 ]);
 
 // Solid shapes with a mark knocked out of them in white, like the SF Symbols (a check in a filled

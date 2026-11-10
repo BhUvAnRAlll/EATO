@@ -13,6 +13,7 @@ import { MemberPhotoImage } from "@/components/gym/MemberPhotoImage";
 import { findMe, openLocationSettings } from "@/lib/deliveryLocation";
 import { discoverApi, type DiscoverQuery, type DiscoverSort, type GymCard } from "@/lib/discoverApi";
 import { distanceText, facilitiesLine, fromPriceText, priceText } from "@/lib/gymDiscover";
+import { averageText, countText } from "@/lib/gymReviews";
 import { FACILITIES, GYM_TYPES, gymTypesText, type FacilityId, type GymType } from "@/lib/gymProfile";
 import { useSessionToken } from "@/lib/session";
 import { useThemeColors } from "@/theme";
@@ -182,7 +183,7 @@ function GymCardView({ gym }: { gym: GymCard }) {
       onPress={() => router.push({ pathname: "/gym-hub/gyms/[id]", params: { id: String(gym.id) } })}
       className="hub-gym-card"
       accessibilityRole="button"
-      accessibilityLabel={`${gym.name} ${gym.branch}, ${place}${distance ? `, ${distance} away` : ""}. ${fromPriceText(gym.fromPrice)}`}
+      accessibilityLabel={`${gym.name} ${gym.branch}, ${place}${distance ? `, ${distance} away` : ""}${gym.rating ? `, rated ${averageText(gym.rating.average)} from ${countText(gym.rating.count)}` : ""}. ${fromPriceText(gym.fromPrice)}`}
       accessibilityHint="Opens the gym's photos, facilities, hours and plans"
     >
       <View>
@@ -204,6 +205,12 @@ function GymCardView({ gym }: { gym: GymCard }) {
           </View>
           {distance ? <Text className="type-caption text-muted">{distance}</Text> : null}
         </View>
+        {gym.rating ? (
+          <View className="flex-row items-center" style={{ gap: 4 }}>
+            <SymbolView name="star.fill" size={12} tintColor={colors.warning} />
+            <Text className="type-caption text-ink">{`${averageText(gym.rating.average)} · ${countText(gym.rating.count)}`}</Text>
+          </View>
+        ) : null}
         {gymTypesText(gym.types) ? <Text className="type-caption text-primary-text" numberOfLines={1}>{gymTypesText(gym.types)}</Text> : null}
         {gym.facilities.length > 0 && <Text className="type-caption text-muted" numberOfLines={1}>{facilitiesLine(gym.facilities)}</Text>}
         <View className="flex-row items-center justify-between" style={{ gap: 8 }}>

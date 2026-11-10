@@ -20,6 +20,7 @@ const EXPENSE_CATEGORY = {
 };
 const SMS_GROUP = { expiring: "members expiring in 3 days", expired: "members expired in the last 30 days", due: "members with a payment due", birthday: "today's birthdays" };
 const TEMPLATE_KIND = { due: "Payment due", expiry: "Membership expiring", expired: "Membership expired", enquiry: "Enquiry follow-up" };
+const HIDE_REASON = { abusive: "abusive", spam: "spam", personal: "personal details", not_member: "not a member", other: "other" };
 const STATUS = { new: "New", follow_up: "Follow-up", joined: "Joined", lost: "Not interested" };
 
 // What an edit's line names for each kind of record: [column, words, how to show the values].
@@ -176,6 +177,11 @@ const ROUTES = [
   R(["PUT"], /^\/profile\/trainers\/([^/]+)\/photo$/, { type: "settings", action: "edit", label: () => "Trainer profile", detail: () => "Changed a trainer's photo" }),
   R(["DELETE"], /^\/profile\/trainers\/([^/]+)\/photo$/, { type: "settings", action: "delete", label: () => "Trainer profile", detail: () => "Removed a trainer's photo" }),
   R(["POST"], /^\/profile\/publish$/, { type: "settings", action: "edit", label: () => "Gym Profile", detail: () => "Published the profile to members" }),
+  // Reviews (Gym Profile phase 4): the reply and hiding the words; never a rating
+  R(["PUT"], /^\/reviews\/([^/]+)\/reply$/, { type: "settings", action: "edit", label: () => "Review", detail: () => "Replied to a review" }),
+  R(["DELETE"], /^\/reviews\/([^/]+)\/reply$/, { type: "settings", action: "delete", label: () => "Review", detail: () => "Removed the reply to a review" }),
+  R(["POST"], /^\/reviews\/([^/]+)\/hide$/, { type: "settings", action: "edit", label: () => "Review", detail: ({ body }) => `Hid a review's words (${HIDE_REASON[body?.reason] ?? "no reason"})` }),
+  R(["POST"], /^\/reviews\/([^/]+)\/show$/, { type: "settings", action: "edit", label: () => "Review", detail: () => "Showed a review's words again" }),
   R(["DELETE"], /^\/profile\/photos\/([^/]+)$/, { type: "settings", action: "delete", label: () => "Gym Profile", detail: () => "Removed a photo" }),
   R(["POST"], /^\/templates\/added$/, { type: "template", action: "create", label: ({ body }) => String(body?.name ?? "A template").slice(0, 40), detail: () => "New template" }),
   R(["PUT"], /^\/templates\/added\/([^/]+)$/, { type: "template", action: "edit", target: "template", detail: () => "Changed the template" }),
