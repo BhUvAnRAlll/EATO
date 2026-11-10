@@ -28,9 +28,9 @@ type Load = { state: "loading" } | { state: "failed"; error: string } | { state:
 
 // One meal (the user's 2026-11-10 design): the photo, diet, name, price per meal, what's in it, the
 // calories and macros, then Subscription Plans (the Super Admin's lengths with their % off). Pinned at
-// the bottom: the quantity with Add to cart (order once) beside it, and Add Subscription under them (on
-// to the start day, meal time, address and Pay). A member can do both (the user's choice; no One-time |
-// Subscription switch). Before the subscriptions migration only the cart is offered. The heart is red.
+// the bottom: the quantity with the green Add to cart beside it (a single delivery comes first, the
+// user's choice), and the outlined Add Subscription under them (on to the start day, meal time, address
+// and Pay). A member can do both (no One-time | Subscription switch). Before the subscriptions migration only the cart is offered. The heart is red.
 export default function MealDetail() {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
@@ -190,15 +190,15 @@ export default function MealDetail() {
               <View className="flex-row items-center" style={{ gap: 12 }}>
                 <QuantityPill quantity={shown} max={MAX_PER_MEAL} name={meal.name} onChange={changeQuantity} />
                 {cart ? (
-                  <PressableScale haptic="tap" scaleTo={0.98} onPress={cart.onPress} className={subscription ? "meal-btn-outline min-w-0 flex-1" : "sub-cta min-w-0 flex-1"} accessibilityRole="button" accessibilityLabel={cart.label}>
-                    <Text className={subscription ? "meal-btn-outline__label" : "sub-cta__label"} numberOfLines={1} style={{ fontSize: 15 }}>{cart.label}</Text>
+                  <PressableScale haptic="tap" scaleTo={0.98} onPress={cart.onPress} className="sub-cta min-w-0 flex-1" accessibilityRole="button" accessibilityLabel={cart.label}>
+                    <Text className="sub-cta__label" numberOfLines={1} style={{ fontSize: 15 }}>{cart.label}</Text>
                   </PressableScale>
                 ) : null}
               </View>
               {subscription ? (
-                <PressableScale haptic="tap" scaleTo={0.98} onPress={subscription.onPress} className="sub-cta" accessibilityRole="button" accessibilityLabel={subscription.label}>
-                  <SymbolView name={{ ios: "calendar", android: "calendar_month", web: "calendar_month" }} size={18} tintColor={colors.white} />
-                  <Text className="sub-cta__label" numberOfLines={1} style={{ fontSize: 15 }}>{subscription.label}</Text>
+                <PressableScale haptic="tap" scaleTo={0.98} onPress={subscription.onPress} className="meal-btn-outline" style={{ gap: 8 }} accessibilityRole="button" accessibilityLabel={subscription.label}>
+                  <SymbolView name={{ ios: "calendar", android: "calendar_month", web: "calendar_month" }} size={18} tintColor={colors.primaryText} />
+                  <Text className="meal-btn-outline__label" numberOfLines={1}>{subscription.label}</Text>
                 </PressableScale>
               ) : null}
             </View>

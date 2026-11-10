@@ -1593,7 +1593,7 @@
   box-shadow: 0 -6px 18px rgba(17, 17, 17, 0.06);
 }
 
-/* Add to cart beside the quantity when Add Subscription is the green button under it */
+/* Add Subscription under the bar's green Add to cart (a single delivery comes first) */
 @utility meal-btn-outline {
   min-height: 54px;
   flex-direction: row;
