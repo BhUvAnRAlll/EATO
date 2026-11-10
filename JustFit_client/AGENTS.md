@@ -706,6 +706,23 @@ The Meals module is green (`meal-*` tokens and utilities); the user chose green 
   before it the issue routes answer 503 naming it (reports work, with null parts for later phases).
   Not built: paying refunds (needs Razorpay), support chat, issue notifications. Tests:
   `__tests__/issue-rules.test.js`, `e2e/issues.e2e.test.js`.
+- **Meal marketing, phase 1 (2026-11-10, the user's "market our meals so they order"; no server
+  change, no AI, no cost):** `lib/mealMatch.ts` (pure, unit-tested, no `@/` imports so the server
+  can load it) picks menu meals for a member: never one that breaks their diet (`DIET_ALLOWS`) or
+  names an allergy (`foodWords` / `mealConflict` on the name, description and ingredients: only as
+  good as the ingredients the admin types), dislikes last, ranked by kcal and protein against a
+  target. The member's food answers come from `store/myFood.ts` (GET /api/profile once a session,
+  replaced by Food preferences' save, cleared on sign-out). Home › **Picked for you**: two meals for
+  what's left of today (`targetFromRemaining` over the meal times still to come, India's hour),
+  with Add, and the **Order reminders** switch (`components/meals/OrderRemindersRow.tsx`,
+  `lib/orderReminders.ts`, rules `lib/orderReminderRules.ts`): local notifications 30 minutes
+  before a meal time's orders close, today and tomorrow, skipping meal times already ordered, the
+  first naming the top pick; off until turned on, cleared on sign-out; a tap may open only `/meals`
+  (`TAP_ROUTES` in `lib/mealReminders.ts`). Coach › Meal Plan: under each breakfast, lunch and
+  dinner not yet logged, "Or order your lunch from justFit" with the closest menu meal (a different
+  one each; `PlanTimeline` `below`, `planReason`). Rows are `MealRow` with a `note`
+  (`components/meals/RecommendedMeals.tsx`). Next phases (in the plan given to the user): refuel
+  after a gym check-out, offer notices, a first-order coupon, cart reminders, referrals.
 - **Not built:** Razorpay itself (keys, the native checkout, refunds, webhook), push notifications for a step, delivery fees,
   subscriptions, gym-specific menus (the user chose one justFit menu run by the Super Admin). Tests:
   `__tests__/meal-rules.test.js`, `meal-catalog-rules.test.js`, `e2e/meals.e2e.test.js`, the client's

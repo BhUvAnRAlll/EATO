@@ -17,10 +17,13 @@ type MealRowProps = {
   onOpen: () => void;
   onAdd: () => void;
   onQuantity: (quantity: number) => void;
+  // Why it's recommended ("30 kcal under your lunch · 4 g more protein"), under the macros
+  note?: string | null;
 };
 
-// One meal on the Meals tab: photo, diet, name, macros, price, then Add or the − n + stepper
-export function MealRow({ meal, quantity, onOpen, onAdd, onQuantity }: MealRowProps) {
+// One meal as a row: photo, diet, name, macros, an optional reason, price, then Add or the − n +
+// stepper (Home's Picked for you, the Meal Plan's Order from justFit)
+export function MealRow({ meal, quantity, onOpen, onAdd, onQuantity, note }: MealRowProps) {
   const colors = useThemeColors();
   const token = useAuthStore((state) => state.token);
   return (
@@ -39,6 +42,7 @@ export function MealRow({ meal, quantity, onOpen, onAdd, onQuantity }: MealRowPr
           </View>
           <Text className="meal__name" numberOfLines={2}>{meal.name}</Text>
           <Text className="meal-row__macros" numberOfLines={1}>{macroLine(meal)}</Text>
+          {note ? <Text className="meal-row__note" numberOfLines={2}>{note}</Text> : null}
         </PressableScale>
         <View className="flex-row items-center justify-between" style={{ gap: 8 }}>
           <Text className="meal-price">{rupees(meal.price)}</Text>

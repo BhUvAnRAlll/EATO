@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { Fragment, useState, type ReactNode } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 import Animated, { FadeIn, LayoutAnimationConfig, LinearTransition, ReduceMotion } from "react-native-reanimated";
 
@@ -30,6 +30,8 @@ type Props = {
   onSwap?: (mealId: string) => void;
   // The whole plan is being remade: every Swap and Log Meal waits
   busy?: boolean;
+  // Shown under a meal (the Meal Plan's Order from justFit), or nothing
+  below?: (meal: PlanMeal) => ReactNode;
 };
 
 const SLOT: Record<PlanSlot, string> = { breakfast: "Breakfast", morning_snack: "Morning snack", lunch: "Lunch", evening_snack: "Evening snack", dinner: "Dinner" };
@@ -164,13 +166,16 @@ function PlanMealSheet({ meal, onClose }: { meal: PlanMeal; onClose: () => void 
 
 // The meal plan: the coach's meals in time order, each on the shared meal card with Swap and
 // Log Meal. The workout is not on it (the AI Coach tab shows it as a row).
-export function PlanTimeline({ plan, logging, onLog, swapping, onSwap, busy }: Props) {
+export function PlanTimeline({ plan, logging, onLog, swapping, onSwap, busy, below }: Props) {
   const [openId, setOpenId] = useState<string | null>(null);
   const open = plan.meals.find((m) => m.id === openId) ?? null;
   return (
     <View style={{ gap: 16 }}>
       {plan.meals.map((meal) => (
-        <MealEntry key={meal.id} meal={meal} logging={logging} onLog={onLog} swapping={swapping} onSwap={onSwap} remaking={busy} onDetails={() => setOpenId(meal.id)} />
+        <Fragment key={meal.id}>
+          <MealEntry meal={meal} logging={logging} onLog={onLog} swapping={swapping} onSwap={onSwap} remaking={busy} onDetails={() => setOpenId(meal.id)} />
+          {below?.(meal)}
+        </Fragment>
       ))}
       {open && <PlanMealSheet key={open.id} meal={open} onClose={() => setOpenId(null)} />}
     </View>

@@ -8,6 +8,7 @@ import * as SecureStore from "expo-secure-store";
 import { onAccountCleared } from "@/lib/accountScope";
 import type { CoachPlan } from "@/lib/coach";
 import { REMINDER_PREFIX, mealReminders } from "@/lib/mealReminderRules";
+import { ORDER_REMINDER_ROUTE } from "@/lib/orderReminderRules";
 
 // Meal reminders: local notifications on the phone at each of today's planned meal times ("Lunch
 // at 1:30 PM"), scheduled from the coach's plan. Nothing goes through a push server or Expo's
@@ -100,14 +101,20 @@ if (supported) {
   });
 }
 
-// Opens the Meal Plan when a meal reminder is tapped, including the tap that launched the app.
+// The screens a tapped reminder may open: the Meal Plan (meal reminders) and the Meals tab (order
+// reminders, lib/orderReminders.ts). A notification's data is checked against these, never routed as given
+const TAP_ROUTES: string[] = [REMINDER_ROUTE, ORDER_REMINDER_ROUTE];
+
+// Opens the Meal Plan or the Meals tab when a reminder is tapped, including the tap that launched the app.
 // `ready`: a member is signed in (a tap before that waits; it's kept until then).
 export function useMealReminderTaps(ready: boolean) {
   useEffect(() => {
     if (!supported || !ready) return;
     const open = (notification: Notifications.Notification) => {
-      if (notification.request.content.data?.url !== REMINDER_ROUTE) return;
-      router.push(REMINDER_ROUTE);
+      const url = notification.request.content.data?.url;
+      if (typeof url !== "string" || !TAP_ROUTES.includes(url)) return;
+      if (url === ORDER_REMINDER_ROUTE) router.navigate(ORDER_REMINDER_ROUTE);
+      else router.push(REMINDER_ROUTE);
       Notifications.clearLastNotificationResponse();
     };
     const last = Notifications.getLastNotificationResponse();

@@ -1,6 +1,6 @@
 import { FinishProfileCard } from "@/components/FinishProfileCard";
-import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { AppState, ScrollView, View } from "react-native";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { AppState, ScrollView, Text, View } from "react-native";
 import { useResponsive } from "@/lib/responsive";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
@@ -29,6 +29,12 @@ import { isOpen } from "@/lib/mealRules";
 import { mealsApi, type Order } from "@/lib/mealsApi";
 import { useAddressBook } from "@/lib/useAddressBook";
 import { useHomeStore } from "@/store/home";
+import { OrderRemindersRow } from "@/components/meals/OrderRemindersRow";
+import { RecommendedMeals } from "@/components/meals/RecommendedMeals";
+import { indiaHour, matchMeals, mealTimesLeft, remainingReason, targetFromRemaining } from "@/lib/mealMatch";
+import { refreshOrderReminders } from "@/lib/orderReminders";
+import { useMyFood } from "@/store/myFood";
+import { useStorefront } from "@/store/storefront";
 
 // Space on each side of the page content
 const PAGE_PADDING = 16;
@@ -36,7 +42,7 @@ const GAP = 8;
 
 // Home for members (restructured 2026-11-10): the greeting, then sections in one rhythm:
 // Shortcuts, Today (rings for calories, protein and water, today's workout, today's delivery),
-// This week (training minutes), then promotions and popular meals to order. Promotions and labels come from the server
+// Picked for you (menu meals for what's left of today, with order reminders), This week (training minutes), then promotions and popular meals to order. Promotions and labels come from the server
 // (admins edit them); the numbers and today's delivery are the member's own.
 export default function Home() {
   const { width, compact } = useResponsive();
@@ -49,6 +55,39 @@ export default function Home() {
   const [favorites, setFavorites] = useState<string[]>([]);
   // Today's meal deliveries (null until read, or when orders can't be read)
   const [todayOrders, setTodayOrders] = useState<Order[] | null>(null);
+
+  // Picked for you: the menu meals that fit what's left of today, never against the member's diet
+  // or allergies (lib/mealMatch.ts, on the phone: no AI, no cost). Shown once the menu and the
+  // member's food answers are read and only with their real targets.
+  const menu = useStorefront((state) => state.load);
+  const readMenu = useStorefront((state) => state.read);
+  const food = useMyFood((state) => state.food);
+  const foodRead = useMyFood((state) => state.read);
+  const loadFood = useMyFood((state) => state.load);
+  const picked = useMemo(() => {
+    if (!nutrition || nutrition.source !== "targets" || menu.state !== "ready" || !foodRead) return null;
+    const timesLeft = mealTimesLeft(indiaHour(new Date()));
+    if (timesLeft === 0) return null;
+    const left = { kcal: Math.round(nutrition.targets.calories - nutrition.consumed.calories), proteinG: Math.max(0, Math.round(nutrition.targets.proteinG - nutrition.consumed.proteinG)) };
+    const target = targetFromRemaining(left, timesLeft);
+    if (!target) return null;
+    const items = matchMeals(menu.data.meals, food, target, { max: 2 }).map((m) => ({ meal: m.meal, note: remainingReason(m.meal, left) }));
+    return items.length > 0 ? { left, items } : null;
+  }, [nutrition, menu, food, foodRead]);
+  const pick = picked ? { name: picked.items[0].meal.name, price: picked.items[0].meal.price } : null;
+  const pickKey = pick ? `${pick.name}:${pick.price}` : "";
+  // The menu and food answers for Picked for you, and the order reminders rescheduled with today's
+  // orders, whenever Home shows
+  useFocusEffect(
+    useCallback(() => {
+      (async () => {
+        const token = await getToken().catch(() => null);
+        readMenu(token);
+        loadFood(token);
+        refreshOrderReminders(token, pickKey ? { name: pickKey.slice(0, pickKey.lastIndexOf(":")), price: Number(pickKey.slice(pickKey.lastIndexOf(":") + 1)) } : null).catch(() => {});
+      })();
+    }, [getToken, readMenu, loadFood, pickKey]),
+  );
 
   const contentWidth = width - PAGE_PADDING * 2;
   const firstName = useAuthStore((state) => firstNameOf(state.user?.fullName));
@@ -179,14 +218,23 @@ export default function Home() {
             )}
           </HomeSection>
 
-          {/* 3. Minutes trained this week (only with a plan) */}
+          {/* 3. Meals picked for what's left of today, ready to order */}
+          {picked && (
+            <HomeSection title="Picked for you">
+              <Text className="meta-text">{`You still need ${picked.left.proteinG} g protein and ${picked.left.kcal.toLocaleString("en-IN")} kcal today`}</Text>
+              <RecommendedMeals items={picked.items} />
+              <OrderRemindersRow pick={pick} />
+            </HomeSection>
+          )}
+
+          {/* 4. Minutes trained this week (only with a plan) */}
           {activity && (
             <HomeSection title="This week">
               <WeeklyActivityCard activity={activity} onOpen={() => router.push("/workout")} />
             </HomeSection>
           )}
 
-          {/* 4. Offers and meals to order */}
+          {/* 5. Offers and meals to order */}
           {promotions.length > 0 && (
             <View className="mt-6">
               <PromotionCarousel promotions={promotions} width={width} onOpen={open} />

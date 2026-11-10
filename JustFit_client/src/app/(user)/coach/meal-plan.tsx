@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, View, type ScrollViewInstance } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
@@ -8,6 +8,7 @@ import { SymbolView } from "@/components/SymbolView";
 import { CoachButton } from "@/components/coach/CoachButton";
 import { MealRemindersRow } from "@/components/coach/MealRemindersRow";
 import { PlanTimeline } from "@/components/coach/PlanTimeline";
+import { RecommendedMeals } from "@/components/meals/RecommendedMeals";
 import { usePullToRefresh } from "@/components/PullToRefresh";
 import { ScreenSkeleton } from "@/components/Skeleton";
 import { coaches } from "@/data/coach";
@@ -19,9 +20,15 @@ import type { Gender } from "@/types/profile";
 import { todayIso } from "@/lib/macro";
 import { useSessionToken } from "@/lib/session";
 import { useCoachIntakeStore } from "@/store/coachIntake";
+import { matchMeals, planReason } from "@/lib/mealMatch";
+import type { MenuMeal } from "@/lib/mealsApi";
+import { useMyFood } from "@/store/myFood";
+import { useStorefront } from "@/store/storefront";
 import { useThemeColors } from "@/theme";
 import { confirmChoice } from "@/lib/nativeSheets";
 
+// The plan's meal times justFit delivers (the others get no Order from justFit)
+const ORDERABLE: Partial<Record<string, string>> = { breakfast: "Breakfast", lunch: "Lunch", dinner: "Dinner" };
 const OFFLINE = "Could not reach justFit. Check your connection and try again.";
 
 const back = () => (router.canGoBack() ? router.back() : router.replace("/coach"));
@@ -54,10 +61,35 @@ export default function MealPlanScreen() {
   // Only the newest read's answer is shown (a pull during the focus read never puts an older answer over a newer one)
   const latest = useRef(0);
 
+  // Order from justFit (2026-11-10): under each breakfast, lunch and dinner still to eat, the menu
+  // meal closest to it, never against the member's diet or allergies (lib/mealMatch.ts, on the
+  // phone: no AI, no cost); each meal time gets a different one
+  const menu = useStorefront((state) => state.load);
+  const readMenu = useStorefront((state) => state.read);
+  const food = useMyFood((state) => state.food);
+  const foodRead = useMyFood((state) => state.read);
+  const loadFood = useMyFood((state) => state.load);
+  const orderPicks = useMemo(() => {
+    const picks = new Map<string, { meal: MenuMeal; note: string }>();
+    if (!plan?.plan || menu.state !== "ready" || !foodRead) return picks;
+    const used: string[] = [];
+    for (const meal of plan.plan.meals) {
+      const label = ORDERABLE[meal.slot];
+      if (meal.logged || !label) continue;
+      const [best] = matchMeals(menu.data.meals, food, { kcal: meal.totals.kcal, proteinG: meal.totals.proteinG }, { max: 1, exclude: used });
+      if (!best) continue;
+      used.push(best.meal.id);
+      picks.set(meal.id, { meal: best.meal, note: planReason(best, label) });
+    }
+    return picks;
+  }, [plan, menu, food, foodRead]);
+
   const load = useCallback(async () => {
     const request = ++latest.current;
     setError(null);
     const token = await getToken().catch(() => null);
+    readMenu(token);
+    loadFood(token);
     const [intake, planResult] = await Promise.all([coachApi.intake(token), coachApi.plan(token, todayIso())]);
     if (request !== latest.current) return;
     if (!intake.ok) return setError(intake.status ? intake.error : OFFLINE);
@@ -65,7 +97,7 @@ export default function MealPlanScreen() {
     setLoaded(intake.data);
     setPlan(planResult.data);
     syncMealReminders(planResult.data.plan, todayIso()).catch(() => {});
-  }, [getToken]);
+  }, [getToken, readMenu, loadFood]);
 
   useFocusEffect(
     useCallback(() => {
@@ -181,7 +213,22 @@ export default function MealPlanScreen() {
 
           {plan?.plan && (
             <>
-              <PlanTimeline plan={plan.plan} logging={logging} onLog={logMeal} onSwap={swapMeal} busy={making} />
+              <PlanTimeline
+                plan={plan.plan}
+                logging={logging}
+                onLog={logMeal}
+                onSwap={swapMeal}
+                busy={making}
+                below={(meal) => {
+                  const pick = orderPicks.get(meal.id);
+                  return pick ? (
+                    <View style={{ gap: 8, marginTop: -6 }}>
+                      <Text className="coach__hint">{`Or order your ${ORDERABLE[meal.slot]?.toLowerCase()} from justFit`}</Text>
+                      <RecommendedMeals items={[pick]} />
+                    </View>
+                  ) : null;
+                }}
+              />
 
               <MealRemindersRow plan={plan.plan} date={todayIso()} />
 

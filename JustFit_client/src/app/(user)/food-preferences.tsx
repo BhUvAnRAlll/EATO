@@ -7,6 +7,7 @@ import { FoodForm, foodComplete } from "@/components/food/FoodForm";
 import { SetupScreen } from "@/components/setup/SetupScreen";
 import { hud } from "@/lib/hud";
 import { fetchProfile, saveFood, type FoodAnswers } from "@/lib/profile";
+import { useMyFood } from "@/store/myFood";
 import { SESSION_EXPIRED_MESSAGE, isSessionExpired, useSessionToken } from "@/lib/session";
 
 const empty: FoodAnswers = { diet: null, cuisines: [], dislikes: "", allergies: "", mealsPerDay: null };
@@ -41,6 +42,7 @@ export default function FoodPreferences() {
     const result = await saveFood(await getToken(), { ...food, dislikes: food.dislikes.trim(), allergies: food.allergies.trim() });
     setSaving(false);
     if (!result.ok) return setError(isSessionExpired(result) ? SESSION_EXPIRED_MESSAGE : result.error);
+    useMyFood.getState().set({ diet: food.diet, allergies: food.allergies.trim() || null, dislikes: food.dislikes.trim() || null });
     hud.success("Food preferences saved");
     if (router.canGoBack()) router.back();
     else router.replace("/profile");
