@@ -13,6 +13,8 @@ const intakeProfile = require("./intakeProfile");
 const { chat, history } = require("./chat");
 const { chatBody } = require("./chatRules");
 const insights = require("./insights");
+const { followup } = require("./followup");
+const { followupBody } = require("./followupRules");
 const { insightsQuery, reviewBody } = require("./insightsRules");
 const { transcribeClip, VoiceError, FEATURE: VOICE_FEATURE } = require("./voice");
 const { checkVoiceClip, voiceLimits } = require("./voiceRules");
@@ -36,6 +38,8 @@ const reviewLimiter = createRateLimiter({ limit: 6, windowMs: 60 * 60 * 1000 });
 // Opening the chat reads the saved conversation (no AI call): generous, but not unlimited
 const chatHistoryLimiter = createRateLimiter({ limit: 120, windowMs: 60 * 60 * 1000 });
 // A voice clip is a small paid transcription call, and each becomes a chat message anyway
+// The daily check-in is one AI call a day at most (saved, then read back): a few asks an hour cover retries
+const followupLimiter = createRateLimiter({ limit: 6, windowMs: 60 * 60 * 1000 });
 const voiceLimiter = createRateLimiter({ limit: 20, windowMs: 60 * 60 * 1000 });
 
 const pool = (req) => req.app.locals.pool;
@@ -204,6 +208,12 @@ router.get("/insights", route(async (req, res) => {
 // saved (refresh: a new one, at most once a day). Answers the same as GET /insights.
 router.post("/insights/review", limitPerUser(reviewLimiter), smallBody, route(async (req, res) => {
   res.json(await insights.review(pool(req), req.userId, reviewBody(req.body, Date.now())));
+}));
+
+// POST /followup { date } → { message }: the coach's check-in on today, written once a day (an AI
+// call) and saved in the conversation; asked again, the saved one
+router.post("/followup", limitPerUser(followupLimiter), smallBody, route(async (req, res) => {
+  res.json(await followup(pool(req), req.userId, followupBody(req.body, Date.now())));
 }));
 
 module.exports = { coachRouter: router };

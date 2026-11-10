@@ -157,4 +157,9 @@ export const coachApi = {
     if (!token) return signedOut();
     return apiFetch("/api/coach/chat", { method: "POST", body: { date, text, clientId }, token });
   },
+  // Today's check-in from the coach (the evening notification opens it): written once a day, saved in the chat
+  followup(token: string | null, date: string): Promise<ApiResult<{ message: ChatMessage }>> {
+    if (!token) return signedOut();
+    return apiFetch("/api/coach/followup", { method: "POST", body: { date }, token });
+  },
 };

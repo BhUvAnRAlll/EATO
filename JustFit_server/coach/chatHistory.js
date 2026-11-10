@@ -115,6 +115,48 @@ async function saveAnswer(pool, userId, { clientId, text, reply, proposals }) {
   return savedAnswer(pool, userId, clientId);
 }
 
+/**
+ * Saves a message the coach wrote by itself (the daily follow-up) in the conversation with
+ * `coach`: a new one when there is none or the coach changed. The same clientId saved twice keeps
+ * the first. → the saved message row, or null when the member's coach changed in the meantime.
+ */
+async function saveCoachMessage(pool, userId, { clientId, coach, text }) {
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    const [[profile]] = await conn.query("SELECT coach FROM coach_profiles WHERE user_id = ? FOR UPDATE", [userId]);
+    if (!profile || profile.coach !== coach) {
+      await conn.rollback();
+      return null;
+    }
+    let chat = await newestChat(conn, userId, { lock: true });
+    if (!chat || chat.coach !== coach) {
+      chat = { id: crypto.randomUUID(), coach };
+      await conn.query("INSERT INTO coach_chats (id, user_id, coach) VALUES (?, ?, ?)", [chat.id, userId, chat.coach]);
+    }
+    await conn.query(
+      "INSERT INTO coach_chat_messages (user_id, chat_id, role, text, proposals, client_id) VALUES (?, ?, 'coach', ?, NULL, ?)",
+      [userId, chat.id, text, clientId],
+    );
+    await conn.commit();
+  } catch (error) {
+    await conn.rollback().catch(() => {});
+    if (error?.code !== "ER_DUP_ENTRY") throw error;
+  } finally {
+    conn.release();
+  }
+  return savedCoachMessage(pool, userId, clientId);
+}
+
+/** The coach's message saved under this clientId (and still kept), or null */
+async function savedCoachMessage(db, userId, clientId) {
+  const [[row]] = await db.query(
+    `SELECT ${COLUMNS} FROM coach_chat_messages WHERE user_id = ? AND client_id = ? AND role = 'coach' AND ${FRESH}`,
+    [userId, clientId, KEEP_DAYS],
+  );
+  return row ?? null;
+}
+
 const BATCH = 1000;
 
 /**
@@ -175,4 +217,4 @@ function startCleanup(pool, { everyMs = 60 * 60 * 1000, log = console } = {}) {
   return () => { clearTimeout(first); clearInterval(timer); };
 }
 
-module.exports = { history, context, recentContext, savedAnswer, saveAnswer, cleanupExpired, startCleanup };
+module.exports = { history, context, recentContext, savedAnswer, saveAnswer, saveCoachMessage, savedCoachMessage, cleanupExpired, startCleanup };

@@ -100,11 +100,12 @@ const ChatTurns = memo(function ChatTurns({ turns, ready, today, sending, onRetr
 // transcribes; the words go into the box for the member to read, fix and send.
 export default function CoachChat() {
   const colors = useThemeColors();
-  const params = useLocalSearchParams<{ q?: string | string[]; draft?: string | string[]; name?: string | string[]; coach?: string | string[] }>();
+  const params = useLocalSearchParams<{ q?: string | string[]; draft?: string | string[]; name?: string | string[]; coach?: string | string[]; followup?: string | string[] }>();
   const q = one(params.q);
   const draft = one(params.draft);
   const name = one(params.name);
   const coach = one(params.coach);
+  const followup = one(params.followup) === "1";
   const getToken = useSessionToken();
   const turns = useCoachChatStore((state) => state.turns);
   const sending = useCoachChatStore((state) => state.sending);
@@ -115,6 +116,7 @@ export default function CoachChat() {
   const clear = useCoachChatStore((state) => state.clear);
   const send = useCoachChatStore((state) => state.send);
   const retry = useCoachChatStore((state) => state.retry);
+  const checkIn = useCoachChatStore((state) => state.checkIn);
   // `draft` (the Macro tab's coach tip) puts a question in the box without sending it
   const [text, setText] = useState(() => (draft ?? "").slice(0, CHAT_MAX_TEXT));
   const scroll = useRef<ScrollViewInstance>(null);
@@ -180,6 +182,14 @@ export default function CoachChat() {
     sentQuery.current = true;
     send(getToken, q);
   }, [q, send, getToken, status]);
+
+  // Opened from the evening notification: the coach's check-in on today, once the conversation is shown
+  const askedCheckIn = useRef(false);
+  useEffect(() => {
+    if (askedCheckIn.current || !followup || status !== "ready") return;
+    askedCheckIn.current = true;
+    checkIn(getToken);
+  }, [followup, checkIn, getToken, status]);
 
   const submit = (value: string) => {
     if (!value.trim() || sending || status !== "ready") return;

@@ -29,6 +29,8 @@ type CoachChatState = {
   load: (getToken: () => Promise<string | null>) => Promise<void>;
   send: (getToken: () => Promise<string | null>, text: string, clientId?: string) => Promise<void>;
   retry: (getToken: () => Promise<string | null>, turnId: string) => Promise<void>;
+  // Today's check-in from the coach (opened from the evening notification), added once
+  checkIn: (getToken: () => Promise<string | null>) => Promise<void>;
   applyMeal: (getToken: () => Promise<string | null>, turnId: string, mealId: string, optionId: string) => Promise<void>;
   undoMeal: (getToken: () => Promise<string | null>, turnId: string, mealId: string) => Promise<void>;
   applyWorkout: (getToken: () => Promise<string | null>, turnId: string, weekdays: number[], sessionMinutes: number) => Promise<void>;
@@ -112,6 +114,22 @@ export const useCoachChatStore = create<CoachChatState>((set, get) => {
       if (!turn?.failed || turn.role !== "member" || !turn.clientId || get().sending || get().status !== "ready") return;
       set({ turns: get().turns.filter((t) => t.clientId !== turn.clientId) });
       await get().send(getToken, turn.text, turn.clientId);
+    },
+    checkIn: async (getToken) => {
+      if (get().sending || get().status !== "ready") return;
+      const stillCurrent = sameAccount();
+      set({ sending: true });
+      const result = await coachApi.followup(await getToken().catch(() => null), todayIso());
+      if (!stillCurrent() || get().status !== "ready") return;
+      if (result.ok) {
+        const turn = toTurn(result.data.message);
+        const shown = get().turns.filter((t) => t.id !== turn.id);
+        set({ turns: [...shown, turn], sending: false });
+        return;
+      }
+      // Shown, never saved: the notification can be tapped again, or the member can just ask
+      const failed: ChatTurn = { id: `local-${nextId++}`, role: "coach", text: result.status ? result.error : unreachable, failed: true };
+      set({ turns: [...get().turns, failed], sending: false });
     },
     applyMeal: async (getToken, turnId, mealId, optionId) => {
       const key = proposalKey(turnId, mealId);

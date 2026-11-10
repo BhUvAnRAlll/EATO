@@ -52,15 +52,15 @@ async function memberFacts(pool, userId, date) {
 }
 
 // `usage` (ai/usage.tracker) records the call for the admin's AI Usage screen; never the text
-async function askCoach({ instructions, messages, cacheKey }, env, usage) {
+async function askCoach({ instructions, messages, cacheKey, feature = FEATURE }, env, usage) {
   if (models.isFake(env)) {
     await usage?.record({ provider: "openai", model: "fake", inputTokens: 10, outputTokens: 5, status: "ok" });
     // The fake reply says how many lines of conversation it was given, so tests can see the context
     return { reply: `${rules.FAKE_REPLY} (${messages.length} lines read)`, mealChanges: [], workoutChanges: [] };
   }
-  const { request, model: MODEL } = models.settingsFor(FEATURE, env);
+  const { request, model: MODEL } = models.settingsFor(feature, env);
   // Past the input cap nothing is sent or paid for (the history is already kept short, chatRules.modelHistory)
-  if (!models.withinInputCap(FEATURE, [instructions, ...messages.map((m) => m.text)])) throw new CoachPlanError(BUSY, 502);
+  if (!models.withinInputCap(feature, [instructions, ...messages.map((m) => m.text)])) throw new CoachPlanError(BUSY, 502);
   const client = models.openaiClient();
   let response;
   try {
@@ -74,7 +74,7 @@ async function askCoach({ instructions, messages, cacheKey }, env, usage) {
           ? { role: "user", content: [{ type: "input_text", text: m.text }] }
           : { role: "assistant", content: [{ type: "output_text", text: m.text }] },
       ),
-      text: { format: { type: "json_schema", name: FEATURE, strict: true, schema: rules.chatSchema } },
+      text: { format: { type: "json_schema", name: feature, strict: true, schema: rules.chatSchema } },
     });
   } catch (error) {
     await usage?.record({ provider: "openai", model: MODEL, status: "failed" });
@@ -152,4 +152,4 @@ async function chat(pool, userId, { date, text, clientId }, env = process.env) {
   });
 }
 
-module.exports = { chat, history: chatHistory.history };
+module.exports = { chat, history: chatHistory.history, memberFacts, askCoach };

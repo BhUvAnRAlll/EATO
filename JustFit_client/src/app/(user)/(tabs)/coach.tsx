@@ -12,6 +12,7 @@ import { ChangeCoachSheet } from "@/components/coach/ChangeCoachSheet";
 import { CoachAvatar } from "@/components/coach/CoachAvatar";
 import { CoachButton } from "@/components/coach/CoachButton";
 import { InsightsTab } from "@/components/coach/InsightsTab";
+import { DailyCheckInRow } from "@/components/coach/DailyCheckInRow";
 import type { TodayWorkout } from "@/components/coach/PlanTimeline";
 import { WeekPlan } from "@/components/coach/WeekPlan";
 import { usePullToRefresh } from "@/components/PullToRefresh";
@@ -347,6 +348,7 @@ function CoachScreen() {
                   </Animated.View>
                 </View>
               )}
+              {plan?.state === "ready" && plan.plan && <DailyCheckInRow coachName={firstName} />}
 
               {planError && <Text className="macro__error" accessibilityRole="alert">{planError}</Text>}
 

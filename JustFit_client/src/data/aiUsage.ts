@@ -15,6 +15,7 @@ export const FEATURE_LABEL: Record<AiFeature, string> = {
   coach_chat: "Coaching messages",
   coach_insights: "Weekly reviews (Insights)",
   coach_voice: "Spoken questions transcribed (Kannada on iPhone)",
+  coach_followup: "Daily check-ins on the member's day",
   food_scan: "Food photo scans",
   body_scan: "Body fat predictions",
   body_report: "Body composition report reading",
@@ -31,6 +32,7 @@ export const FEATURE_SHORT: Record<AiFeature, string> = {
   coach_chat: "Coach chat",
   coach_insights: "Weekly review",
   coach_voice: "Voice question",
+  coach_followup: "Daily check-in",
   food_scan: "Food scan",
   body_scan: "Body scan",
   body_report: "Report reading",
@@ -47,7 +49,7 @@ export const PERIOD_PREVIOUS: Record<Period, string> = { day: "yesterday", week:
 export type AiSection = { id: string; title: string; note: string; icon: Icon; features: AiFeature[] };
 
 export const AI_SECTIONS: AiSection[] = [
-  { id: "coach", title: "AI Coach", note: "Meal plans, workout plans, single meal swaps, coaching messages, weekly reviews and spoken questions", icon: { ios: "sparkles", android: "auto_awesome", web: "auto_awesome" }, features: ["coach_plan", "coach_workout", "workout_place", "coach_meal", "coach_chat", "coach_insights", "coach_voice"] },
+  { id: "coach", title: "AI Coach", note: "Meal plans, workout plans, single meal swaps, coaching messages, weekly reviews, daily check-ins and spoken questions", icon: { ios: "sparkles", android: "auto_awesome", web: "auto_awesome" }, features: ["coach_plan", "coach_workout", "workout_place", "coach_meal", "coach_chat", "coach_insights", "coach_voice", "coach_followup"] },
   { id: "food", title: "Food & Nutrition AI", note: "Scan Food: recognising the foods in a photo and estimating their nutrition", icon: { ios: "fork.knife", android: "restaurant", web: "restaurant" }, features: ["food_scan"] },
   { id: "body", title: "Body Fat Prediction AI", note: "Scan Body: the Forma model, self-hosted (no tokens)", icon: { ios: "figure.stand", android: "accessibility_new", web: "accessibility_new" }, features: ["body_scan"] },
   { id: "other", title: "Other AI services", note: "Reading uploaded body composition reports, and exercises and programs the admin asks the AI to write", icon: { ios: "doc.text", android: "description", web: "description" }, features: ["body_report", "exercise_library", "fitness_program"] },

@@ -1563,7 +1563,7 @@ CREATE TABLE ai_usage (
   created_at     TIMESTAMP        NOT NULL DEFAULT CURRENT_TIMESTAMP,
   user_id        VARCHAR(64)      NULL,
   gym_id         CHAR(36)         NULL,
-  feature        ENUM('gym_assistant', 'coach_plan', 'coach_workout', 'coach_meal', 'coach_chat', 'food_scan', 'body_scan', 'body_report', 'exercise_library', 'workout_place', 'fitness_program', 'coach_insights', 'coach_voice') NOT NULL,
+  feature        ENUM('gym_assistant', 'coach_plan', 'coach_workout', 'coach_meal', 'coach_chat', 'food_scan', 'body_scan', 'body_report', 'exercise_library', 'workout_place', 'fitness_program', 'coach_insights', 'coach_voice', 'coach_followup') NOT NULL, -- coach_followup since migration 2027-02-01
   provider       ENUM('openai', 'forma') NOT NULL,
   model          VARCHAR(64)      NOT NULL,
   input_tokens   INT UNSIGNED     NOT NULL DEFAULT 0,
