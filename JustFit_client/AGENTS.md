@@ -435,7 +435,7 @@ The Meals module is green (`meal-*` tokens and utilities); the user chose green 
 - **Calm pass, Zomato-style home and per-meal subscriptions (2026-11-10, the user's "the UI is full
   of green", "remove order and subscription", "like Zomato, location top and a promotional section"
   and the meal page design; migration approved):** green is only for the main action (Add, the
-  stepper's plus, Pay, Add Subscription, the floating cart bar) and what's selected. Everything else is
+  stepper's plus, Pay, Add Subscription) and what's selected; the cart's count and the floating View cart bar are red (`cart` token, 2026-11-10, the owner's choice). Everything else is
   white cards on the cream page (`meal-page` = `background`), ink and grey: card chips are white with
   the diet mark (a deal or Bestseller on a dark chip), banners fade from ink, coupons are white with a
   dashed grey edge, quick tiles use five tints, order pills are blue / green / grey, savings read in

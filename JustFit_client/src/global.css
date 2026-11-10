@@ -1341,7 +1341,7 @@
   min-height: 56px;
   padding-inline: var(--spacing-lg);
   border-radius: var(--radius-pill);
-  background-color: var(--color-meal-primary);
+  background-color: var(--color-cart);
   box-shadow: var(--shadow-sheet);
   flex-direction: row;
   align-items: center;
@@ -1948,7 +1948,7 @@
   height: 18px;
   padding-inline: 4px;
   border-radius: var(--radius-pill);
-  background-color: var(--color-meal-primary);
+  background-color: var(--color-cart);
   border-width: 2px;
   border-color: var(--color-surface);
   align-items: center;

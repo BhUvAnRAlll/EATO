@@ -42,6 +42,8 @@
   --color-success: #2f8f57;
   --color-warning: #c4923f;
   --color-danger: #d92d20;
+  /* The cart's count and the View cart bar (2026-11-10, the owner's choice): red, so they stand out from the green Add buttons */
+  --color-cart: #d92d20;
   --color-info: #4a6cf7;
 
   /* Semantic soft fills (badge backgrounds) */

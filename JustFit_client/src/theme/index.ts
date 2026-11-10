@@ -20,6 +20,7 @@ export const lightColors = {
   success: "#2F8F57",
   warning: "#C4923F",
   danger: "#D92D20",
+  cart: "#D92D20",
   info: "#4A6CF7",
 
   successSoft: "#E3F6EA",
