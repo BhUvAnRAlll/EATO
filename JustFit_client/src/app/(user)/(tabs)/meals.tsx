@@ -19,6 +19,7 @@ import { usePullToRefresh } from "@/components/PullToRefresh";
 import { ScreenSkeleton } from "@/components/Skeleton";
 import { haptic } from "@/lib/haptics";
 import { hud } from "@/lib/hud";
+import { onAccountCleared } from "@/lib/accountScope";
 import { listPerf } from "@/lib/listPerf";
 import { DIET_FILTERS, MEAL_SORTS, byDiet, orderAgain, orderedText, popularMeals, searchExamples, searchWithFallback, shopSections, sortMeals, suggestions, type QuickList } from "@/lib/mealRules";
 import { mealsApi, type MealBanner, type MenuMeal, type Order } from "@/lib/mealsApi";
@@ -33,6 +34,13 @@ import { useThemeColors } from "@/theme";
 
 const GUTTER = 16;
 const GAP = 12;
+const PAST_ORDERS_FRESH_MS = 60_000;
+// The member's past orders for Order again; cleared on sign-out so another account never sees them
+const pastOrdersCache: { orders: Order[]; at: number } = { orders: [], at: 0 };
+onAccountCleared(() => {
+  pastOrdersCache.orders = [];
+  pastOrdersCache.at = 0;
+});
 
 // The Meals tab (calm pass 2026-11-10: green only for Add, the cart bar and what's selected). The
 // screen holds the state and wires the pieces in components/meals/home, Zomato-style: where it's
@@ -66,13 +74,21 @@ export default function Meals() {
   const sections = useMemo(() => (store ? shopSections(sortMeals(byDiet(store.meals, filters.diet), filters.sort), store.categories, false) : null), [store, filters]);
   const popular = useMemo(() => (sections ? popularMeals(sections.meals) : []), [sections]);
   // Order again (marketing phase 3): the member's past orders, read whenever the tab shows
-  const [pastOrders, setPastOrders] = useState<Order[]>([]);
+  // kept for a minute (like the storefront), so switching tabs doesn't read them every time
+  const [pastOrders, setPastOrders] = useState<Order[]>(() => pastOrdersCache.orders);
   useFocusEffect(
     useCallback(() => {
       let live = true;
+      if (Date.now() - pastOrdersCache.at < PAST_ORDERS_FRESH_MS) {
+        setPastOrders(pastOrdersCache.orders);
+        return () => { live = false; };
+      }
       (async () => {
         const answer = await mealsApi.orders(await getToken().catch(() => null));
-        if (live && answer.ok) setPastOrders(answer.data.orders);
+        if (!answer.ok) return;
+        pastOrdersCache.orders = answer.data.orders;
+        pastOrdersCache.at = Date.now();
+        if (live) setPastOrders(answer.data.orders);
       })();
       return () => {
         live = false;
