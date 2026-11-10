@@ -6,7 +6,7 @@ import { AdminField, ChoiceChips } from "@/components/admin/AdminField";
 import { FormAlert } from "@/components/FormAlert";
 import { KeyboardAvoider } from "@/components/KeyboardAvoider";
 import { SymbolView } from "@/components/SymbolView";
-import { pickCatalogImage, type MemberPhoto, type PhotoSource } from "@/lib/gymPhoto";
+import { pickMealImage, type MemberPhoto, type PhotoSource } from "@/lib/gymPhoto";
 import { DIET_LABEL, TAG_LABEL, macrosMismatch, type Diet, type Tag } from "@/lib/mealRules";
 import { mealImage, type AdminMeal, type MealInput } from "@/lib/mealsApi";
 import { showActions } from "@/lib/nativeSheets";
@@ -57,7 +57,7 @@ export function MealForm({ meal, busy, error, saveLabel, onSave }: MealFormProps
   const choosePhoto = () => {
     const pick = async (source: PhotoSource) => {
       setPhotoError("");
-      const picked = await pickCatalogImage(source);
+      const picked = await pickMealImage(source);
       if (picked.ok) {
         setPhoto(picked.photo);
         setRemoved(false);

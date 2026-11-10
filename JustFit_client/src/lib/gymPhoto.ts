@@ -34,6 +34,10 @@ export const pickMemberPhoto = (source: PhotoSource) => pickImage(source, { squa
 export const pickCatalogImage = (source: PhotoSource) => pickImage(source, { square: false, what: "the photo" });
 
 /** The gym's logo for its invoices (PUT /api/gym/logo): any shape, a wordmark is wide, a mark is square */
+// Meal, category tile and banner photos (Super Admin): 1200 px is enough for a meal's full-width
+// page on a 3x phone, and much lighter for the Meals tab's cards than 1600
+export const MEAL_IMAGE_LONG_SIDE = 1200;
+export const pickMealImage = (source: PhotoSource) => pickImage(source, { square: false, what: "the photo", side: MEAL_IMAGE_LONG_SIDE });
 export const pickLogoImage = (source: PhotoSource) => pickImage(source, { square: false, what: "the logo", side: LOGO_LONG_SIDE });
 
 /** A bill: the plan payment's from Add Member (PUT /api/gym/payments/:id/receipt) or an expense's

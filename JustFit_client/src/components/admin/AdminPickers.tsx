@@ -5,7 +5,7 @@ import { Image } from "expo-image";
 import { FormAlert } from "@/components/FormAlert";
 import { DatePickerSheet } from "@/components/setup/DatePickerSheet";
 import { SymbolView } from "@/components/SymbolView";
-import { pickCatalogImage, type MemberPhoto, type PhotoSource } from "@/lib/gymPhoto";
+import { pickMealImage, type MemberPhoto, type PhotoSource } from "@/lib/gymPhoto";
 import { mealImage } from "@/lib/mealsApi";
 import { showActions } from "@/lib/nativeSheets";
 import { useAuthStore } from "@/store/auth";
@@ -31,7 +31,7 @@ export function PhotoBox({ label, hint, aspect, currentUrl, choice, onChange }: 
   const choose = () => {
     const pick = async (source: PhotoSource) => {
       setError("");
-      const picked = await pickCatalogImage(source);
+      const picked = await pickMealImage(source);
       if (picked.ok) onChange({ picked: picked.photo, removed: false });
       else if (!("cancelled" in picked)) setError(picked.error);
     };
