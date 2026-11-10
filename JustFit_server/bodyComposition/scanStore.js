@@ -1,9 +1,9 @@
 // Body scans kept (2026-11-10, the user's request): every scan's two photos and its report are
 // saved after Forma answers, so the Super Admin can see them (Super Admin › Body scans and a
-// member's page) and the member can see and delete their own (Profile › My body scans).
+// member's page) only: the member never sees them in the app (the user's decision, 2026-11-10).
 // The files go to BODY_SCAN_DIR (default uploads/body-scans, git-ignored; back it up with the
 // droplet) under names the server makes; a row keeps only those names, and the photos are read
-// back only through signed-in routes: the member's own, or a justFit admin's.
+// back only through a justFit admin's signed-in routes.
 // Keeping a scan never fails the scan itself: the member still gets their report.
 // Table: migrations/2027-01-25-body-scans.sql. Before it nothing is kept and the lists answer 503.
 const crypto = require("node:crypto");
@@ -81,7 +81,7 @@ const summary = (row) => ({
 // The fields a list needs, never the report (large) or the file names
 const LIST_COLUMNS = "s.id, s.user_id, s.created_at, s.body_fat_percent, s.sex, s.age, s.height_cm, s.weight_kg";
 
-/** One member's scans, newest first (their own Profile, or a member's page for an admin) */
+/** One member's scans, newest first (a member's page for an admin) */
 async function forUser(pool, userId) {
   try {
     const [rows] = await pool.query(`SELECT ${LIST_COLUMNS} FROM body_scans s WHERE s.user_id = ? ORDER BY s.created_at DESC, s.id LIMIT 100`, [userId]);
@@ -160,20 +160,11 @@ async function photo(pool, id, side, userId = null, env = process.env) {
   return { file, member: { id: found.user_id, name: nameOf(found) }, at: found.created_at };
 }
 
-/** The member deletes one of their own scans: the row first, then both files */
-async function removeOwn(pool, id, userId, env = process.env) {
-  const found = await row(pool, id, userId);
-  await pool.query("DELETE FROM body_scans WHERE id = ? AND user_id = ?", [id, userId]);
-  for (const key of [found.front_key, found.side_key]) {
-    await files.remove(key, env).catch((error) => console.error(`Body scan photo cleanup failed: ${error?.code ?? "unknown"}`));
-  }
-}
-
 // Answers with a scan photo. Unlike program covers, never kept in a cache: a body photo stays on
-// the server, and a deleted scan is gone everywhere at once
+// the server
 function send(res, { bytes, mediaType }) {
   res.set({ "Content-Type": mediaType, "Content-Length": String(bytes.length), "Cache-Control": "private, no-store", "Content-Disposition": "inline" });
   res.end(bytes);
 }
 
-module.exports = { send, scanDir, keep, forUser, listQuery, listAll, detail, photo, removeOwn, scanId, view, ScansNotReady, PAGE_SIZE };
+module.exports = { send, scanDir, keep, forUser, listQuery, listAll, detail, photo, scanId, view, ScansNotReady, PAGE_SIZE };

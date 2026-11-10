@@ -1,6 +1,6 @@
 -- Body scans kept (2026-11-10, the user's request): every body scan's two photos and its report
--- are kept, so the Super Admin can see them (Super Admin › Body scans, and a member's page), and
--- the member can see and delete their own (Profile › My body scans). Until now the photos were
+-- are kept, so the Super Admin can see them (Super Admin › Body scans, and a member's page); the
+-- member doesn't see them in the app. Until now the photos were
 -- read in memory and thrown away; the scan screens and the Privacy Policy now say they are kept.
 -- The photo files live on the server's disk in BODY_SCAN_DIR (default uploads/body-scans,
 -- git-ignored); a row keeps only their random names. Removed with the account.

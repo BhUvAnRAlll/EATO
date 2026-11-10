@@ -62,7 +62,7 @@ function PhotoTile({ view, label, hint, photo, onPick, onClear }: { view: ScanVi
 
 // Optional: two photos → a body composition report (setup/scan-report), from Profile or the coach
 // intake. The photos go to the justFit server, which asks the Forma scan server and keeps the
-// photos and report (Profile › My body scans). The body fat % reaches the profile only on "Save to my profile".
+// photos and report for the Super Admin only (Super Admin › Body scans). The body fat % reaches the profile only on "Save to my profile".
 export default function BodyScan() {
   const colors = useThemeColors();
   const { profile, setScanDraft } = useSetupStore();

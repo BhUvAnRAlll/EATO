@@ -108,7 +108,6 @@ const MAX_UPLOAD_BODY_BYTES = Math.ceil(uploadLimits.maxPdfBytes * (4 / 3)) + 10
 const profileLimiter = createRateLimiter(rateLimits.standard);
 const uploadLimiter = createRateLimiter(rateLimits.upload); // each upload is an OpenAI vision call
 const scanLimiter = createRateLimiter(rateLimits.upload); // each photo scan runs the Forma model for a few seconds
-const scanListLimiter = createRateLimiter(rateLimits.standard); // the member reading or deleting their kept scans
 const homeLimiter = createRateLimiter(rateLimits.standard); // members reading the home screen content
 // admins editing it (also caps the role lookups); ADMIN_REQUESTS_PER_MINUTE overrides the standard budget (the test server raises it)
 const adminLimiter = createRateLimiter({ ...rateLimits.standard, limit: Number(process.env.ADMIN_REQUESTS_PER_MINUTE) || rateLimits.standard.limit });
@@ -194,7 +193,7 @@ app.post("/api/body-composition", requireUser, limitPerUser(uploadLimiter), json
 
 // Estimates body fat % from a front and a side photo: { front, side, heightCm, weightKg, age,
 // sex, flipSide? } → { estimate } for the user to accept or ignore. The photos go to the Forma
-// scan server (bodyComposition/scan.js) and are never stored or logged. Same order as the
+// scan server (bodyComposition/scan.js); they are kept for the Super Admin only (scanStore.js), never logged. Same order as the
 // upload route: verified caller, scan budget, capped body, byte-level checks, then the model.
 app.post("/api/body-composition/scan", requireUser, limitPerUser(scanLimiter), jsonBodyWithLimit(MAX_SCAN_BODY_BYTES), async (req, res, next) => {
   const checked = checkScanRequest(req.body);
@@ -211,24 +210,6 @@ app.post("/api/body-composition/scan", requireUser, limitPerUser(scanLimiter), j
     next(error);
   }
 });
-
-// The member's own kept scans (Profile › My body scans): the list, one with its report, its
-// photos, and deleting one (photos and report). Scoped to req.userId; another member's is a 404.
-const scanRoute = (handler) => (req, res, next) => handler(req, res).catch(next);
-app.get("/api/body-composition/scans", requireUser, limitPerUser(scanListLimiter), scanRoute(async (req, res) => {
-  res.json({ scans: await scanStore.forUser(pool, req.userId) });
-}));
-app.get("/api/body-composition/scans/:id", requireUser, limitPerUser(scanListLimiter), scanRoute(async (req, res) => {
-  res.json({ scan: await scanStore.detail(pool, scanStore.scanId(req.params.id), req.userId) });
-}));
-app.get("/api/body-composition/scans/:id/photo/:view", requireUser, limitPerUser(scanListLimiter), scanRoute(async (req, res) => {
-  const { file } = await scanStore.photo(pool, scanStore.scanId(req.params.id), scanStore.view(req.params.view), req.userId);
-  scanStore.send(res, file);
-}));
-app.delete("/api/body-composition/scans/:id", requireUser, limitPerUser(scanListLimiter), scanRoute(async (req, res) => {
-  await scanStore.removeOwn(pool, scanStore.scanId(req.params.id), req.userId);
-  res.json({ ok: true });
-}));
 
 // There is no self-service role change: every new account is a member ('user'), and only an
 // admin (scripts/set-role.js) makes an account an admin. A gym's admin can make an account their

@@ -74,7 +74,7 @@ export default function ScanGuide() {
           <View className="flex-1 gap-0.5">
             <Text className="setup__note-title">Your photos are kept privately</Text>
             <Text className="setup__note-text">
-              justFit keeps your photos and report. Only you and the justFit team can see them, and you can delete them in Profile › My body scans. The result is an estimate, not a medical measurement.
+              justFit keeps your photos and report on its servers, and only the justFit team can see them. The result is an estimate, not a medical measurement.
             </Text>
           </View>
         </View>

@@ -1,7 +1,6 @@
 // Kept body scans and the Super Admin's member page (2026-11-10), end to end against justfit_test
 // with a fake Forma and a throwaway BODY_SCAN_DIR. Covers: a scan keeps its photos and report; the
-// member lists, opens, reads the photos of and deletes only their own (another member's is a 404,
-// deleting removes both files); only admins reach every scan, its photos and a member's full
+// member has no route to read or delete kept scans (the Super Admin only); only admins reach every scan, its photos and a member's full
 // profile (a member is refused), each look logged once; bad ids and an injection-shaped search
 // are harmless.
 const assert = require("node:assert/strict");
@@ -120,32 +119,10 @@ describe("kept body scans and the admin's member page e2e", () => {
     assert.ok(files().includes(row.front_key) && files().includes(row.side_key));
   }));
 
-  it("2. the member lists and opens their own scan and reads its photos, never cached", run(async () => {
-    const list = await call(tokens.member, "GET", "/api/body-composition/scans");
-    assert.equal(list.status, 200);
-    assert.deepEqual(list.body.scans.map((s) => s.id), [scanId]);
-    assert.equal("front_key" in list.body.scans[0], false, "file names never leave the server");
-    const one = await call(tokens.member, "GET", `/api/body-composition/scans/${scanId}`);
-    assert.equal(one.status, 200);
-    assert.equal(one.body.scan.report.fatMassKg, 19.3);
-    const front = await call(tokens.member, "GET", `/api/body-composition/scans/${scanId}/photo/front`);
-    assert.equal(front.status, 200);
-    assert.ok(Buffer.compare(front.body, FRONT) === 0, "the front photo comes back byte for byte");
-    assert.equal(front.headers.get("cache-control"), "private, no-store");
-    const side = await call(tokens.member, "GET", `/api/body-composition/scans/${scanId}/photo/side`);
-    assert.ok(Buffer.compare(side.body, SIDE) === 0);
-  }));
-
-  it("3. another member gets a 404 for the scan, its photos and deleting it; no session is a 401", run(async () => {
-    assert.deepEqual((await call(tokens.other, "GET", "/api/body-composition/scans")).body.scans, []);
-    for (const [method, url] of [["GET", `/api/body-composition/scans/${scanId}`], ["GET", `/api/body-composition/scans/${scanId}/photo/front`], ["DELETE", `/api/body-composition/scans/${scanId}`]]) {
-      assert.equal((await call(tokens.other, method, url)).status, 404, `${method} ${url}`);
-      assert.equal((await call(null, method, url)).status, 401);
+  it("2. members have no route to their kept scans: the Super Admin only sees them", run(async () => {
+    for (const [method, url] of [["GET", "/api/body-composition/scans"], ["GET", `/api/body-composition/scans/${scanId}`], ["GET", `/api/body-composition/scans/${scanId}/photo/front`], ["DELETE", `/api/body-composition/scans/${scanId}`]]) {
+      assert.equal((await call(tokens.member, method, url)).status, 404, `${method} ${url}`);
     }
-    for (const bad of ["not-a-uuid", "../etc/passwd", `${scanId}' OR '1'='1`]) {
-      assert.equal((await call(tokens.member, "GET", `/api/body-composition/scans/${encodeURIComponent(bad)}`)).status, 404);
-    }
-    assert.equal((await call(tokens.member, "GET", `/api/body-composition/scans/${scanId}/photo/back`)).status, 404);
     assert.equal(files().length, 2, "nothing was deleted");
   }));
 
@@ -191,14 +168,5 @@ describe("kept body scans and the admin's member page e2e", () => {
     const [[{ views }]] = await connection.query("SELECT COUNT(*) AS views FROM admin_audit_log WHERE admin_id = ? AND action = 'user.profile_view'", [identities.admin.id]);
     assert.equal(Number(views), 1, "opening a member's full profile is logged once an hour");
     assert.equal((await call(tokens.admin, "GET", "/api/admin/portal/users/nobody_here/profile")).status, 404);
-  }));
-
-  it("6. the member deletes their scan: the row and both files go", run(async () => {
-    const r = await call(tokens.member, "DELETE", `/api/body-composition/scans/${scanId}`);
-    assert.equal(r.status, 200);
-    assert.equal(files().length, 0, "both photo files are deleted");
-    const [[{ remaining }]] = await connection.query("SELECT COUNT(*) AS remaining FROM body_scans WHERE id = ?", [scanId]);
-    assert.equal(Number(remaining), 0);
-    assert.equal((await call(tokens.admin, "GET", `/api/admin/portal/body-scans/${scanId}`)).status, 404, "gone for the admin too");
   }));
 });

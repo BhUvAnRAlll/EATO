@@ -30,7 +30,7 @@ export default function AdminBodyScan() {
           {result.state === "failed" ? <DashedBlock icon={{ ios: "exclamationmark.triangle.fill", android: "warning", web: "warning" }} title="Could not open this scan" text={`${result.error.replace(/\.$/, "")}. Tap to try again.`} onPress={retry} /> : null}
           {result.state === "ready" ? (
             <>
-              <ScanDetailView scan={result.data.scan} as="admin" />
+              <ScanDetailView scan={result.data.scan} />
               <Pressable onPress={() => router.push({ pathname: "/admin/users/[userId]", params: { userId: result.data.scan.member.id } })} className="btn-outline" accessibilityRole="button">
                 <Text className="btn-outline__label">Open the member</Text>
               </Pressable>

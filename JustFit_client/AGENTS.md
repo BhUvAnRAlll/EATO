@@ -2494,12 +2494,10 @@ body scan photos and reports. Body scan photos were thrown away before; since 20
   folder), names made by the server, served `private, no-store`. Table `body_scans` (migration
   `2027-01-25-body-scans.sql`, `SCHEMA_TABLE_COUNT` 110); before it nothing is kept and the lists
   answer 503 naming it.
-- **Member:** Profile › My body scans (`app/(user)/body-scans/`: the list, one scan with both photos
-  and the report (`components/bodyScan/ScanDetailView.tsx`, words in `lib/bodyScanText.ts`), Delete,
-  which removes the row and both files; the profile's body fat % stays). Routes `GET
-  /api/body-composition/scans`, `GET|DELETE /scans/:id`, `GET /scans/:id/photo/front|side`, scoped
-  to `req.userId` (another member's is a 404). The scan screens and the Privacy Policy say the photos
-  are kept and that the justFit team can see them.
+- **Member:** members never see their kept scans in the app (the user's decision, 2026-11-10: the
+  photos and report are for the Super Admin only; "My body scans" was removed the same day). There
+  are no member scan routes. The scan screens and the Privacy Policy say only the justFit team sees
+  them and that deletion is by contacting justFit.
 - **Super Admin:** More › Platform › Body scans (`app/admin/body-scans/`: every scan, search by name
   or number, 30 a page; a scan opens its photos and report, and the member). A member's page
   (`admin/users/[userId].tsx`) adds `MemberProfileCard`: contact (full number and email), personal

@@ -209,7 +209,7 @@ const privacy: LegalDoc = {
     {
       heading: "2. Photos, voice and location",
       paragraphs: [
-        "Body Scan: your front and side photos and the report are stored on our servers. You can see them, and delete any scan, in Profile › My body scans. The justFit team (our administrators) can also see them, and each time they open a scan's photos it is recorded.",
+        "Body Scan: your front and side photos and the report are stored on our servers. Only the justFit team (our administrators) can see them, and each time they open a scan's photos it is recorded. To have your scans deleted, contact us (section 13).",
         "Scan Food photos are sent for analysis, used once, and not stored. Only the food you log is saved.",
         "Voice clips for the coach chat are transcribed and then deleted; only the words appear in your message box. When your phone's own speech recogniser is used, nothing is sent to us.",
         "Location is used only when you act: to find your delivery address, to sort gyms near you (rounded to about 100 metres and not stored), and to confirm you are at the gym when you check in (stored with that visit).",

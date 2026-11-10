@@ -6,9 +6,9 @@ import { scanReportRows, scanWhen } from "@/lib/bodyScanText";
 import { useAuthStore } from "@/store/auth";
 
 // One kept body scan: when, who it was for, the front and side photos and the report's numbers.
-// Used by Super Admin › Body scans (as "admin") and the member's Profile › My body scans.
+// Used by Super Admin › Body scans only.
 // The photos are read with the session token and never cached on the phone.
-export function ScanDetailView({ scan, as }: { scan: ScanDetail; as: "member" | "admin" }) {
+export function ScanDetailView({ scan }: { scan: ScanDetail }) {
   const token = useAuthStore((state) => state.token);
   return (
     <View className="gap-3.5">
@@ -20,7 +20,7 @@ export function ScanDetailView({ scan, as }: { scan: ScanDetail; as: "member" | 
 
       <View className="flex-row gap-3">
         {(["front", "side"] as const).map((view) => {
-          const source = scanPhoto(scan.id, view, token, as);
+          const source = scanPhoto(scan.id, view, token);
           return (
             <View key={view} className="flex-1 gap-1.5">
               <View className="overflow-hidden rounded-md bg-cream-deep" style={{ aspectRatio: 3 / 4 }}>
