@@ -3,6 +3,7 @@ import { Check, Circle, Play, RectangleHorizontal, Settings, Shield, Square, Tri
 import { Platform, View, type ColorValue } from "react-native";
 import Svg, { Path } from "react-native-svg";
 
+import { iconTint } from "@/constants/iconColors";
 import { lucideSymbols } from "@/constants/lucideSymbols";
 import { materialSymbols } from "@/constants/symbols";
 import { Bounce, useBounceCount } from "@/components/motion/Bounce";
@@ -120,8 +121,12 @@ function SymbolGlyph({ name, size = 24, tintColor, style, ...props }: SymbolView
 // `bounceOnMount` once when the icon appears (a success tick). iPhone plays the SF Symbol's own
 // effect (the view is remade so the effect runs again); Android and the web scale the drawn icon
 // (components/motion/Bounce.tsx). Nothing with Reduce Motion on.
-type BounceProps = { bounce?: unknown; bounceOnMount?: boolean };
-export function SymbolView({ bounce, bounceOnMount = false, ...props }: SymbolViewProps & BounceProps) {
+// `meaningColor` (on by default): an icon drawn in the brand green takes its meaning's colour
+// (constants/iconColors.ts); the tab bar turns it off, its green meaning "selected".
+type BounceProps = { bounce?: unknown; bounceOnMount?: boolean; meaningColor?: boolean };
+export function SymbolView({ bounce, bounceOnMount = false, meaningColor = true, ...given }: SymbolViewProps & BounceProps) {
+  const sf = typeof given.name === "string" ? given.name : given.name.ios;
+  const props = meaningColor ? { ...given, tintColor: iconTint(sf, given.tintColor) as SymbolViewProps["tintColor"] } : given;
   const count = useBounceCount(bounce, bounceOnMount);
   if (bounce === undefined && !bounceOnMount) return <SymbolGlyph {...props} />;
   if (Platform.OS === "ios") {

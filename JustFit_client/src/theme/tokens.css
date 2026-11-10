@@ -78,6 +78,19 @@
   --color-icon-green: #2f8f57;
   --color-icon-peach: #c25400;
   --color-icon-lavender: #7c5cd6;
+  /* Icons by meaning (constants/iconColors.ts, 2026-11-10): the same values as theme/index.ts */
+  --color-icon-calories: #c25400;
+  --color-icon-water: #3b5bdb;
+  --color-icon-favorite: #d92d20;
+  --color-icon-rating: #c4923f;
+  --color-icon-location: #d92d20;
+  --color-icon-time: #3b5bdb;
+  --color-icon-delivery: #3b5bdb;
+  --color-icon-offer: #c25400;
+  --color-icon-info: #4a6cf7;
+  --color-icon-warning: #c4923f;
+  --color-icon-success: #2f8f57;
+  --color-icon-veg: #2f8f57;
   /* The Meals tab's quick tiles (Non-Veg, Combos; 2026-11-10 design) */
   --color-tint-rose: #fdebe7;
   --color-icon-rose: #e5482b;

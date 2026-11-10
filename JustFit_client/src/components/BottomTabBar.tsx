@@ -63,7 +63,7 @@ export function BottomTabBar({ state, emitter, navigateToTab, tabs = homeTabs, b
                     <SymbolView name={tab.icon} size={24} tintColor={colors.white} bounce={active} />
                   </View>
                 ) : (
-                  <SymbolView name={tab.icon} size={22} tintColor={active ? accent : colors.faint} bounce={active} />
+                  <SymbolView name={tab.icon} size={22} tintColor={active ? accent : colors.faint} bounce={active} meaningColor={false} />
                 )}
                 {badge > 0 && (
                   <View className="tab-badge">

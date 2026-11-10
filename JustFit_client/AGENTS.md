@@ -1773,6 +1773,14 @@ picker were removed on 2026-11-01; don't add them back unless asked.
   - `immersive`: full-screen dark areas, such as the player, a story or a hero.
   - `ink`: text.
   - `white` and `black`: text on red, QR codes (`black` on `white`), and things drawn on photos.
+- **Icons by meaning (2026-11-10, the owner's choice).** Green is for main buttons and what's
+  selected, not for every icon. An icon that means something has its own colour everywhere
+  (`constants/iconColors.ts`, tokens `icon-calories` … `icon-veg`): calories/flame orange, water
+  blue, heart red, rating amber, location/map red, time/calendar blue, delivery blue, offers
+  orange, info/tips blue, warning amber, done/success green, veg green. `SymbolView` applies it
+  when a screen draws such an icon in the brand green; a grey, white or other chosen colour is
+  kept; `meaningColor={false}` opts out (the tab bar's selected icon stays green). A new kind of
+  icon with a meaning gets a line in `BY_PREFIX` there.
 - **The logo.** `images.justfitLogo` via `BrandWordmark`. Never redraw the logo.
 - **Press feedback.** Buttons and cards use `components/PressableScale.tsx`. It eases down to about 97% on the
   UI thread, has an optional `haptic`, and holds still when reduced motion is on.
