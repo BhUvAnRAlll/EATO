@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { FlatList, Platform, Text, View, useWindowDimensions } from "react-native";
+import { FlatList, Platform, Pressable, Text, View, useWindowDimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { router, useFocusEffect } from "expo-router";
@@ -18,7 +18,7 @@ import { ScreenSkeleton } from "@/components/Skeleton";
 import { haptic } from "@/lib/haptics";
 import { hud } from "@/lib/hud";
 import { listPerf } from "@/lib/listPerf";
-import { byDiet, popularMeals, searchMeals, shopSections, sortMeals, suggestions, type QuickList } from "@/lib/mealRules";
+import { byDiet, popularMeals, searchWithFallback, shopSections, sortMeals, suggestions, type QuickList } from "@/lib/mealRules";
 import { mealsApi, type MealBanner, type MenuMeal } from "@/lib/mealsApi";
 import { useAddressBook } from "@/lib/useAddressBook";
 import { useSessionToken } from "@/lib/session";
@@ -66,7 +66,8 @@ export default function Meals() {
   const popular = useMemo(() => (sections ? popularMeals(sections.meals) : []), [sections]);
   const filtered = filters.diet !== null || filters.sort !== "recommended";
   const query = search.trim();
-  const results = useMemo(() => (store && sections && query ? searchMeals(sections.meals, store.categories, query) : null), [store, sections, query]);
+  const found = useMemo(() => (store && sections && query ? searchWithFallback(sections.meals, store.categories, query) : null), [store, sections, query]);
+  const results = found?.meals ?? null;
   const hints = useMemo(() => (store && focused ? suggestions(store.meals, store.categories, query) : []), [store, focused, query]);
   const count = cartCount(items);
   const address = addressLoad.state === "ready" ? addressLoad.book.addresses.find((a) => a.isDefault) ?? null : null;
@@ -129,7 +130,19 @@ export default function Meals() {
       <ShopHeader address={address} count={count} />
           <MealSearch value={search} onChange={setSearch} focused={focused} onFocus={setFocused} hints={hints} filtered={filtered} onFilters={() => setShowFilters(true)} />
           {results ? (
-            <View className="px-4"><Text className="meta-text">{results.length ? `${results.length} ${results.length === 1 ? "meal" : "meals"} for “${query}”` : ""}</Text></View>
+            <View className="px-4" style={{ gap: 4 }}>
+              {found?.kind !== "exact" && <Text className="shop-search__miss">{found?.kind === "popular" ? `No meals for “${query}”` : `No exact match for “${query}”`}</Text>}
+              {found?.didYouMean && (
+                <Pressable onPress={() => setSearch(found.didYouMean ?? "")} accessibilityRole="button" hitSlop={8}>
+                  <Text className="meta-text">Did you mean <Text className="shop-search__fix">{found.didYouMean}</Text>?</Text>
+                </Pressable>
+              )}
+              <Text className="meta-text">
+                {found?.kind === "exact"
+                  ? results.length ? `${results.length} ${results.length === 1 ? "meal" : "meals"} for “${query}”` : ""
+                  : found?.kind === "popular" ? "Popular meals you might like" : "Related meals"}
+              </Text>
+            </View>
           ) : (
             store && sections && (
               <ShopSections

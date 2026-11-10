@@ -88,6 +88,28 @@ describe("meal ordering rules: the storefront", () => {
     assert.deepEqual(veg.specials.map((m) => m.id), ["Paneer Tikka Bowl"], "no specials left, so bestsellers");
   });
 
+  it("search falls back to close and related meals, then popular ones", async () => {
+    const { searchWithFallback } = await import("../mealRules.ts");
+    const exact = searchWithFallback(meals, categories, "paneer");
+    assert.equal(exact.kind, "exact");
+    const typo = searchWithFallback(meals, categories, "panner");
+    assert.equal(typo.kind, "close");
+    assert.deepEqual(typo.meals.map((m) => m.id), ["Paneer Tikka Bowl"]);
+    assert.equal(typo.didYouMean, "paneer");
+    const biryani = searchWithFallback(meals, categories, "biriyani");
+    assert.equal(biryani.kind, "close");
+    assert.equal(biryani.meals[0].id, "Chicken Biryani");
+    assert.equal(biryani.didYouMean, "biryani");
+    const some = searchWithFallback(meals, categories, "paneer pizza");
+    assert.equal(some.kind, "related");
+    assert.deepEqual(some.meals.map((m) => m.id), ["Paneer Tikka Bowl"]);
+    const none = searchWithFallback(meals, categories, "sushi");
+    assert.equal(none.kind, "popular");
+    assert.equal(none.didYouMean, null);
+    assert.ok(none.meals.length > 0, "never an empty screen");
+    assert.equal(searchWithFallback(meals, categories, "zz").kind, "popular", "short typos aren't guessed");
+  });
+
   it("searches names, ingredients and categories; suggests names", async () => {
     const { searchMeals, suggestions, discountText, cardBadge } = await import("../mealRules.ts");
     assert.deepEqual(searchMeals(meals, categories, "paneer").map((m) => m.id), ["Paneer Tikka Bowl"]);

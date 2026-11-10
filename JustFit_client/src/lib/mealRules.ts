@@ -185,6 +185,72 @@ export function searchMeals<M extends ShopMeal>(meals: M[], categories: ShopCate
   return scored.sort((a, b) => b.score - a.score || a.m.name.localeCompare(b.m.name)).map((x) => x.m);
 }
 
+/** How many letters apart two words are (insert, delete or change one letter = 1) */
+function editDistance(a: string, b: string): number {
+  let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    const row = [i];
+    for (let j = 1; j <= b.length; j++) row[j] = Math.min(prev[j] + 1, row[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    prev = row;
+  }
+  return prev[b.length];
+}
+
+/** A typed word is close to a menu word when it is the start of it, or a letter or two off (none under 4 letters) */
+function closeTo(typed: string, word: string): boolean {
+  if (word.startsWith(typed)) return true;
+  const allowed = typed.length >= 7 ? 2 : typed.length >= 4 ? 1 : 0;
+  if (allowed === 0) return false;
+  return editDistance(typed, word) <= allowed || editDistance(typed, word.slice(0, typed.length)) <= allowed;
+}
+
+const wordsOf = (text: string) => text.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+
+export type SearchResult<M> = {
+  meals: M[];
+  /** exact: every word found; close: found after fixing typos; related: some words found; popular: nothing found */
+  kind: "exact" | "close" | "related" | "popular";
+  /** The search with its typos fixed from the menu's own words ("biryani" for "biriyani"), or null */
+  didYouMean: string | null;
+};
+
+/**
+ * The Meals tab's search, never empty: the exact matches; else the meals every word is close to
+ * (typos allowed); else the meals any word is close to, most words first; else the popular meals.
+ */
+export function searchWithFallback<M extends ShopMeal>(meals: M[], categories: ShopCategory[], query: string): SearchResult<M> {
+  const exact = searchMeals(meals, categories, query);
+  if (exact.length > 0 || meals.length === 0) return { meals: exact, kind: "exact", didYouMean: null };
+  const typed = wordsOf(query);
+  if (typed.length === 0) return { meals, kind: "exact", didYouMean: null };
+
+  const catNames = new Map<string, string>();
+  for (const c of categories) for (const id of c.mealIds) catNames.set(id, `${catNames.get(id) ?? ""} ${c.name}`);
+  const scored = meals.map((m, i) => {
+    const nameWords = wordsOf(m.name);
+    const words = [...nameWords, ...wordsOf(`${m.description ?? ""} ${m.ingredients ?? ""} ${catNames.get(m.id) ?? ""}`)];
+    const hits = typed.filter((t) => words.some((w) => closeTo(t, w))).length;
+    const inName = typed.filter((t) => nameWords.some((w) => closeTo(t, w))).length;
+    return { m, i, hits, score: hits * 3 + inName };
+  });
+  const byScore = (a: (typeof scored)[number], b: (typeof scored)[number]) => b.score - a.score || a.i - b.i;
+
+  // Fix each typed word to the nearest menu word (names and categories first), when one is close
+  const vocabulary = [...new Set([...meals.flatMap((m) => wordsOf(m.name)), ...categories.flatMap((c) => wordsOf(c.name)), ...meals.flatMap((m) => wordsOf(m.ingredients ?? ""))])];
+  const fixed = typed.map((t) => {
+    const near = vocabulary.filter((w) => w.length > 2 && closeTo(t, w)).sort((a, b) => editDistance(t, a) - editDistance(t, b));
+    return near[0] ?? t;
+  });
+  const fixedQuery = fixed.join(" ");
+  const didYouMean = fixedQuery !== typed.join(" ") ? fixedQuery : null;
+
+  const close = scored.filter((x) => x.hits === typed.length).sort(byScore);
+  if (close.length > 0) return { meals: close.map((x) => x.m), kind: "close", didYouMean };
+  const related = scored.filter((x) => x.hits > 0).sort(byScore);
+  if (related.length > 0) return { meals: related.map((x) => x.m), kind: "related", didYouMean };
+  return { meals: popularMeals(meals), kind: "popular", didYouMean: null };
+}
+
 /** Up to `max` suggestions for a search: meal and category names containing what's typed */
 export function suggestions(meals: { name: string }[], categories: { name: string }[], query: string, max = 5): string[] {
   const q = query.trim().toLowerCase();

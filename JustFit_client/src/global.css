@@ -2700,6 +2700,19 @@
   color: var(--color-muted);
 }
 
+/* The Meals search's fallback: the heading and the tappable "Did you mean" word */
+@utility shop-search__miss {
+  font-family: var(--font-sans-semibold);
+  font-size: 15px;
+  line-height: 22px;
+  color: var(--color-ink);
+}
+
+@utility shop-search__fix {
+  font-family: var(--font-sans-semibold);
+  color: var(--color-primary-text);
+}
+
 /* My Clients (a gym trainer's PT clients): a small soft status pill (colours set by role inline) */
 @utility client-tag {
   align-self: flex-start;
