@@ -1768,14 +1768,23 @@ picker were removed on 2026-11-01; don't add them back unless asked.
   or `automaticallyAdjustKeyboardInsets` alone; `GymSheet` lifts itself the same way. Every Modal
   is edge to edge on Android, so a sheet's bottom padding adds `insets.bottom`
   (`lib/__tests__/crossPlatformGuards.test.ts` checks these, 2026-11-08 audit).
-- **Text size.** Text controls use `min-height`, not `height`, so labels can grow with Dynamic
-  Type. Text grows with the phone's setting up to 1.3× and no further (the owner's choice,
-  2026-11-08): `metro.config.js` sends the app's own `react-native` imports to
-  `lib/reactNative.js`, which gives every `Text` and `TextInput` `maxFontSizeMultiplier`
-  `MAX_FONT_SCALE` (`constants/textScale.ts`; Reanimated's `Animated.Text` sets it itself). A
-  screen may pass a lower value (the tab bar). Layout checks that depend on space use text units,
-  `width / fontScale` from `useWindowDimensions`, so a narrow phone and a larger text size are
-  treated alike (a 360-wide phone at 1.15 behaves like 313).
+- **One size on every phone (2026-11-08, the owner's choice: "both should be same").** The app
+  is laid out at 430 pt (the iPhone 15 Plus, `UI_DESIGN_WIDTH` in `constants/uiScale.ts`) and,
+  on a narrower phone, shrunk evenly to fit (never below 0.8), so text, buttons, cards and icons
+  keep the iPhone's proportions instead of rearranging. `metro.config.js` sends the app's own
+  `react-native` imports to `lib/reactNative.js` (a lazy Proxy: never read React Native's
+  exports early) and `react-native-safe-area-context` to `lib/safeArea.js`. There, `UiScaleRoot`
+  (the root layout) and every `Modal` draw their content scaled, and `useWindowDimensions`,
+  `Keyboard` and the safe-area insets report layout points. The phone's own text-size setting is
+  ignored (`MAX_FONT_SCALE` = 1, `constants/textScale.ts`). Text controls still use `min-height`,
+  not `height`. Forms use `KeyboardAvoider` (its own padding, since `KeyboardAvoidingView`
+  miscounts once the app is scaled). Layout checks that depend on space use `useResponsive()`
+  (`lib/responsive.ts`). Never nest a button inside another button: on the web build that is
+  invalid HTML, and its error toast covers the screen.
+- **Icons on Android and the web** follow the iPhone's SF Symbols (the owner's choice
+  2026-11-08): `SymbolView` draws the Lucide twin from `constants/lucideSymbols.ts`, with
+  filled shapes and a few drawn by hand (sparkles, the filled gear, the knock-out marks). Exercise
+  figures use Material pictograms from `constants/symbols.ts`.
 
 ## NativeWind Rule
 

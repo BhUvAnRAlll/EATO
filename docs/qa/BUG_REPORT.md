@@ -80,3 +80,24 @@ text" means the system font size raised to 1.3× or more.
 | R3 | A photo can be lost if Android kills the app while the camera is open | Needs `getPendingResultAsync` handling on each photo screen; low frequency |
 | R4 | Gym sheets don't ask before discarding a half-filled form on back/drag | Behaviour change across every sheet; needs the owner's call on when to ask |
 | R5 | justFit has no Terms / Privacy page | Content the owner must provide (also needed for the YouTube API terms) |
+
+## Update 2026-11-08 to 11-10: same look on both phones, then the full UI run
+
+Both phones were checked side by side on the device: the OnePlus CPH2467 (Android 15, 360 pt
+wide, text size 1.15) and the iPhone 15 Plus (430 pt wide).
+
+| ID | Module | Platform | Problem | Fix | Retest |
+| --- | --- | --- | --- | --- | --- |
+| B51 | Whole app | A, narrow phones | Android rearranged or squeezed screens that the iPhone showed comfortably | The app lays out at 430 pt and shrinks evenly on narrower phones (`constants/uiScale.ts`, `lib/reactNative.js`, `lib/safeArea.js`). Modals, the keyboard and the insets use the same scale | D (both phones, side by side) |
+| B52 | All text | A | The OnePlus's 1.15 text setting made its text larger than the iPhone's | The phone's text size is ignored (`MAX_FONT_SCALE` = 1), the owner's choice | D |
+| B53 | Page background | A | Looked pure white on Android, cream on the iPhone | Page colour `#F6F4EF` in the tokens and `app.json` | D (both measured 246,244,239) |
+| B54 | Icons | A, web | Material icons looked unlike the iPhone's SF Symbols | Lucide twins for 223 names, filled shapes, hand-drawn sparkles and gear | D (most match; see R6) |
+| B55 | Macro › Add meal | A | An inline button instead of the iPhone's floating dark pill | `FloatingSlot`, the same pill on every phone | D |
+| B56 | App start | A, i | A crash after a cache clear (`Platform` undefined), and the iPhone stuck on the splash screen | The `react-native` shim exports a lazy Proxy; the root falls back to unscaled if the shim is missing | D (both phones) |
+| B57 | Meals tab, Deliver-to card | web (all) | A button nested inside a button. On the web build the error toast covered "Log in", and 3 sign-out UI tests failed | The card is two sibling buttons | T (sign-out 5/5) |
+| B58 | Super Admin Overview UI test | test | It expected no Orders tab, which was added with meal ordering | The test now expects Overview, Orders, Users, Gyms, Content | T (admin 3/3) |
+
+| ID | Not fixed | Why not |
+| --- | --- | --- |
+| R6 | A few Android icons still differ slightly from the iPhone's (house, fork and knife, some person badges, map pin, moon) | Lucide has no exact twin; each would need hand drawing |
+| R7 | The gym portal and Super Admin are not yet checked side by side on both phones | Needs the owner signed in on each phone |

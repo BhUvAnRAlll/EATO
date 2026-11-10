@@ -145,7 +145,7 @@ describe("ui admin: the Super Admin Overview and its tabs", () => {
     if (problems.length > 0) throw new Error(`cleanup incomplete: ${problems.join("; ")}`);
   });
 
-  it("1. an admin lands on the Overview: counts, recent activity, and only Overview, Users and Content as tabs", run("overview", async () => {
+  it("1. an admin lands on the Overview: counts, recent activity, and only Overview, Orders, Users, Gyms and Content as tabs", run("overview", async () => {
     await viewport(390, 844);
     await signIn(identities.admin, "/admin");
     await h.expectPath("/admin");
@@ -154,7 +154,7 @@ describe("ui admin: the Super Admin Overview and its tabs", () => {
     await page.waitFor(`!!document.querySelector('[aria-label="Workouts this week: 1"]')`, NAV_TIMEOUT, "the workouts tile");
     await h.expectText("Created promotion “Train at home”", "the promotion is in the activity log");
     const tabs = await page.evaluate(`[...document.querySelectorAll('[role="tab"]')].filter((e) => e.getClientRects().length > 0).map((e) => e.getAttribute("aria-label"))`);
-    assert.deepEqual(tabs, ["Overview", "Users", "Gyms", "Content"], "no Reports tab");
+    assert.deepEqual(tabs, ["Overview", "Orders", "Users", "Gyms", "Content"], "no Reports tab");
     for (const gone of ["Open reports", "Gym members", "Suspended", "To do"]) assert.equal(await page.hasText(gone), false, `${gone} is gone`);
     await snapshotAllWidths("admin-overview");
   }));

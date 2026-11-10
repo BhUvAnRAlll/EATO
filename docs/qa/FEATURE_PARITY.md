@@ -34,3 +34,10 @@ runtime installed on this Mac), so every iOS cell is verified from code only.
 
 No feature exists on one phone and is missing on the other. Push notifications from a server, file
 downloads to shared storage and a "Notification" reminder channel are not built on either phone.
+
+## Update 2026-11-10: the iPhone checked on the device
+
+The iPhone 15 Plus was connected by USB and compared with the OnePlus screen by screen in the
+member app. Layout proportions, text size, the cream page colour, the floating Add meal button
+and nearly every icon now match (see BUG_REPORT B51 to B56). The gym portal and Super Admin
+still need the same side-by-side check (R7).
