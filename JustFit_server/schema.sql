@@ -1690,6 +1690,7 @@ CREATE TABLE gyms (                               -- one branch of a gym brand
   gstin       CHAR(15)     NULL,
   about       VARCHAR(500) NULL,                   -- Public profile (migration 2026-12-17, Gym Hub): a short description for members
   facilities  JSON         NULL,                   -- ids from gym/profileRules.js FACILITIES, e.g. ["cardio","parking"]
+  gym_types   JSON         NULL,                   -- up to 3 ids from gym/profileRules.js GYM_TYPES, e.g. ["gym","yoga"] (migration 2027-01-23)
   opening_hours JSON       NULL,                   -- { mon: [["05:30","11:00"],["16:00","22:00"]], …, sun: [] }; NULL: not given
   whatsapp    CHAR(10)     NULL,                   -- Gym Profile (migration 2026-12-21): more ways to reach the branch, all optional
   email       VARCHAR(120) NULL,

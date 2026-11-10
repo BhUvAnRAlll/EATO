@@ -156,3 +156,28 @@ describe("Gym Profile Management rules (2026-11-09)", () => {
     assert.equal(seen.about, "Two floors.");
   });
 });
+
+describe("Kind of gym (G16)", () => {
+  it("takes up to three kinds from the list, in the list's order", () => {
+    assert.deepEqual(rules.profileBody({ types: ["yoga", "gym"] }, "2026-11-10"), { types: ["gym", "yoga"] });
+    assert.deepEqual(rules.profileBody({ types: [] }, "2026-11-10"), { types: [] });
+    assert.throws(() => rules.profileBody({ types: ["gym", "yoga", "dance", "women"] }, "2026-11-10"), /up to 3/);
+    assert.throws(() => rules.profileBody({ types: ["swimming"] }, "2026-11-10"), /from the list/);
+    assert.throws(() => rules.profileBody({ types: "gym" }, "2026-11-10"), /from the list/);
+  });
+
+  it("publishes with the profile; an older published copy reads as none and stays published", () => {
+    const row = { about: "Two floors.", gym_types: '["women","gym"]', facilities: "[]" };
+    const draft = rules.snapshot(row, [], "2026-11-10");
+    assert.deepEqual(draft.types, ["gym", "women"]);
+    const published = rules.readPublished(JSON.stringify(draft), [], "2026-11-10");
+    assert.equal(rules.publishState(draft, published), "published");
+    const before = rules.snapshot({ about: "Two floors.", facilities: "[]" }, [], "2026-11-10");
+    const { types, ...older } = before;
+    assert.deepEqual(types, []);
+    assert.equal(rules.publishState(before, rules.readPublished(JSON.stringify(older), [], "2026-11-10")), "published");
+    assert.deepEqual(rules.readTypes('["swimming","yoga"]'), ["yoga"]);
+    const seen = rules.forMembers({ ...draft, show: { ...draft.show, about: false } });
+    assert.deepEqual(seen.types, ["gym", "women"], "always shown");
+  });
+});

@@ -10,7 +10,7 @@ import { MemberPhotoImage } from "@/components/gym/MemberPhotoImage";
 import type { JoinPick } from "@/components/gymHub/JoinSheet";
 import type { GymPage } from "@/lib/discoverApi";
 import { directionsUrl, facilityLabel, indiaNow, joinStateText, openNow, perMonthText, planLengthText, priceText } from "@/lib/gymDiscover";
-import { closureDateText, DAYS, dayText, stampText, timeLabel, yearsText } from "@/lib/gymProfile";
+import { closureDateText, DAYS, dayText, gymTypesText, stampText, timeLabel, yearsText } from "@/lib/gymProfile";
 import { hud } from "@/lib/hud";
 import { useThemeColors } from "@/theme";
 
@@ -26,6 +26,7 @@ export function GymPageView({ gym, at, onAsk, refreshControl }: { gym: GymPage; 
     <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 48 + insets.bottom, gap: 16 }} refreshControl={refreshControl} showsVerticalScrollIndicator={false}>
       <Photos gym={gym} />
       <Identity gym={gym} at={at} />
+      {gymTypesText(gym.types) ? <Text className="type-caption text-primary-text" accessibilityLabel={`Kind of gym: ${gymTypesText(gym.types)}`}>{gymTypesText(gym.types)}</Text> : null}
       {gym.about ? <Text className="type-body text-ink">{gym.about}</Text> : null}
       <Facilities gym={gym} />
       <Hours gym={gym} at={at} />

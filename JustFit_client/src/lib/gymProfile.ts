@@ -10,6 +10,23 @@ export type Day = "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
 export type Session = [string, string];
 export type OpeningHours = Record<Day, Session[]>;
 
+// What kind of gym a branch is (G16): up to three, the server's GYM_TYPES
+export type GymType = "gym" | "women" | "functional" | "yoga" | "martial_arts" | "dance" | "studio";
+export const GYM_TYPES: { id: GymType; label: string }[] = [
+  { id: "gym", label: "Gym" },
+  { id: "women", label: "Women only" },
+  { id: "functional", label: "CrossFit / functional" },
+  { id: "yoga", label: "Yoga & pilates" },
+  { id: "martial_arts", label: "Martial arts & boxing" },
+  { id: "dance", label: "Dance & Zumba" },
+  { id: "studio", label: "Personal training studio" },
+];
+export const GYM_TYPES_MAX = 3;
+/** "Gym · Women only": the kinds a branch picked, in the list's order; "" for none */
+export function gymTypesText(ids: readonly string[] | undefined): string {
+  return GYM_TYPES.filter((t) => ids?.includes(t.id)).map((t) => t.label).join(" · ");
+}
+
 export const FACILITIES: { id: FacilityId; label: string }[] = [
   { id: "cardio", label: "Cardio machines" },
   { id: "weights", label: "Free weights" },

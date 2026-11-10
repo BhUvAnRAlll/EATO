@@ -11,12 +11,12 @@ const gym = (over) => ({
 
 describe("Discover Gyms rules", () => {
   it("reads the query, with defaults", () => {
-    assert.deepEqual(rules.discoverQuery({}), { search: "", facilities: [], maxPrice: null, sort: "relevance", near: null, page: 1, trainers: false });
+    assert.deepEqual(rules.discoverQuery({}), { search: "", facilities: [], maxPrice: null, sort: "relevance", near: null, page: 1, trainers: false, type: null });
     assert.equal(rules.discoverQuery({ trainers: "1" }).trainers, true);
     assert.throws(() => rules.discoverQuery({ trainers: "yes" }), /understand/);
     assert.deepEqual(
       rules.discoverQuery({ search: "  forma   tumkur ", facilities: "parking,cardio,parking", maxPrice: "1500", sort: "distance", lat: "13.33791", lng: "77.11734", page: "2" }),
-      { search: "forma tumkur", facilities: ["parking", "cardio"], maxPrice: 1500, sort: "distance", near: { latitude: 13.338, longitude: 77.117 }, page: 2, trainers: false },
+      { search: "forma tumkur", facilities: ["parking", "cardio"], maxPrice: 1500, sort: "distance", near: { latitude: 13.338, longitude: 77.117 }, page: 2, trainers: false, type: null },
     );
   });
 
@@ -66,6 +66,9 @@ describe("Discover Gyms rules", () => {
     assert.deepEqual(rules.pickGyms(gyms, q({})).results.map((r) => r.gym.id), [2, 3, 1], "a filled-in profile first, then by name");
     assert.deepEqual(rules.pickGyms(gyms, q({ facilities: ["parking"] })).results.map((r) => r.gym.id), [2, 3]);
     assert.deepEqual(rules.pickGyms(gyms, q({ maxPrice: 1500 })).results.map((r) => r.gym.id), [2], "no plans never passes a price cap");
+    assert.deepEqual(rules.pickGyms(gyms.map((g) => ({ ...g, types: g.id === 3 ? ["yoga"] : [] })), q({ type: "yoga" })).results.map((r) => r.gym.id), [3], "the kind of gym");
+    assert.equal(rules.discoverQuery({ type: "yoga" }).type, "yoga");
+    assert.throws(() => rules.discoverQuery({ type: "swimming" }), /kind of gym/);
     assert.deepEqual(rules.pickGyms(gyms, q({ search: "bengaluru" })).results.map((r) => r.gym.id), [1]);
     const near = rules.pickGyms(gyms, q({ sort: "distance", near: TUMKUR }));
     assert.deepEqual(near.results.map((r) => r.gym.id), [2, 1, 3], "nearest first, no location last");

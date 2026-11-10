@@ -12,7 +12,7 @@ import { SaveButton } from "@/components/gym/SaveButton";
 import type { GymIconName } from "@/constants/gymIcons";
 import { gymApi, type GymProfile, type GymProfileFields } from "@/lib/gymApi";
 import { useGymSave } from "@/lib/gymForm";
-import { ABOUT_MAX } from "@/lib/gymProfile";
+import { ABOUT_MAX, GYM_TYPES, GYM_TYPES_MAX, type GymType } from "@/lib/gymProfile";
 import { useThemeColors } from "@/theme";
 
 type Contact = "whatsapp" | "email" | "website" | "instagram" | "facebook";
@@ -40,6 +40,7 @@ function BasicForm({ saved, canEdit }: { saved: GymProfile; canEdit: boolean }) 
   const colors = useThemeColors();
   const [current, setCurrent] = useState(saved);
   const [about, setAbout] = useState(saved.about ?? "");
+  const [types, setTypes] = useState<GymType[]>(saved.types ?? []);
   const [fields, setFields] = useState<Record<Contact, string>>({
     whatsapp: saved.contact.whatsapp ?? "",
     email: saved.contact.email ?? "",
@@ -56,6 +57,9 @@ function BasicForm({ saved, canEdit }: { saved: GymProfile; canEdit: boolean }) 
   // Only what changed is sent
   const changes: GymProfileFields = {};
   if (about.trim() !== (current.about ?? "")) changes.about = about.trim();
+  // In the list's order, as the server keeps them
+  const orderedTypes = GYM_TYPES.filter((t) => types.includes(t.id)).map((t) => t.id);
+  if (orderedTypes.join() !== (current.types ?? []).join()) changes.types = orderedTypes;
   for (const f of FIELDS) if (fields[f.key].trim() !== (current.contact[f.key] ?? "")) changes[f.key] = fields[f.key].trim();
   const ready = canEdit && Object.keys(changes).length > 0;
 
@@ -81,6 +85,34 @@ function BasicForm({ saved, canEdit }: { saved: GymProfile; canEdit: boolean }) 
         placeholder="Eg. Two floors of equipment, certified trainers, open since 2012."
         hint={`${about.trim().length} of ${ABOUT_MAX}`}
       />
+
+      {current.typesReady ? (
+        <View style={{ gap: 8 }}>
+          <Text className="gym-field__label">{`Kind of gym (up to ${GYM_TYPES_MAX})`}</Text>
+          <View className="flex-row flex-wrap" style={{ gap: 8 }}>
+            {GYM_TYPES.map((t) => {
+              const on = types.includes(t.id);
+              const full = !on && types.length >= GYM_TYPES_MAX;
+              return (
+                <PressableScale
+                  key={t.id}
+                  onPress={() => setTypes((list) => (on ? list.filter((id) => id !== t.id) : [...list, t.id]))}
+                  disabled={!canEdit || full}
+                  haptic="select"
+                  className={on ? "gym-choice gym-choice--selected" : "gym-choice"}
+                  style={{ opacity: full ? 0.5 : 1 }}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: on, disabled: !canEdit || full }}
+                  accessibilityLabel={t.label}
+                >
+                  <Text className={on ? "gym-choice__label gym-choice__label--selected" : "gym-choice__label"}>{t.label}</Text>
+                </PressableScale>
+              );
+            })}
+          </View>
+          <Text className="gym-tx__meta">Members can filter Discover by it.</Text>
+        </View>
+      ) : null}
 
       <Text className="gym-page-section" style={{ marginTop: 8 }}>How members reach you</Text>
       {FIELDS.map((f) => (

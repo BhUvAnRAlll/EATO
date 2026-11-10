@@ -542,8 +542,10 @@ router.get("/logo", logoRoute(async (req, res) => {
 const PROFILE_MIGRATION = "The public profile needs the 2026-12-17-gym-public-profile migration on this server.";
 const PUBLISHING_MIGRATION = "Gym Profile needs the 2026-12-21-gym-profile-publishing migration on this server.";
 const NEW_PROFILE_COLUMNS = /published_profile|published_at|published_by|profile_edited_at|profile_show|custom_facilities|closures|whatsapp|email|website|instagram|facebook|sort_order/;
+const TYPES_MIGRATION = "The kind of gym needs the 2027-01-23-gym-types migration on this server.";
 const profileRoute = (handler) => (req, res, next) =>
   handler(req, res, next).catch((error) => {
+    if (error?.code === "ER_BAD_FIELD_ERROR" && String(error.message).includes("gym_types")) return res.status(503).json({ error: TYPES_MIGRATION });
     if (error?.code === "ER_BAD_FIELD_ERROR" && NEW_PROFILE_COLUMNS.test(String(error.message))) return res.status(503).json({ error: PUBLISHING_MIGRATION });
     if (["ER_NO_SUCH_TABLE", "ER_BAD_FIELD_ERROR"].includes(error?.code)) return res.status(503).json({ error: PROFILE_MIGRATION });
     next(error);

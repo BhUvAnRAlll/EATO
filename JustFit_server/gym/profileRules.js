@@ -32,6 +32,18 @@ const FACILITIES = [
   ["supplements", "Supplement counter"],
 ];
 const FACILITY_IDS = FACILITIES.map(([id]) => id);
+// What kind of gym a branch is (G16, migration 2027-01-23): up to three, members filter by them
+const GYM_TYPES = [
+  ["gym", "Gym"],
+  ["women", "Women only"],
+  ["functional", "CrossFit / functional"],
+  ["yoga", "Yoga & pilates"],
+  ["martial_arts", "Martial arts & boxing"],
+  ["dance", "Dance & Zumba"],
+  ["studio", "Personal training studio"],
+];
+const GYM_TYPE_IDS = GYM_TYPES.map(([id]) => id);
+const TYPES_MAX = 3;
 const DAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
 const TIME = /^([01]\d|2[0-3]):([0-5]\d)$/;
 // Letters in any script, numbers, spaces and ordinary punctuation; no control characters
@@ -59,6 +71,14 @@ function facilities(value) {
   if (!Array.isArray(value)) throw new ValidationError("Pick the facilities from the list.");
   for (const id of value) if (!FACILITY_IDS.includes(id)) throw new ValidationError("Pick the facilities from the list.");
   return FACILITY_IDS.filter((id) => value.includes(id));
+}
+
+// Up to three gym types from the list, kept in the list's order; [] clears
+function gymTypes(value) {
+  if (!Array.isArray(value) || value.some((id) => !GYM_TYPE_IDS.includes(id))) throw new ValidationError("Pick the kind of gym from the list.");
+  const picked = GYM_TYPE_IDS.filter((id) => value.includes(id));
+  if (picked.length > TYPES_MAX) throw new ValidationError(`Pick up to ${TYPES_MAX} kinds of gym.`);
+  return picked;
 }
 
 // { mon: [["05:30","11:00"], ["16:00","22:00"]], …, sun: [] }: every day given, up to two sessions
@@ -188,12 +208,13 @@ const whatsapp = (value) => (value === null || value === undefined || (typeof va
 
 // PATCH /profile: any of the fields; at least one. today: India's date (closures start from it;
 // gym/rules.js todayInIndia, passed in because rules.js reads this file)
-const PROFILE_KEYS = ["about", "facilities", "hours", "custom", "closures", "show", ...CONTACT_KEYS];
+const PROFILE_KEYS = ["about", "types", "facilities", "hours", "custom", "closures", "show", ...CONTACT_KEYS];
 function profileBody(body, today) {
   onlyKeys(body, PROFILE_KEYS);
   const out = {};
   if (body.about !== undefined) out.about = optionalText(body.about, ABOUT_MAX, "description");
   if (body.facilities !== undefined) out.facilities = facilities(body.facilities);
+  if (body.types !== undefined) out.types = gymTypes(body.types);
   if (body.hours !== undefined) out.hours = openingHours(body.hours);
   if (body.custom !== undefined) out.custom = customFacilities(body.custom);
   if (body.closures !== undefined) out.closures = closures(body.closures, today);
@@ -219,6 +240,10 @@ function photoOrder(body, existing) {
 function readFacilities(stored) {
   const value = typeof stored === "string" ? safeJson(stored) : stored;
   return Array.isArray(value) ? FACILITY_IDS.filter((id) => value.includes(id)) : [];
+}
+function readTypes(stored) {
+  const value = typeof stored === "string" ? safeJson(stored) : stored;
+  return Array.isArray(value) ? GYM_TYPE_IDS.filter((id) => value.includes(id)).slice(0, TYPES_MAX) : [];
 }
 function readHours(stored) {
   const value = typeof stored === "string" ? safeJson(stored) : stored;
@@ -273,6 +298,7 @@ const textOrNull = (v) => (typeof v === "string" && v ? v : null);
 function snapshot(row, photoIds, today) {
   return {
     about: row.about ?? null,
+    types: readTypes(row.gym_types),
     facilities: readFacilities(row.facilities),
     custom: readCustom(row.custom_facilities).filter((c) => c.on).map((c) => c.name),
     hours: readHours(row.opening_hours),
@@ -302,6 +328,7 @@ function readPublished(stored, photoIds, today) {
   const contact = value.contact && typeof value.contact === "object" ? value.contact : {};
   return {
     about: textOrNull(value.about),
+    types: readTypes(value.types),
     facilities: readFacilities(value.facilities),
     custom: Array.isArray(value.custom) ? value.custom.filter((n) => typeof n === "string" && n).slice(0, CUSTOM_MAX) : [],
     hours: readHours(value.hours),
@@ -317,6 +344,8 @@ function forMembers(profile) {
   const on = profile.show;
   return {
     about: on.about ? profile.about : null,
+    // What kind of gym it is: always shown (it's how members find it)
+    types: profile.types ?? [],
     facilities: on.facilities ? profile.facilities : [],
     custom: on.facilities ? profile.custom : [],
     hours: on.hours ? profile.hours : null,
@@ -361,6 +390,7 @@ const publishProblem = (list) => {
 };
 
 module.exports = {
+  GYM_TYPES, GYM_TYPE_IDS, TYPES_MAX, gymTypes, readTypes,
   ABOUT_MAX, DETAILS_MAX, MAX_PHOTOS, FACILITIES, FACILITY_IDS, DAYS, SECTIONS, CUSTOM_MAX, CLOSURES_MAX,
   optionalText, facilities, openingHours, customFacilities, closures, showBody, link, email, profileBody, photoOrder,
   readFacilities, readHours, readCustom, readClosures, readShow, snapshot, readPublished, forMembers, publishState, checklist, publishProblem,

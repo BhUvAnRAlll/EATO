@@ -1,6 +1,6 @@
 import { apiFetch, type ApiResult } from "@/lib/api";
 import type { GymPage } from "@/lib/discoverApi";
-import type { Closure, CustomFacility, FacilityId, OpeningHours, PublishState, ShowSections } from "@/lib/gymProfile";
+import type { Closure, CustomFacility, FacilityId, GymType, OpeningHours, PublishState, ShowSections } from "@/lib/gymProfile";
 import type { AddedTemplate, CustomTemplates, TemplateKind } from "@/lib/reminderTemplates";
 
 // The gym admin portal's calls (JustFit_server/gym, mounted at /api/gym) and the Super Admin's
@@ -41,6 +41,9 @@ export type ChecklistItem = { id: string; label: string; required: boolean; done
 export type GymProfile = {
   gym: GymInfo;
   about: string | null;
+  // The kind of gym (G16); typesReady false before migration 2027-01-23 (absent from an older server)
+  types?: GymType[];
+  typesReady?: boolean;
   facilities: FacilityId[];
   custom: CustomFacility[];
   hours: OpeningHours | null;
@@ -72,6 +75,7 @@ export type TrainerProfile = {
 export type TrainerProfileFields = { specializations?: string[]; years?: number | null; certifications?: string[]; bio?: string; availability?: OpeningHours | null; active?: boolean };
 export type GymProfileFields = {
   about?: string;
+  types?: GymType[];
   facilities?: FacilityId[];
   hours?: OpeningHours | null;
   custom?: CustomFacility[];

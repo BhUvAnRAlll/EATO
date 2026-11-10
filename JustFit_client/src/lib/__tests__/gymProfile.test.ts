@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { DAYS, FACILITIES, SECTIONS, TIME_SLOTS, closureDateText, copyToAll, customProblem, dayText, hoursProblem, makeCover, movePhoto, nextSession, publishStateText, sameHours, sessionsProblem, stampText, startingHours, timeLabel, type OpeningHours } from "../gymProfile.ts";
+import { DAYS, FACILITIES, GYM_TYPES, SECTIONS, TIME_SLOTS, closureDateText, copyToAll, customProblem, dayText, gymTypesText, hoursProblem, makeCover, movePhoto, nextSession, publishStateText, sameHours, sessionsProblem, stampText, startingHours, timeLabel, type OpeningHours } from "../gymProfile.ts";
 
 describe("Gym public profile helpers", () => {
   it("lists every facility and day once", () => {
@@ -89,3 +89,13 @@ describe("Gym Profile Management helpers (2026-11-09)", () => {
   });
 });
 
+
+describe("kind of gym (G16)", () => {
+  it("names the kinds picked, in the list's order", () => {
+    assert.equal(gymTypesText(["yoga", "gym"]), "Gym · Yoga & pilates");
+    assert.equal(gymTypesText([]), "");
+    assert.equal(gymTypesText(undefined), "");
+    assert.equal(gymTypesText(["sauna"]), "");
+    assert.equal(GYM_TYPES.length, 7);
+  });
+});

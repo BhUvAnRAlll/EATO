@@ -13,14 +13,14 @@ import { MemberPhotoImage } from "@/components/gym/MemberPhotoImage";
 import { findMe, openLocationSettings } from "@/lib/deliveryLocation";
 import { discoverApi, type DiscoverQuery, type DiscoverSort, type GymCard } from "@/lib/discoverApi";
 import { distanceText, facilitiesLine, fromPriceText, priceText } from "@/lib/gymDiscover";
-import { FACILITIES, type FacilityId } from "@/lib/gymProfile";
+import { FACILITIES, GYM_TYPES, gymTypesText, type FacilityId, type GymType } from "@/lib/gymProfile";
 import { useSessionToken } from "@/lib/session";
 import { useThemeColors } from "@/theme";
 
 // key: the query the answer is for; while it isn't the current one, the list shows loading
 type Load = { state: "loading" } | { state: "failed"; key: string; error: string } | { state: "ready"; key: string; gyms: GymCard[]; total: number; nextPage: number | null; priceCaps: number[] };
-type Filters = { facilities: FacilityId[]; maxPrice: number | null; sort: DiscoverSort; trainers: boolean };
-const NO_FILTERS: Filters = { facilities: [], maxPrice: null, sort: "relevance", trainers: false };
+type Filters = { facilities: FacilityId[]; maxPrice: number | null; sort: DiscoverSort; trainers: boolean; type: GymType | null };
+const NO_FILTERS: Filters = { facilities: [], maxPrice: null, sort: "relevance", trainers: false, type: null };
 const PRICE_CAPS = [1000, 1500, 2000, 3000, 5000];
 
 // Gym Hub › Discover Gyms (phase 3, 2026-11-09): every gym on justFit, searched by name, area or
@@ -47,7 +47,7 @@ export function DiscoverGyms() {
     return () => clearTimeout(timer);
   }, [text]);
 
-  const query: DiscoverQuery = { search, facilities: filters.facilities, maxPrice: filters.maxPrice, sort: near ? filters.sort : "relevance", near, trainers: filters.trainers };
+  const query: DiscoverQuery = { search, facilities: filters.facilities, maxPrice: filters.maxPrice, sort: near ? filters.sort : "relevance", near, trainers: filters.trainers, type: filters.type };
   const key = JSON.stringify(query);
   const load = useCallback(async () => {
     const turn = ++call.current;
@@ -89,7 +89,7 @@ export function DiscoverGyms() {
     setFilters((f) => ({ ...f, sort: "distance" }));
   };
 
-  const filterCount = filters.facilities.length + (filters.maxPrice !== null ? 1 : 0) + (filters.trainers ? 1 : 0);
+  const filterCount = filters.facilities.length + (filters.maxPrice !== null ? 1 : 0) + (filters.trainers ? 1 : 0) + (filters.type ? 1 : 0);
   const filtered = filterCount > 0 || search !== "";
 
   return (
@@ -204,6 +204,7 @@ function GymCardView({ gym }: { gym: GymCard }) {
           </View>
           {distance ? <Text className="type-caption text-muted">{distance}</Text> : null}
         </View>
+        {gymTypesText(gym.types) ? <Text className="type-caption text-primary-text" numberOfLines={1}>{gymTypesText(gym.types)}</Text> : null}
         {gym.facilities.length > 0 && <Text className="type-caption text-muted" numberOfLines={1}>{facilitiesLine(gym.facilities)}</Text>}
         <View className="flex-row items-center justify-between" style={{ gap: 8 }}>
           <Text className="type-body" style={{ color: gym.fromPrice === null ? colors.muted : colors.ink }}>
@@ -249,6 +250,11 @@ function FiltersSheet({ filters, priceCaps, canSortByDistance, onApply, onClose 
             </View>
           </View>
           <View className="gap-2">
+            <Text className="type-subhead text-forest-ink">Kind of gym</Text>
+            <View className="flex-row flex-wrap" style={{ gap: 8 }}>
+              <Chip label="Any" on={draft.type === null} onPress={() => setDraft((d) => ({ ...d, type: null }))} />
+              {GYM_TYPES.map((t) => <Chip key={t.id} label={t.label} on={draft.type === t.id} onPress={() => setDraft((d) => ({ ...d, type: t.id }))} />)}
+            </View>
             <Text className="type-subhead text-forest-ink">Trainers</Text>
             <View className="flex-row flex-wrap" style={{ gap: 8 }}>
               <Chip label="Any gym" on={!draft.trainers} onPress={() => setDraft((d) => ({ ...d, trainers: false }))} />

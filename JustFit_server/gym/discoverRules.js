@@ -3,14 +3,14 @@
 // justFit is listed (the user's decision); nothing here reads the database.
 const { ValidationError } = require("../profile");
 const { distanceMeters } = require("./attendanceRules");
-const { FACILITY_IDS } = require("./profileRules");
+const { FACILITY_IDS, GYM_TYPE_IDS } = require("./profileRules");
 
 const PAGE_SIZE = 20;
 const SEARCH_MAX = 60;
 const SORTS = ["relevance", "distance"];
 // "Plans from" caps the member can pick, in rupees a month
 const PRICE_CAPS = [1000, 1500, 2000, 3000, 5000];
-const QUERY_KEYS = ["search", "facilities", "maxPrice", "sort", "lat", "lng", "page", "trainers"];
+const QUERY_KEYS = ["search", "facilities", "maxPrice", "sort", "lat", "lng", "page", "trainers", "type"];
 
 const CONTROL = /[\u0000-\u001F\u007F]/;
 const number = (value) => (typeof value === "string" && /^-?\d+(\.\d+)?$/.test(value) ? Number(value) : NaN);
@@ -52,7 +52,10 @@ function discoverQuery(query = {}) {
   // trainers=1 (2026-11-10): only gyms that show trainer profiles to members
   if (query.trainers !== undefined && !["0", "1"].includes(query.trainers)) throw new ValidationError("That request isn't one we understand.");
   const trainers = query.trainers === "1";
-  return { search, facilities, maxPrice, sort, near, page, trainers };
+  // type= (G16): one kind of gym the branch must be
+  const type = query.type === undefined || query.type === "" ? null : query.type;
+  if (type !== null && !GYM_TYPE_IDS.includes(type)) throw new ValidationError("Pick the kind of gym from the list.");
+  return { search, facilities, maxPrice, sort, near, page, trainers, type };
 }
 
 // A plan's price a month, in whole rupees (a plan saved in days counts its days as months of 30)
@@ -102,6 +105,7 @@ function pickGyms(gyms, q) {
     if (q.facilities.some((id) => !gym.facilities.includes(id))) continue;
     if (q.maxPrice !== null && (gym.fromPrice === null || gym.fromPrice > q.maxPrice)) continue;
     if (q.trainers && !(gym.trainerCount > 0)) continue;
+    if (q.type && !(gym.types ?? []).includes(q.type)) continue;
     const km = q.near && gym.latitude !== null ? Math.round(distanceMeters(q.near, { latitude: gym.latitude, longitude: gym.longitude }) / 100) / 10 : null;
     found.push({ gym, match, km });
   }

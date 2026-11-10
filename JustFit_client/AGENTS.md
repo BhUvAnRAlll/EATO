@@ -380,7 +380,13 @@ and PT packages take an optional "Who can join" (120) and "Terms" (600) in `Cata
 (`rules.catalogBody` `eligibility` / `terms`, sent only when changed, copied by Duplicate); a gym's
 page shows "Who can join: …" and Terms behind a tap (`PlanTerms` in `GymPageView`). Migration
 `2027-01-22-plan-terms.sql` (two columns); before it the catalogue reads as before and saving either
-answers 503 naming it (`service.hasPlanTerms`). Not built: facility
+answers 503 naming it (`service.hasPlanTerms`). **Kind of gym (2026-11-10, G16):** Gym Profile ›
+Basic info picks up to three of `GYM_TYPES` (Gym, Women only, CrossFit / functional, Yoga & pilates,
+Martial arts & boxing, Dance & Zumba, Personal training studio; `profileRules.gymTypes`), saved to the
+draft as `gyms.gym_types` and published with the profile (always shown, no switch); Discover's
+Filters take one kind (`?type=`), cards and a gym's page name them (`gymTypesText`). Migration
+`2027-01-23-gym-types.sql`; before it the picker is hidden (`typesReady`) and saving answers 503. Not
+built: facility
 images, a rating filter (needs the uncommitted reviews work). Tests:
 `__tests__/gym-discover-extras-rules.test.js`, `e2e/gym-extras.e2e.test.js`.
 

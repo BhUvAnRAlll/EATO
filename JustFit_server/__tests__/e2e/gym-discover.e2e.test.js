@@ -102,7 +102,9 @@ describe("gym discover e2e: members find gyms, compare plans, and see only what 
     }
     // Gym A: everything, with its place on the map and the invoice address and phone
     const hours = { ...closed(), mon: [["05:30", "10:30"], ["16:30", "21:30"]] };
-    assert.equal((await api("PATCH", "/api/gym/profile", tokens.gymA, { about: "Two floors.", facilities: ["cardio", "parking"], hours })).status, 200);
+    assert.equal((await api("PATCH", "/api/gym/profile", tokens.gymA, { about: "Two floors.", types: ["women", "gym"], facilities: ["cardio", "parking"], hours })).status, 200);
+    assert.equal((await api("PATCH", "/api/gym/profile", tokens.gymA, { types: ["gym", "yoga", "dance", "women"] })).status, 400, "up to three kinds");
+    assert.equal((await api("PATCH", "/api/gym/profile", tokens.gymA, { types: ["sauna"] })).status, 400);
     assert.equal((await api("PATCH", "/api/gym/invoice-details", tokens.gymA, { address: "12, SIT Main Road", phone: "9876543210" })).status, 200);
     assert.equal((await api("PUT", "/api/gym/attendance/location", tokens.gymA, { latitude: TUMKUR.latitude, longitude: TUMKUR.longitude, radiusM: 100 })).status, 200);
     const photo = await api("POST", "/api/gym/profile/photos", tokens.gymA, body(png(800, 600), "image/png"));
@@ -160,6 +162,11 @@ describe("gym discover e2e: members find gyms, compare plans, and see only what 
     assert.deepEqual(await ids("facilities=cardio"), [state.gymA]);
     assert.deepEqual(await ids("facilities=parking"), [state.gymA, state.gymB]);
     assert.deepEqual(await ids("maxPrice=2000"), [state.gymA]);
+    // The kind of gym (G16): only once published, and only the kinds the gym picked
+    assert.deepEqual(await ids("type=women"), [state.gymA]);
+    assert.deepEqual(await ids("type=yoga"), []);
+    const card = (await api("GET", "/api/gyms?search=forma", tokens.member)).json.gyms.find((g) => g.id === state.gymA);
+    assert.deepEqual(card.types, ["gym", "women"]);
     const near = await api("GET", `/api/gyms?sort=distance&lat=${TUMKUR.latitude}&lng=${TUMKUR.longitude}`, tokens.member);
     assert.equal(near.status, 200);
     const nearA = near.json.gyms.find((g) => g.id === state.gymA);
@@ -168,7 +175,7 @@ describe("gym discover e2e: members find gyms, compare plans, and see only what 
     assert.equal(near.json.gyms[0].id, state.gymA, "nearest first");
     // A search that looks like SQL is only words that match nothing
     assert.deepEqual(await ids(`search=${encodeURIComponent("' OR 1=1 --")}`), []);
-    for (const query of ["gymId=2", "facilities=pool", "maxPrice=999", "sort=price", "sort=distance", "lat=51.5&lng=-0.1", "page=0", `search=${"x".repeat(61)}`, "search=a&search=b"]) {
+    for (const query of ["gymId=2", "facilities=pool", "maxPrice=999", "sort=price", "type=swimming", "sort=distance", "lat=51.5&lng=-0.1", "page=0", `search=${"x".repeat(61)}`, "search=a&search=b"]) {
       assert.equal((await api("GET", `/api/gyms?${query}`, tokens.member)).status, 400, query);
     }
   }));
@@ -178,6 +185,7 @@ describe("gym discover e2e: members find gyms, compare plans, and see only what 
     assert.equal(r.status, 200, JSON.stringify(r.json));
     const g = r.json;
     assert.equal(g.about, "Two floors.");
+    assert.deepEqual(g.types, ["gym", "women"]);
     assert.deepEqual(g.contact, { address: "12, SIT Main Road", phone: "9876543210", whatsapp: null, email: null, website: null, instagram: null, facebook: null });
     assert.ok(g.updatedAt, "when the gym last published");
     assert.deepEqual(g.location, TUMKUR);

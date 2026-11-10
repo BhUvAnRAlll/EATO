@@ -124,6 +124,7 @@ async function discover(pool, query, today = todayInIndia()) {
     const branchPlans = seen.showPlans ? plansOf.get(g.id) ?? [] : [];
     return {
       id: g.id, brand: g.brand, branch: g.branch, area: g.area, city: g.city, about: seen.about,
+      types: seen.types,
       facilities: seen.facilities,
       hasHours: seen.hours !== null,
       latitude: g.latitude === null || !seen.showLocation ? null : Number(g.latitude),
@@ -144,7 +145,7 @@ async function discover(pool, query, today = todayInIndia()) {
     nextPage: picked.nextPage,
     priceCaps: rules.PRICE_CAPS,
     gyms: picked.results.map(({ gym, km }) => ({
-      id: gym.id, name: gym.brand, branch: gym.branch, area: gym.area, city: gym.city,
+      id: gym.id, name: gym.brand, branch: gym.branch, area: gym.area, city: gym.city, types: gym.types,
       facilities: gym.facilities, fromPrice: gym.fromPrice, planCount: gym.planCount, photoCount: gym.photoCount,
       coverUrl: gym.coverUrl, logoUrl: gym.logoUrl, distanceKm: km, featured: gym.featured, trainerCount: gym.trainerCount,
     })),
@@ -164,6 +165,7 @@ function pageOf(g, seen, gallery, items, urls) {
     area: g.area,
     city: g.city,
     about: seen.about,
+    types: seen.types,
     facilities: seen.facilities,
     customFacilities: seen.custom,
     hours: seen.hours,

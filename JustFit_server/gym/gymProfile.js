@@ -32,13 +32,22 @@ const photoOf = (r) => ({ id: r.id, url: `/api/gym/profile/photos/${r.id}?v=${r.
 // published copy (published_profile) instead
 const DRAFT_COLUMNS = `about, facilities, opening_hours, custom_facilities, closures, profile_show, address, phone, whatsapp, email, website,
   instagram, facebook, latitude, profile_edited_at, published_profile, published_at, published_by`;
+// Whether gyms has gym_types yet (migration 2027-01-23), asked once a minute while it's missing
+let typesColumn = { has: false, at: 0 };
+async function hasGymTypes(db) {
+  if (typesColumn.has || Date.now() - typesColumn.at < 60000) return typesColumn.has;
+  const [[row]] = await db.query("SELECT COUNT(*) AS n FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'gyms' AND COLUMN_NAME = 'gym_types'");
+  typesColumn = { has: Number(row.n) > 0, at: Date.now() };
+  return typesColumn.has;
+}
 const photosOf = (db, gymId) =>
   db.query("SELECT id, image_key FROM gym_photos WHERE gym_id = ? ORDER BY sort_order, id LIMIT ?", [gymId, rules.MAX_PHOTOS]);
 
 /** The draft row and its gallery, in order; db may be a transaction (lock: FOR UPDATE on the branch) */
 async function draftOf(db, gymId, lock = false) {
+  const types = (await hasGymTypes(db)) ? ", gym_types" : "";
   const [[[row]], [photos]] = await Promise.all([
-    db.query(`SELECT ${DRAFT_COLUMNS} FROM gyms WHERE id = ?${lock ? " FOR UPDATE" : ""}`, [gymId]),
+    db.query(`SELECT ${DRAFT_COLUMNS}${types} FROM gyms WHERE id = ?${lock ? " FOR UPDATE" : ""}`, [gymId]),
     photosOf(db, gymId),
   ]);
   if (!row) throw new NotFoundError("That branch doesn't exist any more.");
@@ -56,6 +65,9 @@ async function profile(pool, gym, today) {
   return {
     gym: { name: gym.brand, branch: gym.branch, area: gym.area, city: gym.city },
     about: draft.about,
+    types: draft.types,
+    // false before migration 2027-01-23: the app hides the kind-of-gym picker
+    typesReady: row.gym_types !== undefined,
     facilities: draft.facilities,
     custom: rules.readCustom(row.custom_facilities),
     hours: draft.hours,
@@ -82,11 +94,12 @@ async function updateProfile(pool, gym, userId, fields, today) {
   const json = (v) => (v === null ? null : JSON.stringify(v));
   const same = (v) => v;
   const columns = {
-    about: ["about", same], facilities: ["facilities", json], hours: ["opening_hours", json], custom: ["custom_facilities", json],
+    about: ["about", same], types: ["gym_types", json], facilities: ["facilities", json], hours: ["opening_hours", json], custom: ["custom_facilities", json],
     closures: ["closures", json], show: ["profile_show", json], whatsapp: ["whatsapp", same], email: ["email", same],
     website: ["website", same], instagram: ["instagram", same], facebook: ["facebook", same],
   };
   const keys = Object.keys(fields);
+  if (fields.types !== undefined && !(await hasGymTypes(pool))) throw Object.assign(new Error("gym types missing"), { code: "ER_BAD_FIELD_ERROR", message: "Unknown column 'gym_types'" });
   await inTransaction(pool, async (db) => {
     await db.query(`UPDATE gyms SET ${keys.map((k) => `${columns[k][0]} = ?`).join(", ")}, profile_edited_at = NOW(3) WHERE id = ?`, [...keys.map((k) => columns[k][1](fields[k])), gym.id]);
     await audit(db, userId, "gym.edit", "gym", gym.id, `Edited the draft profile of ${gym.brand}’s ${gym.branch} branch`);
@@ -168,4 +181,4 @@ async function photoFile(pool, gymId, photoId, env = process.env) {
   return file;
 }
 
-module.exports = { photoLimits, photoDir, checkGymPhoto, draftOf, profile, updateProfile, publish, reorderPhotos, addPhoto, removePhoto, photoFile, send: covers.send };
+module.exports = { hasGymTypes, photoLimits, photoDir, checkGymPhoto, draftOf, profile, updateProfile, publish, reorderPhotos, addPhoto, removePhoto, photoFile, send: covers.send };

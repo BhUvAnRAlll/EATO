@@ -96,7 +96,7 @@ const paidLine = (amount, method) => [amount ? rupees(amount) : null, MODE[metho
 const R = (methods, path, entry) => [methods, path, entry];
 // The Gym Profile draft's fields as Activity names them (never their values: contacts are personal)
 const PROFILE_FIELD = {
-  about: "description", facilities: "facilities", custom: "own facilities", hours: "opening hours", closures: "closures",
+  about: "description", types: "kind of gym", facilities: "facilities", custom: "own facilities", hours: "opening hours", closures: "closures",
   show: "what members see", whatsapp: "WhatsApp number", email: "email", website: "website", instagram: "Instagram", facebook: "Facebook",
 };
 // Gym Profile phase 2: what a catalogue edit changed beyond the snapshot's columns

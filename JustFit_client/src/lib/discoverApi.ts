@@ -1,5 +1,5 @@
 import { apiFetch, type ApiResult } from "@/lib/api";
-import type { Closure, FacilityId, OpeningHours } from "@/lib/gymProfile";
+import type { Closure, FacilityId, GymType, OpeningHours } from "@/lib/gymProfile";
 
 // Gym Hub › Discover Gyms (JustFit_server/gym/discoverRoutes.js, /api/gyms): every gym on justFit,
 // read only, with only what each gym chose to show members. Images (coverUrl, logoUrl, photos) are
@@ -14,6 +14,8 @@ export type GymCard = {
   branch: string;
   area: string;
   city: string;
+  // The kind of gym (G16); absent from an older server
+  types?: GymType[];
   facilities: FacilityId[];
   // The cheapest membership plan a month, in rupees (null: no plans listed)
   fromPrice: number | null;
@@ -35,6 +37,8 @@ export type DiscoverQuery = {
   page?: number;
   // Only gyms that show trainers (2026-11-10)
   trainers?: boolean;
+  // Only one kind of gym (G16)
+  type?: GymType | null;
 };
 
 // savesPerMonth: how much a month less than the shortest plan
@@ -54,6 +58,7 @@ export type GymPage = {
   area: string;
   city: string;
   about: string | null;
+  types?: GymType[];
   facilities: FacilityId[];
   // The gym's own facilities, by name (Gym Profile)
   customFacilities: string[];
@@ -88,6 +93,7 @@ export function discoverPath(q: DiscoverQuery): string {
   if (q.sort !== "relevance") params.push(`sort=${q.sort}`);
   if (q.page && q.page > 1) params.push(`page=${q.page}`);
   if (q.trainers) params.push("trainers=1");
+  if (q.type) params.push(`type=${q.type}`);
   return `/api/gyms${params.length ? `?${params.join("&")}` : ""}`;
 }
 
